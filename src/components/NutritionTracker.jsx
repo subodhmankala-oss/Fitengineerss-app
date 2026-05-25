@@ -25,10 +25,7 @@ const NutritionTracker = ({ setActiveTab }) => {
   const [steps, setSteps] = useState(() => {
     const storedSteps = localStorage.getItem('userSyncedSteps');
     if (storedSteps) return parseInt(storedSteps);
-    const goal = localStorage.getItem('userGoal');
-    if (goal === 'Fat Loss') return 5500;
-    if (goal === 'Muscle Building') return 6000;
-    return 4800; // Gut Fix / default
+    return 0; // Fresh start / default to 0
   });
 
   // Developer simulation panel state
@@ -114,10 +111,7 @@ const NutritionTracker = ({ setActiveTab }) => {
       if (storedSteps) {
         setSteps(parseInt(storedSteps));
       } else {
-        const goal = localStorage.getItem('userGoal');
-        if (goal === 'Fat Loss') setSteps(5500);
-        else if (goal === 'Muscle Building') setSteps(6000);
-        else setSteps(4800);
+        setSteps(0);
       }
     };
     loadSteps();

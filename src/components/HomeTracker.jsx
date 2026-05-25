@@ -16,14 +16,14 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
 
   // HealthifyMe Logging States — persisted to localStorage
   const [meals, setMeals] = useState({
-    breakfast: 300,
-    lunch: 550,
+    breakfast: 0,
+    lunch: 0,
     dinner: 0,
     snacks: 0
   });
 
-  const [steps, setSteps] = useState(4800);
-  const [waterGlasses, setWaterGlasses] = useState(3);
+  const [steps, setSteps] = useState(0);
+  const [waterGlasses, setWaterGlasses] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
 
   // Custom onboarding attributes for dynamic water calculations
@@ -51,8 +51,8 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
 
     // Compute effective meals — from storage or React defaults
     const effectiveMeals = {
-      breakfast: savedBreakfast !== null ? parseInt(savedBreakfast) : 300,
-      lunch:     savedLunch     !== null ? parseInt(savedLunch)     : 550,
+      breakfast: savedBreakfast !== null ? parseInt(savedBreakfast) : 0,
+      lunch:     savedLunch     !== null ? parseInt(savedLunch)     : 0,
       dinner:    savedDinner    !== null ? parseInt(savedDinner)    : 0,
       snacks:    savedSnacks    !== null ? parseInt(savedSnacks)    : 0,
     };
@@ -70,7 +70,11 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
 
     const loadWater = () => {
       const storedWater = localStorage.getItem('waterGlasses');
-      if (storedWater) setWaterGlasses(parseInt(storedWater));
+      if (storedWater) {
+        setWaterGlasses(parseInt(storedWater));
+      } else {
+        setWaterGlasses(0);
+      }
     };
 
     const loadSteps = () => {
@@ -78,7 +82,7 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
       if (storedSteps) {
         setSteps(parseInt(storedSteps));
       } else {
-        setSteps(4800);
+        setSteps(0);
       }
     };
 

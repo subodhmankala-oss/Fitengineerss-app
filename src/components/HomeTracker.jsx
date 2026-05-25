@@ -1,0 +1,521 @@
+import React, { useState, useEffect } from 'react';
+import SmartReminders from './SmartReminders';
+import './HomeTracker.css';
+
+const HomeTracker = ({ setActiveTab, handleLogout }) => {
+  const [userName, setUserName] = useState('Warrior');
+  const [calorieBudget, setCalorieBudget] = useState(1800);
+  const [score, setScore] = useState(6);
+  const [checks, setChecks] = useState({
+    phone: true,
+    chewed: false,
+    combos: true,
+    walk: false,
+    water: false
+  });
+
+  // HealthifyMe Logging States — persisted to localStorage
+  const [meals, setMeals] = useState({
+    breakfast: 300,
+    lunch: 550,
+    dinner: 0,
+    snacks: 0
+  });
+
+  const [steps, setSteps] = useState(4800);
+  const [waterGlasses, setWaterGlasses] = useState(3);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Custom onboarding attributes for dynamic water calculations
+  const [userWeight, setUserWeight] = useState(70);
+  const [userProteinTarget, setUserProteinTarget] = useState(100);
+
+  // Wearable tracking simulation states
+  const [isSyncingSteps, setIsSyncingSteps] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState("Just now");
+  const [isSyncingWater, setIsSyncingWater] = useState(false);
+  const [waterLastSyncTime, setWaterLastSyncTime] = useState("Just now");
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('userName');
+    if (storedName) setUserName(storedName);
+
+    const storedBudget = localStorage.getItem('userCalorieTarget');
+    if (storedBudget) setCalorieBudget(parseInt(storedBudget));
+
+    // ── Restore saved meal breakdown from localStorage (or use defaults) ──
+    const savedBreakfast = localStorage.getItem('homeMealBreakfast');
+    const savedLunch     = localStorage.getItem('homeMealLunch');
+    const savedDinner    = localStorage.getItem('homeMealDinner');
+    const savedSnacks    = localStorage.getItem('homeMealSnacks');
+
+    // Compute effective meals — from storage or React defaults
+    const effectiveMeals = {
+      breakfast: savedBreakfast !== null ? parseInt(savedBreakfast) : 300,
+      lunch:     savedLunch     !== null ? parseInt(savedLunch)     : 550,
+      dinner:    savedDinner    !== null ? parseInt(savedDinner)    : 0,
+      snacks:    savedSnacks    !== null ? parseInt(savedSnacks)    : 0,
+    };
+    setMeals(effectiveMeals);
+
+    // ── Always write to localStorage so other pages read correct eaten calories ──
+    localStorage.setItem('homeMealBreakfast', effectiveMeals.breakfast.toString());
+    localStorage.setItem('homeMealLunch',     effectiveMeals.lunch.toString());
+    localStorage.setItem('homeMealDinner',    effectiveMeals.dinner.toString());
+    localStorage.setItem('homeMealSnacks',    effectiveMeals.snacks.toString());
+    const initTotal = effectiveMeals.breakfast + effectiveMeals.lunch + effectiveMeals.dinner + effectiveMeals.snacks;
+    localStorage.setItem('userLoggedCalories', initTotal.toString());
+    // Notify any open page (SmartMealPlans, NutritionTracker) to sync
+    window.dispatchEvent(new Event('nutritionUpdated'));
+
+    const loadWater = () => {
+      const storedWater = localStorage.getItem('waterGlasses');
+      if (storedWater) setWaterGlasses(parseInt(storedWater));
+    };
+
+    const loadSteps = () => {
+      const storedSteps = localStorage.getItem('userSyncedSteps');
+      if (storedSteps) {
+        setSteps(parseInt(storedSteps));
+      } else {
+        setSteps(4800);
+      }
+    };
+
+    loadWater();
+    loadSteps();
+
+    // Hydrate weight and protein target
+    const storedWeight = localStorage.getItem('userWeight');
+    if (storedWeight) setUserWeight(parseFloat(storedWeight));
+
+    const storedProtein = localStorage.getItem('userProteinTarget');
+    if (storedProtein) setUserProteinTarget(parseInt(storedProtein));
+
+    window.addEventListener('waterUpdated', loadWater);
+    window.addEventListener('stepsUpdated', loadSteps);
+
+    return () => {
+      window.removeEventListener('waterUpdated', loadWater);
+      window.removeEventListener('stepsUpdated', loadSteps);
+    };
+  }, []);
+
+  // Dynamic water calculation logic:
+  // 1. Calorie Budget base (1 glass per 250 kcal targeted/eaten)
+  const baseCalorieGlasses = calorieBudget / 250;
+  // 2. Body weight baseline (standard baseline is ~35ml per kg of weight -> weight * 35 / 250 glasses)
+  const baseWeightGlasses = (userWeight * 35) / 250;
+  // Baseline targets average
+  const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
+  
+  // 3. Step/Activity adjustment: +1 glass for every 3,000 active steps walked (physical behavior)
+  const stepBooster = Math.floor(steps / 3000);
+  
+  // 4. Macro adjustment: High protein (>100g) requires extra hydration booster (+1 for >100g, +2 for >150g)
+  const proteinBooster = userProteinTarget > 150 ? 2 : (userProteinTarget > 100 ? 1 : 0);
+
+  const recommendedWaterTarget = Math.max(6, baselineTarget + stepBooster + proteinBooster);
+  const waterSafetyLimit = recommendedWaterTarget + 4;
+
+  const toggleCheck = (key) => {
+    setChecks(prev => {
+      const newChecks = { ...prev, [key]: !prev[key] };
+      const newScore = Object.values(newChecks).filter(Boolean).length * 2; 
+      setScore(newScore);
+      return newChecks;
+    });
+  };
+
+  // HealthifyMe Core Layout Metrics
+  const caloriesEaten = meals.breakfast + meals.lunch + meals.dinner + meals.snacks;
+  const caloriesBurned = Math.round(steps * 0.04);
+  const netCalories = caloriesEaten - caloriesBurned;
+  const remainingCalories = calorieBudget - netCalories;
+
+  const handleMealIncrement = (mealKey, amount) => {
+    setMeals(prev => {
+      const next = {
+        ...prev,
+        [mealKey]: Math.max(0, prev[mealKey] + amount)
+      };
+      // ── Persist individual meals to localStorage ──
+      localStorage.setItem('homeMealBreakfast', next.breakfast.toString());
+      localStorage.setItem('homeMealLunch',     next.lunch.toString());
+      localStorage.setItem('homeMealDinner',    next.dinner.toString());
+      localStorage.setItem('homeMealSnacks',    next.snacks.toString());
+
+      // ── Sync total calories to NutritionTracker's key ──
+      const totalEaten = next.breakfast + next.lunch + next.dinner + next.snacks;
+      localStorage.setItem('userLoggedCalories', totalEaten.toString());
+      // Broadcast so NutritionTracker reloads if open
+      window.dispatchEvent(new Event('nutritionUpdated'));
+
+      return next;
+    });
+  };
+
+  const syncStepsFromWearable = () => {
+    if (isSyncingSteps) return;
+    setIsSyncingSteps(true);
+    
+    // Simulate smart watch / phone data retrieval
+    setTimeout(() => {
+      const simulatedNewSteps = Math.floor(Math.random() * 600) + 200; // 200 - 800 steps
+      setSteps(prev => {
+        const nextSteps = prev + simulatedNewSteps;
+        localStorage.setItem('userSyncedSteps', nextSteps.toString());
+        setTimeout(() => window.dispatchEvent(new Event('stepsUpdated')), 0);
+        return nextSteps;
+      });
+      setIsSyncingSteps(false);
+      
+      const now = new Date();
+      setLastSyncTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      
+      setToastMessage(`⚡ Smart Sync: Synced +${simulatedNewSteps} steps from watch.`);
+      setTimeout(() => setToastMessage(''), 3000);
+    }, 1200);
+  };
+
+  const logQuickGlass = () => {
+    if (waterGlasses >= recommendedWaterTarget) {
+      setToastMessage(`🎯 Goal Met! You have already hit your daily hydration target.`);
+      setTimeout(() => setToastMessage(''), 3000);
+      return;
+    }
+    const nextGlasses = waterGlasses + 1;
+    setWaterGlasses(nextGlasses);
+    localStorage.setItem('waterGlasses', nextGlasses.toString());
+    window.dispatchEvent(new Event('waterUpdated'));
+    
+    if (nextGlasses === recommendedWaterTarget) {
+      setToastMessage(`🎯 Perfect! You've hit your daily hydration target of ${recommendedWaterTarget} glasses! 💧`);
+    } else {
+      setToastMessage("Great job taking that sip! Every drop counts! 💧");
+    }
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
+  const syncWaterFromSmartBottle = () => {
+    if (isSyncingWater) return;
+    setIsSyncingWater(true);
+    
+    // Simulate smart bottle sips sync handshake
+    setTimeout(() => {
+      const simulatedSips = Math.floor(Math.random() * 2) + 1; // +1 or +2 glasses
+      setWaterGlasses(prev => {
+        const nextGlasses = Math.min(prev + simulatedSips, recommendedWaterTarget);
+        localStorage.setItem('waterGlasses', nextGlasses.toString());
+        setTimeout(() => window.dispatchEvent(new Event('waterUpdated')), 0);
+        return nextGlasses;
+      });
+      setIsSyncingWater(false);
+      
+      const now = new Date();
+      setWaterLastSyncTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      
+      setToastMessage(`⚡ Smart Sync: Synced +${simulatedSips} sips from smart bottle.`);
+      setTimeout(() => setToastMessage(''), 3000);
+    }, 1200);
+  };
+
+  const circumference = 2 * Math.PI * 40;
+  const progressRatio = Math.min(Math.max(caloriesEaten / calorieBudget, 0), 1);
+  const strokeDashoffset = circumference - progressRatio * circumference;
+
+  return (
+    <div className="home-tracker-container animate-slide-up">
+      {/* 1. HealthifyMe Top Profile Bar */}
+      <div className="healthify-header">
+        <div className="profile-info-group">
+          <div className="avatar-circle">🌱</div>
+          <div className="greeting-text">
+            <span>Good Morning,</span>
+            <h2>{userName}</h2>
+          </div>
+        </div>
+        <div className="header-badges">
+          <span className="streak-badge">🔥 3 Day Streak</span>
+          <button className="btn-logout" onClick={handleLogout} title="Reset Profile">
+            <span className="icon">⚙️</span>
+          </button>
+        </div>
+      </div>
+
+      {toastMessage && (
+        <div className="reminder-toast animate-in">
+          <span>✨</span> {toastMessage}
+        </div>
+      )}
+
+      {/* 2. HealthifyMe Calorie Ring Hub Widget */}
+      <div className="calorie-summary-widget glass-panel">
+        <div className="hub-header">
+          <h3>Calorie Budget Net</h3>
+          <span className="info-btn" onClick={() => setActiveTab('nutrition')}>View Macro Distribution ➔</span>
+        </div>
+
+        <div className="hub-layout">
+          <div className="circular-progress-ring">
+            <svg width="110" height="110" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="40" className="circle-bg" />
+              <circle 
+                cx="50" 
+                cy="50" 
+                r="40" 
+                className="circle-fill" 
+                style={{ strokeDasharray: circumference, strokeDashoffset }} 
+              />
+            </svg>
+            <div className="ring-content">
+              <span className="ring-number">{remainingCalories}</span>
+              <span className="ring-label">Kcal Left</span>
+            </div>
+          </div>
+
+          <div className="calorie-math-col">
+            <div className="math-row">
+              <div className="math-item">
+                <span className="math-title">Budget</span>
+                <span className="math-value text-muted-white">{calorieBudget}</span>
+              </div>
+              <span className="math-operator">-</span>
+              <div className="math-item">
+                <span className="math-title">Eaten</span>
+                <span className="math-value text-emerald">{caloriesEaten}</span>
+              </div>
+              <span className="math-operator">+</span>
+              <div className="math-item">
+                <span className="math-title">Burned</span>
+                <span className="math-value text-amber">{caloriesBurned}</span>
+              </div>
+            </div>
+            
+            <div className="net-status-banner mt-2">
+              <span>{netCalories > calorieBudget ? "⚠️ Calorie limit crossed" : "🎯 On track for gut metabolism"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. HealthifyMe Meal Logging Category Rows */}
+      <div className="tracker-section">
+        <h3 className="section-label">Track Today's Meals</h3>
+        
+        <div className="meal-tracker-rows">
+          <div className="meal-row-card glass-panel">
+            <div className="meal-row-left">
+              <span className="meal-avatar">🍳</span>
+              <div className="meal-details-text">
+                <h4>Breakfast</h4>
+                <p>Target: ~400 kcal • Logged: {meals.breakfast} kcal</p>
+              </div>
+            </div>
+            <div className="meal-row-right">
+              <button className="btn-quick-adjust minus" onClick={() => handleMealIncrement('breakfast', -50)}>-</button>
+              <button className="btn-quick-adjust plus" onClick={() => handleMealIncrement('breakfast', 50)}>+</button>
+            </div>
+          </div>
+
+          <div className="meal-row-card glass-panel">
+            <div className="meal-row-left">
+              <span className="meal-avatar">🥗</span>
+              <div className="meal-details-text">
+                <h4>Lunch</h4>
+                <p>Target: ~600 kcal • Logged: {meals.lunch} kcal</p>
+              </div>
+            </div>
+            <div className="meal-row-right">
+              <button className="btn-quick-adjust minus" onClick={() => handleMealIncrement('lunch', -50)}>-</button>
+              <button className="btn-quick-adjust plus" onClick={() => handleMealIncrement('lunch', 50)}>+</button>
+            </div>
+          </div>
+
+          <div className="meal-row-card glass-panel">
+            <div className="meal-row-left">
+              <span className="meal-avatar">🍗</span>
+              <div className="meal-details-text">
+                <h4>Dinner</h4>
+                <p>Target: ~500 kcal • Logged: {meals.dinner} kcal</p>
+              </div>
+            </div>
+            <div className="meal-row-right">
+              <button className="btn-quick-adjust minus" onClick={() => handleMealIncrement('dinner', -50)}>-</button>
+              <button className="btn-quick-adjust plus" onClick={() => handleMealIncrement('dinner', 50)}>+</button>
+            </div>
+          </div>
+
+          <div className="meal-row-card glass-panel">
+            <div className="meal-row-left">
+              <span className="meal-avatar">🍎</span>
+              <div className="meal-details-text">
+                <h4>Snacks</h4>
+                <p>Target: ~300 kcal • Logged: {meals.snacks} kcal</p>
+              </div>
+            </div>
+            <div className="meal-row-right">
+              <button className="btn-quick-adjust minus" onClick={() => handleMealIncrement('snacks', -50)}>-</button>
+              <button className="btn-quick-adjust plus" onClick={() => handleMealIncrement('snacks', 50)}>+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. HealthifyMe Side-by-Side Activity Grid */}
+      <div className="activity-logging-grid">
+        <div className="activity-split-card glass-panel">
+          <div className="activity-split-header">
+            <span>👟 Steps Log</span>
+            <span className="wearable-badge">⚡ Smart Sync</span>
+          </div>
+          <div className="activity-split-body">
+            <div className="giant-stat">{steps} <span className="stat-unit">steps</span></div>
+            <div className="wearable-sync-detail">
+              <span>● Watch connected</span>
+              <span>Last: {lastSyncTime}</span>
+            </div>
+            <p className="sub-detail mt-1">{caloriesBurned} kcal burned</p>
+            <div className="quick-add-row mt-2">
+              <button 
+                className={`btn-quick-log sync-action-btn ${isSyncingSteps ? 'syncing' : ''}`}
+                onClick={syncStepsFromWearable}
+                disabled={isSyncingSteps}
+              >
+                {isSyncingSteps ? (
+                  <>
+                    <span className="spinner-icon">🔄</span> Syncing Device...
+                  </>
+                ) : (
+                  <>
+                    <span className="wearable-icon">⌚</span> Refresh Sync
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="activity-split-card glass-panel">
+          <div className="activity-split-header">
+            <span>💧 Water Log</span>
+            <span className="wearable-badge" style={{ color: '#60a5fa', background: 'rgba(96, 165, 250, 0.08)', borderColor: 'rgba(96, 165, 250, 0.2)' }}>⚡ Smart Sync</span>
+          </div>
+          <div className="activity-split-body">
+            <div className="giant-stat">
+              {waterGlasses} <span className="stat-unit">/ {recommendedWaterTarget} glasses</span>
+            </div>
+            
+            <div className="wearable-sync-detail">
+              <span>● Bottle connected</span>
+              <span>Last: {waterLastSyncTime}</span>
+            </div>
+
+            <div className="water-progress-container mt-1">
+              <div className="water-progress-track">
+                <div 
+                  className={`water-progress-bar ${
+                    waterGlasses > waterSafetyLimit 
+                      ? 'danger-glow' 
+                      : waterGlasses >= recommendedWaterTarget 
+                      ? 'success-glow' 
+                      : 'active-glow'
+                  }`}
+                  style={{ width: `${Math.min((waterGlasses / recommendedWaterTarget) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="water-target-breakdown mt-2">
+              <span className="water-info-label">Limit: {waterSafetyLimit} gls</span>
+              <span className="water-target-label">Target: {recommendedWaterTarget} gls</span>
+            </div>
+
+            <div className="quick-add-row mt-2" style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                className={`btn-quick-log sync-action-btn ${isSyncingWater ? 'syncing' : ''} ${waterGlasses >= recommendedWaterTarget ? 'limit-reached' : ''}`}
+                onClick={syncWaterFromSmartBottle}
+                disabled={waterGlasses >= recommendedWaterTarget || isSyncingWater}
+                style={{ flex: 1.5 }}
+              >
+                {isSyncingWater ? (
+                  <>
+                    <span className="spinner-icon">🔄</span> Syncing...
+                  </>
+                ) : waterGlasses >= recommendedWaterTarget ? (
+                  '🔒 Goal Met'
+                ) : (
+                  <>
+                    <span className="wearable-icon">🍶</span> Sync Bottle
+                  </>
+                )}
+              </button>
+              <button 
+                className="btn-quick-log manual-btn"
+                onClick={logQuickGlass}
+                disabled={waterGlasses >= recommendedWaterTarget}
+                style={{ flex: 1, minWidth: '40px', padding: '0 8px', background: 'rgba(255, 255, 255, 0.03)' }}
+              >
+                {waterGlasses >= recommendedWaterTarget ? '🔒' : '+1'}
+              </button>
+            </div>
+
+            {waterGlasses < recommendedWaterTarget ? (
+              <div className="water-coaching-banner under mt-2 animate-in">
+                <span>💧</span> Need {recommendedWaterTarget - waterGlasses} more glasses today
+              </div>
+            ) : waterGlasses <= waterSafetyLimit ? (
+              <div className="water-coaching-banner success mt-2 animate-in">
+                <span>✨</span> Hydration target achieved!
+              </div>
+            ) : (
+              <div className="water-coaching-banner danger mt-2 animate-in">
+                <span>⚠️</span> Over safe hydration limit!
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Gut Score Checklist */}
+      <div className="tracker-section mt-4">
+        <h3 className="section-label">Gut Discipline Checklist</h3>
+        <div className="checklist-grid">
+          <button className={`toggle-card ${checks.phone ? 'active' : ''}`} onClick={() => toggleCheck('phone')}>
+            <span className="icon">📱</span>
+            <span className="text">Ate without phone</span>
+          </button>
+          <button className={`toggle-card ${checks.chewed ? 'active' : ''}`} onClick={() => toggleCheck('chewed')}>
+            <span className="icon">🦷</span>
+            <span className="text">Chewed properly</span>
+          </button>
+          <button className={`toggle-card ${checks.combos ? 'active' : ''}`} onClick={() => toggleCheck('combos')}>
+            <span className="icon">🥗</span>
+            <span className="text">No bad combos</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="tracker-section">
+        <h3 className="section-label">Quick Actions</h3>
+        <div className="action-buttons">
+          <button className="action-btn primary" onClick={() => setActiveTab('nutrition')}>
+            <span className="icon">🥗</span>
+            <span className="text">Track Macros & Calories</span>
+            <span className="arrow">→</span>
+          </button>
+          <button className="action-btn" onClick={() => setActiveTab('mealCheck')}>
+            <span className="icon">📸</span>
+            <span className="text">Upload Meal Snap</span>
+            <span className="arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <SmartReminders />
+    </div>
+  );
+};
+
+export default HomeTracker;

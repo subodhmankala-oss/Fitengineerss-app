@@ -1,0 +1,648 @@
+/* SmartMealPlans.css - Premium Glassmorphic Design matching HomeTracker */
+
+/* ─────────────────────────────────────────────────────────────
+   Page Container – matches HomeTracker layout structure
+──────────────────────────────────────────────────────────────── */
+.smp-container {
+  padding: 0;
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Page Header
+──────────────────────────────────────────────────────────────── */
+.smp-header {
+  padding: 28px 24px 12px 24px;
+}
+
+.smp-header-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary-accent-light);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Diet Toggle (Veg / Non-Veg)
+──────────────────────────────────────────────────────────────── */
+.smp-diet-toggle-wrapper {
+  margin: 0 24px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smp-diet-toggle {
+  display: flex;
+  gap: 0;
+  background: rgba(9, 14, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  padding: 5px;
+}
+
+.smp-diet-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border-radius: calc(var(--radius-lg) - 4px);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.smp-diet-btn .diet-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.25s ease;
+}
+
+.smp-diet-btn.active {
+  color: var(--text-main);
+}
+
+/* Veg active */
+.smp-diet-btn.veg-active {
+  background: rgba(16, 185, 129, 0.1);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.smp-diet-btn.veg-active .diet-indicator.veg-indicator {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+
+/* Non-veg active */
+.smp-diet-btn.nonveg-active {
+  background: rgba(248, 113, 113, 0.1);
+  box-shadow: 0 4px 16px rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+.smp-diet-btn.nonveg-active .diet-indicator.nonveg-indicator {
+  background: #f87171;
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.7);
+}
+
+.smp-diet-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.badge-veg {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.badge-nonveg {
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   Daily Summary Banner
+──────────────────────────────────────────────────────────────── */
+.smp-daily-summary {
+  margin: 0 24px 20px 24px;
+  padding: 18px 20px;
+  background: rgba(21, 29, 44, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(16, 185, 129, 0.05);
+}
+
+.smp-summary-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+/* Top row: label + eaten/budget inline */
+.smp-summary-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.smp-calories-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.smp-eaten-val {
+  color: var(--text-main);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.smp-budget-val {
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.smp-slash {
+  color: var(--text-subtle);
+}
+
+/* Calorie progress bar */
+.smp-cal-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.smp-cal-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progress-active {
+  background: linear-gradient(90deg, #059669, #10b981);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.progress-done {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+
+.smp-summary-macros {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.smp-summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.smp-summary-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.smp-summary-key {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.smp-summary-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.smp-summary-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  line-height: 1.4;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Color tokens for macros
+──────────────────────────────────────────────────────────────── */
+.protein-color { color: #f87171; }
+.carbs-color   { color: #60a5fa; }
+.fats-color    { color: #fbbf24; }
+.cals-color    { color: #10b981; }
+
+/* ─────────────────────────────────────────────────────────────
+   Meals List
+──────────────────────────────────────────────────────────────── */
+.smp-meals-list {
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Individual Meal Card (uses .glass-panel from global)
+──────────────────────────────────────────────────────────────── */
+.smp-card {
+  background: rgba(21, 29, 44, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s;
+}
+
+.smp-card:active {
+  transform: scale(0.99);
+}
+
+/* Card Header Row */
+.smp-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.smp-meal-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.smp-meal-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+}
+
+.smp-meal-type-label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+}
+
+.smp-time-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* Tag Badge */
+.smp-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+}
+
+.smp-tag-emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.smp-tag-blue {
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+.smp-tag-amber {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.smp-tag-purple {
+  background: rgba(167, 139, 250, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+.smp-tag-swapped {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+/* Meal Name */
+.smp-meal-name-row {
+  padding-bottom: 2px;
+}
+
+.smp-meal-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Macro Tags Row
+──────────────────────────────────────────────────────────────── */
+.smp-macros-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.macro-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px 8px 6px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.macro-tag:active {
+  transform: scale(0.95);
+}
+
+.macro-tag-value {
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.macro-tag-unit {
+  font-size: 0.6rem;
+  font-weight: 600;
+  opacity: 0.75;
+  margin-left: 1px;
+}
+
+.macro-tag-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+/* Macro color variants */
+.macro-protein {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.macro-carbs {
+  background: rgba(96, 165, 250, 0.08);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+}
+
+.macro-fats {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.macro-cals {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Ingredients Section
+──────────────────────────────────────────────────────────────── */
+.smp-ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smp-ingredients-header {
+  display: flex;
+  align-items: center;
+}
+
+.smp-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.smp-ingredients-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.smp-ingredient-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(9, 14, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  transition: background 0.15s ease;
+}
+
+.smp-ingredient-chip:hover {
+  background: rgba(9, 14, 23, 0.65);
+}
+
+.smp-ing-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.smp-ing-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.smp-ing-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.smp-ing-amount {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-accent-light);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Description
+──────────────────────────────────────────────────────────────── */
+.smp-description {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Coach Tip
+──────────────────────────────────────────────────────────────── */
+.smp-coach-tip {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, rgba(16, 185, 129, 0.03) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: rgba(16, 185, 129, 0.9);
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Swap Action Button
+──────────────────────────────────────────────────────────────── */
+.smp-action-row {
+  padding-top: 2px;
+}
+
+.smp-swap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.06) 100%);
+  color: var(--primary-accent-light);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.01em;
+}
+
+.smp-swap-btn:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+  transform: translateY(-1px);
+}
+
+.smp-swap-btn:active {
+  transform: scale(0.98);
+}
+
+.smp-swap-btn-revert {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.smp-swap-btn-revert:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.smp-swap-icon {
+  font-size: 1rem;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.smp-swap-btn:hover .smp-swap-icon {
+  transform: rotate(30deg) scale(1.1);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Footer Note
+──────────────────────────────────────────────────────────────── */
+.smp-footer-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 20px 24px 32px 24px;
+  padding: 16px 18px;
+  background: rgba(16, 185, 129, 0.04);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.smp-footer-note span {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.smp-footer-note p {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Glass Panel Global Override for compatibility
+──────────────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(21, 29, 44, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}

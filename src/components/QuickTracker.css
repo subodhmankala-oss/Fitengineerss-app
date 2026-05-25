@@ -1,0 +1,162 @@
+/* MATCHING THE DESIGN PIXEL-PERFECTLY */
+
+.quick-tracker-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 32px;
+  background-color: #ffffff;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+  padding: 16px 20px 24px 20px;
+  margin-bottom: 32px;
+}
+
+/* The drag handle at the top of the card */
+.drag-handle {
+  width: 36px;
+  height: 4px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  margin: 0 auto 24px auto;
+}
+
+.tracker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* More spacing between items */
+}
+
+.tracker-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Circular icons with extremely subtle colored rings inspired by the image */
+.tracker-icon-bg {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  position: relative;
+}
+
+/* Colored borders & faint backgrounds */
+.bg-weight {
+  border: 1.5px solid #eaeaea;
+}
+
+.bg-workout {
+  border: 1.5px solid #ffe4e6;
+  background: radial-gradient(circle, #fff1f2 0%, #ffffff 70%);
+}
+
+.bg-steps {
+  border: 1.5px solid #e0e7ff;
+  background: radial-gradient(circle, #eef2ff 0%, #ffffff 70%);
+}
+
+.bg-sleep {
+  border: 1.5px solid #e0e7ff;
+}
+
+.bg-water {
+  border: 1.5px solid #e0f2fe;
+}
+
+.bg-track-more {
+  background-color: #ecfdf5; /* Light green */
+  border: none;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.tracker-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+}
+
+.tracker-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.tracker-subtitle {
+  font-size: 0.85rem;
+  color: #6b7280; /* Gray-500 */
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.tracker-title.green-text {
+  color: #059669; /* Exact green from Track More */
+  font-weight: 500;
+}
+
+.green-plus {
+  color: #059669;
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+/* Action icons on the right */
+.tracker-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-circle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid #374151; /* Dark gray border */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: #111827;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.action-arrow {
+  color: #111827;
+  font-size: 1.4rem;
+  font-weight: 400;
+}
+
+.action-sync {
+  color: #374151;
+  font-size: 1.2rem;
+}
+
+/* The upward chevron at the bottom of the card */
+.collapse-arrow-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+
+.collapse-arrow {
+  width: 16px;
+  height: 16px;
+  border-top: 2px solid #111827;
+  border-left: 2px solid #111827;
+  transform: rotate(45deg);
+  margin-top: 8px;
+}

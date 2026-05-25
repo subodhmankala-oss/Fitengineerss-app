@@ -1,0 +1,205 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Premium Dark Palette */
+  --bg-app: #090e17; /* Very dark slate, almost black */
+  --bg-card: #151d2c;
+  --bg-card-hover: #1e293b;
+  --bg-card-active: #0f172a;
+  
+  --primary-accent: #059669; /* Rich Emerald */
+  --primary-accent-light: #10b981;
+  --primary-accent-glow: rgba(16, 185, 129, 0.2);
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-subtle: #475569;
+  
+  --border-color: #1e293b;
+  --border-focus: #10b981;
+  
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  
+  /* Layout & Spacing */
+  --app-max-width: 480px;
+  --safe-bottom: 90px; /* Space for bottom nav */
+  
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-spring: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: #000; /* Outer background for desktop */
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+/* Mobile App Container Simulation */
+.app-container {
+  width: 100%;
+  max-width: var(--app-max-width);
+  min-height: 100vh;
+  background-color: var(--bg-app);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.05); /* Subtle green glow around the app frame */
+}
+
+.main-content {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: var(--safe-bottom);
+  scroll-behavior: smooth;
+  /* Hide scrollbar for clean app look */
+  -ms-overflow-style: none;  
+  scrollbar-width: none;  
+}
+
+.main-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* Premium Bottom Navigation */
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: rgba(21, 29, 44, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom, 10px);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 4px;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-smooth);
+}
+
+.nav-item .icon {
+  font-size: 1.4rem;
+  transition: transform var(--transition-spring);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.nav-item .icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  transition: all var(--transition-smooth);
+}
+
+.nav-item.active {
+  color: var(--primary-accent-light);
+}
+
+.nav-item.active .icon {
+  transform: translateY(-2px) scale(1.1);
+}
+
+.nav-item.active .icon svg {
+  filter: drop-shadow(0 2px 6px var(--primary-accent-glow));
+}
+
+.nav-item:active {
+  transform: scale(0.9);
+}
+
+/* Global Animations */
+@keyframes slideUpFadeIn {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes scaleIn {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: none; }
+}
+
+.animate-slide-up {
+  animation: slideUpFadeIn var(--transition-smooth) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--transition-spring) forwards;
+}
+
+/* Common UI Elements */
+.screen-header {
+  padding: 32px 24px 16px 24px;
+  text-align: left;
+}
+
+.screen-title {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.screen-subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}

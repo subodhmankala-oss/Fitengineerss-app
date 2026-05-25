@@ -1,0 +1,194 @@
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #000;
+  color: var(--text-main);
+}
+
+.chat-header {
+  padding: 24px;
+  background: rgba(21, 29, 44, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.coach-avatar {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  background-color: var(--bg-surface-elevated);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.online-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  background-color: var(--primary-accent-light);
+  border-radius: 50%;
+  border: 2px solid var(--bg-card);
+}
+
+.coach-info h2 {
+  font-size: 1.2rem;
+  margin: 0 0 2px 0;
+}
+
+.coach-info p {
+  color: var(--primary-accent-light);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Messages Area */
+.messages-area {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 100px;
+}
+
+.date-badge {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  align-self: center;
+  margin-bottom: 16px;
+}
+
+.message-bubble {
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-bubble.coach {
+  align-self: flex-start;
+}
+
+.message-bubble.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message-content {
+  padding: 14px 18px;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.coach .message-content {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  border-radius: 20px 20px 20px 4px;
+  border: 1px solid var(--border-color);
+}
+
+.user .message-content {
+  background: linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-accent-light) 100%);
+  color: #000;
+  border-radius: 20px 20px 4px 20px;
+  font-weight: 500;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+/* Chat Input */
+.chat-input-area {
+  padding: 16px 24px;
+  background: rgba(21, 29, 44, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  bottom: 0; /* Note: Bottom nav takes precedence if visible */
+  z-index: 10;
+}
+
+.attach-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-input-area input {
+  flex: 1;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 14px 20px;
+  border-radius: var(--radius-full);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.chat-input-area input:focus {
+  border-color: var(--primary-accent-light);
+}
+
+.send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-accent-light) 100%);
+  color: #000;
+  font-size: 1.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px var(--primary-accent-glow);
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.send-btn:disabled {
+  background: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  box-shadow: none;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.send-btn:not(:disabled):active {
+  transform: scale(0.9);
+}

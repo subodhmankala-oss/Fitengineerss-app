@@ -1,0 +1,20 @@
+.smart-nudge-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #10b981;
+  color: #0f172a;
+  padding: 16px 24px;
+  border-radius: 100px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+  z-index: 1000;
+  animation: slideDown 0.3s ease-out;
+  white-space: nowrap;
+}
+
+@keyframes slideDown {
+  from { top: -50px; opacity: 0; }
+  to { top: 24px; opacity: 1; }
+}

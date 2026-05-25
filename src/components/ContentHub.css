@@ -1,0 +1,112 @@
+.content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.content-card {
+  padding: 0; /* Override glass-panel padding */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.media-container {
+  height: 200px;
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+}
+
+.comic-placeholder {
+  background: linear-gradient(135deg, #2b1b3d, #4a192c);
+}
+.comic-placeholder::after {
+  content: 'Fe. Comic Illustration';
+  color: rgba(255,255,255,0.3);
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+
+.video-placeholder {
+  background: linear-gradient(45deg, #141e30, #243b55);
+}
+
+.article-placeholder {
+  background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+}
+.article-placeholder::after {
+  content: 'Fe. Article';
+  color: rgba(255,255,255,0.3);
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+
+.play-button {
+  width: 60px;
+  height: 60px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(4px);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #fff;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.media-container:hover .play-button {
+  transform: scale(1.1);
+  background: var(--primary-accent);
+  border-color: var(--primary-accent);
+  color: #000;
+}
+
+.content-card-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.content-badge {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(255,255,255,0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--primary-accent);
+}
+
+.content-title-text {
+  font-size: 1.2rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.content-summary {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  flex: 1; /* Push button to bottom */
+}
+
+.read-more {
+  margin-top: 12px;
+  width: 100%;
+}

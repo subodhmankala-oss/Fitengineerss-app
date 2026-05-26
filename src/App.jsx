@@ -214,13 +214,27 @@ function App() {
         const lastNotified = localStorage.getItem(storageKey);
         
         if (lastNotified !== dateStr) {
-          try {
-            new Notification(title, {
-              body,
-              icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>'
+          const options = {
+            body,
+            icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>'
+          };
+
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((registration) => {
+              registration.showNotification(title, options);
+            }).catch(() => {
+              try {
+                new Notification(title, options);
+              } catch (err) {
+                console.error("Native notification fallback failed:", err);
+              }
             });
-          } catch (e) {
-            console.error("Browser notification failed: ", e);
+          } else {
+            try {
+              new Notification(title, options);
+            } catch (e) {
+              console.error("Browser notification failed: ", e);
+            }
           }
           localStorage.setItem(storageKey, dateStr);
         }

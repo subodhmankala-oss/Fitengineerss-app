@@ -76,13 +76,27 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
       window.dispatchEvent(new Event('notificationPermissionChanged'));
 
       if (permission === 'granted') {
-        try {
-          new Notification("Notifications Active! 🎯", {
-            body: "Coach Subodh will now push daily morning, afternoon, and night motivation to your screen!",
-            icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>'
+        const options = {
+          body: "Coach Subodh will now push daily morning, afternoon, and night motivation to your screen!",
+          icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>'
+        };
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification("Notifications Active! 🎯", options);
+          }).catch(() => {
+            try {
+              new Notification("Notifications Active! 🎯", options);
+            } catch (err) {
+              console.error("Native notification failed:", err);
+            }
           });
-        } catch (e) {
-          console.error("Browser notification failed: ", e);
+        } else {
+          try {
+            new Notification("Notifications Active! 🎯", options);
+          } catch (e) {
+            console.error("Browser notification failed: ", e);
+          }
         }
         setToastMessage("🔔 Coaching alerts enabled successfully!");
         setTimeout(() => setToastMessage(''), 3500);

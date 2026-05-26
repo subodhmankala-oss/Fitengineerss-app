@@ -1,0 +1,18 @@
+{
+  "short_name": "Fitengineers",
+  "name": "Fitengineers Fitness App",
+  "description": "Premium automated fitness, calorie tracking, and coaching system.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "48x48 72x72 96x96 128x128 256x256 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "display": "standalone",
+  "orientation": "portrait"
+}

@@ -123,6 +123,83 @@ const resetDailyLogs = () => {
   window.dispatchEvent(new Event('nutritionUpdated'));
 };
 
+const trackerKeys = [
+  'waterGlasses', 'userSyncedSteps', 'userLoggedCalories', 
+  'userLoggedProtein', 'userLoggedCarbs', 'userLoggedFats',
+  'homeMealBreakfast', 'homeMealLunch', 'homeMealDinner', 'homeMealSnacks',
+  'walkLunchDinner', 'strollsLogged', 'monthlyProgressHistory'
+];
+
+const saveActiveUserCache = (userName) => {
+  if (!userName) return;
+  const keyPrefix = `client_${userName.toLowerCase().replace(/\s+/g, '')}_`;
+  trackerKeys.forEach(key => {
+    const val = localStorage.getItem(key);
+    if (val !== null) {
+      localStorage.setItem(`${keyPrefix}${key}`, val);
+    } else {
+      localStorage.removeItem(`${keyPrefix}${key}`);
+    }
+  });
+};
+
+const loadActiveUserCache = (userName) => {
+  if (!userName) return;
+  const keyPrefix = `client_${userName.toLowerCase().replace(/\s+/g, '')}_`;
+  
+  const hasSavedData = localStorage.getItem(`${keyPrefix}waterGlasses`) !== null || 
+                       localStorage.getItem(`${keyPrefix}monthlyProgressHistory`) !== null;
+  
+  if (hasSavedData) {
+    trackerKeys.forEach(key => {
+      const val = localStorage.getItem(`${keyPrefix}${key}`);
+      if (val !== null) {
+        localStorage.setItem(key, val);
+      } else {
+        localStorage.removeItem(key);
+      }
+    });
+  } else {
+    // New user! Initialize everything to completely fresh zero baseline
+    localStorage.setItem('waterGlasses', '0');
+    localStorage.setItem('userSyncedSteps', '0');
+    localStorage.setItem('userLoggedCalories', '0');
+    localStorage.setItem('userLoggedProtein', '0');
+    localStorage.setItem('userLoggedCarbs', '0');
+    localStorage.setItem('userLoggedFats', '0');
+    localStorage.setItem('homeMealBreakfast', '0');
+    localStorage.setItem('homeMealLunch', '0');
+    localStorage.setItem('homeMealDinner', '0');
+    localStorage.setItem('homeMealSnacks', '0');
+    localStorage.setItem('walkLunchDinner', 'false');
+    localStorage.setItem('strollsLogged', '0');
+    
+    // Progress Dashboard Zero-Baseline
+    const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
+    const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
+    const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '130');
+    const userFatsTarget = parseInt(localStorage.getItem('userFatsTarget') || '60');
+    
+    const baseCalorieGlasses = calorieTarget / 250;
+    const baseWeightGlasses = (userWeight * 35) / 250;
+    const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
+    const waterTargetLiters = Math.max(6, baselineTarget) * 0.25;
+
+    const freshHistory = { water: [], protein: [], fats: [], lifting: [] };
+    for (let i = 1; i <= 30; i++) {
+      freshHistory.water.push({ day: i, val: 0.0, target: waterTargetLiters });
+      freshHistory.protein.push({ day: i, val: 0, target: userProteinTarget });
+      freshHistory.fats.push({ day: i, val: 0, target: userFatsTarget });
+      freshHistory.lifting.push({ day: i, val: 0.0, target: 100 });
+    }
+    localStorage.setItem('monthlyProgressHistory', JSON.stringify(freshHistory));
+  }
+  
+  window.dispatchEvent(new Event('waterUpdated'));
+  window.dispatchEvent(new Event('stepsUpdated'));
+  window.dispatchEvent(new Event('nutritionUpdated'));
+};
+
 function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
@@ -350,6 +427,11 @@ function App() {
           const newName = localStorage.getItem('userName');
           
           if (!prevName || prevName !== newName) {
+            // Save the previous user's tracking data to their partition cache before swapping
+            if (prevName) {
+              saveActiveUserCache(prevName);
+            }
+
             // New user! Preserve onboarding keys but clear all old tracker data & monthly history
             const keysToKeep = [
               'onboardingComplete', 'userName', 'userAge', 'userHeight', 'userWeight', 
@@ -365,15 +447,11 @@ function App() {
               if (tempStorage[k] !== null) localStorage.setItem(k, tempStorage[k]);
             });
 
-            // Explicitly generate and save fresh zero-baseline progress history using the new user's targets!
-            const freshHistory = generateProgressMockData();
-            localStorage.setItem('monthlyProgressHistory', JSON.stringify(freshHistory));
-
-            // Set lastSavedDate to today to prime rollover checks correctly
-            const todayStr = new Date().toDateString();
-            localStorage.setItem('lastSavedDate', todayStr);
+            // Load this new client's isolated database/cache (initializes fresh zero baseline if new)
+            loadActiveUserCache(newName);
 
             // Sync User Profile and initial fresh history to Supabase Cloud Database!
+            const freshHistory = JSON.parse(localStorage.getItem('monthlyProgressHistory'));
             const profile = {
               userName: tempStorage['userName'] || newName,
               userAge: tempStorage['userAge'],
@@ -390,6 +468,10 @@ function App() {
             };
             databaseService.saveUserProfile(profile);
             databaseService.saveProgressHistory(freshHistory);
+
+            // Set lastSavedDate to today to prime rollover checks correctly
+            const todayStr = new Date().toDateString();
+            localStorage.setItem('lastSavedDate', todayStr);
           } else {
             // Same user logged back in! Check if date changed
             const lastSavedDate = localStorage.getItem('lastSavedDate');
@@ -413,7 +495,10 @@ function App() {
   const handleLogout = () => {
     // Preserve name to check if next user is same or different
     const name = localStorage.getItem('userName');
-    if (name) localStorage.setItem('lastUserName', name);
+    if (name) {
+      saveActiveUserCache(name);
+      localStorage.setItem('lastUserName', name);
+    }
 
     localStorage.removeItem('onboardingComplete');
     localStorage.removeItem('userGoal');

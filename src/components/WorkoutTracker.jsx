@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './WorkoutTracker.css';
+import databaseService from '../services/databaseService';
+
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
 const defaultHistoricalSessions = [
@@ -486,6 +488,12 @@ const WorkoutTracker = () => {
   const saveSessionsToLocal = (newSessions) => {
     localStorage.setItem('workoutSessions', JSON.stringify(newSessions));
     setSessions(newSessions);
+
+    // Sync the completed workout session with the database
+    if (newSessions.length > 0) {
+      const latestSession = newSessions[newSessions.length - 1];
+      databaseService.saveWorkoutSession(latestSession);
+    }
   };
 
   const saveProfilesToLocal = (newProfiles) => {

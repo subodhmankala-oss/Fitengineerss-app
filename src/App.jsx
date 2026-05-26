@@ -11,7 +11,9 @@ import CoachChat from './components/CoachChat';
 import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
+import databaseService from './services/databaseService';
 import './index.css'; 
+
 
 const getDynamicTargets = () => {
   const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
@@ -125,6 +127,42 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [userGoal, setUserGoal] = useState('');
+
+  // ─── Real-Time Cloud Database Synchronizer ───
+  useEffect(() => {
+    if (!onboardingComplete) return;
+
+    let lastSyncedString = '';
+
+    const syncTodayStateToCloud = () => {
+      const waterGlasses = localStorage.getItem('waterGlasses') || '0';
+      const syncedSteps = localStorage.getItem('userSyncedSteps') || '0';
+      const loggedCalories = localStorage.getItem('userLoggedCalories') || '0';
+      const loggedProtein = localStorage.getItem('userLoggedProtein') || '0';
+      const loggedFats = localStorage.getItem('userLoggedFats') || '0';
+      const walkLunchDinner = localStorage.getItem('walkLunchDinner') || 'false';
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const currentStateString = `${waterGlasses}_${syncedSteps}_${loggedCalories}_${loggedProtein}_${loggedFats}_${walkLunchDinner}`;
+
+      if (currentStateString !== lastSyncedString) {
+        databaseService.saveTrackerLog({
+          date: todayStr,
+          waterGlasses,
+          syncedSteps,
+          loggedCalories,
+          loggedProtein,
+          loggedFats,
+          walkLunchDinner
+        });
+        lastSyncedString = currentStateString;
+      }
+    };
+
+    // Debounced real-time cloud synchronizer (polls local cache every 5s for uploads)
+    const syncInterval = setInterval(syncTodayStateToCloud, 5000);
+    return () => clearInterval(syncInterval);
+  }, [onboardingComplete]);
 
   useEffect(() => {
     const isComplete = localStorage.getItem('onboardingComplete');
@@ -334,6 +372,24 @@ function App() {
             // Set lastSavedDate to today to prime rollover checks correctly
             const todayStr = new Date().toDateString();
             localStorage.setItem('lastSavedDate', todayStr);
+
+            // Sync User Profile and initial fresh history to Supabase Cloud Database!
+            const profile = {
+              userName: tempStorage['userName'] || newName,
+              userAge: tempStorage['userAge'],
+              userHeight: tempStorage['userHeight'],
+              userWeight: tempStorage['userWeight'],
+              userActivity: tempStorage['userActivity'],
+              userGoal: tempStorage['userGoal'],
+              userDiet: tempStorage['userDiet'],
+              userCalorieTarget: tempStorage['userCalorieTarget'],
+              userProteinTarget: tempStorage['userProteinTarget'],
+              userCarbsTarget: tempStorage['userCarbsTarget'],
+              userFatsTarget: tempStorage['userFatsTarget'],
+              userIssue: tempStorage['userIssue']
+            };
+            databaseService.saveUserProfile(profile);
+            databaseService.saveProgressHistory(freshHistory);
           } else {
             // Same user logged back in! Check if date changed
             const lastSavedDate = localStorage.getItem('lastSavedDate');

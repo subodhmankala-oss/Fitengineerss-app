@@ -128,6 +128,110 @@ function App() {
     }
   }, []);
 
+  const [notificationPermission, setNotificationPermission] = useState(
+    'Notification' in window ? Notification.permission : 'default'
+  );
+
+  useEffect(() => {
+    const handlePermissionSync = () => {
+      if ('Notification' in window) {
+        setNotificationPermission(Notification.permission);
+      }
+    };
+    window.addEventListener('notificationPermissionChanged', handlePermissionSync);
+    return () => window.removeEventListener('notificationPermissionChanged', handlePermissionSync);
+  }, []);
+
+  // ── Global Push Notifications Background Service ──
+  useEffect(() => {
+    if (!('Notification' in window) || notificationPermission !== 'granted') return;
+
+    const checkSchedule = () => {
+      const now = new Date();
+      const hours = now.getHours();
+      const dateStr = now.toDateString();
+
+      const morningQuotes = [
+        "Rise and conquer! Your health is an investment, not an expense. Make today's choices count! ☀️",
+        "Good morning! Great bodies are built on consistency, not convenience. Lock in your habits early today! 🍳",
+        "Wake up! The difference between who you are and who you want to be is what you do today. Let's execute! 💪",
+        "Rise and grind! Prioritize your wellness today. A hydrated body is a high-performing engine! 💧",
+        "Good morning, champion! A fresh start to win your day. Remember: food is fuel, and movement is medicine! 🍏",
+        "Wake up with intent! Your energy today determines your trajectory tomorrow. Let's get moving! 🏃‍♂️",
+        "Morning! Start your day by checking off your hydration. Fuel your mind and body for peak performance! 🌊",
+        "Happy morning! Do not let yesterday's slip-ups ruin today's progress. Show up and be awesome! ✨",
+        "Rise up! The best project you will ever work on is YOU. Treat yourself with care and respect today. 🙌",
+        "Good morning! Focus on control: your food, your movements, your thoughts. Let's make today exceptional! 🏆"
+      ];
+      const afternoonQuotes = [
+        "Mid-day check-in! Don't let afternoon fatigue stall your momentum. Hydrate, stretch, and stay laser-focused! ⚡",
+        "Consistency is what transforms average attempts into legendary achievements. Keep ticking off those daily targets! 📊",
+        "Afternoon momentum! Stand up, take a deep breath, and log those steps. Activity is the antidote to sluggishness! 🚶‍♂️",
+        "Action beats intention every single time. Have you drank your water and eaten your protein? Stay on track! 🥩",
+        "Mid-day check! Lock in your lunch-hour walk. Your insulin sensitivity and gut health will thank you later! 🍱",
+        "No slacking! The afternoon slump is just a state of mind. Recharge with a glass of water and a brief stroll. 🥤",
+        "Keep grinding! Small disciplines daily lead to massive transformations. Focus on the next correct step! 🎯",
+        "Afternoon power! You've come too far to give up on today's goals. Finish the second half of the day strong! 💥",
+        "Stay consistent! Great things are built stone by stone. Log your lunch, hit your macros, and keep moving! 🥑",
+        "Check your alignment! Are your choices this afternoon matching the goals you set this morning? Make it happen! 🚀"
+      ];
+      const nightQuotes = [
+        "Outstanding effort today! Now it's time to prioritize recovery. Sleep is where the real muscle growth happens. 🌙",
+        "Good night! Unwind your mind, dim the lights, and let your nervous system return to a peaceful balance. 💤",
+        "Reflection time: Be proud of the effort you put in today. Recovery is just as important as the grind! 🌌",
+        "Time to recharge. High sleep quality is the cornerstone of protein synthesis and cellular repair. Sleep deep! 🛌",
+        "Unwind and release. You did your absolute best today. Rest now, wake up ready to conquer tomorrow! 🕊️",
+        "Good night, champion. Shut off all screens, let your mind settle, and allow your body to heal and recover. 📴",
+        "As the day ends, remember that patience and consistency are your greatest strengths. Rest up for the journey ahead. 🌠",
+        "Night check-in: Hydration is set, calories are logged, and mind is clear. Sleep well and recover fully. 🧼",
+        "Relax your shoulders and breathe. Every day is a step closer to your ultimate self. Sleep tight! 🌃",
+        "Prioritize your rest tonight. Tomorrow's strength is built on tonight's deep recovery. Sweet dreams! 🌟"
+      ];
+
+      const today = new Date();
+      const idx = today.getDate() + today.getMonth() * 31;
+      
+      let targetPeriod = null;
+      let title = "";
+      let body = "";
+
+      if (hours === 8) {
+        targetPeriod = "morning";
+        title = "Good Morning! ☀️";
+        body = morningQuotes[idx % morningQuotes.length];
+      } else if (hours === 14) {
+        targetPeriod = "afternoon";
+        title = "Mid-day Momentum! ⚡";
+        body = afternoonQuotes[idx % afternoonQuotes.length];
+      } else if (hours === 21) {
+        targetPeriod = "night";
+        title = "Good Night! 🌙";
+        body = nightQuotes[idx % nightQuotes.length];
+      }
+
+      if (targetPeriod) {
+        const storageKey = `last_notified_${targetPeriod}`;
+        const lastNotified = localStorage.getItem(storageKey);
+        
+        if (lastNotified !== dateStr) {
+          try {
+            new Notification(title, {
+              body,
+              icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>'
+            });
+          } catch (e) {
+            console.error("Browser notification failed: ", e);
+          }
+          localStorage.setItem(storageKey, dateStr);
+        }
+      }
+    };
+
+    checkSchedule();
+    const interval = setInterval(checkSchedule, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [onboardingComplete, notificationPermission]);
+
   if (!onboardingComplete) {
     return (
       <div className="app-container">

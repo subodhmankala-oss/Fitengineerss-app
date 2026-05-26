@@ -367,11 +367,11 @@ const SmartMealPlans = () => {
   const [diet, setDiet] = useState('Vegetarian');
 
   // ── User's actual targets from onboarding (same source as Home page) ──
-  const [userTargets, setUserTargets] = useState({
-    calories: 2000,
-    protein: 130,
-    carbs: 180,
-    fats: 60
+  const [userTargets, setUserTargets] = useState(() => {
+    const goal = localStorage.getItem('userGoal');
+    if (goal === 'Fat Loss') return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
+    if (goal === 'Muscle Building') return { calories: 2500, protein: 150, carbs: 280, fats: 80 };
+    return { calories: 1800, protein: 130, carbs: 180, fats: 60 }; // Gut Fix / default
   });
 
   // ── Today's logged calories from the Home page meal tracker ──
@@ -381,10 +381,7 @@ const SmartMealPlans = () => {
   const [steps, setSteps] = useState(() => {
     const storedSteps = localStorage.getItem('userSyncedSteps');
     if (storedSteps) return parseInt(storedSteps);
-    const goal = localStorage.getItem('userGoal');
-    if (goal === 'Fat Loss') return 5500;
-    if (goal === 'Muscle Building') return 6000;
-    return 4800; // Gut Fix / default
+    return 0; // Default to 0 to match HomeTracker exactly
   });
 
   useEffect(() => {
@@ -397,12 +394,20 @@ const SmartMealPlans = () => {
     const protTarget = localStorage.getItem('userProteinTarget');
     const carbTarget = localStorage.getItem('userCarbsTarget');
     const fatTarget  = localStorage.getItem('userFatsTarget');
+    const goal       = localStorage.getItem('userGoal');
+
+    let fallback = { calories: 1800, protein: 130, carbs: 180, fats: 60 };
+    if (goal === 'Fat Loss') {
+      fallback = { calories: 1300, protein: 100, carbs: 120, fats: 45 };
+    } else if (goal === 'Muscle Building') {
+      fallback = { calories: 2500, protein: 150, carbs: 280, fats: 80 };
+    }
 
     setUserTargets({
-      calories: calTarget  ? parseInt(calTarget)  : 2000,
-      protein:  protTarget ? parseInt(protTarget) : 130,
-      carbs:    carbTarget ? parseInt(carbTarget) : 180,
-      fats:     fatTarget  ? parseInt(fatTarget)  : 60,
+      calories: calTarget  ? parseInt(calTarget)  : fallback.calories,
+      protein:  protTarget ? parseInt(protTarget) : fallback.protein,
+      carbs:    carbTarget ? parseInt(carbTarget) : fallback.carbs,
+      fats:     fatTarget  ? parseInt(fatTarget)  : fallback.fats,
     });
 
     // Load today's logged calories from Home meal tracker
@@ -427,10 +432,7 @@ const SmartMealPlans = () => {
       if (storedSteps) {
         setSteps(parseInt(storedSteps));
       } else {
-        const goal = localStorage.getItem('userGoal');
-        if (goal === 'Fat Loss') setSteps(5500);
-        else if (goal === 'Muscle Building') setSteps(6000);
-        else setSteps(4800);
+        setSteps(0); // Default to 0 to match HomeTracker exactly
       }
     };
     loadSteps();
@@ -536,16 +538,14 @@ const SmartMealPlans = () => {
           </div>
           <div className="smp-summary-divider" />
           <div className="smp-summary-item">
-            <span className="smp-summary-value" style={{ color: remainingCalories >= 0 ? '#10b981' : '#f87171' }}>
-              {Math.abs(remainingCalories)}
-            </span>
-            <span className="smp-summary-key">{remainingCalories >= 0 ? 'kcal left' : 'kcal over'}</span>
+            <span className="smp-summary-value cals-color">{userTargets.calories}</span>
+            <span className="smp-summary-key">Calories</span>
           </div>
         </div>
 
         <div className="smp-summary-note">
           {remainingCalories > 0
-            ? `⚡ ${remainingCalories} kcal remaining to hit your daily budget`
+            ? `⚡ ${remainingCalories} kcal remaining to hit your daily target (${userTargets.calories} budget${caloriesBurned > 0 ? ` + ${caloriesBurned} step-burn` : ''})`
             : remainingCalories === 0
             ? '🎯 Perfect! Daily calorie target achieved!'
             : `⚠️ ${Math.abs(remainingCalories)} kcal over today's budget`

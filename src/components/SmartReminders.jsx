@@ -9,53 +9,12 @@ const appreciations = [
   "Brilliant! Step by step, glass by glass! 🌊"
 ];
 
-const morningQuotes = [
-  "Rise and conquer! Your health is an investment, not an expense. Make today's choices count! ☀️",
-  "Good morning! Great bodies are built on consistency, not convenience. Lock in your habits early today! 🍳",
-  "Wake up! The difference between who you are and who you want to be is what you do today. Let's execute! 💪",
-  "Rise and grind! Prioritize your wellness today. A hydrated body is a high-performing engine! 💧",
-  "Good morning, champion! A fresh start to win your day. Remember: food is fuel, and movement is medicine! 🍏",
-  "Wake up with intent! Your energy today determines your trajectory tomorrow. Let's get moving! 🏃‍♂️",
-  "Morning! Start your day by checking off your hydration. Fuel your mind and body for peak performance! 🌊",
-  "Happy morning! Do not let yesterday's slip-ups ruin today's progress. Show up and be awesome! ✨",
-  "Rise up! The best project you will ever work on is YOU. Treat yourself with care and respect today. 🙌",
-  "Good morning! Focus on control: your food, your movements, your thoughts. Let's make today exceptional! 🏆"
-];
-
-const afternoonQuotes = [
-  "Mid-day check-in! Don't let afternoon fatigue stall your momentum. Hydrate, stretch, and stay laser-focused! ⚡",
-  "Consistency is what transforms average attempts into legendary achievements. Keep ticking off those daily targets! 📊",
-  "Afternoon momentum! Stand up, take a deep breath, and log those steps. Activity is the antidote to sluggishness! 🚶‍♂️",
-  "Action beats intention every single time. Have you drank your water and eaten your protein? Stay on track! 🥩",
-  "Mid-day check! Lock in your lunch-hour walk. Your insulin sensitivity and gut health will thank you later! 🍱",
-  "No slacking! The afternoon slump is just a state of mind. Recharge with a glass of water and a brief stroll. 🥤",
-  "Keep grinding! Small disciplines repeated daily lead to massive transformations. Focus on the next correct step! 🎯",
-  "Afternoon power! You've come too far to give up on today's goals. Finish the second half of the day strong! 💥",
-  "Stay consistent! Great things are built stone by stone. Log your lunch, hit your macros, and keep moving! 🥑",
-  "Check your alignment! Are your choices this afternoon matching the goals you set this morning? Make it happen! 🚀"
-];
-
-const nightQuotes = [
-  "Outstanding effort today! Now it's time to prioritize recovery. Sleep is where the real muscle growth happens. 🌙",
-  "Good night! Unwind your mind, dim the lights, and let your nervous system return to a peaceful balance. 💤",
-  "Reflection time: Be proud of the effort you put in today. Recovery is just as important as the grind! 🌌",
-  "Time to recharge. High sleep quality is the cornerstone of protein synthesis and cellular repair. Sleep deep! 🛌",
-  "Unwind and release. You did your absolute best today. Rest now, wake up ready to conquer tomorrow! 🕊️",
-  "Good night, champion. Shut off all screens, let your mind settle, and allow your body to heal and recover. 📴",
-  "As the day ends, remember that patience and consistency are your greatest strengths. Rest up for the journey ahead. 🌠",
-  "Night check-in: Hydration is set, calories are logged, and mind is clear. Sleep well and recover fully. 🧼",
-  "Relax your shoulders and breathe. Every day is a step closer to your ultimate self. Sleep tight! 🌃",
-  "Prioritize your rest tonight. Tomorrow's strength is built on tonight's deep recovery. Sweet dreams! 🌟"
-];
-
 const SmartReminders = () => {
   const [waterGlasses, setWaterGlasses] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
   const [walkLunchDinner, setWalkLunchDinner] = useState(false);
   const [walkTimer, setWalkTimer] = useState(30 * 60); // 30 minutes in seconds
   const [strollsLogged, setStrollsLogged] = useState(0);
-  const [showMorning, setShowMorning] = useState(true);
-  const [showNight, setShowNight] = useState(true);
   
   // Smart Hydration Wearable Sync states
   const [isSyncingWater, setIsSyncingWater] = useState(false);
@@ -67,11 +26,7 @@ const SmartReminders = () => {
   const [userProteinTarget, setUserProteinTarget] = useState(100);
   const [steps, setSteps] = useState(4800);
 
-  // Custom morning, afternoon, and night quote indices
-  const [morningQuote, setMorningQuote] = useState('');
-  const [afternoonQuote, setAfternoonQuote] = useState('');
-  const [nightQuote, setNightQuote] = useState('');
-  const [showAfternoon, setShowAfternoon] = useState(true);
+
 
   useEffect(() => {
     // Load stored values
@@ -83,13 +38,6 @@ const SmartReminders = () => {
 
     const storedStrolls = localStorage.getItem('strollsLogged');
     if (storedStrolls) setStrollsLogged(parseInt(storedStrolls));
-
-    // Choose quotes based on day of the year to ensure a different one every day but consistent for a calendar day
-    const today = new Date();
-    const dateIndex = today.getDate() + today.getMonth() * 31;
-    setMorningQuote(morningQuotes[dateIndex % morningQuotes.length]);
-    setAfternoonQuote(afternoonQuotes[dateIndex % afternoonQuotes.length]);
-    setNightQuote(nightQuotes[dateIndex % nightQuotes.length]);
 
     // Load other metrics for dynamic water calculations
     const hydrateMetrics = () => {
@@ -317,52 +265,6 @@ const SmartReminders = () => {
               Log Short Stroll ({strollsLogged})
             </button>
           </div>
-        </div>
-      </div>
-
-      <hr className="divider" />
-
-      {/* Automated Broadcast Messages: Morning & Night */}
-      <div className="reminder-section">
-        <div className="reminder-info mb-2">
-          <h4>Automated Coach Broadcasts</h4>
-          <p>Everyday wellness & motivational delivery</p>
-        </div>
-
-        <div className="broadcast-grid">
-          {showMorning && (
-            <div className="broadcast-card morning animate-scale-in">
-              <div className="card-header">
-                <span>☀️ Morning Wellness Broadcast</span>
-                <button className="close-btn" onClick={() => setShowMorning(false)}>×</button>
-              </div>
-              <p className="broadcast-text">"{morningQuote}"</p>
-            </div>
-          )}
-
-          {showAfternoon && (
-            <div className="broadcast-card afternoon animate-scale-in">
-              <div className="card-header">
-                <span>⚡ Afternoon Consistency Broadcast</span>
-                <button className="close-btn" onClick={() => setShowAfternoon(false)}>×</button>
-              </div>
-              <p className="broadcast-text">"{afternoonQuote}"</p>
-            </div>
-          )}
-
-          {showNight && (
-            <div className="broadcast-card night animate-scale-in">
-              <div className="card-header">
-                <span>🌙 Night Recovery Broadcast</span>
-                <button className="close-btn" onClick={() => setShowNight(false)}>×</button>
-              </div>
-              <p className="broadcast-text">"{nightQuote}"</p>
-            </div>
-          )}
-
-          {!showMorning && !showAfternoon && !showNight && (
-            <p className="no-broadcasts">Broadcasts checked for the day! Keep grinding! 👍</p>
-          )}
         </div>
       </div>
     </div>

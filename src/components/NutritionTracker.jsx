@@ -6,11 +6,11 @@ const NutritionTracker = ({ setActiveTab }) => {
   const [toastMessage, setToastMessage] = useState('');
 
   // Load target goals from profile or healthy defaults
-  const [targets, setTargets] = useState({
-    calories: 1800,
-    protein: 130,
-    carbs: 180,
-    fats: 60
+  const [targets, setTargets] = useState(() => {
+    const goal = localStorage.getItem('userGoal');
+    if (goal === 'Fat Loss') return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
+    if (goal === 'Muscle Building') return { calories: 2500, protein: 150, carbs: 280, fats: 80 };
+    return { calories: 1800, protein: 130, carbs: 180, fats: 60 }; // Gut Fix / default
   });
 
   // Current logged intake state
@@ -37,12 +37,20 @@ const NutritionTracker = ({ setActiveTab }) => {
     const proteinTarget = localStorage.getItem('userProteinTarget');
     const carbsTarget   = localStorage.getItem('userCarbsTarget');
     const fatsTarget    = localStorage.getItem('userFatsTarget');
+    const goal          = localStorage.getItem('userGoal');
+
+    let fallback = { calories: 1800, protein: 130, carbs: 180, fats: 60 };
+    if (goal === 'Fat Loss') {
+      fallback = { calories: 1300, protein: 100, carbs: 120, fats: 45 };
+    } else if (goal === 'Muscle Building') {
+      fallback = { calories: 2500, protein: 150, carbs: 280, fats: 80 };
+    }
 
     const activeTargets = {
-      calories: calorieTarget ? parseInt(calorieTarget) : 1800,
-      protein:  proteinTarget ? parseInt(proteinTarget) : 130,
-      carbs:    carbsTarget   ? parseInt(carbsTarget)   : 180,
-      fats:     fatsTarget    ? parseInt(fatsTarget)    : 60
+      calories: calorieTarget ? parseInt(calorieTarget) : fallback.calories,
+      protein:  proteinTarget ? parseInt(proteinTarget) : fallback.protein,
+      carbs:    carbsTarget   ? parseInt(carbsTarget)   : fallback.carbs,
+      fats:     fatsTarget    ? parseInt(fatsTarget)    : fallback.fats
     };
     setTargets(activeTargets);
 

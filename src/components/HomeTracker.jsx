@@ -36,6 +36,63 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const [isSyncingWater, setIsSyncingWater] = useState(false);
   const [waterLastSyncTime, setWaterLastSyncTime] = useState("Just now");
 
+  // HTML5 Notification permissions in the header
+  const [notificationPermission, setNotificationPermission] = useState('default');
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+
+    const handlePermissionSync = () => {
+      if ('Notification' in window) {
+        setNotificationPermission(Notification.permission);
+      }
+    };
+    window.addEventListener('notificationPermissionChanged', handlePermissionSync);
+    return () => window.removeEventListener('notificationPermissionChanged', handlePermissionSync);
+  }, []);
+
+  const handleNotificationToggle = async () => {
+    const currentlyActive = localStorage.getItem('coachAlertsEnabled') === 'true' || (notificationPermission === 'granted' && localStorage.getItem('coachAlertsEnabled') !== 'false');
+
+    if (currentlyActive) {
+      localStorage.setItem('coachAlertsEnabled', 'false');
+      window.dispatchEvent(new Event('notificationPermissionChanged'));
+      setToastMessage("🔕 Coaching alerts are now inactive.");
+      setTimeout(() => setToastMessage(''), 3500);
+    } else {
+      localStorage.setItem('coachAlertsEnabled', 'true');
+      window.dispatchEvent(new Event('notificationPermissionChanged'));
+
+      if (!('Notification' in window)) {
+        setToastMessage("🔔 Coaching alerts enabled!");
+        setTimeout(() => setToastMessage(''), 3500);
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      window.dispatchEvent(new Event('notificationPermissionChanged'));
+
+      if (permission === 'granted') {
+        try {
+          new Notification("Notifications Active! 🎯", {
+            body: "Coach Subodh will now push daily morning, afternoon, and night motivation to your screen!",
+            icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>'
+          });
+        } catch (e) {
+          console.error("Browser notification failed: ", e);
+        }
+        setToastMessage("🔔 Coaching alerts enabled successfully!");
+        setTimeout(() => setToastMessage(''), 3500);
+      } else {
+        setToastMessage("🔔 Coaching alerts enabled! (Desktop notifications blocked by browser)");
+        setTimeout(() => setToastMessage(''), 3500);
+      }
+    }
+  };
+
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
     if (storedName) setUserName(storedName);
@@ -228,6 +285,8 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const progressRatio = Math.min(Math.max(caloriesEaten / calorieBudget, 0), 1);
   const strokeDashoffset = circumference - progressRatio * circumference;
 
+  const isAlertActive = localStorage.getItem('coachAlertsEnabled') === 'true' || (notificationPermission === 'granted' && localStorage.getItem('coachAlertsEnabled') !== 'false');
+
   return (
     <div className="home-tracker-container animate-slide-up">
       {/* 1. HealthifyMe Top Profile Bar */}
@@ -241,6 +300,41 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
         </div>
         <div className="header-badges">
           <span className="streak-badge">🔥 3 Day Streak</span>
+          <button 
+            className="btn-logout" 
+            onClick={handleNotificationToggle} 
+            title={isAlertActive ? "Coaching Alerts Active 🟢" : "Turn On Coaching Alerts 🟡"}
+            style={{
+              color: isAlertActive ? '#10b981' : '#fbbf24',
+              borderColor: isAlertActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.35)',
+              background: isAlertActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(251, 191, 36, 0.08)',
+              boxShadow: isAlertActive ? '0 0 10px rgba(16, 185, 129, 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <span className="icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg 
+                width="18" 
+                height="18" 
+                viewBox="0 0 24 24" 
+                fill={isAlertActive ? "#10b981" : "none"} 
+                stroke={isAlertActive ? "#10b981" : "#fbbf24"} 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                style={{ 
+                  transition: 'all 0.2s ease', 
+                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
+                }}
+              >
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+          </button>
           <button className="btn-logout" onClick={handleLogout} title="Reset Profile">
             <span className="icon">⚙️</span>
           </button>

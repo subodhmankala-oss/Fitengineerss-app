@@ -295,9 +295,13 @@ function App() {
       }
     };
 
-    checkSchedule();
+    // Delay the initial check-in by 30 seconds on startup to prevent immediate notification pops upon opening the app.
+    const startupTimeout = setTimeout(checkSchedule, 30000);
     const interval = setInterval(checkSchedule, 60000); // Check every minute
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(startupTimeout);
+      clearInterval(interval);
+    };
   }, [onboardingComplete, notificationPermission]);
 
   if (!onboardingComplete) {

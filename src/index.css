@@ -75,7 +75,8 @@ button {
 .app-container {
   width: 100%;
   max-width: var(--app-max-width);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-app);
   position: relative;
   overflow: hidden;
@@ -106,7 +107,7 @@ button {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 80px;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
   background: rgba(21, 29, 44, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -115,7 +116,7 @@ button {
   justify-content: space-around;
   align-items: center;
   z-index: 1000;
-  padding-bottom: env(safe-area-inset-bottom, 10px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .nav-item {
@@ -124,11 +125,11 @@ button {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  gap: 4px;
-  width: 60px;
-  height: 60px;
+  gap: 3px;
+  width: 56px;
+  height: 52px;
   border-radius: var(--radius-md);
   transition: all var(--transition-smooth);
 }

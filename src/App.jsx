@@ -327,7 +327,7 @@ function App() {
     }
   };
 
-  const isNavVisible = ['home', 'mealPlan', 'workouts', 'progress', 'chat'].includes(activeTab);
+  const isNavVisible = true;
 
 
   return (
@@ -340,7 +340,7 @@ function App() {
       
       {isNavVisible && (
         <nav className="bottom-nav">
-          <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+          <button className={`nav-item ${['home', 'nutrition', 'mealCheck', 'bloating'].includes(activeTab) ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>

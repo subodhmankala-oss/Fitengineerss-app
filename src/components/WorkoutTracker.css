@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 16px 24px var(--safe-bottom) 24px;
+  padding: 16px 12px var(--safe-bottom) 12px;
 }
 
 /* Tab Segmented Control */
@@ -15,17 +15,26 @@
   padding: 4px;
   border-radius: var(--radius-md);
   margin-bottom: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  width: 100%;
+}
+
+.workouts-segmented-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-item-btn {
-  flex: 1;
-  padding: 12px 8px;
-  font-size: 0.85rem;
+  flex: 1 0 auto;
+  padding: 12px 14px;
+  font-size: clamp(0.7rem, 3.2vw, 0.85rem);
   font-weight: 600;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   transition: all var(--transition-smooth);
   text-align: center;
+  white-space: nowrap;
 }
 
 .tab-item-btn.active {
@@ -101,11 +110,13 @@
 
 .session-filters {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
   padding-top: 12px;
+  width: 100%;
 }
 
 .exercise-select-dropdown {
@@ -119,7 +130,8 @@
   font-family: inherit;
   outline: none;
   cursor: pointer;
-  flex: 1;
+  flex: 1 1 150px;
+  min-width: 130px;
 }
 
 .exercise-select-dropdown option {
@@ -133,9 +145,13 @@
   padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.03);
+  flex: 1 0 100%;
+  justify-content: space-between;
 }
 
 .timeframe-toggle .toggle-btn {
+  flex: 1;
+  text-align: center;
   padding: 6px 12px;
   font-size: 0.75rem;
   font-weight: 600;

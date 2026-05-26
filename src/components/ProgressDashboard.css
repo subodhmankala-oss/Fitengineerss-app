@@ -7,7 +7,7 @@
 }
 
 .dashboard-grid {
-  padding: 0 24px 24px 24px;
+  padding: 0 12px 12px 12px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -89,7 +89,7 @@
 .progress-tabs {
   display: flex;
   gap: 8px;
-  padding: 0 24px;
+  padding: 0 12px;
   margin-bottom: 20px;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */

@@ -11,7 +11,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 24px 8px 24px;
+  padding: 24px 12px 8px 12px;
   width: 100%;
 }
 
@@ -122,7 +122,7 @@
 
 /* 2. HealthifyMe Calorie Ring Hub Widget */
 .calorie-summary-widget {
-  margin: 0 24px;
+  margin: 0 12px;
   padding: 20px;
   border-radius: var(--radius-lg);
   background: rgba(21, 29, 44, 0.55);
@@ -296,7 +296,7 @@
 
 /* 3. HealthifyMe Meal Logging Category Rows */
 .tracker-section {
-  padding: 0 24px;
+  padding: 0 12px;
 }
 
 .section-label {
@@ -421,7 +421,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  padding: 0 24px;
+  padding: 0 12px;
 }
 
 .activity-split-card {

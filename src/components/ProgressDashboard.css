@@ -1,6 +1,9 @@
 .progress-dashboard-container {
   padding: 0;
   color: var(--text-main);
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .dashboard-grid {
@@ -90,6 +93,9 @@
   margin-bottom: 20px;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .progress-tabs::-webkit-scrollbar {

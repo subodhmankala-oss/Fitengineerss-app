@@ -253,7 +253,7 @@ function App() {
           const prevName = localStorage.getItem('lastUserName');
           const newName = localStorage.getItem('userName');
           
-          if (prevName && prevName !== newName) {
+          if (!prevName || prevName !== newName) {
             // New user! Preserve onboarding keys but clear all old tracker data & monthly history
             const keysToKeep = [
               'onboardingComplete', 'userName', 'userAge', 'userHeight', 'userWeight', 

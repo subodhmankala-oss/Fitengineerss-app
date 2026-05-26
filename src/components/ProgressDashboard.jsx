@@ -1,30 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import './ProgressDashboard.css';
 
-// Generating clean daily mock data for 30 days
-const generateMockData = () => {
+// Generating clean daily mock data for 30 days dynamically centered around user-specific targets
+const generateMockData = (waterTarget, proteinTarget, fatsTarget, liftingTarget) => {
   const water = [];
   const protein = [];
   const fats = [];
   const lifting = []; // Deadlift 1RM
 
   for (let i = 1; i <= 30; i++) {
-    // Water oscillating between 2.0 and 4.5 L, target is 4.0L
-    const wVal = parseFloat((3.0 + Math.sin(i / 1.5) * 1.0 + Math.random() * 0.4).toFixed(1));
-    water.push({ day: i, val: wVal, target: 4.0 });
+    // Water oscillating around target, target is dynamically calculated in Liters
+    const wVal = parseFloat((waterTarget * 0.8 + Math.sin(i / 1.5) * 0.4 + Math.random() * 0.3).toFixed(1));
+    water.push({ day: i, val: wVal, target: waterTarget });
 
-    // Protein oscillating between 90 and 155 g, target is 130g
-    const pVal = Math.round(115 + Math.cos(i / 2) * 20 + Math.random() * 15);
-    protein.push({ day: i, val: pVal, target: 130 });
+    // Protein oscillating around target
+    const pVal = Math.round(proteinTarget * 0.85 + Math.cos(i / 2) * 15 + Math.random() * 10);
+    protein.push({ day: i, val: pVal, target: proteinTarget });
 
-    // Fats oscillating between 30 and 65 g, target is 50g
-    const fVal = Math.round(42 + Math.sin(i / 3) * 10 + Math.random() * 8);
-    fats.push({ day: i, val: fVal, target: 50 });
+    // Fats oscillating around target
+    const fVal = Math.round(fatsTarget * 0.85 + Math.sin(i / 3) * 6 + Math.random() * 4);
+    fats.push({ day: i, val: fVal, target: fatsTarget });
 
     // Lifting displaying steady progressive overload! 90kg -> 125kg
-    const baseL = 90 + Math.floor(i / 4) * 5;
+    const baseL = liftingTarget * 0.9 + Math.floor(i / 4) * 5;
     const lVal = baseL + (i % 4 === 0 ? 2 : 0) + Math.floor(Math.random() * 3);
-    lifting.push({ day: i, val: lVal, target: 100 });
+    lifting.push({ day: i, val: lVal, target: liftingTarget });
   }
 
   return { water, protein, fats, lifting };
@@ -36,6 +36,20 @@ const ProgressDashboard = () => {
   const [data, setData] = useState(null);
 
   useEffect(() => {
+    const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
+    const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
+    const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '130');
+    const userFatsTarget = parseInt(localStorage.getItem('userFatsTarget') || '60');
+    const steps = parseInt(localStorage.getItem('userSyncedSteps') || '0');
+
+    // Dynamic water target (in Liters) matching HomeTracker formula
+    const baseCalorieGlasses = calorieTarget / 250;
+    const baseWeightGlasses = (userWeight * 35) / 250;
+    const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
+    const stepBooster = Math.floor(steps / 3000);
+    const proteinBooster = userProteinTarget > 100 ? 1 : 0;
+    const waterTargetLiters = (Math.max(6, baselineTarget + stepBooster + proteinBooster)) * 0.25;
+
     let history = null;
     const storedHistory = localStorage.getItem('monthlyProgressHistory');
     if (storedHistory) {
@@ -47,7 +61,7 @@ const ProgressDashboard = () => {
     }
     
     if (!history) {
-      history = generateMockData();
+      history = generateMockData(waterTargetLiters, userProteinTarget, userFatsTarget, 100);
       localStorage.setItem('monthlyProgressHistory', JSON.stringify(history));
     }
     
@@ -59,23 +73,29 @@ const ProgressDashboard = () => {
     const waterL = waterGl * 0.25;
     
     const eatenCals = parseInt(localStorage.getItem('userLoggedCalories') || '0');
-    const proteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '130');
-    const budget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
     
     let loggedProt = parseInt(localStorage.getItem('userLoggedProtein') || '0');
     if (loggedProt === 0 && eatenCals > 0) {
-      loggedProt = Math.round(proteinTarget * (eatenCals / budget));
+      loggedProt = Math.round(userProteinTarget * (eatenCals / calorieTarget));
     }
     
     let loggedFat = parseInt(localStorage.getItem('userLoggedFats') || '0');
     if (loggedFat === 0 && eatenCals > 0) {
-      const fatsTarget = parseInt(localStorage.getItem('userFatsTarget') || '60');
-      loggedFat = Math.round(fatsTarget * (eatenCals / budget));
+      loggedFat = Math.round(userFatsTarget * (eatenCals / calorieTarget));
     }
     
-    if (history.water[todayIdx]) history.water[todayIdx].val = waterL;
-    if (history.protein[todayIdx]) history.protein[todayIdx].val = loggedProt;
-    if (history.fats[todayIdx]) history.fats[todayIdx].val = loggedFat;
+    if (history.water[todayIdx]) {
+      history.water[todayIdx].val = waterL;
+      history.water[todayIdx].target = waterTargetLiters;
+    }
+    if (history.protein[todayIdx]) {
+      history.protein[todayIdx].val = loggedProt;
+      history.protein[todayIdx].target = userProteinTarget;
+    }
+    if (history.fats[todayIdx]) {
+      history.fats[todayIdx].val = loggedFat;
+      history.fats[todayIdx].target = userFatsTarget;
+    }
     
     setData(history);
   }, []);

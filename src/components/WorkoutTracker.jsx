@@ -284,10 +284,11 @@ const presetExercises = [
 ];
 
 const WorkoutTracker = () => {
+  const loggedInUser = localStorage.getItem('userName') || 'Warrior';
   const [activeView, setActiveView] = useState('analytics'); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
-  const [selectedClient, setSelectedClient] = useState('Sridhar');
+  const [selectedClient, setSelectedClient] = useState(loggedInUser);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
   const [chartMetric, setChartMetric] = useState('weight'); // 'weight' or 'volume'
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(4);
@@ -320,7 +321,7 @@ const WorkoutTracker = () => {
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
 
   // Coach Log Form States
-  const [logClient, setLogClient] = useState('Sridhar');
+  const [logClient, setLogClient] = useState(loggedInUser);
   const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
   const [logExercises, setLogExercises] = useState([
     { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
@@ -330,6 +331,8 @@ const WorkoutTracker = () => {
   ]);
 
   useEffect(() => {
+    const loggedInUser = localStorage.getItem('userName') || 'Warrior';
+    
     // Hydrate sessions
     const stored = localStorage.getItem('workoutSessions');
     if (stored) {
@@ -337,18 +340,57 @@ const WorkoutTracker = () => {
       setSessions(parsed);
       setSelectedSessionIndex(parsed.length - 1);
     } else {
-      localStorage.setItem('workoutSessions', JSON.stringify(defaultHistoricalSessions));
-      setSessions(defaultHistoricalSessions);
-      setSelectedSessionIndex(defaultHistoricalSessions.length - 1);
+      // Map historical data to the logged-in user dynamically so they see their own personalized charts
+      const freshSessions = defaultHistoricalSessions.map(s => ({
+        ...s,
+        clientName: loggedInUser
+      }));
+      localStorage.setItem('workoutSessions', JSON.stringify(freshSessions));
+      setSessions(freshSessions);
+      setSelectedSessionIndex(freshSessions.length - 1);
     }
 
     // Hydrate profiles
     const storedProfiles = localStorage.getItem('workoutClientProfiles');
     if (storedProfiles) {
-      setClientProfiles(JSON.parse(storedProfiles));
+      const parsedProfiles = JSON.parse(storedProfiles);
+      // Ensure the logged in user has a profile in the list
+      const hasProfile = parsedProfiles.some(p => p.clientName.toLowerCase() === loggedInUser.toLowerCase());
+      if (!hasProfile) {
+        const onboardingGoal = localStorage.getItem('userGoal') || 'Gut Fix';
+        const activeProgramMap = {
+          'Fat Loss': 'Caloric Deficit Conditioning',
+          'Muscle Building': 'Hypertrophy Surge',
+          'Gut Fix': 'Body Weights & Dumbbells'
+        };
+        const programName = activeProgramMap[onboardingGoal] || 'Body Weights & Dumbbells';
+        const matchedProg = availablePrograms.find(ap => ap.name === programName) || availablePrograms[0];
+        
+        parsedProfiles.unshift({
+          clientName: loggedInUser,
+          activeProgram: matchedProg.name,
+          totalSessions: matchedProg.sessions
+        });
+        localStorage.setItem('workoutClientProfiles', JSON.stringify(parsedProfiles));
+      }
+      setClientProfiles(parsedProfiles);
     } else {
-      localStorage.setItem('workoutClientProfiles', JSON.stringify(defaultClientProfiles));
-      setClientProfiles(defaultClientProfiles);
+      const onboardingGoal = localStorage.getItem('userGoal') || 'Gut Fix';
+      const activeProgramMap = {
+        'Fat Loss': 'Caloric Deficit Conditioning',
+        'Muscle Building': 'Hypertrophy Surge',
+        'Gut Fix': 'Body Weights & Dumbbells'
+      };
+      const programName = activeProgramMap[onboardingGoal] || 'Body Weights & Dumbbells';
+      const matchedProg = availablePrograms.find(ap => ap.name === programName) || availablePrograms[0];
+
+      const freshProfiles = [
+        { clientName: loggedInUser, activeProgram: matchedProg.name, totalSessions: matchedProg.sessions },
+        { clientName: 'Sridhar', activeProgram: 'Body Weights & Dumbbells', totalSessions: 12 },
+        { clientName: 'Generic Client', activeProgram: 'Hypertrophy Surge', totalSessions: 24 }
+      ];
+      localStorage.setItem('workoutClientProfiles', JSON.stringify(freshProfiles));
+      setClientProfiles(freshProfiles);
     }
   }, []);
 
@@ -852,7 +894,7 @@ const WorkoutTracker = () => {
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
           onClick={() => setActiveView('log')}
         >
-          📝 Coach logging
+          📝 Count your Reps & Weights
         </button>
       </div>
 
@@ -867,7 +909,7 @@ const WorkoutTracker = () => {
                   <h4>Renew Session Package</h4>
                   <p>
                     {remainingSessionsCount === 0 
-                      ? `Sridhar has finished all purchased sessions! Please renew now.`
+                      ? `${selectedClient} has finished all purchased sessions! Please renew now.`
                       : `Only ${remainingSessionsCount} sessions left in your "${activeProfile.activeProgram}" package!`
                     }
                   </p>
@@ -890,11 +932,15 @@ const WorkoutTracker = () => {
                   value={selectedClient} 
                   onChange={(e) => {
                     setSelectedClient(e.target.value);
-                    setSelectedSessionIndex(0);
+                    const clientSessionsCount = sessions.filter(s => s.clientName.toLowerCase() === e.target.value.toLowerCase()).length;
+                    setSelectedSessionIndex(Math.max(0, clientSessionsCount - 1));
                   }}
                 >
-                  <option value="Sridhar">Sridhar (Body Weights Dumbbells)</option>
-                  <option value="Generic Client">Custom Client</option>
+                  {clientProfiles.map(p => (
+                    <option key={p.clientName} value={p.clientName}>
+                      {p.clientName} ({p.activeProgram})
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -1261,7 +1307,7 @@ const WorkoutTracker = () => {
                 value={logClient} 
                 onChange={(e) => setLogClient(e.target.value)} 
                 required 
-                placeholder="e.g. Sridhar"
+                placeholder={`e.g. ${loggedInUser}`}
               />
             </div>
             <div className="input-group">

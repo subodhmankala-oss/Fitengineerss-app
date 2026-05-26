@@ -12,7 +12,7 @@ const Navbar = ({ activeTab, setActiveTab }) => {
     <navbar className="navbar">
       <div className="navbar-container">
         <div className="brand" onClick={() => setActiveTab('dashboard')}>
-          <span className="brand-logo">FE</span>
+          <img src="/logo.png" className="brand-logo-img" alt="Fitengineers Logo" />
           <span className="brand-name">Fitengineerss</span>
         </div>
         

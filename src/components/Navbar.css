@@ -28,18 +28,12 @@
   transform: scale(1.05);
 }
 
-.brand-logo {
-  background: linear-gradient(135deg, var(--primary-accent), #00b35f);
-  color: #000;
-  font-weight: 800;
-  font-size: 1.2rem;
+.brand-logo-img {
   width: 40px;
   height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: contain;
   border-radius: 10px;
-  box-shadow: 0 0 15px var(--primary-accent-glow);
+  filter: drop-shadow(0 0 10px var(--primary-accent-glow));
 }
 
 .brand-name {

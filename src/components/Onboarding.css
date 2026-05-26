@@ -255,3 +255,18 @@
   line-height: 1.5;
   text-align: center;
 }
+
+.onboarding-logo {
+  width: clamp(70px, 18vw, 90px);
+  height: clamp(70px, 18vw, 90px);
+  object-fit: contain;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.25));
+  animation: logo-pulsate 3s infinite ease-in-out;
+}
+
+@keyframes logo-pulsate {
+  0% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.25)); }
+  50% { transform: scale(1.03); filter: drop-shadow(0 0 25px rgba(16, 185, 129, 0.45)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.25)); }
+}

@@ -98,6 +98,7 @@ const Onboarding = ({ onComplete }) => {
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
+        <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
         <h2 className="glow-text">Fitengineers App Setup</h2>
         <div className="step-bar">
           <div className="step-progress" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}></div>

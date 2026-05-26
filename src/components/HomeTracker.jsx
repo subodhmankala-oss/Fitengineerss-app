@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import SmartReminders from './SmartReminders';
+import MealScanner from './MealScanner';
 import './HomeTracker.css';
 
 const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const [userName, setUserName] = useState('Warrior');
   const [calorieBudget, setCalorieBudget] = useState(1800);
+  const [showScanner, setShowScanner] = useState(false);
   const [score, setScore] = useState(6);
   const [checks, setChecks] = useState({
     phone: true,
@@ -145,6 +147,19 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
     // Notify any open page (SmartMealPlans, NutritionTracker) to sync
     window.dispatchEvent(new Event('nutritionUpdated'));
 
+    const loadMeals = () => {
+      const savedBfast = localStorage.getItem('homeMealBreakfast');
+      const savedLch   = localStorage.getItem('homeMealLunch');
+      const savedDnr   = localStorage.getItem('homeMealDinner');
+      const savedSnk   = localStorage.getItem('homeMealSnacks');
+      setMeals({
+        breakfast: savedBfast !== null ? parseInt(savedBfast) : 0,
+        lunch:     savedLch     !== null ? parseInt(savedLch)     : 0,
+        dinner:    savedDnr    !== null ? parseInt(savedDnr)    : 0,
+        snacks:    savedSnk    !== null ? parseInt(savedSnk)    : 0,
+      });
+    };
+
     const loadWater = () => {
       const storedWater = localStorage.getItem('waterGlasses');
       if (storedWater) {
@@ -175,10 +190,12 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
 
     window.addEventListener('waterUpdated', loadWater);
     window.addEventListener('stepsUpdated', loadSteps);
+    window.addEventListener('nutritionUpdated', loadMeals);
 
     return () => {
       window.removeEventListener('waterUpdated', loadWater);
       window.removeEventListener('stepsUpdated', loadSteps);
+      window.removeEventListener('nutritionUpdated', loadMeals);
     };
   }, []);
 
@@ -354,6 +371,23 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
             </span>
+          </button>
+          <button 
+            className="btn-logout scanner-btn" 
+            onClick={() => setShowScanner(true)} 
+            title="Scan Meal & Calories"
+            style={{
+              color: '#3b82f6',
+              borderColor: 'rgba(59, 130, 246, 0.3)',
+              background: 'rgba(59, 130, 246, 0.08)',
+              boxShadow: '0 0 10px rgba(59, 130, 246, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span className="icon">📸</span>
           </button>
           <button className="btn-logout" onClick={handleLogout} title="Reset Profile">
             <span className="icon">⚙️</span>
@@ -632,6 +666,7 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
       </div>
 
       <SmartReminders />
+      {showScanner && <MealScanner onClose={() => setShowScanner(false)} />}
     </div>
   );
 };

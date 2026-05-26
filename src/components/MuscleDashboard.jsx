@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import SmartReminders from './SmartReminders';
+import MealScanner from './MealScanner';
 import './MuscleDashboard.css';
 
 const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
   const [userName, setUserName] = useState('Warrior');
   const [calorieBudget, setCalorieBudget] = useState(2500);
+  const [showScanner, setShowScanner] = useState(false);
   const [score, setScore] = useState(8);
   const [checks, setChecks] = useState({
     protein: true,
@@ -143,6 +145,19 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
     localStorage.setItem('userLoggedCalories', initTotal.toString());
     window.dispatchEvent(new Event('nutritionUpdated'));
 
+    const loadMeals = () => {
+      const savedBfast = localStorage.getItem('homeMealBreakfast');
+      const savedLch   = localStorage.getItem('homeMealLunch');
+      const savedDnr   = localStorage.getItem('homeMealDinner');
+      const savedSnk   = localStorage.getItem('homeMealSnacks');
+      setMeals({
+        breakfast: savedBfast !== null ? parseInt(savedBfast) : 0,
+        lunch:     savedLch     !== null ? parseInt(savedLch)     : 0,
+        dinner:    savedDnr    !== null ? parseInt(savedDnr)    : 0,
+        snacks:    savedSnk    !== null ? parseInt(savedSnk)    : 0,
+      });
+    };
+
     const loadWater = () => {
       const storedWater = localStorage.getItem('waterGlasses');
       if (storedWater) {
@@ -173,10 +188,12 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
 
     window.addEventListener('waterUpdated', loadWater);
     window.addEventListener('stepsUpdated', loadSteps);
+    window.addEventListener('nutritionUpdated', loadMeals);
 
     return () => {
       window.removeEventListener('waterUpdated', loadWater);
       window.removeEventListener('stepsUpdated', loadSteps);
+      window.removeEventListener('nutritionUpdated', loadMeals);
     };
   }, []);
 
@@ -347,6 +364,23 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
             </span>
+          </button>
+          <button 
+            className="btn-logout scanner-btn" 
+            onClick={() => setShowScanner(true)} 
+            title="Scan Meal & Calories"
+            style={{
+              color: '#fb8c00',
+              borderColor: 'rgba(251, 140, 0, 0.3)',
+              background: 'rgba(251, 140, 0, 0.08)',
+              boxShadow: '0 0 10px rgba(251, 140, 0, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span className="icon">📸</span>
           </button>
           <button className="btn-logout" onClick={handleLogout} title="Reset Profile">
             <span className="icon">⚙️</span>
@@ -625,6 +659,7 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
       </div>
 
       <SmartReminders />
+      {showScanner && <MealScanner onClose={() => setShowScanner(false)} />}
     </div>
   );
 };

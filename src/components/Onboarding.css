@@ -1,13 +1,24 @@
 .onboarding-container {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  height: 100vh;
+  height: 100%;
+  width: 100%;
   padding: 24px;
+  padding-top: clamp(24px, 6vh, 48px);
+  padding-bottom: 40px;
   background-color: #0f172a;
   color: white;
   text-align: center;
+  overflow-y: auto;
+  box-sizing: border-box;
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.onboarding-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 
 .onboarding-container h2 {

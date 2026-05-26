@@ -13,25 +13,41 @@ import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
 import './index.css'; 
 
+const getDynamicTargets = () => {
+  const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
+  const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
+  const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '130');
+  const userFatsTarget = parseInt(localStorage.getItem('userFatsTarget') || '60');
+  const steps = parseInt(localStorage.getItem('userSyncedSteps') || '0');
+
+  // Dynamic water target matching HomeTracker calculations
+  const baseCalorieGlasses = calorieTarget / 250;
+  const baseWeightGlasses = (userWeight * 35) / 250;
+  const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
+  const stepBooster = Math.floor(steps / 3000);
+  const proteinBooster = userProteinTarget > 100 ? 1 : 0;
+  const waterTargetLiters = Math.max(6, baselineTarget + stepBooster + proteinBooster) * 0.25;
+
+  return {
+    waterTarget: waterTargetLiters,
+    proteinTarget: userProteinTarget,
+    fatsTarget: userFatsTarget,
+    liftingTarget: 100
+  };
+};
+
 const generateProgressMockData = () => {
+  const targets = getDynamicTargets();
   const water = [];
   const protein = [];
   const fats = [];
   const lifting = [];
 
   for (let i = 1; i <= 30; i++) {
-    const wVal = parseFloat((3.0 + Math.sin(i / 1.5) * 1.0 + Math.random() * 0.4).toFixed(1));
-    water.push({ day: i, val: wVal, target: 4.0 });
-
-    const pVal = Math.round(115 + Math.cos(i / 2) * 20 + Math.random() * 15);
-    protein.push({ day: i, val: pVal, target: 130 });
-
-    const fVal = Math.round(42 + Math.sin(i / 3) * 10 + Math.random() * 8);
-    fats.push({ day: i, val: fVal, target: 50 });
-
-    const baseL = 90 + Math.floor(i / 4) * 5;
-    const lVal = baseL + (i % 4 === 0 ? 2 : 0) + Math.floor(Math.random() * 3);
-    lifting.push({ day: i, val: lVal, target: 100 });
+    water.push({ day: i, val: 0.0, target: targets.waterTarget });
+    protein.push({ day: i, val: 0, target: targets.proteinTarget });
+    fats.push({ day: i, val: 0, target: targets.fatsTarget });
+    lifting.push({ day: i, val: 0.0, target: targets.liftingTarget });
   }
 
   return { water, protein, fats, lifting };
@@ -300,6 +316,14 @@ function App() {
             Object.keys(tempStorage).forEach(k => {
               if (tempStorage[k] !== null) localStorage.setItem(k, tempStorage[k]);
             });
+
+            // Explicitly generate and save fresh zero-baseline progress history using the new user's targets!
+            const freshHistory = generateProgressMockData();
+            localStorage.setItem('monthlyProgressHistory', JSON.stringify(freshHistory));
+
+            // Set lastSavedDate to today to prime rollover checks correctly
+            const todayStr = new Date().toDateString();
+            localStorage.setItem('lastSavedDate', todayStr);
           } else {
             // Same user logged back in! Check if date changed
             const lastSavedDate = localStorage.getItem('lastSavedDate');

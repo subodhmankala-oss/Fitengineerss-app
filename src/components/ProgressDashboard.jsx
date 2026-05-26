@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './ProgressDashboard.css';
 
-// Generating clean daily mock data for 30 days dynamically centered around user-specific targets
+// Generating clean daily initial data for 30 days dynamically centered around user-specific targets (starts at 0 for fresh user dashboard)
 const generateMockData = (waterTarget, proteinTarget, fatsTarget, liftingTarget) => {
   const water = [];
   const protein = [];
@@ -9,22 +9,10 @@ const generateMockData = (waterTarget, proteinTarget, fatsTarget, liftingTarget)
   const lifting = []; // Deadlift 1RM
 
   for (let i = 1; i <= 30; i++) {
-    // Water oscillating around target, target is dynamically calculated in Liters
-    const wVal = parseFloat((waterTarget * 0.8 + Math.sin(i / 1.5) * 0.4 + Math.random() * 0.3).toFixed(1));
-    water.push({ day: i, val: wVal, target: waterTarget });
-
-    // Protein oscillating around target
-    const pVal = Math.round(proteinTarget * 0.85 + Math.cos(i / 2) * 15 + Math.random() * 10);
-    protein.push({ day: i, val: pVal, target: proteinTarget });
-
-    // Fats oscillating around target
-    const fVal = Math.round(fatsTarget * 0.85 + Math.sin(i / 3) * 6 + Math.random() * 4);
-    fats.push({ day: i, val: fVal, target: fatsTarget });
-
-    // Lifting displaying steady progressive overload! 90kg -> 125kg
-    const baseL = liftingTarget * 0.9 + Math.floor(i / 4) * 5;
-    const lVal = baseL + (i % 4 === 0 ? 2 : 0) + Math.floor(Math.random() * 3);
-    lifting.push({ day: i, val: lVal, target: liftingTarget });
+    water.push({ day: i, val: 0.0, target: waterTarget });
+    protein.push({ day: i, val: 0, target: proteinTarget });
+    fats.push({ day: i, val: 0, target: fatsTarget });
+    lifting.push({ day: i, val: 0.0, target: liftingTarget });
   }
 
   return { water, protein, fats, lifting };

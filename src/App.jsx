@@ -200,6 +200,54 @@ const loadActiveUserCache = (userName) => {
   window.dispatchEvent(new Event('nutritionUpdated'));
 };
 
+const registerForPushNotifications = async (userName) => {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('Push notifications are not supported in this browser.');
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      // Generated VAPID Public Key
+      const vapidPublicKey = 'BIupVfv6kg0G6uCsUWYciNynMR5xs6F3dl3QWXjRWGFkfZzvBPClM_FSLCEInVTDF0wtMkk5sDfbmWH1b2RMuqk';
+      
+      const convertVapidKey = (base64String) => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
+      const convertedKey = convertVapidKey(vapidPublicKey);
+
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey
+      });
+    }
+
+    // Register with backend Vercel API
+    await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userName: userName || 'Warrior',
+        subscription: subscription
+      })
+    });
+    console.log('Registered with Vercel Web Push backend for lock-screen nudges.');
+  } catch (err) {
+    console.error('Push subscription failed:', err);
+  }
+};
+
 function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
@@ -272,6 +320,13 @@ function App() {
     window.addEventListener('notificationPermissionChanged', handlePermissionSync);
     return () => window.removeEventListener('notificationPermissionChanged', handlePermissionSync);
   }, []);
+
+  useEffect(() => {
+    const userName = localStorage.getItem('userName');
+    if (notificationPermission === 'granted' && userName) {
+      registerForPushNotifications(userName);
+    }
+  }, [notificationPermission, onboardingComplete]);
 
   // ── Global Push Notifications Background Service ──
   useEffect(() => {

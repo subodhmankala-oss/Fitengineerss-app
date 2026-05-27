@@ -2,7 +2,41 @@ import React, { useState, useEffect } from 'react';
 import './SmartMealPlans.css';
 
 // ─────────────────────────────────────────────────────────────
-//  VEGETARIAN MEAL PLAN
+//  NUTRITIONAL RATIO DISTRIBUTION CONSTANTS
+// ─────────────────────────────────────────────────────────────
+const MEAL_RATIOS = {
+  breakfast: { calories: 0.28, protein: 0.25, carbs: 0.35, fats: 0.25 },
+  lunch:     { calories: 0.35, protein: 0.35, carbs: 0.35, fats: 0.30 },
+  snack:     { calories: 0.15, protein: 0.15, carbs: 0.15, fats: 0.20 },
+  dinner:    { calories: 0.22, protein: 0.25, carbs: 0.15, fats: 0.25 }
+};
+
+// Returns exact, mathematically balanced macros for a given meal
+const getDistributedMacros = (mealId, userTargets) => {
+  if (mealId === 'dinner') {
+    const b = getDistributedMacros('breakfast', userTargets);
+    const l = getDistributedMacros('lunch', userTargets);
+    const s = getDistributedMacros('snack', userTargets);
+    
+    return {
+      calories: Math.max(0, userTargets.calories - b.calories - l.calories - s.calories),
+      protein:  Math.max(0, userTargets.protein - b.protein - l.protein - s.protein),
+      carbs:    Math.max(0, userTargets.carbs - b.carbs - l.carbs - s.carbs),
+      fats:     Math.max(0, userTargets.fats - b.fats - l.fats - s.fats),
+    };
+  }
+  
+  const ratio = MEAL_RATIOS[mealId];
+  return {
+    calories: Math.round(userTargets.calories * ratio.calories),
+    protein:  Math.round(userTargets.protein * ratio.protein),
+    carbs:    Math.round(userTargets.carbs * ratio.carbs),
+    fats:     Math.round(userTargets.fats * ratio.fats),
+  };
+};
+
+// ─────────────────────────────────────────────────────────────
+//  VEGETARIAN BASE MEAL PLAN (PORTIONS AUTO-SCALE TO TARGETS)
 // ─────────────────────────────────────────────────────────────
 const VEG_MEAL_PLAN = [
   {
@@ -16,26 +50,26 @@ const VEG_MEAL_PLAN = [
       name: 'Poha with Peanuts',
       description: 'Light, gut-friendly, easy to digest. Provides steady energy without blood sugar crash.',
       ingredients: [
-        { item: 'Flattened Rice (Poha)', amount: '80g dry', icon: '🌾' },
-        { item: 'Roasted Peanuts', amount: '30g', icon: '🥜' },
+        { item: 'Flattened Rice (Poha)', baseAmount: 80, unit: 'g dry', icon: '🌾' },
+        { item: 'Roasted Peanuts', baseAmount: 30, unit: 'g', icon: '🥜' },
+        { item: 'Coconut (grated)', baseAmount: 10, unit: 'g', icon: '🥥' },
         { item: 'Curry Leaves + Mustard', amount: '1 tsp', icon: '🌿' },
         { item: 'Green Chilli', amount: '1 small', icon: '🌶️' },
-        { item: 'Coconut (grated)', amount: '10g', icon: '🥥' },
       ],
-      macros: { protein: 14, carbs: 58, fats: 9, calories: 370 },
+      macros: { calories: 370 }, // Base reference for scaling
       tip: '💡 Add lemon juice before eating to enhance iron absorption.',
     },
     swapMeal: {
       name: 'Moong Dal Chilla',
       description: 'High protein, savory green moong pancakes. Great for satiety and muscle repair.',
       ingredients: [
-        { item: 'Green Moong Dal (soaked)', amount: '100g', icon: '🫘' },
+        { item: 'Green Moong Dal (soaked)', baseAmount: 100, unit: 'g', icon: '🫘' },
+        { item: 'Paneer (crumbled filling)', baseAmount: 40, unit: 'g', icon: '🧀' },
+        { item: 'Ghee (for cooking)', baseAmount: 5, unit: 'g (1 tsp)', icon: '🫙' },
         { item: 'Onion + Tomato', amount: '50g', icon: '🧅' },
         { item: 'Ginger-Garlic Paste', amount: '1 tsp', icon: '🧄' },
-        { item: 'Paneer (crumbled, filling)', amount: '40g', icon: '🧀' },
-        { item: 'Ghee (for cooking)', amount: '5g (1 tsp)', icon: '🫙' },
       ],
-      macros: { protein: 22, carbs: 38, fats: 8, calories: 315 },
+      macros: { calories: 315 },
       tip: '💡 Soak moong dal overnight for better digestion.',
     },
   },
@@ -50,28 +84,28 @@ const VEG_MEAL_PLAN = [
       name: 'Paneer Butter Masala + 2 Roti',
       description: 'Rich in protein and healthy fats. Paneer is a complete vegetarian protein source.',
       ingredients: [
-        { item: 'Paneer (cubed)', amount: '150g', icon: '🧀' },
-        { item: 'Whole Wheat Roti', amount: '2 rotis (~60g each)', icon: '🫓' },
+        { item: 'Paneer (cubed)', baseAmount: 150, unit: 'g', icon: '🧀' },
+        { item: 'Whole Wheat Roti', baseAmount: 2, unit: ' rotis', icon: '🫓' },
+        { item: 'Ghee / Butter', baseAmount: 10, unit: 'g (2 tsp)', icon: '🫙' },
+        { item: 'Cream (low fat)', baseAmount: 20, unit: 'ml', icon: '🥛' },
         { item: 'Tomato Gravy Base', amount: '100g purée', icon: '🍅' },
         { item: 'Onion', amount: '50g', icon: '🧅' },
-        { item: 'Ghee / Butter', amount: '10g (2 tsp)', icon: '🫙' },
-        { item: 'Cream (low fat)', amount: '20ml', icon: '🥛' },
       ],
-      macros: { protein: 32, carbs: 65, fats: 18, calories: 550 },
+      macros: { calories: 550 },
       tip: '💡 Chew each bite 20–25 times for better gut digestion.',
     },
     swapMeal: {
       name: 'Tofu Stir Fry + Brown Rice',
       description: 'Dairy-free powerhouse. Excellent if paneer causes bloating or gas.',
       ingredients: [
-        { item: 'Firm Tofu', amount: '180g', icon: '🫙' },
-        { item: 'Brown Rice (cooked)', amount: '150g (¾ cup)', icon: '🍚' },
+        { item: 'Firm Tofu', baseAmount: 180, unit: 'g', icon: '🫙' },
+        { item: 'Brown Rice (cooked)', baseAmount: 150, unit: 'g (¾ cup)', icon: '🍚' },
+        { item: 'Olive Oil', baseAmount: 8, unit: 'g (2 tsp)', icon: '🫒' },
         { item: 'Bell Peppers + Onion', amount: '80g mixed', icon: '🫑' },
         { item: 'Soy Sauce (low sodium)', amount: '1 tbsp', icon: '🧂' },
-        { item: 'Olive Oil', amount: '8g (2 tsp)', icon: '🫒' },
         { item: 'Garlic', amount: '3 cloves', icon: '🧄' },
       ],
-      macros: { protein: 28, carbs: 58, fats: 12, calories: 460 },
+      macros: { calories: 460 },
       tip: '💡 Press tofu dry before cooking to improve texture and protein density.',
     },
   },
@@ -86,24 +120,24 @@ const VEG_MEAL_PLAN = [
       name: 'Greek Yoghurt with Fruits',
       description: 'Probiotic-rich snack supporting gut bacteria. Keeps hunger at bay before dinner.',
       ingredients: [
-        { item: 'Greek Yoghurt (full fat)', amount: '150g', icon: '🥛' },
-        { item: 'Mixed Berries / Banana', amount: '80g', icon: '🍓' },
-        { item: 'Sunflower Seeds', amount: '10g', icon: '🌻' },
-        { item: 'Honey (optional)', amount: '5g (1 tsp)', icon: '🍯' },
+        { item: 'Greek Yoghurt (full fat)', baseAmount: 150, unit: 'g', icon: '🥛' },
+        { item: 'Mixed Berries / Banana', baseAmount: 80, unit: 'g', icon: '🍓' },
+        { item: 'Sunflower Seeds', baseAmount: 10, unit: 'g', icon: '🌻' },
+        { item: 'Honey (optional)', baseAmount: 5, unit: 'g (1 tsp)', icon: '🍯' },
       ],
-      macros: { protein: 15, carbs: 22, fats: 5, calories: 195 },
+      macros: { calories: 195 },
       tip: '💡 Eat 30 min before workout for peak performance energy.',
     },
     swapMeal: {
       name: 'Roasted Chana + Mixed Nuts',
       description: 'High fiber, high protein snack that stabilizes blood sugar between meals.',
       ingredients: [
-        { item: 'Roasted Chana (chickpeas)', amount: '50g', icon: '🫘' },
-        { item: 'Almonds', amount: '15g (10 pieces)', icon: '🫚' },
-        { item: 'Walnuts', amount: '10g (3 pieces)', icon: '🥜' },
+        { item: 'Roasted Chana', baseAmount: 50, unit: 'g', icon: '🫘' },
+        { item: 'Almonds', baseAmount: 15, unit: 'g (10 pcs)', icon: '🫚' },
+        { item: 'Walnuts', baseAmount: 10, unit: 'g (3 pcs)', icon: '🥜' },
         { item: 'Black Raisins', amount: '15g', icon: '🍇' },
       ],
-      macros: { protein: 13, carbs: 28, fats: 12, calories: 270 },
+      macros: { calories: 270 },
       tip: '💡 Walnuts contain omega-3s that reduce gut inflammation.',
     },
   },
@@ -118,33 +152,33 @@ const VEG_MEAL_PLAN = [
       name: 'Dal Tadka + Steamed Rice',
       description: 'Easy to digest complete protein pairing. Dal + rice provides all essential amino acids.',
       ingredients: [
-        { item: 'Yellow Toor Dal (raw)', amount: '80g', icon: '🫘' },
-        { item: 'Basmati Rice (raw)', amount: '60g (¼ cup dry)', icon: '🍚' },
-        { item: 'Ghee (tadka)', amount: '8g (2 tsp)', icon: '🫙' },
+        { item: 'Yellow Toor Dal (raw)', baseAmount: 80, unit: 'g', icon: '🫘' },
+        { item: 'Basmati Rice (raw)', baseAmount: 60, unit: 'g dry', icon: '🍚' },
+        { item: 'Ghee (tadka)', baseAmount: 8, unit: 'g (2 tsp)', icon: '🫙' },
         { item: 'Cumin + Mustard Seeds', amount: '1 tsp each', icon: '🌿' },
         { item: 'Tomato + Garlic', amount: '40g', icon: '🍅' },
       ],
-      macros: { protein: 22, carbs: 72, fats: 8, calories: 450 },
+      macros: { calories: 450 },
       tip: '💡 Eat dal rice at least 2 hrs before bedtime for full digestion cycle.',
     },
     swapMeal: {
       name: 'Palak Paneer + 1 Roti',
       description: 'Iron + protein powerhouse. Spinach aids overnight muscle recovery and reduces inflammation.',
       ingredients: [
-        { item: 'Spinach (palak, blanched)', amount: '150g', icon: '🥬' },
-        { item: 'Paneer (cubed)', amount: '100g', icon: '🧀' },
-        { item: 'Whole Wheat Roti', amount: '1 roti (~60g)', icon: '🫓' },
-        { item: 'Ghee', amount: '5g (1 tsp)', icon: '🫙' },
+        { item: 'Spinach (blanched)', baseAmount: 150, unit: 'g', icon: '🥬' },
+        { item: 'Paneer (cubed)', baseAmount: 100, unit: 'g', icon: '🧀' },
+        { item: 'Whole Wheat Roti', baseAmount: 1, unit: ' roti', icon: '🫓' },
+        { item: 'Ghee', baseAmount: 5, unit: 'g (1 tsp)', icon: '🫙' },
         { item: 'Onion + Tomato masala', amount: '60g', icon: '🧅' },
       ],
-      macros: { protein: 26, carbs: 38, fats: 14, calories: 390 },
+      macros: { calories: 390 },
       tip: '💡 Spinach + paneer = iron + calcium synergy. Great for hormonal balance.',
     },
   },
 ];
 
 // ─────────────────────────────────────────────────────────────
-//  NON-VEGETARIAN MEAL PLAN
+//  NON-VEGETARIAN BASE MEAL PLAN (PORTIONS AUTO-SCALE TO TARGETS)
 // ─────────────────────────────────────────────────────────────
 const NONVEG_MEAL_PLAN = [
   {
@@ -158,25 +192,25 @@ const NONVEG_MEAL_PLAN = [
       name: 'Scrambled Eggs + Oats',
       description: 'High protein breakfast with complex carbs. Ideal combo for sustained energy all morning.',
       ingredients: [
-        { item: 'Whole Eggs', amount: '3 eggs (~150g)', icon: '🥚' },
-        { item: 'Rolled Oats (cooked)', amount: '60g dry', icon: '🌾' },
-        { item: 'Milk (for oats)', amount: '150ml', icon: '🥛' },
-        { item: 'Butter / Ghee (eggs)', amount: '5g (1 tsp)', icon: '🫙' },
+        { item: 'Whole Eggs', baseAmount: 3, unit: ' eggs (~150g)', icon: '🥚' },
+        { item: 'Rolled Oats (cooked)', baseAmount: 60, unit: 'g dry', icon: '🌾' },
+        { item: 'Milk (for oats)', baseAmount: 150, unit: 'ml', icon: '🥛' },
+        { item: 'Butter / Ghee (eggs)', baseAmount: 5, unit: 'g (1 tsp)', icon: '🫙' },
         { item: 'Salt + Black Pepper', amount: 'to taste', icon: '🧂' },
       ],
-      macros: { protein: 28, carbs: 42, fats: 16, calories: 425 },
+      macros: { calories: 425 },
       tip: '💡 Add spinach to scrambled eggs for a gut-healing micronutrient boost.',
     },
     swapMeal: {
       name: 'Egg White Omelette + Toast',
       description: 'High protein, low fat. Ideal for cutting phase or mornings before cardio.',
       ingredients: [
-        { item: 'Egg Whites', amount: '4 whites (~140g)', icon: '🥚' },
-        { item: 'Whole Wheat Toast', amount: '2 slices (~70g)', icon: '🍞' },
-        { item: 'Capsicum + Onion', amount: '60g', icon: '🫑' },
-        { item: 'Olive Oil (for pan)', amount: '5g (1 tsp)', icon: '🫒' },
+        { item: 'Egg Whites', baseAmount: 4, unit: ' whites (~140g)', icon: '🥚' },
+        { item: 'Whole Wheat Toast', baseAmount: 2, unit: ' slices (~70g)', icon: '🍞' },
+        { item: 'Olive Oil (for pan)', baseAmount: 5, unit: 'g (1 tsp)', icon: '🫒' },
+        { item: 'Capsicum + Onion', amount: '60g', icon: '𫛛' },
       ],
-      macros: { protein: 26, carbs: 36, fats: 8, calories: 320 },
+      macros: { calories: 320 },
       tip: '💡 Egg whites are ~92% pure protein — best pre-workout breakfast.',
     },
   },
@@ -191,27 +225,27 @@ const NONVEG_MEAL_PLAN = [
       name: 'Chicken Breast Rice Bowl',
       description: 'The gold-standard fitness meal. Lean protein + slow carbs = anabolic recovery fuel.',
       ingredients: [
-        { item: 'Chicken Breast (boneless)', amount: '200g raw', icon: '🍗' },
-        { item: 'Basmati / Brown Rice (raw)', amount: '80g dry', icon: '🍚' },
+        { item: 'Chicken Breast (boneless)', baseAmount: 200, unit: 'g raw', icon: '🍗' },
+        { item: 'Basmati / Brown Rice (raw)', baseAmount: 80, unit: 'g dry', icon: '🍚' },
+        { item: 'Olive Oil (for cooking)', baseAmount: 8, unit: 'g (2 tsp)', icon: '🫒' },
         { item: 'Cucumber + Onion Salad', amount: '100g', icon: '🥒' },
         { item: 'Lemon Juice', amount: '1 tbsp', icon: '🍋' },
-        { item: 'Olive Oil (for cooking)', amount: '8g (2 tsp)', icon: '🫒' },
         { item: 'Mixed Herbs + Garlic', amount: '1 tsp each', icon: '🌿' },
       ],
-      macros: { protein: 48, carbs: 62, fats: 10, calories: 535 },
+      macros: { calories: 535 },
       tip: '💡 Eat within 60 min post-workout for maximum muscle protein synthesis.',
     },
     swapMeal: {
       name: 'Grilled Salmon + Sweet Potato',
       description: 'Omega-3 rich, anti-inflammatory. Sweet potato provides slow-burning carbs for recovery.',
       ingredients: [
-        { item: 'Salmon Fillet', amount: '180g', icon: '🐟' },
-        { item: 'Sweet Potato (baked)', amount: '150g', icon: '🍠' },
+        { item: 'Salmon Fillet', baseAmount: 180, unit: 'g', icon: '🐟' },
+        { item: 'Sweet Potato (baked)', baseAmount: 150, unit: 'g', icon: '🍠' },
+        { item: 'Olive Oil', baseAmount: 10, unit: 'g (2 tsp)', icon: '🫒' },
         { item: 'Broccoli (steamed)', amount: '100g', icon: '🥦' },
-        { item: 'Olive Oil', amount: '10g (2 tsp)', icon: '🫒' },
         { item: 'Lemon + Herbs', amount: '1 tbsp', icon: '🍋' },
       ],
-      macros: { protein: 42, carbs: 45, fats: 18, calories: 510 },
+      macros: { calories: 510 },
       tip: '💡 Salmon omega-3s reduce DOMS (muscle soreness) by up to 35%.',
     },
   },
@@ -226,24 +260,24 @@ const NONVEG_MEAL_PLAN = [
       name: 'Boiled Eggs + Greek Yoghurt',
       description: 'Complete protein snack with probiotics. Perfect pre-workout fuel combo.',
       ingredients: [
-        { item: 'Whole Eggs (boiled)', amount: '2 eggs (~100g)', icon: '🥚' },
-        { item: 'Greek Yoghurt (full fat)', amount: '120g', icon: '🥛' },
-        { item: 'Mixed Berries', amount: '60g', icon: '🍓' },
+        { item: 'Whole Eggs (boiled)', baseAmount: 2, unit: ' eggs (~100g)', icon: '🥚' },
+        { item: 'Greek Yoghurt (full fat)', baseAmount: 120, unit: 'g', icon: '🥛' },
+        { item: 'Mixed Berries', baseAmount: 60, unit: 'g', icon: '🍓' },
         { item: 'Black Pepper', amount: 'to taste', icon: '🧂' },
       ],
-      macros: { protein: 24, carbs: 14, fats: 12, calories: 265 },
+      macros: { calories: 265 },
       tip: '💡 Eat 45 min before training. Protein + healthy fat = sustained workout energy.',
     },
     swapMeal: {
       name: 'Tuna Salad Wrap',
       description: 'Lean, portable, high-protein snack. Great omega-3 top-up between meals.',
       ingredients: [
-        { item: 'Canned Tuna (in water)', amount: '100g', icon: '🐟' },
-        { item: 'Whole Wheat Wrap', amount: '1 wrap (~40g)', icon: '🫓' },
+        { item: 'Canned Tuna (in water)', baseAmount: 100, unit: 'g', icon: '🐟' },
+        { item: 'Whole Wheat Wrap', baseAmount: 1, unit: ' wrap (~40g)', icon: '🫓' },
+        { item: 'Low-fat Mayo / Mustard', baseAmount: 10, unit: 'g (1 tbsp)', icon: '🧂' },
         { item: 'Lettuce + Tomato', amount: '50g', icon: '🥬' },
-        { item: 'Low-fat Mayo / Mustard', amount: '10g (1 tbsp)', icon: '🧂' },
       ],
-      macros: { protein: 28, carbs: 28, fats: 6, calories: 280 },
+      macros: { calories: 280 },
       tip: '💡 Tuna has 25g protein per 100g with near-zero fat. Ultra-lean.',
     },
   },
@@ -258,34 +292,34 @@ const NONVEG_MEAL_PLAN = [
       name: 'Chicken Tikka + Mint Chutney',
       description: 'Lean protein with minimal carbs. Mint aids evening digestion. Light yet satisfying.',
       ingredients: [
-        { item: 'Chicken Breast (boneless)', amount: '200g', icon: '🍗' },
-        { item: 'Yoghurt (marinade)', amount: '50g', icon: '🥛' },
+        { item: 'Chicken Breast (boneless)', baseAmount: 200, unit: 'g', icon: '🍗' },
+        { item: 'Yoghurt (marinade)', baseAmount: 50, unit: 'g', icon: '🥛' },
+        { item: 'Olive Oil (brush)', baseAmount: 5, unit: 'g (1 tsp)', icon: '🫒' },
         { item: 'Lemon Juice', amount: '2 tbsp', icon: '🍋' },
         { item: 'Tandoori Masala', amount: '2 tsp', icon: '🌶️' },
         { item: 'Mint Chutney', amount: '30g', icon: '🌿' },
-        { item: 'Olive Oil (brush)', amount: '5g (1 tsp)', icon: '🫒' },
       ],
-      macros: { protein: 42, carbs: 8, fats: 8, calories: 278 },
+      macros: { calories: 278 },
       tip: '💡 High protein + low carb dinner = better fat metabolism overnight.',
     },
     swapMeal: {
       name: 'Grilled Fish Tikka + Salad',
       description: 'Omega-3 rich, lighter alternative. Very easy on the gut late at night.',
       ingredients: [
-        { item: 'Rohu / Salmon Fillet', amount: '200g', icon: '🐟' },
+        { item: 'Salmon Fillet', baseAmount: 200, unit: 'g', icon: '🐟' },
+        { item: 'Olive Oil (dressing)', baseAmount: 8, unit: 'g (2 tsp)', icon: '🫒' },
         { item: 'Lemon + Garlic Marinade', amount: '2 tbsp', icon: '🍋' },
         { item: 'Mixed Greens', amount: '100g', icon: '🥬' },
         { item: 'Cucumber + Tomato', amount: '80g', icon: '🥒' },
-        { item: 'Olive Oil (dressing)', amount: '8g (2 tsp)', icon: '🫒' },
       ],
-      macros: { protein: 38, carbs: 6, fats: 12, calories: 285 },
+      macros: { calories: 285 },
       tip: '💡 Omega-3s in fish reduce gut inflammation. Best choice on bloating days.',
     },
   },
 ];
 
 // ─────────────────────────────────────────────────────────────
-//  COMPONENTS
+//  SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────
 const MacroTag = ({ label, value, unit, color }) => (
   <div className={`macro-tag macro-${color}`}>
@@ -294,10 +328,16 @@ const MacroTag = ({ label, value, unit, color }) => (
   </div>
 );
 
-const MealCard = ({ data }) => {
+const MealCard = ({ data, userTargets }) => {
   const [swapped, setSwapped] = useState(false);
   const current = swapped ? data.swapMeal : data.defaultMeal;
-  const macros = current.macros;
+  
+  // Calculate dynamic custom macros for this specific meal
+  const dynamicMacros = getDistributedMacros(data.id, userTargets);
+  
+  // Calculate scaling factor relative to the base calories of the selected option
+  const baseCalories = current.macros.calories;
+  const scaleFactor = dynamicMacros.calories / baseCalories;
 
   return (
     <div className="smp-card">
@@ -318,27 +358,33 @@ const MealCard = ({ data }) => {
       {/* Meal Name */}
       <h3 className="smp-meal-name">{current.name}</h3>
 
-      {/* Macros Row */}
+      {/* Dynamic Balanced Macros Row */}
       <div className="smp-macros-row">
-        <MacroTag label="Protein 🥩" value={macros.protein} unit="g" color="protein" />
-        <MacroTag label="Carbs 🍚" value={macros.carbs} unit="g" color="carbs" />
-        <MacroTag label="Fats 🥑" value={macros.fats} unit="g" color="fats" />
-        <MacroTag label="Calories ⚡" value={macros.calories} unit="" color="cals" />
+        <MacroTag label="Protein 🥩" value={dynamicMacros.protein} unit="g" color="protein" />
+        <MacroTag label="Carbs 🍚" value={dynamicMacros.carbs} unit="g" color="carbs" />
+        <MacroTag label="Fats 🥑" value={dynamicMacros.fats} unit="g" color="fats" />
+        <MacroTag label="Calories ⚡" value={dynamicMacros.calories} unit="" color="cals" />
       </div>
 
-      {/* Ingredients */}
+      {/* Scaled Ingredients */}
       <div className="smp-ingredients">
         <span className="smp-section-label">📋 Exact Portions</span>
         <div className="smp-ingredients-grid">
-          {current.ingredients.map((ing, i) => (
-            <div key={i} className="smp-ingredient-chip">
-              <span className="smp-ing-icon">{ing.icon}</span>
-              <div className="smp-ing-text">
-                <span className="smp-ing-name">{ing.item}</span>
-                <span className="smp-ing-amount">{ing.amount}</span>
+          {current.ingredients.map((ing, i) => {
+            const displayAmount = ing.baseAmount 
+              ? `${Math.round(ing.baseAmount * scaleFactor)}${ing.unit}`
+              : ing.amount || ing.amountText;
+            
+            return (
+              <div key={i} className="smp-ingredient-chip">
+                <span className="smp-ing-icon">{ing.icon}</span>
+                <div className="smp-ing-text">
+                  <span className="smp-ing-name">{ing.item}</span>
+                  <span className="smp-ing-amount">{displayAmount}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -366,7 +412,7 @@ const MealCard = ({ data }) => {
 const SmartMealPlans = () => {
   const [diet, setDiet] = useState('Vegetarian');
 
-  // ── User's actual targets from onboarding (same source as Home page) ──
+  // User's actual targets from onboarding (same source as Home page)
   const [userTargets, setUserTargets] = useState(() => {
     const goal = localStorage.getItem('userGoal');
     if (goal === 'Fat Loss') return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
@@ -374,10 +420,10 @@ const SmartMealPlans = () => {
     return { calories: 1800, protein: 130, carbs: 180, fats: 60 }; // Gut Fix / default
   });
 
-  // ── Today's logged calories from the Home page meal tracker ──
+  // Today's logged calories from the Home page meal tracker
   const [loggedCalories, setLoggedCalories] = useState(0);
 
-  // ── Steps for burned calories (mirrors HomeTracker formula) ──
+  // Steps for burned calories (mirrors HomeTracker formula)
   const [steps, setSteps] = useState(() => {
     const storedSteps = localStorage.getItem('userSyncedSteps');
     if (storedSteps) return parseInt(storedSteps);
@@ -389,7 +435,7 @@ const SmartMealPlans = () => {
     const stored = localStorage.getItem('userDiet');
     if (stored === 'Vegetarian' || stored === 'Non-Vegetarian') setDiet(stored);
 
-    // Load user's personal targets (matches Home page Budget)
+    // Load user's personal targets (matches Home page Budget exactly)
     const calTarget  = localStorage.getItem('userCalorieTarget');
     const protTarget = localStorage.getItem('userProteinTarget');
     const carbTarget = localStorage.getItem('userCarbsTarget');
@@ -426,7 +472,7 @@ const SmartMealPlans = () => {
     };
     loadLogged();
 
-    // ── Load steps to compute burned calories (same as HomeTracker) ──
+    // Load steps to compute burned calories (same as HomeTracker)
     const loadSteps = () => {
       const storedSteps = localStorage.getItem('userSyncedSteps');
       if (storedSteps) {
@@ -454,9 +500,9 @@ const SmartMealPlans = () => {
   const isVeg = diet === 'Vegetarian';
   const MEAL_PLAN = isVeg ? VEG_MEAL_PLAN : NONVEG_MEAL_PLAN;
 
-  // ── EXACT same formula as HomeTracker ──
+  // EXACT same formula as HomeTracker
   // Home:         remaining = budget - (eaten - burned)
-  // SmartMealPlans: remaining = budget - (logged - burned)  ← now matches
+  // SmartMealPlans: remaining = budget - (logged - burned)
   const caloriesBurned = Math.round(steps * 0.04);
   const netCalories = loggedCalories - caloriesBurned;
   const remainingCalories = userTargets.calories - netCalories;
@@ -556,7 +602,7 @@ const SmartMealPlans = () => {
       {/* Meal Cards */}
       <div className="smp-meals-list">
         {MEAL_PLAN.map((meal) => (
-          <MealCard key={`${diet}-${meal.id}`} data={meal} />
+          <MealCard key={`${diet}-${meal.id}`} data={meal} userTargets={userTargets} />
         ))}
       </div>
 

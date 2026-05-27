@@ -172,6 +172,16 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
         carbs: loggedCarbs,
         fats: loggedFats
       });
+
+      // Sync targets dynamically
+      const storedProtein = localStorage.getItem('userProteinTarget');
+      if (storedProtein) setUserProteinTarget(parseInt(storedProtein));
+
+      const storedCarbs = localStorage.getItem('userCarbsTarget');
+      if (storedCarbs) setUserCarbsTarget(parseInt(storedCarbs));
+
+      const storedFats = localStorage.getItem('userFatsTarget');
+      if (storedFats) setUserFatsTarget(parseInt(storedFats));
     };
 
     const loadWater = () => {

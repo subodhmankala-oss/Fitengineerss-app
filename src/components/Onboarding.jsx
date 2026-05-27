@@ -46,21 +46,30 @@ const Onboarding = ({ onComplete }) => {
     // Round to nearest 50 for clean numbers
     calorieTarget = Math.round(calorieTarget / 50) * 50;
 
-    // Fats: 25% of calories (9 kcal/g)
-    let fatGrams = Math.round((calorieTarget * 0.25) / 9);
-    fatGrams = Math.round(fatGrams / 5) * 5;
+    // Premium balanced fitness macro split based on goal
+    let proteinRatio = 0.30;
+    let carbsRatio = 0.40;
+    let fatsRatio = 0.30;
 
-    // Carbs: remaining calories (4 kcal/g)
-    const remainingCals = calorieTarget - (proteinGrams * 4) - (fatGrams * 9);
-    let carbGrams = Math.round(remainingCals / 4);
-    if (carbGrams < 50) carbGrams = 50; // Safety floor
-    carbGrams = Math.round(carbGrams / 5) * 5;
+    if (selectedGoal === 'Fat Loss') {
+      proteinRatio = 0.35;
+      carbsRatio = 0.35;
+      fatsRatio = 0.30;
+    } else if (selectedGoal === 'Muscle Building') {
+      proteinRatio = 0.30;
+      carbsRatio = 0.45;
+      fatsRatio = 0.25;
+    }
+
+    const proteinGrams = Math.round((calorieTarget * proteinRatio) / 4);
+    const fatGrams = Math.round((calorieTarget * fatsRatio) / 9);
+    const carbGrams = Math.round((calorieTarget * carbsRatio) / 4);
 
     return {
       calories: calorieTarget,
-      protein: proteinGrams,
-      carbs: carbGrams,
-      fats: fatGrams
+      protein: Math.round(proteinGrams / 5) * 5,
+      carbs: Math.round(carbGrams / 5) * 5,
+      fats: Math.round(fatGrams / 5) * 5
     };
   };
 

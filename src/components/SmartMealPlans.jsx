@@ -437,9 +437,6 @@ const SmartMealPlans = () => {
 
     // Load user's personal targets (matches Home page Budget exactly)
     const calTarget  = localStorage.getItem('userCalorieTarget');
-    const protTarget = localStorage.getItem('userProteinTarget');
-    const carbTarget = localStorage.getItem('userCarbsTarget');
-    const fatTarget  = localStorage.getItem('userFatsTarget');
     const goal       = localStorage.getItem('userGoal');
 
     let fallback = { calories: 1800, protein: 130, carbs: 180, fats: 60 };
@@ -449,11 +446,19 @@ const SmartMealPlans = () => {
       fallback = { calories: 2500, protein: 150, carbs: 280, fats: 80 };
     }
 
+    const calTargetNum = calTarget ? parseInt(calTarget) : fallback.calories;
+    const balanced = balanceMacroTargets(calTargetNum, goal);
+
+    // Save back to localStorage permanently so all other pages match instantly
+    localStorage.setItem('userProteinTarget', balanced.protein.toString());
+    localStorage.setItem('userCarbsTarget', balanced.carbs.toString());
+    localStorage.setItem('userFatsTarget', balanced.fats.toString());
+
     setUserTargets({
-      calories: calTarget  ? parseInt(calTarget)  : fallback.calories,
-      protein:  protTarget ? parseInt(protTarget) : fallback.protein,
-      carbs:    carbTarget ? parseInt(carbTarget) : fallback.carbs,
-      fats:     fatTarget  ? parseInt(fatTarget)  : fallback.fats,
+      calories: calTargetNum,
+      protein:  balanced.protein,
+      carbs:    balanced.carbs,
+      fats:     balanced.fats,
     });
 
     // Load today's logged calories from Home meal tracker

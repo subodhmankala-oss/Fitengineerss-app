@@ -3,6 +3,9 @@
   flex-direction: column;
   gap: 20px;
   padding: 16px 12px var(--safe-bottom) 12px;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Tab Segmented Control */
@@ -794,6 +797,19 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding: 12px 0;
   margin: 4px 0;
+}
+
+@media (max-width: 480px) {
+  .sessions-accounting-split {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 12px;
+  }
+  .sessions-accounting-split .acc-item:first-child {
+    grid-column: span 2;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: 8px;
+  }
 }
 
 .acc-item {

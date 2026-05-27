@@ -342,14 +342,11 @@ const WorkoutTracker = () => {
       setSessions(parsed);
       setSelectedSessionIndex(parsed.length - 1);
     } else {
-      // Map historical data to the logged-in user dynamically so they see their own personalized charts
-      const freshSessions = defaultHistoricalSessions.map(s => ({
-        ...s,
-        clientName: loggedInUser
-      }));
-      localStorage.setItem('workoutSessions', JSON.stringify(freshSessions));
-      setSessions(freshSessions);
-      setSelectedSessionIndex(freshSessions.length - 1);
+      // Keep default historical sessions intact for Sridhar (existing client),
+      // freshman users (like the logged-in user) start with 0 logged sessions.
+      localStorage.setItem('workoutSessions', JSON.stringify(defaultHistoricalSessions));
+      setSessions(defaultHistoricalSessions);
+      setSelectedSessionIndex(0);
     }
 
     // Hydrate profiles

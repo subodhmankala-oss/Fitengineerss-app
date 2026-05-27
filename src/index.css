@@ -45,6 +45,12 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: #000; /* Outer background for desktop */

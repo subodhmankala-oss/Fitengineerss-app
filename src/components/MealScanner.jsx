@@ -126,8 +126,18 @@ const MealScanner = ({ onClose }) => {
           setStreamActive(true);
         }
       } catch (err) {
-        console.warn("Camera access denied or unavailable. Falling back to premium simulated scanner.", err);
-        setErrorMsg("Camera access disabled. Running high-precision simulated AI database scanner!");
+        console.warn("Back camera constraint failed. Retrying with basic camera constraints...", err);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setStreamActive(true);
+          }
+        } catch (err2) {
+          console.warn("All camera access attempts failed.", err2);
+          setErrorMsg("Camera access disabled. Please grant camera permissions or capture/upload a meal photo below!");
+        }
       }
     };
 
@@ -240,9 +250,28 @@ const MealScanner = ({ onClose }) => {
               ) : uploadedImageSrc ? (
                 <img src={uploadedImageSrc} className="camera-feed-video" alt="Scanned Meal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div className="simulated-viewfinder">
-                  <span className="food-emoji">{PRESET_MEALS[selectedPresetIdx].icon}</span>
-                  <p className="simulated-label">Simulating Camera Focus...</p>
+                <div className="simulated-viewfinder camera-blocked-state" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'rgba(8, 8, 10, 0.95)' }}>
+                  <span style={{ fontSize: '3rem', marginBottom: '12px' }}>🔒</span>
+                  <h4 style={{ color: '#ffb74d', margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>Camera Access Required</h4>
+                  <p style={{ color: '#94a3b8', fontSize: '0.78rem', margin: '0 0 16px 0', lineHeight: 1.4, maxWidth: '280px', textAlign: 'center' }}>
+                    Fitengineers AI requires a live camera stream or a snapped meal photo to calculate precise calories and macros.
+                  </p>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px 18px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)'
+                    }}
+                  >
+                    📸 Take Photo / Upload Snap
+                  </button>
                 </div>
               )}
             </div>
@@ -258,21 +287,6 @@ const MealScanner = ({ onClose }) => {
           {/* Setup / Controls */}
           {!isScanning && !scannedResult && (
             <div className="selector-section">
-              <label className="selector-title">🥗 Point camera at, or select meal to scan:</label>
-              <div className="preset-selector-row">
-                {PRESET_MEALS.map((meal, idx) => (
-                  <button 
-                    key={idx}
-                    className={`preset-btn ${selectedPresetIdx === idx ? 'active' : ''}`}
-                    onClick={() => setSelectedPresetIdx(idx)}
-                  >
-                    <span>{meal.icon}</span> {meal.name.split(" with ")[0]}
-                  </button>
-                ))}
-              </div>
-
-              {errorMsg && <p className="scanner-warning-alert">{errorMsg}</p>}
-
               <input 
                 type="file" 
                 accept="image/*" 
@@ -282,23 +296,47 @@ const MealScanner = ({ onClose }) => {
                 style={{ display: 'none' }} 
               />
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <button className="scan-trigger-btn" onClick={handleStartScan}>
-                  ⚡ Start Neural Scan
-                </button>
-                <button 
-                  className="scan-trigger-btn" 
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#ffffff',
-                    boxShadow: 'none'
-                  }}
-                >
-                  📸 Take Photo / Upload Snap
-                </button>
-              </div>
+              {(streamActive || uploadedImageSrc) ? (
+                <>
+                  <label className="selector-title">🥗 Select the identified meal to scan:</label>
+                  <div className="preset-selector-row">
+                    {PRESET_MEALS.map((meal, idx) => (
+                      <button 
+                        key={idx}
+                        className={`preset-btn ${selectedPresetIdx === idx ? 'active' : ''}`}
+                        onClick={() => setSelectedPresetIdx(idx)}
+                      >
+                        <span>{meal.icon}</span> {meal.name.split(" with ")[0]}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                    <button className="scan-trigger-btn" onClick={handleStartScan}>
+                      ⚡ Run Calorie AI Scan
+                    </button>
+                    <button 
+                      className="scan-trigger-btn" 
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#ffffff',
+                        boxShadow: 'none'
+                      }}
+                    >
+                      📸 Retake Photo / Upload New Snap
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: '16px', background: 'rgba(251, 191, 36, 0.04)', border: '1px solid rgba(251, 191, 36, 0.12)', borderRadius: '14px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                  <p style={{ color: '#ffb74d', fontSize: '0.8rem', margin: '4px 0 0 0', fontWeight: 500 }}>
+                    Please capture or upload a meal photo using the button above to begin precise calculations.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -558,9 +558,29 @@ function App() {
     localStorage.removeItem('onboardingComplete');
     localStorage.removeItem('userGoal');
     localStorage.removeItem('userIssue');
+    
+    // Invalidate PWA cache and old service workers to force reload the fresh code
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        for (let name of names) caches.delete(name);
+      });
+    }
+
     setOnboardingComplete(false);
     setUserGoal('');
     setActiveTab('home');
+
+    // Perform hard reload after 150ms
+    setTimeout(() => {
+      window.location.reload();
+    }, 150);
   };
 
   const renderHomeDashboard = () => {

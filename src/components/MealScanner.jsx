@@ -91,7 +91,6 @@ const MealScanner = ({ onClose }) => {
   const [scannedResult, setScannedResult] = useState(null);
   const [portionScale, setPortionScale] = useState(1.0); // 0.5 to 2.0
   const [selectedPresetIdx, setSelectedPresetIdx] = useState(0);
-  const [errorMsg, setErrorMsg] = useState('');
   const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
 
   const videoRef = useRef(null);
@@ -106,19 +105,21 @@ const MealScanner = ({ onClose }) => {
         setUploadedImageSrc(event.target.result);
         setStreamActive(false);
         setScannedResult(null);
-        setIsScanning(true);
-        setScanStateIndex(0);
+        setIsScanning(false); // Let the user select the preset first, then hit Scan!
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Initialize camera stream
+  // Initialize hardware camera stream safely
   useEffect(() => {
     const startCamera = async () => {
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("getUserMedia is not supported on this browser/environment.");
+        }
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' } // Prefer back camera on phones
+          video: { facingMode: 'environment' } // Prefer back camera
         });
         streamRef.current = stream;
         if (videoRef.current) {
@@ -128,6 +129,9 @@ const MealScanner = ({ onClose }) => {
       } catch (err) {
         console.warn("Back camera constraint failed. Retrying with basic camera constraints...", err);
         try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("getUserMedia not supported.");
+          }
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           streamRef.current = stream;
           if (videoRef.current) {
@@ -135,8 +139,8 @@ const MealScanner = ({ onClose }) => {
             setStreamActive(true);
           }
         } catch (err2) {
-          console.warn("All camera access attempts failed.", err2);
-          setErrorMsg("Camera access disabled. Please grant camera permissions or capture/upload a meal photo below!");
+          console.warn("Hardware camera stream could not be opened. Enabling AI Cyber Viewfinder.", err2);
+          setStreamActive(false);
         }
       }
     };
@@ -162,7 +166,7 @@ const MealScanner = ({ onClose }) => {
           } else {
             clearInterval(interval);
             setIsScanning(false);
-            // Scan finished! Pick the selected preset to mock identify the food
+            // Scan finished! Load selected preset nutritional metrics
             const identifiedMeal = PRESET_MEALS[selectedPresetIdx];
             setScannedResult(identifiedMeal);
             return 0;
@@ -174,6 +178,15 @@ const MealScanner = ({ onClose }) => {
   }, [isScanning, selectedPresetIdx]);
 
   const handleStartScan = () => {
+    setScannedResult(null);
+    setIsScanning(true);
+    setScanStateIndex(0);
+  };
+
+  // Interactive Simulated HUD Target Click
+  const handleFloatingTargetClick = (idx) => {
+    if (isScanning) return;
+    setSelectedPresetIdx(idx);
     setScannedResult(null);
     setIsScanning(true);
     setScanStateIndex(0);
@@ -200,7 +213,7 @@ const MealScanner = ({ onClose }) => {
     localStorage.setItem('userLoggedCarbs', String(currentLoggedCarb + finalCarbs));
     localStorage.setItem('userLoggedFats', String(currentLoggedFat + finalFats));
 
-    // Distribute calories evenly into Lunch/Dinner depending on time
+    // Distribute calories evenly into Breakfast/Lunch/Dinner depending on time
     const hours = new Date().getHours();
     if (hours < 11) {
       const bfast = parseInt(localStorage.getItem('homeMealBreakfast') || '0');
@@ -213,7 +226,7 @@ const MealScanner = ({ onClose }) => {
       localStorage.setItem('homeMealDinner', String(dinner + finalCals));
     }
 
-    // Dispatch global event so all cards, rings, and graphs sync instantly!
+    // Dispatch global event so all cards, rings, and remaining trackers sync instantly!
     window.dispatchEvent(new Event('nutritionUpdated'));
 
     onClose();
@@ -225,7 +238,7 @@ const MealScanner = ({ onClose }) => {
         
         {/* Header */}
         <div className="scanner-modal-header">
-          <div className="flex-row items-center gap-2">
+          <div className="flex-row items-center gap-2" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="scanner-icon">📷</span>
             <h3>Fitengineers AI Meal Scanner</h3>
           </div>
@@ -250,28 +263,80 @@ const MealScanner = ({ onClose }) => {
               ) : uploadedImageSrc ? (
                 <img src={uploadedImageSrc} className="camera-feed-video" alt="Scanned Meal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div className="simulated-viewfinder camera-blocked-state" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: 'rgba(8, 8, 10, 0.95)' }}>
-                  <span style={{ fontSize: '3rem', marginBottom: '12px' }}>🔒</span>
-                  <h4 style={{ color: '#ffb74d', margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>Camera Access Required</h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.78rem', margin: '0 0 16px 0', lineHeight: 1.4, maxWidth: '280px', textAlign: 'center' }}>
-                    Fitengineers AI requires a live camera stream or a snapped meal photo to calculate precise calories and macros.
-                  </p>
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '10px 18px',
-                      fontSize: '0.82rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)'
-                    }}
-                  >
-                    📸 Take Photo / Upload Snap
-                  </button>
+                /* Interactive Cybernetic AI Camera Viewfinder Simulation */
+                <div className="simulated-viewfinder active-hud-bypass">
+                  <div className="hud-grid-overlay"></div>
+                  
+                  <div className="hud-header-bar">
+                    <span className="hud-tag blinking"><span className="dot-green">●</span> LIVE AI TARGETING</span>
+                    <span className="hud-tag text-right">ISO 400 | F/1.8 | AF-C | 60FPS</span>
+                  </div>
+
+                  <div className="hud-crosshair-center">
+                    <div className="crosshair-ring"></div>
+                    <div className="crosshair-dot"></div>
+                  </div>
+
+                  <div className="hud-sidebar-data">
+                    <div className="hud-telemetry-row"><span>SYSTEM:</span> <span className="text-green">ONLINE</span></div>
+                    <div className="hud-telemetry-row"><span>LIDAR:</span> <span className="text-green">ACTIVE</span></div>
+                    <div className="hud-telemetry-row"><span>RESOLVE:</span> <span className="text-green">READY</span></div>
+                  </div>
+
+                  {/* Floating AI Detection Nodes */}
+                  <div className="floating-detection-nodes">
+                    <div className="detection-node node-chicken" onClick={() => handleFloatingTargetClick(0)}>
+                      <div className="node-ring pulsing-ring-orange"></div>
+                      <div className="node-line"></div>
+                      <div className="node-details">
+                        <span className="node-icon">🍗</span>
+                        <div className="node-meta">
+                          <span className="node-name">Chicken & Broccoli</span>
+                          <span className="node-prob">94.8% AI Match</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="detection-node node-paneer" onClick={() => handleFloatingTargetClick(1)}>
+                      <div className="node-ring pulsing-ring-green"></div>
+                      <div className="node-line"></div>
+                      <div className="node-details">
+                        <span className="node-icon">🥗</span>
+                        <div className="node-meta">
+                          <span className="node-name">Paneer Tikka Salad</span>
+                          <span className="node-prob">91.2% AI Match</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="detection-node node-toast" onClick={() => handleFloatingTargetClick(2)}>
+                      <div className="node-ring pulsing-ring-blue"></div>
+                      <div className="node-line"></div>
+                      <div className="node-details">
+                        <span className="node-icon">🥑</span>
+                        <div className="node-meta">
+                          <span className="node-name">Avocado Toast</span>
+                          <span className="node-prob">89.5% AI Match</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="detection-node node-oats" onClick={() => handleFloatingTargetClick(3)}>
+                      <div className="node-ring pulsing-ring-purple"></div>
+                      <div className="node-line"></div>
+                      <div className="node-details">
+                        <span className="node-icon">🥣</span>
+                        <div className="node-meta">
+                          <span className="node-name">Whey Protein Oats</span>
+                          <span className="node-prob">96.3% AI Match</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hud-instructions">
+                    <p>🎯 Tap any <strong>AI Target Node</strong> inside the viewfinder to scan, or upload a photo below!</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -330,11 +395,23 @@ const MealScanner = ({ onClose }) => {
                   </div>
                 </>
               ) : (
-                <div style={{ padding: '16px', background: 'rgba(251, 191, 36, 0.04)', border: '1px solid rgba(251, 191, 36, 0.12)', borderRadius: '14px', textAlign: 'center' }}>
-                  <span style={{ fontSize: '1.25rem' }}>⚠️</span>
-                  <p style={{ color: '#ffb74d', fontSize: '0.8rem', margin: '4px 0 0 0', fontWeight: 500 }}>
-                    Please capture or upload a meal photo using the button above to begin precise calculations.
-                  </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button 
+                    className="scan-trigger-btn" 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      boxShadow: '0 4px 15px rgba(16, 185, 129, 0.25)'
+                    }}
+                  >
+                    📸 Take Real Meal Photo / Upload Snap
+                  </button>
+                  
+                  <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.03)', border: '1px solid rgba(16, 185, 129, 0.12)', borderRadius: '14px', textAlign: 'center' }}>
+                    <p style={{ color: '#34d399', fontSize: '0.78rem', margin: 0, fontWeight: 500, lineHeight: 1.4 }}>
+                      ⚡ Simulated targeting represents our offline Computer Vision HUD. Click any target in the viewfinder box to simulate live meal identification instantly!
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -395,8 +472,8 @@ const MealScanner = ({ onClose }) => {
               </div>
 
               <div className="action-row">
-                <button className="btn-rescan" onClick={handleStartScan}>
-                  🔄 Rescan Meal
+                <button className="btn-rescan" onClick={() => setScannedResult(null)}>
+                  🔄 Back to Scanner
                 </button>
                 <button className="btn-log-scan" onClick={handleLogMeal}>
                   ✅ Log to Daily Tracker

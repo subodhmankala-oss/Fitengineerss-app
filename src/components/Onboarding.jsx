@@ -32,15 +32,12 @@ const Onboarding = ({ onComplete }) => {
 
     // Adjust Calories based on Goal
     let calorieTarget = Math.round(tdee);
-    let proteinGrams = Math.round(w * 1.5); // Default Gut Fix
 
     if (selectedGoal === 'Fat Loss') {
       calorieTarget = Math.round(tdee - 500);
       if (calorieTarget < 1200) calorieTarget = 1200; // Safe threshold
-      proteinGrams = Math.round(w * 1.8);
     } else if (selectedGoal === 'Muscle Building') {
       calorieTarget = Math.round(tdee + 300);
-      proteinGrams = Math.round(w * 2.0);
     }
 
     // Round to nearest 50 for clean numbers

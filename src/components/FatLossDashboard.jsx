@@ -31,6 +31,13 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
   // Custom onboarding attributes for dynamic water calculations
   const [userWeight, setUserWeight] = useState(70);
   const [userProteinTarget, setUserProteinTarget] = useState(100);
+  const [userCarbsTarget, setUserCarbsTarget] = useState(180);
+  const [userFatsTarget, setUserFatsTarget] = useState(60);
+  const [loggedMacros, setLoggedMacros] = useState({
+    protein: 0,
+    carbs: 0,
+    fats: 0
+  });
 
   // Wearable tracking simulation states
   const [isSyncingSteps, setIsSyncingSteps] = useState(false);
@@ -156,6 +163,15 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
         dinner:    savedDnr    !== null ? parseInt(savedDnr)    : 0,
         snacks:    savedSnk    !== null ? parseInt(savedSnk)    : 0,
       });
+
+      const loggedProtein = parseInt(localStorage.getItem('userLoggedProtein') || '0');
+      const loggedCarbs   = parseInt(localStorage.getItem('userLoggedCarbs') || '0');
+      const loggedFats    = parseInt(localStorage.getItem('userLoggedFats') || '0');
+      setLoggedMacros({
+        protein: loggedProtein,
+        carbs: loggedCarbs,
+        fats: loggedFats
+      });
     };
 
     const loadWater = () => {
@@ -178,6 +194,7 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
 
     loadWater();
     loadSteps();
+    loadMeals(); // Populates macros on startup
 
     // Hydrate weight and protein target
     const storedWeight = localStorage.getItem('userWeight');
@@ -185,6 +202,12 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
 
     const storedProtein = localStorage.getItem('userProteinTarget');
     if (storedProtein) setUserProteinTarget(parseInt(storedProtein));
+
+    const storedCarbs = localStorage.getItem('userCarbsTarget');
+    if (storedCarbs) setUserCarbsTarget(parseInt(storedCarbs));
+
+    const storedFats = localStorage.getItem('userFatsTarget');
+    if (storedFats) setUserFatsTarget(parseInt(storedFats));
 
     window.addEventListener('waterUpdated', loadWater);
     window.addEventListener('stepsUpdated', loadSteps);
@@ -441,6 +464,25 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
             <div className="net-status-banner mt-2">
               <span>{netCalories > calorieBudget ? "⚠️ Calorie Limit Exceeded" : "🎯 You are in caloric deficit"}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Remaining Macro Summary Row */}
+        <div className="macro-summary-row mt-3" style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+          <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center' }}>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>🍗 Protein Left</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffb74d' }}>{Math.max(0, userProteinTarget - loggedMacros.protein)}g</span>
+            <span style={{ display: 'block', fontSize: '0.65rem', color: '#475569' }}>of {userProteinTarget}g</span>
+          </div>
+          <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>🌾 Carbs Left</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#60a5fa' }}>{Math.max(0, userCarbsTarget - loggedMacros.carbs)}g</span>
+            <span style={{ display: 'block', fontSize: '0.65rem', color: '#475569' }}>of {userCarbsTarget}g</span>
+          </div>
+          <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center' }}>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>🥑 Fats Left</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f87171' }}>{Math.max(0, userFatsTarget - loggedMacros.fats)}g</span>
+            <span style={{ display: 'block', fontSize: '0.65rem', color: '#475569' }}>of {userFatsTarget}g</span>
           </div>
         </div>
       </div>

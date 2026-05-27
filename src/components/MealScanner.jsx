@@ -92,9 +92,26 @@ const MealScanner = ({ onClose }) => {
   const [portionScale, setPortionScale] = useState(1.0); // 0.5 to 2.0
   const [selectedPresetIdx, setSelectedPresetIdx] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
+  const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUploadedImageSrc(event.target.result);
+        setStreamActive(false);
+        setScannedResult(null);
+        setIsScanning(true);
+        setScanStateIndex(0);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Initialize camera stream
   useEffect(() => {
@@ -158,16 +175,19 @@ const MealScanner = ({ onClose }) => {
     // Calculate scaled calories and macros based on portion slider
     const finalCals = Math.round(scannedResult.calories * portionScale);
     const finalProtein = Math.round(scannedResult.protein * portionScale);
+    const finalCarbs = Math.round(scannedResult.carbs * portionScale);
     const finalFats = Math.round(scannedResult.fats * portionScale);
 
     // Read existing logs
     const currentLoggedCals = parseInt(localStorage.getItem('userLoggedCalories') || '0');
     const currentLoggedProt = parseInt(localStorage.getItem('userLoggedProtein') || '0');
+    const currentLoggedCarb = parseInt(localStorage.getItem('userLoggedCarbs') || '0');
     const currentLoggedFat = parseInt(localStorage.getItem('userLoggedFats') || '0');
 
     // Update with new meal metrics
     localStorage.setItem('userLoggedCalories', String(currentLoggedCals + finalCals));
     localStorage.setItem('userLoggedProtein', String(currentLoggedProt + finalProtein));
+    localStorage.setItem('userLoggedCarbs', String(currentLoggedCarb + finalCarbs));
     localStorage.setItem('userLoggedFats', String(currentLoggedFat + finalFats));
 
     // Distribute calories evenly into Lunch/Dinner depending on time
@@ -217,6 +237,8 @@ const MealScanner = ({ onClose }) => {
               {/* Viewfinder Content */}
               {streamActive ? (
                 <video ref={videoRef} autoPlay playsInline muted className="camera-feed-video" />
+              ) : uploadedImageSrc ? (
+                <img src={uploadedImageSrc} className="camera-feed-video" alt="Scanned Meal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div className="simulated-viewfinder">
                   <span className="food-emoji">{PRESET_MEALS[selectedPresetIdx].icon}</span>
@@ -251,9 +273,32 @@ const MealScanner = ({ onClose }) => {
 
               {errorMsg && <p className="scanner-warning-alert">{errorMsg}</p>}
 
-              <button className="scan-trigger-btn" onClick={handleStartScan}>
-                ⚡ Start Neural Scan
-              </button>
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload} 
+                style={{ display: 'none' }} 
+              />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button className="scan-trigger-btn" onClick={handleStartScan}>
+                  ⚡ Start Neural Scan
+                </button>
+                <button 
+                  className="scan-trigger-btn" 
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#ffffff',
+                    boxShadow: 'none'
+                  }}
+                >
+                  📸 Take Photo / Upload Snap
+                </button>
+              </div>
             </div>
           )}
 

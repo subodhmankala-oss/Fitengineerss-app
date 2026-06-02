@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wzifwepqggyqkylyxqcx.supabase.co';
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6aWZ3ZXBxZ2d5cWt5bHl4cWN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2ODE4NjE5NjIsImV4cCI6MTk5NzQzNzk2Mn0.a452hS-sR6c_g0W1Z_37_0';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -177,7 +177,7 @@ export default async function handler(req, res) {
         const payload = JSON.stringify({
           title,
           body,
-          icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
+          icon: '/logo.png',
           vibrate: [300, 100, 300, 100, 300]
         });
 

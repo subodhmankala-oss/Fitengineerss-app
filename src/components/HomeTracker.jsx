@@ -87,8 +87,8 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
       if (permission === 'granted') {
         const options = {
           body: "Coach Subodh will now push daily morning, afternoon, and night motivation to your screen!",
-          icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
-          badge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
+          icon: '/logo.png',
+          badge: '/logo.png',
           vibrate: [200, 100, 200],
           tag: 'fitengineers-coach-welcome',
           renotify: true,
@@ -119,6 +119,47 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
         setToastMessage("🔔 Coaching alerts enabled! (Desktop notifications blocked by browser)");
         setTimeout(() => setToastMessage(''), 3500);
       }
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setToastMessage("❌ Push notifications not supported in this browser.");
+      setTimeout(() => setToastMessage(''), 3500);
+      return;
+    }
+
+    try {
+      setToastMessage("⏳ Sending test push from backend...");
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        setToastMessage("❌ No push subscription found. Enable alerts first.");
+        setTimeout(() => setToastMessage(''), 3500);
+        return;
+      }
+
+      const res = await fetch('/api/test-nudge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: userName || 'Warrior',
+          subscription: subscription
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setToastMessage("✅ Test push triggered! Close app & lock screen within 5s!");
+      } else {
+        setToastMessage(`❌ Test failed: ${data.error || 'Unknown error'}`);
+      }
+      setTimeout(() => setToastMessage(''), 4500);
+    } catch (err) {
+      console.error(err);
+      setToastMessage("❌ Network error sending test push.");
+      setTimeout(() => setToastMessage(''), 3500);
     }
   };
 
@@ -405,6 +446,25 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
               </svg>
             </span>
           </button>
+          {isAlertActive && (
+            <button 
+              className="btn-logout" 
+              onClick={handleSendTestPush} 
+              title="Send Test Push Notification 🧪"
+              style={{
+                color: '#3b82f6',
+                borderColor: 'rgba(59, 130, 246, 0.3)',
+                background: 'rgba(59, 130, 246, 0.08)',
+                boxShadow: '0 0 10px rgba(59, 130, 246, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <span className="icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🧪</span>
+            </button>
+          )}
           <button 
             className="btn-logout scanner-btn" 
             onClick={() => setShowScanner(true)} 

@@ -376,8 +376,8 @@ function App() {
       const showBackgroundNotification = (title, body) => {
         const options = {
           body,
-          icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
-          badge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
+          icon: '/logo.png',
+          badge: '/logo.png',
           vibrate: [200, 100, 200],
           tag: 'fitengineers-coach-nudge',
           renotify: true,

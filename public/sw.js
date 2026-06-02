@@ -28,8 +28,8 @@ self.addEventListener('push', (e) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
-    badge: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🥗</text></svg>',
+    icon: data.icon || '/logo.png',
+    badge: '/logo.png',
     vibrate: data.vibrate || [300, 100, 300, 100, 300],
     data: {
       url: '/'

@@ -1,16 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Onboarding.css';
 
 const Onboarding = ({ onComplete }) => {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [activity, setActivity] = useState('Moderately Active');
-  const [goal, setGoal] = useState('');
-  const [issue, setIssue] = useState('');
-  const [diet, setDiet] = useState('');
+  const [name, setName] = useState(() => localStorage.getItem('userName') || '');
+  const [age, setAge] = useState(() => localStorage.getItem('userAge') || '');
+  const [height, setHeight] = useState(() => localStorage.getItem('userHeight') || '');
+  const [weight, setWeight] = useState(() => localStorage.getItem('userWeight') || '');
+  const [activity, setActivity] = useState(() => localStorage.getItem('userActivity') || 'Moderately Active');
+  const [goal, setGoal] = useState(() => localStorage.getItem('userGoal') || '');
+  const [issue, setIssue] = useState(() => localStorage.getItem('userIssue') || '');
+  const [diet, setDiet] = useState(() => localStorage.getItem('userDiet') || '');
+  const [foundProfile, setFoundProfile] = useState(null);
+
+  // Search local storage for existing profiles when user name is typed
+  useEffect(() => {
+    if (!name.trim()) {
+      setFoundProfile(null);
+      return;
+    }
+    const cleanKey = `profile_${name.trim().toLowerCase().replace(/\s+/g, '')}`;
+    const stored = localStorage.getItem(cleanKey);
+    if (stored) {
+      try {
+        setFoundProfile(JSON.parse(stored));
+      } catch (e) {
+        setFoundProfile(null);
+      }
+    } else {
+      setFoundProfile(null);
+    }
+  }, [name]);
 
   const TOTAL_STEPS = 6;
 
@@ -83,7 +103,8 @@ const Onboarding = ({ onComplete }) => {
     } else {
       const targets = calculateTargets(goal);
       
-      localStorage.setItem('userName', name.trim());
+      const cleanName = name.trim();
+      localStorage.setItem('userName', cleanName);
       localStorage.setItem('userAge', age);
       localStorage.setItem('userHeight', height);
       localStorage.setItem('userWeight', weight);
@@ -96,6 +117,19 @@ const Onboarding = ({ onComplete }) => {
       localStorage.setItem('userProteinTarget', targets.protein.toString());
       localStorage.setItem('userCarbsTarget', targets.carbs.toString());
       localStorage.setItem('userFatsTarget', targets.fats.toString());
+      
+      // Save profile under key for future autofill
+      const profileData = {
+        name: cleanName,
+        age,
+        height,
+        weight,
+        activity,
+        goal,
+        issue,
+        diet
+      };
+      localStorage.setItem(`profile_${cleanName.toLowerCase().replace(/\s+/g, '')}`, JSON.stringify(profileData));
       
       onComplete();
     }
@@ -123,6 +157,34 @@ const Onboarding = ({ onComplete }) => {
             placeholder="Enter your name" 
             autoFocus
           />
+
+          {foundProfile && (
+            <div className="autofill-suggestion-card glass-panel animate-scale-in">
+              <div className="autofill-header">
+                <span>✨ Profile Found</span>
+              </div>
+              <p>We found existing setup details for <strong>{foundProfile.name}</strong>.</p>
+              <button 
+                type="button" 
+                className="autofill-btn"
+                onClick={() => {
+                  setAge(foundProfile.age || '');
+                  setHeight(foundProfile.height || '');
+                  setWeight(foundProfile.weight || '');
+                  setActivity(foundProfile.activity || 'Moderately Active');
+                  setGoal(foundProfile.goal || '');
+                  setIssue(foundProfile.issue || '');
+                  setDiet(foundProfile.diet || '');
+                  
+                  // Autofill and jump directly to last step for review and completion
+                  setStep(TOTAL_STEPS);
+                  setFoundProfile(null);
+                }}
+              >
+                ⚡ Autofill Profile Details
+              </button>
+            </div>
+          )}
         </div>
       )}
       

@@ -249,9 +249,14 @@ const registerForPushNotifications = async (userName) => {
 };
 
 function App() {
-  const [onboardingComplete, setOnboardingComplete] = useState(false);
-  const [activeTab, setActiveTab] = useState('home');
-  const [userGoal, setUserGoal] = useState('');
+  const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
+  const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
+
+  // Keep active tab state persisted across reloads/reopens
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   // ─── Real-Time Cloud Database Synchronizer ───
   useEffect(() => {

@@ -434,13 +434,9 @@ const Onboarding = ({ onComplete }) => {
             type="button" 
             className="gmail-login-btn oauth-btn"
             style={{ width: '100%', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-            onClick={async () => {
+            onClick={() => {
               setAuthError('');
-              try {
-                await databaseService.signInWithGoogle();
-              } catch (err) {
-                setAuthError(err.message || 'Google OAuth failed.');
-              }
+              setShowGoogleModal(true);
             }}
           >
             <div className="google-icon-wrapper">

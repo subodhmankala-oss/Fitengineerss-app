@@ -276,6 +276,15 @@ const Onboarding = ({ onComplete }) => {
     return calculateTargetsGeneric(weight, height, age, activity, selectedGoal);
   };
 
+  const handleBack = () => {
+    if (step > 0) {
+      if (step === 1 && !isSupabaseConfigured) {
+        return;
+      }
+      setStep(step - 1);
+    }
+  };
+
   const handleNext = () => {
     if (step === 1 && !name.trim()) return;
     if (step === 2 && (!age || !height || !weight)) return;
@@ -726,20 +735,48 @@ const Onboarding = ({ onComplete }) => {
       )}
       
       {step > 0 && (
-        <button 
-          className="btn-next" 
-          onClick={handleNext}
-          disabled={
-            (step === 1 && !name.trim()) ||
-            (step === 2 && (!age || !height || !weight)) ||
-            (step === 3 && !activity) ||
-            (step === 4 && !goal) ||
-            (step === 5 && !issue) ||
-            (step === 6 && !diet)
-          }
-        >
-          {step === TOTAL_STEPS ? "🚀 Let's Personalize App!" : "Next Step ➔"}
-        </button>
+        <div className="onboarding-actions" style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '400px', marginTop: '32px' }}>
+          {(step > 1 || (step === 1 && isSupabaseConfigured)) && (
+            <button 
+              type="button"
+              className="btn-back"
+              style={{
+                flex: 1,
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                color: '#94a3b8',
+                fontWeight: '600',
+                fontSize: '1.1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onClick={handleBack}
+            >
+              ← Back
+            </button>
+          )}
+          <button 
+            className="btn-next" 
+            style={{ 
+              flex: (step > 1 || (step === 1 && isSupabaseConfigured)) ? 2 : 1, 
+              marginTop: 0,
+              width: '100%'
+            }}
+            onClick={handleNext}
+            disabled={
+              (step === 1 && !name.trim()) ||
+              (step === 2 && (!age || !height || !weight)) ||
+              (step === 3 && !activity) ||
+              (step === 4 && !goal) ||
+              (step === 5 && !issue) ||
+              (step === 6 && !diet)
+            }
+          >
+            {step === TOTAL_STEPS ? "🚀 Let's Personalize App!" : "Next Step ➔"}
+          </button>
+        </div>
       )}
       {showGoogleModal && (
         <div className="google-auth-backdrop">

@@ -242,8 +242,101 @@ const databaseService = {
     if (stored) {
       try { sessions = JSON.parse(stored); } catch(e) {}
     }
-    sessions.push(session);
     localStorage.setItem('workoutSessions', JSON.stringify(sessions));
+  },
+
+  // ─── AUTHENTICATION ───
+  async signUp(email, password) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    return data;
+  },
+
+  async signIn(email, password) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  },
+
+  async signInWithGoogle() {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async signOut() {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    }
+  },
+
+  async getSession() {
+    if (isSupabaseConfigured && supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session;
+    }
+    return null;
+  },
+
+  async getUserProfileByEmail(email) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .single();
+        
+        if (error && error.code !== 'PGRST116') throw error;
+        if (data) {
+          return {
+            userName: data.full_name,
+            userAge: String(data.age),
+            userHeight: String(data.height_cm),
+            userWeight: String(data.weight_kg),
+            userActivity: data.activity_level,
+            userGoal: data.fitness_goal,
+            userDiet: data.dietary_preference,
+            userCalorieTarget: String(data.calorie_target),
+            userProteinTarget: String(data.protein_target),
+            userFatsTarget: String(data.fats_target)
+          };
+        }
+      } catch (e) {
+        console.error('Cloud DB Fetch Error by email:', e);
+      }
+    }
+    return null;
+  },
+
+  async loadProfileIntoLocalStorage(profile, email) {
+    localStorage.setItem('userName', profile.userName);
+    localStorage.setItem('userEmail', email);
+    localStorage.setItem('userAge', profile.userAge);
+    localStorage.setItem('userHeight', profile.userHeight);
+    localStorage.setItem('userWeight', profile.userWeight);
+    localStorage.setItem('userActivity', profile.userActivity);
+    localStorage.setItem('userGoal', profile.userGoal);
+    localStorage.setItem('userDiet', profile.userDiet);
+    localStorage.setItem('userCalorieTarget', profile.userCalorieTarget);
+    localStorage.setItem('userProteinTarget', profile.userProteinTarget);
+    localStorage.setItem('userFatsTarget', profile.userFatsTarget);
+    localStorage.setItem('onboardingComplete', 'true');
   }
 };
 

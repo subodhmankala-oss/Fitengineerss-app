@@ -333,3 +333,314 @@
 .autofill-btn:active {
   transform: translateY(1px);
 }
+
+/* Onboarding Divider line */
+.onboarding-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px auto;
+  color: #64748b;
+  font-size: 0.85rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.onboarding-divider::before,
+.onboarding-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #334155;
+}
+
+.onboarding-divider:not(:empty)::before {
+  margin-right: .5em;
+}
+
+.onboarding-divider:not(:empty)::after {
+  margin-left: .5em;
+}
+
+/* Gmail Login button style */
+.gmail-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.gmail-login-btn:hover {
+  background-color: #334155;
+  border-color: #475569;
+}
+
+.google-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Google Auth Modal Styles */
+.google-auth-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.google-auth-modal {
+  width: 90%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  color: #1f2937;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.google-auth-logo {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+}
+
+.google-modal-header h4 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.google-modal-header p {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin: 4px 0 20px 0;
+}
+
+.google-accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.google-account-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.google-account-row:hover {
+  background-color: #f9fafb;
+  border-color: #cbd5e1;
+}
+
+.account-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #ea4335;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.account-avatar.font-blue {
+  background-color: #3b82f6;
+}
+
+.account-avatar.font-gray {
+  background-color: #e5e7eb;
+  color: #4b5563;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-info strong {
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.account-info span {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.google-modal-footer p {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+  margin: 0 0 20px 0;
+}
+
+.google-close-btn {
+  background-color: transparent;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.google-close-btn:hover {
+  background-color: #f3f4f6;
+}
+
+/* Autofill suggestive card button split styling */
+.autofill-action-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.autofill-btn.sec-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.autofill-btn.sec-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+/* Profile Suggestions Dropdown */
+.profile-suggestions-dropdown {
+  margin-top: 16px;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: left;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.suggestions-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #10b981;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+  gap: 8px;
+}
+
+.suggestion-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.suggestion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.suggestion-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.suggestion-meta {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.suggestion-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.autofill-btn-sec {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.autofill-btn-sec:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.instant-login-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #0f172a;
+}
+
+.instant-login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+}

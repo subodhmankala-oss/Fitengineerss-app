@@ -11,7 +11,7 @@ import CoachChat from './components/CoachChat';
 import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
-import databaseService from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase } from './services/databaseService';
 import './index.css'; 
 
 
@@ -252,6 +252,49 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    const syncSession = async () => {
+      const session = await databaseService.getSession();
+      if (session && session.user) {
+        const email = session.user.email;
+        const profile = await databaseService.getUserProfileByEmail(email);
+        if (profile && profile.userName) {
+          await databaseService.loadProfileIntoLocalStorage(profile, email);
+          setUserGoal(profile.userGoal);
+          setOnboardingComplete(true);
+        } else {
+          localStorage.setItem('userEmail', email);
+        }
+      }
+    };
+
+    syncSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session && session.user) {
+        const email = session.user.email;
+        const profile = await databaseService.getUserProfileByEmail(email);
+        if (profile && profile.userName) {
+          await databaseService.loadProfileIntoLocalStorage(profile, email);
+          setUserGoal(profile.userGoal);
+          setOnboardingComplete(true);
+        } else {
+          localStorage.setItem('userEmail', email);
+          setOnboardingComplete(false);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.clear();
+        setOnboardingComplete(false);
+        setUserGoal('');
+        setActiveTab('home');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Keep active tab state persisted across reloads/reopens
   useEffect(() => {
@@ -496,7 +539,8 @@ function App() {
             const keysToKeep = [
               'onboardingComplete', 'userName', 'userAge', 'userHeight', 'userWeight', 
               'userActivity', 'userGoal', 'userIssue', 'userDiet', 
-              'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget'
+              'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget',
+              'userEmail'
             ];
             const tempStorage = {};
             keysToKeep.forEach(k => {
@@ -513,6 +557,7 @@ function App() {
             // Sync User Profile and initial fresh history to Supabase Cloud Database!
             const freshHistory = JSON.parse(localStorage.getItem('monthlyProgressHistory'));
             const profile = {
+              email: tempStorage['userEmail'] || localStorage.getItem('userEmail'),
               userName: tempStorage['userName'] || newName,
               userAge: tempStorage['userAge'],
               userHeight: tempStorage['userHeight'],
@@ -553,6 +598,9 @@ function App() {
   }
 
   const handleLogout = () => {
+    // Sign out from Supabase Auth if active
+    databaseService.signOut().catch(err => console.error("Sign out error:", err));
+
     // Preserve name to check if next user is same or different
     const name = localStorage.getItem('userName');
     if (name) {

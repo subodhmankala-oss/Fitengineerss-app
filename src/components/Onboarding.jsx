@@ -434,9 +434,13 @@ const Onboarding = ({ onComplete }) => {
             type="button" 
             className="gmail-login-btn oauth-btn"
             style={{ width: '100%', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-            onClick={() => {
+            onClick={async () => {
               setAuthError('');
-              setShowGoogleModal(true);
+              try {
+                await databaseService.signInWithGoogle();
+              } catch (err) {
+                setAuthError(err.message || 'Google OAuth failed.');
+              }
             }}
           >
             <div className="google-icon-wrapper">
@@ -539,7 +543,14 @@ const Onboarding = ({ onComplete }) => {
           <button 
             type="button" 
             className="gmail-login-btn"
-            onClick={() => setShowGoogleModal(true)}
+            onClick={async () => {
+              setAuthError('');
+              try {
+                await databaseService.signInWithGoogle();
+              } catch (err) {
+                setAuthError(err.message || 'Google OAuth failed.');
+              }
+            }}
           >
             <div className="google-icon-wrapper">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">

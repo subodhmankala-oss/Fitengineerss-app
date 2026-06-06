@@ -63,6 +63,14 @@ body {
   justify-content: center;
 }
 
+#root {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
 h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
   font-weight: 700;

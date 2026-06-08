@@ -257,76 +257,72 @@ function App() {
     if (!isSupabaseConfigured || !supabase) return;
 
     const processSessionUser = async (user) => {
-      const email = user.email;
-      const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+      try {
+        const email = user.email;
+        const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
-      const profile = await databaseService.getUserProfileByEmail(email);
-      
-      const hasCompleteProfile = profile && 
-                                 profile.userName && 
-                                 profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
-                                 profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
-                                 profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
-
-      if (hasCompleteProfile) {
-        // If the profile has a placeholder name, update it with their real Google name
-        let finalName = profile.userName;
-        if (googleName && (profile.userName.toLowerCase().includes('test') || profile.userName === 'Warrior' || profile.userName === '')) {
-          finalName = googleName;
-          profile.userName = googleName;
-          // Sync update back to DB
-          databaseService.saveUserProfile({
-            email,
-            userName: finalName,
-            userAge: profile.userAge,
-            userHeight: profile.userHeight,
-            userWeight: profile.userWeight,
-            userActivity: profile.userActivity,
-            userGoal: profile.userGoal,
-            userDiet: profile.userDiet,
-            userCalorieTarget: profile.userCalorieTarget,
-            userProteinTarget: profile.userProteinTarget,
-            userFatsTarget: profile.userFatsTarget
-          });
-        }
-        await databaseService.loadProfileIntoLocalStorage(profile, email);
-        localStorage.setItem('userName', finalName);
-        setUserGoal(profile.userGoal);
-        setOnboardingComplete(true);
-      } else {
-        // Incomplete profile! Direct to onboarding Step 2 by setting email and name
-        localStorage.setItem('userEmail', email);
-        const nameToUse = (profile && profile.userName && !profile.userName.toLowerCase().includes('test')) 
-          ? profile.userName 
-          : (googleName || '');
+        const profile = await databaseService.getUserProfileByEmail(email);
         
-        if (nameToUse) {
-          localStorage.setItem('userName', nameToUse);
-        } else {
-          localStorage.removeItem('userName');
-        }
+        const hasCompleteProfile = profile && 
+                                   profile.userName && 
+                                   profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
+                                   profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
+                                   profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
 
-        // Cache any existing database values to prefill onboarding
-        if (profile) {
-          if (profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN') localStorage.setItem('userAge', profile.userAge);
-          if (profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN') localStorage.setItem('userHeight', profile.userHeight);
-          if (profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN') localStorage.setItem('userWeight', profile.userWeight);
-          if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
-          if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
-          if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
+        if (hasCompleteProfile) {
+          // If the profile has a placeholder name, update it with their real Google name
+          let finalName = profile.userName;
+          if (googleName && (profile.userName.toLowerCase().includes('test') || profile.userName === 'Warrior' || profile.userName === '')) {
+            finalName = googleName;
+            profile.userName = googleName;
+            // Sync update back to DB
+            databaseService.saveUserProfile({
+              email,
+              userName: finalName,
+              userAge: profile.userAge,
+              userHeight: profile.userHeight,
+              userWeight: profile.userWeight,
+              userActivity: profile.userActivity,
+              userGoal: profile.userGoal,
+              userDiet: profile.userDiet,
+              userCalorieTarget: profile.userCalorieTarget,
+              userProteinTarget: profile.userProteinTarget,
+              userFatsTarget: profile.userFatsTarget
+            });
+          }
+          await databaseService.loadProfileIntoLocalStorage(profile, email);
+          localStorage.setItem('userName', finalName);
+          setUserGoal(profile.userGoal);
+          setOnboardingComplete(true);
+        } else {
+          // Incomplete profile! Direct to onboarding Step 2 by setting email and name
+          localStorage.setItem('userEmail', email);
+          const nameToUse = (profile && profile.userName && !profile.userName.toLowerCase().includes('test')) 
+            ? profile.userName 
+            : (googleName || '');
+          
+          if (nameToUse) {
+            localStorage.setItem('userName', nameToUse);
+          } else {
+            localStorage.removeItem('userName');
+          }
+
+          // Cache any existing database values to prefill onboarding
+          if (profile) {
+            if (profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN') localStorage.setItem('userAge', profile.userAge);
+            if (profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN') localStorage.setItem('userHeight', profile.userHeight);
+            if (profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN') localStorage.setItem('userWeight', profile.userWeight);
+            if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
+            if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
+            if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
+          }
+          setOnboardingComplete(false);
         }
+      } catch (err) {
+        console.error("Error processing session user:", err);
         setOnboardingComplete(false);
       }
     };
-
-    const syncSession = async () => {
-      const session = await databaseService.getSession();
-      if (session && session.user) {
-        await processSessionUser(session.user);
-      }
-    };
-
-    syncSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session && session.user) {

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SmartReminders from './SmartReminders';
 import MealScanner from './MealScanner';
 import './FatLossDashboard.css';
 
@@ -771,7 +770,6 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
         </div>
       </div>
 
-      <SmartReminders />
       {showScanner && <MealScanner onClose={() => setShowScanner(false)} />}
     </div>
   );

@@ -577,6 +577,87 @@ function App() {
     };
   }, [onboardingComplete, notificationPermission]);
 
+  // ── Lock / Unlock Push Notifications (Visibility API) ──
+  useEffect(() => {
+    if (!onboardingComplete) return;
+    if (!('Notification' in window) || notificationPermission !== 'granted') return;
+
+    let lastEventTime = 0;
+
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+      // Throttle notifications to prevent double firing or spam (minimum 15 seconds between notifications)
+      if (now - lastEventTime < 15000) return;
+
+      const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
+      const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
+      const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '100');
+      const steps = parseInt(localStorage.getItem('userSyncedSteps') || '0');
+
+      const baseCalorieGlasses = calorieTarget / 250;
+      const baseWeightGlasses = (userWeight * 35) / 250;
+      const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
+      const stepBooster = Math.floor(steps / 3000);
+      const proteinBooster = userProteinTarget > 100 ? 1 : 0;
+      const recommendedWaterTarget = Math.max(6, baselineTarget + stepBooster + proteinBooster);
+
+      const waterGlasses = parseInt(localStorage.getItem('waterGlasses') || '0');
+      const glassesLeft = Math.max(0, recommendedWaterTarget - waterGlasses);
+
+      const showBackgroundNotification = (title, body) => {
+        const options = {
+          body,
+          icon: '/logo.png',
+          badge: '/logo.png',
+          vibrate: [200, 100, 200],
+          tag: 'fitengineers-coach-nudge',
+          renotify: true,
+          requireInteraction: true,
+          silent: false
+        };
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(title, options);
+          }).catch(() => {
+            try {
+              new Notification(title, options);
+            } catch (err) {
+              console.error("Native notification fallback failed:", err);
+            }
+          });
+        } else {
+          try {
+            new Notification(title, options);
+          } catch (e) {
+            console.error("Browser notification failed: ", e);
+          }
+        }
+      };
+
+      if (document.visibilityState === 'hidden') {
+        // Screen locked or tab closed
+        lastEventTime = now;
+        let body = "Screen locked. Step away, stay active, and keep winning your day!";
+        if (glassesLeft > 0) {
+          body = `🔒 Screen locked. Remember to keep hydrated: ${glassesLeft} glasses remaining today! 💧`;
+        }
+        showBackgroundNotification("🔒 Focus Mode Active", body);
+      } else if (document.visibilityState === 'visible') {
+        // Screen unlocked or tab focused
+        lastEventTime = now;
+        let body = "Do a quick posture check! Stand up, stretch, and grab some water.";
+        if (glassesLeft > 0) {
+          body = `🔓 Welcome back! Quick posture check + take a sip. Need ${glassesLeft} more glasses of water today! 💧`;
+        }
+        showBackgroundNotification("🔓 Welcome Back!", body);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [onboardingComplete, notificationPermission]);
+
   if (!onboardingComplete) {
     return (
       <div className="app-container">

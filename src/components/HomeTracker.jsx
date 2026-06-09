@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import SmartReminders from './SmartReminders';
 import MealScanner from './MealScanner';
 import './HomeTracker.css';
 
@@ -777,7 +776,6 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
         </div>
       </div>
 
-      <SmartReminders />
       {showScanner && <MealScanner onClose={() => setShowScanner(false)} />}
     </div>
   );

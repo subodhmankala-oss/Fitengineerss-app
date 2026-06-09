@@ -290,10 +290,19 @@ function App() {
               userFatsTarget: profile.userFatsTarget
             });
           }
+          
+          const alreadyOnboarded = localStorage.getItem('onboardingComplete') === 'true';
+          
           await databaseService.loadProfileIntoLocalStorage(profile, email);
           localStorage.setItem('userName', finalName);
           setUserGoal(profile.userGoal);
-          setOnboardingComplete(true);
+          
+          if (alreadyOnboarded) {
+            setOnboardingComplete(true);
+          } else {
+            localStorage.setItem('onboardingComplete', 'false');
+            setOnboardingComplete(false);
+          }
         } else {
           // Incomplete profile! Direct to onboarding Step 2 by setting email and name
           localStorage.setItem('userEmail', email);

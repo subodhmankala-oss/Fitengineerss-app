@@ -90,7 +90,8 @@ const Onboarding = ({ onComplete }) => {
         const profile = await databaseService.getUserProfileByEmail(authEmail);
         if (profile && profile.userName) {
           await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
-          onComplete();
+          localStorage.setItem('onboardingComplete', 'false');
+          setStep(2);
         } else {
           localStorage.setItem('userEmail', authEmail);
           setStep(1);

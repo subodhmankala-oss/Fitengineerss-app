@@ -252,6 +252,7 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -296,6 +297,7 @@ function App() {
           await databaseService.loadProfileIntoLocalStorage(profile, email);
           localStorage.setItem('userName', finalName);
           setUserGoal(profile.userGoal);
+          setUserEmail(email);
           
           if (alreadyOnboarded) {
             setOnboardingComplete(true);
@@ -325,6 +327,7 @@ function App() {
             if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
             if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
           }
+          setUserEmail(email);
           setOnboardingComplete(false);
         }
       } catch (err) {
@@ -340,6 +343,7 @@ function App() {
         localStorage.clear();
         setOnboardingComplete(false);
         setUserGoal('');
+        setUserEmail('');
         setActiveTab('home');
       }
     });
@@ -576,7 +580,7 @@ function App() {
   if (!onboardingComplete) {
     return (
       <div className="app-container">
-        <Onboarding onComplete={() => {
+        <Onboarding key={userEmail || 'guest'} onComplete={() => {
           const prevName = localStorage.getItem('lastUserName');
           const newName = localStorage.getItem('userName');
           
@@ -679,6 +683,7 @@ function App() {
 
     setOnboardingComplete(false);
     setUserGoal('');
+    setUserEmail('');
     setActiveTab('home');
 
     // Perform hard reload after 150ms

@@ -406,6 +406,32 @@ const MealCard = ({ data, userTargets }) => {
   );
 };
 
+const balanceMacroTargets = (calorieTarget, goalVal) => {
+  let proteinRatio = 0.30;
+  let carbsRatio = 0.40;
+  let fatsRatio = 0.30;
+
+  if (goalVal === 'Fat Loss') {
+    proteinRatio = 0.35;
+    carbsRatio = 0.35;
+    fatsRatio = 0.30;
+  } else if (goalVal === 'Muscle Building') {
+    proteinRatio = 0.30;
+    carbsRatio = 0.45;
+    fatsRatio = 0.25;
+  }
+
+  const proteinGrams = Math.round((calorieTarget * proteinRatio) / 4);
+  const fatGrams = Math.round((calorieTarget * fatsRatio) / 9);
+  const carbGrams = Math.round((calorieTarget * carbsRatio) / 4);
+
+  return {
+    protein: Math.round(proteinGrams / 5) * 5,
+    carbs: Math.round(carbGrams / 5) * 5,
+    fats: Math.round(fatGrams / 5) * 5
+  };
+};
+
 // ─────────────────────────────────────────────────────────────
 //  MAIN PAGE
 // ─────────────────────────────────────────────────────────────

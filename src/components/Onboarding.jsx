@@ -88,13 +88,30 @@ const Onboarding = ({ onComplete }) => {
       if (authTab === 'login') {
         await databaseService.signIn(authEmail, authPassword);
         const profile = await databaseService.getUserProfileByEmail(authEmail);
-        if (profile && profile.userName) {
+        const hasCompleteProfile = profile && 
+                                   profile.userName && 
+                                   profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
+                                   profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
+                                   profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
+
+        if (hasCompleteProfile) {
           await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
-          localStorage.setItem('onboardingComplete', 'false');
-          setStep(2);
+          onComplete();
         } else {
           localStorage.setItem('userEmail', authEmail);
-          setStep(1);
+          if (profile && profile.userName) {
+            localStorage.setItem('userName', profile.userName);
+            if (profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN') localStorage.setItem('userAge', profile.userAge);
+            if (profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN') localStorage.setItem('userHeight', profile.userHeight);
+            if (profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN') localStorage.setItem('userWeight', profile.userWeight);
+            if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
+            if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
+            if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
+            localStorage.setItem('onboardingComplete', 'false');
+            setStep(2);
+          } else {
+            setStep(1);
+          }
         }
       } else {
         if (!name.trim()) {

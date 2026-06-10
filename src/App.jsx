@@ -292,19 +292,13 @@ function App() {
             });
           }
           
-          const alreadyOnboarded = localStorage.getItem('onboardingComplete') === 'true';
-          
           await databaseService.loadProfileIntoLocalStorage(profile, email);
           localStorage.setItem('userName', finalName);
           setUserGoal(profile.userGoal);
           setUserEmail(email);
           
-          if (alreadyOnboarded) {
-            setOnboardingComplete(true);
-          } else {
-            localStorage.setItem('onboardingComplete', 'false');
-            setOnboardingComplete(false);
-          }
+          localStorage.setItem('onboardingComplete', 'true');
+          setOnboardingComplete(true);
         } else {
           // Incomplete profile! Direct to onboarding Step 2 by setting email and name
           localStorage.setItem('userEmail', email);

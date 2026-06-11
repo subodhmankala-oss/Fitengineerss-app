@@ -354,7 +354,14 @@ function App() {
       if (session && session.user) {
         await processSessionUser(session.user);
       } else if (event === 'SIGNED_OUT') {
+        const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
+        const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
+        
         localStorage.clear();
+        
+        if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
+        if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
+        
         setOnboardingComplete(false);
         setUserGoal('');
         setUserEmail('');
@@ -738,6 +745,14 @@ function App() {
   }
 
   const handleLogout = async () => {
+    // Preserve credentials and metadata before clearing
+    const name = localStorage.getItem('userName');
+    if (name) {
+      saveActiveUserCache(name);
+    }
+    const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
+    const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
+
     // Sign out from Supabase Auth if active and wait for it to complete
     try {
       await databaseService.signOut();
@@ -745,16 +760,19 @@ function App() {
       console.error("Sign out error:", err);
     }
 
-    // Preserve name to check if next user is same or different
-    const name = localStorage.getItem('userName');
+    // Clear everything to clean up onboarding state
+    localStorage.clear();
+
+    // Restore login credentials and metadata
     if (name) {
-      saveActiveUserCache(name);
       localStorage.setItem('lastUserName', name);
     }
-
-    localStorage.removeItem('onboardingComplete');
-    localStorage.removeItem('userGoal');
-    localStorage.removeItem('userIssue');
+    if (rememberedEmail) {
+      localStorage.setItem('rememberedEmail', rememberedEmail);
+    }
+    if (rememberedPassword) {
+      localStorage.setItem('rememberedPassword', rememberedPassword);
+    }
     
     // Invalidate PWA cache and old service workers to force reload the fresh code
     if ('serviceWorker' in navigator) {

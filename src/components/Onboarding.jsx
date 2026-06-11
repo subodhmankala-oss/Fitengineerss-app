@@ -74,8 +74,8 @@ const Onboarding = ({ onComplete }) => {
 
   // Authentication States
   const [authTab, setAuthTab] = useState('login'); // 'login' or 'register'
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
+  const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('rememberedEmail') || '');
+  const [authPassword, setAuthPassword] = useState(() => localStorage.getItem('rememberedPassword') || '');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -87,6 +87,8 @@ const Onboarding = ({ onComplete }) => {
     try {
       if (authTab === 'login') {
         await databaseService.signIn(authEmail, authPassword);
+        localStorage.setItem('rememberedEmail', authEmail);
+        localStorage.setItem('rememberedPassword', authPassword);
         const profile = await databaseService.getUserProfileByEmail(authEmail);
         const hasCompleteProfile = profile && 
                                    profile.userName && 
@@ -120,6 +122,8 @@ const Onboarding = ({ onComplete }) => {
           return;
         }
         await databaseService.signUp(authEmail, authPassword);
+        localStorage.setItem('rememberedEmail', authEmail);
+        localStorage.setItem('rememberedPassword', authPassword);
         localStorage.setItem('userEmail', authEmail);
         localStorage.setItem('userName', name.trim());
         setStep(2);

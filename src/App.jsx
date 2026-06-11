@@ -123,6 +123,20 @@ const resetDailyLogs = () => {
   window.dispatchEvent(new Event('nutritionUpdated'));
 };
 
+const checkAndHandleDateRollover = () => {
+  const lastSavedDate = localStorage.getItem('lastSavedDate');
+  const todayStr = new Date().toDateString();
+  if (lastSavedDate && lastSavedDate !== todayStr) {
+    archiveYesterdayStats(lastSavedDate);
+    resetDailyLogs();
+    localStorage.setItem('lastSavedDate', todayStr);
+    return true;
+  } else if (!lastSavedDate) {
+    localStorage.setItem('lastSavedDate', todayStr);
+  }
+  return false;
+};
+
 const trackerKeys = [
   'waterGlasses', 'userSyncedSteps', 'userLoggedCalories', 
   'userLoggedProtein', 'userLoggedCarbs', 'userLoggedFats',
@@ -233,13 +247,19 @@ const registerForPushNotifications = async (userName) => {
       });
     }
 
+    // Convert subscription to JSON and attach user's real email
+    const subJson = typeof subscription.toJSON === 'function'
+      ? subscription.toJSON()
+      : JSON.parse(JSON.stringify(subscription));
+    subJson.userEmail = localStorage.getItem('userEmail') || '';
+
     // Register with backend Vercel API
     await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userName: userName || 'Warrior',
-        subscription: subscription
+        subscription: subJson
       })
     });
     console.log('Registered with Vercel Web Push backend for lock-screen nudges.');
@@ -394,13 +414,7 @@ function App() {
       if (goal) setUserGoal(goal);
 
       // Check date rollover on startup
-      const lastSavedDate = localStorage.getItem('lastSavedDate');
-      const todayStr = new Date().toDateString();
-      if (lastSavedDate && lastSavedDate !== todayStr) {
-        archiveYesterdayStats(lastSavedDate);
-        resetDailyLogs();
-      }
-      localStorage.setItem('lastSavedDate', todayStr);
+      checkAndHandleDateRollover();
     }
   }, []);
 
@@ -430,6 +444,7 @@ function App() {
     if (!('Notification' in window) || notificationPermission !== 'granted') return;
 
     const checkSchedule = () => {
+      checkAndHandleDateRollover();
       const now = new Date();
       const hours = now.getHours();
       const dateStr = now.toDateString();
@@ -579,6 +594,7 @@ function App() {
     let lastEventTime = 0;
 
     const handleVisibilityChange = () => {
+      checkAndHandleDateRollover();
       const now = Date.now();
       // Throttle notifications to prevent double firing or spam (minimum 15 seconds between notifications)
       if (now - lastEventTime < 15000) return;
@@ -709,13 +725,7 @@ function App() {
             localStorage.setItem('lastSavedDate', todayStr);
           } else {
             // Same user logged back in! Check if date changed
-            const lastSavedDate = localStorage.getItem('lastSavedDate');
-            const todayStr = new Date().toDateString();
-            if (lastSavedDate && lastSavedDate !== todayStr) {
-              archiveYesterdayStats(lastSavedDate);
-              resetDailyLogs();
-            }
-            localStorage.setItem('lastSavedDate', todayStr);
+            checkAndHandleDateRollover();
           }
 
           localStorage.setItem('onboardingComplete', 'true');

@@ -10,9 +10,7 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const [checks, setChecks] = useState({
     phone: true,
     chewed: false,
-    combos: true,
-    walk: false,
-    water: false
+    combos: true
   });
 
   // HealthifyMe Logging States — persisted to localStorage
@@ -391,6 +389,9 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
     }, 1200);
   };
 
+  const completedChecklistItems = (checks.phone ? 1 : 0) + (checks.chewed ? 1 : 0) + (checks.combos ? 1 : 0);
+  const completionPercentage = Math.round((completedChecklistItems / 3) * 100);
+
   const circumference = 2 * Math.PI * 40;
   const progressRatio = Math.min(Math.max(caloriesEaten / calorieBudget, 0), 1);
   const strokeDashoffset = circumference - progressRatio * circumference;
@@ -742,7 +743,48 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
 
       {/* 5. Gut Score Checklist */}
       <div className="tracker-section mt-4">
-        <h3 className="section-label">Gut Discipline Checklist</h3>
+        <div className="checklist-header-wrapper" style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '10px'
+        }}>
+          <h3 className="section-label" style={{ margin: 0 }}>Gut Discipline Checklist</h3>
+          <span className="percentage-badge" style={{
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            color: '#10b981',
+            background: 'rgba(16, 185, 129, 0.1)',
+            padding: '4px 10px',
+            borderRadius: '20px',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 0 10px rgba(16, 185, 129, 0.05)'
+          }}>
+            {completionPercentage}% Complete
+          </span>
+        </div>
+
+        {/* Modern Progress Bar */}
+        <div className="checklist-progress-container" style={{
+          width: '100%',
+          height: '6px',
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '3px',
+          marginBottom: '16px',
+          overflow: 'hidden',
+          border: '1px solid rgba(255, 255, 255, 0.02)'
+        }}>
+          <div className="checklist-progress-bar" style={{
+            width: `${completionPercentage}%`,
+            height: '100%',
+            background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+            borderRadius: '3px',
+            boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)',
+            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+          }} />
+        </div>
+
         <div className="checklist-grid">
           <button className={`toggle-card ${checks.phone ? 'active' : ''}`} onClick={() => toggleCheck('phone')}>
             <span className="icon">📱</span>

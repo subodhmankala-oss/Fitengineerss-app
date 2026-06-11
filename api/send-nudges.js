@@ -76,7 +76,8 @@ export default async function handler(req, res) {
     // 2. Loop through subscribers and fetch their real-time targets & logs
     for (const sub of subscribers) {
       const userName = sub.user_name || 'Warrior';
-      const email = `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+      // Use the email saved in subscription json metadata if available, otherwise fall back to constructed email
+      const email = sub.subscription.userEmail || `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
 
       let title = "Fitengineers Coach 🥗";
       let body = "Stay focused on your wellness habits today. Consistency is key! ✨";

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Onboarding from './components/Onboarding';
 import HomeTracker from './components/HomeTracker';
 import FatLossDashboard from './components/FatLossDashboard';
@@ -273,6 +273,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const lastProcessedEmailRef = useRef('');
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -281,6 +282,12 @@ function App() {
       try {
         const email = user.email;
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+
+        if (lastProcessedEmailRef.current === email) {
+          // Avoid duplicate processing/database hits on same user to prevent state resets
+          return;
+        }
+        lastProcessedEmailRef.current = email;
 
         const profile = await databaseService.getUserProfileByEmail(email);
         
@@ -346,6 +353,7 @@ function App() {
         }
       } catch (err) {
         console.error("Error processing session user:", err);
+        lastProcessedEmailRef.current = '';
         setOnboardingComplete(false);
       }
     };
@@ -358,6 +366,7 @@ function App() {
         const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
         const lastUserName = localStorage.getItem('lastUserName') || '';
         
+        lastProcessedEmailRef.current = '';
         localStorage.clear();
         
         if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
@@ -802,6 +811,7 @@ function App() {
       }
     }
 
+    lastProcessedEmailRef.current = '';
     setOnboardingComplete(false);
     setUserGoal('');
     setUserEmail('');

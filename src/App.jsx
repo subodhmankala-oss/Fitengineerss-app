@@ -356,11 +356,13 @@ function App() {
       } else if (event === 'SIGNED_OUT') {
         const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
         const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
+        const lastUserName = localStorage.getItem('lastUserName') || '';
         
         localStorage.clear();
         
         if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
         if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
+        if (lastUserName) localStorage.setItem('lastUserName', lastUserName);
         
         setOnboardingComplete(false);
         setUserGoal('');
@@ -655,19 +657,23 @@ function App() {
       if (document.visibilityState === 'hidden') {
         // Screen locked or tab closed
         lastEventTime = now;
-        let body = "Screen locked. Step away, stay active, and keep winning your day!";
+        let title = "🚶 Posture Check";
+        let body = "Step away, stay active, and keep winning your day!";
         if (glassesLeft > 0) {
-          body = `🔒 Screen locked. Remember to keep hydrated: ${glassesLeft} glasses remaining today! 💧`;
+          title = "💧 Fluid Intake Status";
+          body = `Remember to keep hydrated: ${glassesLeft} glasses remaining today! 💧`;
         }
-        showBackgroundNotification("🔒 Focus Mode Active", body);
+        showBackgroundNotification(title, body);
       } else if (document.visibilityState === 'visible') {
         // Screen unlocked or tab focused
         lastEventTime = now;
+        let title = "🚶 Posture Check";
         let body = "Do a quick posture check! Stand up, stretch, and grab some water.";
         if (glassesLeft > 0) {
-          body = `🔓 Welcome back! Quick posture check + take a sip. Need ${glassesLeft} more glasses of water today! 💧`;
+          title = "💧 Fluid Intake Status";
+          body = `Quick posture check + take a sip. Need ${glassesLeft} more glasses of water today! 💧`;
         }
-        showBackgroundNotification("🔓 Welcome Back!", body);
+        showBackgroundNotification(title, body);
       }
     };
 
@@ -801,10 +807,8 @@ function App() {
     setUserEmail('');
     setActiveTab('home');
 
-    // Perform hard reload after 150ms
-    setTimeout(() => {
-      window.location.reload();
-    }, 150);
+    // Perform hard reload immediately since all async operations are completed!
+    window.location.reload();
   };
 
   const renderHomeDashboard = () => {

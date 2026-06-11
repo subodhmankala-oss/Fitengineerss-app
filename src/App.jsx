@@ -737,9 +737,13 @@ function App() {
     );
   }
 
-  const handleLogout = () => {
-    // Sign out from Supabase Auth if active
-    databaseService.signOut().catch(err => console.error("Sign out error:", err));
+  const handleLogout = async () => {
+    // Sign out from Supabase Auth if active and wait for it to complete
+    try {
+      await databaseService.signOut();
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
 
     // Preserve name to check if next user is same or different
     const name = localStorage.getItem('userName');
@@ -754,16 +758,24 @@ function App() {
     
     // Invalidate PWA cache and old service workers to force reload the fresh code
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
         for (let registration of registrations) {
-          registration.unregister();
+          await registration.unregister();
         }
-      });
+      } catch (err) {
+        console.error("Service worker unregister error:", err);
+      }
     }
     if ('caches' in window) {
-      caches.keys().then((names) => {
-        for (let name of names) caches.delete(name);
-      });
+      try {
+        const names = await caches.keys();
+        for (let name of names) {
+          await caches.delete(name);
+        }
+      } catch (err) {
+        console.error("Cache clear error:", err);
+      }
     }
 
     setOnboardingComplete(false);

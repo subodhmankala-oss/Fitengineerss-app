@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import databaseService, { isSupabaseConfigured } from '../services/databaseService';
+import databaseService, { isSupabaseConfigured, isTrainer } from '../services/databaseService';
 import './Onboarding.css';
 
 const googleAccounts = [
@@ -96,8 +96,8 @@ const Onboarding = ({ onComplete }) => {
                                    profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
                                    profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
 
-        if (hasCompleteProfile) {
-          await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
+        if (isTrainer(authEmail) || hasCompleteProfile) {
+          await databaseService.loadProfileIntoLocalStorage(profile || { userName: 'Trainer' }, authEmail);
           onComplete();
         } else {
           localStorage.setItem('userEmail', authEmail);
@@ -186,11 +186,12 @@ const Onboarding = ({ onComplete }) => {
     };
   };
 
-  const handleInstantLogin = (profile) => {
+  const handleInstantLogin = (profile, email) => {
     const cleanName = profile.name.trim();
     const targets = calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal);
 
     localStorage.setItem('userName', cleanName);
+    if (email) localStorage.setItem('userEmail', email);
     localStorage.setItem('userAge', profile.age);
     localStorage.setItem('userHeight', profile.height);
     localStorage.setItem('userWeight', profile.weight);
@@ -220,9 +221,9 @@ const Onboarding = ({ onComplete }) => {
     onComplete();
   };
 
-  const handleGoogleAccountSelect = (account) => {
+  const handleGoogleAccountSelect = (profile, email) => {
     setShowGoogleModal(false);
-    handleInstantLogin(account);
+    handleInstantLogin(profile, email);
   };
 
   // Seed mock profiles if they do not exist, for the demo
@@ -829,7 +830,7 @@ const Onboarding = ({ onComplete }) => {
                 <div 
                   key={idx} 
                   className="google-account-row"
-                  onClick={() => handleGoogleAccountSelect(account.profile)}
+                  onClick={() => handleGoogleAccountSelect(account.profile, account.email)}
                 >
                   <div className="account-avatar" style={{ backgroundColor: account.avatarColor }}>
                     {account.avatarLetter}
@@ -857,7 +858,7 @@ const Onboarding = ({ onComplete }) => {
                       issue: 'None',
                       diet: 'Vegetarian'
                     };
-                    handleGoogleAccountSelect(customProfile);
+                    handleGoogleAccountSelect(customProfile, `${cleanName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`);
                   }
                 }}
               >

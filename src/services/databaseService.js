@@ -16,6 +16,16 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+export const TRAINER_EMAILS = [
+  'subodhmankala@gmail.com',
+  'trainer@fitengineers.com',
+  'coach@fitengineers.com'
+];
+
+export const isTrainer = (email) => {
+  return email && TRAINER_EMAILS.includes(email.toLowerCase());
+};
+
 /**
  * DATABASE SERVICE
  * ----------------
@@ -332,18 +342,70 @@ const databaseService = {
   },
 
   async loadProfileIntoLocalStorage(profile, email) {
-    localStorage.setItem('userName', profile.userName);
+    localStorage.setItem('userName', profile.userName || 'Trainer');
     localStorage.setItem('userEmail', email);
-    localStorage.setItem('userAge', profile.userAge);
-    localStorage.setItem('userHeight', profile.userHeight);
-    localStorage.setItem('userWeight', profile.userWeight);
-    localStorage.setItem('userActivity', profile.userActivity);
-    localStorage.setItem('userGoal', profile.userGoal);
-    localStorage.setItem('userDiet', profile.userDiet);
-    localStorage.setItem('userCalorieTarget', profile.userCalorieTarget);
-    localStorage.setItem('userProteinTarget', profile.userProteinTarget);
-    localStorage.setItem('userFatsTarget', profile.userFatsTarget);
+    if (profile.userAge) localStorage.setItem('userAge', profile.userAge);
+    if (profile.userHeight) localStorage.setItem('userHeight', profile.userHeight);
+    if (profile.userWeight) localStorage.setItem('userWeight', profile.userWeight);
+    if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
+    if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
+    if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
+    if (profile.userCalorieTarget) localStorage.setItem('userCalorieTarget', profile.userCalorieTarget);
+    if (profile.userProteinTarget) localStorage.setItem('userProteinTarget', profile.userProteinTarget);
+    if (profile.userFatsTarget) localStorage.setItem('userFatsTarget', profile.userFatsTarget);
     localStorage.setItem('onboardingComplete', 'true');
+  },
+
+  async getAllUsers() {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .order('full_name', { ascending: true });
+        
+        if (error) throw error;
+        if (data) {
+          return data.map(u => ({
+            id: u.id,
+            email: u.email,
+            userName: u.full_name || 'Warrior',
+            userAge: String(u.age || ''),
+            userHeight: String(u.height_cm || ''),
+            userWeight: String(u.weight_kg || ''),
+            userActivity: u.activity_level || '',
+            userGoal: u.fitness_goal || '',
+            userDiet: u.dietary_preference || '',
+            userCalorieTarget: String(u.calorie_target || ''),
+            userProteinTarget: String(u.protein_target || ''),
+            userFatsTarget: String(u.fats_target || '')
+          }));
+        }
+      } catch (e) {
+        console.error('Cloud DB Fetch all users error:', e);
+      }
+    }
+    return [];
+  },
+
+  async getWorkoutLogsForUser(userId) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('workout_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('log_date', { ascending: false })
+          .order('exercise_name', { ascending: true })
+          .order('set_number', { ascending: true });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (e) {
+        console.error('Cloud DB Fetch workout logs error:', e);
+      }
+    }
+    return [];
   }
 };
 

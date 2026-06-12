@@ -11,7 +11,8 @@ import CoachChat from './components/CoachChat';
 import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
-import databaseService, { isSupabaseConfigured, supabase } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer } from './services/databaseService';
+import TrainerDashboard from './components/TrainerDashboard';
 import './index.css'; 
 
 
@@ -297,31 +298,22 @@ function App() {
                                    profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
                                    profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
 
-        if (hasCompleteProfile) {
+        const isUserTrainer = isTrainer(email);
+
+        if (isUserTrainer || hasCompleteProfile) {
           // If the profile has a placeholder name, update it with their real Google name
-          let finalName = profile.userName;
-          if (googleName && (profile.userName.toLowerCase().includes('test') || profile.userName === 'Warrior' || profile.userName === '')) {
+          let finalName = profile?.userName || 'Trainer';
+          if (googleName && (finalName.toLowerCase().includes('test') || finalName === 'Warrior' || finalName === '')) {
             finalName = googleName;
-            profile.userName = googleName;
-            // Sync update back to DB
-            databaseService.saveUserProfile({
-              email,
-              userName: finalName,
-              userAge: profile.userAge,
-              userHeight: profile.userHeight,
-              userWeight: profile.userWeight,
-              userActivity: profile.userActivity,
-              userGoal: profile.userGoal,
-              userDiet: profile.userDiet,
-              userCalorieTarget: profile.userCalorieTarget,
-              userProteinTarget: profile.userProteinTarget,
-              userFatsTarget: profile.userFatsTarget
-            });
           }
           
-          await databaseService.loadProfileIntoLocalStorage(profile, email);
-          localStorage.setItem('userName', finalName);
-          setUserGoal(profile.userGoal);
+          if (profile) {
+            await databaseService.loadProfileIntoLocalStorage(profile, email);
+          } else {
+            localStorage.setItem('userName', finalName);
+            localStorage.setItem('userEmail', email);
+          }
+          if (profile?.userGoal) setUserGoal(profile.userGoal);
           setUserEmail(email);
           
           localStorage.setItem('onboardingComplete', 'true');
@@ -849,6 +841,14 @@ function App() {
 
   const isNavVisible = true;
 
+
+  if (isTrainer(userEmail)) {
+    return (
+      <div className="app-container">
+        <TrainerDashboard handleLogout={handleLogout} />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">

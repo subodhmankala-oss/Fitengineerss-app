@@ -459,7 +459,11 @@ const Onboarding = ({ onComplete }) => {
             onClick={async () => {
               setAuthError('');
               try {
-                await databaseService.signInWithGoogle();
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                  setShowGoogleModal(true);
+                } else {
+                  await databaseService.signInWithGoogle();
+                }
               } catch (err) {
                 setAuthError(err.message || 'Google OAuth failed.');
               }
@@ -568,7 +572,11 @@ const Onboarding = ({ onComplete }) => {
             onClick={async () => {
               setAuthError('');
               try {
-                await databaseService.signInWithGoogle();
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                  setShowGoogleModal(true);
+                } else {
+                  await databaseService.signInWithGoogle();
+                }
               } catch (err) {
                 setAuthError(err.message || 'Google OAuth failed.');
               }

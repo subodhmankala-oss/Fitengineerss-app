@@ -708,7 +708,7 @@ function App() {
               'onboardingComplete', 'userName', 'userAge', 'userHeight', 'userWeight', 
               'userActivity', 'userGoal', 'userIssue', 'userDiet', 
               'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget',
-              'userEmail'
+              'userEmail', 'rememberedEmail', 'rememberedPassword', 'lastUserName'
             ];
             const tempStorage = {};
             keysToKeep.forEach(k => {

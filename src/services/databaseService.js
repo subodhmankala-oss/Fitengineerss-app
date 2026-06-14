@@ -124,7 +124,7 @@ const databaseService = {
   // ─── DAILY TRACKER LOGS ───
   async saveTrackerLog(log) {
     const userName = localStorage.getItem('userName') || 'Warrior';
-    const email = `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    const email = localStorage.getItem('userEmail') || `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -171,7 +171,7 @@ const databaseService = {
   // ─── MONTHLY PROGRESS HISTORY ───
   async saveProgressHistory(history) {
     const userName = localStorage.getItem('userName') || 'Warrior';
-    const email = `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    const email = localStorage.getItem('userEmail') || `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -214,7 +214,7 @@ const databaseService = {
   // ─── WORKOUT PROGRESS & SESSIONS ───
   async saveWorkoutSession(session) {
     const userName = localStorage.getItem('userName') || 'Warrior';
-    const email = `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    const email = localStorage.getItem('userEmail') || `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
 
     if (isSupabaseConfigured && supabase) {
       try {

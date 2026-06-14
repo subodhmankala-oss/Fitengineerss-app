@@ -447,6 +447,99 @@ const Onboarding = ({ onComplete }) => {
             </button>
           </form>
 
+          {authTab === 'login' && (
+            <div className="demo-login-quick" style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+              <button
+                type="button"
+                className="gmail-login-btn"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  color: '#93c5fd',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                  margin: 0
+                }}
+                onClick={() => {
+                  const demoClientProfile = {
+                    name: 'Subodh M',
+                    age: '26',
+                    height: '178',
+                    weight: '75',
+                    activity: 'Moderately Active',
+                    goal: 'Fat Loss',
+                    issue: 'None',
+                    diet: 'Non-Vegetarian'
+                  };
+                  handleInstantLogin(demoClientProfile, 'subodh.m@gmail.com');
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                }}
+              >
+                👤 Client Login
+              </button>
+              <button
+                type="button"
+                className="gmail-login-btn"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  color: '#6ee7b7',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                  margin: 0
+                }}
+                onClick={() => {
+                  const demoCoachProfile = {
+                    name: 'Subodh Mankala',
+                    age: '28',
+                    height: '175',
+                    weight: '70',
+                    activity: 'Moderately Active',
+                    goal: 'Fat Loss',
+                    issue: 'None',
+                    diet: 'Non-Vegetarian'
+                  };
+                  handleInstantLogin(demoCoachProfile, 'subodhmankala@gmail.com');
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                }}
+              >
+                🏋️‍♂️ Coach Login
+              </button>
+            </div>
+          )}
+
           <div className="onboarding-divider" style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: 'var(--text-subtle)', fontSize: '0.8rem' }}>
             <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }}></span>
             <span style={{ padding: '0 10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>or</span>

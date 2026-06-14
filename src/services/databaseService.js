@@ -322,6 +322,7 @@ const databaseService = {
         if (error && error.code !== 'PGRST116') throw error;
         if (data) {
           return {
+            id: data.id,
             userName: data.full_name,
             userAge: String(data.age),
             userHeight: String(data.height_cm),
@@ -385,7 +386,72 @@ const databaseService = {
         console.error('Cloud DB Fetch all users error:', e);
       }
     }
-    return [];
+    
+    // Offline local storage fallback
+    const localClients = [];
+    const clientNamesSeen = new Set();
+    
+    // 1. Add current user if exists and not trainer
+    const currentName = localStorage.getItem('userName');
+    const currentEmail = localStorage.getItem('userEmail');
+    if (currentName && currentEmail && !isTrainer(currentEmail)) {
+      const uKey = currentName.toLowerCase().replace(/\s+/g, '');
+      localClients.push({
+        id: uKey,
+        email: currentEmail,
+        userName: currentName,
+        userAge: localStorage.getItem('userAge') || '',
+        userHeight: localStorage.getItem('userHeight') || '',
+        userWeight: localStorage.getItem('userWeight') || '',
+        userActivity: localStorage.getItem('userActivity') || '',
+        userGoal: localStorage.getItem('userGoal') || '',
+        userDiet: localStorage.getItem('userDiet') || '',
+        userCalorieTarget: localStorage.getItem('userCalorieTarget') || '',
+        userProteinTarget: localStorage.getItem('userProteinTarget') || '',
+        userFatsTarget: localStorage.getItem('userFatsTarget') || ''
+      });
+      clientNamesSeen.add(uKey);
+    }
+
+    // 2. Scan all client partitions and chats in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        let clientKey = '';
+        if (key.startsWith('client_')) {
+          const parts = key.split('_');
+          if (parts.length >= 2) {
+            clientKey = parts[1];
+          }
+        } else if (key.startsWith('local_chat_')) {
+          clientKey = key.replace('local_chat_', '');
+        }
+
+        if (clientKey && clientKey !== 'guest' && !clientNamesSeen.has(clientKey)) {
+          clientNamesSeen.add(clientKey);
+          const keyPrefix = `client_${clientKey}_`;
+          const email = localStorage.getItem(`${keyPrefix}userEmail`) || `${clientKey}@fitengineers.com`;
+          const name = localStorage.getItem(`${keyPrefix}userName`) || (clientKey.charAt(0).toUpperCase() + clientKey.slice(1));
+          
+          localClients.push({
+            id: clientKey,
+            email: email,
+            userName: name,
+            userAge: localStorage.getItem(`${keyPrefix}userAge`) || '',
+            userHeight: localStorage.getItem(`${keyPrefix}userHeight`) || '',
+            userWeight: localStorage.getItem(`${keyPrefix}userWeight`) || '',
+            userActivity: localStorage.getItem(`${keyPrefix}userActivity`) || '',
+            userGoal: localStorage.getItem(`${keyPrefix}userGoal`) || '',
+            userDiet: localStorage.getItem(`${keyPrefix}userDiet`) || '',
+            userCalorieTarget: localStorage.getItem(`${keyPrefix}userCalorieTarget`) || '',
+            userProteinTarget: localStorage.getItem(`${keyPrefix}userProteinTarget`) || '',
+            userFatsTarget: localStorage.getItem(`${keyPrefix}userFatsTarget`) || ''
+          });
+        }
+      }
+    }
+
+    return localClients;
   },
 
   async getWorkoutLogsForUser(userId) {
@@ -404,6 +470,109 @@ const databaseService = {
       } catch (e) {
         console.error('Cloud DB Fetch workout logs error:', e);
       }
+    }
+
+    // Offline local storage fallback
+    const keyPrefix = `client_${userId}_`;
+    const stored = localStorage.getItem(`${keyPrefix}workoutSessions`) || localStorage.getItem('workoutSessions');
+    if (stored) {
+      try {
+        const sessions = JSON.parse(stored);
+        const flatLogs = [];
+        sessions.forEach(sess => {
+          if (sess.exercises) {
+            sess.exercises.forEach(ex => {
+              if (ex.sets) {
+                ex.sets.forEach((set, sIdx) => {
+                  flatLogs.push({
+                    log_date: sess.date,
+                    exercise_name: ex.name,
+                    set_number: sIdx + 1,
+                    reps: parseInt(set.reps || '0'),
+                    weight_kg: parseFloat(set.weight || '0.0')
+                  });
+                });
+              }
+            });
+          }
+        });
+        return flatLogs;
+      } catch (e) {
+        console.error("Error parsing local workout sessions:", e);
+      }
+    }
+    return [];
+  },
+
+  async saveChatMessage(clientId, sender, message) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert({
+            client_id: clientId,
+            sender: sender,
+            message: message
+          })
+          .select();
+        
+        if (error) throw error;
+        if (data && data.length > 0) {
+          return data;
+        }
+      } catch (e) {
+        console.error('Cloud DB Save Chat Error, falling back to local:', e);
+      }
+    }
+    
+    // Offline local storage fallback
+    const key = `local_chat_${clientId || 'guest'}`;
+    const stored = localStorage.getItem(key);
+    let messages = [];
+    if (stored) {
+      try { messages = JSON.parse(stored); } catch(e) {}
+    }
+    const newMsg = {
+      id: Date.now(),
+      sender: sender,
+      text: message,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    messages.push(newMsg);
+    localStorage.setItem(key, JSON.stringify(messages));
+    return [newMsg];
+  },
+
+  async getChatMessages(clientId) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: true });
+        
+        if (error) throw error;
+        if (data) {
+          return data.map(msg => ({
+            id: msg.id,
+            sender: msg.sender,
+            text: msg.message,
+            time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+        }
+      } catch (e) {
+        console.error('Cloud DB Get Chat Error, falling back to local:', e);
+      }
+    }
+    
+    // Offline local storage fallback
+    const key = `local_chat_${clientId || 'guest'}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {}
     }
     return [];
   }

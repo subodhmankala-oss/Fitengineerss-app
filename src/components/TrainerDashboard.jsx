@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import databaseService from '../services/databaseService';
 import './TrainerDashboard.css';
 
@@ -10,8 +10,17 @@ const TrainerDashboard = ({ handleLogout }) => {
   
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
+  const [detailTab, setDetailTab] = useState('workout'); // 'workout' or 'chat'
+  
+  // Workout history states
   const [workoutLogs, setWorkoutLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  
+  // Chat states
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [loadingChat, setLoadingChat] = useState(false);
+  const chatEndRef = useRef(null);
 
   // Fetch all clients on mount
   useEffect(() => {
@@ -38,6 +47,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Fetch client workout logs when a client is selected
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
+    setDetailTab('workout');
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {
@@ -74,12 +84,10 @@ const TrainerDashboard = ({ handleLogout }) => {
       });
     });
 
-    // Convert to a sorted array structure
     const sortedDatesList = Object.keys(datesMap)
       .sort((a, b) => new Date(b) - new Date(a)) // Latest sessions first
       .map(dateStr => {
         const exercisesList = Object.keys(datesMap[dateStr]).map(exName => {
-          // Sort sets by set number ascending
           const sortedSets = datesMap[dateStr][exName].sort((a, b) => a.setNumber - b.setNumber);
           return {
             name: exName,
@@ -94,6 +102,57 @@ const TrainerDashboard = ({ handleLogout }) => {
       });
 
     return sortedDatesList;
+  };
+
+  const fetchClientChat = async (clientId) => {
+    try {
+      const msgs = await databaseService.getChatMessages(clientId);
+      setChatMessages(msgs);
+    } catch (e) {
+      console.error("Error fetching client chat:", e);
+    }
+  };
+
+  // Poll client chat history logs every 4 seconds when chat tab is active
+  useEffect(() => {
+    if (!selectedClient || detailTab !== 'chat') return;
+
+    fetchClientChat(selectedClient.id);
+
+    const interval = setInterval(() => {
+      fetchClientChat(selectedClient.id);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [selectedClient, detailTab]);
+
+  // Scroll to bottom of chat when new messages loaded
+  useEffect(() => {
+    if (detailTab === 'chat') {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, detailTab]);
+
+  const handleTabChange = async (tab) => {
+    setDetailTab(tab);
+    if (tab === 'chat' && selectedClient) {
+      setLoadingChat(true);
+      await fetchClientChat(selectedClient.id);
+      setLoadingChat(false);
+    }
+  };
+
+  const handleSendCoachMessage = async () => {
+    if (!chatInput.trim() || !selectedClient) return;
+    
+    const text = chatInput.trim();
+    setChatInput('');
+
+    // Save coach reply in database
+    await databaseService.saveChatMessage(selectedClient.id, 'coach', text);
+    
+    // Refresh history
+    await fetchClientChat(selectedClient.id);
   };
 
   const getAvatarInitials = (name) => {
@@ -148,7 +207,6 @@ const TrainerDashboard = ({ handleLogout }) => {
       {!selectedClient ? (
         // Client Directory Screen
         <div className="client-directory-view">
-          {/* Search bar & filter pills */}
           <div className="search-filter-box">
             <input
               type="text"
@@ -267,63 +325,177 @@ const TrainerDashboard = ({ handleLogout }) => {
             </div>
           </div>
 
-          <h4 className="history-section-title">Workout History</h4>
+          {/* Tab Navigation */}
+          <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px' }}>
+            <button
+              className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
+              style={{
+                flex: 1,
+                padding: '12px',
+                textAlign: 'center',
+                fontSize: '0.85rem',
+                fontWeight: '700',
+                borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
+                color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+              }}
+              onClick={() => handleTabChange('workout')}
+            >
+              🏋️‍♂️ Workout History
+            </button>
+            <button
+              className={`trainer-tab-btn ${detailTab === 'chat' ? 'active' : ''}`}
+              style={{
+                flex: 1,
+                padding: '12px',
+                textAlign: 'center',
+                fontSize: '0.85rem',
+                fontWeight: '700',
+                borderBottom: detailTab === 'chat' ? '2px solid var(--primary-accent-light)' : 'none',
+                color: detailTab === 'chat' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+              }}
+              onClick={() => handleTabChange('chat')}
+            >
+              💬 Chat with Client
+            </button>
+          </div>
 
-          {loadingLogs ? (
-            <div className="trainer-loading-container">
-              <div className="trainer-spinner"></div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading workout history logs...</p>
-            </div>
-          ) : workoutLogs.length === 0 ? (
-            <div className="trainer-empty-state">
-              <div className="trainer-empty-icon">🏋️‍♂️</div>
-              <h5>No Workouts Logged</h5>
-              <p>This client has not logged or synchronized any workout sessions to the database yet.</p>
+          {/* Condition tab rendering */}
+          {detailTab === 'workout' ? (
+            <div className="workout-history-content">
+              <h4 className="history-section-title">Workout History</h4>
+
+              {loadingLogs ? (
+                <div className="trainer-loading-container">
+                  <div className="trainer-spinner"></div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading workout history logs...</p>
+                </div>
+              ) : workoutLogs.length === 0 ? (
+                <div className="trainer-empty-state">
+                  <div className="trainer-empty-icon">🏋️‍♂️</div>
+                  <h5>No Workouts Logged</h5>
+                  <p>This client has not logged or synchronized any workout sessions to the database yet.</p>
+                </div>
+              ) : (
+                <div className="workout-sessions-list">
+                  {workoutLogs.map((session, sIdx) => (
+                    <div key={sIdx} className="session-block">
+                      <div className="session-date-header">
+                        <span className="session-date-icon">📅</span>
+                        {new Date(session.date).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </div>
+
+                      <div className="session-exercises-list">
+                        {session.exercises.map((exercise, eIdx) => (
+                          <div key={eIdx} className="exercise-log-card">
+                            <div className="exercise-log-name">{exercise.name}</div>
+                            
+                            <table className="sets-table">
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '25%' }}>Set</th>
+                                  <th style={{ width: '40%' }}>Weight</th>
+                                  <th style={{ width: '35%' }}>Reps</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {exercise.sets.map((set, setIdx) => (
+                                  <tr key={setIdx}>
+                                    <td>
+                                      <span className="set-num-badge">{set.setNumber}</span>
+                                    </td>
+                                    <td>{set.weight} kg</td>
+                                    <td>{set.reps} reps</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
-            <div className="workout-sessions-list">
-              {workoutLogs.map((session, sIdx) => (
-                <div key={sIdx} className="session-block">
-                  <div className="session-date-header">
-                    <span className="session-date-icon">📅</span>
-                    {new Date(session.date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
+            // Chat tab panel content
+            <div className="trainer-chat-panel" style={{ display: 'flex', flexDirection: 'column', height: '360px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              <div className="trainer-chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {loadingChat ? (
+                  <div className="trainer-loading-container" style={{ margin: 'auto' }}>
+                    <div className="trainer-spinner"></div>
                   </div>
-
-                  <div className="session-exercises-list">
-                    {session.exercises.map((exercise, eIdx) => (
-                      <div key={eIdx} className="exercise-log-card">
-                        <div className="exercise-log-name">{exercise.name}</div>
-                        
-                        <table className="sets-table">
-                          <thead>
-                            <tr>
-                              <th style={{ width: '25%' }}>Set</th>
-                              <th style={{ width: '40%' }}>Weight</th>
-                              <th style={{ width: '35%' }}>Reps</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {exercise.sets.map((set, setIdx) => (
-                              <tr key={setIdx}>
-                                <td>
-                                  <span className="set-num-badge">{set.setNumber}</span>
-                                </td>
-                                <td>{set.weight} kg</td>
-                                <td>{set.reps} reps</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
+                ) : chatMessages.length === 0 ? (
+                  <div className="trainer-empty-state" style={{ border: 'none', margin: 'auto' }}>
+                    <span style={{ fontSize: '1.5rem' }}>💬</span>
+                    <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>No messages exchanged yet.</p>
                   </div>
-                </div>
-              ))}
+                ) : (
+                  chatMessages.map((msg, idx) => (
+                    <div
+                      key={msg.id || idx}
+                      style={{
+                        alignSelf: msg.sender === 'coach' ? 'flex-end' : 'flex-start',
+                        maxWidth: '80%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: msg.sender === 'coach' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                        border: msg.sender === 'coach' ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-color)',
+                        color: '#fff',
+                        fontSize: '0.82rem',
+                        lineHeight: 1.4,
+                        position: 'relative'
+                      }}
+                    >
+                      <div>{msg.text}</div>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: '4px' }}>{msg.time}</div>
+                    </div>
+                  ))
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              
+              <div className="trainer-chat-input-bar" style={{ display: 'flex', gap: '8px', padding: '10px', background: 'rgba(0,0,0,0.15)', borderTop: '1px solid var(--border-color)' }}>
+                <input
+                  type="text"
+                  placeholder="Type a message to client..."
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendCoachMessage()}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  onClick={handleSendCoachMessage}
+                  disabled={!chatInput.trim()}
+                  style={{
+                    padding: '10px 16px',
+                    background: chatInput.trim() ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    color: chatInput.trim() ? '#fff' : 'var(--text-muted)',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: chatInput.trim() ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Send
+                </button>
+              </div>
             </div>
           )}
         </div>

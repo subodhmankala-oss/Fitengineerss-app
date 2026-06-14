@@ -1,36 +1,99 @@
 import React, { useState, useEffect, useRef } from 'react';
+import databaseService, { isSupabaseConfigured } from '../services/databaseService';
 import './CoachChat.css';
 
 const CoachChat = () => {
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Hey! How's the new meal plan feeling today?", sender: 'coach', time: '09:00 AM' },
-    { id: 2, text: "Much better! The tofu swap really helped with the bloating.", sender: 'user', time: '10:15 AM' },
-    { id: 3, text: "Awesome! Let's keep that up for the next 3 days. Focus on chewing slow.", sender: 'coach', time: '10:18 AM' }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [clientId, setClientId] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // 1. Fetch User DB Profile on Mount to get UUID
+  useEffect(() => {
+    const initChat = async () => {
+      const email = localStorage.getItem('userEmail') || '';
+      const userName = localStorage.getItem('userName') || 'guest';
+      
+      let resolvedId = userName.toLowerCase().replace(/\s+/g, '');
+      
+      if (isSupabaseConfigured && email) {
+        try {
+          const profile = await databaseService.getUserProfileByEmail(email);
+          if (profile && profile.id) {
+            resolvedId = profile.id;
+          }
+        } catch (e) {
+          console.error("Error retrieving client UUID for chat:", e);
+        }
+      }
+      
+      setClientId(resolvedId);
+      
+      // Load initial chat messages
+      const chatHistory = await databaseService.getChatMessages(resolvedId);
+      if (chatHistory.length > 0) {
+        setMessages(chatHistory);
+      } else {
+        // Seed default chat messages if completely empty
+        const welcomeSeed = [
+          { id: 1, text: "Hey! How's the new meal plan feeling today?", sender: 'coach', time: '09:00 AM' },
+          { id: 2, text: "Much better! The tofu swap really helped with the bloating.", sender: 'user', time: '10:15 AM' },
+          { id: 3, text: "Awesome! Let's keep that up for the next 3 days. Focus on chewing slow.", sender: 'coach', time: '10:18 AM' }
+        ];
+        setMessages(welcomeSeed);
+        
+        // Save seed messages to database so they persist
+        for (const msg of welcomeSeed) {
+          await databaseService.saveChatMessage(resolvedId, msg.sender, msg.text);
+        }
+      }
+    };
+    initChat();
+  }, []);
+
+  // 2. Poll Database for New Messages (Coach replies) every 4 seconds
+  useEffect(() => {
+    if (!clientId) return;
+    
+    const fetchUpdates = async () => {
+      const chatHistory = await databaseService.getChatMessages(clientId);
+      if (chatHistory.length > 0) {
+        setMessages(chatHistory);
+      }
+    };
+
+    const interval = setInterval(fetchUpdates, 4000);
+    return () => clearInterval(interval);
+  }, [clientId]);
+
+  // Scroll to bottom whenever messages list changes
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (input.trim()) {
-      const userText = input.trim();
-      setMessages([...messages, { 
-        id: Date.now(), 
-        text: userText, 
-        sender: 'user',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-      setInput('');
-      
-      // Smart Contextual Chat Replies matching whiteboard directives
-      setTimeout(() => {
+  const handleSend = async () => {
+    if (!input.trim() || !clientId) return;
+    
+    const userText = input.trim();
+    setInput('');
+
+    // Save user message in DB/Storage
+    const savedLogs = await databaseService.saveChatMessage(clientId, 'user', userText);
+    
+    // Optimistically update frontend UI
+    const updatedHistory = await databaseService.getChatMessages(clientId);
+    setMessages(updatedHistory.length > 0 ? updatedHistory : prev => [...prev, ...savedLogs]);
+
+    // 3. Fallback Auto-Chatbot Replies (Only when offline/guest mode)
+    const email = localStorage.getItem('userEmail');
+    const isOfflineMode = !isSupabaseConfigured || !email || email.includes('guest');
+    
+    if (isOfflineMode) {
+      setTimeout(async () => {
         const textLower = userText.toLowerCase();
         let coachResponse = "";
 
@@ -52,13 +115,11 @@ const CoachChat = () => {
           coachResponse = generalReplies[Math.floor(Math.random() * generalReplies.length)];
         }
 
-        setMessages(prev => [...prev, {
-          id: Date.now() + 1,
-          text: coachResponse,
-          sender: 'coach',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-      }, 1200);
+        // Save bot response to storage
+        await databaseService.saveChatMessage(clientId, 'coach', coachResponse);
+        const refreshedHistory = await databaseService.getChatMessages(clientId);
+        setMessages(refreshedHistory);
+      }, 1500);
     }
   };
 
@@ -78,8 +139,8 @@ const CoachChat = () => {
       <div className="messages-area">
         <div className="date-badge">Today</div>
         
-        {messages.map(msg => (
-          <div key={msg.id} className={`message-bubble ${msg.sender}`}>
+        {messages.map((msg, idx) => (
+          <div key={msg.id || idx} className={`message-bubble ${msg.sender}`}>
             <div className="message-content">
               {msg.text}
             </div>

@@ -138,6 +138,20 @@ const checkAndHandleDateRollover = () => {
   return false;
 };
 
+const clearLocalStoragePreservingChats = () => {
+  const preserved = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName')) {
+      preserved[key] = localStorage.getItem(key);
+    }
+  }
+  localStorage.clear();
+  Object.keys(preserved).forEach(key => {
+    localStorage.setItem(key, preserved[key]);
+  });
+};
+
 const trackerKeys = [
   'waterGlasses', 'userSyncedSteps', 'userLoggedCalories', 
   'userLoggedProtein', 'userLoggedCarbs', 'userLoggedFats',
@@ -359,7 +373,7 @@ function App() {
         const lastUserName = localStorage.getItem('lastUserName') || '';
         
         lastProcessedEmailRef.current = '';
-        localStorage.clear();
+        clearLocalStoragePreservingChats();
         
         if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
         if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
@@ -706,7 +720,7 @@ function App() {
             keysToKeep.forEach(k => {
               tempStorage[k] = localStorage.getItem(k);
             });
-            localStorage.clear();
+            clearLocalStoragePreservingChats();
             Object.keys(tempStorage).forEach(k => {
               if (tempStorage[k] !== null) localStorage.setItem(k, tempStorage[k]);
             });
@@ -745,6 +759,7 @@ function App() {
           localStorage.setItem('onboardingComplete', 'true');
           const goal = localStorage.getItem('userGoal');
           if (goal) setUserGoal(goal);
+          setUserEmail(localStorage.getItem('userEmail') || '');
           setOnboardingComplete(true);
         }} />
       </div>
@@ -768,7 +783,7 @@ function App() {
     }
 
     // Clear everything to clean up onboarding state
-    localStorage.clear();
+    clearLocalStoragePreservingChats();
 
     // Restore login credentials and metadata
     if (name) {

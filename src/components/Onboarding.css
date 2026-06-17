@@ -8,7 +8,10 @@
   padding: 24px;
   padding-top: clamp(24px, 6vh, 48px);
   padding-bottom: 40px;
-  background-color: #0f172a;
+  background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.96)), url('/gym_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   color: white;
   text-align: center;
   overflow-y: auto;
@@ -643,4 +646,871 @@
 .instant-login-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+}
+
+/* Portal Layout Wrapper */
+.onboarding-portal-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  gap: 16px;
+  box-sizing: border-box;
+  animation: fadeIn 0.5s ease;
+}
+
+/* Hide mockup when credentials input form is shown */
+.auth-form-active .portal-left-panel {
+  display: none;
+}
+
+/* Left Panel containing Logo & Carousel Mockup */
+.portal-left-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+.portal-logo-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.portal-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4));
+}
+
+.portal-brand-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  margin: 0;
+  background: linear-gradient(135deg, #ffffff 30%, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* CSS Phone Mockup Styles */
+.phone-mockup-wrapper {
+  perspective: 1000px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.phone-mockup {
+  width: 200px;
+  height: 375px;
+  background: #000;
+  border-radius: 28px;
+  padding: 8px;
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7),
+              0 0 0 3px #27272a,
+              0 0 30px rgba(59, 130, 246, 0.12);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.phone-mockup::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(105deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0) 60%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.phone-speaker {
+  width: 44px;
+  height: 3px;
+  background: #27272a;
+  border-radius: 2px;
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  background: #090d16;
+  border-radius: 22px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px 2px 12px;
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  z-index: 15;
+}
+
+.phone-status-icons {
+  display: flex;
+  gap: 3px;
+}
+
+/* Screen Previews Carousel */
+.phone-content-carousel {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+}
+
+.phone-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: translateX(45px);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px 12px 12px;
+  box-sizing: border-box;
+}
+
+.phone-slide.slide-active {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Carousel Previews Content Styling */
+.mini-app-header {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #f8fafc;
+  text-align: left;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 8px;
+}
+
+.mini-app-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+/* Slide 0 - Workout UI */
+.mini-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 5px 6px;
+}
+
+.mini-stats-row div {
+  display: flex;
+  flex-direction: column;
+}
+
+.mini-stats-row span {
+  font-size: 0.5rem;
+  color: #475569;
+}
+
+.mini-stats-row strong {
+  font-size: 0.68rem;
+  color: #3b82f6;
+}
+
+.mini-exercise-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 6px;
+  text-align: left;
+}
+
+.mini-exercise-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.mini-sets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mini-set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.58rem;
+  color: #94a3b8;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.mini-set-row.checked {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+
+.set-check {
+  font-weight: bold;
+  color: #10b981;
+}
+
+.set-check-empty {
+  color: #475569;
+}
+
+.mini-btn-placeholder {
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 0.58rem;
+  color: #475569;
+  text-align: center;
+  font-weight: 600;
+  margin-top: auto;
+}
+
+/* Slide 1 - Nutrition UI */
+.mini-calories-progress {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+}
+
+.progress-ring-mini {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 80px;
+  height: 80px;
+  border: 4px solid #1e293b;
+  border-top-color: #10b981;
+  border-radius: 50%;
+}
+
+.progress-calories {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.progress-target {
+  font-size: 0.48rem;
+  color: #64748b;
+}
+
+.mini-macros-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.macro-bar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.52rem;
+  color: #94a3b8;
+  gap: 6px;
+}
+
+.macro-bar {
+  flex: 1;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.macro-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 2px;
+}
+
+.p-bar::after { width: 85%; background: #ef4444; }
+.c-bar::after { width: 75%; background: #3b82f6; }
+.f-bar::after { width: 90%; background: #eab308; }
+
+.mini-meals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  margin-top: auto;
+}
+
+.mini-meal-item {
+  font-size: 0.55rem;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  padding: 3px 5px;
+  border-left: 2px solid #10b981;
+}
+
+/* Slide 2 - Coaching UI */
+.mini-trainer-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  font-size: 0.6rem;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  padding: 5px 6px;
+  border-radius: 6px;
+}
+
+.mini-trainer-info strong {
+  color: #6ee7b7;
+}
+
+.mini-trainer-info span {
+  color: #94a3b8;
+  font-size: 0.52rem;
+}
+
+.mini-client-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 5px 6px;
+  text-align: left;
+}
+
+.mini-client-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.client-avatar {
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px;
+  border-radius: 50%;
+}
+
+.client-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.client-details strong {
+  font-size: 0.58rem;
+  color: #f1f5f9;
+}
+
+.client-details span {
+  font-size: 0.48rem;
+  color: #475569;
+}
+
+.client-status-badge {
+  font-size: 0.42rem;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.client-status-badge.blue {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+/* Captions and indicators underneath the mockup */
+.carousel-caption-area {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.carousel-text {
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0 0 10px 0;
+  height: 38px;
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.carousel-dot.active {
+  width: 16px;
+  border-radius: 3px;
+  background: #3b82f6;
+}
+
+/* Right Panel containing selection/credentials forms */
+.portal-right-panel {
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+}
+
+/* Selection Cards Container */
+.account-selection-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.portal-selection-heading {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+/* White card selector */
+.account-select-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  text-align: left;
+}
+
+.account-select-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3), 0 10px 10px -5px rgba(0,0,0,0.2);
+}
+
+.account-select-card:active {
+  transform: translateY(0);
+}
+
+.account-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.client-avatar-bg {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #2563eb;
+}
+
+.coach-avatar-bg {
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  color: #059669;
+}
+
+.account-card-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+}
+
+.account-card-info strong {
+  font-size: 1rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.account-card-info span {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.account-card-arrow {
+  color: #94a3b8;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+/* Bypass/Guest button layout */
+.guest-bypass-btn-new {
+  width: 100%;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 6px;
+}
+
+.guest-bypass-btn-new:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.portal-signup-footer {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.signup-highlight-link {
+  color: #3b82f6;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.signup-highlight-link:hover {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* Credentials Forms Container */
+.credentials-form-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-sizing: border-box;
+}
+
+.form-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.form-back-arrow-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.form-back-arrow-btn:hover {
+  color: #ffffff;
+}
+
+.form-role-toggle {
+  display: flex;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 2px;
+}
+
+.role-toggle-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.role-toggle-btn.active-client {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.role-toggle-btn.active-coach {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Animations */
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Social buttons row */
+.social-login-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #e2e8f0;
+}
+
+.social-google:hover {
+  background: rgba(66, 133, 244, 0.08);
+  border-color: rgba(66, 133, 244, 0.3);
+  color: #ffffff;
+}
+
+.social-facebook:hover {
+  background: rgba(24, 119, 242, 0.08);
+  border-color: rgba(24, 119, 242, 0.3);
+  color: #ffffff;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.auth-divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.auth-divider-text {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.08em;
+}
+
+.inner-auth-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 16px;
+}
+
+.inner-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inner-tab-active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.role-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.role-badge-client {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.role-badge-coach {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.auth-form-new {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-error-banner {
+  font-size: 0.8rem;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.auth-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+}
+
+.auth-label {
+  font-size: 0.72rem;
+  color: #475569;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.auth-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.auth-input:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.auth-submit-main {
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.auth-submit-client {
+  background: #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.auth-submit-client:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.auth-submit-coach {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.auth-submit-coach:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.auth-submit-main:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }

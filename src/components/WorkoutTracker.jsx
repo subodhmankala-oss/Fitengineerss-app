@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './WorkoutTracker.css';
-import databaseService from '../services/databaseService';
+import databaseService, { isTrainer } from '../services/databaseService';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -292,6 +292,29 @@ const WorkoutTracker = () => {
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
+
+  // Custom templates and plans state
+  const [isLoggingWorkout, setIsLoggingWorkout] = useState(false);
+  const [clientPlans, setClientPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+
+  const fetchPlans = async () => {
+    setLoadingPlans(true);
+    try {
+      const plans = await databaseService.getWorkoutPlansForUser(selectedClient);
+      setClientPlans(plans || []);
+    } catch (e) {
+      console.error('Error fetching client plans:', e);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, [selectedClient]);
   const [chartMetric, setChartMetric] = useState('weight'); // 'weight' or 'volume'
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(4);
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' or 'monthly'
@@ -344,9 +367,15 @@ const WorkoutTracker = () => {
     } else {
       // Keep default historical sessions intact for Sridhar (existing client),
       // freshman users (like the logged-in user) start with 0 logged sessions.
-      localStorage.setItem('workoutSessions', JSON.stringify(defaultHistoricalSessions));
-      setSessions(defaultHistoricalSessions);
-      setSelectedSessionIndex(0);
+      if (loggedInUser.toLowerCase() === 'sridhar') {
+        localStorage.setItem('workoutSessions', JSON.stringify(defaultHistoricalSessions));
+        setSessions(defaultHistoricalSessions);
+        setSelectedSessionIndex(defaultHistoricalSessions.length - 1);
+      } else {
+        localStorage.setItem('workoutSessions', JSON.stringify([]));
+        setSessions([]);
+        setSelectedSessionIndex(-1);
+      }
     }
 
     // Hydrate profiles
@@ -357,12 +386,14 @@ const WorkoutTracker = () => {
       const hasProfile = parsedProfiles.some(p => p.clientName.toLowerCase() === loggedInUser.toLowerCase());
       if (!hasProfile) {
         const onboardingGoal = localStorage.getItem('userGoal') || 'Gut Fix';
-        const activeProgramMap = {
-          'Fat Loss': 'Caloric Deficit Conditioning',
-          'Muscle Building': 'Hypertrophy Surge',
-          'Gut Fix': 'Body Weights & Dumbbells'
-        };
-        const programName = activeProgramMap[onboardingGoal] || 'Body Weights & Dumbbells';
+        let programName = 'Body Weights & Dumbbells';
+        if (onboardingGoal.includes('Fat Loss')) {
+          programName = 'Caloric Deficit Conditioning';
+        } else if (onboardingGoal.includes('Muscle Building')) {
+          programName = 'Hypertrophy Surge';
+        } else if (onboardingGoal.includes('Gut Fix')) {
+          programName = 'Body Weights & Dumbbells';
+        }
         const matchedProg = availablePrograms.find(ap => ap.name === programName) || availablePrograms[0];
         
         parsedProfiles.unshift({
@@ -375,12 +406,14 @@ const WorkoutTracker = () => {
       setClientProfiles(parsedProfiles);
     } else {
       const onboardingGoal = localStorage.getItem('userGoal') || 'Gut Fix';
-      const activeProgramMap = {
-        'Fat Loss': 'Caloric Deficit Conditioning',
-        'Muscle Building': 'Hypertrophy Surge',
-        'Gut Fix': 'Body Weights & Dumbbells'
-      };
-      const programName = activeProgramMap[onboardingGoal] || 'Body Weights & Dumbbells';
+      let programName = 'Body Weights & Dumbbells';
+      if (onboardingGoal.includes('Fat Loss')) {
+        programName = 'Caloric Deficit Conditioning';
+      } else if (onboardingGoal.includes('Muscle Building')) {
+        programName = 'Hypertrophy Surge';
+      } else if (onboardingGoal.includes('Gut Fix')) {
+        programName = 'Body Weights & Dumbbells';
+      }
       const matchedProg = availablePrograms.find(ap => ap.name === programName) || availablePrograms[0];
 
       const freshProfiles = [
@@ -391,6 +424,7 @@ const WorkoutTracker = () => {
       localStorage.setItem('workoutClientProfiles', JSON.stringify(freshProfiles));
       setClientProfiles(freshProfiles);
     }
+    fetchPlans();
   }, []);
 
   // Hevy stopwatch & rest timer side effects
@@ -777,6 +811,26 @@ const WorkoutTracker = () => {
     const updated = [...sessions, newSession];
     saveSessionsToLocal(updated);
     
+    // Save as client routine template if checked
+    if (saveAsTemplate && formattedExercises.length > 0) {
+      const plan = {
+        userId: logClient,
+        planName: templateName.trim() || `Custom Routine - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+        exercises: formattedExercises.map(ex => ({
+          name: ex.name,
+          sets: ex.sets.map(s => ({ reps: s.reps, weight: s.weight }))
+        })),
+        createdBy: 'client'
+      };
+      databaseService.saveWorkoutPlan(plan).then(() => {
+        fetchPlans();
+      });
+    }
+
+    setIsLoggingWorkout(false);
+    setSaveAsTemplate(false);
+    setTemplateName('');
+    
     setSelectedClient(logClient);
     const newClientSessions = updated.filter(s => s.clientName.toLowerCase() === logClient.toLowerCase());
     setSelectedSessionIndex(newClientSessions.length - 1);
@@ -932,21 +986,27 @@ const WorkoutTracker = () => {
               <span className="avatar-tag">🏋️‍♂️</span>
               <div className="name-group">
                 <span>Client Profile</span>
-                <select 
-                  className="client-select-dropdown"
-                  value={selectedClient} 
-                  onChange={(e) => {
-                    setSelectedClient(e.target.value);
-                    const clientSessionsCount = sessions.filter(s => s.clientName.toLowerCase() === e.target.value.toLowerCase()).length;
-                    setSelectedSessionIndex(Math.max(0, clientSessionsCount - 1));
-                  }}
-                >
-                  {clientProfiles.map(p => (
-                    <option key={p.clientName} value={p.clientName}>
-                      {p.clientName} ({p.activeProgram})
-                    </option>
-                  ))}
-                </select>
+                {isTrainer(localStorage.getItem('userEmail')) ? (
+                  <select 
+                    className="client-select-dropdown"
+                    value={selectedClient} 
+                    onChange={(e) => {
+                      setSelectedClient(e.target.value);
+                      const clientSessionsCount = sessions.filter(s => s.clientName.toLowerCase() === e.target.value.toLowerCase()).length;
+                      setSelectedSessionIndex(Math.max(0, clientSessionsCount - 1));
+                    }}
+                  >
+                    {clientProfiles.map(p => (
+                      <option key={p.clientName} value={p.clientName}>
+                        {p.clientName} ({p.activeProgram})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="client-display-name" style={{ fontSize: '0.9rem', fontWeight: '800', color: '#fff', marginLeft: '6px' }}>
+                    {selectedClient}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1260,7 +1320,171 @@ const WorkoutTracker = () => {
         </div>
       )}
 
-      {activeView === 'log' && (
+      {activeView === 'log' && !isLoggingWorkout && (
+        <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
+          <div className="launcher-header" style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 800 }}>🏋️‍♂️ Start Workout Session</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select a coach plan, a saved template, or start empty.</p>
+          </div>
+          
+          <button 
+            type="button" 
+            className="btn-start-empty-workout"
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px dashed rgba(16, 185, 129, 0.3)',
+              color: 'var(--primary-accent-light)',
+              fontWeight: '700',
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              marginBottom: '24px',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={() => {
+              setLogClient(selectedClient);
+              setLogDate(new Date().toISOString().split('T')[0]);
+              setLogExercises([
+                { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
+              ]);
+              setTemplateName('');
+              setIsLoggingWorkout(true);
+              setWorkoutActiveSeconds(0);
+              setWorkoutTimerRunning(true);
+            }}
+          >
+            ➕ Start Empty Workout
+          </button>
+
+          {/* Coach Assigned Plans */}
+          <div className="routines-section" style={{ marginBottom: '20px' }}>
+            <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>📋 Coach Assigned Plans</h4>
+            {loadingPlans ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coach plans...</p>
+            ) : clientPlans.filter(p => p.createdBy === 'coach').length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No workout plans assigned by your coach yet.</p>
+            ) : (
+              <div className="routines-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {clientPlans.filter(p => p.createdBy === 'coach').map(plan => (
+                  <div key={plan.id} className="routine-card glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                    <div className="routine-info" style={{ flex: 1, paddingRight: '12px' }}>
+                      <strong className="routine-title" style={{ display: 'block', fontSize: '0.88rem', color: '#fff' }}>{plan.planName}</strong>
+                      <div className="routine-ex-summary" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                        {plan.exercises.map(ex => `${ex.name} (${ex.sets?.length || 0}s)`).join(', ')}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn-start-routine"
+                      style={{
+                        padding: '8px 14px',
+                        background: 'var(--primary-accent-light)',
+                        color: '#fff',
+                        fontWeight: '700',
+                        fontSize: '0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        setLogClient(selectedClient);
+                        setLogDate(new Date().toISOString().split('T')[0]);
+                        setLogExercises(plan.exercises.map(ex => ({
+                          name: ex.name,
+                          sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
+                        })));
+                        setTemplateName(plan.planName);
+                        setIsLoggingWorkout(true);
+                        setWorkoutActiveSeconds(0);
+                        setWorkoutTimerRunning(true);
+                      }}
+                    >
+                      Start Routine
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* My Saved Templates */}
+          <div className="routines-section">
+            <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>👤 My Saved Templates</h4>
+            {loadingPlans ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
+            ) : clientPlans.filter(p => p.createdBy === 'client').length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
+            ) : (
+              <div className="routines-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {clientPlans.filter(p => p.createdBy === 'client').map(plan => (
+                  <div key={plan.id} className="routine-card glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                    <div className="routine-info" style={{ flex: 1, paddingRight: '12px' }}>
+                      <strong className="routine-title" style={{ display: 'block', fontSize: '0.88rem', color: '#fff' }}>{plan.planName}</strong>
+                      <div className="routine-ex-summary" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                        {plan.exercises.map(ex => `${ex.name} (${ex.sets?.length || 0}s)`).join(', ')}
+                      </div>
+                    </div>
+                    <div className="routine-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button 
+                        type="button" 
+                        className="btn-start-routine"
+                        style={{
+                          padding: '8px 14px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid var(--border-color)',
+                          color: '#fff',
+                          fontWeight: '700',
+                          fontSize: '0.8rem',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          setLogClient(selectedClient);
+                          setLogDate(new Date().toISOString().split('T')[0]);
+                          setLogExercises(plan.exercises.map(ex => ({
+                            name: ex.name,
+                            sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
+                          })));
+                          setTemplateName(plan.planName);
+                          setIsLoggingWorkout(true);
+                          setWorkoutActiveSeconds(0);
+                          setWorkoutTimerRunning(true);
+                        }}
+                      >
+                        Start
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn-delete-routine-sm" 
+                        style={{
+                          padding: '8px 10px',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('Are you sure you want to delete this template?')) {
+                            await databaseService.deleteWorkoutPlan(plan.id, selectedClient);
+                            fetchPlans();
+                          }
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
           {/* Hevy Stopwatch Header */}
           <div className="hevy-stopwatch-banner">
@@ -1830,6 +2054,36 @@ const WorkoutTracker = () => {
                 </div>
               </div>
             )}
+
+            <div className="template-save-option-box" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', marginTop: '12px', textAlign: 'left', width: '100%' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                <input 
+                  type="checkbox" 
+                  checked={saveAsTemplate} 
+                  onChange={(e) => setSaveAsTemplate(e.target.checked)} 
+                />
+                <span>💾 Save this session as a repeat template</span>
+              </label>
+              {saveAsTemplate && (
+                <input 
+                  type="text" 
+                  placeholder="Enter template name (e.g. Push Routine)" 
+                  value={templateName} 
+                  onChange={(e) => setTemplateName(e.target.value)} 
+                  style={{
+                    width: '100%',
+                    marginTop: '8px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: '#fff',
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    outline: 'none'
+                  }}
+                />
+              )}
+            </div>
 
             <div className="summary-actions-row">
               <button 

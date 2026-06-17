@@ -26,6 +26,26 @@ export const isTrainer = (email) => {
   return email && TRAINER_EMAILS.includes(email.toLowerCase());
 };
 
+const getCleanClientKey = async (userId) => {
+  if (!userId) return 'guest';
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+  if (isUuid && isSupabaseConfigured && supabase) {
+    try {
+      const { data: user } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+      if (user && user.full_name) {
+        return user.full_name.toLowerCase().replace(/\s+/g, '');
+      }
+    } catch (e) {
+      console.error('Error resolving UUID to name for local storage key:', e);
+    }
+  }
+  return userId.toLowerCase().replace(/\s+/g, '');
+};
+
 /**
  * DATABASE SERVICE
  * ----------------
@@ -170,6 +190,10 @@ const databaseService = {
 
   // ─── MONTHLY PROGRESS HISTORY ───
   async saveProgressHistory(history) {
+    if (!history || !history.water) {
+      console.warn('saveProgressHistory: No valid history provided for sync.');
+      return;
+    }
     const userName = localStorage.getItem('userName') || 'Warrior';
     const email = localStorage.getItem('userEmail') || `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
 
@@ -213,16 +237,42 @@ const databaseService = {
 
   // ─── WORKOUT PROGRESS & SESSIONS ───
   async saveWorkoutSession(session) {
-    const userName = localStorage.getItem('userName') || 'Warrior';
-    const email = localStorage.getItem('userEmail') || `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    const sessionClientName = session.clientName || localStorage.getItem('userName') || 'Warrior';
+    const loggedInName = localStorage.getItem('userName') || '';
+    const loggedInEmail = localStorage.getItem('userEmail') || '';
+    
+    let email = `${sessionClientName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    // If the logged-in user is the client completing the workout, use their actual email
+    if (loggedInName && loggedInName.toLowerCase().replace(/\s+/g, '') === sessionClientName.toLowerCase().replace(/\s+/g, '')) {
+      if (loggedInEmail) {
+        email = loggedInEmail;
+      }
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: user } = await supabase
+        let user = null;
+        
+        // 1. Try looking up user by email
+        const { data: userByEmail } = await supabase
           .from('users')
           .select('id')
           .eq('email', email)
-          .single();
+          .maybeSingle();
+
+        if (userByEmail) {
+          user = userByEmail;
+        } else {
+          // 2. Try looking up user by full_name/sessionClientName (case-insensitive)
+          const { data: usersByName } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('full_name', sessionClientName);
+          
+          if (usersByName && usersByName.length > 0) {
+            user = usersByName[0];
+          }
+        }
 
         if (user) {
           const records = [];
@@ -253,13 +303,22 @@ const databaseService = {
       }
     }
 
-    // Always merge in local storage
-    const stored = localStorage.getItem('workoutSessions');
-    let sessions = [];
-    if (stored) {
-      try { sessions = JSON.parse(stored); } catch(e) {}
+    // Mirror the global workoutSessions (already saved by WorkoutTracker) under a client-specific key
+    // so the trainer dashboard can look up sessions per client without scanning all sessions.
+    const clientKey = sessionClientName.toLowerCase().replace(/\s+/g, '');
+    const currentGlobal = localStorage.getItem('workoutSessions');
+    if (currentGlobal) {
+      // Filter to only this client's sessions for the client-specific key
+      try {
+        const allSessions = JSON.parse(currentGlobal);
+        const clientSessions = allSessions.filter(s =>
+          s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === clientKey
+        );
+        localStorage.setItem(`client_${clientKey}_workoutSessions`, JSON.stringify(clientSessions));
+      } catch(e) {
+        console.error('Error mirroring workout sessions per client:', e);
+      }
     }
-    localStorage.setItem('workoutSessions', JSON.stringify(sessions));
   },
 
   // ─── AUTHENTICATION ───
@@ -345,6 +404,7 @@ const databaseService = {
   async loadProfileIntoLocalStorage(profile, email) {
     localStorage.setItem('userName', profile.userName || 'Trainer');
     localStorage.setItem('userEmail', email);
+    if (profile.id) localStorage.setItem('userId', profile.id);
     if (profile.userAge) localStorage.setItem('userAge', profile.userAge);
     if (profile.userHeight) localStorage.setItem('userHeight', profile.userHeight);
     if (profile.userWeight) localStorage.setItem('userWeight', profile.userWeight);
@@ -457,30 +517,57 @@ const databaseService = {
   async getWorkoutLogsForUser(userId) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('workout_logs')
-          .select('*')
-          .eq('user_id', userId)
-          .order('log_date', { ascending: false })
-          .order('exercise_name', { ascending: true })
-          .order('set_number', { ascending: true });
-        
-        if (error) throw error;
-        return data || [];
+        let resolvedUserId = userId;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        if (!isUuid) {
+          // Resolve full_name to UUID first
+          const { data: usersByName } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('full_name', userId)
+            .maybeSingle();
+          if (usersByName) resolvedUserId = usersByName.id;
+        }
+
+        const isResolvedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId);
+        if (isResolvedUuid) {
+          const { data, error } = await supabase
+            .from('workout_logs')
+            .select('*')
+            .eq('user_id', resolvedUserId)
+            .order('log_date', { ascending: false })
+            .order('exercise_name', { ascending: true })
+            .order('set_number', { ascending: true });
+          
+          if (error) throw error;
+          return data || [];
+        }
       } catch (e) {
         console.error('Cloud DB Fetch workout logs error:', e);
       }
     }
 
-    // Offline local storage fallback
+    // Offline local storage fallback - check client-specific key first, then global
     const keyPrefix = `client_${userId}_`;
-    const stored = localStorage.getItem(`${keyPrefix}workoutSessions`) || localStorage.getItem('workoutSessions');
+    const clientSpecific = localStorage.getItem(`${keyPrefix}workoutSessions`);
+    const globalSessions = localStorage.getItem('workoutSessions');
+    
+    // Try client-specific store first, then fallback to global filtered by clientName or userId
+    const stored = clientSpecific || globalSessions;
     if (stored) {
       try {
         const sessions = JSON.parse(stored);
         const flatLogs = [];
         sessions.forEach(sess => {
-          if (sess.exercises) {
+          // Match by: clientName cleaned matches userId, or if this is client-specific store (no filter needed)
+          const sessionClientKey = sess.clientName
+            ? sess.clientName.toLowerCase().replace(/\s+/g, '')
+            : '';
+          const isMatch = clientSpecific // if using client-specific store, include all
+            || sessionClientKey === userId.toLowerCase()
+            || (sess.clientId && sess.clientId === userId);
+          
+          if (isMatch && sess.exercises) {
             sess.exercises.forEach(ex => {
               if (ex.sets) {
                 ex.sets.forEach((set, sIdx) => {
@@ -575,6 +662,164 @@ const databaseService = {
       } catch (e) {}
     }
     return [];
+  },
+
+  // ─── WORKOUT ROUTINE TEMPLATES / PLANS ───
+  async getWorkoutPlansForUser(userId) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Resolve user UUID if needed
+        let resolvedUserId = userId;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        if (!isUuid) {
+          const { data: usersByName } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('full_name', userId)
+            .maybeSingle();
+          if (usersByName) resolvedUserId = usersByName.id;
+        }
+
+        const isResolvedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId);
+        if (isResolvedUuid) {
+          const { data, error } = await supabase
+            .from('workout_plans')
+            .select('*')
+            .eq('user_id', resolvedUserId)
+            .order('created_at', { ascending: false });
+          
+          if (error) throw error;
+          if (data) {
+            return data.map(p => ({
+              id: p.id,
+              userId: p.user_id,
+              planName: p.plan_name,
+              exercises: p.exercises,
+              createdBy: p.created_by,
+              createdAt: p.created_at
+            }));
+          }
+        }
+      } catch (e) {
+        console.error('Cloud DB Fetch workout plans error:', e);
+      }
+    }
+
+    // Offline local storage fallback
+    const clientKey = await getCleanClientKey(userId);
+    const key = `client_${clientKey}_workoutPlans`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error("Error parsing local workout plans:", e);
+      }
+    }
+    return [];
+  },
+
+  async saveWorkoutPlan(plan) {
+    const targetUserId = plan.userId;
+
+    // Set fallback local ID if not defined
+    if (!plan.id) {
+      plan.id = `plan-${Date.now()}`;
+    }
+    plan.createdAt = plan.createdAt || new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let resolvedUserId = targetUserId;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId);
+        
+        if (!isUuid) {
+          const { data: usersByName } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('full_name', targetUserId)
+            .maybeSingle();
+          
+          if (usersByName) {
+            resolvedUserId = usersByName.id;
+          }
+        }
+
+        const planRecord = {
+          plan_name: plan.planName,
+          exercises: plan.exercises,
+          created_by: plan.createdBy || 'coach'
+        };
+
+        const isPlanUuid = plan.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan.id);
+        if (isPlanUuid) {
+          planRecord.id = plan.id;
+        }
+        planRecord.user_id = resolvedUserId;
+
+        const { data, error } = await supabase
+          .from('workout_plans')
+          .upsert(planRecord)
+          .select();
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          plan.id = data[0].id;
+          plan.userId = data[0].user_id;
+        }
+      } catch (e) {
+        console.error('Cloud DB Workout Plan Sync Error:', e);
+      }
+    }
+
+    // Mirror to local storage
+    const clientKey = await getCleanClientKey(targetUserId);
+    const key = `client_${clientKey}_workoutPlans`;
+    const stored = localStorage.getItem(key);
+    let plans = [];
+    if (stored) {
+      try { plans = JSON.parse(stored); } catch(e) {}
+    }
+    
+    const existingIdx = plans.findIndex(p => p.id === plan.id || p.planName.toLowerCase() === plan.planName.toLowerCase());
+    if (existingIdx >= 0) {
+      plans[existingIdx] = plan;
+    } else {
+      plans.push(plan);
+    }
+    localStorage.setItem(key, JSON.stringify(plans));
+    return plan;
+  },
+
+  async deleteWorkoutPlan(planId, userId) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const isPlanUuid = planId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
+        if (isPlanUuid) {
+          const { error } = await supabase
+            .from('workout_plans')
+            .delete()
+            .eq('id', planId);
+          if (error) throw error;
+        }
+      } catch (e) {
+        console.error('Cloud DB Workout Plan Delete Error:', e);
+      }
+    }
+
+    // Mirror to local storage
+    const clientKey = await getCleanClientKey(userId);
+    const key = `client_${clientKey}_workoutPlans`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        let plans = JSON.parse(stored);
+        plans = plans.filter(p => p.id !== planId);
+        localStorage.setItem(key, JSON.stringify(plans));
+      } catch(e) {
+        console.error("Error deleting local workout plan:", e);
+      }
+    }
   }
 };
 

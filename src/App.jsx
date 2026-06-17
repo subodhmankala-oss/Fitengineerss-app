@@ -11,8 +11,9 @@ import CoachChat from './components/CoachChat';
 import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer } from './services/databaseService';
 import TrainerDashboard from './components/TrainerDashboard';
+import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer } from './services/databaseService';
 import './index.css'; 
 
 
@@ -156,7 +157,7 @@ const trackerKeys = [
   'waterGlasses', 'userSyncedSteps', 'userLoggedCalories', 
   'userLoggedProtein', 'userLoggedCarbs', 'userLoggedFats',
   'homeMealBreakfast', 'homeMealLunch', 'homeMealDinner', 'homeMealSnacks',
-  'walkLunchDinner', 'strollsLogged', 'monthlyProgressHistory'
+  'walkLunchDinner', 'strollsLogged', 'monthlyProgressHistory', 'workoutSessions'
 ];
 
 const saveActiveUserCache = (userName) => {
@@ -172,6 +173,27 @@ const saveActiveUserCache = (userName) => {
   });
 };
 
+const generateFreshHistory = () => {
+  const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
+  const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
+  const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '130');
+  const userFatsTarget = parseInt(localStorage.getItem('userFatsTarget') || '60');
+  
+  const baseCalorieGlasses = calorieTarget / 250;
+  const baseWeightGlasses = (userWeight * 35) / 250;
+  const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
+  const waterTargetLiters = Math.max(6, baselineTarget) * 0.25;
+
+  const freshHistory = { water: [], protein: [], fats: [], lifting: [] };
+  for (let i = 1; i <= 30; i++) {
+    freshHistory.water.push({ day: i, val: 0.0, target: waterTargetLiters });
+    freshHistory.protein.push({ day: i, val: 0, target: userProteinTarget });
+    freshHistory.fats.push({ day: i, val: 0, target: userFatsTarget });
+    freshHistory.lifting.push({ day: i, val: 0.0, target: 100 });
+  }
+  return freshHistory;
+};
+
 const loadActiveUserCache = (userName) => {
   if (!userName) return;
   const keyPrefix = `client_${userName.toLowerCase().replace(/\s+/g, '')}_`;
@@ -185,7 +207,17 @@ const loadActiveUserCache = (userName) => {
       if (val !== null) {
         localStorage.setItem(key, val);
       } else {
-        localStorage.removeItem(key);
+        if (key === 'monthlyProgressHistory') {
+          localStorage.setItem(key, JSON.stringify(generateFreshHistory()));
+        } else if (key === 'workoutSessions') {
+          if (userName.toLowerCase() === 'sridhar') {
+            localStorage.removeItem(key);
+          } else {
+            localStorage.setItem(key, '[]');
+          }
+        } else {
+          localStorage.removeItem(key);
+        }
       }
     });
   } else {
@@ -203,25 +235,13 @@ const loadActiveUserCache = (userName) => {
     localStorage.setItem('walkLunchDinner', 'false');
     localStorage.setItem('strollsLogged', '0');
     
-    // Progress Dashboard Zero-Baseline
-    const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
-    const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
-    const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '130');
-    const userFatsTarget = parseInt(localStorage.getItem('userFatsTarget') || '60');
+    localStorage.setItem('monthlyProgressHistory', JSON.stringify(generateFreshHistory()));
     
-    const baseCalorieGlasses = calorieTarget / 250;
-    const baseWeightGlasses = (userWeight * 35) / 250;
-    const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
-    const waterTargetLiters = Math.max(6, baselineTarget) * 0.25;
-
-    const freshHistory = { water: [], protein: [], fats: [], lifting: [] };
-    for (let i = 1; i <= 30; i++) {
-      freshHistory.water.push({ day: i, val: 0.0, target: waterTargetLiters });
-      freshHistory.protein.push({ day: i, val: 0, target: userProteinTarget });
-      freshHistory.fats.push({ day: i, val: 0, target: userFatsTarget });
-      freshHistory.lifting.push({ day: i, val: 0.0, target: 100 });
+    if (userName.toLowerCase() === 'sridhar') {
+      localStorage.removeItem('workoutSessions');
+    } else {
+      localStorage.setItem('workoutSessions', '[]');
     }
-    localStorage.setItem('monthlyProgressHistory', JSON.stringify(freshHistory));
   }
   
   window.dispatchEvent(new Event('waterUpdated'));
@@ -729,7 +749,11 @@ function App() {
             loadActiveUserCache(newName);
 
             // Sync User Profile and initial fresh history to Supabase Cloud Database!
-            const freshHistory = JSON.parse(localStorage.getItem('monthlyProgressHistory'));
+            let freshHistory = JSON.parse(localStorage.getItem('monthlyProgressHistory'));
+            if (!freshHistory) {
+              freshHistory = generateFreshHistory();
+              localStorage.setItem('monthlyProgressHistory', JSON.stringify(freshHistory));
+            }
             const profile = {
               email: tempStorage['userEmail'] || localStorage.getItem('userEmail'),
               userName: tempStorage['userName'] || newName,
@@ -752,7 +776,8 @@ function App() {
             const todayStr = new Date().toDateString();
             localStorage.setItem('lastSavedDate', todayStr);
           } else {
-            // Same user logged back in! Check if date changed
+            // Same user logged back in! Restore cache and check if date changed
+            loadActiveUserCache(newName);
             checkAndHandleDateRollover();
           }
 
@@ -829,26 +854,13 @@ function App() {
   };
 
   const renderHomeDashboard = () => {
-    switch (userGoal) {
-      case 'Fat Loss':
-        return <FatLossDashboard setActiveTab={setActiveTab} handleLogout={handleLogout} />;
-      case 'Muscle Building':
-        return <MuscleDashboard setActiveTab={setActiveTab} handleLogout={handleLogout} />;
-      case 'Gut Fix':
-      default:
-        return <HomeTracker setActiveTab={setActiveTab} handleLogout={handleLogout} />;
-    }
+    return <WorkoutProgressDashboard handleLogout={handleLogout} />;
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
-      case 'mealCheck': return <MealCheck setActiveTab={setActiveTab} />;
-      case 'bloating': return <BloatingTracker setActiveTab={setActiveTab} />;
-      case 'mealPlan': return <SmartMealPlans />;
-      case 'nutrition': return <NutritionTracker setActiveTab={setActiveTab} />;
       case 'workouts': return <WorkoutTracker />;
-      case 'progress': return <ProgressDashboard />;
       case 'chat': return <CoachChat />;
       default: return renderHomeDashboard();
     }
@@ -875,7 +887,7 @@ function App() {
       
       {isNavVisible && (
         <nav className="bottom-nav">
-          <button className={`nav-item ${['home', 'nutrition', 'mealCheck', 'bloating'].includes(activeTab) ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+          <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -883,15 +895,6 @@ function App() {
               </svg>
             </span>
             <span>Home</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'mealPlan' ? 'active' : ''}`} onClick={() => setActiveTab('mealPlan')}>
-            <span className="icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 6.528V3a1 1 0 0 1 1-1h0" />
-                <path d="M18.237 21A15 15 0 0 0 22 11a6 6 0 0 0-10-4.472A6 6 0 0 0 2 11a15.1 15.1 0 0 0 3.763 10 3 3 0 0 0 3.648.648 5.5 5.5 0 0 1 5.178 0A3 3 0 0 0 18.237 21" />
-              </svg>
-            </span>
-            <span>Nutrition</span>
           </button>
           <button className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
             <span className="icon">
@@ -904,17 +907,6 @@ function App() {
               </svg>
             </span>
             <span>Workout</span>
-          </button>
-          <button className={`nav-item ${activeTab === 'progress' ? 'active' : ''}`} onClick={() => setActiveTab('progress')}>
-            <span className="icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-                <line x1="3" y1="20" x2="21" y2="20"/>
-              </svg>
-            </span>
-            <span>Progress</span>
           </button>
           <button className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>
             <span className="icon">

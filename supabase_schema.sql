@@ -103,3 +103,15 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read and write access" ON chat_messages FOR ALL USING (true) WITH CHECK (true);
 
+-- 7. Create Workout Plans Table (Routines & Templates)
+CREATE TABLE IF NOT EXISTS workout_plans (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  plan_name TEXT NOT NULL,
+  exercises JSONB NOT NULL,
+  created_by TEXT NOT NULL CHECK (created_by IN ('coach', 'client')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE workout_plans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read and write access" ON workout_plans FOR ALL USING (true) WITH CHECK (true);

@@ -74,10 +74,13 @@ const Onboarding = ({ onComplete }) => {
 
   // Authentication States
   const [authTab, setAuthTab] = useState('login'); // 'login' or 'register'
+  const [userType, setUserType] = useState('client'); // 'client' or 'coach'
   const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('rememberedEmail') || '');
   const [authPassword, setAuthPassword] = useState(() => localStorage.getItem('rememberedPassword') || '');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [showAuthForm, setShowAuthForm] = useState(false);
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -151,10 +154,10 @@ const Onboarding = ({ onComplete }) => {
     const tdee = bmr * multiplier;
 
     let calorieTarget = Math.round(tdee);
-    if (goalVal === 'Fat Loss') {
+    if (goalVal && goalVal.includes('Fat Loss')) {
       calorieTarget = Math.round(tdee - 500);
       if (calorieTarget < 1200) calorieTarget = 1200;
-    } else if (goalVal === 'Muscle Building') {
+    } else if (goalVal && goalVal.includes('Muscle Building')) {
       calorieTarget = Math.round(tdee + 300);
     }
 
@@ -164,11 +167,11 @@ const Onboarding = ({ onComplete }) => {
     let carbsRatio = 0.40;
     let fatsRatio = 0.30;
 
-    if (goalVal === 'Fat Loss') {
+    if (goalVal && goalVal.includes('Fat Loss')) {
       proteinRatio = 0.35;
       carbsRatio = 0.35;
       fatsRatio = 0.30;
-    } else if (goalVal === 'Muscle Building') {
+    } else if (goalVal && goalVal.includes('Muscle Building')) {
       proteinRatio = 0.30;
       carbsRatio = 0.45;
       fatsRatio = 0.25;
@@ -293,6 +296,40 @@ const Onboarding = ({ onComplete }) => {
     setMatchingProfiles(matches);
   }, [name]);
 
+  const handleToggleGoal = (toggled) => {
+    let items = goal ? goal.split(',').map(i => i.trim()).filter(Boolean) : [];
+    if (items.includes(toggled)) {
+      items = items.filter(i => i !== toggled);
+    } else {
+      items.push(toggled);
+    }
+    setGoal(items.join(', '));
+  };
+
+  const handleToggleIssue = (toggled) => {
+    let items = issue ? issue.split(',').map(i => i.trim()).filter(Boolean) : [];
+    if (toggled === 'None') {
+      setIssue('None');
+      return;
+    }
+    items = items.filter(i => i !== 'None');
+    if (items.includes(toggled)) {
+      items = items.filter(i => i !== toggled);
+    } else {
+      items.push(toggled);
+    }
+    setIssue(items.join(', '));
+  };
+
+  // Automatic sliding carousel for onboarding mockup
+  useEffect(() => {
+    if (step !== 0 || showAuthForm) return;
+    const interval = setInterval(() => {
+      setActiveSlide(prev => (prev + 1) % 3);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [step, showAuthForm]);
+
   const TOTAL_STEPS = 6;
 
   const calculateTargets = (selectedGoal) => {
@@ -355,246 +392,341 @@ const Onboarding = ({ onComplete }) => {
 
   return (
     <div className="onboarding-container">
-      <div className="onboarding-header">
-        <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
-        <h2 className="glow-text">
-          {step === 0 ? "Fitengineers Portal" : "Fitengineers App Setup"}
-        </h2>
-        {step > 0 && (
-          <>
-            <div className="step-bar">
-              <div className="step-progress" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}></div>
-            </div>
-            <div className="step-counter">Step {step} of {TOTAL_STEPS}</div>
-          </>
-        )}
-      </div>
+      {step > 0 && (
+        <div className="onboarding-header">
+          <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
+          <h2 className="glow-text">
+            Fitengineers App Setup
+          </h2>
+          <div className="step-bar">
+            <div className="step-progress" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}></div>
+          </div>
+          <div className="step-counter">Step {step} of {TOTAL_STEPS}</div>
+        </div>
+      )}
 
       {step === 0 && (
-        <div className="onboarding-step auth-step animate-in">
-          <div className="auth-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            <button 
-              type="button"
-              className={`select-btn ${authTab === 'login' ? 'selected' : ''}`}
-              style={{ flex: 1, padding: '12px', margin: 0 }}
-              onClick={() => { setAuthTab('login'); setAuthError(''); }}
-            >
-              Sign In
-            </button>
-            <button 
-              type="button"
-              className={`select-btn ${authTab === 'register' ? 'selected' : ''}`}
-              style={{ flex: 1, padding: '12px', margin: 0 }}
-              onClick={() => { setAuthTab('register'); setAuthError(''); }}
-            >
-              Create Account
-            </button>
-          </div>
-
-          <form onSubmit={handleAuthSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {authError && (
-              <div className="auth-error-banner" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', padding: '12px', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
-                ❌ {authError}
-              </div>
-            )}
+        <div className={`onboarding-portal-wrapper ${showAuthForm ? 'auth-form-active' : ''}`}>
+          {/* Left/Center Side: Logo and Slide Mockup */}
+          <div className="portal-left-panel">
+            <div className="portal-logo-area">
+              <img src="/logo.png" className="portal-logo" alt="Fitengineers Logo" />
+              <h2 className="portal-brand-title">FITENGINEERS</h2>
+            </div>
             
-            {authTab === 'register' && (
-              <div className="input-field">
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Full Name</label>
-                <input 
-                  type="text" 
-                  value={name} 
-                  onChange={e => setName(e.target.value)} 
-                  placeholder="Enter your name" 
-                  style={{ width: '100%', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: '#fff', fontSize: '0.95rem' }}
-                  required
-                />
+            {/* CSS Phone Mockup */}
+            <div className="phone-mockup-wrapper">
+              <div className="phone-mockup">
+                <div className="phone-speaker"></div>
+                <div className="phone-screen">
+                  <div className="phone-status-bar">
+                    <span>9:41</span>
+                    <div className="phone-status-icons">📶 🔋</div>
+                  </div>
+                  <div className="phone-content-carousel">
+                    {/* Slide 0: Workouts */}
+                    <div className={`phone-slide ${activeSlide === 0 ? 'slide-active' : ''}`}>
+                      <div className="mini-app-header">🏋️ Log Workout</div>
+                      <div className="mini-app-body">
+                        <div className="mini-stats-row">
+                          <div><span>Duration</span><strong>45m</strong></div>
+                          <div><span>Volume</span><strong>4.2k kg</strong></div>
+                        </div>
+                        <div className="mini-exercise-card">
+                          <div className="mini-exercise-title">Incline Bench Press</div>
+                          <div className="mini-sets-list">
+                            <div className="mini-set-row checked">
+                              <span className="set-num">1</span>
+                              <span>30kg x 10</span>
+                              <span className="set-check">✓</span>
+                            </div>
+                            <div className="mini-set-row checked">
+                              <span className="set-num">2</span>
+                              <span>30kg x 10</span>
+                              <span className="set-check">✓</span>
+                            </div>
+                            <div className="mini-set-row">
+                              <span className="set-num">3</span>
+                              <span>35kg x 8</span>
+                              <span className="set-check-empty">○</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mini-btn-placeholder">+ Add Exercise</div>
+                      </div>
+                    </div>
+
+                    {/* Slide 1: Nutrition */}
+                    <div className={`phone-slide ${activeSlide === 1 ? 'slide-active' : ''}`}>
+                      <div className="mini-app-header">🥗 Smart Meal Plan</div>
+                      <div className="mini-app-body">
+                        <div className="mini-calories-progress">
+                          <div className="progress-ring-mini">
+                            <span className="progress-calories">1,850</span>
+                            <span className="progress-target">/ 2,200 kcal</span>
+                          </div>
+                        </div>
+                        <div className="mini-macros-row">
+                          <div className="macro-bar-wrap"><div className="macro-bar p-bar" style={{width: '85%'}}></div><span>Pro: 140g</span></div>
+                          <div className="macro-bar-wrap"><div className="macro-bar c-bar" style={{width: '75%'}}></div><span>Carb: 180g</span></div>
+                          <div className="macro-bar-wrap"><div className="macro-bar f-bar" style={{width: '90%'}}></div><span>Fat: 65g</span></div>
+                        </div>
+                        <div className="mini-meals-list">
+                          <div className="mini-meal-item">🥞 Breakfast: Oats & Whey</div>
+                          <div className="mini-meal-item">🍗 Lunch: Chicken & Salad</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Slide 2: Coaching */}
+                    <div className={`phone-slide ${activeSlide === 2 ? 'slide-active' : ''}`}>
+                      <div className="mini-app-header">🎯 Coach Portal</div>
+                      <div className="mini-app-body">
+                        <div className="mini-trainer-info">
+                          <strong>Fitengineers Coach</strong>
+                          <span>Active Clients: 14</span>
+                        </div>
+                        <div className="mini-client-card on-track">
+                          <div className="mini-client-header">
+                            <span className="client-avatar">👤</span>
+                            <div className="client-details">
+                              <strong>Subodh Mankala</strong>
+                              <span>Goal: Fat Loss</span>
+                            </div>
+                          </div>
+                          <div className="client-status-badge">ON TRACK</div>
+                        </div>
+                        <div className="mini-client-card active-workout">
+                          <div className="mini-client-header">
+                            <span className="client-avatar">👤</span>
+                            <div className="client-details">
+                              <strong>lilswaaggg</strong>
+                              <span>Workout Logged</span>
+                            </div>
+                          </div>
+                          <div className="client-status-badge blue">5m ago</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
-
-            <div className="input-field">
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email Address</label>
-              <input 
-                type="email" 
-                value={authEmail} 
-                onChange={e => setAuthEmail(e.target.value)} 
-                placeholder="you@example.com" 
-                style={{ width: '100%', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: '#fff', fontSize: '0.95rem' }}
-                required
-              />
             </div>
 
-            <div className="input-field">
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Password</label>
-              <input 
-                type="password" 
-                value={authPassword} 
-                onChange={e => setAuthPassword(e.target.value)} 
-                placeholder="••••••••" 
-                minLength="6"
-                style={{ width: '100%', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: '#fff', fontSize: '0.95rem' }}
-                required
-              />
+            {/* Carousel Caption Text */}
+            <div className="carousel-caption-area">
+              <p className="carousel-text">
+                {activeSlide === 0 && "Log your workouts easily, all in one place."}
+                {activeSlide === 1 && "Eat smart with personalized nutrition & macro targets."}
+                {activeSlide === 2 && "Coaches: Manage programs & track client progress."}
+              </p>
+              <div className="carousel-dots">
+                <span className={`carousel-dot ${activeSlide === 0 ? 'active' : ''}`} onClick={() => setActiveSlide(0)}></span>
+                <span className={`carousel-dot ${activeSlide === 1 ? 'active' : ''}`} onClick={() => setActiveSlide(1)}></span>
+                <span className={`carousel-dot ${activeSlide === 2 ? 'active' : ''}`} onClick={() => setActiveSlide(2)}></span>
+              </div>
             </div>
-
-            <button 
-              type="submit" 
-              className="btn-next auth-submit-btn" 
-              style={{ width: '100%', marginTop: '12px', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-              disabled={authLoading}
-            >
-              {authLoading ? "Authenticating..." : authTab === 'login' ? "Sign In" : "Register & Continue"}
-            </button>
-          </form>
-
-          {authTab === 'login' && (
-            <div className="demo-login-quick" style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button
-                type="button"
-                className="gmail-login-btn"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
-                  color: '#93c5fd',
-                  fontSize: '0.82rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease',
-                  margin: 0
-                }}
-                onClick={() => {
-                  const demoClientProfile = {
-                    name: 'Subodh M',
-                    age: '26',
-                    height: '178',
-                    weight: '75',
-                    activity: 'Moderately Active',
-                    goal: 'Fat Loss',
-                    issue: 'None',
-                    diet: 'Non-Vegetarian'
-                  };
-                  handleInstantLogin(demoClientProfile, 'subodh.m@gmail.com');
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.2)';
-                }}
-              >
-                👤 Client Login
-              </button>
-              <button
-                type="button"
-                className="gmail-login-btn"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  color: '#6ee7b7',
-                  fontSize: '0.82rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease',
-                  margin: 0
-                }}
-                onClick={() => {
-                  const demoCoachProfile = {
-                    name: 'Subodh Mankala',
-                    age: '28',
-                    height: '175',
-                    weight: '70',
-                    activity: 'Moderately Active',
-                    goal: 'Fat Loss',
-                    issue: 'None',
-                    diet: 'Non-Vegetarian'
-                  };
-                  handleInstantLogin(demoCoachProfile, 'subodhmankala@gmail.com');
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.2)';
-                }}
-              >
-                🏋️‍♂️ Coach Login
-              </button>
-            </div>
-          )}
-
-          <div className="onboarding-divider" style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: 'var(--text-subtle)', fontSize: '0.8rem' }}>
-            <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }}></span>
-            <span style={{ padding: '0 10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>or</span>
-            <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }}></span>
           </div>
 
-          <button 
-            type="button" 
-            className="gmail-login-btn oauth-btn"
-            style={{ width: '100%', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-            onClick={async () => {
-              setAuthError('');
-              try {
-                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                  setShowGoogleModal(true);
-                } else {
-                  await databaseService.signInWithGoogle();
-                }
-              } catch (err) {
-                setAuthError(err.message || 'Google OAuth failed.');
-              }
-            }}
-          >
-            <div className="google-icon-wrapper">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-            </div>
-            Sign In with Google
-          </button>
+          {/* Right/Bottom Side: Forms & Actions Card */}
+          <div className="portal-right-panel">
+            {!showAuthForm ? (
+              <div className="account-selection-container animate-fade-in">
+                <h3 className="portal-selection-heading">Select account to log in to Fitengineers</h3>
+                
+                <div className="account-select-card" onClick={() => {
+                  setUserType('client');
+                  setAuthTab('login');
+                  setShowAuthForm(true);
+                  setAuthError('');
+                }}>
+                  <div className="account-card-avatar client-avatar-bg">👤</div>
+                  <div className="account-card-info">
+                    <strong>Log in as Client</strong>
+                    <span>Track workouts, diets & metrics</span>
+                  </div>
+                  <div className="account-card-arrow">⋮</div>
+                </div>
 
-          <button 
-            type="button" 
-            className="guest-bypass-btn"
-            style={{
-              width: '100%',
-              padding: '14px',
-              marginTop: '16px',
-              background: 'transparent',
-              border: '1px dashed rgba(255,255,255,0.15)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-muted)',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              textAlign: 'center'
-            }}
-            onClick={() => setStep(1)}
-          >
-            Skip & Continue as Guest ➔
-          </button>
+                <div className="account-select-card" onClick={() => {
+                  setUserType('coach');
+                  setAuthTab('login');
+                  setShowAuthForm(true);
+                  setAuthError('');
+                }}>
+                  <div className="account-card-avatar coach-avatar-bg">🏋️</div>
+                  <div className="account-card-info">
+                    <strong>Log in as Coach</strong>
+                    <span>Manage clients, workouts & plans</span>
+                  </div>
+                  <div className="account-card-arrow">⋮</div>
+                </div>
+
+                <button type="button" className="guest-bypass-btn-new" onClick={() => setStep(1)}>
+                  Skip & Continue as Guest ➔
+                </button>
+
+                <div className="portal-signup-footer">
+                  New to Fitengineers? <span className="signup-highlight-link" onClick={() => {
+                    setUserType('client');
+                    setAuthTab('register');
+                    setShowAuthForm(true);
+                    setAuthError('');
+                  }}>Sign up</span>
+                </div>
+              </div>
+            ) : (
+              <div className="credentials-form-container animate-slide-in">
+                <div className="form-header-row">
+                  <button type="button" className="form-back-arrow-btn" onClick={() => setShowAuthForm(false)}>
+                    ← Back
+                  </button>
+                  
+                  {/* Role Toggle Tab inside the form */}
+                  <div className="form-role-toggle">
+                    <button 
+                      type="button" 
+                      className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
+                      onClick={() => setUserType('client')}
+                    >
+                      Client
+                    </button>
+                    <button 
+                      type="button" 
+                      className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
+                      onClick={() => setUserType('coach')}
+                    >
+                      Coach
+                    </button>
+                  </div>
+                </div>
+
+                {/* Inner Auth Tabs */}
+                <div className="inner-auth-tabs">
+                  <button
+                    type="button"
+                    className={`inner-tab ${authTab === 'login' ? 'inner-tab-active' : ''}`}
+                    onClick={() => { setAuthTab('login'); setAuthError(''); }}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    className={`inner-tab ${authTab === 'register' ? 'inner-tab-active' : ''}`}
+                    onClick={() => { setAuthTab('register'); setAuthError(''); }}
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                {/* Role badge */}
+                <div className={`role-badge ${userType === 'coach' ? 'role-badge-coach' : 'role-badge-client'}`}>
+                  {userType === 'coach'
+                    ? '🎯 Coach Portal — Manage clients & check-ins'
+                    : '💪 Client Portal — Track your workouts & meals'}
+                </div>
+
+                {/* Social Logins */}
+                <div className="social-login-row">
+                  <button
+                    type="button"
+                    className="social-btn social-google"
+                    onClick={async () => {
+                      setAuthError('');
+                      try {
+                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                          setShowGoogleModal(true);
+                        } else {
+                          await databaseService.signInWithGoogle();
+                        }
+                      } catch (err) {
+                        setAuthError(err.message || 'Google sign-in failed.');
+                      }
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Google
+                  </button>
+                  <button
+                    type="button"
+                    className="social-btn social-facebook"
+                    onClick={() => setAuthError('Facebook login coming soon!')}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    Facebook
+                  </button>
+                </div>
+
+                <div className="auth-divider">
+                  <span className="auth-divider-line"></span>
+                  <span className="auth-divider-text">OR CONTINUE WITH</span>
+                  <span className="auth-divider-line"></span>
+                </div>
+
+                <form onSubmit={handleAuthSubmit} className="auth-form-new">
+                  {authError && <div className="auth-error-banner">❌ {authError}</div>}
+
+                  {authTab === 'register' && (
+                    <div className="auth-input-wrap">
+                      <label className="auth-label">Full Name</label>
+                      <input
+                        type="text"
+                        className="auth-input"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        placeholder="Enter your full name"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <div className="auth-input-wrap">
+                    <label className="auth-label">Email Address</label>
+                    <input
+                      type="email"
+                      className="auth-input"
+                      value={authEmail}
+                      onChange={e => setAuthEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="auth-input-wrap">
+                    <label className="auth-label">Password</label>
+                    <input
+                      type="password"
+                      className="auth-input"
+                      value={authPassword}
+                      onChange={e => setAuthPassword(e.target.value)}
+                      placeholder="••••••••"
+                      minLength="6"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
+                    disabled={authLoading}
+                  >
+                    {authLoading
+                      ? 'Authenticating...'
+                      : authTab === 'login'
+                        ? (userType === 'coach' ? '🏋️ Sign In as Coach' : '👤 Sign In as Client')
+                        : (userType === 'coach' ? '🏋️ Create Coach Account' : '👤 Create Client Account')}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       )}
       
@@ -770,24 +902,24 @@ const Onboarding = ({ onComplete }) => {
       {step === 4 && (
         <div className="onboarding-step animate-in">
           <h3>What is your primary fitness goal?</h3>
-          <p className="step-hint">This defines the calorie offset and workout direction.</p>
+          <p className="step-hint">This defines the calorie offset and workout direction (Select all that apply).</p>
           <button 
-            className={`select-btn ${goal === 'Fat Loss' ? 'selected' : ''}`}
-            onClick={() => setGoal('Fat Loss')}
+            className={`select-btn ${goal.includes('Fat Loss') ? 'selected' : ''}`}
+            onClick={() => handleToggleGoal('Fat Loss')}
           >
             <strong>🔥 Fat Loss</strong>
             <span className="btn-desc">Stay in caloric deficit & retain lean mass</span>
           </button>
           <button 
-            className={`select-btn ${goal === 'Gut Fix' ? 'selected' : ''}`}
-            onClick={() => setGoal('Gut Fix')}
+            className={`select-btn ${goal.includes('Gut Fix') ? 'selected' : ''}`}
+            onClick={() => handleToggleGoal('Gut Fix')}
           >
             <strong>🌱 Gut Fix</strong>
             <span className="btn-desc">Fix acidity, bloating & restore gut microbiome</span>
           </button>
           <button 
-            className={`select-btn ${goal === 'Muscle Building' ? 'selected' : ''}`}
-            onClick={() => setGoal('Muscle Building')}
+            className={`select-btn ${goal.includes('Muscle Building') ? 'selected' : ''}`}
+            onClick={() => handleToggleGoal('Muscle Building')}
           >
             <strong>💪 Muscle Building</strong>
             <span className="btn-desc">Achieve anabolic surplus & progressive overload</span>
@@ -798,28 +930,28 @@ const Onboarding = ({ onComplete }) => {
       {step === 5 && (
         <div className="onboarding-step animate-in">
           <h3>Any metabolic or digestive challenges?</h3>
-          <p className="step-hint">Helps tailor daily checklist alerts and warnings.</p>
+          <p className="step-hint">Helps tailor daily checklist alerts and warnings (Select all that apply).</p>
           <button 
-            className={`select-btn ${issue === 'Bloating' ? 'selected' : ''}`}
-            onClick={() => setIssue('Bloating')}
+            className={`select-btn ${issue.includes('Bloating') ? 'selected' : ''}`}
+            onClick={() => handleToggleIssue('Bloating')}
           >
             🎈 Bloating (frequent gas or fullness)
           </button>
           <button 
-            className={`select-btn ${issue === 'Acidity' ? 'selected' : ''}`}
-            onClick={() => setIssue('Acidity')}
+            className={`select-btn ${issue.includes('Acidity') ? 'selected' : ''}`}
+            onClick={() => handleToggleIssue('Acidity')}
           >
             🔥 Acidity & Heartburn
           </button>
           <button 
-            className={`select-btn ${issue === 'Constipation' ? 'selected' : ''}`}
-            onClick={() => setIssue('Constipation')}
+            className={`select-btn ${issue.includes('Constipation') ? 'selected' : ''}`}
+            onClick={() => handleToggleIssue('Constipation')}
           >
             🐢 Constipation / Sluggish digestion
           </button>
           <button 
-            className={`select-btn ${issue === 'None' ? 'selected' : ''}`}
-            onClick={() => setIssue('None')}
+            className={`select-btn ${issue.includes('None') ? 'selected' : ''}`}
+            onClick={() => handleToggleIssue('None')}
           >
             ✨ None / Just want to stay fit
           </button>
@@ -938,21 +1070,12 @@ const Onboarding = ({ onComplete }) => {
               <div 
                 className="google-account-row"
                 onClick={() => {
-                  const customName = prompt("Enter your full name for Google Account:");
-                  if (customName && customName.trim()) {
-                    const cleanName = customName.trim();
-                    const customProfile = {
-                      name: cleanName,
-                      age: '28',
-                      height: '175',
-                      weight: '70',
-                      activity: 'Moderately Active',
-                      goal: 'Fat Loss',
-                      issue: 'None',
-                      diet: 'Vegetarian'
-                    };
-                    handleGoogleAccountSelect(customProfile, `${cleanName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`);
-                  }
+                  setShowGoogleModal(false);
+                  setStep(0);
+                  setShowAuthForm(true);
+                  setAuthTab('register');
+                  setUserType('client');
+                  setAuthError('');
                 }}
               >
                 <div className="account-avatar font-gray">

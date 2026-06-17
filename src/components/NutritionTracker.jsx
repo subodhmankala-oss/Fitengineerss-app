@@ -8,8 +8,8 @@ const NutritionTracker = ({ setActiveTab }) => {
   // Load target goals from profile or healthy defaults
   const [targets, setTargets] = useState(() => {
     const goal = localStorage.getItem('userGoal');
-    if (goal === 'Fat Loss') return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
-    if (goal === 'Muscle Building') return { calories: 2500, protein: 150, carbs: 280, fats: 80 };
+    if (goal && goal.includes('Fat Loss')) return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
+    if (goal && goal.includes('Muscle Building')) return { calories: 2500, protein: 150, carbs: 280, fats: 80 };
     return { calories: 1800, protein: 130, carbs: 180, fats: 60 }; // Gut Fix / default
   });
 
@@ -40,9 +40,9 @@ const NutritionTracker = ({ setActiveTab }) => {
     const goal          = localStorage.getItem('userGoal');
 
     let fallback = { calories: 1800, protein: 130, carbs: 180, fats: 60 };
-    if (goal === 'Fat Loss') {
+    if (goal && goal.includes('Fat Loss')) {
       fallback = { calories: 1300, protein: 100, carbs: 120, fats: 45 };
-    } else if (goal === 'Muscle Building') {
+    } else if (goal && goal.includes('Muscle Building')) {
       fallback = { calories: 2500, protein: 150, carbs: 280, fats: 80 };
     }
 

@@ -411,11 +411,11 @@ const balanceMacroTargets = (calorieTarget, goalVal) => {
   let carbsRatio = 0.40;
   let fatsRatio = 0.30;
 
-  if (goalVal === 'Fat Loss') {
+  if (goalVal && goalVal.includes('Fat Loss')) {
     proteinRatio = 0.35;
     carbsRatio = 0.35;
     fatsRatio = 0.30;
-  } else if (goalVal === 'Muscle Building') {
+  } else if (goalVal && goalVal.includes('Muscle Building')) {
     proteinRatio = 0.30;
     carbsRatio = 0.45;
     fatsRatio = 0.25;
@@ -441,8 +441,8 @@ const SmartMealPlans = () => {
   // User's actual targets from onboarding (same source as Home page)
   const [userTargets, setUserTargets] = useState(() => {
     const goal = localStorage.getItem('userGoal');
-    if (goal === 'Fat Loss') return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
-    if (goal === 'Muscle Building') return { calories: 2500, protein: 150, carbs: 280, fats: 80 };
+    if (goal && goal.includes('Fat Loss')) return { calories: 1300, protein: 100, carbs: 120, fats: 45 };
+    if (goal && goal.includes('Muscle Building')) return { calories: 2500, protein: 150, carbs: 280, fats: 80 };
     return { calories: 1800, protein: 130, carbs: 180, fats: 60 }; // Gut Fix / default
   });
 
@@ -466,9 +466,9 @@ const SmartMealPlans = () => {
     const goal       = localStorage.getItem('userGoal');
 
     let fallback = { calories: 1800, protein: 130, carbs: 180, fats: 60 };
-    if (goal === 'Fat Loss') {
+    if (goal && goal.includes('Fat Loss')) {
       fallback = { calories: 1300, protein: 100, carbs: 120, fats: 45 };
-    } else if (goal === 'Muscle Building') {
+    } else if (goal && goal.includes('Muscle Building')) {
       fallback = { calories: 2500, protein: 150, carbs: 280, fats: 80 };
     }
 

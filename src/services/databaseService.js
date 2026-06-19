@@ -433,6 +433,19 @@ const databaseService = {
     return data;
   },
 
+  async verifyEmailOTP(email, token) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email'
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async signOut() {
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signOut();

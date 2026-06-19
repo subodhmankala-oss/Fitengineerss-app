@@ -83,8 +83,11 @@ const Onboarding = ({ onComplete }) => {
   const [showAuthForm, setShowAuthForm] = useState(false);
 
   // OTP Login States
-  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' or 'email'
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'email'
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    const saved = localStorage.getItem('userPhone') || '';
+    return saved.replace(/^\+91/, ''); // Strip +91 for cleaner user input
+  });
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
@@ -92,32 +95,29 @@ const Onboarding = ({ onComplete }) => {
 
   const handleSendOTP = async (e) => {
     if (e) e.preventDefault();
-    if (!phoneNumber.trim()) {
-      setAuthError('Please enter a valid phone number.');
+    if (!authEmail.trim()) {
+      setAuthError('Please enter a valid email address.');
       return;
     }
     setOtpLoading(true);
     setAuthError('');
     try {
-      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-      const fullPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
-      
       if (isSupabaseConfigured && databaseService.supabase) {
-        await databaseService.sendOTP(fullPhone);
+        const { error } = await databaseService.supabase.auth.signInWithOtp({
+          email: authEmail.trim(),
+          options: {
+            shouldCreateUser: true
+          }
+        });
+        if (error) throw error;
         setOtpSent(true);
         setOtpTimer(59);
-        console.log('Live OTP sent via Supabase for:', fullPhone);
+        console.log('Live Email OTP sent via Supabase for:', authEmail.trim());
       } else {
         throw new Error("Supabase/database integration is not configured. Real OTP cannot be sent.");
       }
     } catch(err) {
-      if (err.message?.includes('Unsupported phone provider') || err.code === 'phone_provider_disabled') {
-        setAuthError(
-          "Supabase Phone Auth is disabled. To send proper OTP messages to your mobile, please enable it in your Supabase Dashboard: go to 'Auth' -> 'Providers' -> 'Phone', toggle 'Enable Phone Provider' to ON, and configure an SMS gateway (like Twilio)."
-        );
-      } else {
-        setAuthError('Failed to send OTP: ' + err.message);
-      }
+      setAuthError('Failed to send OTP: ' + err.message);
     } finally {
       setOtpLoading(false);
     }
@@ -138,15 +138,12 @@ const Onboarding = ({ onComplete }) => {
   const handleVerifyOTP = async (e) => {
     if (e) e.preventDefault();
 
-    const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-    const fullPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
-
     setAuthLoading(true);
     setAuthError('');
 
     try {
       if (isSupabaseConfigured && databaseService.supabase) {
-        await databaseService.verifyOTP(fullPhone, otpCode.trim());
+        await databaseService.verifyEmailOTP(authEmail.trim(), otpCode.trim());
       } else {
         throw new Error("Supabase database is not configured.");
       }
@@ -160,17 +157,15 @@ const Onboarding = ({ onComplete }) => {
     setAuthError('');
 
     try {
-      const defaultEmail = `${cleanPhone}@fitengineers.com`;
-      
       let profile = null;
-      let matchedEmail = defaultEmail;
+      let matchedEmail = authEmail.trim();
 
       if (isSupabaseConfigured && databaseService.supabase) {
         try {
           const { data, error } = await databaseService.supabase
             .from('users')
             .select('*')
-            .eq('phone', cleanPhone)
+            .eq('email', matchedEmail)
             .maybeSingle();
           if (data) {
             profile = {
@@ -188,7 +183,6 @@ const Onboarding = ({ onComplete }) => {
               payment_status: data.payment_status,
               coach_id: data.coach_id
             };
-            matchedEmail = data.email;
           }
         } catch(e) {
           console.error('Supabase lookup failed:', e);
@@ -196,58 +190,46 @@ const Onboarding = ({ onComplete }) => {
       }
 
       if (!profile) {
-        // Offline check for coaches list
+        // Offline check for coaches list by email
         const cachedCoaches = localStorage.getItem('coaches_list');
         if (cachedCoaches) {
           try {
             const coaches = JSON.parse(cachedCoaches);
-            const matchedCoach = coaches.find(c => c.phone === cleanPhone || c.phone === cleanPhone.replace('+91', ''));
+            const matchedCoach = coaches.find(c => c.email.toLowerCase() === matchedEmail.toLowerCase());
             if (matchedCoach) {
               profile = {
                 id: matchedCoach.id,
                 userName: matchedCoach.name,
                 role: matchedCoach.email === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach',
-                phone: cleanPhone,
+                phone: matchedCoach.phone,
                 brand: matchedCoach.brand
               };
-              matchedEmail = matchedCoach.email;
             }
           } catch(e) {}
         }
         
         // Fallback hardcoded defaults if not in list
         if (!profile) {
-          if (cleanPhone === '9999999999' || cleanPhone === '+919999999999') {
+          if (matchedEmail.toLowerCase() === 'subodhmankala@gmail.com') {
             profile = {
               id: 'coach-subodh',
               userName: 'Coach Subodh',
               role: 'super-admin',
-              phone: cleanPhone,
               brand: 'Fit Engineers'
             };
-            matchedEmail = 'subodhmankala@gmail.com';
-          } else if (cleanPhone === '9876543210' || cleanPhone === '+919876543210') {
-            profile = {
-              id: 'coach-ravi',
-              userName: 'Coach Ravi',
-              role: 'coach',
-              phone: cleanPhone,
-              brand: 'Ravi Fitness'
-            };
-            matchedEmail = 'ravi@fitengineers.com';
           }
         }
       }
 
       if (!profile) {
-        // Local storage lookup by phone (for clients)
+        // Local storage lookup by email (for clients)
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && key.startsWith('client_')) {
             const clientKey = key.split('_')[1];
             const pKey = `client_${clientKey}_`;
-            const phone = localStorage.getItem(`${pKey}userPhone`);
-            if (phone === cleanPhone) {
+            const email = localStorage.getItem(`${pKey}userEmail`);
+            if (email?.toLowerCase() === matchedEmail.toLowerCase()) {
               profile = {
                 userName: localStorage.getItem(`${pKey}userName`) || '',
                 userAge: localStorage.getItem(`${pKey}userAge`) || '',
@@ -257,10 +239,9 @@ const Onboarding = ({ onComplete }) => {
                 userGoal: localStorage.getItem(`${pKey}userGoal`) || '',
                 userDiet: localStorage.getItem(`${pKey}userDiet`) || '',
                 role: localStorage.getItem(`${pKey}userRole`) || 'client',
-                phone: phone,
+                phone: localStorage.getItem(`${pKey}userPhone`) || '',
                 coach_id: localStorage.getItem(`${pKey}userCoachId`) || ''
               };
-              matchedEmail = localStorage.getItem(`${pKey}userEmail`) || defaultEmail;
               break;
             }
           }
@@ -279,7 +260,7 @@ const Onboarding = ({ onComplete }) => {
         onComplete();
       } else {
         localStorage.setItem('userEmail', matchedEmail);
-        localStorage.setItem('userPhone', cleanPhone);
+        localStorage.setItem('userPhone', profile?.phone || '');
         localStorage.setItem('userRole', profile?.role || userType);
         if (profile && profile.userName) {
           localStorage.setItem('userName', profile.userName);
@@ -727,17 +708,28 @@ const Onboarding = ({ onComplete }) => {
   };
 
   const handleNext = () => {
-    if (step === 1 && !name.trim()) return;
+    if (step === 1) {
+      if (!name.trim()) return;
+      const digitsOnly = phoneNumber.replace(/\D/g, '');
+      if (digitsOnly.length !== 10) {
+        alert('Please enter a valid 10-digit phone number.');
+        return;
+      }
+      const fullPhone = `+91${digitsOnly}`;
+      localStorage.setItem('userName', name.trim());
+      localStorage.setItem('userPhone', fullPhone);
+    }
 
     // Check if the current user is a coach
     const isCoach = localStorage.getItem('userRole') === 'coach' || localStorage.getItem('userRole') === 'super-admin' || userType === 'coach';
     if (step === 1 && isCoach) {
       const cleanName = name.trim();
-      localStorage.setItem('userName', cleanName);
+      const digitsOnly = phoneNumber.replace(/\D/g, '');
+      const fullPhone = `+91${digitsOnly}`;
       databaseService.saveUserProfile({
         userName: cleanName,
         email: localStorage.getItem('userEmail'),
-        phone: localStorage.getItem('userPhone'),
+        phone: fullPhone,
         role: localStorage.getItem('userRole') || 'coach'
       });
       onComplete();
@@ -955,12 +947,12 @@ const Onboarding = ({ onComplete }) => {
                 <button
                   type="button"
                   style={{
-                    flex: 1, padding: '8px', border: 'none', background: loginMethod === 'phone' ? (userType === 'coach' ? '#10b981' : 'var(--primary-accent-light)') : 'transparent',
+                    flex: 1, padding: '8px', border: 'none', background: loginMethod === 'otp' ? (userType === 'coach' ? '#10b981' : 'var(--primary-accent-light)') : 'transparent',
                     color: '#fff', fontWeight: 700, fontSize: '0.78rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
                   }}
-                  onClick={() => { setLoginMethod('phone'); setAuthError(''); }}
+                  onClick={() => { setLoginMethod('otp'); setAuthError(''); }}
                 >
-                  📱 Phone + OTP
+                  ✉️ Email OTP
                 </button>
                 <button
                   type="button"
@@ -976,28 +968,21 @@ const Onboarding = ({ onComplete }) => {
 
               {authError && <div className="auth-error-banner" style={{ marginBottom: '14px' }}>❌ {authError}</div>}
 
-              {/* PHONE + OTP LOGIN FLOW */}
-              {loginMethod === 'phone' && (
+              {/* EMAIL OTP LOGIN FLOW */}
+              {loginMethod === 'otp' && (
                 <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {!otpSent ? (
                     <>
                       <div className="auth-input-wrap">
-                        <label className="auth-label">Phone Number (Primary)</label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <span style={{
-                            padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
-                            borderRadius: 'var(--radius-sm)', color: '#fff', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center'
-                          }}>🇮🇳 +91</span>
-                          <input
-                            type="tel"
-                            className="auth-input"
-                            style={{ flex: 1 }}
-                            value={phoneNumber}
-                            onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                            placeholder="Enter 10-digit number"
-                            required
-                          />
-                        </div>
+                        <label className="auth-label">Email Address</label>
+                        <input
+                          type="email"
+                          className="auth-input"
+                          value={authEmail}
+                          onChange={e => setAuthEmail(e.target.value)}
+                          placeholder="example@gmail.com"
+                          required
+                        />
                       </div>
                       <button
                         type="submit"
@@ -1021,7 +1006,7 @@ const Onboarding = ({ onComplete }) => {
                           required
                         />
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.72rem' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>Sent to +91 {phoneNumber}</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Sent to {authEmail}</span>
                           {otpTimer > 0 ? (
                             <span style={{ color: 'var(--text-subtle)' }}>Resend in {otpTimer}s</span>
                           ) : (
@@ -1050,7 +1035,7 @@ const Onboarding = ({ onComplete }) => {
                           cursor: 'pointer', textAlign: 'center', alignSelf: 'center', textDecoration: 'underline'
                         }}
                       >
-                        Change Phone Number
+                        Change Email Address
                       </button>
                     </>
                   )}
@@ -1293,7 +1278,25 @@ const Onboarding = ({ onComplete }) => {
             onChange={e => setName(e.target.value)} 
             placeholder="Enter your name" 
             autoFocus
+            style={{ marginBottom: '14px' }}
           />
+
+          <h3 style={{ marginTop: '16px' }}>What is your phone number?</h3>
+          <p className="step-hint">Required for direct communication with your coach.</p>
+          <div style={{ display: 'flex', gap: '8px', maxWidth: '360px', margin: '0 auto' }}>
+            <span style={{
+              padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)', color: '#fff', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center'
+            }}>🇮🇳 +91</span>
+            <input 
+              type="tel" 
+              value={phoneNumber} 
+              onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+              placeholder="10-digit mobile number"
+              style={{ flex: 1 }}
+              required
+            />
+          </div>
 
           {matchingProfiles.length > 0 && (
             <div className="profile-suggestions-dropdown glass-panel animate-scale-in">

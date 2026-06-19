@@ -5,6 +5,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
+console.log('Supabase Env Check:', {
+  configured: isSupabaseConfigured,
+  urlLength: supabaseUrl ? supabaseUrl.length : 0,
+  keyLength: supabaseAnonKey ? supabaseAnonKey.length : 0
+});
+
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {

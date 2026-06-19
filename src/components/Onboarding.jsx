@@ -208,7 +208,7 @@ const Onboarding = ({ onComplete }) => {
               profile = {
                 id: matchedCoach.id,
                 userName: matchedCoach.name,
-                role: matchedCoach.email === 'trainer@fitengineers.com' || matchedCoach.email === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach',
+                role: matchedCoach.email === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach',
                 phone: cleanPhone,
                 brand: matchedCoach.brand
               };
@@ -227,7 +227,7 @@ const Onboarding = ({ onComplete }) => {
               phone: cleanPhone,
               brand: 'Fit Engineers'
             };
-            matchedEmail = 'trainer@fitengineers.com';
+            matchedEmail = 'subodhmankala@gmail.com';
           } else if (cleanPhone === '9876543210' || cleanPhone === '+919876543210') {
             profile = {
               id: 'coach-ravi',

@@ -876,12 +876,6 @@ const TrainerDashboard = ({ handleLogout }) => {
             gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: '12px'
           }}>
-            <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.15)' }}>
-              <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Workouts (This Week)</div>
-              <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: 'var(--primary-accent-light)', fontWeight: 800 }}>
-                {platformStats.totalWorkoutsLoggedThisWeek}
-              </div>
-            </div>
             <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
               <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Clients</div>
               <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: '#10b981', fontWeight: 800 }}>

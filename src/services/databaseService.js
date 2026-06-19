@@ -32,12 +32,7 @@ export const isTrainer = (email) => {
 
 export const isSuperAdmin = (email) => {
   if (!email) return false;
-  const hardcoded = [
-    'subodhmankala@gmail.com',
-    'trainer@fitengineers.com'
-  ].includes(email.toLowerCase());
-  if (hardcoded) return true;
-  return localStorage.getItem('userRole') === 'super-admin';
+  return email.toLowerCase() === 'subodhmankala@gmail.com';
 };
 
 

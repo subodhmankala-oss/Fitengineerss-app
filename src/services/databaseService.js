@@ -385,6 +385,41 @@ const databaseService = {
     return data;
   },
 
+  async resetPassword(email) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async sendOTP(phone) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.signInWithOtp({
+      phone: phone
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async verifyOTP(phone, token) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms'
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async signOut() {
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signOut();

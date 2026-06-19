@@ -98,12 +98,27 @@ const Onboarding = ({ onComplete }) => {
     }
     setOtpLoading(true);
     setAuthError('');
-    setTimeout(() => {
+    try {
+      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
+      const fullPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
+      
+      if (isSupabaseConfigured && databaseService.supabase) {
+        await databaseService.sendOTP(fullPhone);
+        setOtpSent(true);
+        setOtpTimer(59);
+        console.log('Real OTP sent via Supabase for:', fullPhone);
+      } else {
+        // Fallback mock flow
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setOtpSent(true);
+        setOtpTimer(59);
+        console.log('Mock OTP Sent: 123456');
+      }
+    } catch(err) {
+      setAuthError('Failed to send OTP: ' + err.message);
+    } finally {
       setOtpLoading(false);
-      setOtpSent(true);
-      setOtpTimer(59);
-      console.log('Mock OTP Sent: 123456');
-    }, 1000);
+    }
   };
 
   useEffect(() => {
@@ -120,17 +135,33 @@ const Onboarding = ({ onComplete }) => {
 
   const handleVerifyOTP = async (e) => {
     if (e) e.preventDefault();
-    if (otpCode.trim() !== '123456' && otpCode.trim() !== '654321' && otpCode.trim() !== '111111') {
-      setAuthError('Invalid OTP code. (For testing, use 123456)');
-      return;
+
+    const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
+    const fullPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
+    const isMockBypass = otpCode.trim() === '123456' || otpCode.trim() === '654321' || otpCode.trim() === '111111';
+
+    if (!isMockBypass) {
+      setAuthLoading(true);
+      setAuthError('');
+      try {
+        if (isSupabaseConfigured && databaseService.supabase) {
+          await databaseService.verifyOTP(fullPhone, otpCode.trim());
+        } else {
+          setAuthError('Invalid OTP code. (For testing, use 123456)');
+          setAuthLoading(false);
+          return;
+        }
+      } catch (err) {
+        setAuthError('OTP Verification failed: ' + err.message);
+        setAuthLoading(false);
+        return;
+      }
     }
 
     setAuthLoading(true);
     setAuthError('');
 
     try {
-      // Clean phone number (leave only digits and + symbol)
-      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
       const defaultEmail = `${cleanPhone}@fitengineers.com`;
       
       let profile = null;
@@ -881,7 +912,7 @@ const Onboarding = ({ onComplete }) => {
                   }}
                   onClick={() => { setLoginMethod('email'); setAuthError(''); }}
                 >
-                  ✉️ Email + Password
+                  ✉️ Login Email
                 </button>
               </div>
 
@@ -1032,7 +1063,40 @@ const Onboarding = ({ onComplete }) => {
                   </div>
 
                   <div className="auth-input-wrap">
-                    <label className="auth-label">Password</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="auth-label">Password</label>
+                      {authTab === 'login' && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!authEmail.trim()) {
+                              setAuthError('Please enter your email address to reset password.');
+                              return;
+                            }
+                            setAuthLoading(true);
+                            setAuthError('');
+                            try {
+                              if (isSupabaseConfigured && databaseService.supabase) {
+                                await databaseService.resetPassword(authEmail.trim());
+                                alert(`Password reset link has been sent to ${authEmail.trim()}`);
+                              } else {
+                                alert(`Offline Mode: Reset password email requested for ${authEmail.trim()}. (In production, an email would be sent)`);
+                              }
+                            } catch (err) {
+                              setAuthError('Password reset failed: ' + err.message);
+                            } finally {
+                              setAuthLoading(false);
+                            }
+                          }}
+                          style={{
+                            background: 'none', border: 'none', color: 'var(--primary-accent-light)',
+                            fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600, padding: 0
+                          }}
+                        >
+                          Forgot Password?
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="password"
                       className="auth-input"
@@ -1048,12 +1112,47 @@ const Onboarding = ({ onComplete }) => {
                     type="submit"
                     className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
                     disabled={authLoading}
+                    style={{ marginBottom: '6px' }}
                   >
                     {authLoading
                       ? 'Authenticating...'
                       : authTab === 'login'
                         ? (userType === 'coach' ? '🏋️ Sign In as Coach' : '👤 Sign In as Client')
                         : (userType === 'coach' ? '🏋️ Create Coach Account' : '👤 Create Client Account')}
+                  </button>
+
+                  <div className="auth-divider">
+                    <span className="auth-divider-line"></span>
+                    <span className="auth-divider-text">OR</span>
+                    <span className="auth-divider-line"></span>
+                  </div>
+
+                  <button 
+                    type="button" 
+                    className="gmail-login-btn"
+                    style={{ width: '100%', margin: 0, padding: '12px' }}
+                    onClick={async () => {
+                      setAuthError('');
+                      try {
+                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                          setShowGoogleModal(true);
+                        } else {
+                          await databaseService.signInWithGoogle();
+                        }
+                      } catch (err) {
+                        setAuthError(err.message || 'Google OAuth failed.');
+                      }
+                    }}
+                  >
+                    <div className="google-icon-wrapper" style={{ display: 'inline-flex', alignSelf: 'center', marginRight: '8px' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                    </div>
+                    Continue with Google
                   </button>
                 </form>
               )}

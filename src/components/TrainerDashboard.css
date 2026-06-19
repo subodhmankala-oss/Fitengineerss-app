@@ -478,3 +478,18 @@
   background: rgba(255, 255, 255, 0.05);
   border-radius: 2px;
 }
+
+/* Navigation & Interactive UI Additions */
+.clickable-card {
+  transition: all 0.2s ease-in-out;
+}
+.clickable-card:hover {
+  transform: translateY(-2px);
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+}
+.dashboard-breadcrumb button:hover {
+  color: var(--primary-accent) !important;
+  text-decoration: underline;
+}

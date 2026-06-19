@@ -519,7 +519,10 @@ const databaseService = {
             phone: data.phone,
             brand: data.brand,
             payment_status: data.payment_status,
-            coach_id: data.coach_id
+            coach_id: data.coach_id,
+            verified: data.verified,
+            approved: data.verified,
+            isApproved: data.verified
           };
         }
       } catch (e) {
@@ -563,8 +566,9 @@ const databaseService = {
           .select('*')
           .order('full_name', { ascending: true });
 
-        // Enforce isolation for regular coaches
-        if (loggedInRole === 'coach' && !superAdmin && loggedInId) {
+        // Enforce isolation for coaches and admin's coach view
+        const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
+        if (isCoachOrAdmin && loggedInId) {
           query = query.eq('coach_id', loggedInId);
         }
 
@@ -608,8 +612,9 @@ const databaseService = {
       const uKey = currentName.toLowerCase().replace(/\s+/g, '');
       const clientCoachId = localStorage.getItem(`client_${uKey}_userCoachId`) || '';
       
-      // Enforce isolation for regular coaches
-      if (!(loggedInRole === 'coach' && !superAdmin && loggedInId && clientCoachId !== loggedInId)) {
+      // Enforce isolation for coaches and admin's coach view
+      const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
+      if (!(isCoachOrAdmin && loggedInId && clientCoachId !== loggedInId)) {
         localClients.push({
           id: uKey,
           email: currentEmail,
@@ -648,8 +653,9 @@ const databaseService = {
           const keyPrefix = `client_${clientKey}_`;
           const clientCoachId = localStorage.getItem(`${keyPrefix}userCoachId`) || '';
 
-          // Enforce isolation for regular coaches
-          if (loggedInRole === 'coach' && !superAdmin && loggedInId && clientCoachId !== loggedInId) {
+          // Enforce isolation for coaches and admin's coach view
+          const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
+          if (isCoachOrAdmin && loggedInId && clientCoachId !== loggedInId) {
             continue;
           }
 
@@ -1055,10 +1061,25 @@ const databaseService = {
           .from('users')
           .update({
             brand: coach.brand,
-            payment_status: coach.payment_status
+            payment_status: coach.payment_status,
+            isSubscriptionActive: coach.payment_status === 'active'
           })
           .eq('id', coach.id);
-        if (error) throw error;
+        
+        if (error) {
+          if (error.code === '42703') {
+            const { error: retryError } = await supabase
+              .from('users')
+              .update({
+                brand: coach.brand,
+                payment_status: coach.payment_status
+              })
+              .eq('id', coach.id);
+            if (retryError) throw retryError;
+          } else {
+            throw error;
+          }
+        }
       } catch (e) {
         console.error('Error saving coach profile on cloud DB:', e);
       }
@@ -1154,16 +1175,15 @@ const databaseService = {
     const { email, name, certifications, experience, specialization, socialMedia, location } = applicationData;
     
     if (isSupabaseConfigured && supabase) {
-      try {
-        const { error } = await supabase
-          .from('users')
-          .upsert(
-            { email, role: 'coach_pending', full_name: name },
-            { onConflict: 'email' }
-          );
-        if (error) console.error('Cloud DB Coach Application Update Error:', error);
-      } catch (e) {
-        console.error('Cloud DB Coach Application Error:', e);
+      const { error } = await supabase
+        .from('users')
+        .upsert(
+          { email, role: 'coach_pending', full_name: name },
+          { onConflict: 'email' }
+        );
+      if (error) {
+        console.error('Cloud DB Coach Application Update Error:', error);
+        throw new Error(error.message || 'Database error occurred while submitting application.');
       }
     }
     
@@ -1207,7 +1227,41 @@ const databaseService = {
   async approveCoach(email) {
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('users').update({ role: 'coach' }).eq('email', email);
+        const { data: user, error: findError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (findError) throw findError;
+        
+        if (user) {
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ role: 'coach', verified: true })
+            .eq('id', user.id);
+            
+          if (updateError) throw updateError;
+          
+          const { data: existingProfile } = await supabase
+            .from('coach_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          if (!existingProfile) {
+            await supabase
+              .from('coach_profiles')
+              .insert({
+                user_id: user.id,
+                approved: true,
+                approval_date: new Date().toISOString(),
+                experience_years: 0,
+                certifications: [],
+                specialization: 'General'
+              });
+          }
+        }
       } catch (e) {
         console.error('Cloud DB Approve Coach Error:', e);
       }
@@ -1215,6 +1269,23 @@ const databaseService = {
     
     let localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
     localApps = localApps.map(a => a.email === email ? { ...a, status: 'approved' } : a);
+    localStorage.setItem('coach_applications', JSON.stringify(localApps));
+  },
+
+  async rejectCoach(email) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from('users')
+          .update({ role: 'client' })
+          .eq('email', email);
+      } catch (e) {
+        console.error('Cloud DB Reject Coach Error:', e);
+      }
+    }
+    
+    let localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
+    localApps = localApps.map(a => a.email === email ? { ...a, status: 'rejected' } : a);
     localStorage.setItem('coach_applications', JSON.stringify(localApps));
   },
 
@@ -1231,7 +1302,7 @@ const databaseService = {
     const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
     return invites[code.toUpperCase()] || null; // returns coachId if valid
   }
-
+,
   async refreshLocalCoaches() {
     try {
       const rawCoaches = localStorage.getItem('coaches_list') || '[]';

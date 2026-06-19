@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import databaseService, { isSuperAdmin } from '../services/databaseService';
+import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import './TrainerDashboard.css';
 
 // Comprehensive A-Z Exercise Library (150+ exercises)
@@ -204,7 +204,7 @@ const LIVE_EXERCISE_LIST = [
 const TrainerDashboard = ({ handleLogout }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
-  const superAdmin = isSuperAdmin(loggedInEmail);
+  const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
   const [coachesList, setCoachesList] = useState([]);
   const [pendingCoachesList, setPendingCoachesList] = useState([]);
@@ -212,6 +212,8 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [loadingAdmin, setLoadingAdmin] = useState(false);
   const [refreshToast, setRefreshToast] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [allUsersList, setAllUsersList] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   if (userRole === 'coach_pending' && !superAdmin) {
     return (
@@ -245,10 +247,37 @@ const TrainerDashboard = ({ handleLogout }) => {
       setCoachesList(coaches || []);
       setPendingCoachesList(pendingCoaches || []);
       setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
+
+      // Fetch all users for platform directory
+      if (isSupabaseConfigured && databaseService.supabase) {
+        setLoadingUsers(true);
+        const { data: allUsers, error: usersError } = await databaseService.supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!usersError && allUsers) {
+          setAllUsersList(allUsers);
+        }
+        setLoadingUsers(false);
+      }
     } catch (e) {
       console.error('Error fetching admin data:', e);
     } finally {
       setLoadingAdmin(false);
+    }
+  };
+
+  const handleRejectCoach = async (coach) => {
+    if (!window.confirm(`Reject ${coach.name || coach.email}'s application?`)) {
+      return;
+    }
+    try {
+      await databaseService.rejectCoach(coach.email);
+      fetchAdminData();
+      alert('Coach application rejected.');
+    } catch (err) {
+      console.error('Error rejecting coach:', err);
+      alert('Failed to reject coach.');
     }
   };
 
@@ -307,7 +336,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
-  const [detailTab, setDetailTab] = useState('workout'); // 'workout', 'plans', 'chat', 'livelog'
+  const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
   
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
@@ -518,7 +547,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Fetch client workout logs when a client is selected
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
-    setDetailTab('workout');
+    setDetailTab('plans');
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {
@@ -945,7 +974,20 @@ const TrainerDashboard = ({ handleLogout }) => {
             gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: '12px'
           }}>
-            <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+            <div 
+              className="metric-mini-card clickable-card" 
+              onClick={() => {
+                setViewMode('coach');
+                setSelectedClient(null);
+              }}
+              style={{ 
+                padding: '16px', 
+                borderRadius: '12px', 
+                background: 'rgba(16, 185, 129, 0.05)', 
+                border: '1px solid rgba(16, 185, 129, 0.15)',
+                cursor: 'pointer'
+              }}
+            >
               <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Clients</div>
               <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: '#10b981', fontWeight: 800 }}>
                 {platformStats.totalActiveClients}
@@ -987,7 +1029,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.email}</td>
                       <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.experience || 'N/A'} yrs</td>
                       <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.location || 'N/A'}</td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                      <td style={{ padding: '8px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                         <button
                           onClick={async () => {
                             await databaseService.approveCoach(coach.email);
@@ -1006,6 +1048,22 @@ const TrainerDashboard = ({ handleLogout }) => {
                           }}
                         >
                           Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectCoach(coach)}
+                          style={{
+                            background: 'var(--danger)',
+                            border: 'none',
+                            color: '#fff',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(239,68,68,0.3)'
+                          }}
+                        >
+                          Reject
                         </button>
                       </td>
                     </tr>
@@ -1074,7 +1132,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                           color: coach.payment_status === 'active' ? '#10b981' : 'var(--danger)',
                           border: `1px solid ${coach.payment_status === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
                         }}>
-                          {coach.payment_status === 'active' ? 'ACTIVE' : 'FAILED'}
+                          {coach.payment_status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
@@ -1092,8 +1150,130 @@ const TrainerDashboard = ({ handleLogout }) => {
                             transition: 'all 0.2s ease'
                           }}
                         >
-                          {coach.payment_status === 'active' ? 'Mark Failed' : 'Mark Active'}
+                          {coach.payment_status === 'active' ? 'Mark Inactive' : 'Mark Active'}
                         </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* All Users Table Card */}
+          <div className="glass-panel" style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '16px',
+            overflowX: 'auto',
+            marginTop: '20px'
+          }}>
+            <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>All Users Directory</h5>
+
+            {loadingUsers ? (
+              <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
+                <div className="trainer-spinner"></div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading users list...</p>
+              </div>
+            ) : allUsersList.length === 0 ? (
+              <div className="trainer-empty-state">
+                <h5>No Users Found</h5>
+                <p>No registered user profiles exist on the platform.</p>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>User / Email</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Role</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Verified</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Payment</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Joined</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allUsersList.map(u => (
+                    <tr key={u.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
+                      <td style={{ padding: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{u.full_name || u.userName || 'Warrior'}</span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{u.email}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          background: u.role === 'super-admin' || u.role === 'admin' 
+                            ? 'rgba(139, 92, 246, 0.12)' 
+                            : u.role === 'coach' 
+                            ? 'rgba(59, 130, 246, 0.12)' 
+                            : 'rgba(255, 255, 255, 0.08)',
+                          color: u.role === 'super-admin' || u.role === 'admin' 
+                            ? '#a78bfa' 
+                            : u.role === 'coach' 
+                            ? '#60a5fa' 
+                            : '#9ca3af',
+                          border: `1px solid ${
+                            u.role === 'super-admin' || u.role === 'admin' 
+                              ? 'rgba(139, 92, 246, 0.2)' 
+                              : u.role === 'coach' 
+                              ? 'rgba(59, 130, 246, 0.2)' 
+                              : 'rgba(255, 255, 255, 0.1)'
+                          }`
+                        }}>
+                          {(u.role || 'client').toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center', fontSize: '0.9rem' }}>
+                        {u.verified ? '✅' : '❌'}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          background: u.payment_status === 'active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: u.payment_status === 'active' ? '#10b981' : 'var(--danger)',
+                          border: `1px solid ${u.payment_status === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                        }}>
+                          {(u.payment_status || 'active').toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        {(u.role === 'coach' || u.role === 'coach_pending') && !u.verified ? (
+                          <button
+                            onClick={async () => {
+                              await databaseService.approveCoach(u.email);
+                              fetchAdminData();
+                            }}
+                            style={{
+                              background: '#10b981',
+                              border: 'none',
+                              color: '#fff',
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
+                            }}
+                          >
+                            Approve
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1118,7 +1298,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                 </div>
                 <button
                   onClick={async () => {
-                    const code = await databaseService.generateCoachInviteCode(loggedInEmail);
+                    const coachId = localStorage.getItem('userId') || loggedInEmail;
+                    const code = await databaseService.generateCoachInviteCode(coachId);
                     alert(`Your new invitation code is: ${code}\nShare this code with your clients.`);
                   }}
                   style={{
@@ -1167,54 +1348,158 @@ const TrainerDashboard = ({ handleLogout }) => {
                   <p>Try refining your search query or selecting a different goal category tag filter.</p>
                 </div>
               ) : (
-                <div className="clients-list">
-                  {filteredClients.map(client => (
-                    <div 
-                      key={client.id} 
-                      className="client-card"
-                      onClick={() => handleSelectClient(client)}
-                    >
-                      <div className="client-main-info">
-                        <div 
-                          className="client-avatar"
-                          style={{ backgroundColor: getAvatarColor(client.userName) }}
-                        >
-                          {getAvatarInitials(client.userName)}
-                        </div>
-                        <div>
-                          <div className="client-name">{client.userName}</div>
-                          <div className="client-email">{client.email}</div>
-                          {client.userGoal && (
-                            <span className={`client-goal-badge ${client.userGoal.toLowerCase().replace(/\s+/g, '-')}`}>
-                              {client.userGoal}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="client-card-chevron">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
+                <div className="glass-panel" style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  overflowX: 'auto'
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Name</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Goal</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredClients.map(client => (
+                        <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '56px' }}>
+                          <td style={{ padding: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div 
+                                className="client-avatar"
+                                style={{ 
+                                  backgroundColor: getAvatarColor(client.userName),
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold',
+                                  color: '#fff'
+                                }}
+                              >
+                                {getAvatarInitials(client.userName)}
+                              </div>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {client.email}
+                          </td>
+                          <td style={{ padding: '8px' }}>
+                            {client.userGoal && (
+                              <span className={`client-goal-badge ${client.userGoal.toLowerCase().replace(/\s+/g, '-')}`} style={{
+                                display: 'inline-block',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                background: client.userGoal.toLowerCase().includes('fat') 
+                                  ? 'rgba(239, 68, 68, 0.12)' 
+                                  : client.userGoal.toLowerCase().includes('muscle') 
+                                  ? 'rgba(59, 130, 246, 0.12)' 
+                                  : 'rgba(16, 185, 129, 0.12)',
+                                color: client.userGoal.toLowerCase().includes('fat') 
+                                  ? '#ef4444' 
+                                  : client.userGoal.toLowerCase().includes('muscle') 
+                                  ? '#3b82f6' 
+                                  : '#10b981',
+                                border: `1px solid ${
+                                  client.userGoal.toLowerCase().includes('fat') 
+                                    ? 'rgba(239, 68, 68, 0.2)' 
+                                    : client.userGoal.toLowerCase().includes('muscle') 
+                                    ? 'rgba(59, 130, 246, 0.2)' 
+                                    : 'rgba(16, 185, 129, 0.2)'
+                                }`
+                              }}>
+                                {client.userGoal}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleSelectClient(client)}
+                              style={{
+                                background: 'var(--primary-accent-light)',
+                                border: 'none',
+                                color: '#fff',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
+                              }}
+                            >
+                              Manage
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
           ) : (
             // Client Detail & Workout Logs Screen
             <div className="client-detail-view animate-scale-in">
-              {/* Back button and profile title */}
-              <div className="client-detail-header">
-                <button className="back-btn-trainer" onClick={() => setSelectedClient(null)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              {/* Back to Dashboard Breadcrumb */}
+              <div className="dashboard-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
+                <button 
+                  onClick={() => setSelectedClient(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-accent-light)',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="19" y1="12" x2="5" y2="12" />
                     <polyline points="12 19 5 12 12 5" />
                   </svg>
+                  Dashboard
                 </button>
+                <span style={{ color: 'var(--text-muted)' }}>/</span>
+                <span style={{ color: '#fff', fontWeight: 600 }}>Manage Client</span>
+              </div>
+
+              {/* Client Profile Title Block */}
+              <div className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                <div 
+                  className="client-avatar"
+                  style={{ 
+                    backgroundColor: getAvatarColor(selectedClient.userName),
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    color: '#fff'
+                  }}
+                >
+                  {getAvatarInitials(selectedClient.userName)}
+                </div>
                 <div className="client-detail-header-info">
-                  <h4>{selectedClient.userName}</h4>
-                  <span>{selectedClient.email}</span>
+                  <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                 </div>
               </div>
 
@@ -1251,7 +1536,7 @@ const TrainerDashboard = ({ handleLogout }) => {
               {/* Tab Navigation */}
               <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <button
-                  className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
+                  className={`trainer-tab-btn ${detailTab === 'plans' ? 'active' : ''}`}
                   style={{
                     flex: 1,
                     minWidth: '80px',
@@ -1259,12 +1544,12 @@ const TrainerDashboard = ({ handleLogout }) => {
                     textAlign: 'center',
                     fontSize: '0.78rem',
                     fontWeight: '700',
-                    borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                    borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
+                    color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                   }}
-                  onClick={() => handleTabChange('workout')}
+                  onClick={() => handleTabChange('plans')}
                 >
-                  🏋️ History
+                  📋 Workout Plan
                 </button>
                 <button
                   className={`trainer-tab-btn ${detailTab === 'livelog' ? 'active' : ''}`}
@@ -1280,10 +1565,10 @@ const TrainerDashboard = ({ handleLogout }) => {
                   }}
                   onClick={() => handleTabChange('livelog')}
                 >
-                  🎯 Log Live
+                  🎯 Live Log
                 </button>
                 <button
-                  className={`trainer-tab-btn ${detailTab === 'plans' ? 'active' : ''}`}
+                  className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
                   style={{
                     flex: 1,
                     minWidth: '80px',
@@ -1291,28 +1576,12 @@ const TrainerDashboard = ({ handleLogout }) => {
                     textAlign: 'center',
                     fontSize: '0.78rem',
                     fontWeight: '700',
-                    borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                    borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
+                    color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                   }}
-                  onClick={() => handleTabChange('plans')}
+                  onClick={() => handleTabChange('workout')}
                 >
-                  📋 Plans
-                </button>
-                <button
-                  className={`trainer-tab-btn ${detailTab === 'chat' ? 'active' : ''}`}
-                  style={{
-                    flex: 1,
-                    minWidth: '80px',
-                    padding: '10px 6px',
-                    textAlign: 'center',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                    borderBottom: detailTab === 'chat' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'chat' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
-                  }}
-                  onClick={() => handleTabChange('chat')}
-                >
-                  💬 Chat
+                  🏋️ Workout History
                 </button>
               </div>
 
@@ -1961,81 +2230,6 @@ const TrainerDashboard = ({ handleLogout }) => {
                 </div>
               )}
 
-              {detailTab === 'chat' && (
-                <div className="trainer-chat-panel" style={{ display: 'flex', flexDirection: 'column', height: '360px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                  <div className="trainer-chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {loadingChat ? (
-                      <div className="trainer-loading-container" style={{ margin: 'auto' }}>
-                        <div className="trainer-spinner"></div>
-                      </div>
-                    ) : chatMessages.length === 0 ? (
-                      <div className="trainer-empty-state" style={{ border: 'none', margin: 'auto' }}>
-                        <span style={{ fontSize: '1.5rem' }}>💬</span>
-                        <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>No messages exchanged yet.</p>
-                      </div>
-                    ) : (
-                      chatMessages.map((msg, idx) => (
-                        <div
-                          key={msg.id || idx}
-                          style={{
-                            alignSelf: msg.sender === 'coach' ? 'flex-end' : 'flex-start',
-                            maxWidth: '80%',
-                            padding: '10px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            background: msg.sender === 'coach' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                            border: msg.sender === 'coach' ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-color)',
-                            color: '#fff',
-                            fontSize: '0.82rem',
-                            lineHeight: 1.4,
-                            position: 'relative'
-                          }}
-                        >
-                          <div>{msg.text}</div>
-                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: '4px' }}>{msg.time}</div>
-                        </div>
-                      ))
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
-                  
-                  <div className="trainer-chat-input-bar" style={{ display: 'flex', gap: '8px', padding: '10px', background: 'rgba(0,0,0,0.15)', borderTop: '1px solid var(--border-color)' }}>
-                    <input
-                      type="text"
-                      placeholder="Type a message to client..."
-                      value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSendCoachMessage()}
-                      style={{
-                        flex: 1,
-                        padding: '10px 14px',
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: '#fff',
-                        fontSize: '0.85rem',
-                        outline: 'none'
-                      }}
-                    />
-                    <button
-                      onClick={handleSendCoachMessage}
-                      disabled={!chatInput.trim()}
-                      style={{
-                        padding: '10px 16px',
-                        background: chatInput.trim() ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.05)',
-                        border: 'none',
-                        borderRadius: 'var(--radius-sm)',
-                        color: chatInput.trim() ? '#fff' : 'var(--text-muted)',
-                        fontWeight: '700',
-                        fontSize: '0.82rem',
-                        cursor: chatInput.trim() ? 'pointer' : 'default',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      Send
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </>

@@ -12,8 +12,10 @@ import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
 import TrainerDashboard from './components/TrainerDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
+import { isSuperAdmin } from './services/accessControl';
 import './index.css'; 
 
 
@@ -332,6 +334,20 @@ function App() {
         lastProcessedEmailRef.current = email;
 
         const profile = await databaseService.getUserProfileByEmail(email);
+        const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
+
+        // Block unapproved coaches
+        if (profile && (profile.role === 'coach_pending' || (profile.role === 'coach' && profile.verified !== true)) && !isSuperAdminEmail) {
+          localStorage.removeItem('pendingCoachLogin');
+          await databaseService.signOut();
+          clearLocalStoragePreservingChats();
+          setUserEmail('');
+          setOnboardingComplete(false);
+          lastProcessedEmailRef.current = '';
+          alert("Your coach application is pending review. Access is blocked until approved by Fitengineers Team.");
+          return;
+        }
+
         const userRole = profile?.role || localStorage.getItem('userRole') || '';
         const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
@@ -353,16 +369,6 @@ function App() {
                 'userRole',
                 email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'
               );
-            }
-            setUserEmail(email);
-            localStorage.setItem('onboardingComplete', 'true');
-            setOnboardingComplete(true);
-            return;
-          }
-
-          if (userRole === 'coach_pending') {
-            if (profile) {
-              await databaseService.loadProfileIntoLocalStorage(profile, email);
             }
             setUserEmail(email);
             localStorage.setItem('onboardingComplete', 'true');
@@ -1031,7 +1037,11 @@ function App() {
     );
   };
 
-  if (isTrainer(userEmail)) {
+  const userRole = localStorage.getItem('userRole') || '';
+  const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
+  const isCoach = isTrainer(userEmail) || userRole === 'coach';
+
+  if (isAdmin || isCoach) {
     return (
       <div className="app-container">
         <TrainerDashboard handleLogout={handleLogout} />

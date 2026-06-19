@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Enable Row Level Security (RLS) or public access for quick setup.
 -- If you want restricted access, configure policies for authenticated users.
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON users;
 CREATE POLICY "Allow public read and write access" ON users FOR ALL USING (true) WITH CHECK (true);
 
 
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS tracker_logs (
 );
 
 ALTER TABLE tracker_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON tracker_logs;
 CREATE POLICY "Allow public read and write access" ON tracker_logs FOR ALL USING (true) WITH CHECK (true);
 
 
@@ -59,6 +61,7 @@ CREATE TABLE IF NOT EXISTS progress_history (
 );
 
 ALTER TABLE progress_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON progress_history;
 CREATE POLICY "Allow public read and write access" ON progress_history FOR ALL USING (true) WITH CHECK (true);
 
 
@@ -75,6 +78,7 @@ CREATE TABLE IF NOT EXISTS workout_logs (
 );
 
 ALTER TABLE workout_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON workout_logs;
 CREATE POLICY "Allow public read and write access" ON workout_logs FOR ALL USING (true) WITH CHECK (true);
 
 
@@ -88,6 +92,7 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON push_subscriptions;
 CREATE POLICY "Allow public read and write access" ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);
 
 
@@ -101,6 +106,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON chat_messages;
 CREATE POLICY "Allow public read and write access" ON chat_messages FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. Create Workout Plans Table (Routines & Templates)
@@ -114,6 +120,7 @@ CREATE TABLE IF NOT EXISTS workout_plans (
 );
 
 ALTER TABLE workout_plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read and write access" ON workout_plans;
 CREATE POLICY "Allow public read and write access" ON workout_plans FOR ALL USING (true) WITH CHECK (true);
 
 -- 8. Multi-Coach Schema Extensions

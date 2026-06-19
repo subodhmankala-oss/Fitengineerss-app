@@ -103,25 +103,12 @@ const Onboarding = ({ onComplete }) => {
       const fullPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
       
       if (isSupabaseConfigured && databaseService.supabase) {
-        try {
-          await databaseService.sendOTP(fullPhone);
-          setOtpSent(true);
-          setOtpTimer(59);
-          console.log('Real OTP sent via Supabase for:', fullPhone);
-        } catch (supabaseOtpErr) {
-          console.warn("Supabase OTP send failed, falling back to demo mode:", supabaseOtpErr);
-          setAuthError(`SMS notice: ${supabaseOtpErr.message || 'SMS gateway not configured'}. Proceeding via demo mode (OTP code is 123456).`);
-          await new Promise(resolve => setTimeout(resolve, 3500));
-          setAuthError('');
-          setOtpSent(true);
-          setOtpTimer(59);
-        }
-      } else {
-        // Fallback mock flow
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await databaseService.sendOTP(fullPhone);
         setOtpSent(true);
         setOtpTimer(59);
-        console.log('Mock OTP Sent: 123456');
+        console.log('Live OTP sent via Supabase for:', fullPhone);
+      } else {
+        throw new Error("Supabase/database integration is not configured. Real OTP cannot be sent.");
       }
     } catch(err) {
       setAuthError('Failed to send OTP: ' + err.message);
@@ -147,24 +134,20 @@ const Onboarding = ({ onComplete }) => {
 
     const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
     const fullPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
-    const isMockBypass = otpCode.trim() === '123456' || otpCode.trim() === '654321' || otpCode.trim() === '111111';
 
-    if (!isMockBypass) {
-      setAuthLoading(true);
-      setAuthError('');
-      try {
-        if (isSupabaseConfigured && databaseService.supabase) {
-          await databaseService.verifyOTP(fullPhone, otpCode.trim());
-        } else {
-          setAuthError('Invalid OTP code. (For testing, use 123456)');
-          setAuthLoading(false);
-          return;
-        }
-      } catch (err) {
-        setAuthError('OTP Verification failed: ' + err.message);
-        setAuthLoading(false);
-        return;
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      if (isSupabaseConfigured && databaseService.supabase) {
+        await databaseService.verifyOTP(fullPhone, otpCode.trim());
+      } else {
+        throw new Error("Supabase database is not configured.");
       }
+    } catch (err) {
+      setAuthError('OTP Verification failed: ' + err.message);
+      setAuthLoading(false);
+      return;
     }
 
     setAuthLoading(true);
@@ -1044,19 +1027,6 @@ const Onboarding = ({ onComplete }) => {
                               Resend OTP
                             </button>
                           )}
-                        </div>
-                        <div style={{ 
-                          marginTop: '10px', 
-                          padding: '8px 12px', 
-                          background: userType === 'coach' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(59, 130, 246, 0.08)', 
-                          border: userType === 'coach' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(59, 130, 246, 0.2)', 
-                          borderRadius: '8px', 
-                          fontSize: '0.76rem', 
-                          color: userType === 'coach' ? '#6ee7b7' : '#93c5fd', 
-                          textAlign: 'center',
-                          fontWeight: 600
-                        }}>
-                          💡 Demo Mode: Enter <strong>123456</strong> as the OTP code.
                         </div>
                       </div>
                       <button

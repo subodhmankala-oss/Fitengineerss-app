@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import databaseService, { isSupabaseConfigured, isTrainer } from '../services/databaseService';
+import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from '../services/databaseService';
 import './Onboarding.css';
 
 const googleAccounts = [
@@ -55,6 +55,7 @@ const googleAccounts = [
 
 const Onboarding = ({ onComplete }) => {
   const [step, setStep] = useState(() => {
+    if (localStorage.getItem('pendingCoachApply') === 'true') return 0;
     if (localStorage.getItem('userEmail')) {
       const storedName = localStorage.getItem('userName');
       return storedName ? 2 : 1;
@@ -73,212 +74,100 @@ const Onboarding = ({ onComplete }) => {
   const [matchingProfiles, setMatchingProfiles] = useState([]);
 
   // Authentication States
-  const [authTab, setAuthTab] = useState('login'); // 'login' or 'register'
-  const [userType, setUserType] = useState('client'); // 'client' or 'coach'
+  const [authTab, setAuthTab] = useState(() =>
+    localStorage.getItem('pendingCoachApply') === 'true' ? 'coach_apply' : 'login'
+  );
+  const [userType, setUserType] = useState(() =>
+    localStorage.getItem('pendingCoachApply') === 'true' ? 'coach' : 'client'
+  );
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [showAuthForm, setShowAuthForm] = useState(false);
-
-  // OTP Login States
-  const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'email'
+  const [showAuthForm, setShowAuthForm] = useState(() =>
+    localStorage.getItem('pendingCoachApply') === 'true'
+  );
+  const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
+  const [coachApplyEmail, setCoachApplyEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [phoneNumber, setPhoneNumber] = useState(() => {
     const saved = localStorage.getItem('userPhone') || '';
-    return saved.replace(/^\+91/, ''); // Strip +91 for cleaner user input
+    return saved.replace(/^\+91/, '');
   });
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [otpLoading, setOtpLoading] = useState(false);
 
-  const handleSendOTP = async (e) => {
-    if (e) e.preventDefault();
-    if (!authEmail.trim()) {
-      setAuthError('Please enter a valid email address.');
+  const startCoachGoogleLogin = async () => {
+    setAuthError('');
+    localStorage.setItem('pendingCoachLogin', 'true');
+    try {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        setShowGoogleModal(true);
+      } else {
+        await databaseService.signInWithGoogle();
+      }
+    } catch (err) {
+      localStorage.removeItem('pendingCoachLogin');
+      setAuthError(err.message || 'Google OAuth failed.');
+    }
+  };
+
+  const finishCoachGoogleLogin = async (email, displayName) => {
+    localStorage.removeItem('pendingCoachLogin');
+    localStorage.setItem('userEmail', email);
+    if (displayName) localStorage.setItem('userName', displayName);
+
+    const isHardcodedCoach = TRAINER_EMAILS.includes(email.toLowerCase());
+    let profile = null;
+    if (isSupabaseConfigured && databaseService.supabase) {
+      profile = await databaseService.getUserProfileByEmail(email);
+    }
+    const userRole = profile?.role || localStorage.getItem('userRole') || '';
+    const isApprovedCoach =
+      isHardcodedCoach || userRole === 'coach' || userRole === 'super-admin';
+
+    if (isApprovedCoach) {
+      if (profile) {
+        await databaseService.loadProfileIntoLocalStorage(profile, email);
+      } else {
+        localStorage.setItem(
+          'userRole',
+          email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'
+        );
+      }
+      localStorage.setItem('onboardingComplete', 'true');
+      onComplete();
       return;
     }
-    setOtpLoading(true);
-    setAuthError('');
-    try {
-      if (isSupabaseConfigured && databaseService.supabase) {
-        const { error } = await databaseService.supabase.auth.signInWithOtp({
-          email: authEmail.trim(),
-          options: {
-            shouldCreateUser: true
-          }
-        });
-        if (error) throw error;
-        setOtpSent(true);
-        setOtpTimer(59);
-        console.log('Live Email OTP sent via Supabase for:', authEmail.trim());
-      } else {
-        throw new Error("Supabase/database integration is not configured. Real OTP cannot be sent.");
+
+    if (userRole === 'coach_pending') {
+      if (profile) {
+        await databaseService.loadProfileIntoLocalStorage(profile, email);
       }
-    } catch(err) {
-      setAuthError('Failed to send OTP: ' + err.message);
-    } finally {
-      setOtpLoading(false);
+      localStorage.setItem('onboardingComplete', 'true');
+      onComplete();
+      return;
     }
+
+    localStorage.setItem('pendingCoachApply', 'true');
+    setCoachApplyName(displayName || '');
+    setCoachApplyEmail(email);
+    setUserType('coach');
+    setAuthTab('coach_apply');
+    setShowAuthForm(true);
+    setStep(0);
   };
 
   useEffect(() => {
-    let interval = null;
-    if (otpSent && otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer(prev => prev - 1);
-      }, 1000);
-    } else if (otpTimer === 0) {
-      clearInterval(interval);
+    if (localStorage.getItem('pendingCoachApply') === 'true') {
+      setUserType('coach');
+      setAuthTab('coach_apply');
+      setShowAuthForm(true);
+      setStep(0);
+      const email = localStorage.getItem('userEmail');
+      const storedName = localStorage.getItem('userName');
+      if (email) setCoachApplyEmail(email);
+      if (storedName) setCoachApplyName(storedName);
     }
-    return () => clearInterval(interval);
-  }, [otpSent, otpTimer]);
-
-  const handleVerifyOTP = async (e) => {
-    if (e) e.preventDefault();
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    try {
-      if (isSupabaseConfigured && databaseService.supabase) {
-        await databaseService.verifyEmailOTP(authEmail.trim(), otpCode.trim());
-      } else {
-        throw new Error("Supabase database is not configured.");
-      }
-    } catch (err) {
-      setAuthError('OTP Verification failed: ' + err.message);
-      setAuthLoading(false);
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    try {
-      let profile = null;
-      let matchedEmail = authEmail.trim();
-
-      if (isSupabaseConfigured && databaseService.supabase) {
-        try {
-          const { data, error } = await databaseService.supabase
-            .from('users')
-            .select('*')
-            .eq('email', matchedEmail)
-            .maybeSingle();
-          if (data) {
-            profile = {
-              id: data.id,
-              userName: data.full_name,
-              userAge: String(data.age),
-              userHeight: String(data.height_cm),
-              userWeight: String(data.weight_kg),
-              userActivity: data.activity_level,
-              userGoal: data.fitness_goal,
-              userDiet: data.dietary_preference,
-              role: data.role,
-              phone: data.phone,
-              brand: data.brand,
-              payment_status: data.payment_status,
-              coach_id: data.coach_id
-            };
-          }
-        } catch(e) {
-          console.error('Supabase lookup failed:', e);
-        }
-      }
-
-      if (!profile) {
-        // Offline check for coaches list by email
-        const cachedCoaches = localStorage.getItem('coaches_list');
-        if (cachedCoaches) {
-          try {
-            const coaches = JSON.parse(cachedCoaches);
-            const matchedCoach = coaches.find(c => c.email.toLowerCase() === matchedEmail.toLowerCase());
-            if (matchedCoach) {
-              profile = {
-                id: matchedCoach.id,
-                userName: matchedCoach.name,
-                role: matchedCoach.email === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach',
-                phone: matchedCoach.phone,
-                brand: matchedCoach.brand
-              };
-            }
-          } catch(e) {}
-        }
-        
-        // Fallback hardcoded defaults if not in list
-        if (!profile) {
-          if (matchedEmail.toLowerCase() === 'subodhmankala@gmail.com') {
-            profile = {
-              id: 'coach-subodh',
-              userName: 'Coach Subodh',
-              role: 'super-admin',
-              brand: 'Fit Engineers'
-            };
-          }
-        }
-      }
-
-      if (!profile) {
-        // Local storage lookup by email (for clients)
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('client_')) {
-            const clientKey = key.split('_')[1];
-            const pKey = `client_${clientKey}_`;
-            const email = localStorage.getItem(`${pKey}userEmail`);
-            if (email?.toLowerCase() === matchedEmail.toLowerCase()) {
-              profile = {
-                userName: localStorage.getItem(`${pKey}userName`) || '',
-                userAge: localStorage.getItem(`${pKey}userAge`) || '',
-                userHeight: localStorage.getItem(`${pKey}userHeight`) || '',
-                userWeight: localStorage.getItem(`${pKey}userWeight`) || '',
-                userActivity: localStorage.getItem(`${pKey}userActivity`) || '',
-                userGoal: localStorage.getItem(`${pKey}userGoal`) || '',
-                userDiet: localStorage.getItem(`${pKey}userDiet`) || '',
-                role: localStorage.getItem(`${pKey}userRole`) || 'client',
-                phone: localStorage.getItem(`${pKey}userPhone`) || '',
-                coach_id: localStorage.getItem(`${pKey}userCoachId`) || ''
-              };
-              break;
-            }
-          }
-        }
-      }
-
-      const isCoachRole = profile && (profile.role === 'coach' || profile.role === 'super-admin');
-      const hasCompleteProfile = isCoachRole || (profile && 
-                                 profile.userName && 
-                                 profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
-                                 profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
-                                 profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '');
-
-      if (profile && hasCompleteProfile) {
-        await databaseService.loadProfileIntoLocalStorage(profile, matchedEmail);
-        onComplete();
-      } else {
-        localStorage.setItem('userEmail', matchedEmail);
-        localStorage.setItem('userPhone', profile?.phone || '');
-        localStorage.setItem('userRole', profile?.role || userType);
-        if (profile && profile.userName) {
-          localStorage.setItem('userName', profile.userName);
-          if (isCoachRole) {
-            onComplete();
-          } else {
-            setStep(2);
-          }
-        } else {
-          setStep(1);
-        }
-      }
-    } catch(err) {
-      setAuthError('OTP Verification failed: ' + err.message);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
+  }, []);
 
   // Saved accounts for quick login
   const [savedAccounts, setSavedAccounts] = useState(() => {
@@ -586,8 +475,12 @@ const Onboarding = ({ onComplete }) => {
     onComplete();
   };
 
-  const handleGoogleAccountSelect = (profile, email) => {
+  const handleGoogleAccountSelect = async (profile, email) => {
     setShowGoogleModal(false);
+    if (localStorage.getItem('pendingCoachLogin') === 'true') {
+      await finishCoachGoogleLogin(email, profile.name);
+      return;
+    }
     handleInstantLogin(profile, email);
   };
 
@@ -928,241 +821,32 @@ const Onboarding = ({ onComplete }) => {
                   <button 
                     type="button" 
                     className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
-                    onClick={() => { setUserType('client'); setAuthError(''); setOtpSent(false); }}
+                    onClick={() => { setUserType('client'); setAuthError(''); }}
                   >
                     Client
                   </button>
                   <button 
                     type="button" 
                     className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
-                    onClick={() => { setUserType('coach'); setAuthError(''); setOtpSent(false); }}
+                    onClick={() => { setUserType('coach'); setAuthError(''); }}
                   >
                     Coach
                   </button>
                 </div>
               </div>
 
-              {/* Login Method Tabs */}
-              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '3px', marginBottom: '18px' }}>
-                <button
-                  type="button"
-                  style={{
-                    flex: 1, padding: '8px', border: 'none', background: loginMethod === 'otp' ? (userType === 'coach' ? '#10b981' : 'var(--primary-accent-light)') : 'transparent',
-                    color: '#fff', fontWeight: 700, fontSize: '0.78rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                  onClick={() => { setLoginMethod('otp'); setAuthError(''); }}
-                >
-                  ✉️ Email OTP
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    flex: 1, padding: '8px', border: 'none', background: loginMethod === 'email' ? (userType === 'coach' ? '#10b981' : 'var(--primary-accent-light)') : 'transparent',
-                    color: '#fff', fontWeight: 700, fontSize: '0.78rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
-                  }}
-                  onClick={() => { setLoginMethod('email'); setAuthError(''); }}
-                >
-                  ✉️ Login Email
-                </button>
-              </div>
-
               {authError && <div className="auth-error-banner" style={{ marginBottom: '14px' }}>❌ {authError}</div>}
 
-              {/* EMAIL OTP LOGIN FLOW */}
-              {loginMethod === 'otp' && (
-                <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {!otpSent ? (
-                    <>
-                      <div className="auth-input-wrap">
-                        <label className="auth-label">Email Address</label>
-                        <input
-                          type="email"
-                          className="auth-input"
-                          value={authEmail}
-                          onChange={e => setAuthEmail(e.target.value)}
-                          placeholder="example@gmail.com"
-                          required
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
-                        disabled={otpLoading}
-                      >
-                        {otpLoading ? 'Sending OTP...' : 'Send OTP Verification Code'}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="auth-input-wrap">
-                        <label className="auth-label">Enter 6-Digit OTP</label>
-                        <input
-                          type="text"
-                          className="auth-input"
-                          value={otpCode}
-                          onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          placeholder="e.g. 123456"
-                          style={{ letterSpacing: '0.5em', textAlign: 'center', fontSize: '1.2rem', fontWeight: 800 }}
-                          required
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.72rem' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>Sent to {authEmail}</span>
-                          {otpTimer > 0 ? (
-                            <span style={{ color: 'var(--text-subtle)' }}>Resend in {otpTimer}s</span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={handleSendOTP}
-                              style={{ background: 'none', border: 'none', color: 'var(--primary-accent-light)', cursor: 'pointer', fontWeight: 700, padding: 0 }}
-                            >
-                              Resend OTP
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="submit"
-                        className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
-                        disabled={authLoading}
-                      >
-                        {authLoading ? 'Verifying...' : 'Verify & Continue ➔'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setOtpSent(false)}
-                        style={{
-                          background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.78rem',
-                          cursor: 'pointer', textAlign: 'center', alignSelf: 'center', textDecoration: 'underline'
-                        }}
-                      >
-                        Change Email Address
-                      </button>
-                    </>
-                  )}
-                </form>
-              )}
-
-              {/* EMAIL & PASSWORD LOGIN FLOW */}
-              {loginMethod === 'email' && (
-                <form onSubmit={handleAuthSubmit} className="auth-form-new" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  
-                  {/* Signup Header Tab for Email login */}
-                  <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '6px' }}>
-                    <button
-                      type="button"
-                      className={`inner-tab ${authTab === 'login' ? 'inner-tab-active' : ''}`}
-                      onClick={() => { setAuthTab('login'); setAuthError(''); }}
-                      style={{ flex: 1, paddingBottom: '6px' }}
-                    >
-                      Sign In
-                    </button>
-                    <button
-                      type="button"
-                      className={`inner-tab ${authTab === 'register' ? 'inner-tab-active' : ''}`}
-                      onClick={() => { setAuthTab('register'); setAuthError(''); }}
-                      style={{ flex: 1, paddingBottom: '6px' }}
-                    >
-                      Create Account
-                    </button>
-                  </div>
-
-                  {authTab === 'register' && (
-                    <div className="auth-input-wrap">
-                      <label className="auth-label">Full Name</label>
-                      <input
-                        type="text"
-                        className="auth-input"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="Enter your name"
-                        required
-                      />
-                    </div>
-                  )}
-
-                  <div className="auth-input-wrap">
-                    <label className="auth-label">Email Address</label>
-                    <input
-                      type="email"
-                      className="auth-input"
-                      value={authEmail}
-                      onChange={e => setAuthEmail(e.target.value)}
-                      placeholder="example@gmail.com"
-                      required
-                    />
-                  </div>
-
-                  <div className="auth-input-wrap">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label className="auth-label">Password</label>
-                      {authTab === 'login' && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (!authEmail.trim()) {
-                              setAuthError('Please enter your email address to reset password.');
-                              return;
-                            }
-                            setAuthLoading(true);
-                            setAuthError('');
-                            try {
-                              if (isSupabaseConfigured && databaseService.supabase) {
-                                await databaseService.resetPassword(authEmail.trim());
-                                alert(`Password reset link has been sent to ${authEmail.trim()}`);
-                              } else {
-                                alert(`Offline Mode: Reset password email requested for ${authEmail.trim()}. (In production, an email would be sent)`);
-                              }
-                            } catch (err) {
-                              setAuthError('Password reset failed: ' + err.message);
-                            } finally {
-                              setAuthLoading(false);
-                            }
-                          }}
-                          style={{
-                            background: 'none', border: 'none', color: 'var(--primary-accent-light)',
-                            fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600, padding: 0
-                          }}
-                        >
-                          Forgot Password?
-                        </button>
-                      )}
-                    </div>
-                    <input
-                      type="password"
-                      className="auth-input"
-                      value={authPassword}
-                      onChange={e => setAuthPassword(e.target.value)}
-                      placeholder="••••••••"
-                      minLength="6"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
-                    disabled={authLoading}
-                    style={{ marginBottom: '6px' }}
-                  >
-                    {authLoading
-                      ? 'Authenticating...'
-                      : authTab === 'login'
-                        ? (userType === 'coach' ? '🏋️ Sign In as Coach' : '👤 Sign In as Client')
-                        : (userType === 'coach' ? '🏋️ Create Coach Account' : '👤 Create Client Account')}
-                  </button>
-
-                  <div className="auth-divider">
-                    <span className="auth-divider-line"></span>
-                    <span className="auth-divider-text">OR</span>
-                    <span className="auth-divider-line"></span>
-                  </div>
-
+              {/* CLIENT FLOW */}
+              {userType === 'client' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <button 
                     type="button" 
                     className="gmail-login-btn"
                     style={{ width: '100%', margin: 0, padding: '12px' }}
                     onClick={async () => {
                       setAuthError('');
+                      localStorage.removeItem('pendingCoachLogin');
                       try {
                         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                           setShowGoogleModal(true);
@@ -1182,85 +866,266 @@ const Onboarding = ({ onComplete }) => {
                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                       </svg>
                     </div>
-                    Continue with Google
+                    Sign Up / Log In with Google
                   </button>
-                </form>
-              )}
 
-              {/* Guest and Quick Bypass for clients */}
-              {userType === 'client' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-                  <button type="button" className="guest-bypass-btn-new" onClick={() => setStep(1)} style={{ width: '100%', margin: 0 }}>
-                    Skip & Continue as Guest →
-                  </button>
-                </div>
-              )}
+                  <div className="auth-divider" style={{ margin: '8px 0' }}>
+                    <span className="auth-divider-line"></span>
+                    <span className="auth-divider-text">OR</span>
+                    <span className="auth-divider-line"></span>
+                  </div>
 
-              {/* Saved accounts ONLY for Coach login */}
-              {userType === 'coach' && savedAccounts.length > 0 && (
-                <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
-                  <div style={{
-                    fontSize: '0.68rem',
-                    color: 'var(--text-muted)',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    marginBottom: '8px'
-                  }}>Quick Coach Logins</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {savedAccounts.filter(a => a.type === 'coach').map((acct, idx) => (
-                      <div
-                        key={idx}
+                  <div className="auth-input-wrap">
+                    <label className="auth-label">Have a Coach Invitation Code?</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        className="auth-input"
+                        placeholder="e.g. A1B2C3"
+                        style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                        id="clientInviteCodeInput"
+                      />
+                      <button 
+                        type="button" 
+                        className="auth-submit-client" 
+                        style={{ width: 'auto', padding: '0 16px', margin: 0 }}
                         onClick={async () => {
-                          try {
-                            setAuthLoading(true);
-                            await databaseService.signIn(acct.email, acct.password);
-                            const profile = await databaseService.getUserProfileByEmail(acct.email);
-                            if (profile) {
-                              await databaseService.loadProfileIntoLocalStorage(profile, acct.email);
-                            } else {
-                              localStorage.setItem('userEmail', acct.email);
-                              localStorage.setItem('userName', acct.name);
-                              localStorage.setItem('onboardingComplete', 'true');
-                            }
-                            onComplete();
-                          } catch(e) {
-                            setAuthError('Quick login failed: ' + (e.message || 'Please use form.'));
-                          } finally {
-                            setAuthLoading(false);
+                          const code = document.getElementById('clientInviteCodeInput').value;
+                          if(!code) return;
+                          setAuthLoading(true);
+                          const coachId = await databaseService.validateCoachInviteCode(code);
+                          setAuthLoading(false);
+                          if(coachId) {
+                             localStorage.setItem('pendingInviteCoachId', coachId);
+                             alert('Valid Invitation Code! Please Sign Up with Google above to continue.');
+                          } else {
+                             setAuthError('Invalid or expired Invitation Code.');
                           }
                         }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '8px 12px',
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                       >
-                        <div style={{
-                          width: '30px', height: '30px', borderRadius: '50%',
-                          background: acct.color,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: 800, fontSize: '0.75rem', color: '#fff',
-                          flexShrink: 0
-                        }}>{acct.initials}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {acct.name}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>Log in →</div>
-                      </div>
-                    ))}
+                        Verify
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                    <button type="button" className="guest-bypass-btn-new" onClick={() => setStep(1)} style={{ width: '100%', margin: 0 }}>
+                      Skip & Continue as Guest →
+                    </button>
                   </div>
                 </div>
+              )}
+
+              {/* COACH FLOW */}
+              {userType === 'coach' && (
+                <>
+                  {authTab === 'coach_apply' ? (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      setAuthLoading(true);
+                      try {
+                        const formData = new FormData(e.target);
+                        const email = formData.get('email');
+                        const name = formData.get('name');
+                        await databaseService.submitCoachApplication({
+                          name: name,
+                          email: email,
+                          certifications: formData.get('certifications'),
+                          experience: formData.get('experience'),
+                          specialization: formData.get('specialization'),
+                          socialMedia: formData.get('social'),
+                          location: formData.get('location')
+                        });
+                        localStorage.removeItem('pendingCoachApply');
+                        localStorage.setItem('onboardingComplete', 'true');
+                        alert('Application submitted successfully! Redirecting to Dashboard.');
+                        onComplete();
+                      } catch(err) {
+                        setAuthError(err.message);
+                      }
+                      setAuthLoading(false);
+                    }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                        Complete your coach application below. Your Google account is already connected.
+                      </p>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Full Name</label>
+                        <input
+                          name="name"
+                          type="text"
+                          className="auth-input"
+                          value={coachApplyName}
+                          onChange={e => setCoachApplyName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Email Address</label>
+                        <input
+                          name="email"
+                          type="email"
+                          className="auth-input"
+                          value={coachApplyEmail}
+                          onChange={e => setCoachApplyEmail(e.target.value)}
+                          readOnly={!!localStorage.getItem('userEmail')}
+                          required
+                        />
+                      </div>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Certifications</label>
+                        <input name="certifications" type="text" className="auth-input" placeholder="e.g. NASM, ACE" required />
+                      </div>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Years of Experience</label>
+                        <input name="experience" type="number" className="auth-input" required />
+                      </div>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Specialization</label>
+                        <input name="specialization" type="text" className="auth-input" placeholder="e.g. Bodybuilding, Weight Loss" required />
+                      </div>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Social Media Handle (Optional)</label>
+                        <input name="social" type="text" className="auth-input" placeholder="@instagram" />
+                      </div>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Location / City</label>
+                        <input name="location" type="text" className="auth-input" required />
+                      </div>
+                      <button type="submit" className="auth-submit-coach" disabled={authLoading}>
+                        {authLoading ? 'Submitting...' : 'Submit Application'}
+                      </button>
+                      <button type="button" onClick={() => setAuthTab('login')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline' }}>
+                        Back to Login
+                      </button>
+                    </form>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <button
+                        type="button"
+                        className="gmail-login-btn"
+                        style={{ width: '100%', margin: 0, padding: '12px' }}
+                        onClick={startCoachGoogleLogin}
+                      >
+                        <div className="google-icon-wrapper" style={{ display: 'inline-flex', alignSelf: 'center', marginRight: '8px' }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                          </svg>
+                        </div>
+                        Sign in with Google
+                      </button>
+
+                      <div className="auth-divider" style={{ margin: '8px 0' }}>
+                        <span className="auth-divider-line"></span>
+                        <span className="auth-divider-text">OR</span>
+                        <span className="auth-divider-line"></span>
+                      </div>
+
+                      <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div className="auth-input-wrap">
+                          <label className="auth-label">Email Address</label>
+                          <input
+                            type="email"
+                            className="auth-input"
+                            value={authEmail}
+                            onChange={e => setAuthEmail(e.target.value)}
+                            placeholder="example@gmail.com"
+                            required
+                          />
+                        </div>
+                        <div className="auth-input-wrap">
+                          <label className="auth-label">Password</label>
+                          <input
+                            type="password"
+                            className="auth-input"
+                            value={authPassword}
+                            onChange={e => setAuthPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                          />
+                        </div>
+                        <button type="submit" className="auth-submit-coach" disabled={authLoading}>
+                          {authLoading ? 'Authenticating...' : '🏋️ Sign In as Coach'}
+                        </button>
+                      </form>
+
+                      <button
+                        type="button"
+                        onClick={startCoachGoogleLogin}
+                        style={{ background: 'none', border: '1px dashed var(--primary-accent-light)', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, marginTop: '8px' }}
+                      >
+                        Not a coach yet? Apply Here
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Saved accounts ONLY for Coach login */}
+                  {authTab === 'login' && savedAccounts.length > 0 && (
+                    <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
+                      <div style={{
+                        fontSize: '0.68rem',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        marginBottom: '8px'
+                      }}>Quick Coach Logins</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {savedAccounts.filter(a => a.type === 'coach').map((acct, idx) => (
+                          <div
+                            key={idx}
+                            onClick={async () => {
+                              try {
+                                setAuthLoading(true);
+                                await databaseService.signIn(acct.email, acct.password);
+                                const profile = await databaseService.getUserProfileByEmail(acct.email);
+                                if (profile) {
+                                  await databaseService.loadProfileIntoLocalStorage(profile, acct.email);
+                                } else {
+                                  localStorage.setItem('userEmail', acct.email);
+                                  localStorage.setItem('userName', acct.name);
+                                  localStorage.setItem('onboardingComplete', 'true');
+                                }
+                                onComplete();
+                              } catch(e) {
+                                setAuthError('Quick login failed: ' + (e.message || 'Please use form.'));
+                              } finally {
+                                setAuthLoading(false);
+                              }
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <div style={{
+                              width: '30px', height: '30px', borderRadius: '50%',
+                              background: acct.color,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontWeight: 800, fontSize: '0.75rem', color: '#fff',
+                              flexShrink: 0
+                            }}>{acct.initials}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {acct.name}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>Log in →</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
             </div>

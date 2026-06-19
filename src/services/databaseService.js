@@ -33,7 +33,7 @@ export const isTrainer = (email) => {
   const hardcoded = TRAINER_EMAILS.includes(email.toLowerCase());
   if (hardcoded) return true;
   const cachedRole = localStorage.getItem('userRole');
-  return cachedRole === 'coach' || cachedRole === 'super-admin';
+  return cachedRole === 'coach' || cachedRole === 'coach_pending' || cachedRole === 'super-admin';
 };
 
 export const isSuperAdmin = (email) => {
@@ -122,6 +122,34 @@ const databaseService = {
     if (profile.brand) localStorage.setItem('userBrand', profile.brand);
     if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
     if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
+    // If this profile represents a coach (or pending coach), ensure local coaches_list includes it
+    if (profile.role && (profile.role === 'coach' || profile.role === 'coach_pending')) {
+      try {
+        const raw = localStorage.getItem('coaches_list') || '[]';
+        const coaches = JSON.parse(raw);
+        const coachId = profile.coach_id || (`coach-${(profile.userName || 'coach').toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`);
+        const existing = coaches.find(c => c.id === coachId || c.email === (profile.email || ''));
+        const newCoach = {
+          id: coachId,
+          name: profile.userName || profile.full_name || 'Coach',
+          email: profile.email || `${(profile.userName || 'coach').toLowerCase().replace(/\s+/g, '')}@fitengineers.com`,
+          brand: profile.brand || 'Fit Engineers',
+          payment_status: profile.payment_status || 'active',
+          signup_date: new Date().toISOString(),
+          clientsCount: 0
+        };
+
+        if (existing) {
+          Object.assign(existing, { ...existing, ...newCoach });
+        } else {
+          coaches.push(newCoach);
+        }
+        localStorage.setItem('coaches_list', JSON.stringify(coaches));
+        try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
+      } catch (e) {
+        console.error('Error updating local coaches_list:', e);
+      }
+    }
   },
 
   async getUserProfile(userName) {
@@ -1044,7 +1072,8 @@ const databaseService = {
         const idx = coaches.findIndex(c => c.id === coach.id);
         if (idx >= 0) {
           coaches[idx] = { ...coaches[idx], ...coach };
-          localStorage.setItem('coaches_list', JSON.stringify(coaches));
+            localStorage.setItem('coaches_list', JSON.stringify(coaches));
+            try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
         }
       } catch (e) {}
     } else {
@@ -1057,6 +1086,7 @@ const databaseService = {
         defaults[idx] = { ...defaults[idx], ...coach };
       }
       localStorage.setItem('coaches_list', JSON.stringify(defaults));
+      try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: defaults })); } catch(e) {}
     }
   },
 
@@ -1117,6 +1147,145 @@ const databaseService = {
     }
 
     return { totalWorkoutsLoggedThisWeek, totalActiveClients };
+  },
+
+  // ─── COACH APPLICATIONS & INVITES ───
+  async submitCoachApplication(applicationData) {
+    const { email, name, certifications, experience, specialization, socialMedia, location } = applicationData;
+    
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .upsert(
+            { email, role: 'coach_pending', full_name: name },
+            { onConflict: 'email' }
+          );
+        if (error) console.error('Cloud DB Coach Application Update Error:', error);
+      } catch (e) {
+        console.error('Cloud DB Coach Application Error:', e);
+      }
+    }
+    
+    // Save rich details to local storage as fallback / complement
+    const pendingApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
+    pendingApps.push({ ...applicationData, status: 'pending', id: Date.now().toString() });
+    localStorage.setItem('coach_applications', JSON.stringify(pendingApps));
+    
+    localStorage.setItem('userEmail', email);
+    localStorage.setItem('userName', name);
+    localStorage.setItem('userRole', 'coach_pending');
+  },
+
+  async getPendingCoachApplications() {
+    let cloudPending = [];
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'coach_pending');
+        if (data) cloudPending = data;
+      } catch (e) {
+        console.error('Cloud DB fetch pending coaches error:', e);
+      }
+    }
+    
+    const localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]').filter(a => a.status === 'pending');
+    
+    // Merge cloud and local data
+    const merged = [...localApps];
+    cloudPending.forEach(u => {
+      if (!merged.find(m => m.email === u.email)) {
+        merged.push({ email: u.email, name: u.full_name, status: 'pending', id: u.id });
+      }
+    });
+    
+    return merged;
+  },
+
+  async approveCoach(email) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('users').update({ role: 'coach' }).eq('email', email);
+      } catch (e) {
+        console.error('Cloud DB Approve Coach Error:', e);
+      }
+    }
+    
+    let localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
+    localApps = localApps.map(a => a.email === email ? { ...a, status: 'approved' } : a);
+    localStorage.setItem('coach_applications', JSON.stringify(localApps));
+  },
+
+  async generateCoachInviteCode(coachId) {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+    invites[code] = coachId;
+    localStorage.setItem('coach_invites', JSON.stringify(invites));
+    return code;
+  },
+
+  async validateCoachInviteCode(code) {
+    if (!code) return null;
+    const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+    return invites[code.toUpperCase()] || null; // returns coachId if valid
+  }
+
+  async refreshLocalCoaches() {
+    try {
+      const rawCoaches = localStorage.getItem('coaches_list') || '[]';
+      const coaches = JSON.parse(rawCoaches);
+
+      // Merge pending applications into coaches list (marking them pending)
+      const pendingApps = JSON.parse(localStorage.getItem('coach_applications') || '[]') || [];
+      pendingApps.forEach(app => {
+        const exists = coaches.find(c => c.email === app.email || c.id === app.id);
+        const id = app.id || `coach-${(app.name || app.email || 'coach').toLowerCase().replace(/\s+/g, '-')}`;
+        const entry = {
+          id,
+          name: app.name || app.full_name || id,
+          email: app.email,
+          brand: app.brand || 'Fit Engineers',
+          payment_status: app.payment_status || 'active',
+          signup_date: app.signup_date || new Date().toISOString(),
+          clientsCount: 0,
+          status: app.status || 'pending'
+        };
+        if (exists) {
+          Object.assign(exists, { ...exists, ...entry });
+        } else {
+          coaches.push(entry);
+        }
+      });
+
+      // Also ensure currently-signed-in user (if coach) is present
+      const currentRole = localStorage.getItem('userRole');
+      const currentEmail = localStorage.getItem('userEmail');
+      const currentName = localStorage.getItem('userName');
+      if (currentRole && (currentRole === 'coach' || currentRole === 'coach_pending') && currentEmail) {
+        const exists = coaches.find(c => c.email === currentEmail);
+        const id = localStorage.getItem('userCoachId') || (`coach-${(currentName || currentEmail).toLowerCase().replace(/\s+/g, '-')}`);
+        const entry = {
+          id,
+          name: currentName || currentEmail,
+          email: currentEmail,
+          brand: localStorage.getItem('userBrand') || 'Fit Engineers',
+          payment_status: localStorage.getItem('userPaymentStatus') || 'active',
+          signup_date: new Date().toISOString(),
+          clientsCount: 0,
+          status: currentRole === 'coach' ? 'active' : 'pending'
+        };
+        if (exists) Object.assign(exists, { ...exists, ...entry }); else coaches.push(entry);
+      }
+
+      localStorage.setItem('coaches_list', JSON.stringify(coaches));
+      try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
+      return coaches;
+    } catch (e) {
+      console.error('Error refreshing local coaches_list:', e);
+      return [];
+    }
   }
 };
 

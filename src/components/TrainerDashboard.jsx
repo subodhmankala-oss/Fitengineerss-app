@@ -203,11 +203,37 @@ const LIVE_EXERCISE_LIST = [
 
 const TrainerDashboard = ({ handleLogout }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
+  const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail);
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
   const [coachesList, setCoachesList] = useState([]);
+  const [pendingCoachesList, setPendingCoachesList] = useState([]);
   const [platformStats, setPlatformStats] = useState({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
   const [loadingAdmin, setLoadingAdmin] = useState(false);
+  const [refreshToast, setRefreshToast] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  if (userRole === 'coach_pending' && !superAdmin) {
+    return (
+      <div className="trainer-dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
+        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '40px', borderRadius: '16px', maxWidth: '500px' }}>
+          <h2 style={{ color: '#f59e0b', marginBottom: '16px' }}>⏳ Application Pending</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
+            Thank you for applying to be a Fitengineers Coach. Your application is currently under review by our administration team.
+          </p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '0.9rem' }}>
+            We'll notify you once your account has been approved and activated.
+          </p>
+          <button 
+            onClick={handleLogout}
+            style={{ padding: '10px 24px', background: 'var(--danger)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            Log Out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const fetchAdminData = async () => {
     if (!superAdmin) return;
@@ -215,7 +241,9 @@ const TrainerDashboard = ({ handleLogout }) => {
     try {
       const coaches = await databaseService.getAllCoaches();
       const stats = await databaseService.getPlatformStats();
+      const pendingCoaches = await databaseService.getPendingCoachApplications();
       setCoachesList(coaches || []);
+      setPendingCoachesList(pendingCoaches || []);
       setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
     } catch (e) {
       console.error('Error fetching admin data:', e);
@@ -224,10 +252,45 @@ const TrainerDashboard = ({ handleLogout }) => {
     }
   };
 
+  const handleRefresh = async () => {
+    if (!superAdmin) return;
+    setRefreshing(true);
+    try {
+      await databaseService.refreshLocalCoaches();
+      await fetchAdminData();
+      setRefreshToast('Platform data refreshed');
+    } catch (e) {
+      console.error('Refresh error:', e);
+      setRefreshToast('Refresh failed');
+    } finally {
+      setRefreshing(false);
+      setTimeout(() => setRefreshToast(''), 3000);
+    }
+  };
+
   useEffect(() => {
     if (viewMode === 'admin') {
       fetchAdminData();
     }
+  }, [viewMode]);
+
+  useEffect(() => {
+    // Listen for coaches updates (same-tab via CustomEvent) and cross-tab via storage event
+    const handleCoachesUpdated = () => {
+      if (viewMode === 'admin') fetchAdminData();
+    };
+    const handleStorage = (e) => {
+      if (e.key === 'coaches_list' && viewMode === 'admin') {
+        fetchAdminData();
+      }
+    };
+
+    window.addEventListener('coaches_updated', handleCoachesUpdated);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('coaches_updated', handleCoachesUpdated);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, [viewMode]);
 
   const handleToggleCoachPayment = async (coach) => {
@@ -854,7 +917,8 @@ const TrainerDashboard = ({ handleLogout }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>Platform-wide Performance</h4>
             <button 
-              onClick={fetchAdminData} 
+              onClick={handleRefresh}
+              disabled={refreshing}
               style={{
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid var(--border-color)',
@@ -868,6 +932,11 @@ const TrainerDashboard = ({ handleLogout }) => {
             >
               🔄 Refresh Data
             </button>
+            {refreshToast && (
+              <div style={{ marginLeft: '12px', color: '#fff', fontSize: '0.85rem', background: 'rgba(0,0,0,0.35)', padding: '6px 10px', borderRadius: '8px', display: 'inline-block' }}>
+                {refreshToast}
+              </div>
+            )}
           </div>
 
           {/* Stats Grid */}
@@ -889,6 +958,62 @@ const TrainerDashboard = ({ handleLogout }) => {
               </div>
             </div>
           </div>
+
+          {/* Pending Coaches Card */}
+          {pendingCoachesList.length > 0 && (
+            <div className="glass-panel" style={{
+              background: 'rgba(245, 158, 11, 0.05)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: '12px',
+              padding: '16px',
+              overflowX: 'auto',
+              marginBottom: '10px'
+            }}>
+              <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#f59e0b', fontWeight: 700 }}>Pending Coach Applications ({pendingCoachesList.length})</h5>
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(245, 158, 11, 0.2)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach Name</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Experience</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Location</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingCoachesList.map(coach => (
+                    <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
+                      <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 600 }}>{coach.name || coach.userName}</td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.email}</td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.experience || 'N/A'} yrs</td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.location || 'N/A'}</td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button
+                          onClick={async () => {
+                            await databaseService.approveCoach(coach.email);
+                            fetchAdminData();
+                          }}
+                          style={{
+                            background: '#10b981',
+                            border: 'none',
+                            color: '#fff',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
+                          }}
+                        >
+                          Approve
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Coaches Table Card */}
           <div className="glass-panel" style={{
@@ -982,6 +1107,29 @@ const TrainerDashboard = ({ handleLogout }) => {
           {!selectedClient ? (
             // Client Directory Screen
             <div className="client-directory-view">
+              <div style={{
+                background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex',
+                justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div>
+                  <h5 style={{ margin: '0 0 8px 0', color: '#fff' }}>Invite Clients</h5>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate a unique code for your clients to link their accounts to you during sign up.</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const code = await databaseService.generateCoachInviteCode(loggedInEmail);
+                    alert(`Your new invitation code is: ${code}\nShare this code with your clients.`);
+                  }}
+                  style={{
+                    background: 'var(--primary-accent-light)', border: 'none', color: '#fff',
+                    padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer'
+                  }}
+                >
+                  Generate Code
+                </button>
+              </div>
+
               <div className="search-filter-box">
                 <input
                   type="text"

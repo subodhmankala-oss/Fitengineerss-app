@@ -13,7 +13,7 @@ import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
 import TrainerDashboard from './components/TrainerDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
 import './index.css'; 
 
 
@@ -332,6 +332,49 @@ function App() {
         lastProcessedEmailRef.current = email;
 
         const profile = await databaseService.getUserProfileByEmail(email);
+        const userRole = profile?.role || localStorage.getItem('userRole') || '';
+        const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
+        const isApprovedCoach =
+          TRAINER_EMAILS.includes(email.toLowerCase()) ||
+          userRole === 'coach' ||
+          userRole === 'super-admin';
+
+        if (pendingCoachLogin) {
+          localStorage.removeItem('pendingCoachLogin');
+          localStorage.setItem('userEmail', email);
+          if (googleName) localStorage.setItem('userName', googleName);
+
+          if (isApprovedCoach) {
+            if (profile) {
+              await databaseService.loadProfileIntoLocalStorage(profile, email);
+            } else {
+              localStorage.setItem('userName', googleName || 'Coach');
+              localStorage.setItem(
+                'userRole',
+                email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'
+              );
+            }
+            setUserEmail(email);
+            localStorage.setItem('onboardingComplete', 'true');
+            setOnboardingComplete(true);
+            return;
+          }
+
+          if (userRole === 'coach_pending') {
+            if (profile) {
+              await databaseService.loadProfileIntoLocalStorage(profile, email);
+            }
+            setUserEmail(email);
+            localStorage.setItem('onboardingComplete', 'true');
+            setOnboardingComplete(true);
+            return;
+          }
+
+          localStorage.setItem('pendingCoachApply', 'true');
+          setUserEmail(email);
+          setOnboardingComplete(false);
+          return;
+        }
         
         const hasCompleteProfile = profile && 
                                    profile.userName && 
@@ -783,7 +826,7 @@ function App() {
               phone: tempStorage['userPhone'],
               brand: tempStorage['userBrand'],
               payment_status: tempStorage['userPaymentStatus'] || 'active',
-              coach_id: tempStorage['userCoachId']
+              coach_id: tempStorage['userCoachId'] || localStorage.getItem('pendingInviteCoachId')
             };
             databaseService.saveUserProfile(profile);
             databaseService.saveProgressHistory(freshHistory);

@@ -75,12 +75,264 @@ const Onboarding = ({ onComplete }) => {
   // Authentication States
   const [authTab, setAuthTab] = useState('login'); // 'login' or 'register'
   const [userType, setUserType] = useState('client'); // 'client' or 'coach'
-  const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('rememberedEmail') || '');
-  const [authPassword, setAuthPassword] = useState(() => localStorage.getItem('rememberedPassword') || '');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [showAuthForm, setShowAuthForm] = useState(false);
+
+  // OTP Login States
+  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' or 'email'
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+  const handleSendOTP = async (e) => {
+    if (e) e.preventDefault();
+    if (!phoneNumber.trim()) {
+      setAuthError('Please enter a valid phone number.');
+      return;
+    }
+    setOtpLoading(true);
+    setAuthError('');
+    setTimeout(() => {
+      setOtpLoading(false);
+      setOtpSent(true);
+      setOtpTimer(59);
+      console.log('Mock OTP Sent: 123456');
+    }, 1000);
+  };
+
+  useEffect(() => {
+    let interval = null;
+    if (otpSent && otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer(prev => prev - 1);
+      }, 1000);
+    } else if (otpTimer === 0) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [otpSent, otpTimer]);
+
+  const handleVerifyOTP = async (e) => {
+    if (e) e.preventDefault();
+    if (otpCode.trim() !== '123456' && otpCode.trim() !== '654321' && otpCode.trim() !== '111111') {
+      setAuthError('Invalid OTP code. (For testing, use 123456)');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      // Clean phone number (leave only digits and + symbol)
+      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
+      const defaultEmail = `${cleanPhone}@fitengineers.com`;
+      
+      let profile = null;
+      let matchedEmail = defaultEmail;
+
+      if (isSupabaseConfigured && databaseService.supabase) {
+        try {
+          const { data, error } = await databaseService.supabase
+            .from('users')
+            .select('*')
+            .eq('phone', cleanPhone)
+            .maybeSingle();
+          if (data) {
+            profile = {
+              id: data.id,
+              userName: data.full_name,
+              userAge: String(data.age),
+              userHeight: String(data.height_cm),
+              userWeight: String(data.weight_kg),
+              userActivity: data.activity_level,
+              userGoal: data.fitness_goal,
+              userDiet: data.dietary_preference,
+              role: data.role,
+              phone: data.phone,
+              brand: data.brand,
+              payment_status: data.payment_status,
+              coach_id: data.coach_id
+            };
+            matchedEmail = data.email;
+          }
+        } catch(e) {
+          console.error('Supabase lookup failed:', e);
+        }
+      }
+
+      if (!profile) {
+        // Offline check for coaches list
+        const cachedCoaches = localStorage.getItem('coaches_list');
+        if (cachedCoaches) {
+          try {
+            const coaches = JSON.parse(cachedCoaches);
+            const matchedCoach = coaches.find(c => c.phone === cleanPhone || c.phone === cleanPhone.replace('+91', ''));
+            if (matchedCoach) {
+              profile = {
+                id: matchedCoach.id,
+                userName: matchedCoach.name,
+                role: matchedCoach.email === 'trainer@fitengineers.com' || matchedCoach.email === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach',
+                phone: cleanPhone,
+                brand: matchedCoach.brand
+              };
+              matchedEmail = matchedCoach.email;
+            }
+          } catch(e) {}
+        }
+        
+        // Fallback hardcoded defaults if not in list
+        if (!profile) {
+          if (cleanPhone === '9999999999' || cleanPhone === '+919999999999') {
+            profile = {
+              id: 'coach-subodh',
+              userName: 'Coach Subodh',
+              role: 'super-admin',
+              phone: cleanPhone,
+              brand: 'Fit Engineers'
+            };
+            matchedEmail = 'trainer@fitengineers.com';
+          } else if (cleanPhone === '9876543210' || cleanPhone === '+919876543210') {
+            profile = {
+              id: 'coach-ravi',
+              userName: 'Coach Ravi',
+              role: 'coach',
+              phone: cleanPhone,
+              brand: 'Ravi Fitness'
+            };
+            matchedEmail = 'ravi@fitengineers.com';
+          }
+        }
+      }
+
+      if (!profile) {
+        // Local storage lookup by phone (for clients)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('client_')) {
+            const clientKey = key.split('_')[1];
+            const pKey = `client_${clientKey}_`;
+            const phone = localStorage.getItem(`${pKey}userPhone`);
+            if (phone === cleanPhone) {
+              profile = {
+                userName: localStorage.getItem(`${pKey}userName`) || '',
+                userAge: localStorage.getItem(`${pKey}userAge`) || '',
+                userHeight: localStorage.getItem(`${pKey}userHeight`) || '',
+                userWeight: localStorage.getItem(`${pKey}userWeight`) || '',
+                userActivity: localStorage.getItem(`${pKey}userActivity`) || '',
+                userGoal: localStorage.getItem(`${pKey}userGoal`) || '',
+                userDiet: localStorage.getItem(`${pKey}userDiet`) || '',
+                role: localStorage.getItem(`${pKey}userRole`) || 'client',
+                phone: phone,
+                coach_id: localStorage.getItem(`${pKey}userCoachId`) || ''
+              };
+              matchedEmail = localStorage.getItem(`${pKey}userEmail`) || defaultEmail;
+              break;
+            }
+          }
+        }
+      }
+
+      const isCoachRole = profile && (profile.role === 'coach' || profile.role === 'super-admin');
+      const hasCompleteProfile = isCoachRole || (profile && 
+                                 profile.userName && 
+                                 profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
+                                 profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
+                                 profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '');
+
+      if (profile && hasCompleteProfile) {
+        await databaseService.loadProfileIntoLocalStorage(profile, matchedEmail);
+        onComplete();
+      } else {
+        localStorage.setItem('userEmail', matchedEmail);
+        localStorage.setItem('userPhone', cleanPhone);
+        localStorage.setItem('userRole', profile?.role || userType);
+        if (profile && profile.userName) {
+          localStorage.setItem('userName', profile.userName);
+          if (isCoachRole) {
+            onComplete();
+          } else {
+            setStep(2);
+          }
+        } else {
+          setStep(1);
+        }
+      }
+    } catch(err) {
+      setAuthError('OTP Verification failed: ' + err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Saved accounts for quick login
+  const [savedAccounts, setSavedAccounts] = useState(() => {
+    const accounts = [];
+
+    // Seed default coach account if savedEmailAccounts is empty or not initialized
+    const savedEmailAccountsRaw = localStorage.getItem('savedEmailAccounts');
+    let savedEmailAccounts = [];
+    if (savedEmailAccountsRaw) {
+      try {
+        savedEmailAccounts = JSON.parse(savedEmailAccountsRaw);
+      } catch(e) {}
+    } else {
+      // Seed default coach login
+      savedEmailAccounts = [
+        {
+          type: 'coach',
+          email: 'coach@fitengineers.com',
+          password: 'password123',
+          name: 'Coach Subodh',
+          initials: 'CS',
+          color: '#ea4335'
+        }
+      ];
+      localStorage.setItem('savedEmailAccounts', JSON.stringify(savedEmailAccounts));
+    }
+
+    // Process email accounts
+    savedEmailAccounts.forEach(acct => {
+      accounts.push({
+        type: acct.type,
+        email: acct.email,
+        password: acct.password,
+        name: acct.name,
+        initials: acct.initials,
+        color: acct.color,
+      });
+    });
+
+    // Check for saved client profiles
+    const profilesSeen = new Set();
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('profile_')) {
+        try {
+          const profile = JSON.parse(localStorage.getItem(key));
+          if (profile && profile.name && !profilesSeen.has(profile.name)) {
+            profilesSeen.add(profile.name);
+            const initials = profile.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b'];
+            const colorIdx = profile.name.charCodeAt(0) % colors.length;
+            accounts.push({
+              type: 'client-local',
+              name: profile.name,
+              initials,
+              color: colors[colorIdx],
+              profile
+            });
+          }
+        } catch(e) {}
+      }
+    }
+    return accounts;
+  });
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
@@ -92,6 +344,26 @@ const Onboarding = ({ onComplete }) => {
         await databaseService.signIn(authEmail, authPassword);
         localStorage.setItem('rememberedEmail', authEmail);
         localStorage.setItem('rememberedPassword', authPassword);
+        
+        // Update savedEmailAccounts list
+        const isCoachEmail = ['subodhmankala@gmail.com', 'trainer@fitengineers.com', 'coach@fitengineers.com'].includes(authEmail.toLowerCase());
+        const newSavedAcct = {
+          type: isCoachEmail ? 'coach' : 'client-email',
+          email: authEmail,
+          password: authPassword,
+          name: authEmail.split('@')[0].toUpperCase(),
+          initials: authEmail[0].toUpperCase(),
+          color: isCoachEmail ? '#ea4335' : '#8b5cf6'
+        };
+        const existingRaw = localStorage.getItem('savedEmailAccounts');
+        let savedList = [];
+        try {
+          savedList = existingRaw ? JSON.parse(existingRaw) : [];
+        } catch(err) {}
+        savedList = savedList.filter(a => a.email.toLowerCase() !== authEmail.toLowerCase());
+        savedList.unshift(newSavedAcct);
+        localStorage.setItem('savedEmailAccounts', JSON.stringify(savedList));
+
         const profile = await databaseService.getUserProfileByEmail(authEmail);
         const hasCompleteProfile = profile && 
                                    profile.userName && 
@@ -129,6 +401,26 @@ const Onboarding = ({ onComplete }) => {
         localStorage.setItem('rememberedPassword', authPassword);
         localStorage.setItem('userEmail', authEmail);
         localStorage.setItem('userName', name.trim());
+
+        // Update savedEmailAccounts
+        const isCoachEmail = ['subodhmankala@gmail.com', 'trainer@fitengineers.com', 'coach@fitengineers.com'].includes(authEmail.toLowerCase());
+        const newSavedAcct = {
+          type: isCoachEmail ? 'coach' : 'client-email',
+          email: authEmail,
+          password: authPassword,
+          name: name.trim(),
+          initials: name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2),
+          color: isCoachEmail ? '#ea4335' : '#8b5cf6'
+        };
+        const existingRaw = localStorage.getItem('savedEmailAccounts');
+        let savedList = [];
+        try {
+          savedList = existingRaw ? JSON.parse(existingRaw) : [];
+        } catch(err) {}
+        savedList = savedList.filter(a => a.email.toLowerCase() !== authEmail.toLowerCase());
+        savedList.unshift(newSavedAcct);
+        localStorage.setItem('savedEmailAccounts', JSON.stringify(savedList));
+
         setStep(2);
       }
     } catch (err) {
@@ -347,6 +639,22 @@ const Onboarding = ({ onComplete }) => {
 
   const handleNext = () => {
     if (step === 1 && !name.trim()) return;
+
+    // Check if the current user is a coach
+    const isCoach = localStorage.getItem('userRole') === 'coach' || localStorage.getItem('userRole') === 'super-admin' || userType === 'coach';
+    if (step === 1 && isCoach) {
+      const cleanName = name.trim();
+      localStorage.setItem('userName', cleanName);
+      databaseService.saveUserProfile({
+        userName: cleanName,
+        email: localStorage.getItem('userEmail'),
+        phone: localStorage.getItem('userPhone'),
+        role: localStorage.getItem('userRole') || 'coach'
+      });
+      onComplete();
+      return;
+    }
+
     if (step === 2 && (!age || !height || !weight)) return;
     if (step === 3 && !activity) return;
     if (step === 4 && !goal) return;
@@ -530,148 +838,159 @@ const Onboarding = ({ onComplete }) => {
 
           {/* Right/Bottom Side: Forms & Actions Card */}
           <div className="portal-right-panel">
-            {!showAuthForm ? (
-              <div className="account-selection-container animate-fade-in">
-                <h3 className="portal-selection-heading">Select account to log in to Fitengineers</h3>
-                
-                <div className="account-select-card" onClick={() => {
-                  setUserType('client');
-                  setAuthTab('login');
-                  setShowAuthForm(true);
-                  setAuthError('');
-                }}>
-                  <div className="account-card-avatar client-avatar-bg">👤</div>
-                  <div className="account-card-info">
-                    <strong>Log in as Client</strong>
-                    <span>Track workouts, diets & metrics</span>
-                  </div>
-                  <div className="account-card-arrow">⋮</div>
-                </div>
-
-                <div className="account-select-card" onClick={() => {
-                  setUserType('coach');
-                  setAuthTab('login');
-                  setShowAuthForm(true);
-                  setAuthError('');
-                }}>
-                  <div className="account-card-avatar coach-avatar-bg">🏋️</div>
-                  <div className="account-card-info">
-                    <strong>Log in as Coach</strong>
-                    <span>Manage clients, workouts & plans</span>
-                  </div>
-                  <div className="account-card-arrow">⋮</div>
-                </div>
-
-                <button type="button" className="guest-bypass-btn-new" onClick={() => setStep(1)}>
-                  Skip & Continue as Guest ➔
-                </button>
-
-                <div className="portal-signup-footer">
-                  New to Fitengineers? <span className="signup-highlight-link" onClick={() => {
-                    setUserType('client');
-                    setAuthTab('register');
-                    setShowAuthForm(true);
-                    setAuthError('');
-                  }}>Sign up</span>
+            <div className="credentials-form-container animate-slide-in" style={{ padding: '24px 20px' }}>
+              
+              {/* Role Toggle Tab */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h4 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>Welcome to Fitengineers</h4>
+                <div className="form-role-toggle" style={{ margin: 0 }}>
+                  <button 
+                    type="button" 
+                    className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
+                    onClick={() => { setUserType('client'); setAuthError(''); setOtpSent(false); }}
+                  >
+                    Client
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
+                    onClick={() => { setUserType('coach'); setAuthError(''); setOtpSent(false); }}
+                  >
+                    Coach
+                  </button>
                 </div>
               </div>
-            ) : (
-              <div className="credentials-form-container animate-slide-in">
-                <div className="form-header-row">
-                  <button type="button" className="form-back-arrow-btn" onClick={() => setShowAuthForm(false)}>
-                    ← Back
-                  </button>
+
+              {/* Login Method Tabs */}
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '3px', marginBottom: '18px' }}>
+                <button
+                  type="button"
+                  style={{
+                    flex: 1, padding: '8px', border: 'none', background: loginMethod === 'phone' ? (userType === 'coach' ? '#10b981' : 'var(--primary-accent-light)') : 'transparent',
+                    color: '#fff', fontWeight: 700, fontSize: '0.78rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                  onClick={() => { setLoginMethod('phone'); setAuthError(''); }}
+                >
+                  📱 Phone + OTP
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    flex: 1, padding: '8px', border: 'none', background: loginMethod === 'email' ? (userType === 'coach' ? '#10b981' : 'var(--primary-accent-light)') : 'transparent',
+                    color: '#fff', fontWeight: 700, fontSize: '0.78rem', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                  onClick={() => { setLoginMethod('email'); setAuthError(''); }}
+                >
+                  ✉️ Email + Password
+                </button>
+              </div>
+
+              {authError && <div className="auth-error-banner" style={{ marginBottom: '14px' }}>❌ {authError}</div>}
+
+              {/* PHONE + OTP LOGIN FLOW */}
+              {loginMethod === 'phone' && (
+                <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {!otpSent ? (
+                    <>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Phone Number (Primary)</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <span style={{
+                            padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-sm)', color: '#fff', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center'
+                          }}>🇮🇳 +91</span>
+                          <input
+                            type="tel"
+                            className="auth-input"
+                            style={{ flex: 1 }}
+                            value={phoneNumber}
+                            onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            placeholder="Enter 10-digit number"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
+                        disabled={otpLoading}
+                      >
+                        {otpLoading ? 'Sending OTP...' : 'Send OTP Verification Code'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="auth-input-wrap">
+                        <label className="auth-label">Enter 6-Digit OTP</label>
+                        <input
+                          type="text"
+                          className="auth-input"
+                          value={otpCode}
+                          onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="e.g. 123456"
+                          style={{ letterSpacing: '0.5em', textAlign: 'center', fontSize: '1.2rem', fontWeight: 800 }}
+                          required
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.72rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Sent to +91 {phoneNumber}</span>
+                          {otpTimer > 0 ? (
+                            <span style={{ color: 'var(--text-subtle)' }}>Resend in {otpTimer}s</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleSendOTP}
+                              style={{ background: 'none', border: 'none', color: 'var(--primary-accent-light)', cursor: 'pointer', fontWeight: 700, padding: 0 }}
+                            >
+                              Resend OTP
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        className={`auth-submit-main ${userType === 'coach' ? 'auth-submit-coach' : 'auth-submit-client'}`}
+                        disabled={authLoading}
+                      >
+                        {authLoading ? 'Verifying...' : 'Verify & Continue ➔'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOtpSent(false)}
+                        style={{
+                          background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.78rem',
+                          cursor: 'pointer', textAlign: 'center', alignSelf: 'center', textDecoration: 'underline'
+                        }}
+                      >
+                        Change Phone Number
+                      </button>
+                    </>
+                  )}
+                </form>
+              )}
+
+              {/* EMAIL & PASSWORD LOGIN FLOW */}
+              {loginMethod === 'email' && (
+                <form onSubmit={handleAuthSubmit} className="auth-form-new" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   
-                  {/* Role Toggle Tab inside the form */}
-                  <div className="form-role-toggle">
-                    <button 
-                      type="button" 
-                      className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
-                      onClick={() => setUserType('client')}
+                  {/* Signup Header Tab for Email login */}
+                  <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '6px' }}>
+                    <button
+                      type="button"
+                      className={`inner-tab ${authTab === 'login' ? 'inner-tab-active' : ''}`}
+                      onClick={() => { setAuthTab('login'); setAuthError(''); }}
+                      style={{ flex: 1, paddingBottom: '6px' }}
                     >
-                      Client
+                      Sign In
                     </button>
-                    <button 
-                      type="button" 
-                      className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
-                      onClick={() => setUserType('coach')}
+                    <button
+                      type="button"
+                      className={`inner-tab ${authTab === 'register' ? 'inner-tab-active' : ''}`}
+                      onClick={() => { setAuthTab('register'); setAuthError(''); }}
+                      style={{ flex: 1, paddingBottom: '6px' }}
                     >
-                      Coach
+                      Create Account
                     </button>
                   </div>
-                </div>
-
-                {/* Inner Auth Tabs */}
-                <div className="inner-auth-tabs">
-                  <button
-                    type="button"
-                    className={`inner-tab ${authTab === 'login' ? 'inner-tab-active' : ''}`}
-                    onClick={() => { setAuthTab('login'); setAuthError(''); }}
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    className={`inner-tab ${authTab === 'register' ? 'inner-tab-active' : ''}`}
-                    onClick={() => { setAuthTab('register'); setAuthError(''); }}
-                  >
-                    Create Account
-                  </button>
-                </div>
-
-                {/* Role badge */}
-                <div className={`role-badge ${userType === 'coach' ? 'role-badge-coach' : 'role-badge-client'}`}>
-                  {userType === 'coach'
-                    ? '🎯 Coach Portal — Manage clients & check-ins'
-                    : '💪 Client Portal — Track your workouts & meals'}
-                </div>
-
-                {/* Social Logins */}
-                <div className="social-login-row">
-                  <button
-                    type="button"
-                    className="social-btn social-google"
-                    onClick={async () => {
-                      setAuthError('');
-                      try {
-                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                          setShowGoogleModal(true);
-                        } else {
-                          await databaseService.signInWithGoogle();
-                        }
-                      } catch (err) {
-                        setAuthError(err.message || 'Google sign-in failed.');
-                      }
-                    }}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>
-                    Google
-                  </button>
-                  <button
-                    type="button"
-                    className="social-btn social-facebook"
-                    onClick={() => setAuthError('Facebook login coming soon!')}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                    Facebook
-                  </button>
-                </div>
-
-                <div className="auth-divider">
-                  <span className="auth-divider-line"></span>
-                  <span className="auth-divider-text">OR CONTINUE WITH</span>
-                  <span className="auth-divider-line"></span>
-                </div>
-
-                <form onSubmit={handleAuthSubmit} className="auth-form-new">
-                  {authError && <div className="auth-error-banner">❌ {authError}</div>}
 
                   {authTab === 'register' && (
                     <div className="auth-input-wrap">
@@ -681,7 +1000,7 @@ const Onboarding = ({ onComplete }) => {
                         className="auth-input"
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        placeholder="Enter your full name"
+                        placeholder="Enter your name"
                         required
                       />
                     </div>
@@ -694,7 +1013,7 @@ const Onboarding = ({ onComplete }) => {
                       className="auth-input"
                       value={authEmail}
                       onChange={e => setAuthEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder="example@gmail.com"
                       required
                     />
                   </div>
@@ -724,8 +1043,85 @@ const Onboarding = ({ onComplete }) => {
                         : (userType === 'coach' ? '🏋️ Create Coach Account' : '👤 Create Client Account')}
                   </button>
                 </form>
-              </div>
-            )}
+              )}
+
+              {/* Guest and Quick Bypass for clients */}
+              {userType === 'client' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                  <button type="button" className="guest-bypass-btn-new" onClick={() => setStep(1)} style={{ width: '100%', margin: 0 }}>
+                    Skip & Continue as Guest →
+                  </button>
+                </div>
+              )}
+
+              {/* Saved accounts ONLY for Coach login */}
+              {userType === 'coach' && savedAccounts.length > 0 && (
+                <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
+                  <div style={{
+                    fontSize: '0.68rem',
+                    color: 'var(--text-muted)',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: '8px'
+                  }}>Quick Coach Logins</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {savedAccounts.filter(a => a.type === 'coach').map((acct, idx) => (
+                      <div
+                        key={idx}
+                        onClick={async () => {
+                          try {
+                            setAuthLoading(true);
+                            await databaseService.signIn(acct.email, acct.password);
+                            const profile = await databaseService.getUserProfileByEmail(acct.email);
+                            if (profile) {
+                              await databaseService.loadProfileIntoLocalStorage(profile, acct.email);
+                            } else {
+                              localStorage.setItem('userEmail', acct.email);
+                              localStorage.setItem('userName', acct.name);
+                              localStorage.setItem('onboardingComplete', 'true');
+                            }
+                            onComplete();
+                          } catch(e) {
+                            setAuthError('Quick login failed: ' + (e.message || 'Please use form.'));
+                          } finally {
+                            setAuthLoading(false);
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 12px',
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                      >
+                        <div style={{
+                          width: '30px', height: '30px', borderRadius: '50%',
+                          background: acct.color,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontWeight: 800, fontSize: '0.75rem', color: '#fff',
+                          flexShrink: 0
+                        }}>{acct.initials}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {acct.name}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>Log in →</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
           </div>
         </div>
       )}

@@ -734,7 +734,8 @@ function App() {
               'onboardingComplete', 'userName', 'userAge', 'userHeight', 'userWeight', 
               'userActivity', 'userGoal', 'userIssue', 'userDiet', 
               'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget',
-              'userEmail', 'rememberedEmail', 'rememberedPassword', 'lastUserName'
+              'userEmail', 'rememberedEmail', 'rememberedPassword', 'lastUserName',
+              'userRole', 'userPhone', 'userBrand', 'userPaymentStatus', 'userCoachId'
             ];
             const tempStorage = {};
             keysToKeep.forEach(k => {
@@ -767,7 +768,12 @@ function App() {
               userProteinTarget: tempStorage['userProteinTarget'],
               userCarbsTarget: tempStorage['userCarbsTarget'],
               userFatsTarget: tempStorage['userFatsTarget'],
-              userIssue: tempStorage['userIssue']
+              userIssue: tempStorage['userIssue'],
+              role: tempStorage['userRole'] || 'client',
+              phone: tempStorage['userPhone'],
+              brand: tempStorage['userBrand'],
+              payment_status: tempStorage['userPaymentStatus'] || 'active',
+              coach_id: tempStorage['userCoachId']
             };
             databaseService.saveUserProfile(profile);
             databaseService.saveProgressHistory(freshHistory);

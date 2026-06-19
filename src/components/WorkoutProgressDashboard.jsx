@@ -8,6 +8,10 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDateStr, setSelectedDateStr] = useState(new Date().toISOString().split('T')[0]);
+  const [sessionsTotal, setSessionsTotal] = useState(() => {
+    const cachedLimit = localStorage.getItem('userSessionsLimit');
+    return cachedLimit ? parseInt(cachedLimit) : 24;
+  });
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
@@ -16,7 +20,9 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     const loadLogs = async () => {
       setLoading(true);
       try {
-        const userKey = storedName || localStorage.getItem('userName') || 'Warrior';
+        // Prefer Supabase UUID for exact match; fallback to name
+        const userId = localStorage.getItem('userId');
+        const userKey = userId || storedName || localStorage.getItem('userName') || 'Warrior';
         const userLogs = await databaseService.getWorkoutLogsForUser(userKey);
         setLogs(userLogs || []);
       } catch (err) {
@@ -79,9 +85,15 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
           date: date,
           volume: 0,
           sets: 0,
-          exercises: {}
+          exercises: {},
+          planName: log.plan_name || log.planName || ''
         };
       }
+      
+      if (!grouped[date].planName && (log.plan_name || log.planName)) {
+        grouped[date].planName = log.plan_name || log.planName;
+      }
+      
       const weight = parseFloat(log.weight_kg) || 0;
       const reps = parseInt(log.reps) || 0;
       grouped[date].volume += weight * reps;
@@ -95,6 +107,14 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         weight
       });
     });
+
+    // Set fallback if still empty
+    Object.keys(grouped).forEach(date => {
+      if (!grouped[date].planName) {
+        grouped[date].planName = 'Custom Routine';
+      }
+    });
+
     return grouped;
   };
 
@@ -180,6 +200,51 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
   };
 
   const monthlyStats = getMonthlyStats();
+
+  // --- ADDITIONAL HOMEPAGE STATS ---
+  // Total sessions done (all time)
+  const getTotalSessionsDone = () => {
+    const uniqueDates = new Set(logs.map(l => l.log_date));
+    return uniqueDates.size;
+  };
+
+  // Best weight lifted this week
+  const getBestWeightThisWeek = () => {
+    let best = 0;
+    let bestExercise = '';
+    weekDays.forEach(day => {
+      if (groupedLogs[day]) {
+        Object.entries(groupedLogs[day].exercises).forEach(([exName, sets]) => {
+          sets.forEach(s => {
+            if (s.weight > best) {
+              best = s.weight;
+              bestExercise = exName;
+            }
+          });
+        });
+      }
+    });
+    return { weight: best, exercise: bestExercise };
+  };
+
+  // Best workout of the week (highest volume day)
+  const getBestWorkoutOfWeek = () => {
+    let bestDay = '';
+    let bestVolume = 0;
+    weekDays.forEach(day => {
+      if (groupedLogs[day] && groupedLogs[day].volume > bestVolume) {
+        bestVolume = groupedLogs[day].volume;
+        bestDay = day;
+      }
+    });
+    if (!bestDay) return { dayName: '—', volume: 0 };
+    const dayName = new Date(bestDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return { dayName, volume: bestVolume };
+  };
+
+  const totalSessionsDone = getTotalSessionsDone();
+  const bestWeight = getBestWeightThisWeek();
+  const bestWorkout = getBestWorkoutOfWeek();
 
   // --- SVG Charts Calculations ---
   // 1. Weekly Bar Chart Coordinates
@@ -418,28 +483,91 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         </div>
       ) : (
         <div className="dashboard-content-scroll flex-col gap-4">
-          
           {/* ─── WEEKLY VIEW CONTENT ─── */}
           {timeframe === 'weekly' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Highlight Stats Row */}
-              <div className="stats-row-cards">
-                <div className="stat-card glass-panel">
-                  <span className="card-label">Volume Lifted</span>
-                  <strong className="card-value text-emerald">{weeklyStats.totalVolume.toLocaleString('en-IN')} <span className="value-unit">kg</span></strong>
-                  <p className="card-sub">This week</p>
-                </div>
-                <div className="stat-card glass-panel">
-                  <span className="card-label">Total Sets</span>
-                  <strong className="card-value text-blue">{weeklyStats.totalSets} <span className="value-unit">sets</span></strong>
-                  <p className="card-sub">This week</p>
-                </div>
-                <div className="stat-card glass-panel">
-                  <span className="card-label">Workouts</span>
-                  <strong className="card-value text-amber">{weeklyStats.workoutsCount} <span className="value-unit">done</span></strong>
-                  <p className="card-sub">This week</p>
-                </div>
-              </div>
+              {/* Single Prominent Sessions Done Progress Card */}
+              {(() => {
+                const percentComplete = Math.min(100, Math.round((totalSessionsDone / sessionsTotal) * 100));
+                return (
+                  <div className="sessions-progress-card glass-panel animate-scale-in" style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
+                    border: '1px solid rgba(139, 92, 246, 0.25)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '20px',
+                    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Decorative background glow */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-50%',
+                      right: '-10%',
+                      width: '180px',
+                      height: '180px',
+                      borderRadius: '50%',
+                      background: 'rgba(139, 92, 246, 0.25)',
+                      filter: 'blur(40px)',
+                      pointerEvents: 'none'
+                    }}></div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 1 }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+                      <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
+                        {totalSessionsDone} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
+                      </h3>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>
+                        {percentComplete}% Completed
+                      </span>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+                        {totalSessionsDone >= sessionsTotal 
+                          ? 'Congratulations! You have completed your coaching package! 🎉' 
+                          : `${sessionsTotal - totalSessionsDone} sessions remaining in your active program.`}
+                      </p>
+                    </div>
+
+                    {/* Circular Progress Ring */}
+                    <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
+                      <svg width="90" height="90" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                        <circle 
+                          cx="50" 
+                          cy="50" 
+                          r="40" 
+                          fill="transparent" 
+                          stroke="rgba(255, 255, 255, 0.05)" 
+                          strokeWidth="8" 
+                        />
+                        <circle 
+                          cx="50" 
+                          cy="50" 
+                          r="40" 
+                          fill="transparent" 
+                          stroke="url(#progressGradient)" 
+                          strokeWidth="8" 
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - percentComplete / 100)}`}
+                          strokeLinecap="round"
+                          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                        />
+                        <defs>
+                          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="var(--primary-accent-light)" />
+                            <stop offset="100%" stopColor="#10b981" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <div style={{ position: 'absolute', fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>
+                        {percentComplete}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Weekly SVG Chart Widget */}
               <div className="chart-widget-card glass-panel">
@@ -451,28 +579,121 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                   {renderWeeklyChart()}
                 </div>
               </div>
+
+              {/* ── This Week's Sessions ── */}
+              <div className="chart-widget-card glass-panel">
+                <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
+                  <h4>🗂️ This Week's Sessions</h4>
+                  <span className="trend-badge">{weeklyStats.workoutsCount} days active</span>
+                </div>
+                {weeklyStats.workoutsCount === 0 ? (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '16px 0' }}>
+                    No workouts logged this week yet. Start logging! 💪
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {weekDays.filter(day => groupedLogs[day]).map(day => {
+                      const session = groupedLogs[day];
+                      const exercises = Object.entries(session.exercises);
+                      const dateLabel = new Date(day + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      return (
+                        <div
+                          key={day}
+                          onClick={() => { setSelectedDateStr(day); setTimeframe('daily'); }}
+                          style={{
+                            background: 'rgba(0,0,0,0.15)',
+                            border: isToday(day) ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.15)'}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: isToday(day) ? 'var(--primary-accent-light)' : '#fff' }}>
+                                📅 {dateLabel}{isToday(day) ? ' · Today' : ''}
+                              </div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
+                                📋 {session.planName || 'Custom Routine'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                {session.sets} sets
+                              </span>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                {session.volume.toLocaleString('en-IN')} kg
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            {exercises.map(([exName, sets], exIdx) => (
+                              <span key={exIdx} style={{
+                                fontSize: '0.7rem',
+                                background: 'rgba(255,255,255,0.04)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                padding: '2px 8px',
+                                borderRadius: '20px',
+                                color: 'var(--text-muted)'
+                              }}>
+                                {exName} · {sets.length}s
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* ─── DAILY VIEW CONTENT ─── */}
           {timeframe === 'daily' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Date selection bar */}
-              <div className="date-picker-bar glass-panel">
-                <label>Viewing stats for date:</label>
-                <input 
-                  type="date" 
-                  value={selectedDateStr} 
+              {/* Date navigation bar */}
+              <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    const d = new Date(selectedDateStr);
+                    d.setDate(d.getDate() - 1);
+                    setSelectedDateStr(d.toISOString().split('T')[0]);
+                  }}
+                  style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                >
+                  ‹
+                </button>
+                <input
+                  type="date"
+                  value={selectedDateStr}
                   onChange={(e) => setSelectedDateStr(e.target.value)}
                   className="progress-date-input"
+                  style={{ flex: 1 }}
                 />
+                <button
+                  onClick={() => {
+                    const d = new Date(selectedDateStr);
+                    d.setDate(d.getDate() + 1);
+                    const next = d.toISOString().split('T')[0];
+                    if (next <= new Date().toISOString().split('T')[0]) {
+                      setSelectedDateStr(next);
+                    }
+                  }}
+                  style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                >
+                  ›
+                </button>
               </div>
 
               {/* Day stats card */}
               <div className="day-stats-overview glass-panel">
                 <div className="overview-header justify-between">
                   <h3>
-                    {isToday(selectedDateStr) ? 'Today\'s Progress' : new Date(selectedDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                    {isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                   </h3>
                   <span className="active-badge">{groupedLogs[selectedDateStr] ? '🏋️‍♂️ Workout Done' : '☕ Rest Day'}</span>
                 </div>
@@ -485,30 +706,49 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                     <span className="lbl">Sets:</span>
                     <strong className="val text-blue">{dailyStats.sets} sets</strong>
                   </div>
+                  <div className="stat-card inline">
+                    <span className="lbl">Exercises:</span>
+                    <strong className="val" style={{ color: '#a78bfa' }}>{dailyStats.exercises.length}</strong>
+                  </div>
                 </div>
 
-                {/* Day Exercise Breakdown */}
+                {/* Day Exercise Breakdown — detailed cards */}
                 {dailyStats.exercises.length > 0 ? (
                   <div className="daily-exercises-list mt-3">
                     <h4 className="section-subtitle">Exercise Sets Logged</h4>
                     <div className="ex-list-wrapper mt-2">
                       {dailyStats.exercises.map((ex, exIdx) => (
-                        <div key={exIdx} className="daily-ex-card">
-                          <div className="ex-title">{ex.name}</div>
-                          <div className="ex-sets-badges mt-1">
-                            {ex.sets.map((set, sIdx) => (
-                              <span key={sIdx} className="ex-set-badge">
-                                {set.weight}kg x {set.reps}
-                              </span>
-                            ))}
-                          </div>
+                        <div key={exIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
+                          <div className="ex-title" style={{ marginBottom: '6px' }}>{ex.name}</div>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Set</th>
+                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Weight</th>
+                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Reps</th>
+                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Vol</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ex.sets.map((set, sIdx) => (
+                                <tr key={sIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                  <td style={{ padding: '5px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                    <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,0.06)', fontSize:'0.68rem', fontWeight:800, color:'#fff' }}>{sIdx+1}</span>
+                                  </td>
+                                  <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
+                                  <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
+                                  <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
                   <div className="no-daily-workouts mt-3">
-                    <p>No workout session found on this date. Click on active green days in the monthly heatmap calendar to inspect previous workouts!</p>
+                    <p>No workout session found on this date.<br/>Use ‹ › to navigate days, or switch to Monthly view to click on an active day.</p>
                   </div>
                 )}
               </div>
@@ -551,6 +791,73 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                 <div className="chart-wrapper">
                   {renderMonthlyChart()}
                 </div>
+              </div>
+
+              {/* ── Full Workout History List ── */}
+              <div className="chart-widget-card glass-panel">
+                <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
+                  <h4>📋 Full Workout History</h4>
+                  <span className="trend-badge">{totalSessionsDone} sessions</span>
+                </div>
+                {(() => {
+                  // Build sorted sessions list from all logs
+                  const allDates = Object.keys(groupedLogs).sort((a, b) => new Date(b) - new Date(a));
+                  if (allDates.length === 0) {
+                    return <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '16px 0' }}>No sessions logged yet.</p>;
+                  }
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {allDates.map(date => {
+                        const session = groupedLogs[date];
+                        const exercises = Object.entries(session.exercises);
+                        return (
+                          <div key={date} style={{
+                            background: 'rgba(0,0,0,0.15)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>
+                                  📅 {new Date(date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                </div>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
+                                  📋 {session.planName || 'Custom Routine'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                  {session.sets} sets
+                                </span>
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                  {session.volume.toLocaleString('en-IN')} kg
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {exercises.map(([exName, sets], exIdx) => {
+                                const maxWeight = Math.max(...sets.map(s => s.weight));
+                                return (
+                                  <span key={exIdx} style={{
+                                    fontSize: '0.7rem',
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    padding: '3px 10px',
+                                    borderRadius: '20px',
+                                    color: 'var(--text-muted)'
+                                  }}>
+                                    {exName} · {sets.length}s · {maxWeight}kg
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

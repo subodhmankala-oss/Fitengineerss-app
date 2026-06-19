@@ -23,8 +23,23 @@ export const TRAINER_EMAILS = [
 ];
 
 export const isTrainer = (email) => {
-  return email && TRAINER_EMAILS.includes(email.toLowerCase());
+  if (!email) return false;
+  const hardcoded = TRAINER_EMAILS.includes(email.toLowerCase());
+  if (hardcoded) return true;
+  const cachedRole = localStorage.getItem('userRole');
+  return cachedRole === 'coach' || cachedRole === 'super-admin';
 };
+
+export const isSuperAdmin = (email) => {
+  if (!email) return false;
+  const hardcoded = [
+    'subodhmankala@gmail.com',
+    'trainer@fitengineers.com'
+  ].includes(email.toLowerCase());
+  if (hardcoded) return true;
+  return localStorage.getItem('userRole') === 'super-admin';
+};
+
 
 const getCleanClientKey = async (userId) => {
   if (!userId) return 'guest';
@@ -71,7 +86,12 @@ const databaseService = {
             dietary_preference: profile.userDiet,
             calorie_target: parseInt(profile.userCalorieTarget),
             protein_target: parseInt(profile.userProteinTarget),
-            fats_target: parseInt(profile.userFatsTarget)
+            fats_target: parseInt(profile.userFatsTarget),
+            role: profile.role || 'client',
+            phone: profile.phone || null,
+            brand: profile.brand || null,
+            payment_status: profile.payment_status || 'active',
+            coach_id: profile.coach_id || null
           }, { onConflict: 'email' })
           .select();
         
@@ -95,6 +115,11 @@ const databaseService = {
     localStorage.setItem('userCarbsTarget', profile.userCarbsTarget);
     localStorage.setItem('userFatsTarget', profile.userFatsTarget);
     if (profile.userIssue) localStorage.setItem('userIssue', profile.userIssue);
+    if (profile.role) localStorage.setItem('userRole', profile.role);
+    if (profile.phone) localStorage.setItem('userPhone', profile.phone);
+    if (profile.brand) localStorage.setItem('userBrand', profile.brand);
+    if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
+    if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
   },
 
   async getUserProfile(userName) {
@@ -119,7 +144,12 @@ const databaseService = {
             userDiet: data.dietary_preference,
             userCalorieTarget: String(data.calorie_target),
             userProteinTarget: String(data.protein_target),
-            userFatsTarget: String(data.fats_target)
+            userFatsTarget: String(data.fats_target),
+            role: data.role,
+            phone: data.phone,
+            brand: data.brand,
+            payment_status: data.payment_status,
+            coach_id: data.coach_id
           };
         }
       } catch (e) {
@@ -284,7 +314,8 @@ const databaseService = {
                 exercise_name: ex.name,
                 set_number: sIdx + 1,
                 reps: parseInt(set.reps || '0'),
-                weight_kg: parseFloat(set.weight || '0.0')
+                weight_kg: parseFloat(set.weight || '0.0'),
+                plan_name: session.planName || 'Custom Routine'
               });
             });
           });
@@ -380,6 +411,9 @@ const databaseService = {
         
         if (error && error.code !== 'PGRST116') throw error;
         if (data) {
+          if (data.role) {
+            localStorage.setItem('userRole', data.role);
+          }
           return {
             id: data.id,
             userName: data.full_name,
@@ -391,7 +425,12 @@ const databaseService = {
             userDiet: data.dietary_preference,
             userCalorieTarget: String(data.calorie_target),
             userProteinTarget: String(data.protein_target),
-            userFatsTarget: String(data.fats_target)
+            userFatsTarget: String(data.fats_target),
+            role: data.role,
+            phone: data.phone,
+            brand: data.brand,
+            payment_status: data.payment_status,
+            coach_id: data.coach_id
           };
         }
       } catch (e) {
@@ -414,16 +453,33 @@ const databaseService = {
     if (profile.userCalorieTarget) localStorage.setItem('userCalorieTarget', profile.userCalorieTarget);
     if (profile.userProteinTarget) localStorage.setItem('userProteinTarget', profile.userProteinTarget);
     if (profile.userFatsTarget) localStorage.setItem('userFatsTarget', profile.userFatsTarget);
+    if (profile.role) localStorage.setItem('userRole', profile.role);
+    if (profile.phone) localStorage.setItem('userPhone', profile.phone);
+    if (profile.brand) localStorage.setItem('userBrand', profile.brand);
+    if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
+    if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
     localStorage.setItem('onboardingComplete', 'true');
   },
 
   async getAllUsers() {
+    const loggedInEmail = localStorage.getItem('userEmail');
+    const loggedInRole = localStorage.getItem('userRole');
+    const loggedInId = localStorage.getItem('userId');
+    const superAdmin = isSuperAdmin(loggedInEmail);
+
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('users')
           .select('*')
           .order('full_name', { ascending: true });
+
+        // Enforce isolation for regular coaches
+        if (loggedInRole === 'coach' && !superAdmin && loggedInId) {
+          query = query.eq('coach_id', loggedInId);
+        }
+
+        const { data, error } = await query;
         
         if (error) throw error;
         if (data) {
@@ -439,7 +495,12 @@ const databaseService = {
             userDiet: u.dietary_preference || '',
             userCalorieTarget: String(u.calorie_target || ''),
             userProteinTarget: String(u.protein_target || ''),
-            userFatsTarget: String(u.fats_target || '')
+            userFatsTarget: String(u.fats_target || ''),
+            role: u.role,
+            phone: u.phone,
+            brand: u.brand,
+            payment_status: u.payment_status,
+            coach_id: u.coach_id
           }));
         }
       } catch (e) {
@@ -456,21 +517,28 @@ const databaseService = {
     const currentEmail = localStorage.getItem('userEmail');
     if (currentName && currentEmail && !isTrainer(currentEmail)) {
       const uKey = currentName.toLowerCase().replace(/\s+/g, '');
-      localClients.push({
-        id: uKey,
-        email: currentEmail,
-        userName: currentName,
-        userAge: localStorage.getItem('userAge') || '',
-        userHeight: localStorage.getItem('userHeight') || '',
-        userWeight: localStorage.getItem('userWeight') || '',
-        userActivity: localStorage.getItem('userActivity') || '',
-        userGoal: localStorage.getItem('userGoal') || '',
-        userDiet: localStorage.getItem('userDiet') || '',
-        userCalorieTarget: localStorage.getItem('userCalorieTarget') || '',
-        userProteinTarget: localStorage.getItem('userProteinTarget') || '',
-        userFatsTarget: localStorage.getItem('userFatsTarget') || ''
-      });
-      clientNamesSeen.add(uKey);
+      const clientCoachId = localStorage.getItem(`client_${uKey}_userCoachId`) || '';
+      
+      // Enforce isolation for regular coaches
+      if (!(loggedInRole === 'coach' && !superAdmin && loggedInId && clientCoachId !== loggedInId)) {
+        localClients.push({
+          id: uKey,
+          email: currentEmail,
+          userName: currentName,
+          userAge: localStorage.getItem('userAge') || '',
+          userHeight: localStorage.getItem('userHeight') || '',
+          userWeight: localStorage.getItem('userWeight') || '',
+          userActivity: localStorage.getItem('userActivity') || '',
+          userGoal: localStorage.getItem('userGoal') || '',
+          userDiet: localStorage.getItem('userDiet') || '',
+          userCalorieTarget: localStorage.getItem('userCalorieTarget') || '',
+          userProteinTarget: localStorage.getItem('userProteinTarget') || '',
+          userFatsTarget: localStorage.getItem('userFatsTarget') || '',
+          role: 'client',
+          coach_id: clientCoachId
+        });
+        clientNamesSeen.add(uKey);
+      }
     }
 
     // 2. Scan all client partitions and chats in localStorage
@@ -488,8 +556,15 @@ const databaseService = {
         }
 
         if (clientKey && clientKey !== 'guest' && !clientNamesSeen.has(clientKey)) {
-          clientNamesSeen.add(clientKey);
           const keyPrefix = `client_${clientKey}_`;
+          const clientCoachId = localStorage.getItem(`${keyPrefix}userCoachId`) || '';
+
+          // Enforce isolation for regular coaches
+          if (loggedInRole === 'coach' && !superAdmin && loggedInId && clientCoachId !== loggedInId) {
+            continue;
+          }
+
+          clientNamesSeen.add(clientKey);
           const email = localStorage.getItem(`${keyPrefix}userEmail`) || `${clientKey}@fitengineers.com`;
           const name = localStorage.getItem(`${keyPrefix}userName`) || (clientKey.charAt(0).toUpperCase() + clientKey.slice(1));
           
@@ -505,7 +580,9 @@ const databaseService = {
             userDiet: localStorage.getItem(`${keyPrefix}userDiet`) || '',
             userCalorieTarget: localStorage.getItem(`${keyPrefix}userCalorieTarget`) || '',
             userProteinTarget: localStorage.getItem(`${keyPrefix}userProteinTarget`) || '',
-            userFatsTarget: localStorage.getItem(`${keyPrefix}userFatsTarget`) || ''
+            userFatsTarget: localStorage.getItem(`${keyPrefix}userFatsTarget`) || '',
+            role: 'client',
+            coach_id: clientCoachId
           });
         }
       }
@@ -576,7 +653,8 @@ const databaseService = {
                     exercise_name: ex.name,
                     set_number: sIdx + 1,
                     reps: parseInt(set.reps || '0'),
-                    weight_kg: parseFloat(set.weight || '0.0')
+                    weight_kg: parseFloat(set.weight || '0.0'),
+                    plan_name: sess.planName || 'Custom Routine'
                   });
                 });
               }
@@ -820,6 +898,164 @@ const databaseService = {
         console.error("Error deleting local workout plan:", e);
       }
     }
+  },
+
+  // ─── MULTI-COACH & SUPER ADMIN METHODS ───
+  async getAllCoaches() {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'coach')
+          .order('full_name', { ascending: true });
+
+        if (error) throw error;
+        if (data) {
+          // Get client counts for each coach
+          const { data: clientCounts } = await supabase
+            .from('users')
+            .select('coach_id');
+
+          return data.map(coach => {
+            const clients = clientCounts ? clientCounts.filter(c => c.coach_id === coach.id) : [];
+            return {
+              id: coach.id,
+              name: coach.full_name || 'Coach',
+              email: coach.email,
+              brand: coach.brand || 'Fit Engineers',
+              payment_status: coach.payment_status || 'active',
+              signup_date: coach.created_at || new Date().toISOString(),
+              clientsCount: clients.length
+            };
+          });
+        }
+      } catch (e) {
+        console.error('Cloud DB Fetch all coaches error:', e);
+      }
+    }
+
+    // Local storage fallback for coaches
+    const cachedCoaches = localStorage.getItem('coaches_list');
+    let coaches = cachedCoaches ? JSON.parse(cachedCoaches) : [
+      { id: 'coach-ravi', name: 'Coach Ravi', email: 'ravi@fitengineers.com', brand: 'Ravi Fitness', payment_status: 'active', signup_date: new Date().toISOString(), clientsCount: 0 },
+      { id: 'coach-subodh', name: 'Coach Subodh', email: 'coach@fitengineers.com', brand: 'Fit Engineers', payment_status: 'active', signup_date: new Date().toISOString(), clientsCount: 0 }
+    ];
+
+    // Compute client counts from local storage clients
+    coaches.forEach(coach => {
+      let count = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('client_') && key.endsWith('_userCoachId')) {
+          if (localStorage.getItem(key) === coach.id) {
+            count++;
+          }
+        }
+      }
+      coach.clientsCount = count;
+    });
+
+    return coaches;
+  },
+
+  async saveCoachProfile(coach) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            brand: coach.brand,
+            payment_status: coach.payment_status
+          })
+          .eq('id', coach.id);
+        if (error) throw error;
+      } catch (e) {
+        console.error('Error saving coach profile on cloud DB:', e);
+      }
+    }
+
+    // Mirror to local storage fallback
+    const cachedCoaches = localStorage.getItem('coaches_list');
+    if (cachedCoaches) {
+      try {
+        let coaches = JSON.parse(cachedCoaches);
+        const idx = coaches.findIndex(c => c.id === coach.id);
+        if (idx >= 0) {
+          coaches[idx] = { ...coaches[idx], ...coach };
+          localStorage.setItem('coaches_list', JSON.stringify(coaches));
+        }
+      } catch (e) {}
+    } else {
+      const defaults = [
+        { id: 'coach-ravi', name: 'Coach Ravi', email: 'ravi@fitengineers.com', brand: 'Ravi Fitness', payment_status: 'active', signup_date: new Date().toISOString(), clientsCount: 0 },
+        { id: 'coach-subodh', name: 'Coach Subodh', email: 'coach@fitengineers.com', brand: 'Fit Engineers', payment_status: 'active', signup_date: new Date().toISOString(), clientsCount: 0 }
+      ];
+      const idx = defaults.findIndex(c => c.id === coach.id);
+      if (idx >= 0) {
+        defaults[idx] = { ...defaults[idx], ...coach };
+      }
+      localStorage.setItem('coaches_list', JSON.stringify(defaults));
+    }
+  },
+
+  async getPlatformStats() {
+    let totalWorkoutsLoggedThisWeek = 0;
+    let totalActiveClients = 0;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: clients } = await supabase
+          .from('users')
+          .select('id')
+          .eq('role', 'client');
+        if (clients) totalActiveClients = clients.length;
+
+        const startOfWeek = new Date();
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const startStr = startOfWeek.toISOString().split('T')[0];
+
+        const { data: workoutLogs } = await supabase
+          .from('workout_logs')
+          .select('log_date, user_id')
+          .gte('log_date', startStr);
+        
+        if (workoutLogs) {
+          const uniqueSessions = new Set(workoutLogs.map(l => `${l.user_id}_${l.log_date}`));
+          totalWorkoutsLoggedThisWeek = uniqueSessions.size;
+        }
+        
+        return { totalWorkoutsLoggedThisWeek, totalActiveClients };
+      } catch (e) {
+        console.error('Error calculating platform stats:', e);
+      }
+    }
+
+    // Local storage fallback for platform stats
+    let clientCount = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('client_') && key.endsWith('_userEmail')) {
+        clientCount++;
+      }
+    }
+    totalActiveClients = clientCount || 3;
+
+    const globalSessionsRaw = localStorage.getItem('workoutSessions');
+    if (globalSessionsRaw) {
+      try {
+        const sessions = JSON.parse(globalSessionsRaw);
+        const startOfWeek = new Date();
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const startStr = startOfWeek.toISOString().split('T')[0];
+        
+        totalWorkoutsLoggedThisWeek = sessions.filter(s => s.date >= startStr).length;
+      } catch(e) {}
+    } else {
+      totalWorkoutsLoggedThisWeek = 14;
+    }
+
+    return { totalWorkoutsLoggedThisWeek, totalActiveClients };
   }
 };
 

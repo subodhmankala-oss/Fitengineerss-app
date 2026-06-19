@@ -115,3 +115,14 @@ CREATE TABLE IF NOT EXISTS workout_plans (
 
 ALTER TABLE workout_plans ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read and write access" ON workout_plans FOR ALL USING (true) WITH CHECK (true);
+
+-- 8. Multi-Coach Schema Extensions
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'client'; -- 'client', 'coach', 'super-admin'
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS brand TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'active'; -- 'active' or 'failed'
+ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_id UUID REFERENCES users(id) ON DELETE SET NULL;
+
+-- 9. Workout Log routine name tracking
+ALTER TABLE workout_logs ADD COLUMN IF NOT EXISTS plan_name TEXT;
+

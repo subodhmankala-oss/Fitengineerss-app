@@ -319,6 +319,11 @@ const WorkoutTracker = () => {
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(4);
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' or 'monthly'
   const [toastMessage, setToastMessage] = useState('');
+  const [historyExpandedDate, setHistoryExpandedDate] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() }; // 0-indexed month
+  });
 
   // Payment Gateway Modal States
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -357,16 +362,61 @@ const WorkoutTracker = () => {
 
   useEffect(() => {
     const loggedInUser = localStorage.getItem('userName') || 'Warrior';
-    
-    // Hydrate sessions
+    const loggedInKey = loggedInUser.toLowerCase().replace(/\s+/g, '');
+
+    // ─── Hydrate sessions: merge global + client-specific + coach-logged ───
+    const mergeAndDedupeSessions = (base, extra) => {
+      // Primary dedup: by session ID
+      const seenIds = new Set(base.map(s => s.id).filter(Boolean));
+      // Fallback dedup: by date + clientName + sorted exercise names
+      const seenKeys = new Set(base.map(s =>
+        `${s.date}|${(s.clientName||'').toLowerCase()}|${(s.exercises||[]).map(e=>e.name).sort().join(',')}`
+      ));
+      const merged = [...base];
+      extra.forEach(s => {
+        const hasId = Boolean(s.id);
+        const key = `${s.date}|${(s.clientName||'').toLowerCase()}|${(s.exercises||[]).map(e=>e.name).sort().join(',')}`;
+        if ((hasId && seenIds.has(s.id)) || seenKeys.has(key)) return; // skip duplicate
+        if (hasId) seenIds.add(s.id);
+        seenKeys.add(key);
+        merged.push(s);
+      });
+      return merged;
+    };
+
+    let allSessions = [];
+    // 1. Load global workoutSessions
     const stored = localStorage.getItem('workoutSessions');
     if (stored) {
-      const parsed = JSON.parse(stored);
-      setSessions(parsed);
-      setSelectedSessionIndex(parsed.length - 1);
+      try { allSessions = JSON.parse(stored); } catch(e) { allSessions = []; }
+    }
+    // 2. Merge client-specific coach-logged sessions for logged-in user
+    const clientSpecificRaw = localStorage.getItem(`client_${loggedInKey}_workoutSessions`);
+    if (clientSpecificRaw) {
+      try {
+        const clientSpecific = JSON.parse(clientSpecificRaw);
+        allSessions = mergeAndDedupeSessions(allSessions, clientSpecific);
+      } catch(e) {}
+    }
+    // 3. Scan all keys for any coach-logged sessions for this user
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('client_') && key.endsWith('_workoutSessions') && key !== `client_${loggedInKey}_workoutSessions`) {
+        try {
+          const partSessions = JSON.parse(localStorage.getItem(key) || '[]');
+          const relevant = partSessions.filter(s =>
+            s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === loggedInKey
+          );
+          if (relevant.length > 0) allSessions = mergeAndDedupeSessions(allSessions, relevant);
+        } catch(e) {}
+      }
+    }
+
+    if (allSessions.length > 0) {
+      localStorage.setItem('workoutSessions', JSON.stringify(allSessions));
+      setSessions(allSessions);
+      setSelectedSessionIndex(allSessions.length - 1);
     } else {
-      // Keep default historical sessions intact for Sridhar (existing client),
-      // freshman users (like the logged-in user) start with 0 logged sessions.
       if (loggedInUser.toLowerCase() === 'sridhar') {
         localStorage.setItem('workoutSessions', JSON.stringify(defaultHistoricalSessions));
         setSessions(defaultHistoricalSessions);
@@ -382,40 +432,23 @@ const WorkoutTracker = () => {
     const storedProfiles = localStorage.getItem('workoutClientProfiles');
     if (storedProfiles) {
       const parsedProfiles = JSON.parse(storedProfiles);
-      // Ensure the logged in user has a profile in the list
       const hasProfile = parsedProfiles.some(p => p.clientName.toLowerCase() === loggedInUser.toLowerCase());
       if (!hasProfile) {
         const onboardingGoal = localStorage.getItem('userGoal') || 'Gut Fix';
         let programName = 'Body Weights & Dumbbells';
-        if (onboardingGoal.includes('Fat Loss')) {
-          programName = 'Caloric Deficit Conditioning';
-        } else if (onboardingGoal.includes('Muscle Building')) {
-          programName = 'Hypertrophy Surge';
-        } else if (onboardingGoal.includes('Gut Fix')) {
-          programName = 'Body Weights & Dumbbells';
-        }
+        if (onboardingGoal.includes('Fat Loss')) programName = 'Caloric Deficit Conditioning';
+        else if (onboardingGoal.includes('Muscle Building')) programName = 'Hypertrophy Surge';
         const matchedProg = availablePrograms.find(ap => ap.name === programName) || availablePrograms[0];
-        
-        parsedProfiles.unshift({
-          clientName: loggedInUser,
-          activeProgram: matchedProg.name,
-          totalSessions: matchedProg.sessions
-        });
+        parsedProfiles.unshift({ clientName: loggedInUser, activeProgram: matchedProg.name, totalSessions: matchedProg.sessions });
         localStorage.setItem('workoutClientProfiles', JSON.stringify(parsedProfiles));
       }
       setClientProfiles(parsedProfiles);
     } else {
       const onboardingGoal = localStorage.getItem('userGoal') || 'Gut Fix';
       let programName = 'Body Weights & Dumbbells';
-      if (onboardingGoal.includes('Fat Loss')) {
-        programName = 'Caloric Deficit Conditioning';
-      } else if (onboardingGoal.includes('Muscle Building')) {
-        programName = 'Hypertrophy Surge';
-      } else if (onboardingGoal.includes('Gut Fix')) {
-        programName = 'Body Weights & Dumbbells';
-      }
+      if (onboardingGoal.includes('Fat Loss')) programName = 'Caloric Deficit Conditioning';
+      else if (onboardingGoal.includes('Muscle Building')) programName = 'Hypertrophy Surge';
       const matchedProg = availablePrograms.find(ap => ap.name === programName) || availablePrograms[0];
-
       const freshProfiles = [
         { clientName: loggedInUser, activeProgram: matchedProg.name, totalSessions: matchedProg.sessions },
         { clientName: 'Sridhar', activeProgram: 'Body Weights & Dumbbells', totalSessions: 12 },
@@ -464,6 +497,24 @@ const WorkoutTracker = () => {
     }
     return () => clearInterval(interval);
   }, [restTimerActive, restSecondsRemaining]);
+
+  // Listen for coach live-session saves and merge new sessions in real-time
+  useEffect(() => {
+    const onCoachSaved = (e) => {
+      const { session } = e.detail || {};
+      if (!session) return;
+      setSessions(prev => {
+        const alreadyExists = prev.some(s => s.id === session.id);
+        if (alreadyExists) return prev;
+        const updated = [...prev, session];
+        localStorage.setItem('workoutSessions', JSON.stringify(updated));
+        return updated;
+      });
+      setHistoryExpandedDate(session.id); // auto-expand the new session
+    };
+    window.addEventListener('workoutSessionsUpdated', onCoachSaved);
+    return () => window.removeEventListener('workoutSessionsUpdated', onCoachSaved);
+  }, []);
 
   const formatStopwatchTime = (totalSeconds) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -805,7 +856,8 @@ const WorkoutTracker = () => {
       clientName: logClient,
       date: logDate,
       exercises: formattedExercises,
-      duration: summaryStats?.duration || '00:15'
+      duration: summaryStats?.duration || '00:15',
+      planName: templateName.trim() || 'Custom Routine'
     };
 
     const updated = [...sessions, newSession];
@@ -921,8 +973,17 @@ const WorkoutTracker = () => {
 
   // Renew client sessions package
   const renewSessionPackage = () => {
-    setActiveView('programs');
-    triggerToast(`Select a coaching program below to renew ${selectedClient}'s package!`);
+    const updatedProfiles = clientProfiles.map(p => {
+      if (p.clientName.toLowerCase() === selectedClient.toLowerCase()) {
+        return {
+          ...p,
+          totalSessions: (p.totalSessions || 12) + 12
+        };
+      }
+      return p;
+    });
+    saveProfilesToLocal(updatedProfiles);
+    triggerToast(`Package renewed! Appended +12 sessions for ${selectedClient}.`);
   };
 
   return (
@@ -942,12 +1003,6 @@ const WorkoutTracker = () => {
           onClick={() => setActiveView('analytics')}
         >
           📈 Charts & Progress
-        </button>
-        <button 
-          className={`tab-item-btn ${activeView === 'programs' ? 'active' : ''}`}
-          onClick={() => setActiveView('programs')}
-        >
-          🏆 Coaching Programs
         </button>
         <button 
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
@@ -1217,108 +1272,210 @@ const WorkoutTracker = () => {
             </div>
           )}
 
-          {/* Selected Session detail viewer */}
-          {displayedSessions[selectedSessionIndex] && (() => {
-            const currentSelSession = displayedSessions[selectedSessionIndex];
-            let totalVol = 0;
-            let totalSetsCount = 0;
-            currentSelSession.exercises.forEach(ex => {
-              ex.sets.forEach(s => {
-                totalVol += (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
-                totalSetsCount += 1;
-              });
-            });
+          {/* ─── WORKOUT HISTORY CALENDAR ─── */}
+          <div className="session-detail-card glass-panel" style={{ marginTop: '16px' }}>
+            <div className="detail-header" style={{ marginBottom: '12px' }}>
+              <h3>📅 Workout History</h3>
+              <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--primary-accent-light)', borderRadius: '20px', padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700 }}>
+                {clientSessions.length} session{clientSessions.length !== 1 ? 's' : ''} logged
+              </span>
+            </div>
 
-            return (
-              <div className="session-detail-card glass-panel">
-                <div className="detail-header">
-                  <h3>Workout Summary Details</h3>
-                  <span className="badge">{currentSelSession.date}</span>
-                </div>
-
-                <div className="summary-stats-grid" style={{ marginBottom: '16px', marginTop: '4px' }}>
-                  <div className="stat-card">
-                    <span>⏱️ TIME COMPLETED</span>
-                    <strong>{currentSelSession.duration || '45:00'}</strong>
-                  </div>
-                  <div className="stat-card">
-                    <span>🏋️‍♂️ TOTAL LIFTED</span>
-                    <strong>{totalVol.toLocaleString('en-IN', { maximumFractionDigits: 1 })} kg</strong>
-                  </div>
-                  <div className="stat-card">
-                    <span>✓ SETS COMPLETED</span>
-                    <strong>{totalSetsCount}</strong>
-                  </div>
-                </div>
-                
-                <div className="logged-exercises-list">
-                  {currentSelSession.exercises.map((ex, exIdx) => {
-                    const unit = getExerciseUnit(ex.name);
-                    const isCurrentTarget = ex.name.toLowerCase() === selectedExercise.toLowerCase();
-                    return (
-                      <div key={exIdx} className={`logged-ex-row ${isCurrentTarget ? 'highlighted-ex' : ''}`}>
-                        <div className="ex-summary-left">
-                          <span className="ex-dot"></span>
-                          <div className="ex-info">
-                            <h5>{ex.name}</h5>
-                            <p>{ex.sets.length} active sets logged</p>
-                          </div>
-                        </div>
-                        <div className="ex-summary-right">
-                          {ex.sets.map((set, sIdx) => (
-                            <span key={sIdx} className="set-pill-summary">
-                              Set {sIdx + 1}: <strong>{set.reps} reps</strong> @ <strong>{set.weight}{unit}</strong>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {activeView === 'programs' && (
-        <div className="programs-view-wrapper">
-          <div className="screen-info-intro glass-panel">
-            <h3>🏆 Premium Coaching Programs</h3>
-            <p>Enroll in a curated strength progression track to customize your session goals and targets.</p>
-          </div>
-
-          <div className="programs-grid-layout">
-            {availablePrograms.map(prog => {
-              const isEnrolled = activeProfile.activeProgram.toLowerCase() === prog.name.toLowerCase();
+            {/* ── Mini Calendar ── */}
+            {clientSessions.length > 0 && (() => {
+              const workoutDates = new Set(clientSessions.map(s => s.date));
+              const year = calendarMonth.year;
+              const month = calendarMonth.month;
+              const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              const todayStr = new Date().toISOString().split('T')[0];
+              const monthName = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              const cells = [];
+              for (let i = 0; i < firstDay; i++) cells.push(null);
+              for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+              const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
               return (
-                <div key={prog.id} className={`program-glass-card ${isEnrolled ? 'active-program-card' : ''}`}>
-                  <div className="program-card-header">
-                    <div className="prog-title-group">
-                      <h4>{prog.name}</h4>
-                      <span className="difficulty-badge">{prog.difficulty}</span>
-                    </div>
-                    <span className="sessions-indicator">{prog.price} • {prog.sessions} Sessions</span>
+                <div style={{ marginBottom: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', padding: '12px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {/* Month nav */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <button onClick={() => setCalendarMonth(prev => {
+                      let m = prev.month - 1, y = prev.year;
+                      if (m < 0) { m = 11; y -= 1; }
+                      return { year: y, month: m };
+                    })} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer', padding: '0 8px' }}>‹</button>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>{monthName}</span>
+                    <button onClick={() => setCalendarMonth(prev => {
+                      let m = prev.month + 1, y = prev.year;
+                      if (m > 11) { m = 0; y += 1; }
+                      return { year: y, month: m };
+                    })} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer', padding: '0 8px' }}>›</button>
                   </div>
-                  <p className="program-desc">{prog.desc}</p>
-                  <div className="program-card-footer">
-                    <span className="focus-lbl">🎯 Focus: {prog.focus}</span>
-                    <button 
-                      className={`btn-select-program-action ${isEnrolled ? 'renew' : ''}`}
-                      onClick={() => {
-                        setPaymentProgram(prog);
-                        setShowPaymentModal(true);
-                      }}
-                    >
-                      {isEnrolled ? '💳 Renew Program' : 'Select Program'}
-                    </button>
+                  {/* Day labels */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
+                    {DAY_LABELS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 700, padding: '2px 0' }}>{d}</div>)}
+                  </div>
+                  {/* Day cells */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' }}>
+                    {cells.map((day, idx) => {
+                      if (!day) return <div key={`empty-${idx}`} />;
+                      const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                      const hasWorkout = workoutDates.has(dateStr);
+                      const isToday = dateStr === todayStr;
+                      // Find matching sessions
+                      const matchSessions = clientSessions.filter(s => s.date === dateStr);
+                      const isSelected = matchSessions.some(s => {
+                        const key = s.id || `${s.date}-${s.clientName}`;
+                        return historyExpandedDate === key;
+                      });
+                      return (
+                        <div
+                          key={dateStr}
+                          onClick={() => {
+                            if (!hasWorkout) return;
+                            // Toggle: if any session of this date is expanded, collapse; else expand first
+                            if (isSelected) {
+                              setHistoryExpandedDate(null);
+                            } else {
+                              const firstSess = matchSessions[0];
+                              const key = firstSess.id || `${firstSess.date}-${firstSess.clientName}`;
+                              setHistoryExpandedDate(key);
+                            }
+                          }}
+                          style={{
+                            position: 'relative',
+                            textAlign: 'center',
+                            padding: '5px 2px',
+                            borderRadius: '8px',
+                            fontSize: '0.72rem',
+                            fontWeight: isToday || hasWorkout ? 700 : 400,
+                            color: isSelected ? '#fff' : isToday ? 'var(--primary-accent-light)' : hasWorkout ? '#d1fae5' : 'var(--text-muted)',
+                            background: isSelected ? 'rgba(16,185,129,0.3)' : isToday ? 'rgba(16,185,129,0.08)' : 'transparent',
+                            border: isToday ? '1px solid rgba(16,185,129,0.3)' : '1px solid transparent',
+                            cursor: hasWorkout ? 'pointer' : 'default',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {day}
+                          {hasWorkout && (
+                            <span style={{ display: 'block', width: '4px', height: '4px', borderRadius: '50%', background: isSelected ? '#fff' : 'var(--primary-accent-light)', margin: '2px auto 0' }} />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
-            })}
+            })()}
+
+            {clientSessions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🏋️‍♂️</div>
+                <p style={{ fontSize: '0.85rem' }}>No sessions logged yet.</p>
+                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Complete a workout or ask your coach to log a live session!</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[...clientSessions].reverse().map((sess) => {
+                  const sessKey = sess.id || `${sess.date}-${sess.clientName}`;
+                  const isExpanded = historyExpandedDate === sessKey;
+                  let totalVol = 0, totalSets = 0;
+                  sess.exercises.forEach(ex => ex.sets.forEach(s => {
+                    totalVol += (parseFloat(s.weight)||0) * (parseInt(s.reps)||0);
+                    totalSets += 1;
+                  }));
+                  const dateLabel = new Date(sess.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                  const isToday = sess.date === new Date().toISOString().split('T')[0];
+                  const isCoachLogged = sess.loggedByCoach;
+                  const planName = sess.planName || (isCoachLogged ? 'Coach Session' : 'Workout Session');
+
+                  return (
+                    <div key={sessKey} style={{
+                      background: isExpanded ? 'rgba(16,185,129,0.06)' : 'rgba(0,0,0,0.15)',
+                      border: isExpanded ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden',
+                      transition: 'all 0.2s ease'
+                    }}>
+
+                      {/* Session Header */}
+                      <div onClick={() => setHistoryExpandedDate(isExpanded ? null : sessKey)}
+                        style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          {/* Workout Name (Plan Name) */}
+                          <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#fff', marginBottom: '2px' }}>{planName}</div>
+                          {/* Date */}
+                          <div style={{ fontSize: '0.73rem', color: isToday ? 'var(--primary-accent-light)' : 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
+                            📅 {dateLabel}{isToday ? ' · Today' : ''}
+                          </div>
+                          {/* Badges */}
+                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                            {isCoachLogged && (
+                              <span style={{ fontSize: '0.6rem', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>👨‍🏫 Coach</span>
+                            )}
+                            <span style={{ fontSize: '0.6rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>{totalSets} sets</span>
+                            <span style={{ fontSize: '0.6rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>{totalVol.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</span>
+                            <span style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', padding: '1px 7px', borderRadius: '20px' }}>{sess.exercises.length} exercises</span>
+                          </div>
+                        </div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 800, marginLeft: '8px', paddingTop: '2px' }}>{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+
+                      {/* Expanded Detail */}
+                      {isExpanded && (
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px' }}>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                            <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
+                              <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>⏱ Duration</div>
+                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fff', marginTop:'2px' }}>{sess.duration || '—'}</div>
+                            </div>
+                            <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
+                              <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>🏋️ Lifted</div>
+                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'var(--primary-accent-light)', marginTop:'2px' }}>{totalVol.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</div>
+                            </div>
+                            <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
+                              <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>✓ Sets</div>
+                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#60a5fa', marginTop:'2px' }}>{totalSets}</div>
+                            </div>
+                          </div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                            {sess.exercises.map((ex, exIdx) => (
+                              <div key={exIdx} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'8px', padding:'10px 12px' }}>
+                                <div style={{ fontWeight:700, fontSize:'0.82rem', color:'#fff', marginBottom:'8px' }}>{ex.name}</div>
+                                <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                                  <thead><tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Set</th>
+                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Weight</th>
+                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Reps</th>
+                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Vol</th>
+                                  </tr></thead>
+                                  <tbody>
+                                    {ex.sets.map((set, sIdx) => (
+                                      <tr key={sIdx} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding:'4px 0', fontSize:'0.72rem' }}>
+                                          <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:'17px', height:'17px', borderRadius:'50%', background:'rgba(255,255,255,0.08)', fontSize:'0.62rem', fontWeight:800, color:'#fff' }}>{sIdx+1}</span>
+                                        </td>
+                                        <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.weight} kg</td>
+                                        <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
+                                        <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
+
+
 
       {activeView === 'log' && !isLoggingWorkout && (
         <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>

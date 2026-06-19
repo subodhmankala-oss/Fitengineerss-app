@@ -1,8 +1,242 @@
 import React, { useState, useEffect, useRef } from 'react';
-import databaseService from '../services/databaseService';
+import databaseService, { isSuperAdmin } from '../services/databaseService';
 import './TrainerDashboard.css';
 
+// Comprehensive A-Z Exercise Library (150+ exercises)
+const LIVE_EXERCISE_LIST = [
+  // A
+  'Ab Wheel Rollout',
+  'Arnold Press',
+  'Around the World (Chest)',
+  'Assisted Pull-up',
+  'Assisted Dip',
+  // B
+  'Back Extension',
+  'Ball Slam',
+  'Band Pull Apart',
+  'Barbell Curl',
+  'Barbell Hip Thrust',
+  'Barbell Row',
+  'Barbell Shrug',
+  'Barbell Squat',
+  'Behind Neck Press',
+  'Bench Press',
+  'Bent Over Dumbbell Row',
+  'Bent Over Row (Barbell)',
+  'Bicep Curl (Cable)',
+  'Bicep Curl (Dumbbell)',
+  'Box Jump',
+  'Box Squat',
+  'Bulgarian Split Squat',
+  'Burpee',
+  // C
+  'Cable Crossover',
+  'Cable Crunch',
+  'Cable Curl',
+  'Cable Fly',
+  'Cable Kickback',
+  'Cable Lateral Raise',
+  'Cable Overhead Triceps Extension',
+  'Cable Pull Through',
+  'Cable Row (Seated)',
+  'Calf Raise (Machine)',
+  'Calf Raise (Standing)',
+  'Chest Dip',
+  'Chest Fly (Dumbbell)',
+  'Chest Press (Machine)',
+  'Chin-up',
+  'Clean and Press',
+  'Close Grip Bench Press',
+  'Concentration Curl',
+  'Crunch',
+  'Curtsy Lunge',
+  // D
+  'Dead Bug',
+  'Deadlift',
+  'Deadlift (Sumo)',
+  'Decline Bench Press',
+  'Decline Crunch',
+  'Deficit Push-up',
+  'Diamond Push-up',
+  'Dip',
+  'Dumbbell Curl',
+  'Dumbbell Fly',
+  'Dumbbell Lunge',
+  'Dumbbell Press (Incline)',
+  'Dumbbell Press (Seated)',
+  'Dumbbell Row',
+  'Dumbbell Shrug',
+  'Dumbbell Squat',
+  // E
+  'EZ Bar Curl',
+  'EZ Bar Skullcrusher',
+  // F
+  'Face Pull',
+  'Face Pull (Cable)',
+  'Farmer Walk',
+  'Floor Press',
+  'Front Raise',
+  'Front Raise (Barbell)',
+  'Front Squat',
+  // G
+  'Glute Bridge',
+  'Glute Kickback',
+  'Goblet Squat',
+  'Good Morning',
+  // H
+  'Hack Squat',
+  'Hammer Curl',
+  'Hanging Knee Raise',
+  'Hanging Leg Raise',
+  'High Cable Curl',
+  'High Row (Machine)',
+  'Hip Abduction (Machine)',
+  'Hip Adduction (Machine)',
+  'Hip Thrust',
+  'Hyperextension',
+  // I
+  'Incline Barbell Press',
+  'Incline Dumbbell Curl',
+  'Incline Dumbbell Press',
+  'Incline Dumbbell Row',
+  'Incline Push-up',
+  // J
+  'Jump Squat',
+  'Jumping Jack',
+  // K
+  'Kettlebell Swing',
+  'Kettlebell Goblet Squat',
+  'Kneeling Cable Crunch',
+  // L
+  'Lat Pulldown',
+  'Lat Pulldown (Close Grip)',
+  'Lat Pulldown (Wide Grip)',
+  'Lateral Raise',
+  'Lateral Raise (Cable)',
+  'Lateral Raise (Machine)',
+  'Leg Curl (Lying)',
+  'Leg Curl (Seated)',
+  'Leg Extension',
+  'Leg Press',
+  'Leg Press (Narrow Stance)',
+  'Low Cable Row',
+  'Lunge',
+  'Lying Triceps Extension',
+  // M
+  'Military Press',
+  'Mountain Climber',
+  // N
+  'Neutral Grip Pull-up',
+  // O
+  'Oblique Crunch',
+  'One Arm Cable Row',
+  'One Arm Dumbbell Row',
+  'Overhead Press (Barbell)',
+  'Overhead Press (Dumbbell)',
+  'Overhead Triceps Extension',
+  // P
+  'Pec Deck Fly',
+  'Pendlay Row',
+  'Plank',
+  'Plank (Side)',
+  'Preacher Curl',
+  'Press (Smith Machine)',
+  'Pull-up',
+  'Push-up',
+  'Push-up (Wide Grip)',
+  // R
+  'Rack Pull',
+  'Rear Delt Fly',
+  'Rear Delt Fly (Cable)',
+  'Rear Delt Fly (Machine)',
+  'Reverse Curl',
+  'Reverse Fly',
+  'Reverse Lunge',
+  'Romanian Deadlift',
+  'Romanian Deadlift (Dumbbell)',
+  'Russian Twist',
+  // S
+  'Seated Cable Row',
+  'Seated Calf Raise',
+  'Seated Dumbbell Curl',
+  'Seated Leg Curl',
+  'Seated Row (Machine)',
+  'Shoulder Press (Barbell)',
+  'Shoulder Press (Dumbbell)',
+  'Shoulder Press (Machine)',
+  'Shrug',
+  'Shrug (Barbell)',
+  'Shrug (Dumbbell)',
+  'Side Lateral Raise',
+  'Single Leg Deadlift',
+  'Single Leg Press',
+  'Skullcrusher',
+  'Smith Machine Squat',
+  'Split Squat',
+  'Squat',
+  'Step-up',
+  'Stiff Leg Deadlift',
+  'Straight Bar Curl',
+  'Sumo Deadlift',
+  'Superman',
+  // T
+  'T-Bar Row',
+  'Triceps Dip',
+  'Triceps Extension (Cable)',
+  'Triceps Extension (Dumbbell)',
+  'Triceps Kickback',
+  'Triceps Pushdown',
+  'Triceps Rope Pushdown',
+  // U
+  'Upright Row (Barbell)',
+  'Upright Row (Cable)',
+  'Upright Row (Dumbbell)',
+  // V
+  'V Up',
+  'V-Bar Pulldown',
+  // W
+  'Wide Grip Pull-up',
+  'Wrist Curl',
+  // Z
+  'Zercher Squat',
+];
+
 const TrainerDashboard = ({ handleLogout }) => {
+  const loggedInEmail = localStorage.getItem('userEmail') || '';
+  const superAdmin = isSuperAdmin(loggedInEmail);
+  const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
+  const [coachesList, setCoachesList] = useState([]);
+  const [platformStats, setPlatformStats] = useState({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
+  const [loadingAdmin, setLoadingAdmin] = useState(false);
+
+  const fetchAdminData = async () => {
+    if (!superAdmin) return;
+    setLoadingAdmin(true);
+    try {
+      const coaches = await databaseService.getAllCoaches();
+      const stats = await databaseService.getPlatformStats();
+      setCoachesList(coaches || []);
+      setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
+    } catch (e) {
+      console.error('Error fetching admin data:', e);
+    } finally {
+      setLoadingAdmin(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === 'admin') {
+      fetchAdminData();
+    }
+  }, [viewMode]);
+
+  const handleToggleCoachPayment = async (coach) => {
+    const nextStatus = coach.payment_status === 'active' ? 'failed' : 'active';
+    const updated = { ...coach, payment_status: nextStatus };
+    await databaseService.saveCoachProfile(updated);
+    fetchAdminData();
+  };
+
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -10,7 +244,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
-  const [detailTab, setDetailTab] = useState('workout'); // 'workout' or 'chat'
+  const [detailTab, setDetailTab] = useState('workout'); // 'workout', 'plans', 'chat', 'livelog'
   
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
@@ -35,7 +269,161 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Workout history states
   const [workoutLogs, setWorkoutLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  
+
+  // ─── Live Session Logger States ───
+  const [liveDate, setLiveDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [liveExercises, setLiveExercises] = useState([
+    { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
+  ]);
+  const [livePlanName, setLivePlanName] = useState('Live Routine');
+  const [liveCustomExercise, setLiveCustomExercise] = useState('');
+  const [liveSaving, setLiveSaving] = useState(false);
+  const [liveToast, setLiveToast] = useState('');
+
+  const triggerLiveToast = (msg) => {
+    setLiveToast(msg);
+    setTimeout(() => setLiveToast(''), 3500);
+  };
+
+  const handleLiveAddExercise = (name) => {
+    setLiveExercises(prev => [
+      ...prev,
+      { name, sets: [{ reps: '10', weight: '20', isCompleted: false }] }
+    ]);
+  };
+
+  const handleLiveAddSet = (exIdx) => {
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
+      return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: last.weight, isCompleted: false }] };
+    }));
+  };
+
+  const handleLiveRemoveSet = (exIdx, setIdx) => {
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return { ...ex, sets: ex.sets.filter((_, si) => si !== setIdx) };
+    }));
+  };
+
+  const handleLiveSetChange = (exIdx, setIdx, field, value) => {
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => si === setIdx ? { ...s, [field]: value } : s)
+      };
+    }));
+  };
+
+  const handleLiveToggleSet = (exIdx, setIdx) => {
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => si === setIdx ? { ...s, isCompleted: !s.isCompleted } : s)
+      };
+    }));
+  };
+
+  const handleLiveRemoveExercise = (exIdx) => {
+    setLiveExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+  };
+
+  const handleSaveLiveSession = async () => {
+    if (!selectedClient) return;
+    const totalSets = liveExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+    if (totalSets === 0) {
+      triggerLiveToast('⚠️ Add at least one exercise set before saving.');
+      return;
+    }
+    setLiveSaving(true);
+    try {
+      // Build session object - only save completed sets, or all if none ticked
+      const completedCount = liveExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
+      const formattedExercises = liveExercises.map(ex => ({
+        name: ex.name,
+        sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
+          reps: parseInt(s.reps) || 0,
+          weight: parseFloat(s.weight) || 0
+        }))
+      })).filter(ex => ex.sets.length > 0);
+
+      const session = {
+        id: `coach-live-${Date.now()}`,
+        clientName: selectedClient.userName,
+        clientId: selectedClient.id,
+        date: liveDate,
+        exercises: formattedExercises,
+        loggedByCoach: true,
+        planName: livePlanName || 'Live Routine'
+      };
+
+      await databaseService.saveWorkoutSession(session);
+
+      // Save/update the workout plan template
+      if (livePlanName.trim()) {
+        try {
+          const existingPlans = await databaseService.getWorkoutPlansForUser(selectedClient.id);
+          const match = existingPlans?.find(p => p.planName.toLowerCase() === livePlanName.trim().toLowerCase());
+          const plan = {
+            id: match?.id,
+            userId: selectedClient.id,
+            planName: livePlanName.trim(),
+            exercises: liveExercises.map(ex => ({
+              name: ex.name,
+              sets: ex.sets.map(s => ({ reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }))
+            })),
+            createdBy: 'coach'
+          };
+          await databaseService.saveWorkoutPlan(plan);
+          fetchClientPlans(selectedClient.id);
+        } catch(errPlan) {
+          console.error('Error auto-saving workout plan template:', errPlan);
+        }
+      }
+
+      // Also update the client's own workoutSessions in localStorage for immediate dashboard refresh
+      const clientKey = selectedClient.userName.toLowerCase().replace(/\s+/g, '');
+      const existingRaw = localStorage.getItem(`client_${clientKey}_workoutSessions`);
+      const existingSessions = existingRaw ? JSON.parse(existingRaw) : [];
+      existingSessions.push(session);
+      localStorage.setItem(`client_${clientKey}_workoutSessions`, JSON.stringify(existingSessions));
+      // Also update global workoutSessions
+      const globalRaw = localStorage.getItem('workoutSessions');
+      let globalSessions = [];
+      if (globalRaw) {
+        try { globalSessions = JSON.parse(globalRaw); } catch(e) {}
+      }
+      // Avoid duplicate: only add if not already there
+      const alreadyInGlobal = globalSessions.some(s => s.id === session.id);
+      if (!alreadyInGlobal) {
+        globalSessions.push(session);
+        localStorage.setItem('workoutSessions', JSON.stringify(globalSessions));
+      }
+      // Dispatch event so WorkoutTracker refreshes its session list
+      window.dispatchEvent(new StorageEvent('storage', { key: 'workoutSessions', newValue: JSON.stringify(globalSessions) }));
+      window.dispatchEvent(new CustomEvent('workoutSessionsUpdated', { detail: { clientKey, session } }));
+
+      triggerLiveToast('✅ Workout session saved for ' + selectedClient.userName + '!');
+      // Refresh workout history
+      const logs = await databaseService.getWorkoutLogsForUser(selectedClient.id);
+      setWorkoutLogs(groupLogs(logs || []));
+      // Reset exercises for next session
+      setLiveExercises([
+        { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
+      ]);
+      setLivePlanName('Live Routine');
+      setLiveDate(new Date().toISOString().split('T')[0]);
+    } catch(e) {
+      console.error('Error saving live session:', e);
+      triggerLiveToast('❌ Failed to save session. Please try again.');
+    } finally {
+      setLiveSaving(false);
+    }
+  };
+
   // Chat states
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -71,10 +459,82 @@ const TrainerDashboard = ({ handleLogout }) => {
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {
+      // 1. Get flat logs from database service (Supabase or localStorage via id)
       const logs = await databaseService.getWorkoutLogsForUser(client.id);
-      
-      // Group flat logs array by Date and then by Exercise Name
-      const grouped = groupLogs(logs || []);
+
+      // 2. Also pull from client-specific localStorage key by userName (coach-logged sessions)
+      const clientKey = (client.userName || client.id || '').toLowerCase().replace(/\s+/g, '');
+      const extraKeys = [`client_${clientKey}_workoutSessions`, `client_${client.id}_workoutSessions`];
+      const extraLogs = [];
+      extraKeys.forEach(key => {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const sessions = JSON.parse(raw);
+            sessions.forEach(sess => {
+              if (sess.exercises) {
+                sess.exercises.forEach(ex => {
+                  if (ex.sets) {
+                    ex.sets.forEach((set, sIdx) => {
+                      extraLogs.push({
+                        log_date: sess.date,
+                        exercise_name: ex.name,
+                        set_number: sIdx + 1,
+                        reps: parseInt(set.reps || '0'),
+                        weight_kg: parseFloat(set.weight || '0'),
+                        loggedByCoach: sess.loggedByCoach
+                      });
+                    });
+                  }
+                });
+              }
+            });
+          }
+        } catch(e) {}
+      });
+
+      // 3. Also scan global workoutSessions filtered by this client
+      try {
+        const globalRaw = localStorage.getItem('workoutSessions');
+        if (globalRaw) {
+          const allSessions = JSON.parse(globalRaw);
+          allSessions
+            .filter(s => s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === clientKey)
+            .forEach(sess => {
+              if (sess.exercises) {
+                sess.exercises.forEach(ex => {
+                  if (ex.sets) {
+                    ex.sets.forEach((set, sIdx) => {
+                      extraLogs.push({
+                        log_date: sess.date,
+                        exercise_name: ex.name,
+                        set_number: sIdx + 1,
+                        reps: parseInt(set.reps || '0'),
+                        weight_kg: parseFloat(set.weight || '0'),
+                        loggedByCoach: sess.loggedByCoach
+                      });
+                    });
+                  }
+                });
+              }
+            });
+        }
+      } catch(e) {}
+
+      // 4. Merge and dedupe by date+exercise+set_number
+      const allLogs = [...(logs || [])];
+      extraLogs.forEach(el => {
+        const dup = allLogs.find(l =>
+          l.log_date === el.log_date &&
+          l.exercise_name === el.exercise_name &&
+          l.set_number === el.set_number &&
+          l.reps === el.reps &&
+          l.weight_kg === el.weight_kg
+        );
+        if (!dup) allLogs.push(el);
+      });
+
+      const grouped = groupLogs(allLogs);
       setWorkoutLogs(grouped);
 
       // Load client plans
@@ -306,9 +766,28 @@ const TrainerDashboard = ({ handleLogout }) => {
     <div className="trainer-dashboard-container animate-scale-in">
       {/* Top Header */}
       <div className="trainer-header">
-        <div className="trainer-title-group">
-          <h3>Fitengineers Portal</h3>
-          <div className="trainer-subtitle">Coach Dashboard</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img 
+            src="/logo.png" 
+            alt="Fitengineers Logo" 
+            style={{ 
+              height: '42px', 
+              width: 'auto', 
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))'
+            }} 
+          />
+          <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ margin: 0, lineHeight: 1.2 }}>Coach Dashboard</h3>
+            <span style={{ 
+              fontSize: '0.85rem', 
+              color: 'var(--text-muted)', 
+              fontWeight: 600,
+              marginTop: '3px'
+            }}>
+              {localStorage.getItem('userName') || 'Coach Subodh'}
+            </span>
+          </div>
         </div>
         <button className="logout-btn-trainer" onClick={handleLogout}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -320,258 +799,1072 @@ const TrainerDashboard = ({ handleLogout }) => {
         </button>
       </div>
 
-      {!selectedClient ? (
-        // Client Directory Screen
-        <div className="client-directory-view">
-          <div className="search-filter-box">
-            <input
-              type="text"
-              className="trainer-search-input"
-              placeholder="🔍 Search client by name or email..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-            <div className="filter-tags">
-              {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
-                <button
-                  key={goal}
-                  className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
-                  onClick={() => setGoalFilter(goal)}
-                >
-                  {goal}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <h4 className="client-directory-title">
-            Clients ({filteredClients.length})
-          </h4>
-
-          {loadingClients ? (
-            <div className="trainer-loading-container">
-              <div className="trainer-spinner"></div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading client directory...</p>
-            </div>
-          ) : filteredClients.length === 0 ? (
-            <div className="trainer-empty-state">
-              <div className="trainer-empty-icon">👥</div>
-              <h5>No Clients Found</h5>
-              <p>Try refining your search query or selecting a different goal category tag filter.</p>
-            </div>
-          ) : (
-            <div className="clients-list">
-              {filteredClients.map(client => (
-                <div 
-                  key={client.id} 
-                  className="client-card"
-                  onClick={() => handleSelectClient(client)}
-                >
-                  <div className="client-main-info">
-                    <div 
-                      className="client-avatar"
-                      style={{ backgroundColor: getAvatarColor(client.userName) }}
-                    >
-                      {getAvatarInitials(client.userName)}
-                    </div>
-                    <div>
-                      <div className="client-name">{client.userName}</div>
-                      <div className="client-email">{client.email}</div>
-                      {client.userGoal && (
-                        <span className={`client-goal-badge ${client.userGoal.toLowerCase().replace(/\s+/g, '-')}`}>
-                          {client.userGoal}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="client-card-chevron">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {superAdmin && (
+        <div className="trainer-view-selector" style={{
+          display: 'flex',
+          gap: '12px',
+          padding: '0 16px',
+          marginBottom: '16px',
+          borderBottom: '1px solid var(--border-color)',
+          overflowX: 'auto'
+        }}>
+          <button 
+            className={`view-selector-btn ${viewMode === 'coach' ? 'active' : ''}`}
+            onClick={() => {
+              setViewMode('coach');
+              setSelectedClient(null);
+            }}
+            style={{
+              padding: '12px 16px',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              color: viewMode === 'coach' ? 'var(--primary-accent-light)' : 'var(--text-muted)',
+              borderBottom: viewMode === 'coach' ? '2px solid var(--primary-accent-light)' : 'none',
+              background: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            👥 My Clients
+          </button>
+          <button 
+            className={`view-selector-btn ${viewMode === 'admin' ? 'active' : ''}`}
+            onClick={() => {
+              setViewMode('admin');
+              setSelectedClient(null);
+            }}
+            style={{
+              padding: '12px 16px',
+              fontSize: '0.85rem',
+              fontWeight: '700',
+              color: viewMode === 'admin' ? 'var(--primary-accent-light)' : 'var(--text-muted)',
+              borderBottom: viewMode === 'admin' ? '2px solid var(--primary-accent-light)' : 'none',
+              background: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            🛡️ Platform Admin
+          </button>
         </div>
-      ) : (
-        // Client Detail & Workout Logs Screen
-        <div className="client-detail-view animate-scale-in">
-          {/* Back button and profile title */}
-          <div className="client-detail-header">
-            <button className="back-btn-trainer" onClick={() => setSelectedClient(null)}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
+      )}
+
+      {viewMode === 'admin' ? (
+        <div className="platform-admin-view animate-scale-in" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>Platform-wide Performance</h4>
+            <button 
+              onClick={fetchAdminData} 
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border-color)',
+                color: '#fff',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+            >
+              🔄 Refresh Data
             </button>
-            <div className="client-detail-header-info">
-              <h4>{selectedClient.userName}</h4>
-              <span>{selectedClient.email}</span>
-            </div>
           </div>
 
-          {/* Client Targets Grid */}
-          <div className="client-metrics-grid">
-            <div className="metric-mini-card">
-              <div className="metric-mini-label">Fitness Goal</div>
-              <div className="metric-mini-value" style={{ fontSize: '0.8rem', color: 'var(--primary-accent-light)' }}>
-                {selectedClient.userGoal || 'Not set'}
+          {/* Stats Grid */}
+          <div className="admin-stats-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '12px'
+          }}>
+            <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.15)' }}>
+              <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Workouts (This Week)</div>
+              <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: 'var(--primary-accent-light)', fontWeight: 800 }}>
+                {platformStats.totalWorkoutsLoggedThisWeek}
               </div>
             </div>
-            <div className="metric-mini-card">
-              <div className="metric-mini-label">Weight (kg)</div>
-              <div className="metric-mini-value">{selectedClient.userWeight || '--'}</div>
+            <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+              <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Clients</div>
+              <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: '#10b981', fontWeight: 800 }}>
+                {platformStats.totalActiveClients}
+              </div>
             </div>
-            <div className="metric-mini-card">
-              <div className="metric-mini-label">Calories</div>
-              <div className="metric-mini-value">{selectedClient.userCalorieTarget || '--'} kcal</div>
-            </div>
-            <div className="metric-mini-card">
-              <div className="metric-mini-label">Age</div>
-              <div className="metric-mini-value">{selectedClient.userAge || '--'} yrs</div>
-            </div>
-            <div className="metric-mini-card">
-              <div className="metric-mini-label">Height</div>
-              <div className="metric-mini-value">{selectedClient.userHeight || '--'} cm</div>
-            </div>
-            <div className="metric-mini-card">
-              <div className="metric-mini-label">Protein</div>
-              <div className="metric-mini-value">{selectedClient.userProteinTarget || '--'}g</div>
+            <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
+              <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Coaches</div>
+              <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: '#f59e0b', fontWeight: 800 }}>
+                {coachesList.length}
+              </div>
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px' }}>
-            <button
-              className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
-              style={{
-                flex: 1,
-                padding: '12px',
-                textAlign: 'center',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
-                color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
-              }}
-              onClick={() => handleTabChange('workout')}
-            >
-              🏋️‍♂️ Workout History
-            </button>
-            <button
-              className={`trainer-tab-btn ${detailTab === 'plans' ? 'active' : ''}`}
-              style={{
-                flex: 1,
-                padding: '12px',
-                textAlign: 'center',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
-                color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
-              }}
-              onClick={() => handleTabChange('plans')}
-            >
-              📋 Workout Plans
-            </button>
-            <button
-              className={`trainer-tab-btn ${detailTab === 'chat' ? 'active' : ''}`}
-              style={{
-                flex: 1,
-                padding: '12px',
-                textAlign: 'center',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                borderBottom: detailTab === 'chat' ? '2px solid var(--primary-accent-light)' : 'none',
-                color: detailTab === 'chat' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
-              }}
-              onClick={() => handleTabChange('chat')}
-            >
-              💬 Chat with Client
-            </button>
+          {/* Coaches Table Card */}
+          <div className="glass-panel" style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '16px',
+            overflowX: 'auto'
+          }}>
+            <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Coaches Directory</h5>
+
+            {loadingAdmin ? (
+              <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
+                <div className="trainer-spinner"></div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coaches details...</p>
+              </div>
+            ) : coachesList.length === 0 ? (
+              <div className="trainer-empty-state">
+                <h5>No Registered Coaches</h5>
+                <p>No coach profiles exist on the platform.</p>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Brand</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Joined</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Clients</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Subscription</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coachesList.map(coach => (
+                    <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
+                      <td style={{ padding: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{coach.name}</span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{coach.email}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px', fontSize: '0.8rem' }}>{coach.brand}</td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {new Date(coach.signup_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 700, textAlign: 'center' }}>
+                        {coach.clientsCount}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          background: coach.payment_status === 'active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: coach.payment_status === 'active' ? '#10b981' : 'var(--danger)',
+                          border: `1px solid ${coach.payment_status === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                        }}>
+                          {coach.payment_status === 'active' ? 'ACTIVE' : 'FAILED'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => handleToggleCoachPayment(coach)}
+                          style={{
+                            background: coach.payment_status === 'active' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                            border: `1px solid ${coach.payment_status === 'active' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                            color: coach.payment_status === 'active' ? 'var(--danger)' : '#10b981',
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {coach.payment_status === 'active' ? 'Mark Failed' : 'Mark Active'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
+        </div>
+      ) : (
+        <>
+          {!selectedClient ? (
+            // Client Directory Screen
+            <div className="client-directory-view">
+              <div className="search-filter-box">
+                <input
+                  type="text"
+                  className="trainer-search-input"
+                  placeholder="🔍 Search client by name or email..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+                <div className="filter-tags">
+                  {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
+                    <button
+                      key={goal}
+                      className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
+                      onClick={() => setGoalFilter(goal)}
+                    >
+                      {goal}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Condition tab rendering */}
-          {detailTab === 'workout' && (
-            <div className="workout-history-content">
-              <h4 className="history-section-title">Workout History</h4>
+              <h4 className="client-directory-title">
+                Clients ({filteredClients.length})
+              </h4>
 
-              {loadingLogs ? (
+              {loadingClients ? (
                 <div className="trainer-loading-container">
                   <div className="trainer-spinner"></div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading workout history logs...</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading client directory...</p>
                 </div>
-              ) : workoutLogs.length === 0 ? (
+              ) : filteredClients.length === 0 ? (
                 <div className="trainer-empty-state">
-                  <div className="trainer-empty-icon">🏋️‍♂️</div>
-                  <h5>No Workouts Logged</h5>
-                  <p>This client has not logged or synchronized any workout sessions to the database yet.</p>
+                  <div className="trainer-empty-icon">👥</div>
+                  <h5>No Clients Found</h5>
+                  <p>Try refining your search query or selecting a different goal category tag filter.</p>
                 </div>
               ) : (
-                <div className="workout-sessions-list">
-                  {workoutLogs.map((session, sIdx) => (
-                    <div key={sIdx} className="session-block">
-                      <div className="session-date-header">
-                        <span className="session-date-icon">📅</span>
-                        {new Date(session.date).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                <div className="clients-list">
+                  {filteredClients.map(client => (
+                    <div 
+                      key={client.id} 
+                      className="client-card"
+                      onClick={() => handleSelectClient(client)}
+                    >
+                      <div className="client-main-info">
+                        <div 
+                          className="client-avatar"
+                          style={{ backgroundColor: getAvatarColor(client.userName) }}
+                        >
+                          {getAvatarInitials(client.userName)}
+                        </div>
+                        <div>
+                          <div className="client-name">{client.userName}</div>
+                          <div className="client-email">{client.email}</div>
+                          {client.userGoal && (
+                            <span className={`client-goal-badge ${client.userGoal.toLowerCase().replace(/\s+/g, '-')}`}>
+                              {client.userGoal}
+                            </span>
+                          )}
+                        </div>
                       </div>
-
-                      <div className="session-exercises-list">
-                        {session.exercises.map((exercise, eIdx) => (
-                          <div key={eIdx} className="exercise-log-card">
-                            <div className="exercise-log-name">{exercise.name}</div>
-                            
-                            <table className="sets-table">
-                              <thead>
-                                <tr>
-                                  <th style={{ width: '25%' }}>Set</th>
-                                  <th style={{ width: '40%' }}>Weight</th>
-                                  <th style={{ width: '35%' }}>Reps</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {exercise.sets.map((set, setIdx) => (
-                                  <tr key={setIdx}>
-                                    <td>
-                                      <span className="set-num-badge">{set.setNumber}</span>
-                                    </td>
-                                    <td>{set.weight} kg</td>
-                                    <td>{set.reps} reps</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ))}
+                      <div className="client-card-chevron">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          )}
+          ) : (
+            // Client Detail & Workout Logs Screen
+            <div className="client-detail-view animate-scale-in">
+              {/* Back button and profile title */}
+              <div className="client-detail-header">
+                <button className="back-btn-trainer" onClick={() => setSelectedClient(null)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                </button>
+                <div className="client-detail-header-info">
+                  <h4>{selectedClient.userName}</h4>
+                  <span>{selectedClient.email}</span>
+                </div>
+              </div>
 
-          {detailTab === 'plans' && (
-            <div className="workout-plans-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {showPlanEditor ? (
-                /* PLAN EDITOR VIEW */
-                <div className="plan-editor-card glass-panel" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                  <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
-                    {editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
-                  </h4>
+              {/* Client Targets Grid */}
+              <div className="client-metrics-grid">
+                <div className="metric-mini-card">
+                  <div className="metric-mini-label">Fitness Goal</div>
+                  <div className="metric-mini-value" style={{ fontSize: '0.8rem', color: 'var(--primary-accent-light)' }}>
+                    {selectedClient.userGoal || 'Not set'}
+                  </div>
+                </div>
+                <div className="metric-mini-card">
+                  <div className="metric-mini-label">Weight (kg)</div>
+                  <div className="metric-mini-value">{selectedClient.userWeight || '--'}</div>
+                </div>
+                <div className="metric-mini-card">
+                  <div className="metric-mini-label">Calories</div>
+                  <div className="metric-mini-value">{selectedClient.userCalorieTarget || '--'} kcal</div>
+                </div>
+                <div className="metric-mini-card">
+                  <div className="metric-mini-label">Age</div>
+                  <div className="metric-mini-value">{selectedClient.userAge || '--'} yrs</div>
+                </div>
+                <div className="metric-mini-card">
+                  <div className="metric-mini-label">Height</div>
+                  <div className="metric-mini-value">{selectedClient.userHeight || '--'} cm</div>
+                </div>
+                <div className="metric-mini-card">
+                  <div className="metric-mini-label">Protein</div>
+                  <div className="metric-mini-value">{selectedClient.userProteinTarget || '--'}g</div>
+                </div>
+              </div>
+
+              {/* Tab Navigation */}
+              <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <button
+                  className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
+                  style={{
+                    flex: 1,
+                    minWidth: '80px',
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
+                    color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                  }}
+                  onClick={() => handleTabChange('workout')}
+                >
+                  🏋️ History
+                </button>
+                <button
+                  className={`trainer-tab-btn ${detailTab === 'livelog' ? 'active' : ''}`}
+                  style={{
+                    flex: 1,
+                    minWidth: '80px',
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderBottom: detailTab === 'livelog' ? '2px solid #f59e0b' : 'none',
+                    color: detailTab === 'livelog' ? '#f59e0b' : 'var(--text-muted)'
+                  }}
+                  onClick={() => handleTabChange('livelog')}
+                >
+                  🎯 Log Live
+                </button>
+                <button
+                  className={`trainer-tab-btn ${detailTab === 'plans' ? 'active' : ''}`}
+                  style={{
+                    flex: 1,
+                    minWidth: '80px',
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
+                    color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                  }}
+                  onClick={() => handleTabChange('plans')}
+                >
+                  📋 Plans
+                </button>
+                <button
+                  className={`trainer-tab-btn ${detailTab === 'chat' ? 'active' : ''}`}
+                  style={{
+                    flex: 1,
+                    minWidth: '80px',
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderBottom: detailTab === 'chat' ? '2px solid var(--primary-accent-light)' : 'none',
+                    color: detailTab === 'chat' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                  }}
+                  onClick={() => handleTabChange('chat')}
+                >
+                  💬 Chat
+                </button>
+              </div>
+
+              {/* Condition tab rendering */}
+              {detailTab === 'workout' && (
+                <div className="workout-history-content">
+                  <h4 className="history-section-title">Workout History</h4>
+
+                  {loadingLogs ? (
+                    <div className="trainer-loading-container">
+                      <div className="trainer-spinner"></div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading workout history logs...</p>
+                    </div>
+                  ) : workoutLogs.length === 0 ? (
+                    <div className="trainer-empty-state">
+                      <div className="trainer-empty-icon">🏋️‍♂️</div>
+                      <h5>No Workouts Logged</h5>
+                      <p>This client has not logged or synchronized any workout sessions to the database yet.</p>
+                    </div>
+                  ) : (
+                    <div className="workout-sessions-list">
+                      {workoutLogs.map((session, sIdx) => (
+                        <div key={sIdx} className="session-block">
+                          <div className="session-date-header">
+                            <span className="session-date-icon">📅</span>
+                            {new Date(session.date).toLocaleDateString('en-US', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </div>
+
+                          <div className="session-exercises-list">
+                            {session.exercises.map((exercise, eIdx) => (
+                              <div key={eIdx} className="exercise-log-card">
+                                <div className="exercise-log-name">{exercise.name}</div>
+                                
+                                <table className="sets-table">
+                                  <thead>
+                                    <tr>
+                                      <th style={{ width: '25%' }}>Set</th>
+                                      <th style={{ width: '40%' }}>Weight</th>
+                                      <th style={{ width: '35%' }}>Reps</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {exercise.sets.map((set, setIdx) => (
+                                      <tr key={setIdx}>
+                                        <td>
+                                          <span className="set-num-badge">{set.setNumber}</span>
+                                        </td>
+                                        <td>{set.weight} kg</td>
+                                        <td>{set.reps} reps</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {detailTab === 'plans' && (
+                <div className="workout-plans-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {showPlanEditor ? (
+                    /* PLAN EDITOR VIEW */
+                    <div className="plan-editor-card glass-panel" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
+                        {editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
+                      </h4>
+                      
+                      <div className="input-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Name (e.g. Week 1 - Day 1: Upper Body)</label>
+                        <input 
+                          type="text"
+                          value={editorPlanName}
+                          onChange={(e) => setEditorPlanName(e.target.value)}
+                          placeholder="e.g. Week 1 - Day 1: Push Day"
+                          style={{
+                            padding: '10px 14px',
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: '#fff',
+                            fontSize: '0.85rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      {/* Exercises in the editor */}
+                      <div className="editor-exercises-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
+                        <h5 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exercises</h5>
+                        
+                        {editorExercises.length === 0 ? (
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No exercises added to this plan yet. Use the dropdown below to add exercises.</p>
+                        ) : (
+                          editorExercises.map((ex, exIdx) => (
+                            <div key={exIdx} className="editor-exercise-item" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                              <div className="ex-item-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <strong style={{ fontSize: '0.85rem', color: '#fff' }}>{ex.name}</strong>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleRemoveExerciseFromEditor(exIdx)}
+                                  style={{ color: 'var(--danger)', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}
+                                >
+                                  🗑️ Remove Exercise
+                                </button>
+                              </div>
+
+                              <table className="editor-sets-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '20%' }}>Set</th>
+                                    <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '40%' }}>Weight (kg)</th>
+                                    <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '40%' }}>Reps</th>
+                                    <th style={{ width: '10%' }}></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {ex.sets.map((set, setIdx) => (
+                                    <tr key={setIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                      <td style={{ padding: '6px 4px' }}>
+                                        <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', textAlign: 'center', fontSize: '0.75rem', color: '#fff', lineHeight: '20px' }}>{setIdx + 1}</span>
+                                      </td>
+                                      <td style={{ padding: '6px 4px' }}>
+                                        <input 
+                                          type="number"
+                                          value={set.weight}
+                                          onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
+                                          style={{ width: '80%', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: '6px 4px' }}>
+                                        <input 
+                                          type="number"
+                                          value={set.reps}
+                                          onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
+                                          style={{ width: '80%', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                                        {ex.sets.length > 1 && (
+                                          <button 
+                                            type="button" 
+                                            onClick={() => handleRemoveSetFromExercise(exIdx, setIdx)}
+                                            style={{ color: 'var(--danger)', fontSize: '0.85rem', cursor: 'pointer' }}
+                                          >
+                                            🗑️
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+
+                              <button 
+                                type="button" 
+                                onClick={() => handleAddSetToExercise(exIdx)}
+                                style={{ marginTop: '8px', padding: '6px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.75rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                ➕ Add Set
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Add Exercise — Autocomplete Input + Datalist */}
+                      <div className="add-exercise-selector-box" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginBottom: '24px' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>➕ Add Exercise</div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            placeholder="Type or search exercise (e.g. Bench, Squat, Cable...)"
+                            id="planEditorCustomExercise"
+                            list="plan-exercise-datalist"
+                            style={{
+                              flex: 1,
+                              padding: '9px 12px',
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 'var(--radius-sm)',
+                              color: '#fff',
+                              fontSize: '0.82rem',
+                              outline: 'none'
+                            }}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && e.target.value.trim()) {
+                                handleAddExerciseToEditor(e.target.value.trim());
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                          <datalist id="plan-exercise-datalist">
+                            {LIVE_EXERCISE_LIST.map(name => <option key={name} value={name} />)}
+                          </datalist>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = document.getElementById('planEditorCustomExercise');
+                              const val = input?.value?.trim();
+                              if (val) {
+                                handleAddExerciseToEditor(val);
+                                input.value = '';
+                              }
+                            }}
+                            style={{
+                              padding: '9px 14px',
+                              background: 'rgba(16,185,129,0.12)',
+                              border: '1px solid rgba(16,185,129,0.3)',
+                              borderRadius: 'var(--radius-sm)',
+                              color: 'var(--primary-accent-light)',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Editor actions */}
+                      <div className="editor-actions-row" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setShowPlanEditor(false);
+                            setEditingPlan(null);
+                            setEditorPlanName('');
+                            setEditorExercises([]);
+                          }}
+                          style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={handleSavePlan}
+                          style={{ padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                        >
+                          Save Plan
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* PLANS LIST VIEW */
+                    <div className="plans-list-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div className="list-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <h4 style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Workout Plans</h4>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setEditingPlan(null);
+                            setEditorPlanName('');
+                            setEditorExercises([
+                              { name: 'Bench Press', sets: [{ reps: 10, weight: 40 }] }
+                            ]);
+                            setShowPlanEditor(true);
+                          }}
+                          style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', color: 'var(--primary-accent-light)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+                        >
+                          ➕ Create Workout Plan
+                        </button>
+                      </div>
+
+                      {loadingPlans ? (
+                        <div className="trainer-loading-container">
+                          <div className="trainer-spinner"></div>
+                        </div>
+                      ) : clientPlans.length === 0 ? (
+                        <div className="trainer-empty-state" style={{ padding: '30px' }}>
+                          <span style={{ fontSize: '1.5rem' }}>📋</span>
+                          <h5 style={{ marginTop: '8px' }}>No Plans Assigned</h5>
+                          <p style={{ fontSize: '0.78rem' }}>Create custom routines/templates that client can start and repeat from their logger.</p>
+                        </div>
+                      ) : (
+                        <div className="plans-cards-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {clientPlans.map(plan => (
+                            <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                              <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div>
+                                  <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
+                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
+                                    Created by: {plan.createdBy === 'coach' ? '🧑‍🏫 Coach' : '👤 Client'}
+                                  </span>
+                                </div>
+                                <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingPlan(plan);
+                                      setEditorPlanName(plan.planName);
+                                      setEditorExercises(plan.exercises);
+                                      setShowPlanEditor(true);
+                                    }}
+                                    style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    onClick={async () => {
+                                      const duplicated = {
+                                        planName: `${plan.planName} (Copy)`,
+                                        exercises: plan.exercises,
+                                        userId: selectedClient.id,
+                                        createdBy: 'coach'
+                                      };
+                                      await databaseService.saveWorkoutPlan(duplicated);
+                                      fetchClientPlans(selectedClient.id);
+                                    }}
+                                    style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}
+                                  >
+                                    Duplicate
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    onClick={async () => {
+                                      if (confirm('Delete this workout plan?')) {
+                                        await databaseService.deleteWorkoutPlan(plan.id, selectedClient.id);
+                                        fetchClientPlans(selectedClient.id);
+                                      }
+                                    }}
+                                    style={{ padding: '4px 8px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '4px', color: 'var(--danger)', fontSize: '0.75rem', cursor: 'pointer' }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="plan-exercises-preview" style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {plan.exercises.map((ex, idx) => (
+                                  <span key={idx} style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
+                                    {ex.name} ({ex.sets?.length || 0}s)
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── LIVE SESSION LOGGER TAB ─── */}
+              {detailTab === 'livelog' && (
+                <div className="live-logger-container" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Toast */}
+                  {liveToast && (
+                    <div style={{
+                      padding: '10px 14px',
+                      background: liveToast.startsWith('✅') ? 'rgba(16,185,129,0.15)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                      border: `1px solid ${liveToast.startsWith('✅') ? 'rgba(16,185,129,0.3)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.82rem',
+                      color: '#fff',
+                      fontWeight: 600
+                    }}>{liveToast}</div>
+                  )}
+
+                  {/* Session Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>🎯 Live Session</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Logging for: <strong style={{ color: '#f59e0b' }}>{selectedClient?.userName}</strong></div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Date:</label>
+                      <input
+                        type="date"
+                        value={liveDate}
+                        onChange={e => setLiveDate(e.target.value)}
+                        style={{
+                          padding: '6px 10px',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: '#fff',
+                          fontSize: '0.8rem',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Plan/Routine configuration */}
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan / Routine Name:</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Upper Body, Leg Day"
+                        value={livePlanName}
+                        onChange={e => setLivePlanName(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: '#fff',
+                          fontSize: '0.82rem',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    {clientPlans.length > 0 && (
+                      <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Load from Existing Plan:</label>
+                        <select
+                          defaultValue=""
+                          onChange={e => {
+                            const plan = clientPlans.find(p => p.id === e.target.value);
+                            if (plan) {
+                              setLivePlanName(plan.planName);
+                              setLiveExercises(plan.exercises.map(ex => ({
+                                name: ex.name,
+                                sets: ex.sets.map(s => ({ reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false }))
+                              })));
+                              triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
+                            }
+                            e.target.value = '';
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: '#fff',
+                            fontSize: '0.82rem',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="" disabled>-- Select plan template --</option>
+                          {clientPlans.map(p => (
+                            <option key={p.id} value={p.id}>{p.planName}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Exercise List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {liveExercises.map((ex, exIdx) => (
+                      <div key={exIdx} style={{
+                        background: 'rgba(0,0,0,0.18)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '12px'
+                      }}>
+                        {/* Exercise Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#fff' }}>{ex.name}</span>
+                          <button
+                            onClick={() => handleLiveRemoveExercise(exIdx)}
+                            style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                          >🗑️ Remove</button>
+                        </div>
+
+                        {/* Sets Table */}
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '15%' }}>Set</th>
+                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '32%' }}>Weight (kg)</th>
+                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '30%' }}>Reps</th>
+                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '15%', textAlign: 'center' }}>Done</th>
+                              <th style={{ width: '8%' }}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ex.sets.map((set, setIdx) => (
+                              <tr key={setIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                <td style={{ padding: '5px 4px' }}>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '22px', height: '22px', borderRadius: '50%',
+                                    background: set.isCompleted ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)',
+                                    color: set.isCompleted ? 'var(--primary-accent-light)' : '#fff',
+                                    fontSize: '0.72rem', fontWeight: 800
+                                  }}>{setIdx + 1}</span>
+                                </td>
+                                <td style={{ padding: '5px 4px' }}>
+                                  <input
+                                    type="number"
+                                    value={set.weight}
+                                    onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
+                                    style={{
+                                      width: '75px', padding: '4px 8px',
+                                      background: 'rgba(255,255,255,0.03)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '4px', color: '#fff', fontSize: '0.8rem'
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '5px 4px' }}>
+                                  <input
+                                    type="number"
+                                    value={set.reps}
+                                    onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
+                                    style={{
+                                      width: '60px', padding: '4px 8px',
+                                      background: 'rgba(255,255,255,0.03)',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '4px', color: '#fff', fontSize: '0.8rem'
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                                  <button
+                                    onClick={() => handleLiveToggleSet(exIdx, setIdx)}
+                                    style={{
+                                      width: '28px', height: '28px',
+                                      borderRadius: '50%',
+                                      border: set.isCompleted ? '2px solid var(--primary-accent-light)' : '2px solid rgba(255,255,255,0.2)',
+                                      background: set.isCompleted ? 'rgba(16,185,129,0.2)' : 'transparent',
+                                      color: set.isCompleted ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.3)',
+                                      fontSize: '0.85rem',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    title={set.isCompleted ? 'Mark incomplete' : 'Mark complete'}
+                                  >
+                                    {set.isCompleted ? '✓' : '○'}
+                                  </button>
+                                </td>
+                                <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                                  {ex.sets.length > 1 && (
+                                    <button
+                                      onClick={() => handleLiveRemoveSet(exIdx, setIdx)}
+                                      style={{ color: 'var(--danger)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                    >×</button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        <button
+                          onClick={() => handleLiveAddSet(exIdx)}
+                          style={{
+                            marginTop: '8px',
+                            padding: '5px 10px',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 600
+                          }}
+                        >+ Add Set</button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Exercise — Autocomplete Input + Datalist */}
+                  <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>➕ Add Exercise to Session</div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="Type or search exercise (e.g. Bench, Squat, Cable...)"
+                        value={liveCustomExercise}
+                        list="live-exercise-datalist"
+                        onChange={e => setLiveCustomExercise(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && liveCustomExercise.trim()) {
+                            handleLiveAddExercise(liveCustomExercise.trim());
+                            setLiveCustomExercise('');
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '9px 12px',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: '#fff',
+                          fontSize: '0.82rem',
+                          outline: 'none'
+                        }}
+                      />
+                      <datalist id="live-exercise-datalist">
+                        {LIVE_EXERCISE_LIST.map(name => <option key={name} value={name} />)}
+                      </datalist>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const name = liveCustomExercise.trim();
+                          if (name) {
+                            handleLiveAddExercise(name);
+                            setLiveCustomExercise('');
+                          }
+                        }}
+                        style={{
+                          padding: '9px 16px',
+                          background: 'rgba(245,158,11,0.15)',
+                          border: '1px solid rgba(245,158,11,0.35)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: '#f59e0b',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <button
+                    onClick={handleSaveLiveSession}
+                    disabled={liveSaving}
+                    style={{
+                      padding: '13px',
+                      background: liveSaving ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      color: '#fff',
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                      cursor: liveSaving ? 'default' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      letterSpacing: '0.02em'
+                    }}
+                  >
+                    {liveSaving ? '⏳ Saving...' : '💾 Save Workout Session'}
+                  </button>
+                </div>
+              )}
+
+              {detailTab === 'chat' && (
+                <div className="trainer-chat-panel" style={{ display: 'flex', flexDirection: 'column', height: '360px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                  <div className="trainer-chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {loadingChat ? (
+                      <div className="trainer-loading-container" style={{ margin: 'auto' }}>
+                        <div className="trainer-spinner"></div>
+                      </div>
+                    ) : chatMessages.length === 0 ? (
+                      <div className="trainer-empty-state" style={{ border: 'none', margin: 'auto' }}>
+                        <span style={{ fontSize: '1.5rem' }}>💬</span>
+                        <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>No messages exchanged yet.</p>
+                      </div>
+                    ) : (
+                      chatMessages.map((msg, idx) => (
+                        <div
+                          key={msg.id || idx}
+                          style={{
+                            alignSelf: msg.sender === 'coach' ? 'flex-end' : 'flex-start',
+                            maxWidth: '80%',
+                            padding: '10px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            background: msg.sender === 'coach' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                            border: msg.sender === 'coach' ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-color)',
+                            color: '#fff',
+                            fontSize: '0.82rem',
+                            lineHeight: 1.4,
+                            position: 'relative'
+                          }}
+                        >
+                          <div>{msg.text}</div>
+                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: '4px' }}>{msg.time}</div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
                   
-                  <div className="input-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Name (e.g. Week 1 - Day 1: Upper Body)</label>
-                    <input 
+                  <div className="trainer-chat-input-bar" style={{ display: 'flex', gap: '8px', padding: '10px', background: 'rgba(0,0,0,0.15)', borderTop: '1px solid var(--border-color)' }}>
+                    <input
                       type="text"
-                      value={editorPlanName}
-                      onChange={(e) => setEditorPlanName(e.target.value)}
-                      placeholder="e.g. Week 1 - Day 1: Push Day"
+                      placeholder="Type a message to client..."
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSendCoachMessage()}
                       style={{
+                        flex: 1,
                         padding: '10px 14px',
                         background: 'rgba(255,255,255,0.02)',
                         border: '1px solid var(--border-color)',
@@ -581,316 +1874,29 @@ const TrainerDashboard = ({ handleLogout }) => {
                         outline: 'none'
                       }}
                     />
-                  </div>
-
-                  {/* Exercises in the editor */}
-                  <div className="editor-exercises-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
-                    <h5 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exercises</h5>
-                    
-                    {editorExercises.length === 0 ? (
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No exercises added to this plan yet. Use the dropdown below to add exercises.</p>
-                    ) : (
-                      editorExercises.map((ex, exIdx) => (
-                        <div key={exIdx} className="editor-exercise-item" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
-                          <div className="ex-item-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <strong style={{ fontSize: '0.85rem', color: '#fff' }}>{ex.name}</strong>
-                            <button 
-                              type="button" 
-                              onClick={() => handleRemoveExerciseFromEditor(exIdx)}
-                              style={{ color: 'var(--danger)', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}
-                            >
-                              🗑️ Remove Exercise
-                            </button>
-                          </div>
-
-                          <table className="editor-sets-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '20%' }}>Set</th>
-                                <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '40%' }}>Weight (kg)</th>
-                                <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '40%' }}>Reps</th>
-                                <th style={{ width: '10%' }}></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ex.sets.map((set, setIdx) => (
-                                <tr key={setIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                  <td style={{ padding: '6px 4px' }}>
-                                    <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', textAlign: 'center', fontSize: '0.75rem', color: '#fff', lineHeight: '20px' }}>{setIdx + 1}</span>
-                                  </td>
-                                  <td style={{ padding: '6px 4px' }}>
-                                    <input 
-                                      type="number"
-                                      value={set.weight}
-                                      onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
-                                      style={{ width: '80%', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
-                                    />
-                                  </td>
-                                  <td style={{ padding: '6px 4px' }}>
-                                    <input 
-                                      type="number"
-                                      value={set.reps}
-                                      onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
-                                      style={{ width: '80%', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
-                                    />
-                                  </td>
-                                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                                    {ex.sets.length > 1 && (
-                                      <button 
-                                        type="button" 
-                                        onClick={() => handleRemoveSetFromExercise(exIdx, setIdx)}
-                                        style={{ color: 'var(--danger)', fontSize: '0.85rem', cursor: 'pointer' }}
-                                      >
-                                        🗑️
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-
-                          <button 
-                            type="button" 
-                            onClick={() => handleAddSetToExercise(exIdx)}
-                            style={{ marginTop: '8px', padding: '6px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.75rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
-                          >
-                            ➕ Add Set
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Add Exercise Dropdown / Selector */}
-                  <div className="add-exercise-selector-box" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
-                    <select 
-                      defaultValue=""
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleAddExerciseToEditor(e.target.value);
-                          e.target.value = ""; // Reset
-                        }
-                      }}
+                    <button
+                      onClick={handleSendCoachMessage}
+                      disabled={!chatInput.trim()}
                       style={{
-                        flex: 1,
-                        padding: '10px',
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid var(--border-color)',
+                        padding: '10px 16px',
+                        background: chatInput.trim() ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.05)',
+                        border: 'none',
                         borderRadius: 'var(--radius-sm)',
-                        color: '#fff',
+                        color: chatInput.trim() ? '#fff' : 'var(--text-muted)',
+                        fontWeight: '700',
                         fontSize: '0.82rem',
-                        outline: 'none'
+                        cursor: chatInput.trim() ? 'pointer' : 'default',
+                        transition: 'all 0.2s ease'
                       }}
                     >
-                      <option value="" disabled>➕ Select exercise to add...</option>
-                      {['Bench Press', 'Squats', 'Deadlift', 'Shoulders Press', 'Biceps Curls', 'Triceps Extensions', 'One Arm Row', 'Lat Pull Down', 'Leg Press', 'Calf Raises', 'Plank'].map(name => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Editor actions */}
-                  <div className="editor-actions-row" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setShowPlanEditor(false);
-                        setEditingPlan(null);
-                        setEditorPlanName('');
-                        setEditorExercises([]);
-                      }}
-                      style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={handleSavePlan}
-                      style={{ padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
-                    >
-                      Save Plan
+                      Send
                     </button>
                   </div>
-                </div>
-              ) : (
-                /* PLANS LIST VIEW */
-                <div className="plans-list-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className="list-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h4 style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Workout Plans</h4>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setEditingPlan(null);
-                        setEditorPlanName('');
-                        setEditorExercises([
-                          { name: 'Bench Press', sets: [{ reps: 10, weight: 40 }] }
-                        ]);
-                        setShowPlanEditor(true);
-                      }}
-                      style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', color: 'var(--primary-accent-light)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
-                    >
-                      ➕ Create Workout Plan
-                    </button>
-                  </div>
-
-                  {loadingPlans ? (
-                    <div className="trainer-loading-container">
-                      <div className="trainer-spinner"></div>
-                    </div>
-                  ) : clientPlans.length === 0 ? (
-                    <div className="trainer-empty-state" style={{ padding: '30px' }}>
-                      <span style={{ fontSize: '1.5rem' }}>📋</span>
-                      <h5 style={{ marginTop: '8px' }}>No Plans Assigned</h5>
-                      <p style={{ fontSize: '0.78rem' }}>Create custom routines/templates that client can start and repeat from their logger.</p>
-                    </div>
-                  ) : (
-                    <div className="plans-cards-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {clientPlans.map(plan => (
-                        <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                          <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                              <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
-                              <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
-                                Created by: {plan.createdBy === 'coach' ? '🧑‍🏫 Coach' : '👤 Client'}
-                              </span>
-                            </div>
-                            <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                type="button"
-                                onClick={() => {
-                                  setEditingPlan(plan);
-                                  setEditorPlanName(plan.planName);
-                                  setEditorExercises(plan.exercises);
-                                  setShowPlanEditor(true);
-                                }}
-                                style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                type="button"
-                                onClick={async () => {
-                                  const duplicated = {
-                                    planName: `${plan.planName} (Copy)`,
-                                    exercises: plan.exercises,
-                                    userId: selectedClient.id,
-                                    createdBy: 'coach'
-                                  };
-                                  await databaseService.saveWorkoutPlan(duplicated);
-                                  fetchClientPlans(selectedClient.id);
-                                }}
-                                style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}
-                              >
-                                Duplicate
-                              </button>
-                              <button 
-                                type="button"
-                                onClick={async () => {
-                                  if (confirm('Delete this workout plan?')) {
-                                    await databaseService.deleteWorkoutPlan(plan.id, selectedClient.id);
-                                    fetchClientPlans(selectedClient.id);
-                                  }
-                                }}
-                                style={{ padding: '4px 8px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '4px', color: 'var(--danger)', fontSize: '0.75rem', cursor: 'pointer' }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="plan-exercises-preview" style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                            {plan.exercises.map((ex, idx) => (
-                              <span key={idx} style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
-                                {ex.name} ({ex.sets?.length || 0}s)
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           )}
-
-          {detailTab === 'chat' && (
-            <div className="trainer-chat-panel" style={{ display: 'flex', flexDirection: 'column', height: '360px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-              <div className="trainer-chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {loadingChat ? (
-                  <div className="trainer-loading-container" style={{ margin: 'auto' }}>
-                    <div className="trainer-spinner"></div>
-                  </div>
-                ) : chatMessages.length === 0 ? (
-                  <div className="trainer-empty-state" style={{ border: 'none', margin: 'auto' }}>
-                    <span style={{ fontSize: '1.5rem' }}>💬</span>
-                    <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>No messages exchanged yet.</p>
-                  </div>
-                ) : (
-                  chatMessages.map((msg, idx) => (
-                    <div
-                      key={msg.id || idx}
-                      style={{
-                        alignSelf: msg.sender === 'coach' ? 'flex-end' : 'flex-start',
-                        maxWidth: '80%',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md)',
-                        background: msg.sender === 'coach' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                        border: msg.sender === 'coach' ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-color)',
-                        color: '#fff',
-                        fontSize: '0.82rem',
-                        lineHeight: 1.4,
-                        position: 'relative'
-                      }}
-                    >
-                      <div>{msg.text}</div>
-                      <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: '4px' }}>{msg.time}</div>
-                    </div>
-                  ))
-                )}
-                <div ref={chatEndRef} />
-              </div>
-              
-              <div className="trainer-chat-input-bar" style={{ display: 'flex', gap: '8px', padding: '10px', background: 'rgba(0,0,0,0.15)', borderTop: '1px solid var(--border-color)' }}>
-                <input
-                  type="text"
-                  placeholder="Type a message to client..."
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSendCoachMessage()}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: '#fff',
-                    fontSize: '0.85rem',
-                    outline: 'none'
-                  }}
-                />
-                <button
-                  onClick={handleSendCoachMessage}
-                  disabled={!chatInput.trim()}
-                  style={{
-                    padding: '10px 16px',
-                    background: chatInput.trim() ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.05)',
-                    border: 'none',
-                    borderRadius: 'var(--radius-sm)',
-                    color: chatInput.trim() ? '#fff' : 'var(--text-muted)',
-                    fontWeight: '700',
-                    fontSize: '0.82rem',
-                    cursor: chatInput.trim() ? 'pointer' : 'default',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        </>
       )}
     </div>
   );

@@ -111,7 +111,13 @@ const Onboarding = ({ onComplete }) => {
         throw new Error("Supabase/database integration is not configured. Real OTP cannot be sent.");
       }
     } catch(err) {
-      setAuthError('Failed to send OTP: ' + err.message);
+      if (err.message?.includes('Unsupported phone provider') || err.code === 'phone_provider_disabled') {
+        setAuthError(
+          "Supabase Phone Auth is disabled. To send proper OTP messages to your mobile, please enable it in your Supabase Dashboard: go to 'Auth' -> 'Providers' -> 'Phone', toggle 'Enable Phone Provider' to ON, and configure an SMS gateway (like Twilio)."
+        );
+      } else {
+        setAuthError('Failed to send OTP: ' + err.message);
+      }
     } finally {
       setOtpLoading(false);
     }

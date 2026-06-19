@@ -70,6 +70,7 @@ const getCleanClientKey = async (userId) => {
  * to high-performance local storage (localStorage) for seamless local-only testing.
  */
 const databaseService = {
+  supabase,
   // ─── USER PROFILE ───
   async saveUserProfile(profile) {
     if (isSupabaseConfigured && supabase) {

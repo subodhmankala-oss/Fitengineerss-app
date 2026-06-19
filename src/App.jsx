@@ -310,6 +310,13 @@ function App() {
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const lastProcessedEmailRef = useRef('');
 
+  // Password Reset Modal States
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
@@ -385,6 +392,9 @@ function App() {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowResetPasswordModal(true);
+      }
       if (session && session.user) {
         await processSessionUser(session.user);
       } else if (event === 'SIGNED_OUT') {
@@ -874,11 +884,115 @@ function App() {
 
   const isNavVisible = true;
 
+  const renderResetPasswordModal = () => {
+    if (!showResetPasswordModal) return null;
+    return (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(10px)',
+        zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'rgba(20, 20, 20, 0.95)', border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '400px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '16px'
+        }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#fff', fontWeight: 800, textAlign: 'center' }}>
+            🔒 Reset Your Password
+          </h2>
+          <p style={{ margin: 0, fontSize: '0.82rem', color: '#9ca3af', textAlign: 'center' }}>
+            Enter your new secure password below to complete the recovery.
+          </p>
+
+          {resetPasswordError && (
+            <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#ef4444', fontSize: '0.78rem', textAlign: 'center' }}>
+              ❌ {resetPasswordError}
+            </div>
+          )}
+
+          {resetPasswordSuccess ? (
+            <div style={{ padding: '16px', textAlign: 'center', color: '#10b981', fontWeight: 700, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+              <span>✅ Password updated successfully!</span>
+              <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>Redirecting you to the app...</span>
+            </div>
+          ) : (
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (newResetPassword.length < 6) {
+                setResetPasswordError('Password must be at least 6 characters.');
+                return;
+              }
+              setResetPasswordLoading(true);
+              setResetPasswordError('');
+              try {
+                await databaseService.updatePassword(newResetPassword);
+                setResetPasswordSuccess(true);
+                setTimeout(() => {
+                  setShowResetPasswordModal(false);
+                  setNewResetPassword('');
+                  setResetPasswordSuccess(false);
+                  window.location.reload();
+                }, 2000);
+              } catch (err) {
+                setResetPasswordError(err.message || 'Failed to update password.');
+              } finally {
+                setResetPasswordLoading(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#9ca3af' }}>New Password</label>
+                <input
+                  type="password"
+                  placeholder="Min 6 characters"
+                  value={newResetPassword}
+                  onChange={e => setNewResetPassword(e.target.value)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none'
+                  }}
+                  required
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={resetPasswordLoading}
+                style={{
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: '#fff',
+                  border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem',
+                  fontWeight: 700, cursor: 'pointer', transition: 'opacity 0.2s',
+                  opacity: resetPasswordLoading ? 0.6 : 1
+                }}
+              >
+                {resetPasswordLoading ? 'Saving...' : 'Update Password'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetPasswordModal(false);
+                  setNewResetPassword('');
+                  setResetPasswordError('');
+                }}
+                style={{
+                  background: 'none', border: 'none', color: '#9ca3af',
+                  fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'center'
+                }}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   if (isTrainer(userEmail)) {
     return (
       <div className="app-container">
         <TrainerDashboard handleLogout={handleLogout} />
+        {renderResetPasswordModal()}
       </div>
     );
   }
@@ -924,6 +1038,7 @@ function App() {
           </button>
         </nav>
       )}
+      {renderResetPasswordModal()}
     </div>
   );
 }

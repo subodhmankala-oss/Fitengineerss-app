@@ -391,6 +391,17 @@ const databaseService = {
     return data;
   },
 
+  async updatePassword(newPassword) {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error("Supabase is not configured.");
+    }
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async sendOTP(phone) {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");

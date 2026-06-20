@@ -145,7 +145,7 @@ const clearLocalStoragePreservingChats = () => {
   const preserved = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName')) {
+    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email')) {
       preserved[key] = localStorage.getItem(key);
     }
   }
@@ -447,6 +447,10 @@ function App() {
       if (session && session.user) {
         await processSessionUser(session.user);
       } else if (event === 'SIGNED_OUT') {
+        const activeEmail = localStorage.getItem('userEmail') || userEmail;
+        if (activeEmail) {
+          localStorage.setItem('last_logged_in_email', activeEmail);
+        }
         const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
         const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
         const lastUserName = localStorage.getItem('lastUserName') || '';
@@ -861,6 +865,10 @@ function App() {
     const name = localStorage.getItem('userName');
     if (name) {
       saveActiveUserCache(name);
+    }
+    const activeEmail = localStorage.getItem('userEmail') || userEmail;
+    if (activeEmail) {
+      localStorage.setItem('last_logged_in_email', activeEmail);
     }
     const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
     const rememberedPassword = localStorage.getItem('rememberedPassword') || '';

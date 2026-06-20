@@ -81,7 +81,7 @@ const Onboarding = ({ onComplete }) => {
   const [userType, setUserType] = useState(() =>
     localStorage.getItem('pendingCoachApply') === 'true' ? 'coach' : 'client'
   );
-  const [authEmail, setAuthEmail] = useState('');
+  const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('last_logged_in_email') || '');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);

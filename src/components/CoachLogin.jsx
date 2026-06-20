@@ -3,7 +3,7 @@ import databaseService, { isSupabaseConfigured } from '../services/databaseServi
 import './CoachLogin.css';
 
 const CoachLogin = ({ onLoginSuccess, onApplyNow, onBack }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('last_logged_in_email') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -219,7 +219,31 @@ const CoachLogin = ({ onLoginSuccess, onApplyNow, onBack }) => {
         <div className="coach-login-content">
           <form onSubmit={handleSubmit} className="coach-login-form">
             <div className="coach-login-input-group">
-              <label htmlFor="email">Email Address</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label htmlFor="email">Email Address</label>
+                {localStorage.getItem('last_logged_in_email') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('last_logged_in_email');
+                      setEmail('');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#60a5fa',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      padding: 0,
+                      marginBottom: '2px'
+                    }}
+                  >
+                    Switch Account
+                  </button>
+                )}
+              </div>
               <input
                 id="email"
                 type="email"

@@ -333,6 +333,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [loadingClients, setLoadingClients] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState('All');
+  const [generatedInviteCode, setGeneratedInviteCode] = useState(() => localStorage.getItem('last_generated_invite_code') || '');
   
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
@@ -1290,25 +1291,108 @@ const TrainerDashboard = ({ handleLogout }) => {
               <div style={{
                 background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)',
                 borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex',
-                justifyContent: 'space-between', alignItems: 'center'
+                flexDirection: 'column', gap: '12px'
               }}>
-                <div>
-                  <h5 style={{ margin: '0 0 8px 0', color: '#fff' }}>Invite Clients</h5>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate a unique code for your clients to link their accounts to you during sign up.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h5 style={{ margin: '0 0 8px 0', color: '#fff' }}>Invite Clients</h5>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate a unique code for your clients to link their accounts to you during sign up.</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const coachId = localStorage.getItem('userId') || loggedInEmail;
+                      const code = await databaseService.generateCoachInviteCode(coachId);
+                      setGeneratedInviteCode(code);
+                      localStorage.setItem('last_generated_invite_code', code);
+                    }}
+                    style={{
+                      background: 'var(--primary-accent-light)', border: 'none', color: '#fff',
+                      padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer',
+                      whiteSpace: 'nowrap', marginLeft: '12px'
+                    }}
+                  >
+                    Generate Code
+                  </button>
                 </div>
-                <button
-                  onClick={async () => {
-                    const coachId = localStorage.getItem('userId') || loggedInEmail;
-                    const code = await databaseService.generateCoachInviteCode(coachId);
-                    alert(`Your new invitation code is: ${code}\nShare this code with your clients.`);
-                  }}
-                  style={{
-                    background: 'var(--primary-accent-light)', border: 'none', color: '#fff',
-                    padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer'
-                  }}
-                >
-                  Generate Code
-                </button>
+
+                {generatedInviteCode && (
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    marginTop: '4px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Active Code:</span>
+                      <strong style={{
+                        fontSize: '1.25rem',
+                        color: 'var(--primary-accent-light)',
+                        letterSpacing: '0.1em',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        padding: '2px 8px',
+                        borderRadius: '4px'
+                      }}>{generatedInviteCode}</strong>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {/* Copy Button */}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedInviteCode);
+                          alert('Code copied to clipboard!');
+                        }}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: 'none',
+                          color: '#fff',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        📋 Copy Code
+                      </button>
+
+                      {/* WhatsApp Share Button */}
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`Hi! Welcome to coaching program. Use this code to sign up: ${generatedInviteCode}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          background: '#25D366',
+                          color: '#fff',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 5px rgba(37, 211, 102, 0.2)'
+                        }}
+                      >
+                        {/* Inline WhatsApp SVG Icon */}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.135-3.834c1.674.993 3.502 1.517 5.38 1.519 5.867 0 10.638-4.771 10.642-10.639.002-2.842-1.102-5.514-3.109-7.524C17.1 1.512 14.428.406 11.587.406 5.72 1.406.953 6.177.949 12.045c-.001 1.99.524 3.931 1.519 5.626L1.519 22l4.673-1.226zM17.43 14.73c-.296-.149-1.758-.868-2.03-.967-.272-.099-.47-.149-.667.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.174.2-.298.3-.496.099-.198.05-.371-.025-.521-.075-.148-.667-1.609-.914-2.203-.241-.579-.487-.501-.668-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
+                        </svg>
+                        Share via WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="search-filter-box">

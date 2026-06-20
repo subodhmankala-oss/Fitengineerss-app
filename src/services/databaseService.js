@@ -405,10 +405,21 @@ const databaseService = {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
     }
+    
+    // Explicitly wipe lingering session state for a clean slate
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Signout prior to Google sign-in was skipped or not needed:", e);
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
     if (error) throw error;

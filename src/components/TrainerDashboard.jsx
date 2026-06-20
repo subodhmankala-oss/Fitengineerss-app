@@ -882,19 +882,6 @@ const TrainerDashboard = ({ handleLogout }) => {
             </span>
           </div>
         </div>
-        {/* Switch Role Button */}
-        {localStorage.getItem('userRoles') && localStorage.getItem('userRoles').split(',').length > 1 && (
-          <button 
-            onClick={() => {
-              localStorage.setItem('activeSelectedRole', 'client');
-              window.location.reload();
-            }}
-            className="logout-btn-trainer"
-            style={{ marginRight: '8px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', border: 'none', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)' }}
-          >
-            🥗 Client View
-          </button>
-        )}
         <button className="logout-btn-trainer" onClick={handleLogout}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

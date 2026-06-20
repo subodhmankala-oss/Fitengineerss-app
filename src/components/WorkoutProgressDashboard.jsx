@@ -443,35 +443,9 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
             <h2 className="profile-name-text">{userName}</h2>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {localStorage.getItem('userRoles') && localStorage.getItem('userRoles').split(',').length > 1 && (
-            <button 
-              onClick={() => {
-                localStorage.setItem('activeSelectedRole', 'coach');
-                window.location.reload();
-              }}
-              style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                border: 'none',
-                color: '#fff',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '0.78rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              🏋️ Coach View
-            </button>
-          )}
-          <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
-            <span className="logout-icon">⚙️</span>
-          </button>
-        </div>
+        <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
+          <span className="logout-icon">⚙️</span>
+        </button>
       </div>
 
       {/* Segment Timeframe Tab Switches */}

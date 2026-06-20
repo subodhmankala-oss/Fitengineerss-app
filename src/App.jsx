@@ -14,6 +14,7 @@ import WorkoutTracker from './components/WorkoutTracker';
 import TrainerDashboard from './components/TrainerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
+import AccountSelector from './components/AccountSelector';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
 import { isSuperAdmin } from './services/accessControl';
 import './index.css'; 
@@ -310,6 +311,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const [activeSelectedRole, setActiveSelectedRole] = useState(() => localStorage.getItem('activeSelectedRole') || '');
   const lastProcessedEmailRef = useRef('');
 
   // Password Reset Modal States
@@ -349,9 +351,22 @@ function App() {
         }
 
         const userRole = profile?.role || '';
+        
+        // Cache user roles for selector engine
+        const emailLower = email.toLowerCase();
+        const isTrainerEmail = TRAINER_EMAILS.includes(emailLower);
+        const roles = [];
+        if (isTrainerEmail || userRole === 'coach' || userRole === 'super-admin' || userRole === 'admin') {
+          roles.push('coach');
+          roles.push('client');
+        } else {
+          roles.push('client');
+        }
+        localStorage.setItem('userRoles', roles.join(','));
+
         const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
-          TRAINER_EMAILS.includes(email.toLowerCase()) ||
+          isTrainerEmail ||
           userRole === 'coach' ||
           userRole === 'super-admin' ||
           userRole === 'admin';
@@ -1030,11 +1045,32 @@ function App() {
     );
   };
 
-  const userRole = localStorage.getItem('userRole') || '';
-  const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
-  const isCoach = isTrainer(userEmail) || userRole === 'coach';
+  const rawRoles = localStorage.getItem('userRoles') || '';
+  const emailLower = userEmail ? userEmail.toLowerCase() : '';
+  const userRolesList = rawRoles 
+    ? rawRoles.split(',') 
+    : (TRAINER_EMAILS.includes(emailLower) || userRole === 'coach' || userRole === 'super-admin' || userRole === 'admin' 
+        ? ['coach', 'client'] 
+        : ['client']);
+  const isMultiRole = userRolesList.length > 1;
 
-  if (isAdmin || isCoach) {
+  // Intercept and show the Account Selector for multi-role users if they haven't chosen an active view
+  if (userEmail && onboardingComplete && isMultiRole && !activeSelectedRole) {
+    return (
+      <AccountSelector 
+        roles={userRolesList} 
+        onSelectRole={(role) => {
+          localStorage.setItem('activeSelectedRole', role);
+          setActiveSelectedRole(role);
+        }} 
+      />
+    );
+  }
+
+  const currentRole = activeSelectedRole || userRolesList[0] || userRole || 'client';
+  const showCoachView = currentRole === 'coach' || currentRole === 'super-admin' || currentRole === 'admin';
+
+  if (showCoachView) {
     return (
       <div className="app-container">
         <TrainerDashboard handleLogout={handleLogout} />

@@ -1366,7 +1366,7 @@ const TrainerDashboard = ({ handleLogout }) => {
 
                       {/* WhatsApp Share Button */}
                       <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Hi! Welcome to coaching program. Use this code to sign up: ${generatedInviteCode}`)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent("Hi! I'm Subodh from Fitengineers. Use this invitation code to join my coaching program: " + generatedInviteCode)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{

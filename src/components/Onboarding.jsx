@@ -835,8 +835,10 @@ const Onboarding = ({ onComplete }) => {
                 style={{ marginTop: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)' }}
                 disabled={authLoading}
                 onClick={async () => {
-                  const code = document.getElementById('lockScreenInviteInput').value.trim();
-                  if (!code) return;
+                  const rawCode = document.getElementById('lockScreenInviteInput').value.trim();
+                  if (!rawCode) return;
+                  const code = rawCode.toUpperCase();
+                  console.log('[DEBUG] Validating code on submit:', code);
                   setAuthError('');
                   setAuthLoading(true);
                   try {
@@ -872,7 +874,7 @@ const Onboarding = ({ onComplete }) => {
                   }
                 }}
               >
-                {authLoading ? 'Verifying...' : 'Link Coach & Enter'}
+                {authLoading ? 'Checking...' : 'Link Coach & Enter'}
               </button>
 
               <button 

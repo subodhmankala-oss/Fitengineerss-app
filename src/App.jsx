@@ -348,12 +348,13 @@ function App() {
           return;
         }
 
-        const userRole = profile?.role || localStorage.getItem('userRole') || '';
+        const userRole = profile?.role || '';
         const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
           userRole === 'coach' ||
-          userRole === 'super-admin';
+          userRole === 'super-admin' ||
+          userRole === 'admin';
 
         if (pendingCoachLogin) {
           localStorage.removeItem('pendingCoachLogin');
@@ -861,17 +862,7 @@ function App() {
   }
 
   const handleLogout = async () => {
-    // Preserve credentials and metadata before clearing
-    const name = localStorage.getItem('userName');
-    if (name) {
-      saveActiveUserCache(name);
-    }
     const activeEmail = localStorage.getItem('userEmail') || userEmail;
-    if (activeEmail) {
-      localStorage.setItem('last_logged_in_email', activeEmail);
-    }
-    const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
-    const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
 
     // Sign out from Supabase Auth if active and wait for it to complete
     try {
@@ -880,18 +871,12 @@ function App() {
       console.error("Sign out error:", err);
     }
 
-    // Clear everything to clean up onboarding state
-    clearLocalStoragePreservingChats();
+    // Clear all local storage keys explicitly as required
+    localStorage.clear();
 
-    // Restore login credentials and metadata
-    if (name) {
-      localStorage.setItem('lastUserName', name);
-    }
-    if (rememberedEmail) {
-      localStorage.setItem('rememberedEmail', rememberedEmail);
-    }
-    if (rememberedPassword) {
-      localStorage.setItem('rememberedPassword', rememberedPassword);
+    // Re-save prefilled email for persistence
+    if (activeEmail) {
+      localStorage.setItem('last_logged_in_email', activeEmail);
     }
     
     // Invalidate PWA cache and old service workers to force reload the fresh code

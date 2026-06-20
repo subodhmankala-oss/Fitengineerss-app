@@ -33,7 +33,7 @@ export const isTrainer = (email) => {
   const hardcoded = TRAINER_EMAILS.includes(email.toLowerCase());
   if (hardcoded) return true;
   const cachedRole = localStorage.getItem('userRole');
-  return cachedRole === 'coach' || cachedRole === 'coach_pending' || cachedRole === 'super-admin';
+  return cachedRole === 'coach' || cachedRole === 'coach_pending' || cachedRole === 'super-admin' || cachedRole === 'admin';
 };
 
 export const isSuperAdmin = (email) => {
@@ -1299,8 +1299,10 @@ const databaseService = {
 
   async validateCoachInviteCode(code) {
     if (!code) return null;
+    const upperCode = code.toUpperCase();
+    console.log('[DEBUG] Querying validation for invite code:', upperCode);
     const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
-    return invites[code.toUpperCase()] || null; // returns coachId if valid
+    return invites[upperCode] || null; // returns coachId if valid
   }
 ,
   async refreshLocalCoaches() {

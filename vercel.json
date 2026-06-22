@@ -4,5 +4,9 @@
       "path": "/api/send-nudges",
       "schedule": "0 8 * * *"
     }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/reset-password", "destination": "/index.html" }
   ]
 }

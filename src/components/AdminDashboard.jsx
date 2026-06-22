@@ -34,44 +34,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     setLoading(true);
     setError('');
     try {
-      let allPending = [];
-
-      // First try Supabase
-      if (isSupabaseConfigured && supabase) {
-        try {
-          // Query for coach_pending role
-          const { data: cloudPending, error: queryError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('role', 'coach_pending')
-            .order('created_at', { ascending: false });
-
-          if (!queryError && cloudPending) {
-            console.log('Pending coaches from Supabase:', cloudPending);
-            allPending = cloudPending;
-          } else if (queryError) {
-            console.warn('Supabase query error:', queryError);
-          }
-        } catch (err) {
-          console.warn('Supabase fetch error:', err);
-        }
-      }
-
-      // Also check localStorage as fallback
-      try {
-        const localPending = databaseService.getPendingCoachApplications?.();
-        console.log('Pending coaches from localStorage:', localPending);
-        
-        if (localPending && localPending.length > 0) {
-          // Merge with Supabase data, avoid duplicates
-          const emails = new Set(allPending.map(p => p.email));
-          const uniqueLocal = localPending.filter(l => !emails.has(l.email));
-          allPending = [...allPending, ...uniqueLocal];
-        }
-      } catch (err) {
-        console.warn('localStorage fetch error:', err);
-      }
-
+      const allPending = await databaseService.getPendingCoachApplications();
       console.log('Total pending coaches to display:', allPending);
       setPendingCoaches(allPending || []);
     } catch (err) {
@@ -87,18 +50,8 @@ const AdminDashboard = ({ user, onLogout }) => {
     setLoading(true);
     setError('');
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { data, error: queryError } = await supabase
-          .from('users')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (queryError) {
-          throw queryError;
-        }
-
-        setAllUsers(data || []);
-      }
+      const usersList = await databaseService.getAllUsersWithRoles();
+      setAllUsers(usersList || []);
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to fetch users');
@@ -115,51 +68,11 @@ const AdminDashboard = ({ user, onLogout }) => {
     setLoading(true);
     setError('');
     try {
-      if (isSupabaseConfigured && supabase) {
-        // Update user role to 'coach'
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({
-            role: 'coach',
-            verified: true
-          })
-          .eq('id', coach.id);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        // Create coach profile if not exists
-        const { data: existingProfile } = await supabase
-          .from('coach_profiles')
-          .select('*')
-          .eq('user_id', coach.id)
-          .single();
-
-        if (!existingProfile) {
-          await supabase
-            .from('coach_profiles')
-            .insert({
-              user_id: coach.id,
-              approved: true,
-              approval_date: new Date().toISOString(),
-              experience_years: 0,
-              certifications: [],
-              specialization: 'General'
-            });
-        }
-
-        // Refresh list
-        fetchPendingCoaches();
-        setSelectedCoach(null);
-        setApprovalNotes('');
-        alert('Coach approved successfully!');
-      } else {
-        // Fallback to databaseService
-        await databaseService.approveCoach(coach.email);
-        fetchPendingCoaches();
-        alert('Coach approved successfully!');
-      }
+      await databaseService.approveCoach(coach.email);
+      await fetchPendingCoaches();
+      setSelectedCoach(null);
+      setApprovalNotes('');
+      alert('Coach approved successfully!');
     } catch (err) {
       console.error('Error approving coach:', err);
       setError(err.message || 'Failed to approve coach');
@@ -175,24 +88,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     setLoading(true);
     setError('');
     try {
-      if (isSupabaseConfigured && supabase) {
-        // Update user role back to 'client'
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({
-            role: 'client'
-          })
-          .eq('id', coach.id);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        // Refresh list
-        fetchPendingCoaches();
-        setSelectedCoach(null);
-        alert('Coach application rejected');
-      }
+      await databaseService.rejectCoach(coach.email);
+      await fetchPendingCoaches();
+      setSelectedCoach(null);
+      alert('Coach application rejected');
     } catch (err) {
       console.error('Error rejecting coach:', err);
       setError(err.message || 'Failed to reject coach');

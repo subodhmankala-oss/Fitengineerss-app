@@ -249,19 +249,13 @@ const TrainerDashboard = ({ handleLogout }) => {
       setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
 
       // Fetch all users for platform directory
-      if (isSupabaseConfigured && databaseService.supabase) {
-        setLoadingUsers(true);
-        const { data: allUsers, error: usersError } = await databaseService.supabase
-          .from('users')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (!usersError && allUsers) {
-          setAllUsersList(allUsers);
-        }
-        setLoadingUsers(false);
-      }
+      setLoadingUsers(true);
+      const allUsers = await databaseService.getAllUsersWithRoles();
+      setAllUsersList(allUsers || []);
+      setLoadingUsers(false);
     } catch (e) {
       console.error('Error fetching admin data:', e);
+      setLoadingUsers(false);
     } finally {
       setLoadingAdmin(false);
     }

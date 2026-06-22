@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from '../services/databaseService';
-import CoachLogin from './CoachLogin';
 import './Onboarding.css';
 
 const googleAccounts = [
@@ -89,6 +88,11 @@ const Onboarding = ({ onComplete }) => {
   const [showAuthForm, setShowAuthForm] = useState(() =>
     localStorage.getItem('pendingCoachApply') === 'true'
   );
+  const [showClientEmailForm, setShowClientEmailForm] = useState(false);
+  const [clientAuthMode, setClientAuthMode] = useState('login');
+  const [forgotPasswordSuccessMsg, setForgotPasswordSuccessMsg] = useState('');
+  const [authSuccessMsg, setAuthSuccessMsg] = useState('');
+  const [coachesList, setCoachesList] = useState([]);
   const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
   const [coachApplyEmail, setCoachApplyEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [phoneNumber, setPhoneNumber] = useState(() => {
@@ -234,237 +238,255 @@ const Onboarding = ({ onComplete }) => {
     return accounts;
   });
 
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthLoading(true);
-
-    try {
-      if (authTab === 'login') {
-        let signInSuccess = false;
-        try {
-          if (isSupabaseConfigured && databaseService.supabase) {
-            await databaseService.signIn(authEmail, authPassword);
-            signInSuccess = true;
-          }
-        } catch (signInErr) {
-          console.warn("Supabase Sign In failed (rate limit/credentials), falling back locally:", signInErr);
-          setAuthError(`Note: Supabase error (${signInErr.message || signInErr}). Logging in via local testing session...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-
-        localStorage.setItem('rememberedEmail', authEmail);
-        localStorage.setItem('rememberedPassword', authPassword);
-        
-        // Update savedEmailAccounts list
-        const isCoachEmail = ['subodhmankala@gmail.com', 'trainer@fitengineers.com', 'coach@fitengineers.com'].includes(authEmail.toLowerCase());
-        const resolvedRole = isCoachEmail ? 'super-admin' : (userType === 'coach' ? 'coach' : 'client');
-        localStorage.setItem('userRole', resolvedRole);
-
-        const newSavedAcct = {
-          type: resolvedRole === 'super-admin' || resolvedRole === 'coach' ? 'coach' : 'client-email',
-          email: authEmail,
-          password: authPassword,
-          name: authEmail.split('@')[0].toUpperCase(),
-          initials: authEmail[0].toUpperCase(),
-          color: resolvedRole === 'super-admin' || resolvedRole === 'coach' ? '#ea4335' : '#8b5cf6'
-        };
-        const existingRaw = localStorage.getItem('savedEmailAccounts');
-        let savedList = [];
-        try {
-          savedList = existingRaw ? JSON.parse(existingRaw) : [];
-        } catch(err) {}
-        savedList = savedList.filter(a => a.email.toLowerCase() !== authEmail.toLowerCase());
-        savedList.unshift(newSavedAcct);
-        localStorage.setItem('savedEmailAccounts', JSON.stringify(savedList));
-
-        let profile = null;
-        if (isSupabaseConfigured && databaseService.supabase && signInSuccess) {
-          profile = await databaseService.getUserProfileByEmail(authEmail);
-        }
-
-        const isCoachRole = resolvedRole === 'coach' || resolvedRole === 'super-admin' || (profile && (profile.role === 'coach' || profile.role === 'super-admin'));
-        const hasCompleteProfile = isCoachRole || (profile && 
-                                   profile.userName && 
-                                   profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
-                                   profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
-                                   profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '');
-
-        if (isCoachRole) {
-          const coachProfile = profile || {
-            userName: authEmail.split('@')[0].toUpperCase(),
-            role: resolvedRole,
-            brand: authEmail.split('@')[0].toUpperCase() + ' Fitness',
-            payment_status: 'active'
-          };
-          await databaseService.loadProfileIntoLocalStorage(coachProfile, authEmail);
-          onComplete();
-        } else if (hasCompleteProfile) {
-          await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
-          onComplete();
-        } else {
-          localStorage.setItem('userEmail', authEmail);
-          localStorage.setItem('userRole', 'client');
-          if (profile && profile.userName) {
-            localStorage.setItem('userName', profile.userName);
-            if (profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN') localStorage.setItem('userAge', profile.userAge);
-            if (profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN') localStorage.setItem('userHeight', profile.userHeight);
-            if (profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN') localStorage.setItem('userWeight', profile.userWeight);
-            if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
-            if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
-            if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
-            localStorage.setItem('onboardingComplete', 'false');
-            setStep(2);
-          } else {
-            setStep(1);
-          }
-        }
-      } else {
-        if (!name.trim()) {
-          setAuthError('Please enter your name.');
-          setAuthLoading(false);
-          return;
-        }
-
-        let signupSuccess = false;
-        try {
-          if (isSupabaseConfigured && databaseService.supabase) {
-            await databaseService.signUp(authEmail, authPassword);
-            signupSuccess = true;
-          }
-        } catch (signUpErr) {
-          console.warn("Supabase SignUp rate limit or error, falling back locally:", signUpErr);
-          setAuthError(`Note: Supabase error (${signUpErr.message || signUpErr}). Proceeding via local testing session...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-
-        localStorage.setItem('rememberedEmail', authEmail);
-        localStorage.setItem('rememberedPassword', authPassword);
-        localStorage.setItem('userEmail', authEmail);
-        localStorage.setItem('userName', name.trim());
-
-        const resolvedRole = userType === 'coach' ? 'coach' : 'client';
-        localStorage.setItem('userRole', resolvedRole);
-
-        // Update savedEmailAccounts
-        const newSavedAcct = {
-          type: resolvedRole === 'coach' ? 'coach' : 'client-email',
-          email: authEmail,
-          password: authPassword,
-          name: name.trim(),
-          initials: name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2),
-          color: resolvedRole === 'coach' ? '#ea4335' : '#8b5cf6'
-        };
-        const existingRaw = localStorage.getItem('savedEmailAccounts');
-        let savedList = [];
-        try {
-          savedList = existingRaw ? JSON.parse(existingRaw) : [];
-        } catch(err) {}
-        savedList = savedList.filter(a => a.email.toLowerCase() !== authEmail.toLowerCase());
-        savedList.unshift(newSavedAcct);
-        localStorage.setItem('savedEmailAccounts', JSON.stringify(savedList));
-
-        if (resolvedRole === 'coach') {
-          const profile = {
-            email: authEmail,
-            userName: name.trim(),
-            role: 'coach',
-            brand: name.trim() + ' Fitness',
-            payment_status: 'active'
-          };
-          if (isSupabaseConfigured && databaseService.supabase && signupSuccess) {
-            try {
-              await databaseService.saveUserProfile(profile);
-            } catch(e) {}
-          }
-          await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
-          onComplete();
-        } else {
-          setStep(2);
-        }
-      }
-    } catch (err) {
-      setAuthError(err.message || 'Authentication failed. Please try again.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
   const handleClientEmailLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
     setAuthLoading(true);
     try {
+      let profile = await databaseService.getUserProfileByEmail(authEmail);
       let signInSuccess = false;
-      let profile = null;
 
-      if (isSupabaseConfigured && databaseService.supabase) {
-        await databaseService.signIn(authEmail, authPassword);
-        signInSuccess = true;
-        profile = await databaseService.getUserProfileByEmail(authEmail);
-      } else {
-        // Local/mock testing login
-        const cachedUsers = await databaseService.getAllUsers();
-        const localUser = cachedUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
-        if (localUser) {
-          signInSuccess = true;
-          profile = {
-            id: localUser.id,
-            userName: localUser.userName,
-            userAge: localUser.userAge,
-            userHeight: localUser.userHeight,
-            userWeight: localUser.userWeight,
-            userActivity: localUser.userActivity,
-            userGoal: localUser.userGoal,
-            userDiet: localUser.userDiet,
-            role: 'client',
-            coach_id: localUser.coach_id
-          };
-        } else {
-          // Fallback if password is correct for guest
-          if (authEmail.includes('@') && authPassword === 'password123') {
+      if (profile) {
+        // User exists! Try signing in
+        if (isSupabaseConfigured && databaseService.supabase) {
+          try {
+            await databaseService.signIn(authEmail, authPassword);
             signInSuccess = true;
-            profile = {
-              userName: authEmail.split('@')[0].toUpperCase(),
-              role: 'client'
-            };
-          } else {
-            throw new Error('Account not found. Clients must be invited or approved by a coach.');
+          } catch (signInErr) {
+            console.warn("Supabase Sign In failed, checking mock password fallback:", signInErr);
+            const mockUsers = databaseService.getMockTable('users');
+            const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
+            if (mUser && mUser.password_hash === authPassword) {
+              signInSuccess = true;
+            } else {
+              throw signInErr;
+            }
           }
+        } else {
+          // Local storage verification: check if password matches (simulate password check)
+          const mockUsers = databaseService.getMockTable('users');
+          const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
+          if (mUser && mUser.password_hash === authPassword) {
+            signInSuccess = true;
+          } else {
+            throw new Error('Invalid email or password.');
+          }
+        }
+
+        if (signInSuccess) {
+          // If signed in, check if clients row exists
+          const mockClients = databaseService.getMockTable('clients');
+          const hasClientsRow = (isSupabaseConfigured && databaseService.supabase) 
+            ? profile.userClientId 
+            : mockClients.some(c => c.user_id === profile.id);
+
+          if (hasClientsRow) {
+            // Client row exists! Load profile and complete login
+            await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
+            onComplete();
+          } else {
+            // No client row exists yet! Proceed to onboarding step 1 (Screen 3)
+            localStorage.setItem('userEmail', authEmail);
+            localStorage.setItem('userId', profile.id);
+            localStorage.setItem('userRole', 'client');
+            setStep(1);
+          }
+        } else {
+          throw new Error('Invalid email or password.');
+        }
+      } else {
+        // User does not exist! Sign up as a new client
+        if (clientAuthMode === 'login') {
+          throw new Error('Account not found. Click "Sign up" below to create a new client account.');
+        } else {
+          // Sign up flow
+          let newUserId = null;
+          if (isSupabaseConfigured && databaseService.supabase) {
+            const signupData = await databaseService.signUp(authEmail, authPassword);
+            newUserId = signupData?.user?.id;
+          }
+          
+          // Write to users table (public)
+          const mockUsers = databaseService.getMockTable('users');
+          const uid = newUserId || `mock-uid-${Date.now()}`;
+          const mUser = { id: uid, email: authEmail, auth_provider: 'email', password_hash: authPassword };
+          mockUsers.push(mUser);
+          databaseService.saveMockTable('users', mockUsers);
+
+          localStorage.setItem('userEmail', authEmail);
+          localStorage.setItem('userId', uid);
+          localStorage.setItem('userRole', 'client');
+          
+          setStep(1); // Proceed to onboarding setup wizard to link coach and fill in details
+        }
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Client authentication failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleClientForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setForgotPasswordSuccessMsg('');
+    setAuthLoading(true);
+    
+    const confirmation = "If that email is registered, you'll receive a password reset link shortly.";
+    
+    try {
+      if (isSupabaseConfigured && databaseService.supabase) {
+        // Trigger Vercel Serverless API call
+        await fetch('/api/request-password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail })
+        });
+        setForgotPasswordSuccessMsg(confirmation);
+      } else {
+        // Local Storage Fallback
+        const mockToken = await databaseService.requestMockPasswordReset(authEmail);
+        if (mockToken) {
+          const localLink = `http://localhost:5173/reset-password?token=${mockToken}`;
+          console.log(`[DEBUG - LOCAL ONLY] Password reset link generated: ${localLink}`);
+          alert(`[DEVELOPER TESTING] Password Reset Link:\n${localLink}`);
+        }
+        setForgotPasswordSuccessMsg(confirmation);
+      }
+    } catch (err) {
+      console.error('Forgot password submission error:', err);
+      setForgotPasswordSuccessMsg(confirmation);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleCoachEmailLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      let profile = await databaseService.getUserProfileByEmail(authEmail);
+      let signInSuccess = false;
+
+      if (!profile) {
+        throw new Error('No coach account found. Apply now to get started.');
+      }
+
+      // Check credentials
+      if (isSupabaseConfigured && databaseService.supabase) {
+        try {
+          await databaseService.signIn(authEmail, authPassword);
+          signInSuccess = true;
+        } catch (signInErr) {
+          console.warn("Supabase Coach Sign In failed, checking mock password fallback:", signInErr);
+          const mockUsers = databaseService.getMockTable('users');
+          const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
+          if (mUser && mUser.password_hash === authPassword) {
+            signInSuccess = true;
+          } else {
+            throw signInErr;
+          }
+        }
+      } else {
+        // Local storage verification: simulate check
+        const mockUsers = databaseService.getMockTable('users');
+        const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
+        if (mUser && mUser.password_hash === authPassword) {
+          signInSuccess = true;
+        } else {
+          throw new Error('Invalid email or password.');
         }
       }
 
       if (signInSuccess) {
-        const resolvedRole = profile?.role || 'client';
-        if (resolvedRole !== 'client') {
-          throw new Error('This account is registered as a coach, please switch to the Coach tab.');
+        const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
+        const mockCoaches = databaseService.getMockTable('coaches');
+        
+        // Find if coach record exists
+        let coachRecord = null;
+        if (isSupabaseConfigured && databaseService.supabase) {
+          const { data } = await databaseService.supabase
+            .from('coaches')
+            .select('*')
+            .eq('user_id', profile.id)
+            .maybeSingle();
+          coachRecord = data;
+        } else {
+          coachRecord = mockCoaches.find(c => c.user_id === profile.id);
         }
 
-        if (profile) {
-          await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
-        } else {
-          localStorage.setItem('userName', authEmail.split('@')[0].toUpperCase());
-          localStorage.setItem('userEmail', authEmail);
-          localStorage.setItem('userRole', 'client');
-        }
-        
-        // If the profile has complete metrics, complete onboarding, else go to step 2 to complete details
-        const hasCompleteProfile = profile && 
-                                   profile.userName && 
-                                   profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
-                                   profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
-                                   profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
-        
-        if (hasCompleteProfile) {
+        if (isSuperAdminEmail) {
+          // Super admin is auto approved. Make sure a coach row exists
+          if (isSupabaseConfigured && databaseService.supabase) {
+            const { data: existingAdminCoach } = await databaseService.supabase
+              .from('coaches')
+              .select('*')
+              .eq('user_id', profile.id)
+              .maybeSingle();
+            if (!existingAdminCoach) {
+              await databaseService.supabase.from('coaches').insert({
+                user_id: profile.id,
+                status: 'approved',
+                brand_name: 'Admin Fitness'
+              });
+            }
+          } else {
+            const existingAdminCoach = mockCoaches.find(c => c.user_id === profile.id);
+            if (!existingAdminCoach) {
+              mockCoaches.push({
+                id: 'coach-subodh',
+                user_id: profile.id,
+                status: 'approved',
+                brand_name: 'Admin Fitness'
+              });
+              databaseService.saveMockTable('coaches', mockCoaches);
+            }
+          }
+          await databaseService.loadProfileIntoLocalStorage({
+            ...profile,
+            role: 'super-admin',
+            userCoachId: 'coach-subodh'
+          }, authEmail);
           onComplete();
+        } else if (coachRecord) {
+          if (coachRecord.status === 'approved') {
+            await databaseService.loadProfileIntoLocalStorage({
+              ...profile,
+              role: 'coach',
+              userCoachId: coachRecord.id
+            }, authEmail);
+            onComplete();
+          } else if (coachRecord.status === 'pending') {
+            throw new Error('Your application is still under review.');
+          } else {
+            throw new Error('Your application has been rejected.');
+          }
         } else {
-          setStep(2); // Go to step 2 to fill in metrics
+          // Check if coach application exists
+          const mockApps = databaseService.getMockTable('coach_applications');
+          let appRecord = null;
+          if (isSupabaseConfigured && databaseService.supabase) {
+            const { data } = await databaseService.supabase
+              .from('coach_applications')
+              .select('*')
+              .eq('user_id', profile.id)
+              .maybeSingle();
+            appRecord = data;
+          } else {
+            appRecord = mockApps.find(a => a.user_id === profile.id);
+          }
+
+          if (appRecord && appRecord.status === 'pending') {
+            throw new Error('Your application is still under review.');
+          } else {
+            throw new Error('No coach account found. Apply now to get started.');
+          }
         }
-      } else {
-        throw new Error('Invalid email or password.');
       }
     } catch (err) {
-      setAuthError(err.message || 'Login failed.');
+      setAuthError(err.message || 'Coach authentication failed.');
     } finally {
       setAuthLoading(false);
     }
@@ -600,6 +622,34 @@ const Onboarding = ({ onComplete }) => {
     const coachId = localStorage.getItem('userCoachId');
     if (email && role === 'client' && !coachId) {
       setAuthTab('awaiting_invite_code');
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadCoaches = async () => {
+      try {
+        const list = await databaseService.refreshLocalCoaches();
+        setCoachesList(list || []);
+      } catch (err) {
+        console.warn('Error loading coaches list:', err);
+        const list = JSON.parse(localStorage.getItem('coaches_list') || '[]');
+        setCoachesList(list);
+      }
+    };
+    if (authTab === 'awaiting_invite_code') {
+      loadCoaches();
+    }
+  }, [authTab]);
+
+  useEffect(() => {
+    const msg = localStorage.getItem('resetSuccessMsg');
+    if (msg) {
+      localStorage.removeItem('resetSuccessMsg');
+      setUserType('client');
+      setAuthTab('login');
+      setShowClientEmailForm(true);
+      setClientAuthMode('login');
+      setAuthSuccessMsg(msg);
     }
   }, []);
 
@@ -816,66 +866,109 @@ const Onboarding = ({ onComplete }) => {
               </div>
             )}
 
-            <div className="coach-login-content" style={{ marginTop: '24px' }}>
-              <div className="coach-login-input-group">
-                <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Coach Invitation Code</label>
-                <input 
-                  type="text" 
-                  className="auth-input" 
-                  placeholder="e.g. A1B2C3" 
-                  style={{ textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px' }}
-                  id="lockScreenInviteInput"
-                  disabled={authLoading}
-                />
-              </div>
-              
-              <button 
-                type="button" 
-                className="coach-login-submit-btn"
-                style={{ marginTop: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)' }}
-                disabled={authLoading}
-                onClick={async () => {
-                  const rawCode = document.getElementById('lockScreenInviteInput').value.trim();
-                  if (!rawCode) return;
-                  const code = rawCode.toUpperCase();
-                  console.log('[DEBUG] Validating code on submit:', code);
-                  setAuthError('');
-                  setAuthLoading(true);
-                  try {
-                    const coachId = await databaseService.validateCoachInviteCode(code);
-                    if (coachId) {
-                      localStorage.setItem('userCoachId', coachId);
-                      localStorage.setItem('userRole', 'client');
-                      
-                      const email = localStorage.getItem('userEmail');
-                      const userName = localStorage.getItem('userName') || 'Warrior';
-                      
-                      // Sync to database
-                      if (isSupabaseConfigured && databaseService.supabase) {
-                        await databaseService.saveUserProfile({
-                          userName: userName,
-                          email: email,
-                          role: 'client',
-                          coach_id: coachId,
-                          verified: true
-                        });
-                      }
-                      
-                      localStorage.setItem('onboardingComplete', 'true');
-                      alert('Coach linked successfully! Welcome to Fitengineers.');
-                      onComplete();
-                    } else {
-                      throw new Error('Invalid or expired invitation code.');
-                    }
-                  } catch (err) {
-                    setAuthError(err.message || 'Verification failed.');
-                  } finally {
-                    setAuthLoading(false);
-                  }
-                }}
-              >
-                {authLoading ? 'Checking...' : 'Link Coach & Enter'}
-              </button>
+             <div className="coach-login-content" style={{ marginTop: '24px' }}>
+               <div className="coach-login-input-group">
+                 <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Coach Invitation Code</label>
+                 <input 
+                   type="text" 
+                   className="auth-input" 
+                   placeholder="e.g. A1B2C3" 
+                   style={{ textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px' }}
+                   id="lockScreenInviteInput"
+                   disabled={authLoading}
+                 />
+               </div>
+
+               <div className="coach-login-input-group" style={{ marginTop: '16px' }}>
+                 <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Or Select from Active Coaches</label>
+                 <select 
+                   id="lockScreenCoachSelect"
+                   className="auth-input"
+                   style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px', appearance: 'none', WebkitAppearance: 'none' }}
+                   disabled={authLoading}
+                   onChange={(e) => {
+                     if (e.target.value) {
+                       const input = document.getElementById('lockScreenInviteInput');
+                       if (input) input.value = '';
+                     }
+                   }}
+                 >
+                   <option value="" style={{ background: '#1e293b', color: '#94a3b8' }}>-- Choose a Coach --</option>
+                   {coachesList.map(c => (
+                     <option key={c.id} value={c.id} style={{ background: '#1e293b', color: '#fff' }}>
+                       {c.name} ({c.brand})
+                     </option>
+                   ))}
+                   {coachesList.length === 0 && (
+                     <option value="coach-subodh" style={{ background: '#1e293b', color: '#fff' }}>
+                       Subodh Mankala (Fit Engineers)
+                     </option>
+                   )}
+                 </select>
+               </div>
+               
+               <button 
+                 type="button" 
+                 className="coach-login-submit-btn"
+                 style={{ marginTop: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)' }}
+                 disabled={authLoading}
+                 onClick={async () => {
+                   const rawCode = document.getElementById('lockScreenInviteInput').value.trim();
+                   const selectedCoachSelect = document.getElementById('lockScreenCoachSelect');
+                   const selectedCoachId = selectedCoachSelect ? selectedCoachSelect.value : '';
+                   
+                   if (!rawCode && !selectedCoachId) {
+                     setAuthError('Please enter an invitation code or select a coach.');
+                     return;
+                   }
+                   
+                   setAuthError('');
+                   setAuthLoading(true);
+                   try {
+                     let coachId = null;
+                     if (rawCode) {
+                       const code = rawCode.toUpperCase();
+                       console.log('[DEBUG] Validating code on submit:', code);
+                       coachId = await databaseService.validateCoachInviteCode(code);
+                       if (!coachId) {
+                         throw new Error('Invalid or expired invitation code.');
+                       }
+                     } else if (selectedCoachId) {
+                       console.log('[DEBUG] Linking selected coach ID:', selectedCoachId);
+                       coachId = selectedCoachId;
+                     }
+
+                     if (coachId) {
+                       localStorage.setItem('userCoachId', coachId);
+                       localStorage.setItem('userRole', 'client');
+                       
+                       const email = localStorage.getItem('userEmail');
+                       const userName = localStorage.getItem('userName') || 'Warrior';
+                       
+                       // Sync to database
+                       if (isSupabaseConfigured && databaseService.supabase) {
+                         await databaseService.saveUserProfile({
+                           userName: userName,
+                           email: email,
+                           role: 'client',
+                           coach_id: coachId,
+                           verified: true
+                         });
+                       }
+                       
+                       localStorage.setItem('onboardingComplete', 'true');
+                       alert('Coach linked successfully! Welcome to Fitengineers.');
+                       onComplete();
+                     }
+                   } catch (err) {
+                     setAuthError(err.message || 'Verification failed.');
+                   } finally {
+                     setAuthLoading(false);
+                   }
+                 }}
+               >
+                 {authLoading ? 'Checking...' : 'Link Coach & Enter'}
+               </button>
 
               <button 
                 type="button" 
@@ -911,16 +1004,7 @@ const Onboarding = ({ onComplete }) => {
         </div>
       )}
 
-      {step === 0 && userType === 'coach' && authTab === 'login' && (
-        <CoachLogin
-          onLoginSuccess={onComplete}
-          onApplyNow={() => {
-            setAuthTab('coach_apply');
-            localStorage.setItem('pendingCoachApply', 'true');
-          }}
-          onBack={() => setUserType('client')}
-        />
-      )}
+
 
       {step === 0 && userType === 'coach' && authTab === 'coach_apply' && (
         <div style={{ width: '100%', min_height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
@@ -1011,7 +1095,7 @@ const Onboarding = ({ onComplete }) => {
         </div>
       )}
 
-      {step === 0 && userType !== 'coach' && (
+      {step === 0 && authTab !== 'coach_apply' && (
         <div className={`onboarding-portal-wrapper ${showAuthForm ? 'auth-form-active' : ''}`}>
           {/* Left/Center Side: Logo and Slide Mockup */}
           <div className="portal-left-panel">
@@ -1136,7 +1220,7 @@ const Onboarding = ({ onComplete }) => {
 
           {/* Right/Bottom Side: Forms & Actions Card */}
           <div className="portal-right-panel">
-            <div className="credentials-form-container animate-slide-in" style={{ padding: '24px 20px' }}>
+            <div className="credentials-form-container animate-slide-in" style={{ padding: '24px 20px', minHeight: '380px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               
               {/* Role Toggle Tab */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -1145,14 +1229,14 @@ const Onboarding = ({ onComplete }) => {
                   <button 
                     type="button" 
                     className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
-                    onClick={() => { setUserType('client'); setAuthError(''); }}
+                    onClick={() => { setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); }}
                   >
                     Client
                   </button>
                   <button 
                     type="button" 
                     className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
-                    onClick={() => { setUserType('coach'); setAuthError(''); }}
+                    onClick={() => { setUserType('coach'); setAuthError(''); setAuthSuccessMsg(''); }}
                   >
                     Coach
                   </button>
@@ -1160,9 +1244,24 @@ const Onboarding = ({ onComplete }) => {
               </div>
 
               {authError && <div className="auth-error-banner" style={{ marginBottom: '14px' }}>❌ {authError}</div>}
+              {authSuccessMsg && (
+                <div style={{
+                  padding: '10px 12px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '8px',
+                  color: '#34d399',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  marginBottom: '14px',
+                  textAlign: 'center'
+                }}>
+                  ✅ {authSuccessMsg}
+                </div>
+              )}
 
               {/* CLIENT FLOW */}
-              {userType === 'client' && (
+              {userType === 'client' && !showClientEmailForm && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <button 
                     type="button" 
@@ -1170,7 +1269,6 @@ const Onboarding = ({ onComplete }) => {
                     style={{ width: '100%', margin: 0, padding: '12px' }}
                     onClick={async () => {
                       setAuthError('');
-                      localStorage.removeItem('pendingCoachLogin');
                       try {
                         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                           setShowGoogleModal(true);
@@ -1190,16 +1288,228 @@ const Onboarding = ({ onComplete }) => {
                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                       </svg>
                     </div>
-                    Sign In with Google
+                    Continue with Google
                   </button>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-                    <button type="button" className="guest-bypass-btn-new" onClick={() => setStep(1)} style={{ width: '100%', margin: 0 }}>
-                      Skip & Continue as Guest →
-                    </button>
-                  </div>
+                  <button 
+                    type="button" 
+                    className="guest-bypass-btn-new"
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    onClick={() => setShowClientEmailForm(true)}
+                  >
+                    Continue with email
+                  </button>
                 </div>
               )}
+
+              {/* CLIENT EMAIL FORM */}
+              {userType === 'client' && showClientEmailForm && authTab !== 'forgot_password' && (
+                <form onSubmit={handleClientEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>
+                    {clientAuthMode === 'login' ? 'Client Login' : 'Client Sign Up'}
+                  </h4>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="you@email.com" 
+                      value={authEmail} 
+                      onChange={e => setAuthEmail(e.target.value)} 
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                      required 
+                      disabled={authLoading}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Password</label>
+                      {clientAuthMode === 'login' && (
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setAuthTab('forgot_password');
+                            setAuthError('');
+                            setAuthSuccessMsg('');
+                            setForgotPasswordSuccessMsg('');
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      value={authPassword} 
+                      onChange={e => setAuthPassword(e.target.value)} 
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                      required 
+                      disabled={authLoading}
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="gmail-login-btn"
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff' }}
+                    disabled={authLoading}
+                  >
+                    {authLoading ? 'Authenticating...' : clientAuthMode === 'login' ? 'Log In' : 'Create Account'}
+                  </button>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => { setClientAuthMode(clientAuthMode === 'login' ? 'signup' : 'login'); setAuthSuccessMsg(''); setAuthError(''); }}
+                      style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      {clientAuthMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+                    </button>
+                    
+                    <button 
+                      type="button" 
+                      onClick={() => { setShowClientEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      ← Back
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* CLIENT FORGOT PASSWORD SCREEN */}
+              {userType === 'client' && authTab === 'forgot_password' && (
+                <form onSubmit={handleClientForgotPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Reset Password</h4>
+                  <p style={{ margin: 0, color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.78rem', lineHeight: '1.4' }}>
+                    Enter your client email address below and we'll send you a secure link to reset your password.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="you@email.com" 
+                      value={authEmail} 
+                      onChange={e => setAuthEmail(e.target.value)} 
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                      required 
+                      disabled={authLoading}
+                    />
+                  </div>
+
+                  {forgotPasswordSuccessMsg && (
+                    <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', color: '#34d399', fontSize: '0.78rem' }}>
+                      {forgotPasswordSuccessMsg}
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit" 
+                    className="gmail-login-btn"
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff' }}
+                    disabled={authLoading}
+                  >
+                    {authLoading ? 'Sending...' : 'Send reset link'}
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setAuthTab('login');
+                      setAuthError('');
+                      setAuthSuccessMsg('');
+                      setForgotPasswordSuccessMsg('');
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0, alignSelf: 'center', marginTop: '4px' }}
+                  >
+                    ← Back
+                  </button>
+                </form>
+              )}
+
+              {/* COACH EMAIL FORM */}
+              {userType === 'coach' && (
+                <form onSubmit={handleCoachEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach Login</h4>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="coach@fitengineers.com" 
+                      value={authEmail} 
+                      onChange={e => setAuthEmail(e.target.value)} 
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                      required 
+                      disabled={authLoading}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Password</label>
+                      <button 
+                        type="button"
+                        onClick={async () => {
+                          if (!authEmail) {
+                            setAuthError('Please enter your coach email address first to reset password.');
+                            return;
+                          }
+                          try {
+                            setAuthLoading(true);
+                            await databaseService.resetPassword(authEmail);
+                            alert('Password reset link sent to your email.');
+                          } catch(err) {
+                            setAuthError(err.message || 'Failed to send reset link.');
+                          } finally {
+                            setAuthLoading(false);
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      value={authPassword} 
+                      onChange={e => setAuthPassword(e.target.value)} 
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+                      required 
+                      disabled={authLoading}
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="gmail-login-btn"
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+                    disabled={authLoading}
+                  >
+                    {authLoading ? 'Logging In...' : 'Log In as Coach'}
+                  </button>
+
+                  <p style={{ margin: '8px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
+                    Not a coach yet?{' '}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setAuthTab('coach_apply');
+                        localStorage.setItem('pendingCoachApply', 'true');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      Apply Now
+                    </button>
+                  </p>
+                </form>
+              )}
+
             </div>
           </div>
         </div>

@@ -15,6 +15,7 @@ import TrainerDashboard from './components/TrainerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import { isSuperAdmin } from './services/accessControl';
 import './index.css'; 
 
@@ -310,6 +311,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
   const lastProcessedEmailRef = useRef('');
 
   // Password Reset Modal States
@@ -334,6 +336,7 @@ function App() {
         lastProcessedEmailRef.current = email;
 
         const profile = await databaseService.getUserProfileByEmail(email);
+        console.log("Login successful. Role found: " + (profile?.role || 'none'));
         const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
 
         // Block unapproved coaches
@@ -342,19 +345,20 @@ function App() {
           await databaseService.signOut();
           clearLocalStoragePreservingChats();
           setUserEmail('');
+          setUserRole('');
           setOnboardingComplete(false);
           lastProcessedEmailRef.current = '';
           alert("Your coach application is pending review. Access is blocked until approved by Fitengineers Team.");
           return;
         }
 
-        const userRole = profile?.role || '';
+        const resolvedRole = profile?.role || '';
         const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
-          userRole === 'coach' ||
-          userRole === 'super-admin' ||
-          userRole === 'admin';
+          resolvedRole === 'coach' ||
+          resolvedRole === 'super-admin' ||
+          resolvedRole === 'admin';
 
         if (pendingCoachLogin) {
           localStorage.removeItem('pendingCoachLogin');
@@ -364,12 +368,12 @@ function App() {
           if (isApprovedCoach) {
             if (profile) {
               await databaseService.loadProfileIntoLocalStorage(profile, email);
+              setUserRole(profile.role);
             } else {
               localStorage.setItem('userName', googleName || 'Coach');
-              localStorage.setItem(
-                'userRole',
-                email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'
-              );
+              const finalRole = email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach';
+              localStorage.setItem('userRole', finalRole);
+              setUserRole(finalRole);
             }
             setUserEmail(email);
             localStorage.setItem('onboardingComplete', 'true');
@@ -379,6 +383,7 @@ function App() {
 
           localStorage.setItem('pendingCoachApply', 'true');
           setUserEmail(email);
+          setUserRole('coach_pending');
           setOnboardingComplete(false);
           return;
         }
@@ -400,9 +405,13 @@ function App() {
           
           if (profile) {
             await databaseService.loadProfileIntoLocalStorage(profile, email);
+            setUserRole(profile.role);
           } else {
             localStorage.setItem('userName', finalName);
             localStorage.setItem('userEmail', email);
+            const fallbackRole = isUserTrainer ? (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach') : 'client';
+            localStorage.setItem('userRole', fallbackRole);
+            setUserRole(fallbackRole);
           }
           if (profile?.userGoal) setUserGoal(profile.userGoal);
           setUserEmail(email);
@@ -430,6 +439,9 @@ function App() {
             if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
             if (profile.userGoal) localStorage.setItem('userGoal', profile.userGoal);
             if (profile.userDiet) localStorage.setItem('userDiet', profile.userDiet);
+            setUserRole(profile.role);
+          } else {
+            setUserRole('client');
           }
           setUserEmail(email);
           setOnboardingComplete(false);
@@ -780,6 +792,14 @@ function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [onboardingComplete, notificationPermission]);
 
+  if (window.location.pathname === '/reset-password') {
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712' }}>
+        <ResetPasswordPage />
+      </div>
+    );
+  }
+
   if (!onboardingComplete) {
     return (
       <div className="app-container">
@@ -855,6 +875,7 @@ function App() {
           const goal = localStorage.getItem('userGoal');
           if (goal) setUserGoal(goal);
           setUserEmail(localStorage.getItem('userEmail') || '');
+          setUserRole(localStorage.getItem('userRole') || 'client');
           setOnboardingComplete(true);
         }} />
       </div>
@@ -1030,7 +1051,6 @@ function App() {
     );
   };
 
-  const userRole = localStorage.getItem('userRole') || '';
   const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
   const isCoach = isTrainer(userEmail) || userRole === 'coach';
 

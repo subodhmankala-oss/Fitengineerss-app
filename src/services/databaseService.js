@@ -71,134 +71,163 @@ const getCleanClientKey = async (userId) => {
  */
 const databaseService = {
   supabase,
+  // Helper for mock DB
+  getMockTable(name) {
+    return JSON.parse(localStorage.getItem(`mock_${name}`) || '[]');
+  },
+  saveMockTable(name, data) {
+    localStorage.setItem(`mock_${name}`, JSON.stringify(data));
+  },
+
   // ─── USER PROFILE ───
   async saveUserProfile(profile) {
+    const email = profile.email || `${profile.userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    let userId = profile.id || localStorage.getItem('userId');
+
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .upsert({
-            email: profile.email || `${profile.userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`,
-            full_name: profile.userName,
-            age: parseInt(profile.userAge),
-            height_cm: parseFloat(profile.userHeight),
-            weight_kg: parseFloat(profile.userWeight),
-            activity_level: profile.userActivity,
-            fitness_goal: profile.userGoal,
-            dietary_preference: profile.userDiet,
-            calorie_target: parseInt(profile.userCalorieTarget),
-            protein_target: parseInt(profile.userProteinTarget),
-            fats_target: parseInt(profile.userFatsTarget),
-            role: profile.role || 'client',
-            phone: profile.phone || null,
-            brand: profile.brand || null,
-            payment_status: profile.payment_status || 'active',
-            coach_id: profile.coach_id || null
-          }, { onConflict: 'email' })
-          .select();
-        
-        if (error) throw error;
-        console.log('Cloud DB: Saved user profile:', data);
+        // 1. Ensure user row exists in users
+        let user = null;
+        if (userId) {
+          const { data: u } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+          user = u;
+        }
+        if (!user) {
+          const { data: u } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
+          user = u;
+        }
+        if (!user) {
+          const { data: newUser, error: userError } = await supabase
+            .from('users')
+            .upsert({
+              email,
+              auth_provider: profile.auth_provider || 'email'
+            }, { onConflict: 'email' })
+            .select()
+            .single();
+          if (userError) throw userError;
+          user = newUser;
+        }
+        userId = user.id;
+
+        // 2. Write client/coach record
+        if (profile.role === 'coach' || profile.role === 'super-admin' || profile.role === 'admin') {
+          const { error: coachError } = await supabase
+            .from('coaches')
+            .upsert({
+              user_id: userId,
+              status: 'approved',
+              brand_name: profile.brand || `${profile.userName} Fitness`
+            }, { onConflict: 'user_id' });
+          if (coachError) throw coachError;
+        } else {
+          // It's a client
+          const { error: clientError } = await supabase
+            .from('clients')
+            .upsert({
+              user_id: userId,
+              coach_id: profile.coach_id || 'coach-id-default', // must be uuid of coach
+              full_name: profile.userName,
+              phone_number: profile.phone || '',
+              fitness_goal: profile.userGoal,
+              weight_kg: parseFloat(profile.userWeight) || null,
+              height_cm: parseFloat(profile.userHeight) || null,
+              age: parseInt(profile.userAge) || null,
+              activity_level: profile.userActivity,
+              dietary_preference: profile.userDiet,
+              calorie_target: parseInt(profile.userCalorieTarget) || null,
+              protein_target: parseInt(profile.userProteinTarget) || null,
+              carbs_target: parseInt(profile.userCarbsTarget) || null,
+              fats_target: parseInt(profile.userFatsTarget) || null,
+              issue: profile.userIssue
+            }, { onConflict: 'user_id' });
+          if (clientError) throw clientError;
+        }
+        console.log('Cloud DB: Saved user profile under new schema.');
       } catch (e) {
         console.error('Cloud DB Sync Error: falling back to local.', e);
       }
     }
-    
-    // Always write to local storage as fallback/cache
+
+    // Always update Local Storage
     localStorage.setItem('userName', profile.userName);
-    localStorage.setItem('userAge', profile.userAge);
-    localStorage.setItem('userHeight', profile.userHeight);
-    localStorage.setItem('userWeight', profile.userWeight);
-    localStorage.setItem('userActivity', profile.userActivity);
-    localStorage.setItem('userGoal', profile.userGoal);
-    localStorage.setItem('userDiet', profile.userDiet);
-    localStorage.setItem('userCalorieTarget', profile.userCalorieTarget);
-    localStorage.setItem('userProteinTarget', profile.userProteinTarget);
-    localStorage.setItem('userCarbsTarget', profile.userCarbsTarget);
-    localStorage.setItem('userFatsTarget', profile.userFatsTarget);
+    localStorage.setItem('userEmail', email);
+    if (userId) localStorage.setItem('userId', userId);
+    localStorage.setItem('userAge', profile.userAge || '');
+    localStorage.setItem('userHeight', profile.userHeight || '');
+    localStorage.setItem('userWeight', profile.userWeight || '');
+    localStorage.setItem('userActivity', profile.userActivity || '');
+    localStorage.setItem('userGoal', profile.userGoal || '');
+    localStorage.setItem('userDiet', profile.userDiet || '');
+    localStorage.setItem('userCalorieTarget', profile.userCalorieTarget || '');
+    localStorage.setItem('userProteinTarget', profile.userProteinTarget || '');
+    localStorage.setItem('userCarbsTarget', profile.userCarbsTarget || '');
+    localStorage.setItem('userFatsTarget', profile.userFatsTarget || '');
     if (profile.userIssue) localStorage.setItem('userIssue', profile.userIssue);
     if (profile.role) localStorage.setItem('userRole', profile.role);
     if (profile.phone) localStorage.setItem('userPhone', profile.phone);
     if (profile.brand) localStorage.setItem('userBrand', profile.brand);
-    if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
     if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
-    // If this profile represents a coach (or pending coach), ensure local coaches_list includes it
-    if (profile.role && (profile.role === 'coach' || profile.role === 'coach_pending')) {
-      try {
-        const raw = localStorage.getItem('coaches_list') || '[]';
-        const coaches = JSON.parse(raw);
-        const coachId = profile.coach_id || (`coach-${(profile.userName || 'coach').toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`);
-        const existing = coaches.find(c => c.id === coachId || c.email === (profile.email || ''));
-        const newCoach = {
-          id: coachId,
-          name: profile.userName || profile.full_name || 'Coach',
-          email: profile.email || `${(profile.userName || 'coach').toLowerCase().replace(/\s+/g, '')}@fitengineers.com`,
-          brand: profile.brand || 'Fit Engineers',
-          payment_status: profile.payment_status || 'active',
-          signup_date: new Date().toISOString(),
-          clientsCount: 0
-        };
 
-        if (existing) {
-          Object.assign(existing, { ...existing, ...newCoach });
-        } else {
-          coaches.push(newCoach);
-        }
-        localStorage.setItem('coaches_list', JSON.stringify(coaches));
-        try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
-      } catch (e) {
-        console.error('Error updating local coaches_list:', e);
+    // Update local mock tables
+    const mockUsers = this.getMockTable('users');
+    let mUser = mockUsers.find(u => u.email === email || (userId && u.id === userId));
+    if (!mUser) {
+      mUser = { id: userId || `mock-uid-${Date.now()}`, email, auth_provider: profile.auth_provider || 'email' };
+      mockUsers.push(mUser);
+      this.saveMockTable('users', mockUsers);
+    }
+    userId = mUser.id;
+    localStorage.setItem('userId', userId);
+
+    if (profile.role === 'coach' || profile.role === 'super-admin' || profile.role === 'admin') {
+      const mockCoaches = this.getMockTable('coaches');
+      let mCoach = mockCoaches.find(c => c.user_id === userId);
+      const coachId = mCoach?.id || `coach-id-${Date.now()}`;
+      if (!mCoach) {
+        mCoach = { id: coachId, user_id: userId, status: 'approved', brand_name: profile.brand || `${profile.userName} Fitness` };
+        mockCoaches.push(mCoach);
+      } else {
+        mCoach.brand_name = profile.brand || `${profile.userName} Fitness`;
+        mCoach.status = 'approved';
       }
+      this.saveMockTable('coaches', mockCoaches);
+      localStorage.setItem('userCoachId', coachId);
+    } else {
+      const mockClients = this.getMockTable('clients');
+      let mClient = mockClients.find(c => c.user_id === userId);
+      const clientId = mClient?.id || `client-id-${Date.now()}`;
+      const clientRecord = {
+        id: clientId,
+        user_id: userId,
+        coach_id: profile.coach_id || localStorage.getItem('userCoachId') || 'coach-subodh',
+        full_name: profile.userName,
+        phone_number: profile.phone || '',
+        fitness_goal: profile.userGoal,
+        weight_kg: parseFloat(profile.userWeight) || null,
+        height_cm: parseFloat(profile.userHeight) || null,
+        age: parseInt(profile.userAge) || null,
+        activity_level: profile.userActivity,
+        dietary_preference: profile.userDiet,
+        calorie_target: parseInt(profile.userCalorieTarget) || null,
+        protein_target: parseInt(profile.userProteinTarget) || null,
+        carbs_target: parseInt(profile.userCarbsTarget) || null,
+        fats_target: parseInt(profile.userFatsTarget) || null,
+        issue: profile.userIssue
+      };
+      if (!mClient) {
+        mockClients.push(clientRecord);
+      } else {
+        Object.assign(mClient, clientRecord);
+      }
+      this.saveMockTable('clients', mockClients);
+      localStorage.setItem('userClientId', clientId);
     }
   },
 
   async getUserProfile(userName) {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const email = `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .single();
-        
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is code for no row found
-        if (data) {
-          return {
-            userName: data.full_name,
-            userAge: String(data.age),
-            userHeight: String(data.height_cm),
-            userWeight: String(data.weight_kg),
-            userActivity: data.activity_level,
-            userGoal: data.fitness_goal,
-            userDiet: data.dietary_preference,
-            userCalorieTarget: String(data.calorie_target),
-            userProteinTarget: String(data.protein_target),
-            userFatsTarget: String(data.fats_target),
-            role: data.role,
-            phone: data.phone,
-            brand: data.brand,
-            payment_status: data.payment_status,
-            coach_id: data.coach_id
-          };
-        }
-      } catch (e) {
-        console.error('Cloud DB Fetch Error: falling back to local.', e);
-      }
-    }
-    
-    return {
-      userName: localStorage.getItem('userName') || '',
-      userAge: localStorage.getItem('userAge') || '',
-      userHeight: localStorage.getItem('userHeight') || '',
-      userWeight: localStorage.getItem('userWeight') || '',
-      userActivity: localStorage.getItem('userActivity') || '',
-      userGoal: localStorage.getItem('userGoal') || '',
-      userDiet: localStorage.getItem('userDiet') || '',
-      userCalorieTarget: localStorage.getItem('userCalorieTarget') || '',
-      userProteinTarget: localStorage.getItem('userProteinTarget') || '',
-      userFatsTarget: localStorage.getItem('userFatsTarget') || ''
-    };
+    const email = `${userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    return this.getUserProfileByEmail(email);
   },
 
   // ─── DAILY TRACKER LOGS ───
@@ -501,45 +530,141 @@ const databaseService = {
   },
 
   async getUserProfileByEmail(email) {
+    if (!email) return null;
+    const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
+
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
+        const { data: user, error: userErr } = await supabase
           .from('users')
           .select('*')
           .eq('email', email)
-          .single();
+          .maybeSingle();
+
+        if (userErr) throw userErr;
         
-        if (error && error.code !== 'PGRST116') throw error;
-        if (data) {
-          if (data.role) {
-            localStorage.setItem('userRole', data.role);
+        if (user) {
+          // Check if coach profile exists
+          const { data: coach } = await supabase
+            .from('coaches')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          // Check if client profile exists
+          const { data: client } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          // Check if coach application exists
+          const { data: app } = await supabase
+            .from('coach_applications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('submitted_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let activeRole = 'client';
+          if (isSuperAdminEmail) {
+            activeRole = 'super-admin';
+          } else if (coach) {
+            activeRole = coach.status === 'approved' ? 'coach' : 'coach_pending';
+          } else if (app && app.status === 'pending') {
+            activeRole = 'coach_pending';
+          } else if (client) {
+            activeRole = 'client';
           }
+
+          localStorage.setItem('userRole', activeRole);
+          if (coach) localStorage.setItem('userCoachId', coach.id);
+          if (client) localStorage.setItem('userCoachId', client.coach_id); // Client stores their coach's ID
+          if (client) localStorage.setItem('userClientId', client.id);
+
           return {
-            id: data.id,
-            userName: data.full_name,
-            userAge: String(data.age),
-            userHeight: String(data.height_cm),
-            userWeight: String(data.weight_kg),
-            userActivity: data.activity_level,
-            userGoal: data.fitness_goal,
-            userDiet: data.dietary_preference,
-            userCalorieTarget: String(data.calorie_target),
-            userProteinTarget: String(data.protein_target),
-            userFatsTarget: String(data.fats_target),
-            role: data.role,
-            phone: data.phone,
-            brand: data.brand,
-            payment_status: data.payment_status,
-            coach_id: data.coach_id,
-            verified: data.verified,
-            approved: data.verified,
-            isApproved: data.verified
+            id: user.id,
+            userName: client?.full_name || coach?.brand_name || user.email.split('@')[0],
+            userAge: client?.age ? String(client.age) : '',
+            userHeight: client?.height_cm ? String(client.height_cm) : '',
+            userWeight: client?.weight_kg ? String(client.weight_kg) : '',
+            userActivity: client?.activity_level || '',
+            userGoal: client?.fitness_goal || '',
+            userDiet: client?.dietary_preference || '',
+            userCalorieTarget: client?.calorie_target ? String(client.calorie_target) : '',
+            userProteinTarget: client?.protein_target ? String(client.protein_target) : '',
+            userCarbsTarget: client?.carbs_target ? String(client.carbs_target) : '',
+            userFatsTarget: client?.fats_target ? String(client.fats_target) : '',
+            role: activeRole,
+            phone: client?.phone_number || app?.phone_number || '',
+            brand: coach?.brand_name || 'Fit Engineers',
+            payment_status: 'active',
+            coach_id: client?.coach_id || null,
+            userCoachId: coach?.id || null,
+            userClientId: client?.id || null,
+            verified: activeRole === 'coach' || activeRole === 'super-admin'
           };
         }
       } catch (e) {
         console.error('Cloud DB Fetch Error by email:', e);
       }
     }
+
+    // Local Mock database check
+    const mockUsers = this.getMockTable('users');
+    const mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
+    if (mUser || isSuperAdminEmail) {
+      const userId = mUser?.id || 'mock-admin-uid';
+      const mockCoaches = this.getMockTable('coaches');
+      const mockClients = this.getMockTable('clients');
+      const mockApps = this.getMockTable('coach_applications');
+
+      const mCoach = mockCoaches.find(c => c.user_id === userId);
+      const mClient = mockClients.find(c => c.user_id === userId);
+      const mApp = mockApps.find(a => a.user_id === userId);
+
+      let activeRole = 'client';
+      if (isSuperAdminEmail) {
+        activeRole = 'super-admin';
+      } else if (mCoach) {
+        activeRole = mCoach.status === 'approved' ? 'coach' : 'coach_pending';
+      } else if (mApp && mApp.status === 'pending') {
+        activeRole = 'coach_pending';
+      } else if (mClient) {
+        activeRole = 'client';
+      }
+
+      localStorage.setItem('userRole', activeRole);
+      if (mCoach) localStorage.setItem('userCoachId', mCoach.id);
+      if (mClient) localStorage.setItem('userCoachId', mClient.coach_id);
+      if (mClient) localStorage.setItem('userClientId', mClient.id);
+
+      return {
+        id: userId,
+        userName: mClient?.full_name || mCoach?.brand_name || email.split('@')[0],
+        userAge: mClient?.age ? String(mClient.age) : '',
+        userHeight: mClient?.height_cm ? String(mClient.height_cm) : '',
+        userWeight: mClient?.weight_kg ? String(mClient.weight_kg) : '',
+        userActivity: mClient?.activity_level || '',
+        userGoal: mClient?.fitness_goal || '',
+        userDiet: mClient?.dietary_preference || '',
+        userCalorieTarget: mClient?.calorie_target ? String(mClient.calorie_target) : '',
+        userProteinTarget: mClient?.protein_target ? String(mClient.protein_target) : '',
+        userCarbsTarget: mClient?.carbs_target ? String(mClient.carbs_target) : '',
+        userFatsTarget: mClient?.fats_target ? String(mClient.fats_target) : '',
+        role: activeRole,
+        phone: mClient?.phone_number || mApp?.phone_number || '',
+        brand: mCoach?.brand_name || 'Fit Engineers',
+        payment_status: 'active',
+        coach_id: mClient?.coach_id || null,
+        userCoachId: mCoach?.id || null,
+        userClientId: mClient?.id || null,
+        verified: activeRole === 'coach' || activeRole === 'super-admin'
+      };
+    }
+
     return null;
   },
 
@@ -547,6 +672,8 @@ const databaseService = {
     localStorage.setItem('userName', profile.userName || 'Trainer');
     localStorage.setItem('userEmail', email);
     if (profile.id) localStorage.setItem('userId', profile.id);
+    if (profile.userCoachId) localStorage.setItem('userCoachId', profile.userCoachId);
+    if (profile.userClientId) localStorage.setItem('userClientId', profile.userClientId);
     if (profile.userAge) localStorage.setItem('userAge', profile.userAge);
     if (profile.userHeight) localStorage.setItem('userHeight', profile.userHeight);
     if (profile.userWeight) localStorage.setItem('userWeight', profile.userWeight);
@@ -567,134 +694,78 @@ const databaseService = {
   async getAllUsers() {
     const loggedInEmail = localStorage.getItem('userEmail');
     const loggedInRole = localStorage.getItem('userRole');
-    const loggedInId = localStorage.getItem('userId');
-    const superAdmin = isSuperAdmin(loggedInEmail);
+    const loggedInCoachId = localStorage.getItem('userCoachId');
 
     if (isSupabaseConfigured && supabase) {
       try {
-        let query = supabase
-          .from('users')
-          .select('*')
-          .order('full_name', { ascending: true });
-
-        // Enforce isolation for coaches and admin's coach view
+        let query = supabase.from('clients').select('*, users(email)');
+        
         const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-        if (isCoachOrAdmin && loggedInId) {
-          query = query.eq('coach_id', loggedInId);
+        if (isCoachOrAdmin && loggedInCoachId && loggedInRole !== 'super-admin') {
+          query = query.eq('coach_id', loggedInCoachId);
         }
 
         const { data, error } = await query;
-        
         if (error) throw error;
+
         if (data) {
-          return data.map(u => ({
-            id: u.id,
-            email: u.email,
-            userName: u.full_name || 'Warrior',
-            userAge: String(u.age || ''),
-            userHeight: String(u.height_cm || ''),
-            userWeight: String(u.weight_kg || ''),
-            userActivity: u.activity_level || '',
-            userGoal: u.fitness_goal || '',
-            userDiet: u.dietary_preference || '',
-            userCalorieTarget: String(u.calorie_target || ''),
-            userProteinTarget: String(u.protein_target || ''),
-            userFatsTarget: String(u.fats_target || ''),
-            role: u.role,
-            phone: u.phone,
-            brand: u.brand,
-            payment_status: u.payment_status,
-            coach_id: u.coach_id
+          return data.map(c => ({
+            id: c.user_id, // Keep user_id as id for workout_logs/chats compatibility
+            client_id: c.id,
+            email: c.users?.email || '',
+            userName: c.full_name,
+            userAge: String(c.age || ''),
+            userHeight: String(c.height_cm || ''),
+            userWeight: String(c.weight_kg || ''),
+            userActivity: c.activity_level || '',
+            userGoal: c.fitness_goal || '',
+            userDiet: c.dietary_preference || '',
+            userCalorieTarget: String(c.calorie_target || ''),
+            userProteinTarget: String(c.protein_target || ''),
+            userCarbsTarget: String(c.carbs_target || ''),
+            userFatsTarget: String(c.fats_target || ''),
+            role: 'client',
+            phone: c.phone_number,
+            coach_id: c.coach_id
           }));
         }
       } catch (e) {
-        console.error('Cloud DB Fetch all users error:', e);
+        console.error('Cloud DB Fetch all clients error:', e);
       }
     }
+
+    // Local Storage Fallback
+    const mockClients = this.getMockTable('clients');
+    const mockUsers = this.getMockTable('users');
     
-    // Offline local storage fallback
-    const localClients = [];
-    const clientNamesSeen = new Set();
-    
-    // 1. Add current user if exists and not trainer
-    const currentName = localStorage.getItem('userName');
-    const currentEmail = localStorage.getItem('userEmail');
-    if (currentName && currentEmail && !isTrainer(currentEmail)) {
-      const uKey = currentName.toLowerCase().replace(/\s+/g, '');
-      const clientCoachId = localStorage.getItem(`client_${uKey}_userCoachId`) || '';
-      
-      // Enforce isolation for coaches and admin's coach view
-      const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-      if (!(isCoachOrAdmin && loggedInId && clientCoachId !== loggedInId)) {
-        localClients.push({
-          id: uKey,
-          email: currentEmail,
-          userName: currentName,
-          userAge: localStorage.getItem('userAge') || '',
-          userHeight: localStorage.getItem('userHeight') || '',
-          userWeight: localStorage.getItem('userWeight') || '',
-          userActivity: localStorage.getItem('userActivity') || '',
-          userGoal: localStorage.getItem('userGoal') || '',
-          userDiet: localStorage.getItem('userDiet') || '',
-          userCalorieTarget: localStorage.getItem('userCalorieTarget') || '',
-          userProteinTarget: localStorage.getItem('userProteinTarget') || '',
-          userFatsTarget: localStorage.getItem('userFatsTarget') || '',
-          role: 'client',
-          coach_id: clientCoachId
-        });
-        clientNamesSeen.add(uKey);
-      }
+    let filtered = mockClients;
+    const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
+    if (isCoachOrAdmin && loggedInCoachId && loggedInRole !== 'super-admin') {
+      filtered = mockClients.filter(c => c.coach_id === loggedInCoachId);
     }
 
-    // 2. Scan all client partitions and chats in localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key) {
-        let clientKey = '';
-        if (key.startsWith('client_')) {
-          const parts = key.split('_');
-          if (parts.length >= 2) {
-            clientKey = parts[1];
-          }
-        } else if (key.startsWith('local_chat_')) {
-          clientKey = key.replace('local_chat_', '');
-        }
-
-        if (clientKey && clientKey !== 'guest' && !clientNamesSeen.has(clientKey)) {
-          const keyPrefix = `client_${clientKey}_`;
-          const clientCoachId = localStorage.getItem(`${keyPrefix}userCoachId`) || '';
-
-          // Enforce isolation for coaches and admin's coach view
-          const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-          if (isCoachOrAdmin && loggedInId && clientCoachId !== loggedInId) {
-            continue;
-          }
-
-          clientNamesSeen.add(clientKey);
-          const email = localStorage.getItem(`${keyPrefix}userEmail`) || `${clientKey}@fitengineers.com`;
-          const name = localStorage.getItem(`${keyPrefix}userName`) || (clientKey.charAt(0).toUpperCase() + clientKey.slice(1));
-          
-          localClients.push({
-            id: clientKey,
-            email: email,
-            userName: name,
-            userAge: localStorage.getItem(`${keyPrefix}userAge`) || '',
-            userHeight: localStorage.getItem(`${keyPrefix}userHeight`) || '',
-            userWeight: localStorage.getItem(`${keyPrefix}userWeight`) || '',
-            userActivity: localStorage.getItem(`${keyPrefix}userActivity`) || '',
-            userGoal: localStorage.getItem(`${keyPrefix}userGoal`) || '',
-            userDiet: localStorage.getItem(`${keyPrefix}userDiet`) || '',
-            userCalorieTarget: localStorage.getItem(`${keyPrefix}userCalorieTarget`) || '',
-            userProteinTarget: localStorage.getItem(`${keyPrefix}userProteinTarget`) || '',
-            userFatsTarget: localStorage.getItem(`${keyPrefix}userFatsTarget`) || '',
-            role: 'client',
-            coach_id: clientCoachId
-          });
-        }
-      }
-    }
-
-    return localClients;
+    return filtered.map(c => {
+      const u = mockUsers.find(user => user.id === c.user_id);
+      return {
+        id: c.user_id,
+        client_id: c.id,
+        email: u?.email || `${c.full_name.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`,
+        userName: c.full_name,
+        userAge: String(c.age || ''),
+        userHeight: String(c.height_cm || ''),
+        userWeight: String(c.weight_kg || ''),
+        userActivity: c.activity_level || '',
+        userGoal: c.fitness_goal || '',
+        userDiet: c.dietary_preference || '',
+        userCalorieTarget: String(c.calorie_target || ''),
+        userProteinTarget: String(c.protein_target || ''),
+        userCarbsTarget: String(c.carbs_target || ''),
+        userFatsTarget: String(c.fats_target || ''),
+        role: 'client',
+        phone: c.phone_number,
+        coach_id: c.coach_id
+      };
+    });
   },
 
   async getWorkoutLogsForUser(userId) {
@@ -1184,54 +1255,126 @@ const databaseService = {
   // ─── COACH APPLICATIONS & INVITES ───
   async submitCoachApplication(applicationData) {
     const { email, name, certifications, experience, specialization, socialMedia, location } = applicationData;
-    
+    let userId = null;
+
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase
-        .from('users')
-        .upsert(
-          { email, role: 'coach_pending', full_name: name },
-          { onConflict: 'email' }
-        );
-      if (error) {
-        console.error('Cloud DB Coach Application Update Error:', error);
-        throw new Error(error.message || 'Database error occurred while submitting application.');
+      try {
+        // Check if user exists in users table
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (existingUser) {
+          userId = existingUser.id;
+        } else {
+          // Insert into users
+          const { data: newUser, error: userError } = await supabase
+            .from('users')
+            .insert({
+              email: email,
+              auth_provider: 'email'
+            })
+            .select()
+            .single();
+          if (userError) throw userError;
+          userId = newUser.id;
+        }
+
+        // Insert coach application
+        const { error: appError } = await supabase
+          .from('coach_applications')
+          .insert({
+            user_id: userId,
+            full_name: name,
+            phone_number: applicationData.phone || '',
+            experience_notes: experience || '',
+            status: 'pending'
+          });
+        if (appError) throw appError;
+      } catch (err) {
+        console.error('Cloud DB Coach Application Submit Error:', err);
+        throw new Error(err.message || 'Database error occurred while submitting application.');
       }
     }
-    
-    // Save rich details to local storage as fallback / complement
-    const pendingApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
-    pendingApps.push({ ...applicationData, status: 'pending', id: Date.now().toString() });
-    localStorage.setItem('coach_applications', JSON.stringify(pendingApps));
-    
+
+    // Mock Database Update
+    const mockUsers = this.getMockTable('users');
+    let mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!mUser) {
+      mUser = { id: `mock-uid-${Date.now()}`, email, auth_provider: 'email' };
+      mockUsers.push(mUser);
+      this.saveMockTable('users', mockUsers);
+    }
+    userId = mUser.id;
+
+    const mockApps = this.getMockTable('coach_applications');
+    const newApp = {
+      id: `app-id-${Date.now()}`,
+      user_id: userId,
+      full_name: name,
+      phone_number: applicationData.phone || '',
+      experience_notes: experience || '',
+      status: 'pending',
+      submitted_at: new Date().toISOString()
+    };
+    mockApps.push(newApp);
+    this.saveMockTable('coach_applications', mockApps);
+
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userName', name);
     localStorage.setItem('userRole', 'coach_pending');
+    localStorage.setItem('userId', userId);
   },
 
   async getPendingCoachApplications() {
     let cloudPending = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data } = await supabase
-          .from('users')
-          .select('*')
-          .eq('role', 'coach_pending');
-        if (data) cloudPending = data;
+        const { data, error } = await supabase
+          .from('coach_applications')
+          .select('*, users(email)')
+          .eq('status', 'pending');
+        if (!error && data) {
+          cloudPending = data.map(app => ({
+            id: app.user_id, // keep mapped to user_id for approval handler compatibility
+            application_id: app.id,
+            email: app.users?.email || '',
+            full_name: app.full_name,
+            phone_number: app.phone_number,
+            experience_notes: app.experience_notes,
+            status: app.status
+          }));
+        }
       } catch (e) {
         console.error('Cloud DB fetch pending coaches error:', e);
       }
     }
-    
-    const localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]').filter(a => a.status === 'pending');
-    
-    // Merge cloud and local data
-    const merged = [...localApps];
-    cloudPending.forEach(u => {
-      if (!merged.find(m => m.email === u.email)) {
-        merged.push({ email: u.email, name: u.full_name, status: 'pending', id: u.id });
+
+    const mockApps = this.getMockTable('coach_applications').filter(a => a.status === 'pending');
+    const mockUsers = this.getMockTable('users');
+
+    const mappedMock = mockApps.map(app => {
+      const u = mockUsers.find(user => user.id === app.user_id);
+      return {
+        id: app.user_id,
+        application_id: app.id,
+        email: u?.email || '',
+        full_name: app.full_name,
+        phone_number: app.phone_number,
+        experience_notes: app.experience_notes,
+        status: app.status
+      };
+    });
+
+    const merged = [...cloudPending];
+    mappedMock.forEach(m => {
+      if (!merged.find(item => item.email.toLowerCase() === m.email.toLowerCase())) {
+        merged.push(m);
       }
     });
-    
+
     return merged;
   },
 
@@ -1247,57 +1390,102 @@ const databaseService = {
         if (findError) throw findError;
         
         if (user) {
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ role: 'coach', verified: true })
-            .eq('id', user.id);
-            
-          if (updateError) throw updateError;
-          
-          const { data: existingProfile } = await supabase
-            .from('coach_profiles')
-            .select('*')
+          // Update coach applications
+          await supabase
+            .from('coach_applications')
+            .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+            .eq('user_id', user.id);
+
+          // Create row in coaches table
+          const { data: existingCoach } = await supabase
+            .from('coaches')
+            .select('id')
             .eq('user_id', user.id)
             .maybeSingle();
-            
-          if (!existingProfile) {
+
+          if (!existingCoach) {
             await supabase
-              .from('coach_profiles')
+              .from('coaches')
               .insert({
                 user_id: user.id,
-                approved: true,
-                approval_date: new Date().toISOString(),
-                experience_years: 0,
-                certifications: [],
-                specialization: 'General'
+                status: 'approved',
+                brand_name: 'Fit Engineers Coach'
               });
+          } else {
+            await supabase
+              .from('coaches')
+              .update({ status: 'approved' })
+              .eq('user_id', user.id);
           }
         }
       } catch (e) {
         console.error('Cloud DB Approve Coach Error:', e);
       }
     }
-    
-    let localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
-    localApps = localApps.map(a => a.email === email ? { ...a, status: 'approved' } : a);
-    localStorage.setItem('coach_applications', JSON.stringify(localApps));
+
+    // Mock Update
+    const mockUsers = this.getMockTable('users');
+    const mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (mUser) {
+      const mockApps = this.getMockTable('coach_applications');
+      const updatedApps = mockApps.map(a => a.user_id === mUser.id ? { ...a, status: 'approved', reviewed_at: new Date().toISOString() } : a);
+      this.saveMockTable('coach_applications', updatedApps);
+
+      const mockCoaches = this.getMockTable('coaches');
+      const existing = mockCoaches.find(c => c.user_id === mUser.id);
+      if (!existing) {
+        mockCoaches.push({
+          id: `coach-id-${Date.now()}`,
+          user_id: mUser.id,
+          status: 'approved',
+          brand_name: 'Fit Engineers Coach'
+        });
+      } else {
+        existing.status = 'approved';
+      }
+      this.saveMockTable('coaches', mockCoaches);
+    }
   },
 
   async rejectCoach(email) {
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase
+        const { data: user } = await supabase
           .from('users')
-          .update({ role: 'client' })
-          .eq('email', email);
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+        
+        if (user) {
+          // Update coach applications
+          await supabase
+            .from('coach_applications')
+            .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+            .eq('user_id', user.id);
+
+          // Update coaches status if exists
+          await supabase
+            .from('coaches')
+            .update({ status: 'rejected' })
+            .eq('user_id', user.id);
+        }
       } catch (e) {
         console.error('Cloud DB Reject Coach Error:', e);
       }
     }
-    
-    let localApps = JSON.parse(localStorage.getItem('coach_applications') || '[]');
-    localApps = localApps.map(a => a.email === email ? { ...a, status: 'rejected' } : a);
-    localStorage.setItem('coach_applications', JSON.stringify(localApps));
+
+    // Mock Update
+    const mockUsers = this.getMockTable('users');
+    const mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (mUser) {
+      const mockApps = this.getMockTable('coach_applications');
+      const updatedApps = mockApps.map(a => a.user_id === mUser.id ? { ...a, status: 'rejected', reviewed_at: new Date().toISOString() } : a);
+      this.saveMockTable('coach_applications', updatedApps);
+
+      const mockCoaches = this.getMockTable('coaches');
+      const updatedCoaches = mockCoaches.map(c => c.user_id === mUser.id ? { ...c, status: 'rejected' } : c);
+      this.saveMockTable('coaches', updatedCoaches);
+    }
   },
 
   async generateCoachInviteCode(coachId) {
@@ -1344,62 +1532,193 @@ const databaseService = {
     }
 
     return invitation.coachId;
-  }
-,
-  async refreshLocalCoaches() {
-    try {
-      const rawCoaches = localStorage.getItem('coaches_list') || '[]';
-      const coaches = JSON.parse(rawCoaches);
+  },
 
-      // Merge pending applications into coaches list (marking them pending)
-      const pendingApps = JSON.parse(localStorage.getItem('coach_applications') || '[]') || [];
-      pendingApps.forEach(app => {
-        const exists = coaches.find(c => c.email === app.email || c.id === app.id);
-        const id = app.id || `coach-${(app.name || app.email || 'coach').toLowerCase().replace(/\s+/g, '-')}`;
-        const entry = {
-          id,
-          name: app.name || app.full_name || id,
-          email: app.email,
-          brand: app.brand || 'Fit Engineers',
-          payment_status: app.payment_status || 'active',
-          signup_date: app.signup_date || new Date().toISOString(),
-          clientsCount: 0,
-          status: app.status || 'pending'
-        };
-        if (exists) {
-          Object.assign(exists, { ...exists, ...entry });
-        } else {
-          coaches.push(entry);
+  async getAllUsersWithRoles() {
+    let users = [];
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Query users
+        const { data: dbUsers, error: uErr } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+        if (dbUsers) {
+          // Query coaches
+          const { data: dbCoaches } = await supabase.from('coaches').select('*');
+          // Query clients
+          const { data: dbClients } = await supabase.from('clients').select('*');
+          // Query applications
+          const { data: dbApps } = await supabase.from('coach_applications').select('*');
+
+          users = dbUsers.map(u => {
+            const isSuperAdminEmail = u.email.toLowerCase() === 'subodhmankala@gmail.com';
+            const coach = dbCoaches?.find(c => c.user_id === u.id);
+            const client = dbClients?.find(c => c.user_id === u.id);
+            const app = dbApps?.find(a => a.user_id === u.id);
+
+            let role = 'client';
+            if (isSuperAdminEmail) {
+              role = 'super-admin';
+            } else if (coach) {
+              role = coach.status === 'approved' ? 'coach' : 'coach_pending';
+            } else if (app && app.status === 'pending') {
+              role = 'coach_pending';
+            } else if (client) {
+              role = 'client';
+            }
+
+            return {
+              id: u.id,
+              email: u.email,
+              full_name: client?.full_name || coach?.brand_name || u.email.split('@')[0],
+              role,
+              verified: role === 'coach' || role === 'super-admin',
+              created_at: u.created_at
+            };
+          });
         }
-      });
-
-      // Also ensure currently-signed-in user (if coach) is present
-      const currentRole = localStorage.getItem('userRole');
-      const currentEmail = localStorage.getItem('userEmail');
-      const currentName = localStorage.getItem('userName');
-      if (currentRole && (currentRole === 'coach' || currentRole === 'coach_pending') && currentEmail) {
-        const exists = coaches.find(c => c.email === currentEmail);
-        const id = localStorage.getItem('userCoachId') || (`coach-${(currentName || currentEmail).toLowerCase().replace(/\s+/g, '-')}`);
-        const entry = {
-          id,
-          name: currentName || currentEmail,
-          email: currentEmail,
-          brand: localStorage.getItem('userBrand') || 'Fit Engineers',
-          payment_status: localStorage.getItem('userPaymentStatus') || 'active',
-          signup_date: new Date().toISOString(),
-          clientsCount: 0,
-          status: currentRole === 'coach' ? 'active' : 'pending'
-        };
-        if (exists) Object.assign(exists, { ...exists, ...entry }); else coaches.push(entry);
+      } catch (e) {
+        console.error('Cloud DB getAllUsersWithRoles error:', e);
       }
-
-      localStorage.setItem('coaches_list', JSON.stringify(coaches));
-      try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
-      return coaches;
-    } catch (e) {
-      console.error('Error refreshing local coaches_list:', e);
-      return [];
     }
+
+    // Combine/fallback with Mock Table
+    const mockUsers = this.getMockTable('users');
+    const mockCoaches = this.getMockTable('coaches');
+    const mockClients = this.getMockTable('clients');
+    const mockApps = this.getMockTable('coach_applications');
+
+    mockUsers.forEach(u => {
+      if (!users.find(item => item.email.toLowerCase() === u.email.toLowerCase())) {
+        const isSuperAdminEmail = u.email.toLowerCase() === 'subodhmankala@gmail.com';
+        const coach = mockCoaches.find(c => c.user_id === u.id);
+        const client = mockClients.find(c => c.user_id === u.id);
+        const app = mockApps.find(a => a.user_id === u.id);
+
+        let role = 'client';
+        if (isSuperAdminEmail) {
+          role = 'super-admin';
+        } else if (coach) {
+          role = coach.status === 'approved' ? 'coach' : 'coach_pending';
+        } else if (app && app.status === 'pending') {
+          role = 'coach_pending';
+        } else if (client) {
+          role = 'client';
+        }
+
+        users.push({
+          id: u.id,
+          email: u.email,
+          full_name: client?.full_name || coach?.brand_name || u.email.split('@')[0],
+          role,
+          verified: role === 'coach' || role === 'super-admin',
+          created_at: u.created_at || new Date().toISOString()
+        });
+      }
+    });
+
+    return users;
+  },
+
+  async requestMockPasswordReset(email) {
+    const mockUsers = this.getMockTable('users');
+    const u = mockUsers.find(user => user.email.toLowerCase() === email.toLowerCase().trim());
+    if (u) {
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const mockTokens = this.getMockTable('password_reset_tokens');
+      mockTokens.push({
+        id: `token-id-${Date.now()}`,
+        user_id: u.id,
+        token: token,
+        expires_at: expiresAt,
+        used: false
+      });
+      this.saveMockTable('password_reset_tokens', mockTokens);
+      return token;
+    }
+    return null;
+  },
+
+  async validateMockToken(token) {
+    const mockTokens = this.getMockTable('password_reset_tokens');
+    const t = mockTokens.find(tok => tok.token === token);
+    if (!t) return { isValid: false, error: 'This link is invalid or has expired. Request a new one' };
+    if (t.used) return { isValid: false, error: 'This link is invalid or has expired. Request a new one' };
+    if (new Date(t.expires_at) < new Date()) return { isValid: false, error: 'This link is invalid or has expired. Request a new one' };
+    return { isValid: true, tokenObj: t };
+  },
+
+  async resetMockPasswordWithToken(token, newPassword) {
+    const validation = await this.validateMockToken(token);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+    const t = validation.tokenObj;
+    const mockUsers = this.getMockTable('users');
+    const uIdx = mockUsers.findIndex(user => user.id === t.user_id);
+    if (uIdx >= 0) {
+      mockUsers[uIdx].password_hash = newPassword;
+      this.saveMockTable('users', mockUsers);
+    }
+    const mockTokens = this.getMockTable('password_reset_tokens');
+    const tIdx = mockTokens.findIndex(tok => tok.id === t.id);
+    if (tIdx >= 0) {
+      mockTokens[tIdx].used = true;
+      this.saveMockTable('password_reset_tokens', mockTokens);
+    }
+    return true;
+  },
+
+  async refreshLocalCoaches() {
+    const coaches = [];
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('coaches')
+          .select('*, users(email, full_name)')
+          .eq('status', 'approved');
+        
+        if (!error && data) {
+          data.forEach(c => {
+            coaches.push({
+              id: c.id,
+              name: c.users?.full_name || c.brand_name || 'Coach',
+              email: c.users?.email || '',
+              brand: c.brand_name || 'Fit Engineers',
+              payment_status: 'active',
+              signup_date: c.created_at,
+              clientsCount: 0,
+              status: c.status
+            });
+          });
+        }
+      } catch (e) {
+        console.error('Cloud DB refresh coaches error:', e);
+      }
+    }
+
+    // Mock coaches
+    const mockCoaches = this.getMockTable('coaches').filter(c => c.status === 'approved');
+    const mockUsers = this.getMockTable('users');
+    
+    mockCoaches.forEach(c => {
+      if (!coaches.find(item => item.id === c.id)) {
+        const u = mockUsers.find(user => user.id === c.user_id);
+        coaches.push({
+          id: c.id,
+          name: u?.full_name || c.brand_name || 'Coach',
+          email: u?.email || '',
+          brand: c.brand_name || 'Fit Engineers',
+          payment_status: 'active',
+          signup_date: c.created_at || new Date().toISOString(),
+          clientsCount: 0,
+          status: c.status
+        });
+      }
+    });
+
+    localStorage.setItem('coaches_list', JSON.stringify(coaches));
+    try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
+    return coaches;
   }
 };
 

@@ -1301,9 +1301,19 @@ const databaseService = {
   },
 
   async generateCoachInviteCode(coachId) {
+    // Force uppercase normalization
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
-    invites[code] = coachId;
+    
+    // Store coachId and mock database expiration timestamp
+    invites[code] = {
+      coachId,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24-hour expiration
+    };
+
+    // Await simulation write confirmation to prevent premature client validations
+    await new Promise(resolve => setTimeout(resolve, 800));
+
     localStorage.setItem('coach_invites', JSON.stringify(invites));
     return code;
   },
@@ -1311,9 +1321,29 @@ const databaseService = {
   async validateCoachInviteCode(code) {
     if (!code) return null;
     const upperCode = code.toUpperCase();
-    console.log('[DEBUG] Querying validation for invite code:', upperCode);
+    
+    // Debug Requirement: Log exact query path, searched document ID, and result
+    console.log('[DEBUG] Query Path: collections/invitations');
+    console.log('[DEBUG] Query Document ID:', upperCode);
+    
     const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
-    return invites[upperCode] || null; // returns coachId if valid
+    const invitation = invites[upperCode];
+
+    if (!invitation) {
+      console.log('[DEBUG] Query Result: null');
+      return null;
+    }
+
+    console.log('[DEBUG] Query Result:', JSON.stringify(invitation));
+
+    // Expiration checks using ServerTimestamp equivalent (ISOString format)
+    const now = new Date().toISOString();
+    if (invitation.expiresAt && invitation.expiresAt < now) {
+      console.log('[DEBUG] Code expired. Expiration:', invitation.expiresAt, 'Now:', now);
+      return null;
+    }
+
+    return invitation.coachId;
   }
 ,
   async refreshLocalCoaches() {

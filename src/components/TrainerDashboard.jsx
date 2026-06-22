@@ -334,6 +334,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState('All');
   const [generatedInviteCode, setGeneratedInviteCode] = useState(() => localStorage.getItem('last_generated_invite_code') || '');
+  const [generatingCode, setGeneratingCode] = useState(false);
   
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
@@ -1300,18 +1301,27 @@ const TrainerDashboard = ({ handleLogout }) => {
                   </div>
                   <button
                     onClick={async () => {
-                      const coachId = localStorage.getItem('userId') || loggedInEmail;
-                      const code = await databaseService.generateCoachInviteCode(coachId);
-                      setGeneratedInviteCode(code);
-                      localStorage.setItem('last_generated_invite_code', code);
+                      if (generatingCode) return;
+                      setGeneratingCode(true);
+                      try {
+                        const coachId = localStorage.getItem('userId') || loggedInEmail;
+                        const code = await databaseService.generateCoachInviteCode(coachId);
+                        setGeneratedInviteCode(code);
+                        localStorage.setItem('last_generated_invite_code', code);
+                      } catch (err) {
+                        console.error('Error generating code:', err);
+                      } finally {
+                        setGeneratingCode(false);
+                      }
                     }}
+                    disabled={generatingCode}
                     style={{
                       background: 'var(--primary-accent-light)', border: 'none', color: '#fff',
                       padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer',
-                      whiteSpace: 'nowrap', marginLeft: '12px'
+                      whiteSpace: 'nowrap', marginLeft: '12px', opacity: generatingCode ? 0.6 : 1
                     }}
                   >
-                    Generate Code
+                    {generatingCode ? 'Generating...' : 'Generate Code'}
                   </button>
                 </div>
 

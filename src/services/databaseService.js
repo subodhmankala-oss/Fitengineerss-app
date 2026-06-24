@@ -62,6 +62,25 @@ const getCleanClientKey = async (userId) => {
   return userId.toLowerCase().replace(/\s+/g, '');
 };
 
+const INVITE_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const normalizeInviteCode = (code) => String(code || '').trim().toUpperCase();
+
+const createInviteCode = () => {
+  let code = '';
+  while (code.length < 6) {
+    code += Math.random().toString(36).slice(2).toUpperCase();
+  }
+  return code.slice(0, 6);
+};
+
+const isPastTimestamp = (value) => {
+  if (!value) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp <= Date.now();
+};
+
 /**
  * DATABASE SERVICE
  * ----------------
@@ -112,6 +131,18 @@ const databaseService = {
 
         // 2. Write client/coach record
         if (profile.role === 'coach' || profile.role === 'super-admin' || profile.role === 'admin') {
+          const storedRole = profile.role === 'admin' ? 'super-admin' : profile.role;
+          const { error: userRoleError } = await supabase
+            .from('users')
+            .update({
+              full_name: profile.userName,
+              role: storedRole
+            })
+            .eq('id', userId);
+          if (userRoleError) {
+            console.warn('Cloud DB: Could not sync coach role onto users row:', userRoleError);
+          }
+
           const { error: coachError } = await supabase
             .from('coaches')
             .upsert({
@@ -126,7 +157,7 @@ const databaseService = {
             .from('clients')
             .upsert({
               user_id: userId,
-              coach_id: profile.coach_id || 'coach-id-default', // must be uuid of coach
+              coach_id: (profile.coach_id && profile.coach_id !== 'coach-id-default') ? profile.coach_id : null,
               full_name: profile.userName,
               phone_number: profile.phone || '',
               fitness_goal: profile.userGoal,
@@ -181,6 +212,10 @@ const databaseService = {
     localStorage.setItem('userId', userId);
 
     if (profile.role === 'coach' || profile.role === 'super-admin' || profile.role === 'admin') {
+      mUser.role = profile.role === 'admin' ? 'super-admin' : profile.role;
+      mUser.full_name = profile.userName;
+      this.saveMockTable('users', mockUsers);
+
       const mockCoaches = this.getMockTable('coaches');
       let mCoach = mockCoaches.find(c => c.user_id === userId);
       const coachId = mCoach?.id || `coach-id-${Date.now()}`;
@@ -695,14 +730,18 @@ const databaseService = {
     const loggedInEmail = localStorage.getItem('userEmail');
     const loggedInRole = localStorage.getItem('userRole');
     const loggedInCoachId = localStorage.getItem('userCoachId');
+    const loggedInUserId = localStorage.getItem('userId');
 
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('clients').select('*, users(email)');
         
         const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-        if (isCoachOrAdmin && loggedInCoachId && loggedInRole !== 'super-admin') {
-          query = query.eq('coach_id', loggedInCoachId);
+        if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
+          // In Supabase, clients.coach_id stores the coach's users.id UUID
+          if (loggedInUserId) {
+            query = query.eq('coach_id', loggedInUserId);
+          }
         }
 
         const { data, error } = await query;
@@ -740,8 +779,8 @@ const databaseService = {
     
     let filtered = mockClients;
     const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-    if (isCoachOrAdmin && loggedInCoachId && loggedInRole !== 'super-admin') {
-      filtered = mockClients.filter(c => c.coach_id === loggedInCoachId);
+    if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
+      filtered = mockClients.filter(c => c.coach_id === loggedInCoachId || c.coach_id === loggedInUserId);
     }
 
     return filtered.map(c => {
@@ -1390,6 +1429,11 @@ const databaseService = {
         if (findError) throw findError;
         
         if (user) {
+          await supabase
+            .from('users')
+            .update({ role: 'coach' })
+            .eq('id', user.id);
+
           // Update coach applications
           await supabase
             .from('coach_applications')
@@ -1427,6 +1471,9 @@ const databaseService = {
     const mockUsers = this.getMockTable('users');
     const mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (mUser) {
+      mUser.role = 'coach';
+      this.saveMockTable('users', mockUsers);
+
       const mockApps = this.getMockTable('coach_applications');
       const updatedApps = mockApps.map(a => a.user_id === mUser.id ? { ...a, status: 'approved', reviewed_at: new Date().toISOString() } : a);
       this.saveMockTable('coach_applications', updatedApps);
@@ -1488,50 +1535,574 @@ const databaseService = {
     }
   },
 
-  async generateCoachInviteCode(coachId) {
-    // Force uppercase normalization
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  async resolveCoachUserId(coachId) {
+    const rawCoachId = String(coachId || '').trim();
+    if (!rawCoachId) {
+      throw new Error('Coach account could not be identified.');
+    }
+
+    if (UUID_RE.test(rawCoachId)) {
+      return rawCoachId;
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      const email = rawCoachId.toLowerCase();
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(error.message || 'Could not look up coach profile.');
+      }
+      if (user?.id) {
+        return user.id;
+      }
+
+      const { data: authData } = await supabase.auth.getUser();
+      const authUser = authData?.user;
+      if (authUser?.id && (!authUser.email || authUser.email.toLowerCase() === email)) {
+        return authUser.id;
+      }
+
+      throw new Error('Coach profile is not synced yet. Please sign in again before generating an invitation code.');
+    }
+
+    const mockUsers = this.getMockTable('users');
+    const user = mockUsers.find(u => u.email?.toLowerCase() === rawCoachId.toLowerCase() || u.id === rawCoachId);
+    return user?.id || rawCoachId;
+  },
+
+  async isActiveCoachUser(coachUserId) {
+    if (!coachUserId) return false;
+
+    if (isSupabaseConfigured && supabase) {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('email, role')
+        .eq('id', coachUserId)
+        .maybeSingle();
+      if (userError) throw userError;
+
+      const { data: coach, error: coachError } = await supabase
+        .from('coaches')
+        .select('status')
+        .eq('user_id', coachUserId)
+        .maybeSingle();
+      if (coachError) throw coachError;
+
+      return !!user && (
+        ['coach', 'super-admin', 'admin'].includes(user.role) ||
+        coach?.status === 'approved' ||
+        isSuperAdmin(user.email)
+      );
+    }
+
+    const mockUsers = this.getMockTable('users');
+    const mockCoaches = this.getMockTable('coaches');
+    const user = mockUsers.find(u => u.id === coachUserId);
+    const coach = mockCoaches.find(c => c.user_id === coachUserId || c.id === coachUserId);
+    return !!user && (
+      ['coach', 'super-admin', 'admin'].includes(user.role) ||
+      coach?.status === 'approved' ||
+      isSuperAdmin(user.email)
+    );
+  },
+
+  async updateInvitationUsage(upperCode, used, clientId = null) {
+    const usage = used
+      ? { used: true, used_at: new Date().toISOString(), used_by: clientId }
+      : { used: false, used_at: null, used_by: null };
+
+    let updateQuery = supabase
+      .from('invitations')
+      .update(usage)
+      .eq('code', upperCode);
+
+    if (used) {
+      updateQuery = updateQuery.eq('used', false);
+    }
+
+    const { data, error } = await updateQuery.select('id').maybeSingle();
+
+    if (!error) return data;
+
+    let fallbackQuery = supabase
+      .from('invitations')
+      .update({ used })
+      .eq('code', upperCode);
+
+    if (used) {
+      fallbackQuery = fallbackQuery.eq('used', false);
+    }
+
+    const { data: fallbackData, error: fallbackError } = await fallbackQuery.select('id').maybeSingle();
+
+    if (fallbackError) throw fallbackError;
+    return fallbackData;
+  },
+
+  async getActiveCoachInviteCode(coachId) {
+    const resolvedCoachId = await this.resolveCoachUserId(coachId);
+    const now = new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('coach_id', resolvedCoachId)
+          .eq('used', false)
+          .gt('expires_at', now)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[ERROR] Failed to fetch active invite code from Supabase:', err);
+        return null;
+      }
+    }
+
+    // Local Storage fallback
     const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
-    
-    // Store coachId and mock database expiration timestamp
+    const activeCode = Object.keys(invites).find(code => {
+      const invitation = invites[code];
+      return invitation.coachId === resolvedCoachId && !invitation.used && invitation.expiresAt > now;
+    });
+
+    if (activeCode) {
+      return { code: activeCode, ...invites[activeCode] };
+    }
+    return null;
+  },
+
+  async deactivateActiveCoachInviteCodes(coachId) {
+    const resolvedCoachId = await this.resolveCoachUserId(coachId);
+    const now = new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase
+          .from('invitations')
+          .update({ expires_at: now })
+          .eq('coach_id', resolvedCoachId)
+          .eq('used', false)
+          .gt('expires_at', now);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error('[ERROR] Failed to deactivate old invite codes in Supabase:', err);
+      }
+    } else {
+      // Local Storage fallback
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      let updated = false;
+      for (const code in invites) {
+        const invitation = invites[code];
+        if (invitation.coachId === resolvedCoachId && !invitation.used && invitation.expiresAt > now) {
+          invitation.expiresAt = now;
+          updated = true;
+        }
+      }
+      if (updated) {
+        localStorage.setItem('coach_invites', JSON.stringify(invites));
+      }
+    }
+  },
+
+  async generateCoachInviteCode(coachId) {
+    const resolvedCoachId = await this.resolveCoachUserId(coachId);
+    const expiresAt = new Date(Date.now() + INVITE_CODE_TTL_MS).toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      if (!UUID_RE.test(resolvedCoachId)) {
+        throw new Error('Coach profile is not linked to a valid database user.');
+      }
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const code = createInviteCode();
+        const { error } = await supabase
+          .from('invitations')
+          .insert({
+            code,
+            coach_id: resolvedCoachId,
+            expires_at: expiresAt,
+            used: false
+          });
+
+        if (!error) {
+          console.log('[DEBUG] Cloud DB: Stored invitation code successfully.', {
+            code,
+            coach_id: resolvedCoachId,
+            expires_at: expiresAt,
+            generated_at: new Date().toISOString()
+          });
+          return code;
+        }
+
+        if (error.code === '23505') {
+          continue;
+        }
+
+        console.error('[ERROR] Failed to write coach invite code to Supabase:', error);
+        throw new Error(error.message || 'Could not store invitation code. Please try again.');
+      }
+
+      throw new Error('Could not generate a unique invitation code. Please try again.');
+    }
+
+    const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+    let code = createInviteCode();
+    while (invites[code]) {
+      code = createInviteCode();
+    }
+
     invites[code] = {
-      coachId,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24-hour expiration
+      coachId: resolvedCoachId,
+      expiresAt,
+      used: false
     };
-
-    // Await simulation write confirmation to prevent premature client validations
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     localStorage.setItem('coach_invites', JSON.stringify(invites));
+    console.log('[DEBUG] Local Storage: Stored invitation code successfully.', {
+      code,
+      coach_id: resolvedCoachId,
+      expires_at: expiresAt,
+      generated_at: new Date().toISOString()
+    });
+
     return code;
   },
 
   async validateCoachInviteCode(code) {
-    if (!code) return null;
-    const upperCode = code.toUpperCase();
-    
-    // Debug Requirement: Log exact query path, searched document ID, and result
-    console.log('[DEBUG] Query Path: collections/invitations');
+    const upperCode = normalizeInviteCode(code);
+    if (!upperCode) return null;
+
+    // Debug Requirement: Log exact query path, searched document ID
+    console.log('[DEBUG] Query Path: public.invitations');
     console.log('[DEBUG] Query Document ID:', upperCode);
-    
-    const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
-    const invitation = invites[upperCode];
 
-    if (!invitation) {
-      console.log('[DEBUG] Query Result: null');
-      return null;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: invite, error } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('code', upperCode)
+          .eq('used', false)
+          .maybeSingle();
+
+        if (error || !invite) {
+          console.log('[DEBUG] Query Result: null');
+          return null;
+        }
+
+        console.log('[DEBUG] Query Result:', JSON.stringify(invite));
+
+        // Timezone comparison logs
+        console.log('[DEBUG] Invitation code expiration time (UTC):', invite.expires_at);
+        console.log('[DEBUG] Current validation time (UTC):', new Date().toISOString());
+
+        if (isPastTimestamp(invite.expires_at)) {
+          console.log('[DEBUG] Code expired. Expiration:', invite.expires_at, 'Now:', new Date().toISOString());
+          return null;
+        }
+
+        return invite.coach_id;
+      } catch (err) {
+        console.error('[ERROR] Error validating invite code in Supabase:', err);
+        return null;
+      }
+    } else {
+      // Local Storage Fallback
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      const invitation = invites[upperCode];
+
+      if (!invitation || invitation.used) {
+        console.log('[DEBUG] Query Result: null');
+        return null;
+      }
+
+      console.log('[DEBUG] Query Result:', JSON.stringify(invitation));
+
+      console.log('[DEBUG] Invitation code expiration time (UTC):', invitation.expiresAt);
+      console.log('[DEBUG] Current validation time (UTC):', new Date().toISOString());
+
+      if (isPastTimestamp(invitation.expiresAt)) {
+        console.log('[DEBUG] Code expired. Expiration:', invitation.expiresAt, 'Now:', new Date().toISOString());
+        return null;
+      }
+
+      return invitation.coachId;
+    }
+  },
+
+  async consumeCoachInviteCode(code, clientId = null) {
+    const upperCode = normalizeInviteCode(code);
+    if (!upperCode) return;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await this.updateInvitationUsage(upperCode, true, clientId);
+        console.log('[DEBUG] Cloud DB: Successfully consumed invitation code:', upperCode);
+      } catch (err) {
+        console.error('[ERROR] Failed to mark invite code as used in Supabase:', err);
+        throw err;
+      }
+    } else {
+      // Local Storage Fallback
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      if (invites[upperCode]) {
+        invites[upperCode].used = true;
+        invites[upperCode].usedAt = new Date().toISOString();
+        invites[upperCode].usedBy = clientId;
+        localStorage.setItem('coach_invites', JSON.stringify(invites));
+        console.log('[DEBUG] Local Storage: Successfully consumed invitation code:', upperCode);
+      }
+    }
+  },
+
+  async linkCoachAndEnterDirect(upperCode, clientId) {
+    const { data: invite, error: inviteError } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('code', upperCode)
+      .maybeSingle();
+
+    if (inviteError) throw inviteError;
+    if (!invite) throw new Error('Invalid invitation code.');
+    if (invite.used) throw new Error('Invitation code has already been used.');
+
+    console.log('[DEBUG] Direct invite validation result:', JSON.stringify(invite));
+    console.log('[DEBUG] Invitation code expiration time (UTC):', invite.expires_at);
+    console.log('[DEBUG] Current validation time (UTC):', new Date().toISOString());
+
+    if (isPastTimestamp(invite.expires_at)) {
+      throw new Error('Invitation code has expired.');
     }
 
-    console.log('[DEBUG] Query Result:', JSON.stringify(invitation));
-
-    // Expiration checks using ServerTimestamp equivalent (ISOString format)
-    const now = new Date().toISOString();
-    if (invitation.expiresAt && invitation.expiresAt < now) {
-      console.log('[DEBUG] Code expired. Expiration:', invitation.expiresAt, 'Now:', now);
-      return null;
+    const coachIsActive = await this.isActiveCoachUser(invite.coach_id);
+    if (!coachIsActive) {
+      throw new Error('Invitation belongs to an inactive or invalid coach.');
     }
 
-    return invitation.coachId;
+    const fullName = localStorage.getItem('userName') || 'Warrior';
+    const { error: clientError } = await supabase
+      .from('clients')
+      .upsert({
+        user_id: clientId,
+        coach_id: invite.coach_id,
+        full_name: fullName
+      }, { onConflict: 'user_id' });
+    if (clientError) throw clientError;
+
+    const { error: userError } = await supabase
+      .from('users')
+      .update({
+        role: 'client',
+        coach_id: invite.coach_id,
+        full_name: fullName,
+        verified: true
+      })
+      .eq('id', clientId);
+
+    if (userError) {
+      const { error: fallbackUserError } = await supabase
+        .from('users')
+        .update({
+          role: 'client',
+          coach_id: invite.coach_id,
+          full_name: fullName
+        })
+        .eq('id', clientId);
+      if (fallbackUserError) throw fallbackUserError;
+    }
+
+    const consumedInvite = await this.updateInvitationUsage(upperCode, true, clientId);
+    if (!consumedInvite) {
+      throw new Error('Invitation code has already been used.');
+    }
+
+    const { data: verifyClient } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', clientId)
+      .maybeSingle();
+    const { data: verifyUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    if (verifyClient?.coach_id !== invite.coach_id || verifyUser?.coach_id !== invite.coach_id) {
+      await this.updateInvitationUsage(upperCode, false);
+      throw new Error('Database transaction verification failed. Link reverted to prevent user lockout.');
+    }
+
+    return {
+      success: true,
+      coach_id: invite.coach_id,
+      client_id: clientId,
+      code_used: upperCode
+    };
+  },
+
+  async linkCoachAndEnterTransaction(code, clientId) {
+    const upperCode = normalizeInviteCode(code);
+    if (!upperCode || !clientId) throw new Error('Code and Client ID are required.');
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        console.log('[DEBUG] Executing atomic transaction RPC: link_coach_and_enter_transaction');
+        const { data, error } = await supabase
+          .rpc('link_coach_and_enter_transaction', {
+            p_invite_code: upperCode,
+            p_client_id: clientId
+          });
+
+        if (error) {
+          console.error('[ERROR] RPC failed:', error.message || error);
+          throw new Error(error.message || 'Database transaction failed.');
+        }
+        
+        if (data && !data.success) {
+          console.error('[ERROR] RPC transaction failed:', data.error);
+          throw new Error(data.error || 'Database transaction failed.');
+        }
+
+        console.log('[DEBUG] Transaction RPC successful:', JSON.stringify(data));
+
+        // ─── POST-TRANSACTION VERIFICATION (SELF-HEALING CHECK) ───
+        console.log('[DEBUG] Starting post-transaction verification...');
+        
+        // 1. Verify invitation
+        const { data: verifyInvite } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('code', upperCode)
+          .maybeSingle();
+
+        // 2. Verify client profile
+        const { data: verifyClient } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('user_id', clientId)
+          .maybeSingle();
+
+        // 3. Verify user record
+        const { data: verifyUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', clientId)
+          .maybeSingle();
+
+        const hasUsedByColumn = verifyInvite && Object.prototype.hasOwnProperty.call(verifyInvite, 'used_by');
+        const hasInvite = verifyInvite && verifyInvite.used === true && (!hasUsedByColumn || verifyInvite.used_by === clientId);
+        const hasClient = verifyClient && verifyClient.coach_id === verifyInvite?.coach_id;
+        const hasUser = verifyUser && verifyUser.role === 'client' && verifyUser.coach_id === verifyInvite?.coach_id && verifyUser.payment_status === 'active';
+
+        if (!hasInvite || !hasClient || !hasUser) {
+          console.error('[CRITICAL ERROR] Post-transaction consistency verification FAILED!', {
+            hasInvite,
+            hasClient,
+            hasUser,
+            verifyInvite,
+            verifyClient,
+            verifyUser
+          });
+
+          console.log('[DEBUG] Restoring invitation status to unused...');
+          await this.updateInvitationUsage(upperCode, false);
+
+          throw new Error('Database transaction verification failed. Link reverted to prevent user lockout.');
+        }
+
+        console.log('[DEBUG] Post-transaction verification: ALL CHECKS PASSED.');
+        return data;
+
+      } catch (err) {
+        console.error('[ERROR] linkCoachAndEnterTransaction failed:', err.message || err);
+        throw err;
+      }
+    } else {
+      // Local Storage Fallback Transaction (Simulated Atomicity)
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      const invitation = invites[upperCode];
+
+      if (!invitation) {
+        throw new Error('Invalid invitation code.');
+      }
+      if (invitation.used) {
+        throw new Error('Invitation code has already been used.');
+      }
+      if (isPastTimestamp(invitation.expiresAt)) {
+        throw new Error('Invitation code has expired.');
+      }
+
+      // Check active coach
+      const coachIsActive = await this.isActiveCoachUser(invitation.coachId);
+      if (!coachIsActive) {
+        throw new Error('Invitation belongs to an inactive or invalid coach.');
+      }
+
+      // Create/update client profile before consuming the invitation.
+      const mockUsers = this.getMockTable('users');
+      const mockClients = this.getMockTable('clients');
+      const clientIdx = mockClients.findIndex(c => c.user_id === clientId);
+      const now = new Date().toISOString();
+      const newClientObj = {
+        user_id: clientId,
+        coach_id: invitation.coachId,
+        full_name: localStorage.getItem('userName') || 'Warrior',
+        linked_at: now
+      };
+
+      if (clientIdx >= 0) {
+        mockClients[clientIdx] = { ...mockClients[clientIdx], ...newClientObj };
+      } else {
+        mockClients.push(newClientObj);
+      }
+      this.saveMockTable('clients', mockClients);
+
+      const userIdx = mockUsers.findIndex(u => u.id === clientId);
+      if (userIdx >= 0) {
+        mockUsers[userIdx].role = 'client';
+        mockUsers[userIdx].coach_id = invitation.coachId;
+        this.saveMockTable('users', mockUsers);
+      }
+
+      invitation.used = true;
+      invitation.usedAt = now;
+      invitation.usedBy = clientId;
+      localStorage.setItem('coach_invites', JSON.stringify(invites));
+
+      // Simulated Post-Transaction Verification
+      const mockVerifyInvite = JSON.parse(localStorage.getItem('coach_invites') || '{}')[upperCode];
+      const mockVerifyClient = this.getMockTable('clients').find(c => c.user_id === clientId);
+      const mockVerifyUser = this.getMockTable('users').find(u => u.id === clientId);
+
+      const passInvite = mockVerifyInvite && mockVerifyInvite.used === true && mockVerifyInvite.usedBy === clientId;
+      const passClient = mockVerifyClient && mockVerifyClient.coach_id === invitation.coachId;
+      const passUser = mockVerifyUser && mockVerifyUser.role === 'client' && mockVerifyUser.coach_id === invitation.coachId;
+
+      if (!passInvite || !passClient || !passUser) {
+        // Rollback
+        invitation.used = false;
+        invitation.usedAt = null;
+        invitation.usedBy = null;
+        localStorage.setItem('coach_invites', JSON.stringify(invites));
+        throw new Error('Local mock verification failed. Changes rolled back.');
+      }
+
+      return {
+        success: true,
+        coach_id: invitation.coachId,
+        client_id: clientId,
+        code_used: upperCode
+      };
+    }
   },
 
   async getAllUsersWithRoles() {

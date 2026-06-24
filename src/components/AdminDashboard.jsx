@@ -25,11 +25,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     );
   }
 
-  // Fetch pending coaches on component mount
-  useEffect(() => {
-    fetchPendingCoaches();
-  }, []);
-
   const fetchPendingCoaches = async () => {
     setLoading(true);
     setError('');
@@ -59,6 +54,35 @@ const AdminDashboard = ({ user, onLogout }) => {
       setLoading(false);
     }
   };
+
+  // Fetch pending coaches on component mount and setup real-time listeners
+  useEffect(() => {
+    fetchPendingCoaches();
+
+    let channel = null;
+    if (isSupabaseConfigured && supabase) {
+      console.log('[DEBUG] Admin Dashboard: Subscribing to real-time changes...');
+      channel = supabase
+        .channel('admin-dashboard-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+          console.log('[DEBUG] Admin Dashboard: Real-time user change detected:', payload);
+          fetchAllUsers();
+          fetchPendingCoaches();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'coach_applications' }, (payload) => {
+          console.log('[DEBUG] Admin Dashboard: Real-time coach applications change detected:', payload);
+          fetchPendingCoaches();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) {
+        console.log('[DEBUG] Admin Dashboard: Unsubscribing real-time channel.');
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   const handleApproveCoach = async (coach) => {
     if (!window.confirm(`Approve ${coach.full_name || coach.email} as a coach?`)) {

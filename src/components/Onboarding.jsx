@@ -913,7 +913,7 @@ const Onboarding = ({ onComplete }) => {
                  style={{ marginTop: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)' }}
                  disabled={authLoading}
                  onClick={async () => {
-                   const rawCode = document.getElementById('lockScreenInviteInput').value.trim();
+                   const rawCode = document.getElementById('lockScreenInviteInput').value.trim().toUpperCase();
                    const selectedCoachSelect = document.getElementById('lockScreenCoachSelect');
                    const selectedCoachId = selectedCoachSelect ? selectedCoachSelect.value : '';
                    
@@ -925,41 +925,38 @@ const Onboarding = ({ onComplete }) => {
                    setAuthError('');
                    setAuthLoading(true);
                    try {
-                     let coachId = null;
-                     if (rawCode) {
-                       const code = rawCode.toUpperCase();
-                       console.log('[DEBUG] Validating code on submit:', code);
-                       coachId = await databaseService.validateCoachInviteCode(code);
-                       if (!coachId) {
-                         throw new Error('Invalid or expired invitation code.');
-                       }
-                     } else if (selectedCoachId) {
-                       console.log('[DEBUG] Linking selected coach ID:', selectedCoachId);
-                       coachId = selectedCoachId;
-                     }
+                      let coachId = null;
+                      const clientId = localStorage.getItem('userId');
+                      const email = localStorage.getItem('userEmail');
+                      const userName = localStorage.getItem('userName') || 'Warrior';
 
-                     if (coachId) {
-                       localStorage.setItem('userCoachId', coachId);
-                       localStorage.setItem('userRole', 'client');
-                       
-                       const email = localStorage.getItem('userEmail');
-                       const userName = localStorage.getItem('userName') || 'Warrior';
-                       
-                       // Sync to database
-                       if (isSupabaseConfigured && databaseService.supabase) {
-                         await databaseService.saveUserProfile({
-                           userName: userName,
-                           email: email,
-                           role: 'client',
-                           coach_id: coachId,
-                           verified: true
-                         });
-                       }
-                       
-                       localStorage.setItem('onboardingComplete', 'true');
-                       alert('Coach linked successfully! Welcome to Fitengineers.');
-                       onComplete();
-                     }
+                      if (rawCode) {
+                        console.log('[DEBUG] Validating and linking coach atomically using transaction for code:', rawCode);
+                        const result = await databaseService.linkCoachAndEnterTransaction(rawCode, clientId);
+                        coachId = result.coach_id;
+                      } else if (selectedCoachId) {
+                        console.log('[DEBUG] Linking selected coach ID (no code):', selectedCoachId);
+                        coachId = selectedCoachId;
+                        
+                        // Fallback manual profile save
+                        if (isSupabaseConfigured && databaseService.supabase) {
+                          await databaseService.saveUserProfile({
+                            userName: userName,
+                            email: email,
+                            role: 'client',
+                            coach_id: coachId,
+                            verified: true
+                          });
+                        }
+                      }
+
+                      if (coachId) {
+                        localStorage.setItem('userCoachId', coachId);
+                        localStorage.setItem('userRole', 'client');
+                        localStorage.setItem('onboardingComplete', 'true');
+                        alert('Coach linked successfully! Welcome to Fitengineers.');
+                        onComplete();
+                      }
                    } catch (err) {
                      setAuthError(err.message || 'Verification failed.');
                    } finally {

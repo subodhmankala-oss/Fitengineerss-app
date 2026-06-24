@@ -83,9 +83,13 @@ export default async function handler(req, res) {
 async function sendResetEmail(email, resetLink) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const sendgridApiKey = process.env.SENDGRID_API_KEY;
+  
+  const senderEmail = process.env.SENDER_EMAIL;
+  const senderName = process.env.SENDER_NAME || 'Fitengineers';
 
   if (resendApiKey) {
     try {
+      const fromEmail = senderEmail || 'onboarding@resend.dev';
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -93,7 +97,7 @@ async function sendResetEmail(email, resetLink) {
           'Authorization': `Bearer ${resendApiKey}`
         },
         body: JSON.stringify({
-          from: 'Fitengineers <onboarding@resend.dev>',
+          from: `${senderName} <${fromEmail}>`,
           to: [email],
           subject: 'Reset Your Fitengineers Password',
           html: `
@@ -121,6 +125,7 @@ async function sendResetEmail(email, resetLink) {
 
   if (sendgridApiKey) {
     try {
+      const fromEmail = senderEmail || 'support@fitengineers.com';
       const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
@@ -129,7 +134,7 @@ async function sendResetEmail(email, resetLink) {
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email }] }],
-          from: { email: 'support@fitengineers.com', name: 'Fitengineers' },
+          from: { email: fromEmail, name: senderName },
           subject: 'Reset Your Fitengineers Password',
           content: [{
             type: 'text/html',

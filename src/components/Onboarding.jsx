@@ -285,11 +285,8 @@ const Onboarding = ({ onComplete }) => {
             await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
             onComplete();
           } else {
-            // No client row exists yet! Proceed to onboarding step 1 (Screen 3)
-            localStorage.setItem('userEmail', authEmail);
-            localStorage.setItem('userId', profile.id);
-            localStorage.setItem('userRole', 'client');
-            setStep(1);
+            // No client row exists yet! Route straight to dashboard with coach_id = null
+            await createDefaultClientRowAndComplete(profile.id, authEmail, profile.userName);
           }
         } else {
           throw new Error('Invalid email or password.');
@@ -313,11 +310,7 @@ const Onboarding = ({ onComplete }) => {
           mockUsers.push(mUser);
           databaseService.saveMockTable('users', mockUsers);
 
-          localStorage.setItem('userEmail', authEmail);
-          localStorage.setItem('userId', uid);
-          localStorage.setItem('userRole', 'client');
-          
-          setStep(1); // Proceed to onboarding setup wizard to link coach and fill in details
+          await createDefaultClientRowAndComplete(uid, authEmail, null);
         }
       }
     } catch (err) {
@@ -578,6 +571,92 @@ const Onboarding = ({ onComplete }) => {
     onComplete();
   };
 
+  const createDefaultClientRowAndComplete = async (userId, email, nameVal) => {
+    const cleanName = (nameVal || email.split('@')[0] || 'Warrior').trim();
+    localStorage.setItem('userName', cleanName);
+    localStorage.setItem('userEmail', email);
+    localStorage.setItem('userId', userId);
+    localStorage.setItem('userRole', 'client');
+    localStorage.setItem('userAge', '30');
+    localStorage.setItem('userHeight', '175');
+    localStorage.setItem('userWeight', '70');
+    localStorage.setItem('userActivity', 'Moderately Active');
+    localStorage.setItem('userGoal', 'Fat Loss');
+    localStorage.setItem('userDiet', 'Non-Vegetarian');
+    localStorage.setItem('userCalorieTarget', '2000');
+    localStorage.setItem('userProteinTarget', '120');
+    localStorage.setItem('userCarbsTarget', '220');
+    localStorage.setItem('userFatsTarget', '70');
+
+    if (isSupabaseConfigured && databaseService.supabase) {
+      try {
+        await databaseService.saveUserProfile({
+          id: userId,
+          userName: cleanName,
+          email: email,
+          role: 'client',
+          coach_id: null,
+          userAge: '30',
+          userHeight: '175',
+          userWeight: '70',
+          userActivity: 'Moderately Active',
+          userGoal: 'Fat Loss',
+          userDiet: 'Non-Vegetarian',
+          userCalorieTarget: '2000',
+          userProteinTarget: '120',
+          userCarbsTarget: '220',
+          userFatsTarget: '70',
+          verified: false
+        });
+      } catch (err) {
+        console.error("Error saving initial user profile:", err);
+      }
+    } else {
+      const mockClients = databaseService.getMockTable('clients');
+      const existingClientIndex = mockClients.findIndex(c => c.user_id === userId);
+      const clientData = {
+        id: `mock-client-id-${Date.now()}`,
+        user_id: userId,
+        coach_id: null,
+        full_name: cleanName,
+        fitness_goal: 'Fat Loss',
+        weight_kg: 70,
+        height_cm: 175,
+        age: 30,
+        activity_level: 'Moderately Active',
+        dietary_preference: 'Non-Vegetarian',
+        calorie_target: 2000,
+        protein_target: 120,
+        carbs_target: 220,
+        fats_target: 70,
+        onboarding_completed: false
+      };
+      if (existingClientIndex > -1) {
+        mockClients[existingClientIndex] = { ...mockClients[existingClientIndex], ...clientData };
+      } else {
+        mockClients.push(clientData);
+      }
+      databaseService.saveMockTable('clients', mockClients);
+    }
+    
+    // Save locally for quick lookup
+    const profileData = {
+      name: cleanName,
+      age: 30,
+      height: 175,
+      weight: 70,
+      activity: 'Moderately Active',
+      goal: 'Fat Loss',
+      issue: '',
+      diet: 'Non-Vegetarian'
+    };
+    localStorage.setItem(`profile_${cleanName.toLowerCase().replace(/\s+/g, '')}`, JSON.stringify(profileData));
+    // Mark wizard as NOT yet completed so App.jsx triggers the 4-step wizard next
+    localStorage.setItem('onboardingCompleted', 'false');
+
+    onComplete();
+  };
+
   const handleGoogleAccountSelect = async (profile, email) => {
     setShowGoogleModal(false);
     
@@ -596,7 +675,6 @@ const Onboarding = ({ onComplete }) => {
     
     if (coachId) {
       localStorage.setItem('userCoachId', coachId);
-      handleInstantLogin(profile, email);
     } else {
       // Create initial client profile with no coach linked yet
       if (isSupabaseConfigured && databaseService.supabase) {
@@ -606,40 +684,25 @@ const Onboarding = ({ onComplete }) => {
             email: email,
             role: 'client',
             coach_id: null,
+            userAge: profile.age,
+            userHeight: profile.height,
+            userWeight: profile.weight,
+            userActivity: profile.activity,
+            userGoal: profile.goal,
+            userDiet: profile.diet || 'Non-Vegetarian',
+            userCalorieTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).calories.toString(),
+            userProteinTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).protein.toString(),
+            userCarbsTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).carbs.toString(),
+            userFatsTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).fats.toString(),
             verified: false
           });
         } catch (e) {
           console.error("Error creating initial client user profile:", e);
         }
       }
-      setAuthTab('awaiting_invite_code');
     }
+    handleInstantLogin(profile, email);
   };
-
-  useEffect(() => {
-    const email = localStorage.getItem('userEmail');
-    const role = localStorage.getItem('userRole') || 'client';
-    const coachId = localStorage.getItem('userCoachId');
-    if (email && role === 'client' && !coachId) {
-      setAuthTab('awaiting_invite_code');
-    }
-  }, []);
-
-  useEffect(() => {
-    const loadCoaches = async () => {
-      try {
-        const list = await databaseService.refreshLocalCoaches();
-        setCoachesList(list || []);
-      } catch (err) {
-        console.warn('Error loading coaches list:', err);
-        const list = JSON.parse(localStorage.getItem('coaches_list') || '[]');
-        setCoachesList(list);
-      }
-    };
-    if (authTab === 'awaiting_invite_code') {
-      loadCoaches();
-    }
-  }, [authTab]);
 
   useEffect(() => {
     const msg = localStorage.getItem('resetSuccessMsg');
@@ -843,150 +906,7 @@ const Onboarding = ({ onComplete }) => {
 
   return (
     <div className="onboarding-container">
-      {authTab === 'awaiting_invite_code' && (
-        <div style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', position: 'fixed', top: 0, left: 0, zIndex: 9999 }}>
-          <div className="coach-login-card" style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
-            <div className="coach-login-header">
-              <div className="coach-login-logo-section">
-                <div className="coach-login-logo" style={{ animation: 'bounce 2s ease-in-out infinite' }}>🔒</div>
-                <h1 className="coach-login-title">Account Locked</h1>
-              </div>
-              <p className="coach-login-subtitle" style={{ color: 'rgba(226, 232, 240, 0.9)' }}>
-                Awaiting Coach Invitation Code
-              </p>
-              <p style={{ fontSize: '13px', color: 'rgba(148, 163, 184, 0.8)', marginTop: '8px', lineHeight: '1.4' }}>
-                Your account is registered as <strong style={{ color: '#34d399' }}>{localStorage.getItem('userEmail')}</strong>. You must enter a valid code from your coach to access the dashboard.
-              </p>
-            </div>
 
-            {authError && (
-              <div className="coach-login-error" style={{ margin: '16px 0 0 0' }}>
-                <span className="coach-login-error-icon">⚠️</span>
-                <span className="coach-login-error-text">{authError}</span>
-              </div>
-            )}
-
-             <div className="coach-login-content" style={{ marginTop: '24px' }}>
-               <div className="coach-login-input-group">
-                 <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Coach Invitation Code</label>
-                 <input 
-                   type="text" 
-                   className="auth-input" 
-                   placeholder="e.g. A1B2C3" 
-                   style={{ textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px' }}
-                   id="lockScreenInviteInput"
-                   disabled={authLoading}
-                 />
-               </div>
-
-               <div className="coach-login-input-group" style={{ marginTop: '16px' }}>
-                 <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Or Select from Active Coaches</label>
-                 <select 
-                   id="lockScreenCoachSelect"
-                   className="auth-input"
-                   style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px', appearance: 'none', WebkitAppearance: 'none' }}
-                   disabled={authLoading}
-                   onChange={(e) => {
-                     if (e.target.value) {
-                       const input = document.getElementById('lockScreenInviteInput');
-                       if (input) input.value = '';
-                     }
-                   }}
-                 >
-                   <option value="" style={{ background: '#1e293b', color: '#94a3b8' }}>-- Choose a Coach --</option>
-                   {coachesList.map(c => (
-                     <option key={c.id} value={c.id} style={{ background: '#1e293b', color: '#fff' }}>
-                       {c.name} ({c.brand})
-                     </option>
-                   ))}
-                   {coachesList.length === 0 && (
-                     <option value="coach-subodh" style={{ background: '#1e293b', color: '#fff' }}>
-                       Subodh Mankala (Fit Engineers)
-                     </option>
-                   )}
-                 </select>
-               </div>
-               
-               <button 
-                 type="button" 
-                 className="coach-login-submit-btn"
-                 style={{ marginTop: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)' }}
-                 disabled={authLoading}
-                 onClick={async () => {
-                   const rawCode = document.getElementById('lockScreenInviteInput').value.trim().toUpperCase();
-                   const selectedCoachSelect = document.getElementById('lockScreenCoachSelect');
-                   const selectedCoachId = selectedCoachSelect ? selectedCoachSelect.value : '';
-                   
-                   if (!rawCode && !selectedCoachId) {
-                     setAuthError('Please enter an invitation code or select a coach.');
-                     return;
-                   }
-                   
-                   setAuthError('');
-                   setAuthLoading(true);
-                   try {
-                      let coachId = null;
-                      const clientId = localStorage.getItem('userId');
-                      const email = localStorage.getItem('userEmail');
-                      const userName = localStorage.getItem('userName') || 'Warrior';
-
-                      if (rawCode) {
-                        console.log('[DEBUG] Validating and linking coach atomically using transaction for code:', rawCode);
-                        const result = await databaseService.linkCoachAndEnterTransaction(rawCode, clientId);
-                        coachId = result.coach_id;
-                      } else if (selectedCoachId) {
-                        console.log('[DEBUG] Linking selected coach ID (no code):', selectedCoachId);
-                        coachId = selectedCoachId;
-                        
-                        // Fallback manual profile save
-                        if (isSupabaseConfigured && databaseService.supabase) {
-                          await databaseService.saveUserProfile({
-                            userName: userName,
-                            email: email,
-                            role: 'client',
-                            coach_id: coachId,
-                            verified: true
-                          });
-                        }
-                      }
-
-                      if (coachId) {
-                        localStorage.setItem('userCoachId', coachId);
-                        localStorage.setItem('userRole', 'client');
-                        localStorage.setItem('onboardingComplete', 'true');
-                        alert('Coach linked successfully! Welcome to Fitengineers.');
-                        onComplete();
-                      }
-                   } catch (err) {
-                     setAuthError(err.message || 'Verification failed.');
-                   } finally {
-                     setAuthLoading(false);
-                   }
-                 }}
-               >
-                 {authLoading ? 'Checking...' : 'Link Coach & Enter'}
-               </button>
-
-              <button 
-                type="button" 
-                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginTop: '16px', textDecoration: 'underline' }}
-                onClick={async () => {
-                  setAuthLoading(true);
-                  await databaseService.signOut();
-                  localStorage.clear();
-                  setAuthTab('login');
-                  setStep(0);
-                  setAuthLoading(false);
-                  window.location.reload();
-                }}
-                disabled={authLoading}
-              >
-                Log Out / Switch Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {step > 0 && (
         <div className="onboarding-header">

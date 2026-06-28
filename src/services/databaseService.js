@@ -638,7 +638,10 @@ const databaseService = {
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
             userClientId: client?.id || null,
-            verified: activeRole === 'coach' || activeRole === 'super-admin'
+            verified: activeRole === 'coach' || activeRole === 'super-admin',
+            onboarding_completed: client?.onboarding_completed ?? false,
+            program: client?.program || null,
+            primary_concern: client?.primary_concern || null
           };
         }
       } catch (e) {
@@ -696,7 +699,10 @@ const databaseService = {
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
         userClientId: mClient?.id || null,
-        verified: activeRole === 'coach' || activeRole === 'super-admin'
+        verified: activeRole === 'coach' || activeRole === 'super-admin',
+        onboarding_completed: mClient?.onboarding_completed ?? false,
+        program: mClient?.program || null,
+        primary_concern: mClient?.primary_concern || null
       };
     }
 
@@ -723,7 +729,95 @@ const databaseService = {
     if (profile.brand) localStorage.setItem('userBrand', profile.brand);
     if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
     if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
+    // Store onboarding wizard flags
+    localStorage.setItem('onboardingCompleted', profile.onboarding_completed ? 'true' : 'false');
+    if (profile.program) localStorage.setItem('userProgram', profile.program);
+    if (profile.primary_concern) localStorage.setItem('userPrimaryConcern', profile.primary_concern);
     localStorage.setItem('onboardingComplete', 'true');
+  },
+
+  // ─── CLIENT ONBOARDING WIZARD ───
+  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern }) {
+    const userId = localStorage.getItem('userId');
+    const email = localStorage.getItem('userEmail');
+
+    // Update localStorage immediately
+    if (age) localStorage.setItem('userAge', String(age));
+    if (weight_kg) localStorage.setItem('userWeight', String(weight_kg));
+    if (height_cm) localStorage.setItem('userHeight', String(height_cm));
+    if (activity_level) localStorage.setItem('userActivity', activity_level);
+    if (program) localStorage.setItem('userProgram', program);
+    if (primary_concern) localStorage.setItem('userPrimaryConcern', primary_concern);
+    localStorage.setItem('onboardingCompleted', 'true');
+
+    // Map program → fitness_goal for existing dashboard compatibility
+    const goalMap = {
+      fat_loss: 'Fat Loss',
+      muscle_building: 'Muscle Building',
+      gut_repair: 'Gut Health'
+    };
+    const mappedGoal = goalMap[program] || program || 'Fat Loss';
+    localStorage.setItem('userGoal', mappedGoal);
+
+    // Map activity_level → existing activity strings
+    const activityMap = {
+      sedentary: 'Sedentary',
+      lightly_active: 'Lightly Active',
+      moderately_active: 'Moderately Active',
+      very_active: 'Very Active'
+    };
+    const mappedActivity = activityMap[activity_level] || activity_level || 'Moderately Active';
+    localStorage.setItem('userActivity', mappedActivity);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Resolve user UUID if needed
+        let resolvedUserId = userId;
+        if (!resolvedUserId && email) {
+          const { data: u } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+          resolvedUserId = u?.id;
+          if (resolvedUserId) localStorage.setItem('userId', resolvedUserId);
+        }
+
+        if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
+
+        const updatePayload = {
+          onboarding_completed: true,
+          program: program || null,
+          activity_level: activity_level || null,
+          primary_concern: primary_concern || null,
+          fitness_goal: mappedGoal
+        };
+        if (age) updatePayload.age = parseInt(age);
+        if (weight_kg) updatePayload.weight_kg = parseFloat(weight_kg);
+        if (height_cm) updatePayload.height_cm = parseFloat(height_cm);
+
+        const { error } = await supabase
+          .from('clients')
+          .update(updatePayload)
+          .eq('user_id', resolvedUserId);
+
+        if (error) throw error;
+        console.log('Cloud DB: Saved onboarding wizard data.');
+      } catch (e) {
+        console.error('Cloud DB: Failed to save onboarding data:', e);
+      }
+    } else {
+      // Mock DB update
+      const mockClients = this.getMockTable('clients');
+      const mClient = mockClients.find(c => c.user_id === userId);
+      if (mClient) {
+        mClient.onboarding_completed = true;
+        mClient.program = program || null;
+        mClient.activity_level = activity_level || null;
+        mClient.primary_concern = primary_concern || null;
+        mClient.fitness_goal = mappedGoal;
+        if (age) mClient.age = parseInt(age);
+        if (weight_kg) mClient.weight_kg = parseFloat(weight_kg);
+        if (height_cm) mClient.height_cm = parseFloat(height_cm);
+        this.saveMockTable('clients', mockClients);
+      }
+    }
   },
 
   async getAllUsers() {
@@ -958,23 +1052,105 @@ const databaseService = {
     return [];
   },
 
+  // ─── DEFAULT WORKOUT TEMPLATES (Push/Pull/Leg) ───
+  BUILTIN_TEMPLATES: [
+    {
+      id: 'tpl-push-day',
+      name: 'Push Day',
+      emoji: '💪',
+      description: 'Chest, shoulders & triceps',
+      is_default: true,
+      exercises: [
+        { name: 'Flat Bench Press',        sets: 3, reps: '8–12', order: 1 },
+        { name: 'Overhead Triceps Extension', sets: 3, reps: '8–12', order: 2 },
+        { name: 'Incline Dumbbell Press',  sets: 3, reps: '8–12', order: 3 },
+        { name: 'Dumbbell Lateral Raises', sets: 3, reps: '10–15', order: 4 }
+      ]
+    },
+    {
+      id: 'tpl-pull-day',
+      name: 'Pull Day',
+      emoji: '🏋️',
+      description: 'Back & biceps',
+      is_default: true,
+      exercises: [
+        { name: 'Romanian Deadlift', sets: 3, reps: '8–12', order: 1 },
+        { name: 'Lat Pull Down',     sets: 3, reps: '8–12', order: 2 },
+        { name: 'One Arm Row',       sets: 3, reps: '8–12', order: 3 },
+        { name: 'Biceps Curls',      sets: 3, reps: '10–15', order: 4 }
+      ]
+    },
+    {
+      id: 'tpl-leg-day',
+      name: 'Leg Day',
+      emoji: '🦵',
+      description: 'Quads, hamstrings & calves',
+      is_default: true,
+      exercises: [
+        { name: 'Barbell Squat',      sets: 3, reps: '8–12', order: 1 },
+        { name: 'Leg Extensions',     sets: 3, reps: '10–15', order: 2 },
+        { name: 'Romanian Deadlift',  sets: 3, reps: '8–12', order: 3 },
+        { name: 'Hanging Leg Raises', sets: 3, reps: '12–15', order: 4 }
+      ]
+    }
+  ],
+
+  async getDefaultWorkoutTemplates() {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('workout_templates')
+          .select('*')
+          .eq('is_default', true)
+          .order('created_at', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          return data.map(t => ({
+            id: t.id,
+            name: t.name,
+            emoji: t.name.toLowerCase().includes('push') ? '💪' : t.name.toLowerCase().includes('pull') ? '🏋️' : '🦵',
+            description: t.name.toLowerCase().includes('push') ? 'Chest, shoulders & triceps' :
+                         t.name.toLowerCase().includes('pull') ? 'Back & biceps' : 'Quads, hamstrings & calves',
+            is_default: t.is_default,
+            exercises: Array.isArray(t.exercises) ? t.exercises : JSON.parse(t.exercises || '[]')
+          }));
+        }
+      } catch (e) {
+        console.error('Cloud DB: Failed to load workout templates:', e);
+      }
+    }
+    // Fallback to built-in hardcoded templates
+    return this.BUILTIN_TEMPLATES;
+  },
+
   // ─── WORKOUT ROUTINE TEMPLATES / PLANS ───
   async getWorkoutPlansForUser(userId) {
     if (isSupabaseConfigured && supabase) {
       try {
-        // Resolve user UUID if needed
+        // Resolve user UUID — try the passed value first, then session userId
         let resolvedUserId = userId;
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        const UUID_RE_LOCAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isUuid = UUID_RE_LOCAL.test(userId);
+
         if (!isUuid) {
+          // Try name lookup first
           const { data: usersByName } = await supabase
             .from('users')
             .select('id')
             .ilike('full_name', userId)
             .maybeSingle();
-          if (usersByName) resolvedUserId = usersByName.id;
+          if (usersByName) {
+            resolvedUserId = usersByName.id;
+          } else {
+            // Fall back to the authenticated session's userId from localStorage
+            const sessionId = localStorage.getItem('userId');
+            if (sessionId && UUID_RE_LOCAL.test(sessionId)) {
+              resolvedUserId = sessionId;
+            }
+          }
         }
 
-        const isResolvedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId);
+        const isResolvedUuid = UUID_RE_LOCAL.test(resolvedUserId);
         if (isResolvedUuid) {
           const { data, error } = await supabase
             .from('workout_plans')
@@ -999,18 +1175,29 @@ const databaseService = {
       }
     }
 
-    // Offline local storage fallback
+    // Offline local storage fallback — also merge UUID-keyed entries
     const clientKey = await getCleanClientKey(userId);
     const key = `client_${clientKey}_workoutPlans`;
     const stored = localStorage.getItem(key);
+    let plans = [];
     if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error("Error parsing local workout plans:", e);
+      try { plans = JSON.parse(stored); } catch (e) { /* */ }
+    }
+    // Also check UUID-keyed localStorage if userId is a name
+    const sessionId = localStorage.getItem('userId');
+    if (sessionId && sessionId !== userId) {
+      const uuidKey = `client_${sessionId}_workoutPlans`;
+      const uuidStored = localStorage.getItem(uuidKey);
+      if (uuidStored) {
+        try {
+          const uuidPlans = JSON.parse(uuidStored);
+          // Merge, deduplicating by plan id
+          const existingIds = new Set(plans.map(p => p.id));
+          uuidPlans.forEach(p => { if (!existingIds.has(p.id)) plans.push(p); });
+        } catch (e) { /* */ }
       }
     }
-    return [];
+    return plans;
   },
 
   async saveWorkoutPlan(plan) {
@@ -1173,6 +1360,93 @@ const databaseService = {
     });
 
     return coaches;
+  },
+
+  // ─── ADMIN: LIVE COACH CLIENT COUNTS ───
+  // Queries approved coaches from public.coaches joined with public.users for display names,
+  // then counts clients per coach from public.clients WHERE coach_id = <coach's users.id>.
+  // This accurately reflects Part 4's connect flow (clients.coach_id = coach's users.id UUID).
+  async getCoachesWithClientCounts() {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // 1. Get all approved coaches with their user info (name, email)
+        const { data: coachRows, error: coachErr } = await supabase
+          .from('coaches')
+          .select('id, user_id, brand_name, status, created_at, users(id, email, full_name)')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: true });
+
+        if (coachErr) throw coachErr;
+
+        if (!coachRows || coachRows.length === 0) {
+          // Fallback: try fetching from users table with role=coach
+          const { data: userCoaches, error: ucErr } = await supabase
+            .from('users')
+            .select('id, email, full_name, created_at')
+            .eq('role', 'coach');
+
+          if (ucErr) throw ucErr;
+
+          // Count clients per coach using users.id (= clients.coach_id)
+          const { data: allClients } = await supabase
+            .from('clients')
+            .select('coach_id');
+
+          return (userCoaches || []).map(coach => {
+            const count = (allClients || []).filter(c => c.coach_id === coach.id).length;
+            return {
+              id: coach.id,
+              userId: coach.id,
+              name: coach.full_name || coach.email?.split('@')[0] || 'Coach',
+              email: coach.email || '',
+              clientCount: count,
+              joined: coach.created_at
+            };
+          });
+        }
+
+        // 2. Fetch all clients and their coach_id in one query (avoids N+1)
+        const { data: allClients } = await supabase
+          .from('clients')
+          .select('coach_id');
+
+        // 3. Map each coach: count clients WHERE clients.coach_id = coach's users.id
+        return coachRows.map(coach => {
+          const coachUserId = coach.user_id || coach.users?.id;
+          const count = (allClients || []).filter(c => c.coach_id === coachUserId).length;
+          return {
+            id: coach.id,
+            userId: coachUserId,
+            name: coach.users?.full_name || coach.brand_name || coach.users?.email?.split('@')[0] || 'Coach',
+            email: coach.users?.email || '',
+            brand: coach.brand_name || '',
+            clientCount: count,
+            joined: coach.created_at
+          };
+        });
+      } catch (e) {
+        console.error('[getCoachesWithClientCounts] Error:', e);
+      }
+    }
+
+    // Mock / offline fallback
+    const mockCoaches = this.getMockTable('coaches');
+    const mockClients = this.getMockTable('clients');
+    const mockUsers = this.getMockTable('users');
+
+    return mockCoaches.map(coach => {
+      const coachUser = mockUsers.find(u => u.id === coach.user_id);
+      const count = mockClients.filter(c => c.coach_id === coach.user_id).length;
+      return {
+        id: coach.id,
+        userId: coach.user_id,
+        name: coachUser?.full_name || coach.brand_name || 'Coach',
+        email: coachUser?.email || '',
+        brand: coach.brand_name || '',
+        clientCount: count,
+        joined: coach.created_at || new Date().toISOString()
+      };
+    });
   },
 
   async saveCoachProfile(coach) {
@@ -2102,6 +2376,78 @@ const databaseService = {
         client_id: clientId,
         code_used: upperCode
       };
+    }
+  },
+
+  // ─── CONNECT CLIENT TO COACH FROM DASHBOARD ───
+  // This is the ONLY method the new dashboard modal should call.
+  // userId is ALWAYS taken from localStorage (the authenticated session) —
+  // never from a user-supplied form field. This directly prevents the
+  // "Code and Client ID are required" bug.
+  async connectClientToCoach(rawCode) {
+    const code = normalizeInviteCode(rawCode);
+    if (!code) return { success: false, error: 'Please enter a valid invitation code.' };
+
+    // Resolve client's own userId from the authenticated session
+    let clientId = localStorage.getItem('userId');
+
+    // If localStorage doesn't have it yet, try resolving from Supabase auth session
+    if (!clientId && isSupabaseConfigured && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        clientId = session?.user?.id || null;
+        if (clientId) localStorage.setItem('userId', clientId);
+      } catch (e) {
+        console.error('[connectClientToCoach] Could not resolve userId from session:', e);
+      }
+    }
+
+    if (!clientId) {
+      return { success: false, error: 'Your session could not be verified. Please log out and log back in.' };
+    }
+
+    // Step 1: Validate the code before committing anything
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: invite, error: lookupErr } = await supabase
+          .from('invitations')
+          .select('*')
+          .filter('code', 'eq', code)
+          .maybeSingle();
+
+        if (lookupErr) throw lookupErr;
+        if (!invite) return { success: false, error: 'Code not found.' };
+        if (invite.used === true) return { success: false, error: 'This code has already been used.' };
+        if (isPastTimestamp(invite.expires_at)) return { success: false, error: 'This code has expired.' };
+      } catch (e) {
+        console.error('[connectClientToCoach] Validation error:', e);
+        return { success: false, error: e.message || 'Could not validate code. Please try again.' };
+      }
+    } else {
+      // Mock DB validation
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      const invite = invites[code];
+      if (!invite) return { success: false, error: 'Code not found.' };
+      if (invite.used) return { success: false, error: 'This code has already been used.' };
+      if (isPastTimestamp(invite.expiresAt)) return { success: false, error: 'This code has expired.' };
+    }
+
+    // Step 2: Execute the atomic link transaction
+    try {
+      const result = await this.linkCoachAndEnterTransaction(code, clientId);
+      if (result && result.success) {
+        // Update localStorage so the dashboard reflects the new connection immediately
+        localStorage.setItem('userCoachId', result.coach_id || '');
+        localStorage.setItem('clientLinkedToCoach', 'true');
+        return { success: true, coachId: result.coach_id };
+      }
+      return { success: false, error: 'Connection failed. Please try again.' };
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('expired')) return { success: false, error: 'This code has expired.' };
+      if (msg.includes('already been used')) return { success: false, error: 'This code has already been used.' };
+      if (msg.includes('not found') || msg.includes('Invalid')) return { success: false, error: 'Code not found.' };
+      return { success: false, error: msg || 'Connection failed. Please try again.' };
     }
   },
 

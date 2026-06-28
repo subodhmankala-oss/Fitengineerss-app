@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
+import ConnectCoachModal from './ConnectCoachModal';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout }) => {
   const [userName, setUserName] = useState('Warrior');
-  const [timeframe, setTimeframe] = useState('weekly'); // 'weekly', 'daily', 'monthly'
+  const [timeframe, setTimeframe] = useState('weekly');
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isLinkedToCoach, setIsLinkedToCoach] = useState(
+    () => localStorage.getItem('clientLinkedToCoach') === 'true'
+  );
   const [selectedDateStr, setSelectedDateStr] = useState(new Date().toISOString().split('T')[0]);
   const [sessionsTotal, setSessionsTotal] = useState(() => {
     const cachedLimit = localStorage.getItem('userSessionsLimit');
@@ -443,6 +448,21 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
             <h2 className="profile-name-text">{userName}</h2>
           </div>
         </div>
+        {/* Connect to Coach button */}
+        <button
+          className="btn-logout"
+          onClick={() => setShowConnectModal(true)}
+          title={isLinkedToCoach ? 'Connected to Coach ✓' : 'Connect to Coach'}
+          style={{
+            color: isLinkedToCoach ? '#10b981' : '#a78bfa',
+            borderColor: isLinkedToCoach ? 'rgba(16,185,129,0.3)' : 'rgba(139,92,246,0.35)',
+            background: isLinkedToCoach ? 'rgba(16,185,129,0.08)' : 'rgba(139,92,246,0.08)',
+            marginRight: '6px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>{isLinkedToCoach ? '🟢' : '🔗'}</span>
+        </button>
         <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
           <span className="logout-icon">⚙️</span>
         </button>
@@ -862,6 +882,17 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
             </div>
           )}
         </div>
+      )}
+      {showConnectModal && (
+        <ConnectCoachModal
+          onClose={() => setShowConnectModal(false)}
+          onSuccess={(coachId) => {
+            localStorage.setItem('clientLinkedToCoach', 'true');
+            if (coachId) localStorage.setItem('userCoachId', coachId);
+            setIsLinkedToCoach(true);
+            setShowConnectModal(false);
+          }}
+        />
       )}
     </div>
   );

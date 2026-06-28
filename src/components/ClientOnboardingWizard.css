@@ -1,0 +1,444 @@
+/* ────────────────────────────────────────────────────
+   Client Onboarding Wizard — Premium Dark Design
+   ──────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ── Full-screen overlay ── */
+.cow-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(ellipse at top left, rgba(139, 92, 246, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(16, 185, 129, 0.12) 0%, transparent 55%),
+    #060611;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Card shell ── */
+.cow-card {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(15, 20, 35, 0.92);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 24px;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.08),
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 80px rgba(139, 92, 246, 0.06);
+  backdrop-filter: blur(24px);
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.cow-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 28px 0;
+}
+
+.cow-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.cow-header-text {
+  flex: 1;
+}
+
+.cow-step-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(139, 92, 246, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── Progress bar ── */
+.cow-progress-bar {
+  display: flex;
+  gap: 6px;
+  padding: 16px 28px 0;
+}
+
+.cow-progress-segment {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.4s ease;
+}
+
+.cow-progress-segment.filled {
+  background: linear-gradient(90deg, #8b5cf6, #10b981);
+}
+
+.cow-progress-segment.active {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+/* ── Body ── */
+.cow-body {
+  padding: 28px 28px 32px;
+}
+
+/* ── Step content ── */
+.cow-step-content {
+  animation: cowSlideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes cowSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.cow-step-content.backward {
+  animation: cowSlideInBack 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes cowSlideInBack {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Step header ── */
+.cow-step-icon {
+  font-size: 2.4rem;
+  margin-bottom: 10px;
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.4));
+}
+
+.cow-step-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #f8faff;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.cow-step-subtitle {
+  font-size: 0.9rem;
+  color: rgba(148, 163, 184, 0.85);
+  margin: 0 0 24px;
+  font-weight: 400;
+}
+
+/* ── Input fields (Step 1) ── */
+.cow-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.cow-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cow-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cow-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.cow-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #f8faff;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+}
+
+.cow-input::-webkit-outer-spin-button,
+.cow-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.cow-input::placeholder {
+  color: rgba(148, 163, 184, 0.4);
+  font-weight: 400;
+}
+
+.cow-input:focus {
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.06);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+}
+
+/* ── Option grid (Step 2 — 3 cards) ── */
+.cow-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.cow-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  text-align: center;
+}
+
+.cow-option-card:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+}
+
+.cow-option-card.selected {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+  transform: translateY(-3px);
+}
+
+.cow-option-emoji {
+  font-size: 1.8rem;
+  display: block;
+}
+
+.cow-option-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  display: block;
+}
+
+.cow-option-desc {
+  font-size: 0.65rem;
+  color: rgba(148, 163, 184, 0.7);
+  display: block;
+  line-height: 1.3;
+}
+
+/* ── Option list (Steps 3 & 4 — rows) ── */
+.cow-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.cow-option-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.cow-option-row:hover {
+  background: rgba(139, 92, 246, 0.07);
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.cow-option-row.selected {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.18);
+}
+
+.cow-row-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.cow-row-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cow-row-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  display: block;
+}
+
+.cow-row-desc {
+  font-size: 0.74rem;
+  color: rgba(148, 163, 184, 0.75);
+  display: block;
+}
+
+.cow-row-check {
+  font-size: 1rem;
+  color: #10b981;
+  font-weight: 800;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.cow-row-check.visible {
+  opacity: 1;
+}
+
+/* ── Buttons ── */
+.cow-next-btn,
+.cow-finish-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+}
+
+.cow-next-btn {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
+}
+
+.cow-next-btn:hover {
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(139, 92, 246, 0.45);
+}
+
+.cow-next-btn:active {
+  transform: translateY(0);
+}
+
+.cow-finish-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+}
+
+.cow-finish-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(16, 185, 129, 0.45);
+}
+
+.cow-finish-btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.cow-nav-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.cow-back-btn {
+  padding: 15px 20px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.cow-back-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.cow-nav-row .cow-next-btn,
+.cow-nav-row .cow-finish-btn {
+  flex: 1;
+}
+
+.cow-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Mobile responsive ── */
+@media (max-width: 520px) {
+  .cow-card {
+    border-radius: 20px;
+  }
+  .cow-header {
+    padding: 18px 20px 0;
+  }
+  .cow-progress-bar {
+    padding: 14px 20px 0;
+  }
+  .cow-body {
+    padding: 22px 20px 28px;
+  }
+  .cow-option-grid {
+    grid-template-columns: 1fr;
+  }
+  .cow-step-title {
+    font-size: 1.3rem;
+  }
+}

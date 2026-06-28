@@ -773,12 +773,26 @@ const WorkoutTracker = () => {
   const getPointY = (val) => padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
 
   // Coach Log set actions
-  const handleAddSet = (exerciseIndex) => {
+  const handleAddSet = (exerciseIndex, isWarmup = false) => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         return {
           ...ex,
-          sets: [...ex.sets, { reps: 10, weight: ex.sets[ex.sets.length - 1]?.weight || '2.5', isCompleted: false }]
+          sets: [...ex.sets, { reps: 10, weight: ex.sets[ex.sets.length - 1]?.weight || '2.5', isCompleted: false, isWarmup }]
+        };
+      }
+      return ex;
+    }));
+  };
+
+  // Warm-up sets ("W") don't count toward the working-set number shown to the
+  // lifter — set-row labels are computed from this instead of the raw array index.
+  const handleToggleSetType = (exerciseIndex, setIndex) => {
+    setLogExercises(prev => prev.map((ex, idx) => {
+      if (idx === exerciseIndex) {
+        return {
+          ...ex,
+          sets: ex.sets.map((s, sIdx) => sIdx === setIndex ? { ...s, isWarmup: !s.isWarmup } : s)
         };
       }
       return ex;
@@ -1051,7 +1065,10 @@ const WorkoutTracker = () => {
       sets: Array.from({ length: ex.sets || 3 }, () => ({
         reps: parseInt(String(ex.reps).split('–')[0]) || 10,
         weight: '0',
-        isCompleted: false
+        isCompleted: false,
+        // Kept so the reps input can show the plan's target range as a
+        // placeholder hint once the lifter clears the pre-filled number.
+        targetReps: ex.reps ? String(ex.reps) : null
       }))
     }));
     setLogExercises(exercises);
@@ -1827,7 +1844,12 @@ const WorkoutTracker = () => {
                     setLogDate(getLocalDateString());
                     setLogExercises(template.exercises.map(ex => ({
                       name: ex.name,
-                      sets: Array.from({ length: ex.sets || 3 }, () => ({ reps: startingReps(ex), weight: '', isCompleted: false }))
+                      sets: Array.from({ length: ex.sets || 3 }, () => ({
+                        reps: startingReps(ex),
+                        weight: '',
+                        isCompleted: false,
+                        targetReps: ex.reps ? String(ex.reps) : null
+                      }))
                     })));
                     setTemplateName(template.name);
                     setIsLoggingWorkout(true);
@@ -2215,31 +2237,40 @@ const WorkoutTracker = () => {
                       <div className="hevy-table-body">
                         {ex.sets.map((set, sIdx) => {
                           const prevStats = getPreviousSessionSet(ex.name, sIdx);
+                          // Warm-up sets show "W" and don't consume a working-set number.
+                          const workingSetNumber = ex.sets.slice(0, sIdx + 1).filter(s => !s.isWarmup).length;
                           return (
-                            <div 
-                              key={sIdx} 
-                              className={`hevy-set-row ${set.isCompleted ? 'set-row-completed' : ''}`}
+                            <div
+                              key={sIdx}
+                              className={`hevy-set-row ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''}`}
                             >
-                              <span className="col-set set-num-lbl">{sIdx + 1}</span>
+                              <span
+                                className={`col-set set-num-lbl ${set.isWarmup ? 'warmup' : ''}`}
+                                onClick={() => handleToggleSetType(exIdx, sIdx)}
+                                title="Tap to toggle warm-up / working set"
+                                role="button"
+                              >
+                                {set.isWarmup ? 'W' : workingSetNumber}
+                              </span>
                               <span className="col-prev set-prev-lbl">{prevStats}</span>
                               <div className="col-weight set-input-field">
-                                <input 
-                                  type="text" 
-                                  value={set.weight} 
+                                <input
+                                  type="text"
+                                  value={set.weight}
                                   onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
-                                  required 
+                                  required
                                   placeholder="0"
                                   disabled={set.isCompleted}
                                 />
                               </div>
                               <div className="col-reps set-input-field">
-                                <input 
-                                  type="number" 
-                                  value={set.reps} 
+                                <input
+                                  type="number"
+                                  value={set.reps}
                                   onChange={(e) => handleSetChange(exIdx, sIdx, 'reps', e.target.value)}
-                                  required 
+                                  required
                                   min="1"
-                                  placeholder="0"
+                                  placeholder={set.targetReps || '0'}
                                   disabled={set.isCompleted}
                                 />
                               </div>
@@ -2271,12 +2302,19 @@ const WorkoutTracker = () => {
                     </div>
 
                     <div className="ex-card-actions">
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         className="btn-add-set-link"
                         onClick={() => handleAddSet(exIdx)}
                       >
                         ➕ Add Set
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-add-set-link btn-add-warmup-link"
+                        onClick={() => handleAddSet(exIdx, true)}
+                      >
+                        🔥 Add Warm-up
                       </button>
                     </div>
                   </div>
@@ -2577,7 +2615,7 @@ const WorkoutTracker = () => {
                     borderRadius: 'var(--radius-sm)',
                     color: '#fff',
                     padding: '8px 12px',
-                    fontSize: '0.8rem',
+                    fontSize: '16px',
                     outline: 'none'
                   }}
                 />

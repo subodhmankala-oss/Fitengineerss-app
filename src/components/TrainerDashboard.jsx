@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import { getLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
+import './WorkoutTracker.css';
 
 // Comprehensive A-Z Exercise Library (150+ exercises)
 const LIVE_EXERCISE_LIST = [
@@ -1869,19 +1870,19 @@ const TrainerDashboard = ({ handleLogout }) => {
                                         <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', textAlign: 'center', fontSize: '0.75rem', color: '#fff', lineHeight: '20px' }}>{setIdx + 1}</span>
                                       </td>
                                       <td style={{ padding: '6px 4px' }}>
-                                        <input 
+                                        <input
                                           type="number"
                                           value={set.weight}
                                           onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
-                                          style={{ width: '80%', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
+                                          style={{ width: '80%', padding: '6px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '16px' }}
                                         />
                                       </td>
                                       <td style={{ padding: '6px 4px' }}>
-                                        <input 
+                                        <input
                                           type="number"
                                           value={set.reps}
                                           onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
-                                          style={{ width: '80%', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.8rem' }}
+                                          style={{ width: '80%', padding: '6px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '16px' }}
                                         />
                                       </td>
                                       <td style={{ padding: '6px 4px', textAlign: 'center' }}>
@@ -1928,7 +1929,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                               border: '1px solid var(--border-color)',
                               borderRadius: 'var(--radius-sm)',
                               color: '#fff',
-                              fontSize: '0.82rem',
+                              fontSize: '16px',
                               outline: 'none'
                             }}
                             onKeyDown={e => {
@@ -2149,7 +2150,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                           border: '1px solid var(--border-color)',
                           borderRadius: 'var(--radius-sm)',
                           color: '#fff',
-                          fontSize: '0.82rem',
+                          fontSize: '16px',
                           outline: 'none'
                         }}
                       />
@@ -2190,18 +2191,15 @@ const TrainerDashboard = ({ handleLogout }) => {
                     )}
                   </div>
 
-                  {/* Exercise List */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Exercise List — edge-to-edge: bleeds past the dashboard's
+                      16px outer padding so the table reaches the true screen
+                      edges, matching the app's standard flush logging layout. */}
+                  <div className="live-logger-exercise-list">
                     {liveExercises.map((ex, exIdx) => (
-                      <div key={exIdx} style={{
-                        background: 'rgba(0,0,0,0.18)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '12px'
-                      }}>
+                      <div key={exIdx} className="live-logger-exercise-card">
                         {/* Exercise Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#fff' }}>{ex.name}</span>
+                        <div className="live-logger-ex-header">
+                          <span className="live-logger-ex-name">{ex.name}</span>
                           <button
                             onClick={() => handleLiveRemoveExercise(exIdx)}
                             style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
@@ -2209,100 +2207,60 @@ const TrainerDashboard = ({ handleLogout }) => {
                         </div>
 
                         {/* Sets Table */}
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '15%' }}>Set</th>
-                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '32%' }}>Weight (kg)</th>
-                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '30%' }}>Reps</th>
-                              <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 4px', width: '15%', textAlign: 'center' }}>Done</th>
-                              <th style={{ width: '8%' }}></th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                        <div className="hevy-sets-table cols-4">
+                          <div className="hevy-table-header">
+                            <span className="col-set">SET</span>
+                            <span className="col-weight">WEIGHT (KG)</span>
+                            <span className="col-reps">REPS</span>
+                            <span className="col-check">DONE</span>
+                          </div>
+                          <div className="hevy-table-body">
                             {ex.sets.map((set, setIdx) => (
-                              <tr key={setIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                <td style={{ padding: '5px 4px' }}>
-                                  <span style={{
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                    width: '22px', height: '22px', borderRadius: '50%',
-                                    background: set.isCompleted ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)',
-                                    color: set.isCompleted ? 'var(--primary-accent-light)' : '#fff',
-                                    fontSize: '0.72rem', fontWeight: 800
-                                  }}>{setIdx + 1}</span>
-                                </td>
-                                <td style={{ padding: '5px 4px' }}>
+                              <div key={setIdx} className={`hevy-set-row cols-4 ${set.isCompleted ? 'set-row-completed' : ''}`}>
+                                <span className="col-set set-num-lbl">{setIdx + 1}</span>
+                                <div className="col-weight set-input-field">
                                   <input
                                     type="number"
                                     value={set.weight}
                                     onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
-                                    style={{
-                                      width: '75px', padding: '4px 8px',
-                                      background: 'rgba(255,255,255,0.03)',
-                                      border: '1px solid var(--border-color)',
-                                      borderRadius: '4px', color: '#fff', fontSize: '0.8rem'
-                                    }}
                                   />
-                                </td>
-                                <td style={{ padding: '5px 4px' }}>
+                                </div>
+                                <div className="col-reps set-input-field">
                                   <input
                                     type="number"
                                     value={set.reps}
                                     onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
-                                    style={{
-                                      width: '60px', padding: '4px 8px',
-                                      background: 'rgba(255,255,255,0.03)',
-                                      border: '1px solid var(--border-color)',
-                                      borderRadius: '4px', color: '#fff', fontSize: '0.8rem'
-                                    }}
                                   />
-                                </td>
-                                <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                                </div>
+                                <div className="col-check set-actions-field">
                                   <button
+                                    type="button"
+                                    className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
                                     onClick={() => handleLiveToggleSet(exIdx, setIdx)}
-                                    style={{
-                                      width: '28px', height: '28px',
-                                      borderRadius: '50%',
-                                      border: set.isCompleted ? '2px solid var(--primary-accent-light)' : '2px solid rgba(255,255,255,0.2)',
-                                      background: set.isCompleted ? 'rgba(16,185,129,0.2)' : 'transparent',
-                                      color: set.isCompleted ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.3)',
-                                      fontSize: '0.85rem',
-                                      cursor: 'pointer',
-                                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                      transition: 'all 0.2s ease'
-                                    }}
                                     title={set.isCompleted ? 'Mark incomplete' : 'Mark complete'}
                                   >
-                                    {set.isCompleted ? '✓' : '○'}
+                                    {set.isCompleted ? '✓' : ''}
                                   </button>
-                                </td>
-                                <td style={{ padding: '5px 4px', textAlign: 'center' }}>
                                   {ex.sets.length > 1 && (
                                     <button
+                                      type="button"
+                                      className="btn-hevy-row-delete"
                                       onClick={() => handleLiveRemoveSet(exIdx, setIdx)}
-                                      style={{ color: 'var(--danger)', fontSize: '0.8rem', cursor: 'pointer' }}
-                                    >×</button>
+                                      title="Delete Set"
+                                    >
+                                      🗑️
+                                    </button>
                                   )}
-                                </td>
-                              </tr>
+                                </div>
+                              </div>
                             ))}
-                          </tbody>
-                        </table>
+                          </div>
+                        </div>
 
                         <button
                           onClick={() => handleLiveAddSet(exIdx)}
-                          style={{
-                            marginTop: '8px',
-                            padding: '5px 10px',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            color: 'var(--text-muted)',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 600
-                          }}
-                        >+ Add Set</button>
+                          className="btn-add-set-link live-logger-add-set"
+                        >➕ Add Set</button>
                       </div>
                     ))}
                   </div>
@@ -2330,7 +2288,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                           border: '1px solid var(--border-color)',
                           borderRadius: 'var(--radius-sm)',
                           color: '#fff',
-                          fontSize: '0.82rem',
+                          fontSize: '16px',
                           outline: 'none'
                         }}
                       />

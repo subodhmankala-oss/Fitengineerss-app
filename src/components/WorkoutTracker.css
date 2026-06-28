@@ -521,7 +521,8 @@
   border-radius: var(--radius-sm);
   color: var(--text-main);
   font-family: inherit;
-  font-size: 0.85rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   outline: none;
   transition: all var(--transition-fast);
 }
@@ -598,6 +599,13 @@
   color: var(--text-main);
 }
 
+.ex-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 4px;
+}
+
 .btn-add-set-link {
   font-size: 0.75rem;
   font-weight: 600;
@@ -608,6 +616,10 @@
 
 .btn-add-set-link:hover {
   opacity: 0.85;
+}
+
+.btn-add-warmup-link {
+  color: #f59e0b;
 }
 
 .sets-input-rows {
@@ -1566,6 +1578,13 @@
   padding-left: 6px;
 }
 
+/* 4-column variant: no PREVIOUS column (used by the coach's Live Session Logger,
+   which has no prior-session lookup wired up). */
+.hevy-sets-table.cols-4 .hevy-table-header,
+.hevy-set-row.cols-4 {
+  grid-template-columns: 0.6fr 1.5fr 1.2fr 1fr;
+}
+
 .hevy-set-row {
   display: grid;
   grid-template-columns: 0.6fr 1.5fr 1.3fr 1fr 1.1fr;
@@ -1586,6 +1605,17 @@
   font-weight: 700;
   color: var(--text-muted);
   padding-left: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hevy-set-row .set-num-lbl.warmup {
+  color: #f59e0b;
+}
+
+.hevy-set-row.set-row-warmup {
+  background: rgba(245, 158, 11, 0.04);
+  border-color: rgba(245, 158, 11, 0.15);
 }
 
 .hevy-set-row .set-prev-lbl {
@@ -1603,14 +1633,16 @@
 
 .hevy-set-row .set-input-field input {
   width: 100%;
-  max-width: 65px;
+  max-width: 72px;
   background: rgba(9, 14, 23, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 6px 4px;
+  padding: 8px 4px;
   border-radius: 4px;
   color: #fff;
   font-family: inherit;
-  font-size: 0.8rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus for any
+     input with a smaller computed font-size, which is hard to undo. */
+  font-size: 16px;
   font-weight: 700;
   text-align: center;
   outline: none;
@@ -1827,7 +1859,8 @@
   border-radius: var(--radius-sm);
   color: #fff;
   font-family: inherit;
-  font-size: 0.85rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   outline: none;
   transition: all var(--transition-fast);
 }
@@ -2140,7 +2173,8 @@
 .dropdown-search-input {
   width: 100%;
   padding: 8px 12px;
-  font-size: 0.82rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   background: rgba(9, 14, 23, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);

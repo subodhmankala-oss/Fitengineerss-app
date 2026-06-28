@@ -70,7 +70,8 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-main);
-  font-size: 0.9rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   outline: none;
   transition: all var(--transition-fast);
 }
@@ -492,4 +493,42 @@
 .dashboard-breadcrumb button:hover {
   color: var(--primary-accent) !important;
   text-decoration: underline;
+}
+
+/* Live Session Logger — edge-to-edge exercise list.
+   Negative margin cancels .trainer-dashboard-container's 16px side padding
+   so the table reaches the true screen edges instead of sitting in a
+   rounded, inset card like the rest of the dashboard. */
+.live-logger-exercise-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -16px;
+}
+
+.live-logger-exercise-card {
+  background: rgba(0, 0, 0, 0.18);
+  border-top: 1px solid var(--border-color);
+  padding: 14px 16px;
+}
+
+.live-logger-exercise-card:last-child {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.live-logger-ex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.live-logger-ex-name {
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #fff;
+}
+
+.live-logger-add-set {
+  margin-top: 8px;
+  display: inline-block;
 }

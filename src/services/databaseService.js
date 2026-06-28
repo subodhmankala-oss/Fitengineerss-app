@@ -858,7 +858,10 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        let query = supabase.from('clients').select('*, users(email)');
+        // clients has two FKs to users (user_id and coach_id), so the embed
+        // must specify which relationship to follow or PostgREST rejects the
+        // query as ambiguous (PGRST201) — here we want the client's own user row.
+        let query = supabase.from('clients').select('*, users!clients_user_id_fkey(email)');
         
         const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
         if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
@@ -1341,11 +1344,14 @@ const databaseService = {
   async getAllCoaches() {
     if (isSupabaseConfigured && supabase) {
       try {
+        // Source of truth for "is a coach" is the coaches table, not users.role —
+        // the super-admin account has an approved coaches row but role='super-admin',
+        // so filtering users by role='coach' was excluding them from this list entirely.
         const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('role', 'coach')
-          .order('full_name', { ascending: true });
+          .from('coaches')
+          .select('user_id, brand_name, status, created_at, users(id, email, full_name, payment_status, created_at)')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: true });
 
         if (error) throw error;
         if (data) {
@@ -1358,14 +1364,15 @@ const databaseService = {
             .select('coach_id');
 
           return data.map(coach => {
-            const clients = clientCounts ? clientCounts.filter(c => c.coach_id === coach.id) : [];
+            const coachUserId = coach.user_id;
+            const clients = clientCounts ? clientCounts.filter(c => c.coach_id === coachUserId) : [];
             return {
-              id: coach.id,
-              name: coach.full_name || 'Coach',
-              email: coach.email,
-              brand: coach.brand || 'Fit Engineers',
-              payment_status: coach.payment_status || 'active',
-              signup_date: coach.created_at || new Date().toISOString(),
+              id: coachUserId,
+              name: coach.users?.full_name || 'Coach',
+              email: coach.users?.email || '',
+              brand: coach.brand_name || 'Fit Engineers',
+              payment_status: coach.users?.payment_status || 'active',
+              signup_date: coach.created_at || coach.users?.created_at || new Date().toISOString(),
               clientsCount: clients.length
             };
           });

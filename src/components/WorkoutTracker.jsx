@@ -1556,14 +1556,14 @@ const WorkoutTracker = () => {
         <div className="wt-templates-outer">
 
           {/* Coach's Plan section (only if client has a coach plan) */}
-          {clientPlans.filter(p => p.createdBy === 'coach' || p.planName).length > 0 && (
+          {clientPlans.filter(p => p.createdBy === 'coach').length > 0 && (
             <div className="wt-section">
               <div className="wt-section-header">
                 <span className="wt-section-badge coach">🎯 Your Coach's Plan</span>
                 <span className="wt-section-sub">Assigned by your coach</span>
               </div>
               <div className="wt-template-list">
-                {clientPlans.map(plan => (
+                {clientPlans.filter(p => p.createdBy === 'coach').map(plan => (
                   <div key={plan.id || plan.planName} className="wt-template-card coach-card">
                     <div className="wt-tpl-info">
                       <span className="wt-tpl-icon">📋</span>

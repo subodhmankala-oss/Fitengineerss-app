@@ -13,6 +13,58 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     return cachedLimit ? parseInt(cachedLimit) : 24;
   });
 
+  // ─── Connect to coach (invite code entry) ───
+  // Guards against legacy sessions where localStorage.setItem('userCoachId', null) was
+  // called directly, which stores the literal (truthy) string "null".
+  const readStoredCoachId = () => {
+    const raw = localStorage.getItem('userCoachId');
+    return (raw && raw !== 'null' && raw !== 'undefined') ? raw : '';
+  };
+  const [coachId, setCoachId] = useState(readStoredCoachId);
+  const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [connectCode, setConnectCode] = useState('');
+  const [connectError, setConnectError] = useState('');
+  const [connectSuccessMsg, setConnectSuccessMsg] = useState('');
+  const [connectLoading, setConnectLoading] = useState(false);
+
+  // Accept either a bare code or a pasted invite link containing the code.
+  const extractInviteCode = (raw) => {
+    const trimmed = (raw || '').trim();
+    try {
+      const url = new URL(trimmed);
+      const fromQuery = url.searchParams.get('code');
+      if (fromQuery) return fromQuery;
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) return segments[segments.length - 1];
+    } catch (e) {
+      // Not a URL — treat the whole input as the raw code.
+    }
+    return trimmed;
+  };
+
+  const handleConnectSubmit = async (e) => {
+    e.preventDefault();
+    setConnectError('');
+    setConnectLoading(true);
+    try {
+      const code = extractInviteCode(connectCode);
+      const result = await databaseService.connectClientToCoach(code);
+      setCoachId(result.coachId);
+      setCoachName(result.coachName);
+      setConnectSuccessMsg(`Connected to Coach ${result.coachName}!`);
+      setConnectCode('');
+      setTimeout(() => {
+        setShowConnectModal(false);
+        setConnectSuccessMsg('');
+      }, 1500);
+    } catch (err) {
+      setConnectError(err.message || 'Could not connect. Please try again.');
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
     if (storedName) setUserName(storedName);
@@ -443,10 +495,105 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
             <h2 className="profile-name-text">{userName}</h2>
           </div>
         </div>
-        <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
-          <span className="logout-icon">⚙️</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => { setShowConnectModal(true); setConnectError(''); setConnectSuccessMsg(''); }}
+            title={coachId ? `Connected to Coach ${coachName || ''}` : 'Connect to coach'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: coachId ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
+              border: coachId ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(255,255,255,0.12)',
+              color: coachId ? 'var(--primary-accent-light)' : '#fff',
+              borderRadius: '20px', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
+              cursor: 'pointer', whiteSpace: 'nowrap'
+            }}
+          >
+            {coachId ? `✅ ${coachName || 'Coach'}` : '🔗 Connect to coach'}
+          </button>
+          <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
+            <span className="logout-icon">⚙️</span>
+          </button>
+        </div>
       </div>
+
+      {showConnectModal && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
+            zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px'
+          }}
+          onClick={() => setShowConnectModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'rgba(20, 20, 25, 0.97)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '18px', padding: '24px', width: '100%', maxWidth: '380px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+            }}
+          >
+            <h3 style={{ margin: '0 0 4px 0', color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>
+              {coachId ? 'Change Coach' : 'Connect to Coach'}
+            </h3>
+            <p style={{ margin: '0 0 18px 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+              {coachId
+                ? `Currently connected to Coach ${coachName || ''}. Enter a new invitation code to switch.`
+                : 'Paste the invitation code (or link) your coach shared with you.'}
+            </p>
+
+            {connectSuccessMsg ? (
+              <div style={{ padding: '14px', textAlign: 'center', color: 'var(--primary-accent-light)', fontWeight: 700, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '10px' }}>
+                ✅ {connectSuccessMsg}
+              </div>
+            ) : (
+              <form onSubmit={handleConnectSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {connectError && (
+                  <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem' }}>
+                    ❌ {connectError}
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={connectCode}
+                  onChange={(e) => setConnectCode(e.target.value)}
+                  placeholder="e.g. A1B2C3 or invite link"
+                  autoFocus
+                  disabled={connectLoading}
+                  style={{
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem',
+                    outline: 'none', textTransform: 'uppercase', letterSpacing: '0.05em'
+                  }}
+                  required
+                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowConnectModal(false)}
+                    disabled={connectLoading}
+                    style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={connectLoading || !connectCode.trim()}
+                    style={{
+                      flex: 2, padding: '12px', borderRadius: '10px', border: 'none',
+                      background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700,
+                      cursor: connectLoading ? 'default' : 'pointer', opacity: connectLoading ? 0.7 : 1
+                    }}
+                  >
+                    {connectLoading ? 'Connecting...' : 'Connect'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Segment Timeframe Tab Switches */}
       <div className="timeframe-navigation">

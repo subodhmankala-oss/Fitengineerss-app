@@ -388,11 +388,9 @@ function App() {
           return;
         }
         
-        const hasCompleteProfile = profile && 
-                                   profile.userName && 
-                                   profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
-                                   profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
-                                   profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
+        // Gate the post-signup onboarding wizard strictly on the DB flag — once a
+        // client has completed it, it must never reappear regardless of login count.
+        const hasCompleteProfile = profile && profile.onboardingCompleted === true;
 
         const isUserTrainer = isTrainer(email);
 

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from '../services/databaseService';
+import { calculateTargetsGeneric } from '../utils/targets';
+import ClientOnboardingWizard from './ClientOnboardingWizard';
 import './Onboarding.css';
 
 const googleAccounts = [
@@ -58,18 +60,15 @@ const Onboarding = ({ onComplete }) => {
     if (localStorage.getItem('pendingCoachApply') === 'true') return 0;
     if (localStorage.getItem('userEmail')) {
       const storedName = localStorage.getItem('userName');
-      return storedName ? 2 : 1;
+      // A returning client whose name we already know but who hasn't finished
+      // the one-time onboarding wizard yet (onboardingCompleted gate handles
+      // the "already done" case before Onboarding even mounts).
+      return storedName ? 'wizard' : 1;
     }
     return isSupabaseConfigured ? 0 : 1;
   });
   const [name, setName] = useState(() => localStorage.getItem('userName') || '');
-  const [age, setAge] = useState(() => localStorage.getItem('userAge') || '');
-  const [height, setHeight] = useState(() => localStorage.getItem('userHeight') || '');
-  const [weight, setWeight] = useState(() => localStorage.getItem('userWeight') || '');
-  const [activity, setActivity] = useState(() => localStorage.getItem('userActivity') || 'Moderately Active');
-  const [goal, setGoal] = useState(() => localStorage.getItem('userGoal') || '');
-  const [issue, setIssue] = useState(() => localStorage.getItem('userIssue') || '');
-  const [diet, setDiet] = useState(() => localStorage.getItem('userDiet') || '');
+  const [wizardPrefill, setWizardPrefill] = useState(null);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [matchingProfiles, setMatchingProfiles] = useState([]);
 
@@ -92,7 +91,6 @@ const Onboarding = ({ onComplete }) => {
   const [clientAuthMode, setClientAuthMode] = useState('login');
   const [forgotPasswordSuccessMsg, setForgotPasswordSuccessMsg] = useState('');
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
-  const [coachesList, setCoachesList] = useState([]);
   const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
   const [coachApplyEmail, setCoachApplyEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [phoneNumber, setPhoneNumber] = useState(() => {
@@ -274,22 +272,18 @@ const Onboarding = ({ onComplete }) => {
         }
 
         if (signInSuccess) {
-          // If signed in, check if clients row exists
-          const mockClients = databaseService.getMockTable('clients');
-          const hasClientsRow = (isSupabaseConfigured && databaseService.supabase) 
-            ? profile.userClientId 
-            : mockClients.some(c => c.user_id === profile.id);
-
-          if (hasClientsRow) {
-            // Client row exists! Load profile and complete login
+          if (profile.onboardingCompleted) {
+            // Already finished the one-time wizard on a previous login — straight to the dashboard.
             await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
             onComplete();
           } else {
-            // No client row exists yet! Proceed to onboarding step 1 (Screen 3)
+            // Either no clients row yet, or the wizard was started but never finished —
+            // resume it (name is already known, so skip straight past the name/phone step).
             localStorage.setItem('userEmail', authEmail);
             localStorage.setItem('userId', profile.id);
             localStorage.setItem('userRole', 'client');
-            setStep(1);
+            if (profile.userName) localStorage.setItem('userName', profile.userName);
+            setStep(profile.userName ? 'wizard' : 1);
           }
         } else {
           throw new Error('Invalid email or password.');
@@ -302,10 +296,30 @@ const Onboarding = ({ onComplete }) => {
           // Sign up flow
           let newUserId = null;
           if (isSupabaseConfigured && databaseService.supabase) {
-            const signupData = await databaseService.signUp(authEmail, authPassword);
-            newUserId = signupData?.user?.id;
+            await databaseService.signUp(authEmail, authPassword);
+            // auth.users.id (from signUp) is not the id the rest of the schema keys off of —
+            // public.users.id is generated independently, so resolve/create that row by email.
+            const { data: existingUser } = await databaseService.supabase
+              .from('users')
+              .select('id')
+              .eq('email', authEmail)
+              .maybeSingle();
+            if (existingUser) {
+              newUserId = existingUser.id;
+            } else {
+              const { data: createdUser, error: createUserError } = await databaseService.supabase
+                .from('users')
+                .insert({ email: authEmail })
+                .select()
+                .single();
+              if (createUserError) throw createUserError;
+              newUserId = createdUser.id;
+            }
+            if (!newUserId) {
+              throw new Error('Could not resolve your account ID. Please try signing in again.');
+            }
           }
-          
+
           // Write to users table (public)
           const mockUsers = databaseService.getMockTable('users');
           const uid = newUserId || `mock-uid-${Date.now()}`;
@@ -492,57 +506,6 @@ const Onboarding = ({ onComplete }) => {
     }
   };
 
-  // Reusable generic target calculation for onboarding & instant login
-  const calculateTargetsGeneric = (wVal, hVal, aVal, actVal, goalVal) => {
-    const w = parseFloat(wVal) || 70;
-    const h = parseFloat(hVal) || 170;
-    const a = parseInt(aVal) || 28;
-
-    const bmr = 10 * w + 6.25 * h - 5 * a + 5;
-
-    let multiplier = 1.2;
-    if (actVal === 'Lightly Active') multiplier = 1.375;
-    else if (actVal === 'Moderately Active') multiplier = 1.55;
-    else if (actVal === 'Very Active') multiplier = 1.725;
-
-    const tdee = bmr * multiplier;
-
-    let calorieTarget = Math.round(tdee);
-    if (goalVal && goalVal.includes('Fat Loss')) {
-      calorieTarget = Math.round(tdee - 500);
-      if (calorieTarget < 1200) calorieTarget = 1200;
-    } else if (goalVal && goalVal.includes('Muscle Building')) {
-      calorieTarget = Math.round(tdee + 300);
-    }
-
-    calorieTarget = Math.round(calorieTarget / 50) * 50;
-
-    let proteinRatio = 0.30;
-    let carbsRatio = 0.40;
-    let fatsRatio = 0.30;
-
-    if (goalVal && goalVal.includes('Fat Loss')) {
-      proteinRatio = 0.35;
-      carbsRatio = 0.35;
-      fatsRatio = 0.30;
-    } else if (goalVal && goalVal.includes('Muscle Building')) {
-      proteinRatio = 0.30;
-      carbsRatio = 0.45;
-      fatsRatio = 0.25;
-    }
-
-    const proteinGrams = Math.round((calorieTarget * proteinRatio) / 4);
-    const fatGrams = Math.round((calorieTarget * fatsRatio) / 9);
-    const carbGrams = Math.round((calorieTarget * carbsRatio) / 4);
-
-    return {
-      calories: calorieTarget,
-      protein: Math.round(proteinGrams / 5) * 5,
-      carbs: Math.round(carbGrams / 5) * 5,
-      fats: Math.round(fatGrams / 5) * 5
-    };
-  };
-
   const handleInstantLogin = (profile, email) => {
     const cleanName = profile.name.trim();
     const targets = calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal);
@@ -585,61 +548,37 @@ const Onboarding = ({ onComplete }) => {
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userName', profile.name);
     localStorage.setItem('userRole', 'client');
-    
-    let coachId = null;
+
     let dbProfile = null;
-    
     if (isSupabaseConfigured && databaseService.supabase) {
       dbProfile = await databaseService.getUserProfileByEmail(email);
-      coachId = dbProfile?.coach_id || null;
     }
-    
-    if (coachId) {
-      localStorage.setItem('userCoachId', coachId);
-      handleInstantLogin(profile, email);
-    } else {
-      // Create initial client profile with no coach linked yet
-      if (isSupabaseConfigured && databaseService.supabase) {
-        try {
-          await databaseService.saveUserProfile({
-            userName: profile.name,
-            email: email,
-            role: 'client',
-            coach_id: null,
-            verified: false
-          });
-        } catch (e) {
-          console.error("Error creating initial client user profile:", e);
-        }
-      }
-      setAuthTab('awaiting_invite_code');
-    }
-  };
 
-  useEffect(() => {
-    const email = localStorage.getItem('userEmail');
-    const role = localStorage.getItem('userRole') || 'client';
-    const coachId = localStorage.getItem('userCoachId');
-    if (email && role === 'client' && !coachId) {
-      setAuthTab('awaiting_invite_code');
+    if (dbProfile?.onboardingCompleted) {
+      // Already finished the one-time wizard on a previous login — straight to the dashboard.
+      if (dbProfile.coach_id) localStorage.setItem('userCoachId', dbProfile.coach_id);
+      await databaseService.loadProfileIntoLocalStorage(dbProfile, email);
+      onComplete();
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    const loadCoaches = async () => {
+    // Brand-new (or not-yet-onboarded) client: ensure a bare clients row exists with
+    // no coach linked yet, then run them through the one-time onboarding wizard.
+    if (isSupabaseConfigured && databaseService.supabase && !dbProfile) {
       try {
-        const list = await databaseService.refreshLocalCoaches();
-        setCoachesList(list || []);
-      } catch (err) {
-        console.warn('Error loading coaches list:', err);
-        const list = JSON.parse(localStorage.getItem('coaches_list') || '[]');
-        setCoachesList(list);
+        await databaseService.saveUserProfile({
+          userName: profile.name,
+          email: email,
+          role: 'client',
+          coach_id: null,
+          verified: false
+        });
+      } catch (e) {
+        console.error("Error creating initial client user profile:", e);
       }
-    };
-    if (authTab === 'awaiting_invite_code') {
-      loadCoaches();
     }
-  }, [authTab]);
+    setStep('wizard');
+  };
 
   useEffect(() => {
     const msg = localStorage.getItem('resetSuccessMsg');
@@ -720,30 +659,6 @@ const Onboarding = ({ onComplete }) => {
     setMatchingProfiles(matches);
   }, [name]);
 
-  const handleToggleGoal = (toggled) => {
-    let items = goal ? goal.split(',').map(i => i.trim()).filter(Boolean) : [];
-    if (items.includes(toggled)) {
-      items = items.filter(i => i !== toggled);
-    } else {
-      items.push(toggled);
-    }
-    setGoal(items.join(', '));
-  };
-
-  const handleToggleIssue = (toggled) => {
-    let items = issue ? issue.split(',').map(i => i.trim()).filter(Boolean) : [];
-    if (toggled === 'None') {
-      setIssue('None');
-      return;
-    }
-    items = items.filter(i => i !== 'None');
-    if (items.includes(toggled)) {
-      items = items.filter(i => i !== toggled);
-    } else {
-      items.push(toggled);
-    }
-    setIssue(items.join(', '));
-  };
 
   // Automatic sliding carousel for onboarding mockup
   useEffect(() => {
@@ -754,11 +669,7 @@ const Onboarding = ({ onComplete }) => {
     return () => clearInterval(interval);
   }, [step, showAuthForm]);
 
-  const TOTAL_STEPS = 6;
-
-  const calculateTargets = (selectedGoal) => {
-    return calculateTargetsGeneric(weight, height, age, activity, selectedGoal);
-  };
+  const TOTAL_STEPS = 1;
 
   const handleBack = () => {
     if (step > 0) {
@@ -769,6 +680,8 @@ const Onboarding = ({ onComplete }) => {
     }
   };
 
+  // Step 1 (name + phone) is the only numbered step left here — once it's done,
+  // clients are handed off to the one-time 4-step ClientOnboardingWizard below.
   const handleNext = () => {
     if (step === 1) {
       if (!name.trim()) return;
@@ -798,199 +711,23 @@ const Onboarding = ({ onComplete }) => {
       return;
     }
 
-    if (step === 2 && (!age || !height || !weight)) return;
-    if (step === 3 && !activity) return;
-    if (step === 4 && !goal) return;
-    if (step === 5 && !issue) return;
-    if (step === 6 && !diet) return;
+    setStep('wizard');
+  };
 
-    if (step < TOTAL_STEPS) {
-      setStep(step + 1);
-    } else {
-      const targets = calculateTargets(goal);
-      
-      const cleanName = name.trim();
-      localStorage.setItem('userName', cleanName);
-      localStorage.setItem('userAge', age);
-      localStorage.setItem('userHeight', height);
-      localStorage.setItem('userWeight', weight);
-      localStorage.setItem('userActivity', activity);
-      localStorage.setItem('userGoal', goal);
-      localStorage.setItem('userIssue', issue);
-      localStorage.setItem('userDiet', diet);
-      
-      localStorage.setItem('userCalorieTarget', targets.calories.toString());
-      localStorage.setItem('userProteinTarget', targets.protein.toString());
-      localStorage.setItem('userCarbsTarget', targets.carbs.toString());
-      localStorage.setItem('userFatsTarget', targets.fats.toString());
-      
-      // Save profile under key for future autofill
-      const profileData = {
-        name: cleanName,
-        age,
-        height,
-        weight,
-        activity,
-        goal,
-        issue,
-        diet
-      };
-      localStorage.setItem(`profile_${cleanName.toLowerCase().replace(/\s+/g, '')}`, JSON.stringify(profileData));
-      
-      onComplete();
+  // Final submission of the one-time onboarding wizard: writes Age/Weight/Height/
+  // Program/Activity/Primary concern to the clients row exactly once, flips
+  // onboarding_completed, then routes into the dashboard.
+  const handleWizardSubmit = async (data) => {
+    try {
+      await databaseService.completeClientOnboarding(data);
+    } catch (e) {
+      console.error('Error completing onboarding wizard:', e);
     }
+    onComplete();
   };
 
   return (
     <div className="onboarding-container">
-      {authTab === 'awaiting_invite_code' && (
-        <div style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', position: 'fixed', top: 0, left: 0, zIndex: 9999 }}>
-          <div className="coach-login-card" style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
-            <div className="coach-login-header">
-              <div className="coach-login-logo-section">
-                <div className="coach-login-logo" style={{ animation: 'bounce 2s ease-in-out infinite' }}>🔒</div>
-                <h1 className="coach-login-title">Account Locked</h1>
-              </div>
-              <p className="coach-login-subtitle" style={{ color: 'rgba(226, 232, 240, 0.9)' }}>
-                Awaiting Coach Invitation Code
-              </p>
-              <p style={{ fontSize: '13px', color: 'rgba(148, 163, 184, 0.8)', marginTop: '8px', lineHeight: '1.4' }}>
-                Your account is registered as <strong style={{ color: '#34d399' }}>{localStorage.getItem('userEmail')}</strong>. You must enter a valid code from your coach to access the dashboard.
-              </p>
-            </div>
-
-            {authError && (
-              <div className="coach-login-error" style={{ margin: '16px 0 0 0' }}>
-                <span className="coach-login-error-icon">⚠️</span>
-                <span className="coach-login-error-text">{authError}</span>
-              </div>
-            )}
-
-             <div className="coach-login-content" style={{ marginTop: '24px' }}>
-               <div className="coach-login-input-group">
-                 <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Coach Invitation Code</label>
-                 <input 
-                   type="text" 
-                   className="auth-input" 
-                   placeholder="e.g. A1B2C3" 
-                   style={{ textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px' }}
-                   id="lockScreenInviteInput"
-                   disabled={authLoading}
-                 />
-               </div>
-
-               <div className="coach-login-input-group" style={{ marginTop: '16px' }}>
-                 <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Or Select from Active Coaches</label>
-                 <select 
-                   id="lockScreenCoachSelect"
-                   className="auth-input"
-                   style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fff', fontSize: '0.9rem', outline: 'none', width: '100%', marginTop: '6px', appearance: 'none', WebkitAppearance: 'none' }}
-                   disabled={authLoading}
-                   onChange={(e) => {
-                     if (e.target.value) {
-                       const input = document.getElementById('lockScreenInviteInput');
-                       if (input) input.value = '';
-                     }
-                   }}
-                 >
-                   <option value="" style={{ background: '#1e293b', color: '#94a3b8' }}>-- Choose a Coach --</option>
-                   {coachesList.map(c => (
-                     <option key={c.id} value={c.id} style={{ background: '#1e293b', color: '#fff' }}>
-                       {c.name} ({c.brand})
-                     </option>
-                   ))}
-                   {coachesList.length === 0 && (
-                     <option value="coach-subodh" style={{ background: '#1e293b', color: '#fff' }}>
-                       Subodh Mankala (Fit Engineers)
-                     </option>
-                   )}
-                 </select>
-               </div>
-               
-               <button 
-                 type="button" 
-                 className="coach-login-submit-btn"
-                 style={{ marginTop: '20px', background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)' }}
-                 disabled={authLoading}
-                 onClick={async () => {
-                   const rawCode = document.getElementById('lockScreenInviteInput').value.trim();
-                   const selectedCoachSelect = document.getElementById('lockScreenCoachSelect');
-                   const selectedCoachId = selectedCoachSelect ? selectedCoachSelect.value : '';
-                   
-                   if (!rawCode && !selectedCoachId) {
-                     setAuthError('Please enter an invitation code or select a coach.');
-                     return;
-                   }
-                   
-                   setAuthError('');
-                   setAuthLoading(true);
-                   try {
-                     let coachId = null;
-                     if (rawCode) {
-                       const code = rawCode.toUpperCase();
-                       console.log('[DEBUG] Validating code on submit:', code);
-                       coachId = await databaseService.validateCoachInviteCode(code);
-                       if (!coachId) {
-                         throw new Error('Invalid or expired invitation code.');
-                       }
-                     } else if (selectedCoachId) {
-                       console.log('[DEBUG] Linking selected coach ID:', selectedCoachId);
-                       coachId = selectedCoachId;
-                     }
-
-                     if (coachId) {
-                       localStorage.setItem('userCoachId', coachId);
-                       localStorage.setItem('userRole', 'client');
-                       
-                       const email = localStorage.getItem('userEmail');
-                       const userName = localStorage.getItem('userName') || 'Warrior';
-                       
-                       // Sync to database
-                       if (isSupabaseConfigured && databaseService.supabase) {
-                         await databaseService.saveUserProfile({
-                           userName: userName,
-                           email: email,
-                           role: 'client',
-                           coach_id: coachId,
-                           verified: true
-                         });
-                       }
-                       
-                       localStorage.setItem('onboardingComplete', 'true');
-                       alert('Coach linked successfully! Welcome to Fitengineers.');
-                       onComplete();
-                     }
-                   } catch (err) {
-                     setAuthError(err.message || 'Verification failed.');
-                   } finally {
-                     setAuthLoading(false);
-                   }
-                 }}
-               >
-                 {authLoading ? 'Checking...' : 'Link Coach & Enter'}
-               </button>
-
-              <button 
-                type="button" 
-                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginTop: '16px', textDecoration: 'underline' }}
-                onClick={async () => {
-                  setAuthLoading(true);
-                  await databaseService.signOut();
-                  localStorage.clear();
-                  setAuthTab('login');
-                  setStep(0);
-                  setAuthLoading(false);
-                  window.location.reload();
-                }}
-                disabled={authLoading}
-              >
-                Log Out / Switch Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {step > 0 && (
         <div className="onboarding-header">
           <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
@@ -1563,16 +1300,12 @@ const Onboarding = ({ onComplete }) => {
                         className="suggestion-btn autofill-btn-sec"
                         onClick={() => {
                           setName(profile.name);
-                          setAge(profile.age || '');
-                          setHeight(profile.height || '');
-                          setWeight(profile.weight || '');
-                          setActivity(profile.activity || 'Moderately Active');
-                          setGoal(profile.goal || '');
-                          setIssue(profile.issue || '');
-                          setDiet(profile.diet || '');
-                          
-                          // Jump to last step for review
-                          setStep(TOTAL_STEPS);
+                          setWizardPrefill({
+                            age: profile.age || '',
+                            weight: profile.weight || '',
+                            height: profile.height || ''
+                          });
+                          setStep('wizard');
                           setMatchingProfiles([]);
                         }}
                         title="Autofill and Review Details"
@@ -1598,186 +1331,21 @@ const Onboarding = ({ onComplete }) => {
         </div>
       )}
       
-      {step === 2 && (
-        <div className="onboarding-step animate-in">
-          <h3>Tell us about yourself</h3>
-          <p className="step-hint">We use these to calculate your custom BMR and macro metrics.</p>
-          <div className="input-group-row">
-            <div className="input-field">
-              <label>Age (years)</label>
-              <input 
-                type="number" 
-                value={age} 
-                onChange={e => setAge(e.target.value)} 
-                placeholder="25" 
-                min="10"
-                max="100"
-              />
-            </div>
-            <div className="input-field">
-              <label>Height (cm)</label>
-              <input 
-                type="number" 
-                value={height} 
-                onChange={e => setHeight(e.target.value)} 
-                placeholder="175" 
-                min="100"
-                max="250"
-              />
-            </div>
-          </div>
-          <div className="input-field mt-2">
-            <label>Weight (kg)</label>
-            <input 
-              type="number" 
-              value={weight} 
-              onChange={e => setWeight(e.target.value)} 
-              placeholder="72.5" 
-              step="0.1"
-              min="30"
-              max="250"
-            />
-          </div>
-        </div>
-      )}
-      
-      {step === 3 && (
-        <div className="onboarding-step animate-in">
-          <h3>What's your physical activity level?</h3>
-          <p className="step-hint">This calibrates your daily maintenance TDEE score.</p>
-          <button 
-            className={`select-btn ${activity === 'Sedentary' ? 'selected' : ''}`}
-            onClick={() => setActivity('Sedentary')}
-          >
-            <strong>Sedentary</strong>
-            <span className="btn-desc">Little or no weekly exercise</span>
-          </button>
-          <button 
-            className={`select-btn ${activity === 'Lightly Active' ? 'selected' : ''}`}
-            onClick={() => setActivity('Lightly Active')}
-          >
-            <strong>Lightly Active</strong>
-            <span className="btn-desc">Light exercise/sports 1-3 days/week</span>
-          </button>
-          <button 
-            className={`select-btn ${activity === 'Moderately Active' ? 'selected' : ''}`}
-            onClick={() => setActivity('Moderately Active')}
-          >
-            <strong>Moderately Active</strong>
-            <span className="btn-desc">Moderate exercise/sports 3-5 days/week</span>
-          </button>
-          <button 
-            className={`select-btn ${activity === 'Very Active' ? 'selected' : ''}`}
-            onClick={() => setActivity('Very Active')}
-          >
-            <strong>Very Active</strong>
-            <span className="btn-desc">Hard training/sports 6-7 days/week</span>
-          </button>
-        </div>
-      )}
-      
-      {step === 4 && (
-        <div className="onboarding-step animate-in">
-          <h3>What is your primary fitness goal?</h3>
-          <p className="step-hint">This defines the calorie offset and workout direction (Select all that apply).</p>
-          <button 
-            className={`select-btn ${goal.includes('Fat Loss') ? 'selected' : ''}`}
-            onClick={() => handleToggleGoal('Fat Loss')}
-          >
-            <strong>🔥 Fat Loss</strong>
-            <span className="btn-desc">Stay in caloric deficit & retain lean mass</span>
-          </button>
-          <button 
-            className={`select-btn ${goal.includes('Gut Fix') ? 'selected' : ''}`}
-            onClick={() => handleToggleGoal('Gut Fix')}
-          >
-            <strong>🌱 Gut Fix</strong>
-            <span className="btn-desc">Fix acidity, bloating & restore gut microbiome</span>
-          </button>
-          <button 
-            className={`select-btn ${goal.includes('Muscle Building') ? 'selected' : ''}`}
-            onClick={() => handleToggleGoal('Muscle Building')}
-          >
-            <strong>💪 Muscle Building</strong>
-            <span className="btn-desc">Achieve anabolic surplus & progressive overload</span>
-          </button>
-        </div>
-      )}
-      
-      {step === 5 && (
-        <div className="onboarding-step animate-in">
-          <h3>Any metabolic or digestive challenges?</h3>
-          <p className="step-hint">Helps tailor daily checklist alerts and warnings (Select all that apply).</p>
-          <button 
-            className={`select-btn ${issue.includes('Bloating') ? 'selected' : ''}`}
-            onClick={() => handleToggleIssue('Bloating')}
-          >
-            🎈 Bloating (frequent gas or fullness)
-          </button>
-          <button 
-            className={`select-btn ${issue.includes('Acidity') ? 'selected' : ''}`}
-            onClick={() => handleToggleIssue('Acidity')}
-          >
-            🔥 Acidity & Heartburn
-          </button>
-          <button 
-            className={`select-btn ${issue.includes('Constipation') ? 'selected' : ''}`}
-            onClick={() => handleToggleIssue('Constipation')}
-          >
-            🐢 Constipation / Sluggish digestion
-          </button>
-          <button 
-            className={`select-btn ${issue.includes('None') ? 'selected' : ''}`}
-            onClick={() => handleToggleIssue('None')}
-          >
-            ✨ None / Just want to stay fit
-          </button>
-        </div>
+      {step === 'wizard' && (
+        <ClientOnboardingWizard
+          initialData={wizardPrefill || {
+            age: localStorage.getItem('userAge') || '',
+            weight: localStorage.getItem('userWeight') || '',
+            height: localStorage.getItem('userHeight') || ''
+          }}
+          onSubmit={handleWizardSubmit}
+        />
       )}
 
-      {step === 6 && (
-        <div className="onboarding-step animate-in">
-          <h3>What's your dietary preference?</h3>
-          <p className="step-hint">We'll build your entire meal plan around this. You can always toggle it later.</p>
-
-          <button
-            className={`select-btn diet-card ${diet === 'Vegetarian' ? 'selected diet-veg-selected' : ''}`}
-            onClick={() => setDiet('Vegetarian')}
-          >
-            <div className="diet-card-inner">
-              <span className="diet-icon">🥦</span>
-              <div className="diet-card-text">
-                <strong>Vegetarian</strong>
-                <span className="btn-desc">Paneer, dal, tofu, eggs, legumes, dairy</span>
-              </div>
-              <span className="diet-dot veg-dot">🟢</span>
-            </div>
-          </button>
-
-          <button
-            className={`select-btn diet-card ${diet === 'Non-Vegetarian' ? 'selected diet-nonveg-selected' : ''}`}
-            onClick={() => setDiet('Non-Vegetarian')}
-          >
-            <div className="diet-card-inner">
-              <span className="diet-icon">🍗</span>
-              <div className="diet-card-text">
-                <strong>Non-Vegetarian</strong>
-                <span className="btn-desc">Chicken, fish, eggs, paneer, meat sources</span>
-              </div>
-              <span className="diet-dot nonveg-dot">🔴</span>
-            </div>
-          </button>
-
-          <div className="diet-note">
-            🔒 Your meals, macros & portions will be auto-personalized based on this preference.
-          </div>
-        </div>
-      )}
-      
       {step > 0 && (
         <div className="onboarding-actions" style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '400px', marginTop: '32px' }}>
           {(step > 1 || (step === 1 && isSupabaseConfigured)) && (
-            <button 
+            <button
               type="button"
               className="btn-back"
               style={{
@@ -1797,24 +1365,17 @@ const Onboarding = ({ onComplete }) => {
               ← Back
             </button>
           )}
-          <button 
-            className="btn-next" 
-            style={{ 
-              flex: (step > 1 || (step === 1 && isSupabaseConfigured)) ? 2 : 1, 
+          <button
+            className="btn-next"
+            style={{
+              flex: (step > 1 || (step === 1 && isSupabaseConfigured)) ? 2 : 1,
               marginTop: 0,
               width: '100%'
             }}
             onClick={handleNext}
-            disabled={
-              (step === 1 && !name.trim()) ||
-              (step === 2 && (!age || !height || !weight)) ||
-              (step === 3 && !activity) ||
-              (step === 4 && !goal) ||
-              (step === 5 && !issue) ||
-              (step === 6 && !diet)
-            }
+            disabled={step === 1 && !name.trim()}
           >
-            {step === TOTAL_STEPS ? "🚀 Let's Personalize App!" : "Next Step ➔"}
+            Next Step ➔
           </button>
         </div>
       )}

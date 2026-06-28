@@ -518,10 +518,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [loadingChat, setLoadingChat] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Fetch all clients on mount
+  // Fetch all clients on mount and set up real-time listener
   useEffect(() => {
     const fetchClients = async () => {
-      setLoadingClients(true);
       try {
         const data = await databaseService.getAllUsers();
         // Exclude trainer emails from the clients listing to avoid noise
@@ -537,7 +536,32 @@ const TrainerDashboard = ({ handleLogout }) => {
         setLoadingClients(false);
       }
     };
+
+    setLoadingClients(true);
     fetchClients();
+
+    let channel = null;
+    if (isSupabaseConfigured && databaseService.supabase) {
+      console.log('[DEBUG] Coach Dashboard: Subscribing to real-time database changes...');
+      channel = databaseService.supabase
+        .channel('coach-dashboard-clients')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
+          console.log('[DEBUG] Coach Dashboard: Real-time clients table change detected:', payload);
+          fetchClients();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+          console.log('[DEBUG] Coach Dashboard: Real-time users table change detected:', payload);
+          fetchClients();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      if (channel && databaseService.supabase) {
+        console.log('[DEBUG] Coach Dashboard: Unsubscribing real-time channel.');
+        databaseService.supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   // Fetch client workout logs when a client is selected
@@ -1304,6 +1328,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                         localStorage.setItem('last_generated_invite_code', code);
                       } catch (err) {
                         console.error('Error generating code:', err);
+                        setGeneratedInviteCode('');
+                        localStorage.removeItem('last_generated_invite_code');
+                        alert(err.message || 'Could not generate an invitation code. Please try again.');
                       } finally {
                         setGeneratingCode(false);
                       }

@@ -299,6 +299,9 @@ const WorkoutTracker = () => {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
+  // Generic workout templates (Push/Pull/Leg)
+  const [genericTemplates, setGenericTemplates] = useState([]);
+  const [activeTemplateName, setActiveTemplateName] = useState('');
 
   // Generic (non-coach) starter workout templates — always available, regardless of coach_id.
   const [defaultTemplates, setDefaultTemplates] = useState([]);
@@ -346,6 +349,15 @@ const WorkoutTracker = () => {
       setLoadingPlans(false);
     }
   };
+
+  // Load generic templates on mount
+  useEffect(() => {
+    databaseService.getDefaultWorkoutTemplates().then(tpls => {
+      setGenericTemplates(tpls || []);
+    }).catch(() => {
+      setGenericTemplates(databaseService.BUILTIN_TEMPLATES);
+    });
+  }, []);
 
   useEffect(() => {
     fetchPlans();
@@ -900,9 +912,10 @@ const WorkoutTracker = () => {
     
     // Save as client routine template if checked
     if (saveAsTemplate && formattedExercises.length > 0) {
+      // Use Supabase UUID if available, fall back to display name
       const plan = {
         userId: getPlanOwnerId(),
-        planName: templateName.trim() || `Custom Routine - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+        planName: templateName.trim() || `My Template — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
         exercises: formattedExercises.map(ex => ({
           name: ex.name,
           sets: ex.sets.map(s => ({ reps: s.reps, weight: s.weight }))
@@ -1006,6 +1019,28 @@ const WorkoutTracker = () => {
     }, 1800);
   };
 
+  // ─── Start a workout from a generic template ───
+  const handleStartFromTemplate = (template) => {
+    const exercises = template.exercises.map(ex => ({
+      name: ex.name,
+      sets: Array.from({ length: ex.sets || 3 }, () => ({
+        reps: parseInt(String(ex.reps).split('–')[0]) || 10,
+        weight: '0',
+        isCompleted: false
+      }))
+    }));
+    setLogExercises(exercises);
+    setTemplateName(template.name);
+    setActiveTemplateName(template.name);
+    setLogClient(loggedInUser);
+    setLogDate(new Date().toISOString().split('T')[0]);
+    setWorkoutActiveSeconds(0);
+    setWorkoutTimerRunning(false);
+    setIsLoggingWorkout(true);
+    setActiveView('log');
+    triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
+  };
+
   // Renew client sessions package
   const renewSessionPackage = () => {
     const updatedProfiles = clientProfiles.map(p => {
@@ -1040,10 +1075,16 @@ const WorkoutTracker = () => {
           📈 Charts & Progress
         </button>
         <button 
+          className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
+          onClick={() => setActiveView('templates')}
+        >
+          🏋️ Workouts
+        </button>
+        <button 
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
           onClick={() => setActiveView('log')}
         >
-          📝 Count your Reps & Weights
+          📝 Log Sets
         </button>
       </div>
 
@@ -1510,7 +1551,114 @@ const WorkoutTracker = () => {
         </div>
       )}
 
+      {/* ─── TEMPLATES VIEW ─── */}
+      {activeView === 'templates' && (
+        <div className="wt-templates-outer">
 
+          {/* Coach's Plan section (only if client has a coach plan) */}
+          {clientPlans.filter(p => p.createdBy === 'coach' || p.planName).length > 0 && (
+            <div className="wt-section">
+              <div className="wt-section-header">
+                <span className="wt-section-badge coach">🎯 Your Coach's Plan</span>
+                <span className="wt-section-sub">Assigned by your coach</span>
+              </div>
+              <div className="wt-template-list">
+                {clientPlans.map(plan => (
+                  <div key={plan.id || plan.planName} className="wt-template-card coach-card">
+                    <div className="wt-tpl-info">
+                      <span className="wt-tpl-icon">📋</span>
+                      <div>
+                        <span className="wt-tpl-name">{plan.planName}</span>
+                        <span className="wt-tpl-meta">
+                          {Array.isArray(plan.exercises) ? plan.exercises.length : 0} exercises
+                        </span>
+                      </div>
+                    </div>
+                    <div className="wt-tpl-exercises">
+                      {(Array.isArray(plan.exercises) ? plan.exercises : []).slice(0, 4).map((ex, i) => (
+                        <span key={i} className="wt-ex-pill">{ex.name}</span>
+                      ))}
+                    </div>
+                    <button
+                      className="wt-start-btn coach-start"
+                      onClick={() => handleStartFromTemplate({
+                        name: plan.planName,
+                        exercises: (Array.isArray(plan.exercises) ? plan.exercises : []).map(ex => ({
+                          ...ex,
+                          sets: ex.sets ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) : 3,
+                          reps: ex.reps || '10'
+                        }))
+                      })}
+                    >
+                      ▶ Start Workout
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Generic Workouts section — always shown */}
+          <div className="wt-section">
+            <div className="wt-section-header">
+              <span className="wt-section-badge generic">💡 Generic Workouts</span>
+              <span className="wt-section-sub">Available to all clients</span>
+            </div>
+
+            {genericTemplates.length === 0 ? (
+              <div className="wt-empty-state">
+                <span>⏳</span> Loading templates…
+              </div>
+            ) : (
+              <div className="wt-template-grid">
+                {genericTemplates.map(template => (
+                  <div key={template.id} className="wt-generic-card">
+                    <div className="wt-generic-icon">{template.emoji}</div>
+                    <div className="wt-generic-name">{template.name}</div>
+                    <div className="wt-generic-desc">{template.description}</div>
+
+                    <div className="wt-generic-exercises">
+                      {template.exercises.map((ex, i) => (
+                        <div key={i} className="wt-generic-ex-row">
+                          <span className="wt-ex-dot">•</span>
+                          <span className="wt-ex-name">{ex.name}</span>
+                          <span className="wt-ex-meta">{ex.sets}×{ex.reps}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      className="wt-start-btn generic-start"
+                      onClick={() => handleStartFromTemplate(template)}
+                    >
+                      ▶ Start Workout
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick empty start CTA */}
+          <div className="wt-blank-cta">
+            <button
+              className="wt-blank-btn"
+              onClick={() => {
+                setLogExercises([
+                  { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
+                ]);
+                setTemplateName('Custom Session');
+                setLogClient(loggedInUser);
+                setLogDate(new Date().toISOString().split('T')[0]);
+                setIsLoggingWorkout(true);
+                setActiveView('log');
+              }}
+            >
+              + Start empty workout
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeView === 'log' && !isLoggingWorkout && (
         <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
@@ -1964,7 +2112,21 @@ const WorkoutTracker = () => {
                         <span className="col-prev">PREVIOUS</span>
                         <span className="col-weight">WEIGHT ({unit})</span>
                         <span className="col-reps">REPS</span>
-                        <span className="col-check">✓</span>
+                        <span className="col-check" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <button
+                            type="button"
+                            title="Mark all sets done"
+                            onClick={() => setLogExercises(prev => prev.map((e, i) => i === exIdx
+                              ? { ...e, sets: e.sets.map(s => ({ ...s, isCompleted: true })) }
+                              : e
+                            ))}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: ex.sets.every(s => s.isCompleted) ? '#10b981' : 'rgba(148,163,184,0.5)',
+                              fontSize: '0.85rem', padding: '2px 4px', lineHeight: 1
+                            }}
+                          >✓ all</button>
+                        </span>
                       </div>
                       <div className="hevy-table-body">
                         {ex.sets.map((set, sIdx) => {
@@ -2262,7 +2424,7 @@ const WorkoutTracker = () => {
       {/* Hevy-Style Finish Workout PR & Volume Analytics Modal */}
       {showFinishSummary && summaryStats && (
         <div className="payment-gateway-backdrop summary-modal-backdrop">
-          <div className="payment-gateway-modal summary-modal-card animate-scale-in">
+          <div className="payment-gateway-modal summary-modal-card animate-scale-in" style={{ maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             <div className="payment-modal-header">
               <div className="modal-title-box">
                 <span className="secure-badge">🏆 WORKOUT SUMMARY</span>

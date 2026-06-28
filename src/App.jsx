@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Onboarding from './components/Onboarding';
+import ClientOnboardingWizard from './components/ClientOnboardingWizard';
 import HomeTracker from './components/HomeTracker';
 import FatLossDashboard from './components/FatLossDashboard';
 import MuscleDashboard from './components/MuscleDashboard';
@@ -308,6 +309,12 @@ const registerForPushNotifications = async (userName) => {
 
 function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
+  const [showClientWizard, setShowClientWizard] = useState(() => {
+    // Show wizard if client has logged in before but hasn't completed onboarding
+    return localStorage.getItem('onboardingComplete') === 'true' &&
+           localStorage.getItem('onboardingCompleted') === 'false' &&
+           (localStorage.getItem('userRole') === 'client' || !localStorage.getItem('userRole'));
+  });
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
@@ -388,9 +395,75 @@ function App() {
           return;
         }
         
-        // Gate the post-signup onboarding wizard strictly on the DB flag — once a
-        // client has completed it, it must never reappear regardless of login count.
-        const hasCompleteProfile = profile && profile.onboardingCompleted === true;
+        if (!isApprovedCoach) {
+          // It's a client user! Route straight to dashboard.
+          // First, check if client row exists. If not, create with coach_id = null and defaults.
+          let clientProfile = profile;
+          if (!clientProfile) {
+            const defaultName = googleName || email.split('@')[0] || 'Warrior';
+            try {
+              await databaseService.saveUserProfile({
+                userName: defaultName,
+                email: email,
+                role: 'client',
+                coach_id: null,
+                userAge: '30',
+                userHeight: '175',
+                userWeight: '70',
+                userActivity: 'Moderately Active',
+                userGoal: 'Fat Loss',
+                userDiet: 'Non-Vegetarian',
+                userCalorieTarget: '2000',
+                userProteinTarget: '120',
+                userCarbsTarget: '220',
+                userFatsTarget: '70',
+                verified: false
+              });
+              clientProfile = await databaseService.getUserProfileByEmail(email);
+            } catch (err) {
+              console.error("Error auto-creating user profile in session handler:", err);
+            }
+          }
+
+          if (clientProfile) {
+            await databaseService.loadProfileIntoLocalStorage(clientProfile, email);
+            setUserRole(clientProfile.role);
+          } else {
+            // Fallback storage if db fails
+            localStorage.setItem('userName', googleName || email.split('@')[0] || 'Warrior');
+            localStorage.setItem('userEmail', email);
+            localStorage.setItem('userRole', 'client');
+            localStorage.setItem('userAge', '30');
+            localStorage.setItem('userHeight', '175');
+            localStorage.setItem('userWeight', '70');
+            localStorage.setItem('userActivity', 'Moderately Active');
+            localStorage.setItem('userGoal', 'Fat Loss');
+            localStorage.setItem('userCalorieTarget', '2000');
+            localStorage.setItem('userProteinTarget', '120');
+            localStorage.setItem('userCarbsTarget', '220');
+            localStorage.setItem('userFatsTarget', '70');
+            localStorage.setItem('onboardingCompleted', 'false');
+            setUserRole('client');
+          }
+          if (clientProfile?.userGoal) setUserGoal(clientProfile.userGoal);
+          setUserEmail(email);
+          localStorage.setItem('onboardingComplete', 'true');
+          setOnboardingComplete(true);
+          // Show wizard if onboarding_completed is false (new client)
+          if (clientProfile?.onboarding_completed === false || clientProfile?.onboarding_completed === null || !clientProfile?.onboarding_completed) {
+            setShowClientWizard(true);
+          } else {
+            setShowClientWizard(false);
+          }
+          return;
+        }
+
+        // Approved coach or trainer login flow
+        const hasCompleteProfile = profile && 
+                                   profile.userName && 
+                                   profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
+                                   profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
+                                   profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
 
         const isUserTrainer = isTrainer(email);
 
@@ -417,7 +490,7 @@ function App() {
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
         } else {
-          // Incomplete profile! Direct to onboarding Step 2 by setting email and name
+          // Incomplete trainer profile!
           localStorage.setItem('userEmail', email);
           const nameToUse = (profile && profile.userName && !profile.userName.toLowerCase().includes('test')) 
             ? profile.userName 
@@ -429,7 +502,6 @@ function App() {
             localStorage.removeItem('userName');
           }
 
-          // Cache any existing database values to prefill onboarding
           if (profile) {
             if (profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN') localStorage.setItem('userAge', profile.userAge);
             if (profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN') localStorage.setItem('userHeight', profile.userHeight);
@@ -875,6 +947,15 @@ function App() {
           setUserEmail(localStorage.getItem('userEmail') || '');
           setUserRole(localStorage.getItem('userRole') || 'client');
           setOnboardingComplete(true);
+          // Show wizard if this client has not yet completed 4-step onboarding
+          const completedWizard = localStorage.getItem('onboardingCompleted');
+          const role = localStorage.getItem('userRole') || 'client';
+          if (completedWizard !== 'true' && (role === 'client' || !role)) {
+            localStorage.setItem('onboardingCompleted', 'false');
+            setShowClientWizard(true);
+          } else {
+            setShowClientWizard(false);
+          }
         }} />
       </div>
     );
@@ -922,6 +1003,7 @@ function App() {
 
     lastProcessedEmailRef.current = '';
     setOnboardingComplete(false);
+    setShowClientWizard(false);
     setUserGoal('');
     setUserEmail('');
     setActiveTab('home');
@@ -1051,6 +1133,20 @@ function App() {
 
   const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
   const isCoach = isTrainer(userEmail) || userRole === 'coach';
+
+  // Show onboarding wizard for new clients (before the main dashboard)
+  if (showClientWizard && !isAdmin && !isCoach) {
+    return (
+      <div className="app-container">
+        <ClientOnboardingWizard
+          onComplete={() => {
+            setShowClientWizard(false);
+            localStorage.setItem('onboardingCompleted', 'true');
+          }}
+        />
+      </div>
+    );
+  }
 
   if (isAdmin || isCoach) {
     return (

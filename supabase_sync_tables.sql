@@ -128,20 +128,50 @@ BEGIN
     RAISE EXCEPTION 'Invitation belongs to an inactive or invalid coach.';
   END IF;
 
-  -- 2. Mark invitation as used
-  UPDATE public.invitations
-  SET used = true,
-      used_at = now(),
-      used_by = p_client_id
-  WHERE id = v_invite_id;
-
-  -- Get client email and name for profile setup
-  SELECT email, full_name
+  -- Get client email and name from auth.users (if it exists)
+  SELECT email, COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name')
   INTO v_client_email, v_client_name
-  FROM public.users
+  FROM auth.users
   WHERE id = p_client_id;
 
-  -- 3. Create or update client profile in public.clients
+  -- Fallback to public.users if not found in auth.users
+  IF v_client_email IS NULL THEN
+    SELECT email, full_name
+    INTO v_client_email, v_client_name
+    FROM public.users
+    WHERE id = p_client_id;
+  END IF;
+
+  -- Fallbacks for defaults
+  v_client_email := COALESCE(v_client_email, 'client_' || p_client_id || '@fitengineers.com');
+  v_client_name := COALESCE(v_client_name, 'Warrior');
+
+  -- 3. Create or update user row in public.users
+  INSERT INTO public.users (
+    id,
+    email,
+    role,
+    coach_id,
+    verified,
+    full_name,
+    payment_status
+  ) VALUES (
+    p_client_id,
+    v_client_email,
+    'client',
+    v_coach_id,
+    true,
+    v_client_name,
+    'active'
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET role = 'client',
+      coach_id = v_coach_id,
+      verified = true,
+      payment_status = 'active',
+      full_name = COALESCE(v_client_name, public.users.full_name);
+
+  -- 4. Create or update client profile in public.clients
   INSERT INTO public.clients (
     user_id,
     coach_id,
@@ -155,14 +185,29 @@ BEGIN
   SET coach_id = v_coach_id,
       full_name = COALESCE(v_client_name, public.clients.full_name);
 
-  -- 4. Update the client's role and coach reference in public.users
-  UPDATE public.users
-  SET role = 'client',
-      coach_id = v_coach_id,
-      verified = true
-  WHERE id = p_client_id;
+  -- 4b. Create/update coach-client relationship in coach_clients if it exists
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'coach_clients' AND table_schema = 'public') THEN
+    INSERT INTO public.coach_clients (
+      coach_id,
+      client_id,
+      status
+    ) VALUES (
+      v_coach_id,
+      p_client_id,
+      'active'
+    )
+    ON CONFLICT (coach_id, client_id) DO UPDATE
+    SET status = 'active';
+  END IF;
 
-  -- 5. Post-transaction internal verification checks
+  -- 5. Mark invitation as used
+  UPDATE public.invitations
+  SET used = true,
+      used_at = now(),
+      used_by = p_client_id
+  WHERE id = v_invite_id;
+
+  -- 6. Post-transaction internal verification checks
   IF NOT EXISTS (SELECT 1 FROM public.invitations WHERE id = v_invite_id AND used = true) THEN
     RAISE EXCEPTION 'Verification failed: invitation not marked used.';
   END IF;
@@ -171,7 +216,7 @@ BEGIN
     RAISE EXCEPTION 'Verification failed: client profile not created/updated.';
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = p_client_id AND role = 'client' AND coach_id = v_coach_id) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = p_client_id AND role = 'client' AND coach_id = v_coach_id AND payment_status = 'active') THEN
     RAISE EXCEPTION 'Verification failed: user role or coach ID not updated.';
   END IF;
 

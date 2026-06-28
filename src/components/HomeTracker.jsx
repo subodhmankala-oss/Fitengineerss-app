@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import MealScanner from './MealScanner';
+import ConnectCoachModal from './ConnectCoachModal';
 import './HomeTracker.css';
 
 const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const [userName, setUserName] = useState('Warrior');
   const [calorieBudget, setCalorieBudget] = useState(1800);
   const [showScanner, setShowScanner] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isLinkedToCoach, setIsLinkedToCoach] = useState(
+    () => localStorage.getItem('clientLinkedToCoach') === 'true'
+  );
   const [score, setScore] = useState(6);
   const [checks, setChecks] = useState({
     phone: true,
@@ -424,6 +429,23 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
           >
             <span className="icon">📸</span>
           </button>
+          {/* Connect to Coach button — always shown for clients */}
+          <button
+            className="btn-logout"
+            onClick={() => setShowConnectModal(true)}
+            title={isLinkedToCoach ? 'Connected to Coach ✓' : 'Connect to Coach'}
+            style={{
+              color: isLinkedToCoach ? '#10b981' : '#a78bfa',
+              borderColor: isLinkedToCoach ? 'rgba(16,185,129,0.3)' : 'rgba(139,92,246,0.35)',
+              background: isLinkedToCoach ? 'rgba(16,185,129,0.08)' : 'rgba(139,92,246,0.08)',
+              boxShadow: isLinkedToCoach ? '0 0 10px rgba(16,185,129,0.12)' : '0 0 10px rgba(139,92,246,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span className="icon" style={{ fontSize: '1rem' }}>{isLinkedToCoach ? '🟢' : '🔗'}</span>
+          </button>
+
           <button className="btn-logout" onClick={handleLogout} title="Reset Profile">
             <span className="icon">⚙️</span>
           </button>
@@ -761,6 +783,18 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
       </div>
 
       {showScanner && <MealScanner onClose={() => setShowScanner(false)} />}
+
+      {showConnectModal && (
+        <ConnectCoachModal
+          onClose={() => setShowConnectModal(false)}
+          onSuccess={(coachId) => {
+            localStorage.setItem('clientLinkedToCoach', 'true');
+            if (coachId) localStorage.setItem('userCoachId', coachId);
+            setIsLinkedToCoach(true);
+            setShowConnectModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

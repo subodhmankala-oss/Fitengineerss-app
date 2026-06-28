@@ -298,6 +298,30 @@ const TrainerDashboard = ({ handleLogout }) => {
   }, [viewMode]);
 
   useEffect(() => {
+    const loadActiveInviteCode = async () => {
+      try {
+        const coachId = localStorage.getItem('userId') || loggedInEmail;
+        if (coachId) {
+          const activeCodeObj = await databaseService.getActiveCoachInviteCode(coachId);
+          if (activeCodeObj && activeCodeObj.code) {
+            setGeneratedInviteCode(activeCodeObj.code);
+            localStorage.setItem('last_generated_invite_code', activeCodeObj.code);
+          } else {
+            setGeneratedInviteCode('');
+            localStorage.removeItem('last_generated_invite_code');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching active invitation code:', err);
+      }
+    };
+    
+    if (viewMode !== 'admin') {
+      loadActiveInviteCode();
+    }
+  }, [viewMode, loggedInEmail]);
+
+  useEffect(() => {
     // Listen for coaches updates (same-tab via CustomEvent) and cross-tab via storage event
     const handleCoachesUpdated = () => {
       if (viewMode === 'admin') fetchAdminData();
@@ -542,15 +566,15 @@ const TrainerDashboard = ({ handleLogout }) => {
 
     let channel = null;
     if (isSupabaseConfigured && databaseService.supabase) {
-      console.log('[DEBUG] Coach Dashboard: Subscribing to real-time database changes...');
+      console.log('[DEBUG] Trainer Dashboard: Subscribing to real-time client & user updates...');
       channel = databaseService.supabase
-        .channel('coach-dashboard-clients')
+        .channel('trainer-clients-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
-          console.log('[DEBUG] Coach Dashboard: Real-time clients table change detected:', payload);
+          console.log('[DEBUG] Trainer Dashboard: Real-time clients table change:', payload);
           fetchClients();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-          console.log('[DEBUG] Coach Dashboard: Real-time users table change detected:', payload);
+          console.log('[DEBUG] Trainer Dashboard: Real-time users table change:', payload);
           fetchClients();
         })
         .subscribe();
@@ -558,7 +582,7 @@ const TrainerDashboard = ({ handleLogout }) => {
 
     return () => {
       if (channel && databaseService.supabase) {
-        console.log('[DEBUG] Coach Dashboard: Unsubscribing real-time channel.');
+        console.log('[DEBUG] Trainer Dashboard: Unsubscribing real-time channel.');
         databaseService.supabase.removeChannel(channel);
       }
     };
@@ -1320,9 +1344,24 @@ const TrainerDashboard = ({ handleLogout }) => {
                   <button
                     onClick={async () => {
                       if (generatingCode) return;
+                      
+                      const coachId = localStorage.getItem('userId') || loggedInEmail;
+                      
+                      if (generatedInviteCode) {
+                        const confirmRegen = window.confirm(
+                          `You already have an active invitation code (${generatedInviteCode}).\n\n` +
+                          "Generating a new code will automatically deactivate the old one. " +
+                          "Clients attempting to link using the previous code will be rejected.\n\n" +
+                          "Do you want to proceed and generate a new code?"
+                        );
+                        if (!confirmRegen) return;
+                      }
+
                       setGeneratingCode(true);
                       try {
-                        const coachId = localStorage.getItem('userId') || loggedInEmail;
+                        // Deactivate old active invitation codes first
+                        await databaseService.deactivateActiveCoachInviteCodes(coachId);
+
                         const code = await databaseService.generateCoachInviteCode(coachId);
                         setGeneratedInviteCode(code);
                         localStorage.setItem('last_generated_invite_code', code);

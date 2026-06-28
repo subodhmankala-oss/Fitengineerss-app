@@ -9,6 +9,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [tab, setTab] = useState('applications');
   const [pendingCoaches, setPendingCoaches] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [coachSummary, setCoachSummary] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedCoach, setSelectedCoach] = useState(null);
@@ -55,6 +56,20 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   };
 
+  const fetchCoachSummary = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const summary = await databaseService.getCoachesWithClientCounts();
+      setCoachSummary(summary || []);
+    } catch (err) {
+      console.error('Error fetching coach summary:', err);
+      setError(err.message || 'Failed to fetch coach summary');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch pending coaches on component mount and setup real-time listeners
   useEffect(() => {
     fetchPendingCoaches();
@@ -72,6 +87,10 @@ const AdminDashboard = ({ user, onLogout }) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'coach_applications' }, (payload) => {
           console.log('[DEBUG] Admin Dashboard: Real-time coach applications change detected:', payload);
           fetchPendingCoaches();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
+          // Refresh coach summary whenever a client connects to a coach
+          fetchCoachSummary();
         })
         .subscribe();
     }
@@ -147,6 +166,15 @@ const AdminDashboard = ({ user, onLogout }) => {
           }}
         >
           📋 Pending Coaches ({pendingCoaches.length})
+        </button>
+        <button
+          className={`tab-btn ${tab === 'coaches' ? 'active' : ''}`}
+          onClick={() => {
+            setTab('coaches');
+            fetchCoachSummary();
+          }}
+        >
+          🏅 Coach Summary
         </button>
         <button
           className={`tab-btn ${tab === 'users' ? 'active' : ''}`}
@@ -235,6 +263,65 @@ const AdminDashboard = ({ user, onLogout }) => {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Coach Summary Tab */}
+      {tab === 'coaches' && !loading && (
+        <div className="admin-content">
+          <div className="coach-summary-header">
+            <h2 className="coach-summary-title">Coach Overview</h2>
+            <span className="coach-summary-sub">
+              Live client counts from the <code>clients</code> table — refreshes on page load
+            </span>
+            <button
+              className="admin-refresh-btn"
+              onClick={fetchCoachSummary}
+              title="Refresh counts"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+
+          {coachSummary.length === 0 ? (
+            <div className="admin-empty">
+              <p>No approved coaches found. Approve coach applications first.</p>
+            </div>
+          ) : (
+            <div className="coach-summary-grid">
+              {coachSummary.map((coach) => (
+                <div key={coach.id} className="coach-summary-card">
+                  <div className="csc-avatar">
+                    {(coach.name || 'C')[0].toUpperCase()}
+                  </div>
+                  <div className="csc-details">
+                    <div className="csc-name">{coach.name}</div>
+                    {coach.brand && coach.brand !== coach.name && (
+                      <div className="csc-brand">{coach.brand}</div>
+                    )}
+                    <div className="csc-email">{coach.email}</div>
+                    <div className="csc-joined">
+                      Joined {coach.joined ? new Date(coach.joined).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </div>
+                  </div>
+                  <div className="csc-count-block">
+                    <span className="csc-count-num">{coach.clientCount}</span>
+                    <span className="csc-count-lbl">client{coach.clientCount !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Total summary row */}
+          {coachSummary.length > 0 && (
+            <div className="coach-summary-total">
+              <span>Total across all coaches:</span>
+              <strong>{coachSummary.reduce((s, c) => s + c.clientCount, 0)} clients</strong>
+              <span className="cst-divider">•</span>
+              <strong>{coachSummary.length} coaches</strong>
             </div>
           )}
         </div>

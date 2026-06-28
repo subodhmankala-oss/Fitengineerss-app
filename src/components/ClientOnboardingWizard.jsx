@@ -1,180 +1,307 @@
 import React, { useState } from 'react';
+import databaseService from '../services/databaseService';
+import './ClientOnboardingWizard.css';
 
-const PROGRAM_OPTIONS = [
-  { value: 'fat_loss', emoji: '🔥', label: 'Fat loss', desc: 'Stay in a caloric deficit & retain lean mass' },
-  { value: 'muscle_building', emoji: '💪', label: 'Muscle building', desc: 'Anabolic surplus & progressive overload' },
-  { value: 'gut_repair', emoji: '🌱', label: 'Gut repair', desc: 'Fix digestion & restore gut microbiome' }
-];
+const TOTAL_STEPS = 4;
 
-const ACTIVITY_OPTIONS = [
-  { value: 'sedentary', label: 'Sedentary', desc: 'Little or no weekly exercise' },
-  { value: 'lightly_active', label: 'Lightly active', desc: 'Light exercise/sports 1-3 days/week' },
-  { value: 'moderately_active', label: 'Moderately active', desc: 'Moderate exercise 3-5 days/week' },
-  { value: 'very_active', label: 'Very active', desc: 'Hard training/sports 6-7 days/week' }
-];
+const ClientOnboardingWizard = ({ onComplete }) => {
+  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-const CONCERN_OPTIONS = [
-  { value: 'bloating_constipation', emoji: '🎈', label: 'Bloating or constipation' },
-  { value: 'digestion_issues', emoji: '🔥', label: 'Digestion issues' },
-  { value: 'just_stay_fit', emoji: '✨', label: 'Just stay fit' }
-];
+  // Step 1 — Body stats
+  const [age, setAge] = useState('');
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
 
-const TOTAL_WIZARD_STEPS = 4;
+  // Step 2 — Program
+  const [program, setProgram] = useState('');
 
-// One-time, post-signup wizard. Local-only state until the final step — the
-// caller's onSubmit is only invoked once, from step 4, so a client who closes
-// the app partway through never leaves a partial record behind.
-const ClientOnboardingWizard = ({ initialData, onSubmit }) => {
-  const [wizardStep, setWizardStep] = useState(1);
-  const [age, setAge] = useState(initialData?.age || '');
-  const [weight, setWeight] = useState(initialData?.weight || '');
-  const [height, setHeight] = useState(initialData?.height || '');
-  const [program, setProgram] = useState(initialData?.program || '');
-  const [activityLevel, setActivityLevel] = useState(initialData?.activityLevel || '');
-  const [primaryConcern, setPrimaryConcern] = useState(initialData?.primaryConcern || '');
-  const [submitting, setSubmitting] = useState(false);
+  // Step 3 — Activity level
+  const [activityLevel, setActivityLevel] = useState('');
 
-  const goNext = () => setWizardStep(s => Math.min(TOTAL_WIZARD_STEPS, s + 1));
-  const goBack = () => setWizardStep(s => Math.max(1, s - 1));
+  // Step 4 — Primary concern
+  const [primaryConcern, setPrimaryConcern] = useState('');
+
+  const [slideDir, setSlideDir] = useState('forward');
+
+  const goNext = () => {
+    setSlideDir('forward');
+    setStep(s => Math.min(s + 1, TOTAL_STEPS));
+  };
+
+  const goBack = () => {
+    setSlideDir('backward');
+    setStep(s => Math.max(s - 1, 1));
+  };
 
   const handleFinish = async () => {
-    if (submitting) return;
-    setSubmitting(true);
+    setIsSubmitting(true);
     try {
-      await onSubmit({ age, weight, height, program, activityLevel, primaryConcern });
+      await databaseService.saveClientOnboardingData({
+        age: age || '30',
+        weight_kg: weight || '70',
+        height_cm: height || '175',
+        program: program || 'fat_loss',
+        activity_level: activityLevel || 'moderately_active',
+        primary_concern: primaryConcern || 'just_stay_fit'
+      });
+    } catch (err) {
+      console.error('Wizard save error:', err);
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
+      onComplete();
     }
   };
 
+  const programOptions = [
+    {
+      id: 'fat_loss',
+      emoji: '🔥',
+      label: 'Fat Loss',
+      desc: 'Burn fat, stay lean'
+    },
+    {
+      id: 'muscle_building',
+      emoji: '💪',
+      label: 'Muscle Building',
+      desc: 'Gain strength & mass'
+    },
+    {
+      id: 'gut_repair',
+      emoji: '🌿',
+      label: 'Gut Repair',
+      desc: 'Heal digestion & bloating'
+    }
+  ];
+
+  const activityOptions = [
+    {
+      id: 'sedentary',
+      emoji: '🪑',
+      label: 'Sedentary',
+      desc: 'Little or no weekly exercise'
+    },
+    {
+      id: 'lightly_active',
+      emoji: '🚶',
+      label: 'Lightly Active',
+      desc: 'Light exercise 1–3 days/week'
+    },
+    {
+      id: 'moderately_active',
+      emoji: '🏃',
+      label: 'Moderately Active',
+      desc: 'Moderate exercise 3–5 days/week'
+    },
+    {
+      id: 'very_active',
+      emoji: '⚡',
+      label: 'Very Active',
+      desc: 'Hard training 6–7 days/week'
+    }
+  ];
+
+  const concernOptions = [
+    {
+      id: 'bloating_constipation',
+      emoji: '😣',
+      label: 'Bloating or constipation',
+      desc: 'Fix gut discomfort'
+    },
+    {
+      id: 'digestion_issues',
+      emoji: '🫁',
+      label: 'Digestion issues',
+      desc: 'Improve gut health overall'
+    },
+    {
+      id: 'just_stay_fit',
+      emoji: '✨',
+      label: 'Just stay fit',
+      desc: 'General health & wellbeing'
+    }
+  ];
+
+  const renderProgressBar = () => (
+    <div className="cow-progress-bar">
+      {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+        <div key={i} className={`cow-progress-segment ${i < step ? 'filled' : ''} ${i === step - 1 ? 'active' : ''}`} />
+      ))}
+    </div>
+  );
+
+  const renderStep1 = () => (
+    <div className={`cow-step-content ${slideDir}`} key="step1">
+      <div className="cow-step-icon">📏</div>
+      <h2 className="cow-step-title">Your Body Stats</h2>
+      <p className="cow-step-subtitle">Help us personalize your experience</p>
+
+      <div className="cow-fields">
+        <div className="cow-field">
+          <label className="cow-label">Age (years)</label>
+          <input
+            type="number"
+            className="cow-input"
+            placeholder="e.g. 28"
+            value={age}
+            onChange={e => setAge(e.target.value)}
+            min="10"
+            max="100"
+          />
+        </div>
+        <div className="cow-field-row">
+          <div className="cow-field">
+            <label className="cow-label">Weight (kg)</label>
+            <input
+              type="number"
+              className="cow-input"
+              placeholder="e.g. 72"
+              value={weight}
+              onChange={e => setWeight(e.target.value)}
+              min="20"
+              max="300"
+            />
+          </div>
+          <div className="cow-field">
+            <label className="cow-label">Height (cm)</label>
+            <input
+              type="number"
+              className="cow-input"
+              placeholder="e.g. 175"
+              value={height}
+              onChange={e => setHeight(e.target.value)}
+              min="100"
+              max="250"
+            />
+          </div>
+        </div>
+      </div>
+
+      <button className="cow-next-btn" onClick={goNext}>
+        Next →
+      </button>
+    </div>
+  );
+
+  const renderStep2 = () => (
+    <div className={`cow-step-content ${slideDir}`} key="step2">
+      <div className="cow-step-icon">🎯</div>
+      <h2 className="cow-step-title">Select Your Program</h2>
+      <p className="cow-step-subtitle">What's your main goal?</p>
+
+      <div className="cow-option-grid">
+        {programOptions.map(opt => (
+          <button
+            key={opt.id}
+            className={`cow-option-card ${program === opt.id ? 'selected' : ''}`}
+            onClick={() => setProgram(opt.id)}
+          >
+            <span className="cow-option-emoji">{opt.emoji}</span>
+            <span className="cow-option-label">{opt.label}</span>
+            <span className="cow-option-desc">{opt.desc}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="cow-nav-row">
+        <button className="cow-back-btn" onClick={goBack}>← Back</button>
+        <button className="cow-next-btn" onClick={goNext}>Next →</button>
+      </div>
+    </div>
+  );
+
+  const renderStep3 = () => (
+    <div className={`cow-step-content ${slideDir}`} key="step3">
+      <div className="cow-step-icon">⚡</div>
+      <h2 className="cow-step-title">Activity Level</h2>
+      <p className="cow-step-subtitle">How active are you currently?</p>
+
+      <div className="cow-option-list">
+        {activityOptions.map(opt => (
+          <button
+            key={opt.id}
+            className={`cow-option-row ${activityLevel === opt.id ? 'selected' : ''}`}
+            onClick={() => setActivityLevel(opt.id)}
+          >
+            <span className="cow-row-emoji">{opt.emoji}</span>
+            <div className="cow-row-text">
+              <span className="cow-row-label">{opt.label}</span>
+              <span className="cow-row-desc">{opt.desc}</span>
+            </div>
+            <span className={`cow-row-check ${activityLevel === opt.id ? 'visible' : ''}`}>✓</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="cow-nav-row">
+        <button className="cow-back-btn" onClick={goBack}>← Back</button>
+        <button className="cow-next-btn" onClick={goNext}>Next →</button>
+      </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
+    <div className={`cow-step-content ${slideDir}`} key="step4">
+      <div className="cow-step-icon">💡</div>
+      <h2 className="cow-step-title">Primary Concern</h2>
+      <p className="cow-step-subtitle">What matters most to you right now?</p>
+
+      <div className="cow-option-list">
+        {concernOptions.map(opt => (
+          <button
+            key={opt.id}
+            className={`cow-option-row ${primaryConcern === opt.id ? 'selected' : ''}`}
+            onClick={() => setPrimaryConcern(opt.id)}
+          >
+            <span className="cow-row-emoji">{opt.emoji}</span>
+            <div className="cow-row-text">
+              <span className="cow-row-label">{opt.label}</span>
+              <span className="cow-row-desc">{opt.desc}</span>
+            </div>
+            <span className={`cow-row-check ${primaryConcern === opt.id ? 'visible' : ''}`}>✓</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="cow-nav-row">
+        <button className="cow-back-btn" onClick={goBack}>← Back</button>
+        <button
+          className={`cow-finish-btn ${isSubmitting ? 'loading' : ''}`}
+          onClick={handleFinish}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <span className="cow-spinner">⏳</span>
+          ) : (
+            'Go to dashboard 🚀'
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
+  const stepContent = [renderStep1, renderStep2, renderStep3, renderStep4];
+
   return (
-    <>
-      <div className="onboarding-header">
-        <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
-        <h2 className="glow-text">Set Up Your Profile</h2>
-        <div className="step-bar">
-          <div className="step-progress" style={{ width: `${(wizardStep / TOTAL_WIZARD_STEPS) * 100}%` }}></div>
-        </div>
-        <div className="step-counter">Step {wizardStep} of {TOTAL_WIZARD_STEPS}</div>
-      </div>
-
-      {wizardStep === 1 && (
-        <div className="onboarding-step animate-in">
-          <h3>Tell us about yourself</h3>
-          <p className="step-hint">We use these to calculate your custom BMR and macro metrics.</p>
-          <div className="input-group-row">
-            <div className="input-field">
-              <label>Age (years)</label>
-              <input type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="25" min="10" max="100" />
-            </div>
-            <div className="input-field">
-              <label>Height (cm)</label>
-              <input type="number" value={height} onChange={e => setHeight(e.target.value)} placeholder="175" min="100" max="250" />
-            </div>
-          </div>
-          <div className="input-field mt-2">
-            <label>Weight (kg)</label>
-            <input type="number" value={weight} onChange={e => setWeight(e.target.value)} placeholder="72.5" step="0.1" min="30" max="250" />
+    <div className="cow-overlay">
+      <div className="cow-card">
+        {/* Header */}
+        <div className="cow-header">
+          <img src="/logo.png" alt="Fitengineers" className="cow-logo" />
+          <div className="cow-header-text">
+            <span className="cow-step-label">Step {step} of {TOTAL_STEPS}</span>
           </div>
         </div>
-      )}
 
-      {wizardStep === 2 && (
-        <div className="onboarding-step animate-in">
-          <h3>Select a program</h3>
-          <p className="step-hint">This defines your calorie offset and workout direction.</p>
-          {PROGRAM_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`select-btn ${program === opt.value ? 'selected' : ''}`}
-              onClick={() => setProgram(opt.value)}
-            >
-              <strong>{opt.emoji} {opt.label}</strong>
-              <span className="btn-desc">{opt.desc}</span>
-            </button>
-          ))}
+        {/* Progress */}
+        {renderProgressBar()}
+
+        {/* Step content */}
+        <div className="cow-body">
+          {stepContent[step - 1]()}
         </div>
-      )}
-
-      {wizardStep === 3 && (
-        <div className="onboarding-step animate-in">
-          <h3>What's your physical activity level?</h3>
-          <p className="step-hint">This calibrates your daily maintenance TDEE score.</p>
-          {ACTIVITY_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`select-btn ${activityLevel === opt.value ? 'selected' : ''}`}
-              onClick={() => setActivityLevel(opt.value)}
-            >
-              <strong>{opt.label}</strong>
-              <span className="btn-desc">{opt.desc}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {wizardStep === 4 && (
-        <div className="onboarding-step animate-in">
-          <h3>What's your primary concern?</h3>
-          <p className="step-hint">Helps us tailor your daily checklist and nudges.</p>
-          {CONCERN_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`select-btn ${primaryConcern === opt.value ? 'selected' : ''}`}
-              onClick={() => setPrimaryConcern(opt.value)}
-            >
-              {opt.emoji} {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="onboarding-actions" style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '400px', marginTop: '32px' }}>
-        {wizardStep > 1 && (
-          <button
-            type="button"
-            className="btn-back"
-            style={{
-              flex: 1,
-              padding: '16px',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              background: 'rgba(255, 255, 255, 0.02)',
-              color: '#94a3b8',
-              fontWeight: '600',
-              fontSize: '1.1rem',
-              cursor: 'pointer'
-            }}
-            onClick={goBack}
-          >
-            ← Back
-          </button>
-        )}
-        {wizardStep < TOTAL_WIZARD_STEPS ? (
-          <button
-            type="button"
-            className="btn-next"
-            style={{ flex: wizardStep > 1 ? 2 : 1, marginTop: 0, width: '100%' }}
-            onClick={goNext}
-          >
-            Next Step ➔
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn-next"
-            style={{ flex: 2, marginTop: 0, width: '100%' }}
-            onClick={handleFinish}
-            disabled={submitting}
-          >
-            {submitting ? 'Saving...' : 'Go to dashboard'}
-          </button>
-        )}
       </div>
-    </>
+    </div>
   );
 };
 

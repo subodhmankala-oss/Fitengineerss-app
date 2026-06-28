@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from '../services/databaseService';
 import { calculateTargetsGeneric } from '../utils/targets';
-import ClientOnboardingWizard from './ClientOnboardingWizard';
 import './Onboarding.css';
 
 const googleAccounts = [
@@ -172,6 +171,16 @@ const Onboarding = ({ onComplete }) => {
     }
   }, []);
 
+  // 'wizard' is a sentinel step meaning "name/identity already known, but the
+  // one-time onboarding wizard hasn't been completed yet" — hand off straight
+  // to App.jsx, which renders ClientOnboardingWizard based on the DB flag.
+  useEffect(() => {
+    if (step === 'wizard') {
+      localStorage.setItem('onboardingCompleted', 'false');
+      onComplete();
+    }
+  }, [step]);
+
   // Saved accounts for quick login
   const [savedAccounts, setSavedAccounts] = useState(() => {
     const accounts = [];
@@ -327,11 +336,7 @@ const Onboarding = ({ onComplete }) => {
           mockUsers.push(mUser);
           databaseService.saveMockTable('users', mockUsers);
 
-          localStorage.setItem('userEmail', authEmail);
-          localStorage.setItem('userId', uid);
-          localStorage.setItem('userRole', 'client');
-          
-          setStep(1); // Proceed to onboarding setup wizard to link coach and fill in details
+          await createDefaultClientRowAndComplete(uid, authEmail, null);
         }
       }
     } catch (err) {
@@ -541,6 +546,92 @@ const Onboarding = ({ onComplete }) => {
     onComplete();
   };
 
+  const createDefaultClientRowAndComplete = async (userId, email, nameVal) => {
+    const cleanName = (nameVal || email.split('@')[0] || 'Warrior').trim();
+    localStorage.setItem('userName', cleanName);
+    localStorage.setItem('userEmail', email);
+    localStorage.setItem('userId', userId);
+    localStorage.setItem('userRole', 'client');
+    localStorage.setItem('userAge', '30');
+    localStorage.setItem('userHeight', '175');
+    localStorage.setItem('userWeight', '70');
+    localStorage.setItem('userActivity', 'Moderately Active');
+    localStorage.setItem('userGoal', 'Fat Loss');
+    localStorage.setItem('userDiet', 'Non-Vegetarian');
+    localStorage.setItem('userCalorieTarget', '2000');
+    localStorage.setItem('userProteinTarget', '120');
+    localStorage.setItem('userCarbsTarget', '220');
+    localStorage.setItem('userFatsTarget', '70');
+
+    if (isSupabaseConfigured && databaseService.supabase) {
+      try {
+        await databaseService.saveUserProfile({
+          id: userId,
+          userName: cleanName,
+          email: email,
+          role: 'client',
+          coach_id: null,
+          userAge: '30',
+          userHeight: '175',
+          userWeight: '70',
+          userActivity: 'Moderately Active',
+          userGoal: 'Fat Loss',
+          userDiet: 'Non-Vegetarian',
+          userCalorieTarget: '2000',
+          userProteinTarget: '120',
+          userCarbsTarget: '220',
+          userFatsTarget: '70',
+          verified: false
+        });
+      } catch (err) {
+        console.error("Error saving initial user profile:", err);
+      }
+    } else {
+      const mockClients = databaseService.getMockTable('clients');
+      const existingClientIndex = mockClients.findIndex(c => c.user_id === userId);
+      const clientData = {
+        id: `mock-client-id-${Date.now()}`,
+        user_id: userId,
+        coach_id: null,
+        full_name: cleanName,
+        fitness_goal: 'Fat Loss',
+        weight_kg: 70,
+        height_cm: 175,
+        age: 30,
+        activity_level: 'Moderately Active',
+        dietary_preference: 'Non-Vegetarian',
+        calorie_target: 2000,
+        protein_target: 120,
+        carbs_target: 220,
+        fats_target: 70,
+        onboarding_completed: false
+      };
+      if (existingClientIndex > -1) {
+        mockClients[existingClientIndex] = { ...mockClients[existingClientIndex], ...clientData };
+      } else {
+        mockClients.push(clientData);
+      }
+      databaseService.saveMockTable('clients', mockClients);
+    }
+    
+    // Save locally for quick lookup
+    const profileData = {
+      name: cleanName,
+      age: 30,
+      height: 175,
+      weight: 70,
+      activity: 'Moderately Active',
+      goal: 'Fat Loss',
+      issue: '',
+      diet: 'Non-Vegetarian'
+    };
+    localStorage.setItem(`profile_${cleanName.toLowerCase().replace(/\s+/g, '')}`, JSON.stringify(profileData));
+    // Mark wizard as NOT yet completed so App.jsx triggers the 4-step wizard next
+    localStorage.setItem('onboardingCompleted', 'false');
+
+    onComplete();
+  };
+
   const handleGoogleAccountSelect = async (profile, email) => {
     setShowGoogleModal(false);
     
@@ -553,7 +644,6 @@ const Onboarding = ({ onComplete }) => {
     if (isSupabaseConfigured && databaseService.supabase) {
       dbProfile = await databaseService.getUserProfileByEmail(email);
     }
-
     if (dbProfile?.onboardingCompleted) {
       // Already finished the one-time wizard on a previous login — straight to the dashboard.
       if (dbProfile.coach_id) localStorage.setItem('userCoachId', dbProfile.coach_id);
@@ -562,22 +652,36 @@ const Onboarding = ({ onComplete }) => {
       return;
     }
 
-    // Brand-new (or not-yet-onboarded) client: ensure a bare clients row exists with
-    // no coach linked yet, then run them through the one-time onboarding wizard.
-    if (isSupabaseConfigured && databaseService.supabase && !dbProfile) {
+    const coachId = dbProfile?.coach_id;
+    if (coachId) {
+      localStorage.setItem('userCoachId', coachId);
+    } else if (isSupabaseConfigured && databaseService.supabase && !dbProfile) {
+      // Brand-new client: create initial client profile with no coach linked yet
       try {
         await databaseService.saveUserProfile({
           userName: profile.name,
           email: email,
           role: 'client',
           coach_id: null,
+          userAge: profile.age,
+          userHeight: profile.height,
+          userWeight: profile.weight,
+          userActivity: profile.activity,
+          userGoal: profile.goal,
+          userDiet: profile.diet || 'Non-Vegetarian',
+          userCalorieTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).calories.toString(),
+          userProteinTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).protein.toString(),
+          userCarbsTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).carbs.toString(),
+          userFatsTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).fats.toString(),
           verified: false
         });
       } catch (e) {
         console.error("Error creating initial client user profile:", e);
       }
     }
-    setStep('wizard');
+    // These demo Google accounts already carry full profile data (age/height/weight/etc.),
+    // so route straight to the dashboard via the instant-login path instead of the wizard.
+    handleInstantLogin(profile, email);
   };
 
   useEffect(() => {
@@ -711,18 +815,9 @@ const Onboarding = ({ onComplete }) => {
       return;
     }
 
-    setStep('wizard');
-  };
-
-  // Final submission of the one-time onboarding wizard: writes Age/Weight/Height/
-  // Program/Activity/Primary concern to the clients row exactly once, flips
-  // onboarding_completed, then routes into the dashboard.
-  const handleWizardSubmit = async (data) => {
-    try {
-      await databaseService.completeClientOnboarding(data);
-    } catch (e) {
-      console.error('Error completing onboarding wizard:', e);
-    }
+    // Name/phone collected — hand off to the one-time 4-step ClientOnboardingWizard
+    // rendered by App.jsx (gated on the onboarding_completed DB flag).
+    localStorage.setItem('onboardingCompleted', 'false');
     onComplete();
   };
 
@@ -1305,7 +1400,11 @@ const Onboarding = ({ onComplete }) => {
                             weight: profile.weight || '',
                             height: profile.height || ''
                           });
-                          setStep('wizard');
+                          if (profile.age) localStorage.setItem('userAge', profile.age);
+                          if (profile.weight) localStorage.setItem('userWeight', profile.weight);
+                          if (profile.height) localStorage.setItem('userHeight', profile.height);
+                          localStorage.setItem('onboardingCompleted', 'false');
+                          onComplete();
                           setMatchingProfiles([]);
                         }}
                         title="Autofill and Review Details"
@@ -1329,17 +1428,6 @@ const Onboarding = ({ onComplete }) => {
 
           {/* Google Sign-in removed to enforce restricted access only */}
         </div>
-      )}
-      
-      {step === 'wizard' && (
-        <ClientOnboardingWizard
-          initialData={wizardPrefill || {
-            age: localStorage.getItem('userAge') || '',
-            weight: localStorage.getItem('userWeight') || '',
-            height: localStorage.getItem('userHeight') || ''
-          }}
-          onSubmit={handleWizardSubmit}
-        />
       )}
 
       {step > 0 && (

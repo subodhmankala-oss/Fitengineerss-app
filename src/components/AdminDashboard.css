@@ -446,3 +446,201 @@
     font-size: 20px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COACH SUMMARY TAB — Admin Dashboard
+   ═══════════════════════════════════════════════════════════════ */
+
+.coach-summary-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.coach-summary-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #f8faff;
+  margin: 0;
+}
+
+.coach-summary-sub {
+  font-size: 0.75rem;
+  color: rgba(148,163,184,0.7);
+  flex: 1;
+}
+
+.coach-summary-sub code {
+  background: rgba(139,92,246,0.12);
+  color: #a78bfa;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+
+.admin-refresh-btn {
+  margin-left: auto;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(139,92,246,0.3);
+  background: rgba(139,92,246,0.08);
+  color: #a78bfa;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+}
+
+.admin-refresh-btn:hover {
+  background: rgba(139,92,246,0.16);
+  border-color: rgba(139,92,246,0.5);
+  color: #c4b5fd;
+}
+
+/* Grid of coach cards */
+.coach-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+/* Individual coach summary card */
+.coach-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(139,92,246,0.15);
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.coach-summary-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #8b5cf6, #10b981);
+  border-radius: 3px 0 0 3px;
+}
+
+.coach-summary-card:hover {
+  border-color: rgba(139,92,246,0.35);
+  background: rgba(139,92,246,0.06);
+  transform: translateY(-1px);
+}
+
+/* Avatar circle with initial */
+.csc-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(139,92,246,0.3);
+}
+
+/* Coach details */
+.csc-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.csc-name {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #f8faff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.csc-brand {
+  font-size: 0.72rem;
+  color: #a78bfa;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.csc-email {
+  font-size: 0.72rem;
+  color: rgba(148,163,184,0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.csc-joined {
+  font-size: 0.67rem;
+  color: rgba(100,116,139,0.7);
+  margin-top: 3px;
+}
+
+/* Count block — big number on the right */
+.csc-count-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 12px;
+  padding: 10px 16px;
+  min-width: 64px;
+}
+
+.csc-count-num {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #10b981;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.csc-count-lbl {
+  font-size: 0.65rem;
+  color: rgba(16,185,129,0.7);
+  font-weight: 600;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Total summary bar */
+.coach-summary-total {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  font-size: 0.82rem;
+  color: rgba(148,163,184,0.8);
+}
+
+.coach-summary-total strong {
+  color: #f8faff;
+  font-weight: 800;
+}
+
+.cst-divider {
+  color: rgba(148,163,184,0.3);
+}

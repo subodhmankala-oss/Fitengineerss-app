@@ -161,7 +161,9 @@ const databaseService = {
             .from('clients')
             .upsert({
               user_id: userId,
-              coach_id: profile.coach_id || null, // null until the client redeems a coach's invite code
+              // null until the client redeems a coach's invite code (also guards against a
+              // stale 'coach-id-default' placeholder value leaking into the DB)
+              coach_id: (profile.coach_id && profile.coach_id !== 'coach-id-default') ? profile.coach_id : null,
               full_name: profile.userName,
               phone_number: profile.phone || '',
               fitness_goal: profile.userGoal,
@@ -654,9 +656,11 @@ const databaseService = {
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
             userClientId: client?.id || null,
-            program: client?.program || '',
-            primaryConcern: client?.primary_concern || '',
+            program: client?.program || null,
+            primaryConcern: client?.primary_concern || null,
+            primary_concern: client?.primary_concern || null,
             onboardingCompleted: client?.onboarding_completed === true,
+            onboarding_completed: client?.onboarding_completed ?? false,
             verified: activeRole === 'coach' || activeRole === 'super-admin'
           };
         }
@@ -719,9 +723,11 @@ const databaseService = {
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
         userClientId: mClient?.id || null,
-        program: mClient?.program || '',
-        primaryConcern: mClient?.primary_concern || '',
+        program: mClient?.program || null,
+        primaryConcern: mClient?.primary_concern || null,
+        primary_concern: mClient?.primary_concern || null,
         onboardingCompleted: mClient?.onboarding_completed === true,
+        onboarding_completed: mClient?.onboarding_completed ?? false,
         verified: activeRole === 'coach' || activeRole === 'super-admin'
       };
     }
@@ -750,120 +756,116 @@ const databaseService = {
     if (profile.brand) localStorage.setItem('userBrand', profile.brand);
     if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
     if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
-    localStorage.setItem('onboardingWizardCompleted', profile.onboardingCompleted === true ? 'true' : 'false');
+    // Store onboarding wizard flags (support both camelCase and snake_case callers)
+    const isOnboardingDone = profile.onboardingCompleted === true || profile.onboarding_completed === true;
+    localStorage.setItem('onboardingWizardCompleted', isOnboardingDone ? 'true' : 'false');
+    localStorage.setItem('onboardingCompleted', isOnboardingDone ? 'true' : 'false');
+    if (profile.program) localStorage.setItem('userProgram', profile.program);
+    if (profile.primaryConcern) localStorage.setItem('userPrimaryConcern', profile.primaryConcern);
+    if (profile.primary_concern) localStorage.setItem('userPrimaryConcern', profile.primary_concern);
     localStorage.setItem('onboardingComplete', 'true');
   },
 
-  // ─── ONE-TIME POST-SIGNUP ONBOARDING WIZARD ───
-  // Writes the client's body stats/program/activity/concern exactly once, on
-  // final submission, and flips onboarding_completed so the wizard never
-  // shows again for this client.
-  async completeClientOnboarding({ age, weight, height, program, activityLevel, primaryConcern }) {
-    const goalLabel = PROGRAM_TO_GOAL_LABEL[program] || '';
-    const activityLabel = ACTIVITY_TO_LABEL[activityLevel] || '';
-    const concernLabel = CONCERN_TO_LABEL[primaryConcern] || '';
-    const targets = calculateTargetsGeneric(weight, height, age, activityLabel, goalLabel);
+  // ─── CLIENT ONBOARDING WIZARD ───
+  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern }) {
+    const userId = localStorage.getItem('userId');
+    const email = localStorage.getItem('userEmail');
 
-    const email = localStorage.getItem('userEmail') || '';
-    let userId = localStorage.getItem('userId');
-    const isValidUuid = userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
-    if (isSupabaseConfigured && supabase && (!userId || !isValidUuid)) {
-      const { data: u } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-      userId = u?.id || null;
-      if (userId) localStorage.setItem('userId', userId);
-    }
+    // Update localStorage immediately
+    if (age) localStorage.setItem('userAge', String(age));
+    if (weight_kg) localStorage.setItem('userWeight', String(weight_kg));
+    if (height_cm) localStorage.setItem('userHeight', String(height_cm));
+    if (activity_level) localStorage.setItem('userActivity', activity_level);
+    if (program) localStorage.setItem('userProgram', program);
+    if (primary_concern) localStorage.setItem('userPrimaryConcern', primary_concern);
+    localStorage.setItem('onboardingCompleted', 'true');
 
-    const fullName = localStorage.getItem('userName') || 'Warrior';
-    const phone = localStorage.getItem('userPhone') || '';
+    // Map program → fitness_goal for existing dashboard compatibility
+    const goalMap = {
+      fat_loss: 'Fat Loss',
+      muscle_building: 'Muscle Building',
+      gut_repair: 'Gut Health'
+    };
+    const mappedGoal = goalMap[program] || program || 'Fat Loss';
+    localStorage.setItem('userGoal', mappedGoal);
 
-    if (isSupabaseConfigured && supabase && userId) {
+    // Map activity_level → existing activity strings
+    const activityMap = {
+      sedentary: 'Sedentary',
+      lightly_active: 'Lightly Active',
+      moderately_active: 'Moderately Active',
+      very_active: 'Very Active'
+    };
+    const mappedActivity = activityMap[activity_level] || activity_level || 'Moderately Active';
+    localStorage.setItem('userActivity', mappedActivity);
+
+    if (isSupabaseConfigured && supabase) {
       try {
+        // Resolve user UUID if needed
+        let resolvedUserId = userId;
+        if (!resolvedUserId && email) {
+          const { data: u } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+          resolvedUserId = u?.id;
+          if (resolvedUserId) localStorage.setItem('userId', resolvedUserId);
+        }
+
+        if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
+
+        const updatePayload = {
+          onboarding_completed: true,
+          program: program || null,
+          activity_level: activity_level || null,
+          primary_concern: primary_concern || null,
+          fitness_goal: mappedGoal
+        };
+        if (age) updatePayload.age = parseInt(age);
+        if (weight_kg) updatePayload.weight_kg = parseFloat(weight_kg);
+        if (height_cm) updatePayload.height_cm = parseFloat(height_cm);
+
         const { error } = await supabase
           .from('clients')
-          .upsert({
-            user_id: userId,
-            full_name: fullName,
-            phone_number: phone,
-            age: parseInt(age) || null,
-            weight_kg: parseFloat(weight) || null,
-            height_cm: parseFloat(height) || null,
-            activity_level: activityLevel || null,
-            program: program || null,
-            primary_concern: primaryConcern || null,
-            fitness_goal: goalLabel || null,
-            issue: concernLabel || null,
-            calorie_target: targets.calories,
-            protein_target: targets.protein,
-            carbs_target: targets.carbs,
-            fats_target: targets.fats,
-            onboarding_completed: true
-          }, { onConflict: 'user_id' });
+          .update(updatePayload)
+          .eq('user_id', resolvedUserId);
+
         if (error) throw error;
-        console.log('Cloud DB: Onboarding wizard saved.');
+        console.log('Cloud DB: Saved onboarding wizard data.');
       } catch (e) {
-        console.error('Cloud DB Sync Error: onboarding wizard fell back to local.', e);
+        console.error('Cloud DB: Failed to save onboarding data:', e);
+      }
+    } else {
+      // Mock DB update
+      const mockClients = this.getMockTable('clients');
+      const mClient = mockClients.find(c => c.user_id === userId);
+      if (mClient) {
+        mClient.onboarding_completed = true;
+        mClient.program = program || null;
+        mClient.activity_level = activity_level || null;
+        mClient.primary_concern = primary_concern || null;
+        mClient.fitness_goal = mappedGoal;
+        if (age) mClient.age = parseInt(age);
+        if (weight_kg) mClient.weight_kg = parseFloat(weight_kg);
+        if (height_cm) mClient.height_cm = parseFloat(height_cm);
+        this.saveMockTable('clients', mockClients);
       }
     }
-
-    // Local mock fallback / cache
-    const mockClients = this.getMockTable('clients');
-    let mClient = mockClients.find(c => c.user_id === userId);
-    const clientId = mClient?.id || `client-id-${Date.now()}`;
-    const record = {
-      id: clientId,
-      user_id: userId,
-      coach_id: mClient?.coach_id || localStorage.getItem('userCoachId') || null,
-      full_name: fullName,
-      phone_number: phone,
-      age: parseInt(age) || null,
-      weight_kg: parseFloat(weight) || null,
-      height_cm: parseFloat(height) || null,
-      activity_level: activityLevel || null,
-      program: program || null,
-      primary_concern: primaryConcern || null,
-      fitness_goal: goalLabel || null,
-      dietary_preference: mClient?.dietary_preference || '',
-      issue: concernLabel || '',
-      calorie_target: targets.calories,
-      protein_target: targets.protein,
-      carbs_target: targets.carbs,
-      fats_target: targets.fats,
-      onboarding_completed: true
-    };
-    if (!mClient) {
-      mockClients.push(record);
-    } else {
-      Object.assign(mClient, record);
-    }
-    this.saveMockTable('clients', mockClients);
-
-    localStorage.setItem('userAge', age ? String(age) : '');
-    localStorage.setItem('userWeight', weight ? String(weight) : '');
-    localStorage.setItem('userHeight', height ? String(height) : '');
-    localStorage.setItem('userActivity', activityLabel);
-    localStorage.setItem('userGoal', goalLabel);
-    localStorage.setItem('userIssue', concernLabel);
-    localStorage.setItem('userCalorieTarget', String(targets.calories));
-    localStorage.setItem('userProteinTarget', String(targets.protein));
-    localStorage.setItem('userCarbsTarget', String(targets.carbs));
-    localStorage.setItem('userFatsTarget', String(targets.fats));
-    localStorage.setItem('userClientId', clientId);
-    localStorage.setItem('onboardingWizardCompleted', 'true');
-    localStorage.setItem('onboardingComplete', 'true');
   },
 
   async getAllUsers() {
     const loggedInEmail = localStorage.getItem('userEmail');
     const loggedInRole = localStorage.getItem('userRole');
     const loggedInCoachId = localStorage.getItem('userCoachId');
+    const loggedInUserId = localStorage.getItem('userId');
 
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('clients').select('*, users(email)');
         
         const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-        if (isCoachOrAdmin && loggedInCoachId && loggedInRole !== 'super-admin') {
-          query = query.eq('coach_id', loggedInCoachId);
+        if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
+          // In Supabase, clients.coach_id stores the coach's users.id UUID
+          if (loggedInUserId) {
+            query = query.eq('coach_id', loggedInUserId);
+          }
         }
 
         const { data, error } = await query;
@@ -901,8 +903,8 @@ const databaseService = {
     
     let filtered = mockClients;
     const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-    if (isCoachOrAdmin && loggedInCoachId && loggedInRole !== 'super-admin') {
-      filtered = mockClients.filter(c => c.coach_id === loggedInCoachId);
+    if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
+      filtered = mockClients.filter(c => c.coach_id === loggedInCoachId || c.coach_id === loggedInUserId);
     }
 
     return filtered.map(c => {
@@ -1080,88 +1082,105 @@ const databaseService = {
     return [];
   },
 
-  // ─── GENERIC (NOT COACH-OWNED) WORKOUT TEMPLATES ───
-  // Baseline starter routines every client has access to, regardless of coach_id.
-  // Hardcoded fallback mirrors the seed rows in supabase_workout_templates_schema.sql,
-  // so the feature still works before that migration has been applied.
-  async getDefaultWorkoutTemplates() {
-    const fallback = [
-      {
-        id: 'default-push-day',
-        name: 'Push Day',
-        isDefault: true,
-        exercises: [
-          { name: 'Bench Press', sets: 3, reps: '8-12', order: 1 },
-          { name: 'Overhead Press', sets: 3, reps: '8-12', order: 2 },
-          { name: 'Triceps Pushdown', sets: 3, reps: '8-12', order: 3 },
-          { name: 'Lateral Raise', sets: 3, reps: '8-12', order: 4 }
-        ]
-      },
-      {
-        id: 'default-pull-day',
-        name: 'Pull Day',
-        isDefault: true,
-        exercises: [
-          { name: 'Deadlift', sets: 3, reps: '8-12', order: 1 },
-          { name: 'Lat Pulldown', sets: 3, reps: '8-12', order: 2 },
-          { name: 'Seated Row', sets: 3, reps: '8-12', order: 3 },
-          { name: 'Bicep Curl', sets: 3, reps: '8-12', order: 4 }
-        ]
-      },
-      {
-        id: 'default-leg-day',
-        name: 'Leg Day',
-        isDefault: true,
-        exercises: [
-          { name: 'Squat', sets: 3, reps: '8-12', order: 1 },
-          { name: 'Leg Press', sets: 3, reps: '8-12', order: 2 },
-          { name: 'Leg Curl', sets: 3, reps: '8-12', order: 3 },
-          { name: 'Calf Raise', sets: 3, reps: '8-12', order: 4 }
-        ]
-      }
-    ];
+  // ─── DEFAULT WORKOUT TEMPLATES (Push/Pull/Leg) ───
+  BUILTIN_TEMPLATES: [
+    {
+      id: 'tpl-push-day',
+      name: 'Push Day',
+      emoji: '💪',
+      description: 'Chest, shoulders & triceps',
+      is_default: true,
+      exercises: [
+        { name: 'Flat Bench Press',        sets: 3, reps: '8–12', order: 1 },
+        { name: 'Overhead Triceps Extension', sets: 3, reps: '8–12', order: 2 },
+        { name: 'Incline Dumbbell Press',  sets: 3, reps: '8–12', order: 3 },
+        { name: 'Dumbbell Lateral Raises', sets: 3, reps: '10–15', order: 4 }
+      ]
+    },
+    {
+      id: 'tpl-pull-day',
+      name: 'Pull Day',
+      emoji: '🏋️',
+      description: 'Back & biceps',
+      is_default: true,
+      exercises: [
+        { name: 'Romanian Deadlift', sets: 3, reps: '8–12', order: 1 },
+        { name: 'Lat Pull Down',     sets: 3, reps: '8–12', order: 2 },
+        { name: 'One Arm Row',       sets: 3, reps: '8–12', order: 3 },
+        { name: 'Biceps Curls',      sets: 3, reps: '10–15', order: 4 }
+      ]
+    },
+    {
+      id: 'tpl-leg-day',
+      name: 'Leg Day',
+      emoji: '🦵',
+      description: 'Quads, hamstrings & calves',
+      is_default: true,
+      exercises: [
+        { name: 'Barbell Squat',      sets: 3, reps: '8–12', order: 1 },
+        { name: 'Leg Extensions',     sets: 3, reps: '10–15', order: 2 },
+        { name: 'Romanian Deadlift',  sets: 3, reps: '8–12', order: 3 },
+        { name: 'Hanging Leg Raises', sets: 3, reps: '12–15', order: 4 }
+      ]
+    }
+  ],
 
+  async getDefaultWorkoutTemplates() {
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
           .from('workout_templates')
           .select('*')
           .eq('is_default', true)
-          .order('name', { ascending: true });
-        if (error) throw error;
-        if (data && data.length > 0) {
+          .order('created_at', { ascending: true });
+
+        if (!error && data && data.length > 0) {
           return data.map(t => ({
             id: t.id,
             name: t.name,
-            isDefault: t.is_default,
-            exercises: (t.exercises || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))
+            emoji: t.name.toLowerCase().includes('push') ? '💪' : t.name.toLowerCase().includes('pull') ? '🏋️' : '🦵',
+            description: t.name.toLowerCase().includes('push') ? 'Chest, shoulders & triceps' :
+                         t.name.toLowerCase().includes('pull') ? 'Back & biceps' : 'Quads, hamstrings & calves',
+            is_default: t.is_default,
+            exercises: Array.isArray(t.exercises) ? t.exercises : JSON.parse(t.exercises || '[]')
           }));
         }
       } catch (e) {
-        console.error('Cloud DB Fetch default workout templates error, using built-in fallback:', e);
+        console.error('Cloud DB: Failed to load workout templates:', e);
       }
     }
-
-    return fallback;
+    // Fallback to built-in hardcoded templates
+    return this.BUILTIN_TEMPLATES;
   },
 
   // ─── WORKOUT ROUTINE TEMPLATES / PLANS ───
   async getWorkoutPlansForUser(userId) {
     if (isSupabaseConfigured && supabase) {
       try {
-        // Resolve user UUID if needed
+        // Resolve user UUID — try the passed value first, then session userId
         let resolvedUserId = userId;
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        const UUID_RE_LOCAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isUuid = UUID_RE_LOCAL.test(userId);
+
         if (!isUuid) {
+          // Try name lookup first
           const { data: usersByName } = await supabase
             .from('users')
             .select('id')
             .ilike('full_name', userId)
             .maybeSingle();
-          if (usersByName) resolvedUserId = usersByName.id;
+          if (usersByName) {
+            resolvedUserId = usersByName.id;
+          } else {
+            // Fall back to the authenticated session's userId from localStorage
+            const sessionId = localStorage.getItem('userId');
+            if (sessionId && UUID_RE_LOCAL.test(sessionId)) {
+              resolvedUserId = sessionId;
+            }
+          }
         }
 
-        const isResolvedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId);
+        const isResolvedUuid = UUID_RE_LOCAL.test(resolvedUserId);
         if (isResolvedUuid) {
           const { data, error } = await supabase
             .from('workout_plans')
@@ -1186,18 +1205,29 @@ const databaseService = {
       }
     }
 
-    // Offline local storage fallback
+    // Offline local storage fallback — also merge UUID-keyed entries
     const clientKey = await getCleanClientKey(userId);
     const key = `client_${clientKey}_workoutPlans`;
     const stored = localStorage.getItem(key);
+    let plans = [];
     if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error("Error parsing local workout plans:", e);
+      try { plans = JSON.parse(stored); } catch (e) { /* */ }
+    }
+    // Also check UUID-keyed localStorage if userId is a name
+    const sessionId = localStorage.getItem('userId');
+    if (sessionId && sessionId !== userId) {
+      const uuidKey = `client_${sessionId}_workoutPlans`;
+      const uuidStored = localStorage.getItem(uuidKey);
+      if (uuidStored) {
+        try {
+          const uuidPlans = JSON.parse(uuidStored);
+          // Merge, deduplicating by plan id
+          const existingIds = new Set(plans.map(p => p.id));
+          uuidPlans.forEach(p => { if (!existingIds.has(p.id)) plans.push(p); });
+        } catch (e) { /* */ }
       }
     }
-    return [];
+    return plans;
   },
 
   async saveWorkoutPlan(plan) {
@@ -1360,6 +1390,93 @@ const databaseService = {
     });
 
     return coaches;
+  },
+
+  // ─── ADMIN: LIVE COACH CLIENT COUNTS ───
+  // Queries approved coaches from public.coaches joined with public.users for display names,
+  // then counts clients per coach from public.clients WHERE coach_id = <coach's users.id>.
+  // This accurately reflects Part 4's connect flow (clients.coach_id = coach's users.id UUID).
+  async getCoachesWithClientCounts() {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // 1. Get all approved coaches with their user info (name, email)
+        const { data: coachRows, error: coachErr } = await supabase
+          .from('coaches')
+          .select('id, user_id, brand_name, status, created_at, users(id, email, full_name)')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: true });
+
+        if (coachErr) throw coachErr;
+
+        if (!coachRows || coachRows.length === 0) {
+          // Fallback: try fetching from users table with role=coach
+          const { data: userCoaches, error: ucErr } = await supabase
+            .from('users')
+            .select('id, email, full_name, created_at')
+            .eq('role', 'coach');
+
+          if (ucErr) throw ucErr;
+
+          // Count clients per coach using users.id (= clients.coach_id)
+          const { data: allClients } = await supabase
+            .from('clients')
+            .select('coach_id');
+
+          return (userCoaches || []).map(coach => {
+            const count = (allClients || []).filter(c => c.coach_id === coach.id).length;
+            return {
+              id: coach.id,
+              userId: coach.id,
+              name: coach.full_name || coach.email?.split('@')[0] || 'Coach',
+              email: coach.email || '',
+              clientCount: count,
+              joined: coach.created_at
+            };
+          });
+        }
+
+        // 2. Fetch all clients and their coach_id in one query (avoids N+1)
+        const { data: allClients } = await supabase
+          .from('clients')
+          .select('coach_id');
+
+        // 3. Map each coach: count clients WHERE clients.coach_id = coach's users.id
+        return coachRows.map(coach => {
+          const coachUserId = coach.user_id || coach.users?.id;
+          const count = (allClients || []).filter(c => c.coach_id === coachUserId).length;
+          return {
+            id: coach.id,
+            userId: coachUserId,
+            name: coach.users?.full_name || coach.brand_name || coach.users?.email?.split('@')[0] || 'Coach',
+            email: coach.users?.email || '',
+            brand: coach.brand_name || '',
+            clientCount: count,
+            joined: coach.created_at
+          };
+        });
+      } catch (e) {
+        console.error('[getCoachesWithClientCounts] Error:', e);
+      }
+    }
+
+    // Mock / offline fallback
+    const mockCoaches = this.getMockTable('coaches');
+    const mockClients = this.getMockTable('clients');
+    const mockUsers = this.getMockTable('users');
+
+    return mockCoaches.map(coach => {
+      const coachUser = mockUsers.find(u => u.id === coach.user_id);
+      const count = mockClients.filter(c => c.coach_id === coach.user_id).length;
+      return {
+        id: coach.id,
+        userId: coach.user_id,
+        name: coachUser?.full_name || coach.brand_name || 'Coach',
+        email: coachUser?.email || '',
+        brand: coach.brand_name || '',
+        clientCount: count,
+        joined: coach.created_at || new Date().toISOString()
+      };
+    });
   },
 
   async saveCoachProfile(coach) {
@@ -1829,6 +1946,77 @@ const databaseService = {
     return fallbackData;
   },
 
+  async getActiveCoachInviteCode(coachId) {
+    const resolvedCoachId = await this.resolveCoachUserId(coachId);
+    const now = new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('coach_id', resolvedCoachId)
+          .eq('used', false)
+          .gt('expires_at', now)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('[ERROR] Failed to fetch active invite code from Supabase:', err);
+        return null;
+      }
+    }
+
+    // Local Storage fallback
+    const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+    const activeCode = Object.keys(invites).find(code => {
+      const invitation = invites[code];
+      return invitation.coachId === resolvedCoachId && !invitation.used && invitation.expiresAt > now;
+    });
+
+    if (activeCode) {
+      return { code: activeCode, ...invites[activeCode] };
+    }
+    return null;
+  },
+
+  async deactivateActiveCoachInviteCodes(coachId) {
+    const resolvedCoachId = await this.resolveCoachUserId(coachId);
+    const now = new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase
+          .from('invitations')
+          .update({ expires_at: now })
+          .eq('coach_id', resolvedCoachId)
+          .eq('used', false)
+          .gt('expires_at', now);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error('[ERROR] Failed to deactivate old invite codes in Supabase:', err);
+      }
+    } else {
+      // Local Storage fallback
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      let updated = false;
+      for (const code in invites) {
+        const invitation = invites[code];
+        if (invitation.coachId === resolvedCoachId && !invitation.used && invitation.expiresAt > now) {
+          invitation.expiresAt = now;
+          updated = true;
+        }
+      }
+      if (updated) {
+        localStorage.setItem('coach_invites', JSON.stringify(invites));
+      }
+    }
+  },
+
   async generateCoachInviteCode(coachId) {
     const resolvedCoachId = await this.resolveCoachUserId(coachId);
     const expiresAt = new Date(Date.now() + INVITE_CODE_TTL_MS).toISOString();
@@ -1892,98 +2080,404 @@ const databaseService = {
     return code;
   },
 
-  // ─── CLIENT-SIDE "CONNECT TO COACH" (dashboard modal) ───
-  // The old flow took a separately-supplied clientId argument from the caller and threw
-  // "Code and Client ID are required." whenever that argument was empty/stale — the caller
-  // (a blocking login screen) wasn't a reliable source of truth for who the client was.
-  // This version takes ONLY the code; the client's identity is always resolved here, from
-  // the authenticated session (localStorage userId / userEmail), never from a form field.
-  async connectClientToCoach(rawCode) {
-    const code = normalizeInviteCode(rawCode);
-    if (!code) {
-      throw new Error('Please enter an invitation code.');
-    }
+  async validateCoachInviteCode(code) {
+    const upperCode = normalizeInviteCode(code);
+    if (!upperCode) return null;
 
-    const email = localStorage.getItem('userEmail') || '';
-    let clientUserId = localStorage.getItem('userId');
-    if (!UUID_RE.test(clientUserId || '')) {
-      if (isSupabaseConfigured && supabase && email) {
-        const { data: u } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-        clientUserId = u?.id || null;
-        if (clientUserId) localStorage.setItem('userId', clientUserId);
-      } else {
-        clientUserId = null;
+    // Debug Requirement: Log exact query path, searched document ID
+    console.log('[DEBUG] Query Path: public.invitations');
+    console.log('[DEBUG] Query Document ID:', upperCode);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: invite, error } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('code', upperCode)
+          .eq('used', false)
+          .maybeSingle();
+
+        if (error || !invite) {
+          console.log('[DEBUG] Query Result: null');
+          return null;
+        }
+
+        console.log('[DEBUG] Query Result:', JSON.stringify(invite));
+
+        // Timezone comparison logs
+        console.log('[DEBUG] Invitation code expiration time (UTC):', invite.expires_at);
+        console.log('[DEBUG] Current validation time (UTC):', new Date().toISOString());
+
+        if (isPastTimestamp(invite.expires_at)) {
+          console.log('[DEBUG] Code expired. Expiration:', invite.expires_at, 'Now:', new Date().toISOString());
+          return null;
+        }
+
+        return invite.coach_id;
+      } catch (err) {
+        console.error('[ERROR] Error validating invite code in Supabase:', err);
+        return null;
+      }
+    } else {
+      // Local Storage Fallback
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      const invitation = invites[upperCode];
+
+      if (!invitation || invitation.used) {
+        console.log('[DEBUG] Query Result: null');
+        return null;
+      }
+
+      console.log('[DEBUG] Query Result:', JSON.stringify(invitation));
+
+      console.log('[DEBUG] Invitation code expiration time (UTC):', invitation.expiresAt);
+      console.log('[DEBUG] Current validation time (UTC):', new Date().toISOString());
+
+      if (isPastTimestamp(invitation.expiresAt)) {
+        console.log('[DEBUG] Code expired. Expiration:', invitation.expiresAt, 'Now:', new Date().toISOString());
+        return null;
+      }
+
+      return invitation.coachId;
+    }
+  },
+
+  async consumeCoachInviteCode(code, clientId = null) {
+    const upperCode = normalizeInviteCode(code);
+    if (!upperCode) return;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await this.updateInvitationUsage(upperCode, true, clientId);
+        console.log('[DEBUG] Cloud DB: Successfully consumed invitation code:', upperCode);
+      } catch (err) {
+        console.error('[ERROR] Failed to mark invite code as used in Supabase:', err);
+        throw err;
+      }
+    } else {
+      // Local Storage Fallback
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      if (invites[upperCode]) {
+        invites[upperCode].used = true;
+        invites[upperCode].usedAt = new Date().toISOString();
+        invites[upperCode].usedBy = clientId;
+        localStorage.setItem('coach_invites', JSON.stringify(invites));
+        console.log('[DEBUG] Local Storage: Successfully consumed invitation code:', upperCode);
       }
     }
-    if (!clientUserId) {
-      throw new Error('Could not verify your account. Please sign in again.');
+  },
+
+  async linkCoachAndEnterDirect(upperCode, clientId) {
+    const { data: invite, error: inviteError } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('code', upperCode)
+      .maybeSingle();
+
+    if (inviteError) throw inviteError;
+    if (!invite) throw new Error('Invalid invitation code.');
+    if (invite.used) throw new Error('Invitation code has already been used.');
+
+    console.log('[DEBUG] Direct invite validation result:', JSON.stringify(invite));
+    console.log('[DEBUG] Invitation code expiration time (UTC):', invite.expires_at);
+    console.log('[DEBUG] Current validation time (UTC):', new Date().toISOString());
+
+    if (isPastTimestamp(invite.expires_at)) {
+      throw new Error('Invitation code has expired.');
+    }
+
+    const coachIsActive = await this.isActiveCoachUser(invite.coach_id);
+    if (!coachIsActive) {
+      throw new Error('Invitation belongs to an inactive or invalid coach.');
     }
 
     const fullName = localStorage.getItem('userName') || 'Warrior';
+    const { error: clientError } = await supabase
+      .from('clients')
+      .upsert({
+        user_id: clientId,
+        coach_id: invite.coach_id,
+        full_name: fullName
+      }, { onConflict: 'user_id' });
+    if (clientError) throw clientError;
+
+    const { error: userError } = await supabase
+      .from('users')
+      .update({
+        role: 'client',
+        coach_id: invite.coach_id,
+        full_name: fullName,
+        verified: true
+      })
+      .eq('id', clientId);
+
+    if (userError) {
+      const { error: fallbackUserError } = await supabase
+        .from('users')
+        .update({
+          role: 'client',
+          coach_id: invite.coach_id,
+          full_name: fullName
+        })
+        .eq('id', clientId);
+      if (fallbackUserError) throw fallbackUserError;
+    }
+
+    const consumedInvite = await this.updateInvitationUsage(upperCode, true, clientId);
+    if (!consumedInvite) {
+      throw new Error('Invitation code has already been used.');
+    }
+
+    const { data: verifyClient } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', clientId)
+      .maybeSingle();
+    const { data: verifyUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    if (verifyClient?.coach_id !== invite.coach_id || verifyUser?.coach_id !== invite.coach_id) {
+      await this.updateInvitationUsage(upperCode, false);
+      throw new Error('Database transaction verification failed. Link reverted to prevent user lockout.');
+    }
+
+    return {
+      success: true,
+      coach_id: invite.coach_id,
+      client_id: clientId,
+      code_used: upperCode
+    };
+  },
+
+  async linkCoachAndEnterTransaction(code, clientId) {
+    const upperCode = normalizeInviteCode(code);
+    if (!upperCode || !clientId) throw new Error('Code and Client ID are required.');
 
     if (isSupabaseConfigured && supabase) {
-      const { data: invite, error } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('code', code)
-        .maybeSingle();
-      if (error) throw new Error(error.message || 'Could not validate the code. Please try again.');
-      if (!invite) throw new Error('Code not found');
-      if (isPastTimestamp(invite.expires_at)) throw new Error('This code has expired');
-      if (invite.used || invite.used_by) throw new Error('This code has already been used');
+      try {
+        console.log('[DEBUG] Executing atomic transaction RPC: link_coach_and_enter_transaction');
+        const { data, error } = await supabase
+          .rpc('link_coach_and_enter_transaction', {
+            p_invite_code: upperCode,
+            p_client_id: clientId
+          });
 
-      // Atomically claim the code (UPDATE ... WHERE used = false) so two clients racing
-      // on the same code can't both succeed.
-      const claimed = await this.updateInvitationUsage(code, true, clientUserId);
-      if (!claimed) throw new Error('This code has already been used');
+        if (error) {
+          console.error('[ERROR] RPC failed:', error.message || error);
+          throw new Error(error.message || 'Database transaction failed.');
+        }
+        
+        if (data && !data.success) {
+          console.error('[ERROR] RPC transaction failed:', data.error);
+          throw new Error(data.error || 'Database transaction failed.');
+        }
 
-      const { error: clientError } = await supabase
-        .from('clients')
-        .upsert({ user_id: clientUserId, coach_id: invite.coach_id, full_name: fullName }, { onConflict: 'user_id' });
-      if (clientError) {
-        await this.updateInvitationUsage(code, false);
-        throw new Error(clientError.message || 'Could not connect to your coach. Please try again.');
+        console.log('[DEBUG] Transaction RPC successful:', JSON.stringify(data));
+
+        // ─── POST-TRANSACTION VERIFICATION (SELF-HEALING CHECK) ───
+        console.log('[DEBUG] Starting post-transaction verification...');
+        
+        // 1. Verify invitation
+        const { data: verifyInvite } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('code', upperCode)
+          .maybeSingle();
+
+        // 2. Verify client profile
+        const { data: verifyClient } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('user_id', clientId)
+          .maybeSingle();
+
+        // 3. Verify user record
+        const { data: verifyUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', clientId)
+          .maybeSingle();
+
+        const hasUsedByColumn = verifyInvite && Object.prototype.hasOwnProperty.call(verifyInvite, 'used_by');
+        const hasInvite = verifyInvite && verifyInvite.used === true && (!hasUsedByColumn || verifyInvite.used_by === clientId);
+        const hasClient = verifyClient && verifyClient.coach_id === verifyInvite?.coach_id;
+        const hasUser = verifyUser && verifyUser.role === 'client' && verifyUser.coach_id === verifyInvite?.coach_id && verifyUser.payment_status === 'active';
+
+        if (!hasInvite || !hasClient || !hasUser) {
+          console.error('[CRITICAL ERROR] Post-transaction consistency verification FAILED!', {
+            hasInvite,
+            hasClient,
+            hasUser,
+            verifyInvite,
+            verifyClient,
+            verifyUser
+          });
+
+          console.log('[DEBUG] Restoring invitation status to unused...');
+          await this.updateInvitationUsage(upperCode, false);
+
+          throw new Error('Database transaction verification failed. Link reverted to prevent user lockout.');
+        }
+
+        console.log('[DEBUG] Post-transaction verification: ALL CHECKS PASSED.');
+        return data;
+
+      } catch (err) {
+        console.error('[ERROR] linkCoachAndEnterTransaction failed:', err.message || err);
+        throw err;
+      }
+    } else {
+      // Local Storage Fallback Transaction (Simulated Atomicity)
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      const invitation = invites[upperCode];
+
+      if (!invitation) {
+        throw new Error('Invalid invitation code.');
+      }
+      if (invitation.used) {
+        throw new Error('Invitation code has already been used.');
+      }
+      if (isPastTimestamp(invitation.expiresAt)) {
+        throw new Error('Invitation code has expired.');
       }
 
-      const { data: coachUser } = await supabase.from('users').select('full_name').eq('id', invite.coach_id).maybeSingle();
-      const { data: coachProfile } = await supabase.from('coaches').select('brand_name').eq('user_id', invite.coach_id).maybeSingle();
-      const coachName = coachProfile?.brand_name || coachUser?.full_name || 'your coach';
+      // Check active coach
+      const coachIsActive = await this.isActiveCoachUser(invitation.coachId);
+      if (!coachIsActive) {
+        throw new Error('Invitation belongs to an inactive or invalid coach.');
+      }
 
-      localStorage.setItem('userCoachId', invite.coach_id);
-      localStorage.setItem('userCoachName', coachName);
-      return { coachId: invite.coach_id, coachName };
+      // Create/update client profile before consuming the invitation.
+      const mockUsers = this.getMockTable('users');
+      const mockClients = this.getMockTable('clients');
+      const clientIdx = mockClients.findIndex(c => c.user_id === clientId);
+      const now = new Date().toISOString();
+      const newClientObj = {
+        user_id: clientId,
+        coach_id: invitation.coachId,
+        full_name: localStorage.getItem('userName') || 'Warrior',
+        linked_at: now
+      };
+
+      if (clientIdx >= 0) {
+        mockClients[clientIdx] = { ...mockClients[clientIdx], ...newClientObj };
+      } else {
+        mockClients.push(newClientObj);
+      }
+      this.saveMockTable('clients', mockClients);
+
+      const userIdx = mockUsers.findIndex(u => u.id === clientId);
+      if (userIdx >= 0) {
+        mockUsers[userIdx].role = 'client';
+        mockUsers[userIdx].coach_id = invitation.coachId;
+        this.saveMockTable('users', mockUsers);
+      }
+
+      invitation.used = true;
+      invitation.usedAt = now;
+      invitation.usedBy = clientId;
+      localStorage.setItem('coach_invites', JSON.stringify(invites));
+
+      // Simulated Post-Transaction Verification
+      const mockVerifyInvite = JSON.parse(localStorage.getItem('coach_invites') || '{}')[upperCode];
+      const mockVerifyClient = this.getMockTable('clients').find(c => c.user_id === clientId);
+      const mockVerifyUser = this.getMockTable('users').find(u => u.id === clientId);
+
+      const passInvite = mockVerifyInvite && mockVerifyInvite.used === true && mockVerifyInvite.usedBy === clientId;
+      const passClient = mockVerifyClient && mockVerifyClient.coach_id === invitation.coachId;
+      const passUser = mockVerifyUser && mockVerifyUser.role === 'client' && mockVerifyUser.coach_id === invitation.coachId;
+
+      if (!passInvite || !passClient || !passUser) {
+        // Rollback
+        invitation.used = false;
+        invitation.usedAt = null;
+        invitation.usedBy = null;
+        localStorage.setItem('coach_invites', JSON.stringify(invites));
+        throw new Error('Local mock verification failed. Changes rolled back.');
+      }
+
+      return {
+        success: true,
+        coach_id: invitation.coachId,
+        client_id: clientId,
+        code_used: upperCode
+      };
+    }
+  },
+
+  // ─── CONNECT CLIENT TO COACH FROM DASHBOARD ───
+  // This is the ONLY method the new dashboard modal should call.
+  // userId is ALWAYS taken from localStorage (the authenticated session) —
+  // never from a user-supplied form field. This directly prevents the
+  // "Code and Client ID are required" bug.
+  async connectClientToCoach(rawCode) {
+    const code = normalizeInviteCode(rawCode);
+    if (!code) return { success: false, error: 'Please enter a valid invitation code.' };
+
+    // Resolve client's own userId from the authenticated session
+    let clientId = localStorage.getItem('userId');
+
+    // If localStorage doesn't have it yet, try resolving from Supabase auth session
+    if (!clientId && isSupabaseConfigured && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        clientId = session?.user?.id || null;
+        if (clientId) localStorage.setItem('userId', clientId);
+      } catch (e) {
+        console.error('[connectClientToCoach] Could not resolve userId from session:', e);
+      }
     }
 
-    // Local mock fallback
-    const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
-    const invitation = invites[code];
-    if (!invitation) throw new Error('Code not found');
-    if (isPastTimestamp(invitation.expiresAt)) throw new Error('This code has expired');
-    if (invitation.used) throw new Error('This code has already been used');
-
-    invitation.used = true;
-    invitation.usedAt = new Date().toISOString();
-    invitation.usedBy = clientUserId;
-    localStorage.setItem('coach_invites', JSON.stringify(invites));
-
-    const mockClients = this.getMockTable('clients');
-    let mClient = mockClients.find(c => c.user_id === clientUserId);
-    if (!mClient) {
-      mClient = { id: `client-id-${Date.now()}`, user_id: clientUserId, full_name: fullName };
-      mockClients.push(mClient);
+    if (!clientId) {
+      return { success: false, error: 'Your session could not be verified. Please log out and log back in.' };
     }
-    mClient.coach_id = invitation.coachId;
-    this.saveMockTable('clients', mockClients);
 
-    const mockCoaches = this.getMockTable('coaches');
-    const mockUsers = this.getMockTable('users');
-    const coachProfile = mockCoaches.find(c => c.user_id === invitation.coachId || c.id === invitation.coachId);
-    const coachUser = mockUsers.find(u => u.id === invitation.coachId);
-    const coachName = coachProfile?.brand_name || coachUser?.full_name || 'your coach';
+    // Step 1: Validate the code before committing anything
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: invite, error: lookupErr } = await supabase
+          .from('invitations')
+          .select('*')
+          .filter('code', 'eq', code)
+          .maybeSingle();
 
-    localStorage.setItem('userCoachId', invitation.coachId);
-    localStorage.setItem('userCoachName', coachName);
-    return { coachId: invitation.coachId, coachName };
+        if (lookupErr) throw lookupErr;
+        if (!invite) return { success: false, error: 'Code not found.' };
+        if (invite.used === true) return { success: false, error: 'This code has already been used.' };
+        if (isPastTimestamp(invite.expires_at)) return { success: false, error: 'This code has expired.' };
+      } catch (e) {
+        console.error('[connectClientToCoach] Validation error:', e);
+        return { success: false, error: e.message || 'Could not validate code. Please try again.' };
+      }
+    } else {
+      // Mock DB validation
+      const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
+      const invite = invites[code];
+      if (!invite) return { success: false, error: 'Code not found.' };
+      if (invite.used) return { success: false, error: 'This code has already been used.' };
+      if (isPastTimestamp(invite.expiresAt)) return { success: false, error: 'This code has expired.' };
+    }
+
+    // Step 2: Execute the atomic link transaction
+    try {
+      const result = await this.linkCoachAndEnterTransaction(code, clientId);
+      if (result && result.success) {
+        // Update localStorage so the dashboard reflects the new connection immediately
+        localStorage.setItem('userCoachId', result.coach_id || '');
+        localStorage.setItem('clientLinkedToCoach', 'true');
+        return { success: true, coachId: result.coach_id };
+      }
+      return { success: false, error: 'Connection failed. Please try again.' };
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('expired')) return { success: false, error: 'This code has expired.' };
+      if (msg.includes('already been used')) return { success: false, error: 'This code has already been used.' };
+      if (msg.includes('not found') || msg.includes('Invalid')) return { success: false, error: 'Code not found.' };
+      return { success: false, error: msg || 'Connection failed. Please try again.' };
+    }
   },
 
   async getAllUsersWithRoles() {

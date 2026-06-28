@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
+import { getLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 
 // Comprehensive A-Z Exercise Library (150+ exercises)
@@ -383,7 +384,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [loadingLogs, setLoadingLogs] = useState(false);
 
   // ─── Live Session Logger States ───
-  const [liveDate, setLiveDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [liveDate, setLiveDate] = useState(() => getLocalDateString());
   const [liveExercises, setLiveExercises] = useState([
     { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
   ]);
@@ -527,7 +528,7 @@ const TrainerDashboard = ({ handleLogout }) => {
         { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
       ]);
       setLivePlanName('Live Routine');
-      setLiveDate(new Date().toISOString().split('T')[0]);
+      setLiveDate(getLocalDateString());
     } catch(e) {
       console.error('Error saving live session:', e);
       triggerLiveToast('❌ Failed to save session. Please try again.');

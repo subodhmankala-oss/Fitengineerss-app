@@ -1131,10 +1131,14 @@ const databaseService = {
   async getDefaultWorkoutTemplates() {
     if (isSupabaseConfigured && supabase) {
       try {
+        // Excludes difficulty-leveled generic workouts (see getGenericWorkoutsByLevel)
+        // so this keeps returning only the original undifferentiated Push/Pull/Leg
+        // Day templates — the leveled library is a separate, additive surface.
         const { data, error } = await supabase
           .from('workout_templates')
           .select('*')
           .eq('is_default', true)
+          .is('difficulty_level', null)
           .order('created_at', { ascending: true });
 
         if (!error && data && data.length > 0) {
@@ -1154,6 +1158,34 @@ const databaseService = {
     }
     // Fallback to built-in hardcoded templates
     return this.BUILTIN_TEMPLATES;
+  },
+
+  // ─── GENERIC WORKOUT LIBRARY BY DIFFICULTY LEVEL ───
+  async getGenericWorkoutsByLevel(level) {
+    if (!['beginner', 'intermediate', 'advanced'].includes(level)) return [];
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('workout_templates')
+          .select('*')
+          .eq('difficulty_level', level)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (data) {
+          return data.map(t => ({
+            id: t.id,
+            name: t.name,
+            difficulty_level: t.difficulty_level,
+            exercises: Array.isArray(t.exercises) ? t.exercises : JSON.parse(t.exercises || '[]')
+          }));
+        }
+      } catch (e) {
+        console.error('Cloud DB: Failed to load generic workouts by level:', e);
+      }
+    }
+    return [];
   },
 
   // ─── WORKOUT ROUTINE TEMPLATES / PLANS ───

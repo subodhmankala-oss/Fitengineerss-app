@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
+import { getLocalDateString, shiftLocalDateString, isLocalToday } from '../utils/dateUtils';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout }) => {
@@ -12,7 +13,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
-  const [selectedDateStr, setSelectedDateStr] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDateStr, setSelectedDateStr] = useState(getLocalDateString());
   const [sessionsTotal, setSessionsTotal] = useState(() => {
     const cachedLimit = localStorage.getItem('userSessionsLimit');
     return cachedLimit ? parseInt(cachedLimit) : 24;
@@ -63,10 +64,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     return start;
   };
 
-  const isToday = (dateStr) => {
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr === today;
-  };
+  const isToday = (dateStr) => isLocalToday(dateStr);
 
   const getWeekDays = () => {
     const start = getStartOfWeek(new Date());
@@ -74,7 +72,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     for (let i = 0; i < 7; i++) {
       const current = new Date(start);
       current.setDate(start.getDate() + i);
-      days.push(current.toISOString().split('T')[0]);
+      days.push(getLocalDateString(current));
     }
     return days;
   };
@@ -184,7 +182,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(d);
       const volume = groupedLogs[dateStr] ? groupedLogs[dateStr].volume : 0;
       const sets = groupedLogs[dateStr] ? groupedLogs[dateStr].sets : 0;
 
@@ -408,7 +406,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(d);
       const isActive = activeDates.has(dateStr);
       const isSelected = dateStr === selectedDateStr;
 
@@ -682,9 +680,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
               <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <button
                   onClick={() => {
-                    const d = new Date(selectedDateStr);
-                    d.setDate(d.getDate() - 1);
-                    setSelectedDateStr(d.toISOString().split('T')[0]);
+                    setSelectedDateStr(shiftLocalDateString(selectedDateStr, -1));
                   }}
                   style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
                 >
@@ -699,10 +695,8 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                 />
                 <button
                   onClick={() => {
-                    const d = new Date(selectedDateStr);
-                    d.setDate(d.getDate() + 1);
-                    const next = d.toISOString().split('T')[0];
-                    if (next <= new Date().toISOString().split('T')[0]) {
+                    const next = shiftLocalDateString(selectedDateStr, 1);
+                    if (next <= getLocalDateString()) {
                       setSelectedDateStr(next);
                     }
                   }}

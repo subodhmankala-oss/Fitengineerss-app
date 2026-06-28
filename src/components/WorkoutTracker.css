@@ -2638,6 +2638,17 @@
   transform: translateY(-1px);
 }
 
+.wt-start-btn.level-start {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1a1100;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+}
+
+.wt-start-btn.level-start:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+}
+
 /* ─── Empty state ─── */
 .wt-empty-state {
   padding: 32px;

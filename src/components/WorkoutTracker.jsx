@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
+import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -307,6 +308,11 @@ const WorkoutTracker = () => {
   const [defaultTemplates, setDefaultTemplates] = useState([]);
   const [loadingDefaultTemplates, setLoadingDefaultTemplates] = useState(false);
   const [selectedDefaultTemplateId, setSelectedDefaultTemplateId] = useState('');
+
+  // Generic workout library, filtered by difficulty level (Beginner/Intermediate/Advanced)
+  const [genericLevel, setGenericLevel] = useState('beginner');
+  const [levelWorkouts, setLevelWorkouts] = useState([]);
+  const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
   // Guards against legacy sessions where localStorage.setItem('userCoachId', null) was
   // called directly, which stores the literal (truthy) string "null".
   const storedCoachId = localStorage.getItem('userCoachId');
@@ -329,6 +335,25 @@ const WorkoutTracker = () => {
     };
     loadDefaultTemplates();
   }, []);
+
+  // Load the difficulty-leveled generic workout library whenever the selected level changes
+  useEffect(() => {
+    let cancelled = false;
+    const loadLevelWorkouts = async () => {
+      setLoadingLevelWorkouts(true);
+      try {
+        const workouts = await databaseService.getGenericWorkoutsByLevel(genericLevel);
+        if (!cancelled) setLevelWorkouts(workouts || []);
+      } catch (e) {
+        console.error('Error fetching generic workouts by level:', e);
+        if (!cancelled) setLevelWorkouts([]);
+      } finally {
+        if (!cancelled) setLoadingLevelWorkouts(false);
+      }
+    };
+    loadLevelWorkouts();
+    return () => { cancelled = true; };
+  }, [genericLevel]);
 
   // Coaches pick a client by name from their roster; a client viewing their own workouts
   // should be keyed by their real account id, not a (possibly non-unique) display name —
@@ -399,7 +424,7 @@ const WorkoutTracker = () => {
 
   // Coach Log Form States
   const [logClient, setLogClient] = useState(loggedInUser);
-  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
+  const [logDate, setLogDate] = useState(getLocalDateString());
   const [logExercises, setLogExercises] = useState([
     { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
     { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },
@@ -1033,7 +1058,7 @@ const WorkoutTracker = () => {
     setTemplateName(template.name);
     setActiveTemplateName(template.name);
     setLogClient(loggedInUser);
-    setLogDate(new Date().toISOString().split('T')[0]);
+    setLogDate(getLocalDateString());
     setWorkoutActiveSeconds(0);
     setWorkoutTimerRunning(false);
     setIsLoggingWorkout(true);
@@ -1364,7 +1389,7 @@ const WorkoutTracker = () => {
               const month = calendarMonth.month;
               const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
               const daysInMonth = new Date(year, month + 1, 0).getDate();
-              const todayStr = new Date().toISOString().split('T')[0];
+              const todayStr = getLocalDateString();
               const monthName = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
               const cells = [];
               for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -1460,7 +1485,7 @@ const WorkoutTracker = () => {
                     totalSets += 1;
                   }));
                   const dateLabel = new Date(sess.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-                  const isToday = sess.date === new Date().toISOString().split('T')[0];
+                  const isToday = isLocalToday(sess.date);
                   const isCoachLogged = sess.loggedByCoach;
                   const planName = sess.planName || (isCoachLogged ? 'Coach Session' : 'Workout Session');
 
@@ -1639,6 +1664,65 @@ const WorkoutTracker = () => {
             )}
           </div>
 
+          {/* Generic Workout Library — filtered by difficulty level */}
+          <div className="wt-section">
+            <div className="wt-section-header">
+              <span className="wt-section-badge generic">📚 Generic Workout Library</span>
+              <span className="wt-section-sub">Pick a level to see matching workouts</span>
+            </div>
+
+            <select
+              className="exercise-select-dropdown"
+              style={{ marginBottom: '12px', width: '100%' }}
+              value={genericLevel}
+              onChange={(e) => setGenericLevel(e.target.value)}
+            >
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+
+            {loadingLevelWorkouts ? (
+              <div className="wt-empty-state">
+                <span>⏳</span> Loading {genericLevel} workouts…
+              </div>
+            ) : levelWorkouts.length === 0 ? (
+              <div className="wt-empty-state">
+                <span>📭</span> No {genericLevel} workouts available yet.
+              </div>
+            ) : (
+              <div className="wt-template-list">
+                {levelWorkouts.map(workout => (
+                  <div key={workout.id} className="wt-template-card">
+                    <div className="wt-tpl-info">
+                      <span className="wt-tpl-icon">📋</span>
+                      <div>
+                        <span className="wt-tpl-name">{workout.name}</span>
+                        <span className="wt-tpl-meta">
+                          {Array.isArray(workout.exercises) ? workout.exercises.length : 0} exercises
+                        </span>
+                      </div>
+                    </div>
+                    <div className="wt-tpl-exercises">
+                      {(Array.isArray(workout.exercises) ? workout.exercises : []).slice(0, 4).map((ex, i) => (
+                        <span key={i} className="wt-ex-pill">{ex.name}</span>
+                      ))}
+                    </div>
+                    <button
+                      className="wt-start-btn level-start"
+                      onClick={() => handleStartFromTemplate({
+                        name: workout.name,
+                        exercises: (Array.isArray(workout.exercises) ? workout.exercises : [])
+                      })}
+                    >
+                      ▶ Start Workout
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Quick empty start CTA */}
           <div className="wt-blank-cta">
             <button
@@ -1649,7 +1733,7 @@ const WorkoutTracker = () => {
                 ]);
                 setTemplateName('Custom Session');
                 setLogClient(loggedInUser);
-                setLogDate(new Date().toISOString().split('T')[0]);
+                setLogDate(getLocalDateString());
                 setIsLoggingWorkout(true);
                 setActiveView('log');
               }}
@@ -1685,7 +1769,7 @@ const WorkoutTracker = () => {
             }}
             onClick={() => {
               setLogClient(selectedClient);
-              setLogDate(new Date().toISOString().split('T')[0]);
+              setLogDate(getLocalDateString());
               setLogExercises([
                 { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
               ]);
@@ -1740,7 +1824,7 @@ const WorkoutTracker = () => {
                       return match ? match[0] : '10';
                     };
                     setLogClient(selectedClient);
-                    setLogDate(new Date().toISOString().split('T')[0]);
+                    setLogDate(getLocalDateString());
                     setLogExercises(template.exercises.map(ex => ({
                       name: ex.name,
                       sets: Array.from({ length: ex.sets || 3 }, () => ({ reps: startingReps(ex), weight: '', isCompleted: false }))
@@ -1789,7 +1873,7 @@ const WorkoutTracker = () => {
                         }}
                         onClick={() => {
                           setLogClient(selectedClient);
-                          setLogDate(new Date().toISOString().split('T')[0]);
+                          setLogDate(getLocalDateString());
                           setLogExercises(plan.exercises.map(ex => ({
                             name: ex.name,
                             sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
@@ -1842,7 +1926,7 @@ const WorkoutTracker = () => {
                         }}
                         onClick={() => {
                           setLogClient(selectedClient);
-                          setLogDate(new Date().toISOString().split('T')[0]);
+                          setLogDate(getLocalDateString());
                           setLogExercises(plan.exercises.map(ex => ({
                             name: ex.name,
                             sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))

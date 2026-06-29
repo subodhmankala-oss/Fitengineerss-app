@@ -321,6 +321,13 @@ function App() {
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
   const lastProcessedEmailRef = useRef('');
 
+  // Gate: set when a logged-in session's email_confirmed_at is null (email/password
+  // signup that hasn't clicked the confirmation link yet). Takes priority over the
+  // normal onboarding/login screen until cleared.
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState('idle');
+  const [resendError, setResendError] = useState('');
+
   // Password Reset Modal States
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [newResetPassword, setNewResetPassword] = useState('');
@@ -341,6 +348,18 @@ function App() {
           return;
         }
         lastProcessedEmailRef.current = email;
+
+        // Central email-confirmation gate. OAuth providers (Google) are pre-verified
+        // and always have email_confirmed_at set, so this only ever blocks email/password
+        // signups that haven't clicked their confirmation link — it never touches the
+        // invite-code flow, which only runs against an already-authenticated session.
+        if (!user.email_confirmed_at) {
+          lastProcessedEmailRef.current = '';
+          setOnboardingComplete(false);
+          setPendingConfirmationEmail(email);
+          return;
+        }
+        setPendingConfirmationEmail('');
 
         const profile = await databaseService.getUserProfileByEmail(email);
         console.log("Login successful. Role found: " + (profile?.role || 'none'));
@@ -866,6 +885,70 @@ function App() {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712' }}>
         <ResetPasswordPage />
+      </div>
+    );
+  }
+
+  if (pendingConfirmationEmail) {
+    const handleResendConfirmation = async () => {
+      setResendStatus('sending');
+      setResendError('');
+      try {
+        const { error } = await supabase.auth.resend({ type: 'signup', email: pendingConfirmationEmail });
+        if (error) throw error;
+        setResendStatus('sent');
+      } catch (err) {
+        setResendStatus('error');
+        setResendError(err.message || 'Failed to resend confirmation email.');
+      }
+    };
+
+    const handleUseDifferentAccount = async () => {
+      try {
+        await databaseService.signOut();
+      } catch (err) {
+        console.error('Sign out error:', err);
+      }
+      localStorage.clear();
+      window.location.reload();
+    };
+
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px', background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712' }}>
+        <div style={{ maxWidth: '420px', width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '32px 28px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📧</div>
+          <h2 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '12px' }}>Confirm your email to continue</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '20px' }}>
+            We sent a confirmation link to <strong style={{ color: '#fff' }}>{pendingConfirmationEmail}</strong>. Click it, then come back and tap "I've confirmed" below.
+          </p>
+
+          {resendStatus === 'sent' && (
+            <p style={{ color: '#10b981', fontSize: '0.82rem', marginBottom: '16px' }}>✅ Confirmation email resent — check your inbox.</p>
+          )}
+          {resendStatus === 'error' && (
+            <p style={{ color: 'var(--danger)', fontSize: '0.82rem', marginBottom: '16px' }}>{resendError}</p>
+          )}
+
+          <button
+            onClick={() => window.location.reload()}
+            style={{ width: '100%', padding: '12px', marginBottom: '10px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
+          >
+            ✓ I've confirmed — Refresh
+          </button>
+          <button
+            onClick={handleResendConfirmation}
+            disabled={resendStatus === 'sending'}
+            style={{ width: '100%', padding: '12px', marginBottom: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: resendStatus === 'sending' ? 'default' : 'pointer' }}
+          >
+            {resendStatus === 'sending' ? 'Sending...' : 'Resend confirmation email'}
+          </button>
+          <button
+            onClick={handleUseDifferentAccount}
+            style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Use a different account
+          </button>
+        </div>
       </div>
     );
   }

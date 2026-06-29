@@ -260,6 +260,19 @@ const Onboarding = ({ onComplete }) => {
             await databaseService.signIn(authEmail, authPassword);
             signInSuccess = true;
           } catch (signInErr) {
+            // Account exists (often from before email confirmation was enforced)
+            // but was never actually confirmed — offer a resend instead of the
+            // raw "Email not confirmed" error, since the credentials are correct.
+            if ((signInErr.message || '').toLowerCase().includes('email not confirmed')) {
+              try {
+                await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
+                setAuthSuccessMsg(`Your email isn't confirmed yet. We've resent a confirmation link to ${authEmail} — click it, then log in again.`);
+              } catch (resendErr) {
+                setAuthSuccessMsg(`Your email isn't confirmed yet. Please check your inbox for the confirmation link, then log in again.`);
+              }
+              setAuthLoading(false);
+              return;
+            }
             console.warn("Supabase Sign In failed, checking mock password fallback:", signInErr);
             const mockUsers = databaseService.getMockTable('users');
             const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
@@ -305,7 +318,37 @@ const Onboarding = ({ onComplete }) => {
           // Sign up flow
           let newUserId = null;
           if (isSupabaseConfigured && databaseService.supabase) {
-            await databaseService.signUp(authEmail, authPassword);
+            let signUpResult;
+            try {
+              signUpResult = await databaseService.signUp(authEmail, authPassword);
+            } catch (signUpErr) {
+              // Re-attempting signUp on an email that already has an account but
+              // was never confirmed makes Supabase throw "Email not confirmed"
+              // directly (it implicitly checks credentials), rather than
+              // returning a clean { session: null } response like a brand-new
+              // signup does. Treat it the same way: resend the confirmation
+              // link and show the friendly message instead of the raw error.
+              if ((signUpErr.message || '').toLowerCase().includes('email not confirmed')) {
+                try {
+                  await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
+                  setAuthSuccessMsg(`You already started signing up with this email. We've resent a confirmation link to ${authEmail} — click it, then come back here.`);
+                } catch (resendErr) {
+                  setAuthSuccessMsg(`You already started signing up with this email but haven't confirmed it yet. Please check your inbox for the confirmation link.`);
+                }
+                return;
+              }
+              throw signUpErr;
+            }
+            if (!signUpResult?.session) {
+              // Confirmation required and pending — don't create any client/user
+              // rows or treat this as a completed signup yet. Supabase's
+              // confirmation link logs the user in with a real session on click,
+              // which processSessionUser (App.jsx) picks up via onAuthStateChange;
+              // its existing "no profile yet" fallback creates the client row at
+              // that point, so nothing more is needed here.
+              setAuthSuccessMsg(`We've sent a confirmation link to ${authEmail}. Click it to activate your account, then come back here.`);
+              return;
+            }
             // auth.users.id (from signUp) is not the id the rest of the schema keys off of —
             // public.users.id is generated independently, so resolve/create that row by email.
             const { data: existingUser } = await databaseService.supabase

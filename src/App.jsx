@@ -883,6 +883,36 @@ function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [onboardingComplete, notificationPermission]);
 
+  // Expired / already-used auth link (Supabase puts the failure in the URL hash,
+  // e.g. #error=access_denied&error_code=otp_expired). Without this, an expired
+  // confirmation/reset link has no session, so the app falls through to the
+  // onboarding wizard instead of telling the user the link is dead. Show a clear
+  // message + a way back to login instead.
+  if (typeof window !== 'undefined' && /error_code=otp_expired|error=access_denied/.test(window.location.hash || '')) {
+    const backToLogin = async () => {
+      try { await databaseService.signOut(); } catch (e) { /* */ }
+      localStorage.clear();
+      window.location.href = window.location.origin;
+    };
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px', background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712' }}>
+        <div style={{ maxWidth: '420px', width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '32px 28px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>⏳</div>
+          <h2 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '12px' }}>This link has expired</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '20px' }}>
+            That email link is no longer valid — it may have already been used, or expired. Head back to the login screen and request a new one (use the most recent email and open it promptly).
+          </p>
+          <button
+            onClick={backToLogin}
+            style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (window.location.pathname === '/reset-password') {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712' }}>

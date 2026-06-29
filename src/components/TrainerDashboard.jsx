@@ -296,6 +296,24 @@ const TrainerDashboard = ({ handleLogout }) => {
     }
   };
 
+  const handleToggleCoachBlock = async (coach) => {
+    const blocking = !coach.isBlocked;
+    if (!window.confirm(
+      blocking
+        ? `Block ${coach.name || coach.email}? They will be signed out and unable to log in until unblocked.`
+        : `Unblock ${coach.name || coach.email}? They will regain access on next login.`
+    )) {
+      return;
+    }
+    try {
+      await databaseService.setCoachBlocked(coach.id, blocking);
+      await fetchAdminData();
+    } catch (err) {
+      console.error('Error toggling coach block:', err);
+      alert(err.message || 'Failed to update coach access.');
+    }
+  };
+
   const handleRefresh = async () => {
     if (!superAdmin) return;
     setRefreshing(true);
@@ -1066,78 +1084,6 @@ const TrainerDashboard = ({ handleLogout }) => {
             </div>
           </div>
 
-          {/* Pending Coaches Card */}
-          {pendingCoachesList.length > 0 && (
-            <div className="glass-panel" style={{
-              background: 'rgba(245, 158, 11, 0.05)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              borderRadius: '12px',
-              padding: '16px',
-              overflowX: 'auto',
-              marginBottom: '10px'
-            }}>
-              <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#f59e0b', fontWeight: 700 }}>Pending Coach Applications ({pendingCoachesList.length})</h5>
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(245, 158, 11, 0.2)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach Name</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Experience</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Location</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingCoachesList.map(coach => (
-                    <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
-                      <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 600 }}>{coach.name || coach.userName}</td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.email}</td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.experience || 'N/A'} yrs</td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{coach.location || 'N/A'}</td>
-                      <td style={{ padding: '8px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
-                        <button
-                          onClick={async () => {
-                            await databaseService.approveCoach(coach.email);
-                            fetchAdminData();
-                          }}
-                          style={{
-                            background: '#10b981',
-                            border: 'none',
-                            color: '#fff',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
-                          }}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleRejectCoach(coach)}
-                          style={{
-                            background: 'var(--danger)',
-                            border: 'none',
-                            color: '#fff',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 4px rgba(239,68,68,0.3)'
-                          }}
-                        >
-                          Reject
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {/* Coaches Table Card */}
           <div className="glass-panel" style={{
             background: 'var(--bg-card)',
@@ -1146,7 +1092,7 @@ const TrainerDashboard = ({ handleLogout }) => {
             padding: '16px',
             overflowX: 'auto'
           }}>
-            <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Coaches Directory</h5>
+            <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
 
             {loadingAdmin ? (
               <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
@@ -1159,14 +1105,14 @@ const TrainerDashboard = ({ handleLogout }) => {
                 <p>No coach profiles exist on the platform.</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '620px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
                     <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach</th>
                     <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Brand</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Joined</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Experience</th>
                     <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Clients</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Subscription</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Access</th>
                     <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
@@ -1180,8 +1126,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                         </div>
                       </td>
                       <td style={{ padding: '8px', fontSize: '0.8rem' }}>{coach.brand}</td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        {new Date(coach.signup_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      <td style={{ padding: '8px', fontSize: '0.8rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        {(coach.experienceYears ?? null) !== null ? `${coach.experienceYears} yrs` : '—'}
                       </td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
                         <button
@@ -1204,30 +1150,34 @@ const TrainerDashboard = ({ handleLogout }) => {
                           borderRadius: '12px',
                           fontSize: '0.7rem',
                           fontWeight: 700,
-                          background: coach.payment_status === 'active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                          color: coach.payment_status === 'active' ? '#10b981' : 'var(--danger)',
-                          border: `1px solid ${coach.payment_status === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                          background: coach.isBlocked ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                          color: coach.isBlocked ? 'var(--danger)' : '#10b981',
+                          border: `1px solid ${coach.isBlocked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
                         }}>
-                          {coach.payment_status === 'active' ? 'Active' : 'Inactive'}
+                          {coach.isBlocked ? 'Blocked' : 'Active'}
                         </span>
                       </td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleToggleCoachPayment(coach)}
-                          style={{
-                            background: coach.payment_status === 'active' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            border: `1px solid ${coach.payment_status === 'active' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
-                            color: coach.payment_status === 'active' ? 'var(--danger)' : '#10b981',
-                            padding: '4px 10px',
-                            borderRadius: '4px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {coach.payment_status === 'active' ? 'Mark Inactive' : 'Mark Active'}
-                        </button>
+                        {coach.email && coach.email.toLowerCase() === 'subodhmankala@gmail.com' ? (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>—</span>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleCoachBlock(coach)}
+                            style={{
+                              background: coach.isBlocked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                              border: `1px solid ${coach.isBlocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                              color: coach.isBlocked ? '#10b981' : 'var(--danger)',
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {coach.isBlocked ? 'Unblock' : 'Block'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1304,7 +1254,7 @@ const TrainerDashboard = ({ handleLogout }) => {
             </div>
           )}
 
-          {/* All Users Table Card */}
+          {/* Clients Directory Card (platform-wide, includes unattached/generic clients) */}
           <div className="glass-panel" style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
@@ -1313,111 +1263,57 @@ const TrainerDashboard = ({ handleLogout }) => {
             overflowX: 'auto',
             marginTop: '20px'
           }}>
-            <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>All Users Directory</h5>
+            <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Clients ({filteredClients.length})</h5>
 
-            {loadingUsers ? (
+            {/* Goal filter pills (same as My Clients) */}
+            <div className="filter-tags" style={{ marginBottom: '14px' }}>
+              {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
+                <button
+                  key={goal}
+                  className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
+                  onClick={() => setGoalFilter(goal)}
+                >
+                  {goal}
+                </button>
+              ))}
+            </div>
+
+            {loadingClients ? (
               <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
                 <div className="trainer-spinner"></div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading users list...</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading clients list...</p>
               </div>
-            ) : allUsersList.length === 0 ? (
+            ) : filteredClients.length === 0 ? (
               <div className="trainer-empty-state">
-                <h5>No Users Found</h5>
-                <p>No registered user profiles exist on the platform.</p>
+                <h5>No Clients Found</h5>
+                <p>No client profiles match the current filter.</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '550px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '520px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>User / Email</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Role</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Verified</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Payment</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Joined</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Actions</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Name</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Goal</th>
+                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Coach</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {allUsersList.map(u => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
-                      <td style={{ padding: '8px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{u.full_name || u.userName || 'Warrior'}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{u.email}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          background: u.role === 'super-admin' || u.role === 'admin' 
-                            ? 'rgba(139, 92, 246, 0.12)' 
-                            : u.role === 'coach' 
-                            ? 'rgba(59, 130, 246, 0.12)' 
-                            : 'rgba(255, 255, 255, 0.08)',
-                          color: u.role === 'super-admin' || u.role === 'admin' 
-                            ? '#a78bfa' 
-                            : u.role === 'coach' 
-                            ? '#60a5fa' 
-                            : '#9ca3af',
-                          border: `1px solid ${
-                            u.role === 'super-admin' || u.role === 'admin' 
-                              ? 'rgba(139, 92, 246, 0.2)' 
-                              : u.role === 'coach' 
-                              ? 'rgba(59, 130, 246, 0.2)' 
-                              : 'rgba(255, 255, 255, 0.1)'
-                          }`
-                        }}>
-                          {(u.role || 'client').toUpperCase()}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center', fontSize: '0.9rem' }}>
-                        {u.verified ? '✅' : '❌'}
-                      </td>
+                  {filteredClients.map(client => (
+                    <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
+                      <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 600 }}>{client.userName}</td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{client.email}</td>
+                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{client.userGoal || '—'}</td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
                         <span style={{
-                          display: 'inline-block',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          background: u.payment_status === 'active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                          color: u.payment_status === 'active' ? '#10b981' : 'var(--danger)',
-                          border: `1px solid ${u.payment_status === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                          display: 'inline-block', padding: '3px 8px', borderRadius: '12px',
+                          fontSize: '0.68rem', fontWeight: 700,
+                          background: client.coach_id ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                          color: client.coach_id ? '#10b981' : 'var(--text-muted)',
+                          border: `1px solid ${client.coach_id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.2)'}`
                         }}>
-                          {(u.payment_status || 'active').toUpperCase()}
+                          {client.coach_id ? 'Attached' : 'Generic'}
                         </span>
-                      </td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        {(u.role === 'coach' || u.role === 'coach_pending') && !u.verified ? (
-                          <button
-                            onClick={async () => {
-                              await databaseService.approveCoach(u.email);
-                              fetchAdminData();
-                            }}
-                            style={{
-                              background: '#10b981',
-                              border: 'none',
-                              color: '#fff',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
-                            }}
-                          >
-                            Approve
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>-</span>
-                        )}
                       </td>
                     </tr>
                   ))}

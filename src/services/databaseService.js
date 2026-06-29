@@ -605,22 +605,12 @@ const databaseService = {
             .eq('user_id', user.id)
             .maybeSingle();
 
-          // Check if coach application exists
-          const { data: app } = await supabase
-            .from('coach_applications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('submitted_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
+          // No more coach approval/pending: any coaches row = an active coach.
           let activeRole = 'client';
           if (isSuperAdminEmail) {
             activeRole = 'super-admin';
           } else if (coach) {
-            activeRole = coach.status === 'approved' ? 'coach' : 'coach_pending';
-          } else if (app && app.status === 'pending') {
-            activeRole = 'coach_pending';
+            activeRole = 'coach';
           } else if (client) {
             activeRole = 'client';
           }
@@ -650,12 +640,13 @@ const databaseService = {
             userCarbsTarget: client?.carbs_target ? String(client.carbs_target) : '',
             userFatsTarget: client?.fats_target ? String(client.fats_target) : '',
             role: activeRole,
-            phone: client?.phone_number || app?.phone_number || '',
+            phone: client?.phone_number || '',
             brand: coach?.brand_name || 'Fit Engineers',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
             userClientId: client?.id || null,
+            coachIsBlocked: coach?.is_blocked === true,
             program: client?.program || null,
             primaryConcern: client?.primary_concern || null,
             primary_concern: client?.primary_concern || null,
@@ -677,19 +668,16 @@ const databaseService = {
       const userId = mUser?.id || 'mock-admin-uid';
       const mockCoaches = this.getMockTable('coaches');
       const mockClients = this.getMockTable('clients');
-      const mockApps = this.getMockTable('coach_applications');
 
       const mCoach = mockCoaches.find(c => c.user_id === userId);
       const mClient = mockClients.find(c => c.user_id === userId);
-      const mApp = mockApps.find(a => a.user_id === userId);
 
+      // No more coach approval/pending: any coaches row = an active coach.
       let activeRole = 'client';
       if (isSuperAdminEmail) {
         activeRole = 'super-admin';
       } else if (mCoach) {
-        activeRole = mCoach.status === 'approved' ? 'coach' : 'coach_pending';
-      } else if (mApp && mApp.status === 'pending') {
-        activeRole = 'coach_pending';
+        activeRole = 'coach';
       } else if (mClient) {
         activeRole = 'client';
       }
@@ -717,12 +705,13 @@ const databaseService = {
         userCarbsTarget: mClient?.carbs_target ? String(mClient.carbs_target) : '',
         userFatsTarget: mClient?.fats_target ? String(mClient.fats_target) : '',
         role: activeRole,
-        phone: mClient?.phone_number || mApp?.phone_number || '',
+        phone: mClient?.phone_number || '',
         brand: mCoach?.brand_name || 'Fit Engineers',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
         userClientId: mClient?.id || null,
+        coachIsBlocked: mCoach?.is_blocked === true,
         program: mClient?.program || null,
         primaryConcern: mClient?.primary_concern || null,
         primary_concern: mClient?.primary_concern || null,
@@ -1465,7 +1454,7 @@ const databaseService = {
         // so filtering users by role='coach' was excluding them from this list entirely.
         const { data, error } = await supabase
           .from('coaches')
-          .select('user_id, brand_name, status, created_at, users(id, email, full_name, payment_status, created_at)')
+          .select('user_id, brand_name, status, experience_years, is_blocked, created_at, users(id, email, full_name, payment_status, created_at)')
           .eq('status', 'approved')
           .order('created_at', { ascending: true });
 
@@ -1488,6 +1477,8 @@ const databaseService = {
               email: coach.users?.email || '',
               brand: coach.brand_name || 'Fit Engineers',
               payment_status: coach.users?.payment_status || 'active',
+              experienceYears: coach.experience_years ?? null,
+              isBlocked: coach.is_blocked === true,
               signup_date: coach.created_at || coach.users?.created_at || new Date().toISOString(),
               clientsCount: clients.length
             };
@@ -1718,79 +1709,84 @@ const databaseService = {
     return { totalWorkoutsLoggedThisWeek, totalActiveClients };
   },
 
-  // ─── COACH APPLICATIONS & INVITES ───
-  async submitCoachApplication(applicationData) {
-    const { email, name, certifications, experience, specialization, socialMedia, location } = applicationData;
-    let userId = null;
-
+  // ─── COACH REGISTRATION & INVITES ───
+  // Creates a real credentialed coach account (email + password) and an
+  // immediately-approved coaches row — no admin approval / pending step.
+  // Mirrors the client email-signup pattern: if Supabase requires email
+  // confirmation, signUp returns no session; the caller shows the "confirm
+  // your email" message and the coach logs in once confirmed. Returns
+  // { session, userId } so the caller can branch on confirmation state.
+  async registerCoach({ email, name, password, experience, brand }) {
     if (isSupabaseConfigured && supabase) {
-      try {
-        // Check if user exists in users table
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-
-        if (existingUser) {
-          userId = existingUser.id;
-        } else {
-          // Insert into users
-          const { data: newUser, error: userError } = await supabase
-            .from('users')
-            .insert({
-              email: email
-            })
-            .select()
-            .single();
-          if (userError) throw userError;
-          userId = newUser.id;
-        }
-
-        // Insert coach application
-        const { error: appError } = await supabase
-          .from('coach_applications')
-          .insert({
-            user_id: userId,
-            full_name: name,
-            phone_number: applicationData.phone || '',
-            experience_notes: experience || '',
-            status: 'pending'
-          });
-        if (appError) throw appError;
-      } catch (err) {
-        console.error('Cloud DB Coach Application Submit Error:', err);
-        throw new Error(err.message || 'Database error occurred while submitting application.');
+      const signUpResult = await this.signUp(email, password);
+      const userId = signUpResult?.user?.id;
+      if (!userId) {
+        throw new Error('Could not create your coach account. Please try again.');
       }
+
+      // Ensure the public.users row exists (id mirrors auth.users.id) with coach role.
+      const { error: userErr } = await supabase
+        .from('users')
+        .upsert({ id: userId, email, full_name: name, role: 'coach' }, { onConflict: 'id' });
+      if (userErr) console.warn('Cloud DB: could not sync coach users row:', userErr);
+
+      // Create the approved coaches row carrying experience + brand.
+      const expYears = parseInt(experience, 10);
+      const { error: coachErr } = await supabase
+        .from('coaches')
+        .upsert({
+          user_id: userId,
+          status: 'approved',
+          brand_name: brand || `${name} Fitness`,
+          experience_years: Number.isFinite(expYears) ? expYears : null,
+          is_blocked: false
+        }, { onConflict: 'user_id' });
+      if (coachErr) throw new Error(coachErr.message || 'Could not save your coach profile.');
+
+      return { session: signUpResult?.session || null, userId };
     }
 
-    // Mock Database Update
+    // Mock fallback
     const mockUsers = this.getMockTable('users');
     let mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (!mUser) {
-      mUser = { id: `mock-uid-${Date.now()}`, email, auth_provider: 'email' };
+      mUser = { id: `mock-uid-${Date.now()}`, email, auth_provider: 'email', password_hash: password };
       mockUsers.push(mUser);
-      this.saveMockTable('users', mockUsers);
+    } else {
+      mUser.password_hash = password;
     }
-    userId = mUser.id;
+    this.saveMockTable('users', mockUsers);
 
-    const mockApps = this.getMockTable('coach_applications');
-    const newApp = {
-      id: `app-id-${Date.now()}`,
-      user_id: userId,
-      full_name: name,
-      phone_number: applicationData.phone || '',
-      experience_notes: experience || '',
-      status: 'pending',
-      submitted_at: new Date().toISOString()
-    };
-    mockApps.push(newApp);
-    this.saveMockTable('coach_applications', mockApps);
+    const mockCoaches = this.getMockTable('coaches');
+    if (!mockCoaches.find(c => c.user_id === mUser.id)) {
+      const expYears = parseInt(experience, 10);
+      mockCoaches.push({
+        id: `coach-${Date.now()}`,
+        user_id: mUser.id,
+        status: 'approved',
+        brand_name: brand || `${name} Fitness`,
+        experience_years: Number.isFinite(expYears) ? expYears : null,
+        is_blocked: false
+      });
+      this.saveMockTable('coaches', mockCoaches);
+    }
+    return { session: { mock: true }, userId: mUser.id };
+  },
 
-    localStorage.setItem('userEmail', email);
-    localStorage.setItem('userName', name);
-    localStorage.setItem('userRole', 'coach_pending');
-    localStorage.setItem('userId', userId);
+  // Super-admin: block or unblock a coach by their user_id. Enforced at login.
+  async setCoachBlocked(coachUserId, blocked) {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('coaches')
+        .update({ is_blocked: blocked })
+        .eq('user_id', coachUserId);
+      if (error) throw new Error(error.message || 'Could not update coach block status.');
+      return true;
+    }
+    const mockCoaches = this.getMockTable('coaches');
+    const c = mockCoaches.find(mc => mc.user_id === coachUserId);
+    if (c) { c.is_blocked = blocked; this.saveMockTable('coaches', mockCoaches); }
+    return true;
   },
 
   async getPendingCoachApplications() {

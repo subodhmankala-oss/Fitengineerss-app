@@ -365,8 +365,10 @@ function App() {
         console.log("Login successful. Role found: " + (profile?.role || 'none'));
         const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
 
-        // Block unapproved coaches
-        if (profile && (profile.role === 'coach_pending' || (profile.role === 'coach' && profile.verified !== true)) && !isSuperAdminEmail) {
+        // Coach access suspended by the super admin (malpractice block).
+        // Enforced centrally so it applies on every login/refresh, not just the
+        // coach login form. Super admin can never block themselves out.
+        if (profile && profile.role === 'coach' && profile.coachIsBlocked === true && !isSuperAdminEmail) {
           localStorage.removeItem('pendingCoachLogin');
           await databaseService.signOut();
           clearLocalStoragePreservingChats();
@@ -374,7 +376,7 @@ function App() {
           setUserRole('');
           setOnboardingComplete(false);
           lastProcessedEmailRef.current = '';
-          alert("Your coach application is pending review. Access is blocked until approved by Fitengineers Team.");
+          alert("Your coach access has been suspended. Please contact the Fitengineers team.");
           return;
         }
 

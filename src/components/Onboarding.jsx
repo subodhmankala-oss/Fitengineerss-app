@@ -442,6 +442,17 @@ const Onboarding = ({ onComplete }) => {
           await databaseService.signIn(authEmail, authPassword);
           signInSuccess = true;
         } catch (signInErr) {
+          // Coach hasn't confirmed their email yet — offer a resend, same as clients.
+          if ((signInErr.message || '').toLowerCase().includes('email not confirmed')) {
+            try {
+              await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
+              setAuthSuccessMsg(`Your email isn't confirmed yet. We've resent a confirmation link to ${authEmail} — click it, then log in again.`);
+            } catch (resendErr) {
+              setAuthSuccessMsg(`Your email isn't confirmed yet. Please check your inbox for the confirmation link, then log in again.`);
+            }
+            setAuthLoading(false);
+            return;
+          }
           console.warn("Supabase Coach Sign In failed, checking mock password fallback:", signInErr);
           const mockUsers = databaseService.getMockTable('users');
           const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
@@ -513,38 +524,19 @@ const Onboarding = ({ onComplete }) => {
           }, authEmail);
           onComplete();
         } else if (coachRecord) {
-          if (coachRecord.status === 'approved') {
-            await databaseService.loadProfileIntoLocalStorage({
-              ...profile,
-              role: 'coach',
-              userCoachId: coachRecord.id
-            }, authEmail);
-            onComplete();
-          } else if (coachRecord.status === 'pending') {
-            throw new Error('Your application is still under review.');
-          } else {
-            throw new Error('Your application has been rejected.');
+          // Super admin can block a coach for malpractice — deny access here.
+          if (coachRecord.is_blocked === true) {
+            try { await databaseService.signOut(); } catch (e) { /* */ }
+            throw new Error('Your coach access has been suspended. Please contact the Fitengineers team.');
           }
+          await databaseService.loadProfileIntoLocalStorage({
+            ...profile,
+            role: 'coach',
+            userCoachId: coachRecord.id
+          }, authEmail);
+          onComplete();
         } else {
-          // Check if coach application exists
-          const mockApps = databaseService.getMockTable('coach_applications');
-          let appRecord = null;
-          if (isSupabaseConfigured && databaseService.supabase) {
-            const { data } = await databaseService.supabase
-              .from('coach_applications')
-              .select('*')
-              .eq('user_id', profile.id)
-              .maybeSingle();
-            appRecord = data;
-          } else {
-            appRecord = mockApps.find(a => a.user_id === profile.id);
-          }
-
-          if (appRecord && appRecord.status === 'pending') {
-            throw new Error('Your application is still under review.');
-          } else {
-            throw new Error('No coach account found. Apply now to get started.');
-          }
+          throw new Error('No coach account found. Sign up to get started.');
         }
       }
     } catch (err) {
@@ -893,33 +885,45 @@ const Onboarding = ({ onComplete }) => {
               ← Back to Login
             </button>
             
-            <h2 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '22px', fontWeight: 800 }}>Apply to be a Coach</h2>
-            <p style={{ margin: '0 0 20px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '14px' }}>Join our coaching network and start managing clients</p>
-            
+            <h2 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '22px', fontWeight: 800 }}>Coach Sign Up</h2>
+            <p style={{ margin: '0 0 20px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '14px' }}>Create your coach account and start managing clients</p>
+
             <form onSubmit={async (e) => {
               e.preventDefault();
+              setAuthError('');
+              setAuthSuccessMsg('');
               setAuthLoading(true);
               try {
                 const formData = new FormData(e.target);
                 const email = formData.get('email');
                 const name = formData.get('name');
-                await databaseService.submitCoachApplication({
-                  name: name,
-                  email: email,
-                  certifications: formData.get('certifications'),
+                const password = formData.get('password');
+                const result = await databaseService.registerCoach({
+                  name,
+                  email,
+                  password,
                   experience: formData.get('experience'),
-                  specialization: formData.get('specialization'),
-                  socialMedia: formData.get('social'),
-                  location: formData.get('location')
+                  brand: formData.get('specialization')
                 });
                 localStorage.removeItem('pendingCoachApply');
+                if (!result?.session) {
+                  // Email confirmation required (same gate as clients). Don't enter
+                  // the dashboard yet — coach confirms, then logs in.
+                  setAuthSuccessMsg(`Coach account created! We've sent a confirmation link to ${email}. Click it, then log in as a coach.`);
+                  setAuthTab('login');
+                  setUserType('coach');
+                  return;
+                }
+                // Auto-confirmed (confirmation disabled): go straight in.
+                const profile = await databaseService.getUserProfileByEmail(email);
+                if (profile) await databaseService.loadProfileIntoLocalStorage(profile, email);
                 localStorage.setItem('onboardingComplete', 'true');
-                alert('Application submitted successfully! Redirecting to Dashboard.');
                 onComplete();
               } catch(err) {
                 setAuthError(err.message);
+              } finally {
+                setAuthLoading(false);
               }
-              setAuthLoading(false);
             }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {authError && <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#fecaca', fontSize: '0.78rem' }}>{authError}</div>}
               
@@ -930,9 +934,14 @@ const Onboarding = ({ onComplete }) => {
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Email Address</label>
-                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!localStorage.getItem('userEmail')} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }} required />
+                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!localStorage.getItem('userEmail')} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
-              
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
+                <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Certifications (e.g. NASM, ACE)</label>
                 <input name="certifications" type="text" placeholder="NASM, ACE, etc" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '0.85rem', outline: 'none' }} required />
@@ -959,7 +968,7 @@ const Onboarding = ({ onComplete }) => {
               </div>
               
               <button type="submit" disabled={authLoading} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)', transition: 'all 0.2s ease' }}>
-                {authLoading ? 'Submitting...' : 'Submit Application'}
+                {authLoading ? 'Creating account...' : 'Create Coach Account'}
               </button>
             </form>
             
@@ -1379,7 +1388,7 @@ const Onboarding = ({ onComplete }) => {
                       }}
                       style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >
-                      Apply Now
+                      Sign up
                     </button>
                   </p>
                 </form>

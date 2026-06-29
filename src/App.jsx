@@ -1197,17 +1197,23 @@ function App() {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
+                  // Recovery sign-in is active, so a plain close would drop the user
+                  // into the dashboard/wizard. Sign out and return to the login screen
+                  // for a clean exit back to sign in / coach sign up.
                   setShowResetPasswordModal(false);
                   setNewResetPassword('');
                   setResetPasswordError('');
+                  try { await databaseService.signOut(); } catch (e) { /* */ }
+                  localStorage.clear();
+                  window.location.href = window.location.origin;
                 }}
                 style={{
                   background: 'none', border: 'none', color: '#9ca3af',
                   fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'center'
                 }}
               >
-                Cancel
+                Cancel & back to login
               </button>
             </form>
           )}
@@ -1218,6 +1224,18 @@ function App() {
 
   const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
   const isCoach = isTrainer(userEmail) || userRole === 'coach';
+
+  // A password-recovery link both opens the reset form AND establishes a session,
+  // so without this guard the session routing (onboarding wizard / dashboard) wins
+  // and the user never sees the reset form. Intercept it at the top level so the
+  // reset form always takes precedence, regardless of the account's role/onboarding.
+  if (showResetPasswordModal) {
+    return (
+      <div className="app-container">
+        {renderResetPasswordModal()}
+      </div>
+    );
+  }
 
   // Show onboarding wizard for new clients (before the main dashboard)
   if (showClientWizard && !isAdmin && !isCoach) {

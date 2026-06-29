@@ -17,6 +17,7 @@ import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
 import ResetPasswordPage from './components/ResetPasswordPage';
+import AuthConfirm from './components/AuthConfirm';
 import { isSuperAdmin } from './services/accessControl';
 import './index.css'; 
 
@@ -882,6 +883,14 @@ function App() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [onboardingComplete, notificationPermission]);
+
+  // PKCE / token_hash email-link flow. Links of the form
+  // /auth/confirm?token_hash=...&type=... are verified here client-side, which
+  // survives Gmail's link scanner (it does a plain GET and never runs this JS,
+  // so the one-time token isn't consumed before the human clicks).
+  if (window.location.pathname === '/auth/confirm') {
+    return <AuthConfirm />;
+  }
 
   // Expired / already-used auth link (Supabase puts the failure in the URL hash,
   // e.g. #error=access_denied&error_code=otp_expired). Without this, an expired

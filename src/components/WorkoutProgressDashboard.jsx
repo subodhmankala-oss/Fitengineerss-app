@@ -24,6 +24,19 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     const storedName = localStorage.getItem('userName');
     if (storedName) setUserName(storedName);
 
+    // Backfill the coach's name for clients who connected before this lookup
+    // existed — they have userCoachId but never got a userCoachName cached.
+    if (isLinkedToCoach && !coachName) {
+      const storedCoachId = localStorage.getItem('userCoachId');
+      if (storedCoachId) {
+        databaseService.getCoachNameById(storedCoachId).then(resolvedName => {
+          const displayName = resolvedName || storedCoachId;
+          localStorage.setItem('userCoachName', displayName);
+          setCoachName(displayName);
+        });
+      }
+    }
+
     const loadLogs = async () => {
       setLoading(true);
       try {
@@ -451,7 +464,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
           <button
             type="button"
             onClick={() => setShowConnectModal(true)}
-            title={isLinkedToCoach ? `Connected to Coach ${coachName || ''}` : 'Connect to coach'}
+            title={isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach'}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               background: isLinkedToCoach ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
@@ -461,7 +474,12 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
               cursor: 'pointer', whiteSpace: 'nowrap'
             }}
           >
-            {isLinkedToCoach ? `✅ ${coachName || 'Coach'}` : '🔗 Connect to coach'}
+            {isLinkedToCoach ? (
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.25 }}>
+                <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Coach:</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>{coachName || 'Coach'}</span>
+              </span>
+            ) : '🔗 Connect to coach'}
           </button>
           <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
             <span className="logout-icon">⚙️</span>
@@ -883,9 +901,15 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       {showConnectModal && (
         <ConnectCoachModal
           onClose={() => setShowConnectModal(false)}
-          onSuccess={(coachId) => {
+          onSuccess={async (coachId) => {
             localStorage.setItem('clientLinkedToCoach', 'true');
-            if (coachId) localStorage.setItem('userCoachId', coachId);
+            if (coachId) {
+              localStorage.setItem('userCoachId', coachId);
+              const resolvedName = await databaseService.getCoachNameById(coachId);
+              const displayName = resolvedName || coachId;
+              localStorage.setItem('userCoachName', displayName);
+              setCoachName(displayName);
+            }
             setIsLinkedToCoach(true);
             setShowConnectModal(false);
           }}

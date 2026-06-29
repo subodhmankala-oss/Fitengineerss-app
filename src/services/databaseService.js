@@ -934,6 +934,73 @@ const databaseService = {
     });
   },
 
+  // Used by the Platform Admin "Coaches Directory" drill-down. Deliberately
+  // mirrors getAllUsers()'s coach-filtered query exactly (same table, same
+  // coach_id equality, same field mapping) so the admin view and a coach's
+  // own "My Clients" list can never disagree about who's attached to whom.
+  async getClientsForCoach(coachId) {
+    if (!coachId) return [];
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*, users!clients_user_id_fkey(email)')
+          .eq('coach_id', coachId);
+
+        if (error) throw error;
+        if (data) {
+          return data.map(c => ({
+            id: c.user_id,
+            client_id: c.id,
+            email: c.users?.email || '',
+            userName: c.full_name,
+            userAge: String(c.age || ''),
+            userHeight: String(c.height_cm || ''),
+            userWeight: String(c.weight_kg || ''),
+            userActivity: c.activity_level || '',
+            userGoal: c.fitness_goal || '',
+            userDiet: c.dietary_preference || '',
+            userCalorieTarget: String(c.calorie_target || ''),
+            userProteinTarget: String(c.protein_target || ''),
+            userCarbsTarget: String(c.carbs_target || ''),
+            userFatsTarget: String(c.fats_target || ''),
+            role: 'client',
+            phone: c.phone_number,
+            coach_id: c.coach_id
+          }));
+        }
+      } catch (e) {
+        console.error('Cloud DB Fetch clients for coach error:', e);
+      }
+    }
+
+    const mockClients = this.getMockTable('clients');
+    const mockUsers = this.getMockTable('users');
+    return mockClients.filter(c => c.coach_id === coachId).map(c => {
+      const u = mockUsers.find(user => user.id === c.user_id);
+      return {
+        id: c.user_id,
+        client_id: c.id,
+        email: u?.email || '',
+        userName: c.full_name,
+        userAge: String(c.age || ''),
+        userHeight: String(c.height_cm || ''),
+        userWeight: String(c.weight_kg || ''),
+        userActivity: c.activity_level || '',
+        userGoal: c.fitness_goal || '',
+        userDiet: c.dietary_preference || '',
+        userCalorieTarget: String(c.calorie_target || ''),
+        userProteinTarget: String(c.protein_target || ''),
+        userCarbsTarget: String(c.carbs_target || ''),
+        userFatsTarget: String(c.fats_target || ''),
+        role: 'client',
+        phone: c.phone_number,
+        coach_id: c.coach_id
+      };
+    });
+  },
+
   async getWorkoutLogsForUser(userId) {
     if (isSupabaseConfigured && supabase) {
       try {
@@ -1373,6 +1440,23 @@ const databaseService = {
   },
 
   // ─── MULTI-COACH & SUPER ADMIN METHODS ───
+  // Resolves a coach's display name for client-facing UI (e.g. "Coach: [Name]"
+  // after a successful invite-code connection). Prefers the coach's own account
+  // name over their business/brand name, since "actual name" was the ask;
+  // returns null (caller falls back to the raw coach_id) if neither exists.
+  async getCoachNameById(coachId) {
+    if (!coachId || !isSupabaseConfigured || !supabase) return null;
+    try {
+      const { data: userRow } = await supabase.from('users').select('full_name').eq('id', coachId).maybeSingle();
+      if (userRow?.full_name) return userRow.full_name;
+      const { data: coachRow } = await supabase.from('coaches').select('brand_name').eq('user_id', coachId).maybeSingle();
+      return coachRow?.brand_name || null;
+    } catch (e) {
+      console.error('[getCoachNameById] error:', e);
+      return null;
+    }
+  },
+
   async getAllCoaches() {
     if (isSupabaseConfigured && supabase) {
       try {

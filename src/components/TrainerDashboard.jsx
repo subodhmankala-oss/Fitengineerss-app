@@ -217,6 +217,25 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [allUsersList, setAllUsersList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
+  // Platform Admin: drill-down into a specific coach's actual client list
+  const [drilldownCoach, setDrilldownCoach] = useState(null);
+  const [drilldownClients, setDrilldownClients] = useState([]);
+  const [loadingDrilldown, setLoadingDrilldown] = useState(false);
+
+  const handleViewCoachClients = async (coach) => {
+    setDrilldownCoach(coach);
+    setLoadingDrilldown(true);
+    try {
+      const clients = await databaseService.getClientsForCoach(coach.id);
+      setDrilldownClients(clients || []);
+    } catch (e) {
+      console.error('Error fetching clients for coach:', e);
+      setDrilldownClients([]);
+    } finally {
+      setLoadingDrilldown(false);
+    }
+  };
+
   if (userRole === 'coach_pending' && !superAdmin) {
     return (
       <div className="trainer-dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
@@ -1164,8 +1183,19 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                         {new Date(coach.signup_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
-                      <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 700, textAlign: 'center' }}>
-                        {coach.clientsCount}
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleViewCoachClients(coach)}
+                          title="View this coach's clients"
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary-accent-light)',
+                            textDecoration: 'underline', padding: 0
+                          }}
+                        >
+                          {coach.clientsCount}
+                        </button>
                       </td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
                         <span style={{
@@ -1205,6 +1235,74 @@ const TrainerDashboard = ({ handleLogout }) => {
               </table>
             )}
           </div>
+
+          {/* Coach Client Drill-down Modal */}
+          {drilldownCoach && (
+            <div
+              style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+              }}
+              onClick={() => setDrilldownCoach(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                  borderRadius: '14px', padding: '20px', maxWidth: '600px', width: '100%',
+                  maxHeight: '80vh', overflowY: 'auto'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>{drilldownCoach.name}'s Clients</h4>
+                  <button
+                    type="button"
+                    onClick={() => setDrilldownCoach(null)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer' }}
+                  >✕</button>
+                </div>
+                <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{drilldownCoach.email}</p>
+
+                {loadingDrilldown ? (
+                  <div className="trainer-loading-container" style={{ padding: '30px 0' }}>
+                    <div className="trainer-spinner"></div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading clients...</p>
+                  </div>
+                ) : drilldownClients.length === 0 ? (
+                  <div className="trainer-empty-state">
+                    <h5>No Clients Yet</h5>
+                    <p>This coach has no clients attached via invite code yet.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {drilldownClients.map(client => (
+                      <div
+                        key={client.id}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)',
+                          borderRadius: '10px', padding: '10px 14px'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{client.userName}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{client.email}</div>
+                        </div>
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-accent-light)',
+                          background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
+                          borderRadius: '12px', padding: '3px 10px'
+                        }}>
+                          {client.userGoal || 'No goal set'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* All Users Table Card */}
           <div className="glass-panel" style={{

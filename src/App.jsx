@@ -455,6 +455,23 @@ function App() {
         }
         
         if (!isApprovedCoach) {
+          // Race guard: this handler awaited getUserProfileByEmail above, and during
+          // that await the coach login form can finish (loadProfileIntoLocalStorage +
+          // onComplete), authoritatively storing userRole='coach'. Our awaited fetch may
+          // still report 'client' (RLS/session propagation lag on the coaches read), so
+          // re-read the LIVE role here and refuse to clobber a coach the form just logged
+          // in — otherwise this branch's setShowClientWizard(true) runs last and wins.
+          const liveRole = localStorage.getItem('userRole') || '';
+          if (liveRole === 'coach' || liveRole === 'super-admin' || liveRole === 'admin') {
+            localStorage.setItem('onboardingComplete', 'true');
+            localStorage.setItem('onboardingCompleted', 'true');
+            setUserRole(liveRole);
+            setUserEmail(email);
+            setOnboardingComplete(true);
+            setShowClientWizard(false);
+            return;
+          }
+
           // It's a client user! Route straight to dashboard.
           // First, check if client row exists. If not, create with coach_id = null and defaults.
           let clientProfile = profile;

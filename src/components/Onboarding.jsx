@@ -897,7 +897,10 @@ const Onboarding = ({ onComplete }) => {
                   email,
                   password,
                   experience: formData.get('experience'),
-                  brand: formData.get('specialization')
+                  brand: formData.get('specialization'),
+                  certifications: formData.get('certifications'),
+                  social: formData.get('social'),
+                  location: formData.get('location')
                 });
                 localStorage.removeItem('pendingCoachApply');
                 if (!result?.session) {

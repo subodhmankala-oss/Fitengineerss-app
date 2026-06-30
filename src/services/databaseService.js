@@ -1716,7 +1716,7 @@ const databaseService = {
   // confirmation, signUp returns no session; the caller shows the "confirm
   // your email" message and the coach logs in once confirmed. Returns
   // { session, userId } so the caller can branch on confirmation state.
-  async registerCoach({ email, name, password, experience, brand }) {
+  async registerCoach({ email, name, password, experience, brand, certifications, social, location }) {
     if (isSupabaseConfigured && supabase) {
       const signUpResult = await this.signUp(email, password);
       const userId = signUpResult?.user?.id;
@@ -1730,7 +1730,7 @@ const databaseService = {
         .upsert({ id: userId, email, full_name: name, role: 'coach' }, { onConflict: 'id' });
       if (userErr) console.warn('Cloud DB: could not sync coach users row:', userErr);
 
-      // Create the approved coaches row carrying experience + brand.
+      // Create the approved coaches row with all profile fields.
       const expYears = parseInt(experience, 10);
       const { error: coachErr } = await supabase
         .from('coaches')
@@ -1739,7 +1739,10 @@ const databaseService = {
           status: 'approved',
           brand_name: brand || `${name} Fitness`,
           experience_years: Number.isFinite(expYears) ? expYears : null,
-          is_blocked: false
+          is_blocked: false,
+          certifications: certifications || null,
+          social_media_handle: social || null,
+          location_city: location || null
         }, { onConflict: 'user_id' });
       if (coachErr) throw new Error(coachErr.message || 'Could not save your coach profile.');
 

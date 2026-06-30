@@ -101,7 +101,7 @@ const databaseService = {
 
   // ─── USER PROFILE ───
   async saveUserProfile(profile) {
-    const email = profile.email || `${profile.userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`;
+    const email = (profile.email || `${profile.userName.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`).trim().toLowerCase();
     let userId = profile.id || localStorage.getItem('userId');
     if (isSupabaseConfigured && supabase && userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
       // Stale/mock id from an earlier offline fallback — don't let it leak into a live cloud session.
@@ -463,6 +463,9 @@ const databaseService = {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
     }
+    // Normalize email casing so we never create case-variant duplicate identities
+    // (e.g. Foo@x.com vs foo@x.com) that split a person across two profile rows.
+    email = (email || '').trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     return data;
@@ -472,6 +475,7 @@ const databaseService = {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
     }
+    email = (email || '').trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
@@ -506,7 +510,7 @@ const databaseService = {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
     }
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { data, error } = await supabase.auth.resetPasswordForEmail((email || '').trim().toLowerCase(), {
       redirectTo: window.location.origin
     });
     if (error) throw error;
@@ -578,7 +582,10 @@ const databaseService = {
 
   async getUserProfileByEmail(email) {
     if (!email) return null;
-    const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
+    // Look up by normalized email so a case-variant (Foo@x.com) resolves to the same
+    // profile as foo@x.com instead of missing and spawning a duplicate.
+    email = email.trim().toLowerCase();
+    const isSuperAdminEmail = email === 'subodhmankala@gmail.com';
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -1717,6 +1724,7 @@ const databaseService = {
   // your email" message and the coach logs in once confirmed. Returns
   // { session, userId } so the caller can branch on confirmation state.
   async registerCoach({ email, name, password, experience, brand, certifications, social, location }) {
+    email = (email || '').trim().toLowerCase();
     if (isSupabaseConfigured && supabase) {
       const signUpResult = await this.signUp(email, password);
       const userId = signUpResult?.user?.id;

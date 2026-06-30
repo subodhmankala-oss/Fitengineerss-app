@@ -351,17 +351,19 @@ const Onboarding = ({ onComplete }) => {
             }
             // auth.users.id (from signUp) is not the id the rest of the schema keys off of —
             // public.users.id is generated independently, so resolve/create that row by email.
+            // Normalize casing so we don't create a case-variant duplicate of an existing row.
+            const normalizedEmail = authEmail.trim().toLowerCase();
             const { data: existingUser } = await databaseService.supabase
               .from('users')
               .select('id')
-              .eq('email', authEmail)
+              .eq('email', normalizedEmail)
               .maybeSingle();
             if (existingUser) {
               newUserId = existingUser.id;
             } else {
               const { data: createdUser, error: createUserError } = await databaseService.supabase
                 .from('users')
-                .insert({ email: authEmail })
+                .insert({ email: normalizedEmail })
                 .select()
                 .single();
               if (createUserError) throw createUserError;

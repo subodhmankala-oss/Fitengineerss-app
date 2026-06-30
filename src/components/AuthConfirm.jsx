@@ -72,6 +72,14 @@ const AuthConfirm = () => {
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.msg || data.error_description || data.error || 'Failed to update password.');
+
+      // Sign out the recovery session so the app redirects to login, not the wizard
+      await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${accessToken}` }
+      }).catch(() => {});
+      localStorage.clear();
+
       setStatus('success');
       setTimeout(() => { window.location.href = window.location.origin; }, 1500);
     } catch (err) {

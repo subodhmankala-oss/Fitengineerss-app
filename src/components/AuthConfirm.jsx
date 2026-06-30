@@ -17,17 +17,19 @@ const card = {
 
 const AuthConfirm = () => {
   const params = new URLSearchParams(window.location.search);
-  const token_hash = params.get('token_hash');
+  // Support both {{ .Token }} (GET flow) and {{ .TokenHash }} (legacy)
+  const token = params.get('token') || params.get('token_hash');
   const type = params.get('type');
 
-  const isValid = !!(token_hash && type);
+  const isValid = !!(token && type);
 
   const handleContinue = () => {
     if (!isValid) return;
-    // Build the Supabase verify URL; redirect_to brings us back to app root so
-    // onAuthStateChange fires (PASSWORD_RECOVERY → shows reset-password modal).
+    // GET /auth/v1/verify with `token` param — Supabase processes and redirects back.
+    // redirect_to brings us back to app root so onAuthStateChange fires
+    // (PASSWORD_RECOVERY event → shows reset-password modal).
     const redirectTo = window.location.origin;
-    const url = `${SUPABASE_URL}/auth/v1/verify?token_hash=${encodeURIComponent(token_hash)}&type=${encodeURIComponent(type)}&redirect_to=${encodeURIComponent(redirectTo)}`;
+    const url = `${SUPABASE_URL}/auth/v1/verify?token=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}&redirect_to=${encodeURIComponent(redirectTo)}`;
     window.location.href = url;
   };
 

@@ -516,6 +516,7 @@ const Onboarding = ({ onComplete }) => {
             role: 'super-admin',
             userCoachId: 'coach-subodh'
           }, authEmail);
+          localStorage.setItem('onboardingCompleted', 'true');
           onComplete();
         } else if (coachRecord) {
           // Super admin can block a coach for malpractice — deny access here.
@@ -528,6 +529,7 @@ const Onboarding = ({ onComplete }) => {
             role: 'coach',
             userCoachId: coachRecord.id
           }, authEmail);
+          localStorage.setItem('onboardingCompleted', 'true');
           onComplete();
         } else {
           throw new Error('No coach account found. Sign up to get started.');

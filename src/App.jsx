@@ -16,6 +16,19 @@ import TrainerDashboard from './components/TrainerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Extract recovery token from the URL hash set by Supabase's redirect.
+// Used directly in the password update fetch to bypass SDK session-management hangs.
+const getRecoveryTokenFromHash = () => {
+  const hash = window.location.hash;
+  if (/type=recovery/.test(hash) && /access_token=/.test(hash)) {
+    return new URLSearchParams(hash.substring(1)).get('access_token') || '';
+  }
+  return '';
+};
 import ResetPasswordPage from './components/ResetPasswordPage';
 import AuthConfirm from './components/AuthConfirm';
 import { isSuperAdmin } from './services/accessControl';
@@ -336,6 +349,9 @@ function App() {
     const hash = window.location.hash;
     return /type=recovery/.test(hash) && /access_token=/.test(hash);
   });
+  // Capture the recovery access token at init so the form can use it directly via
+  // raw fetch — the Supabase SDK's updateUser hangs on this project for unknown reasons.
+  const [recoveryAccessToken] = useState(() => getRecoveryTokenFromHash());
   const [newResetPassword, setNewResetPassword] = useState('');
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
@@ -1199,13 +1215,27 @@ function App() {
               setResetPasswordLoading(true);
               setResetPasswordError('');
               try {
-                await databaseService.updatePassword(newResetPassword);
+                // Use raw fetch with the access token from the URL hash — the Supabase SDK's
+                // updateUser/auth endpoints hang on this project, so we bypass them entirely.
+                const token = recoveryAccessToken;
+                if (!token) throw new Error('Recovery session expired. Please request a new reset email.');
+                const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ password: newResetPassword })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.msg || data.error_description || data.error || 'Failed to update password.');
                 setResetPasswordSuccess(true);
                 setTimeout(() => {
                   setShowResetPasswordModal(false);
                   setNewResetPassword('');
                   setResetPasswordSuccess(false);
-                  window.location.reload();
+                  window.location.href = window.location.origin;
                 }, 2000);
               } catch (err) {
                 setResetPasswordError(err.message || 'Failed to update password.');

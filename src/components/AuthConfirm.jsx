@@ -1,14 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/databaseService';
+import React from 'react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Handles the PKCE / token_hash email-link flow:
-//   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup|recovery|...
-// The one-time token is only consumed when THIS code calls verifyOtp(), i.e. when a
-// real browser runs the JS — not on the plain GET that Gmail's link scanner performs.
-// That's what stops links from being "used up" before the human clicks them.
+// Gmail link-scanner protection:
+// The email points here (our SPA). Gmail does a plain GET → gets HTML, no JS executed.
+// The Supabase verify URL is only constructed when the user CLICKS the button,
+// so Gmail never sees it and cannot consume the one-time token.
 const panelWrap = {
   display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px',
   background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712'
@@ -19,145 +16,53 @@ const card = {
 };
 
 const AuthConfirm = () => {
-  // status: verifying | recovery | success | error
-  const [status, setStatus] = useState('verifying');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [saving, setSaving] = useState(false);
+  const params = new URLSearchParams(window.location.search);
+  const token_hash = params.get('token_hash');
+  const type = params.get('type');
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token_hash = params.get('token_hash');
-    const type = params.get('type');
+  const isValid = !!(token_hash && type);
 
-    if (!token_hash || !type) {
-      setStatus('error');
-      setErrorMsg('This link is missing its verification details. Please request a new email.');
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      setStatus('error');
-      setErrorMsg('Verification timed out. Please request a new link.');
-    }, 15000);
-
-    (async () => {
-      try {
-        // Use raw fetch instead of SDK verifyOtp to avoid flowType/PKCE hanging issues
-        const resp = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({ token_hash, type })
-        });
-
-        const data = await resp.json();
-        clearTimeout(timeout);
-
-        if (!resp.ok || data.error || data.error_code) {
-          throw new Error(data.msg || data.error_description || data.error || 'This link is invalid or has expired.');
-        }
-
-        // For recovery, Supabase returns access_token + refresh_token — set the session manually
-        if (data.access_token && data.refresh_token) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token
-          });
-          if (sessionError) throw sessionError;
-        }
-
-        if (type === 'recovery') {
-          setStatus('recovery');
-        } else {
-          setStatus('success');
-          setTimeout(() => { window.location.href = window.location.origin; }, 1200);
-        }
-      } catch (err) {
-        clearTimeout(timeout);
-        setStatus('error');
-        setErrorMsg(err.message || 'Something went wrong. Please request a new link.');
-      }
-    })();
-  }, []);
-
-  const handleSetPassword = async (e) => {
-    e.preventDefault();
-    if (newPassword.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
-      return;
-    }
-    setSaving(true);
-    setErrorMsg('');
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      setStatus('success');
-      setTimeout(() => { window.location.href = window.location.origin; }, 1200);
-    } catch (err) {
-      setErrorMsg(err.message || 'Could not update password. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const goToLogin = async () => {
-    try { await supabase.auth.signOut(); } catch (e) { /* */ }
-    localStorage.clear();
-    window.location.href = window.location.origin;
+  const handleContinue = () => {
+    if (!isValid) return;
+    // Build the Supabase verify URL; redirect_to brings us back to app root so
+    // onAuthStateChange fires (PASSWORD_RECOVERY → shows reset-password modal).
+    const redirectTo = window.location.origin;
+    const url = `${SUPABASE_URL}/auth/v1/verify?token_hash=${encodeURIComponent(token_hash)}&type=${encodeURIComponent(type)}&redirect_to=${encodeURIComponent(redirectTo)}`;
+    window.location.href = url;
   };
 
   return (
     <div className="app-container" style={panelWrap}>
       <div style={card}>
-        {status === 'verifying' && (
+        {isValid ? (
           <>
-            <div style={{ fontSize: '2.2rem', marginBottom: '12px' }}>⏳</div>
-            <h2 style={{ color: '#fff', fontSize: '1.15rem', fontWeight: 800, marginBottom: '8px' }}>Verifying your link…</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>One moment.</p>
+            <div style={{ fontSize: '2.4rem', marginBottom: '14px' }}>🔒</div>
+            <h2 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '8px' }}>
+              {type === 'recovery' ? 'Reset your password' : 'Confirm your email'}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '24px' }}>
+              {type === 'recovery'
+                ? 'Click the button below to set a new password for your account.'
+                : 'Click the button below to confirm your email address.'}
+            </p>
+            <button
+              onClick={handleContinue}
+              style={{ width: '100%', padding: '13px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '1rem', cursor: 'pointer' }}
+            >
+              {type === 'recovery' ? 'Reset Password' : 'Confirm Email'}
+            </button>
           </>
-        )}
-
-        {status === 'success' && (
+        ) : (
           <>
-            <div style={{ fontSize: '2.2rem', marginBottom: '12px' }}>✅</div>
-            <h2 style={{ color: '#fff', fontSize: '1.15rem', fontWeight: 800, marginBottom: '8px' }}>All set!</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Taking you into the app…</p>
-          </>
-        )}
-
-        {status === 'recovery' && (
-          <>
-            <div style={{ fontSize: '2.2rem', marginBottom: '12px' }}>🔒</div>
-            <h2 style={{ color: '#fff', fontSize: '1.15rem', fontWeight: 800, marginBottom: '12px' }}>Set a new password</h2>
-            {errorMsg && (
-              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.8rem', marginBottom: '14px' }}>{errorMsg}</div>
-            )}
-            <form onSubmit={handleSetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input
-                type="password"
-                placeholder="New password (min 6 characters)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoFocus
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '11px 12px', color: '#fff', fontSize: '16px', outline: 'none' }}
-              />
-              <button type="submit" disabled={saving} style={{ padding: '12px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
-                {saving ? 'Saving…' : 'Update password'}
-              </button>
-            </form>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
-            <div style={{ fontSize: '2.2rem', marginBottom: '12px' }}>⏳</div>
-            <h2 style={{ color: '#fff', fontSize: '1.15rem', fontWeight: 800, marginBottom: '12px' }}>This link didn’t work</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '20px' }}>{errorMsg}</p>
-            <button onClick={goToLogin} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+            <div style={{ fontSize: '2.4rem', marginBottom: '14px' }}>⚠️</div>
+            <h2 style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 800, marginBottom: '8px' }}>Invalid link</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '20px' }}>
+              This link is missing required details. Please request a new email.
+            </p>
+            <button
+              onClick={() => { window.location.href = window.location.origin; }}
+              style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
+            >
               Back to login
             </button>
           </>

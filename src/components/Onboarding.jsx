@@ -394,26 +394,20 @@ const Onboarding = ({ onComplete }) => {
     setAuthError('');
     setForgotPasswordSuccessMsg('');
     setAuthLoading(true);
-    
+
     const confirmation = "If that email is registered, you'll receive a password reset link shortly.";
-    
+
     try {
       if (isSupabaseConfigured && databaseService.supabase) {
-        // Trigger Vercel Serverless API call
-        await fetch('/api/request-password-reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: authEmail })
-        });
+        // Use Supabase's built-in resetPasswordForEmail so the email template
+        // (which links to /auth/confirm?token=...&type=recovery) is what gets sent.
+        const { error } = await databaseService.supabase.auth.resetPasswordForEmail(
+          authEmail.trim().toLowerCase(),
+          { redirectTo: window.location.origin }
+        );
+        if (error) throw error;
         setForgotPasswordSuccessMsg(confirmation);
       } else {
-        // Local Storage Fallback
-        const mockToken = await databaseService.requestMockPasswordReset(authEmail);
-        if (mockToken) {
-          const localLink = `http://localhost:5173/reset-password?token=${mockToken}`;
-          console.log(`[DEBUG - LOCAL ONLY] Password reset link generated: ${localLink}`);
-          alert(`[DEVELOPER TESTING] Password Reset Link:\n${localLink}`);
-        }
         setForgotPasswordSuccessMsg(confirmation);
       }
     } catch (err) {

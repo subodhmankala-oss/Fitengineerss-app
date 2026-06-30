@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/databaseService';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 // Handles the PKCE / token_hash email-link flow:
 //   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup|recovery|...
 // The one-time token is only consumed when THIS code calls verifyOtp(), i.e. when a
@@ -36,17 +39,37 @@ const AuthConfirm = () => {
     const timeout = setTimeout(() => {
       setStatus('error');
       setErrorMsg('Verification timed out. Please request a new link.');
-    }, 10000);
+    }, 15000);
 
     (async () => {
       try {
-        const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+        // Use raw fetch instead of SDK verifyOtp to avoid flowType/PKCE hanging issues
+        const resp = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ token_hash, type })
+        });
+
+        const data = await resp.json();
         clearTimeout(timeout);
-        if (error) {
-          setStatus('error');
-          setErrorMsg(error.message || 'This link is invalid or has expired. Please request a new one.');
-          return;
+
+        if (!resp.ok || data.error || data.error_code) {
+          throw new Error(data.msg || data.error_description || data.error || 'This link is invalid or has expired.');
         }
+
+        // For recovery, Supabase returns access_token + refresh_token — set the session manually
+        if (data.access_token && data.refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token
+          });
+          if (sessionError) throw sessionError;
+        }
+
         if (type === 'recovery') {
           setStatus('recovery');
         } else {

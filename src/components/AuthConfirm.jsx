@@ -33,21 +33,30 @@ const AuthConfirm = () => {
       return;
     }
 
+    const timeout = setTimeout(() => {
+      setStatus('error');
+      setErrorMsg('Verification timed out. Please request a new link.');
+    }, 10000);
+
     (async () => {
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type });
-      if (error) {
+      try {
+        const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+        clearTimeout(timeout);
+        if (error) {
+          setStatus('error');
+          setErrorMsg(error.message || 'This link is invalid or has expired. Please request a new one.');
+          return;
+        }
+        if (type === 'recovery') {
+          setStatus('recovery');
+        } else {
+          setStatus('success');
+          setTimeout(() => { window.location.href = window.location.origin; }, 1200);
+        }
+      } catch (err) {
+        clearTimeout(timeout);
         setStatus('error');
-        setErrorMsg(error.message || 'This link is invalid or has expired. Please request a new one.');
-        return;
-      }
-      if (type === 'recovery') {
-        // Session is now active; let the user set a new password right here.
-        setStatus('recovery');
-      } else {
-        // Signup/email confirmation, magic link, etc. — session is established.
-        // Hand off to the app root, where the normal session routing takes over.
-        setStatus('success');
-        setTimeout(() => { window.location.href = window.location.origin; }, 1200);
+        setErrorMsg(err.message || 'Something went wrong. Please request a new link.');
       }
     })();
   }, []);

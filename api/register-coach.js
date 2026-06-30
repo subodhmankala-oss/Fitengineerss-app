@@ -34,6 +34,14 @@ export default async function handler(req, res) {
       options: { emailRedirectTo: `${process.env.VITE_APP_URL || 'https://fitengineerss-app.vercel.app'}/auth/confirm` }
     });
     if (signUpErr) throw new Error(signUpErr.message);
+
+    // Supabase returns a user with an EMPTY identities array when the email is already
+    // registered (enumeration protection) and sends no email. Don't silently attach a
+    // coach profile to a pre-existing account — reject clearly so they log in instead.
+    if (signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
+      return res.status(409).json({ error: 'This email is already registered. Please log in instead, or use "Forgot password?" to recover the account.' });
+    }
+
     const userId = signUpData?.user?.id;
     if (!userId) throw new Error('Could not create coach account. Please try again.');
 

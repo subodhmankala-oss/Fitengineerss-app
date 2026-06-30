@@ -339,6 +339,20 @@ const Onboarding = ({ onComplete }) => {
               }
               throw signUpErr;
             }
+            // Supabase returns a user with an EMPTY identities array when the email is
+            // already registered and confirmed (enumeration protection). Crucially, it
+            // does NOT send any confirmation email in that case — so without this guard
+            // we'd tell the user to wait for a link that never arrives. Send them to log
+            // in instead (or reset their password).
+            const alreadyRegistered =
+              signUpResult?.user &&
+              Array.isArray(signUpResult.user.identities) &&
+              signUpResult.user.identities.length === 0;
+            if (alreadyRegistered) {
+              setClientAuthMode('login');
+              setAuthError('This email is already registered — no new confirmation link is needed. Please log in below, or use "Forgot password?" if you don\'t remember your password.');
+              return;
+            }
             if (!signUpResult?.session) {
               // Confirmation required and pending — don't create any client/user
               // rows or treat this as a completed signup yet. Supabase's

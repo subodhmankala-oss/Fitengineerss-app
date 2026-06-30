@@ -1031,8 +1031,8 @@ function App() {
 
             // New user! Preserve onboarding keys but clear all old tracker data & monthly history
             const keysToKeep = [
-              'onboardingComplete', 'userName', 'userAge', 'userHeight', 'userWeight', 
-              'userActivity', 'userGoal', 'userIssue', 'userDiet', 
+              'onboardingComplete', 'onboardingCompleted', 'userName', 'userAge', 'userHeight', 'userWeight',
+              'userActivity', 'userGoal', 'userIssue', 'userDiet',
               'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget',
               'userEmail', 'rememberedEmail', 'rememberedPassword', 'lastUserName',
               'userRole', 'userPhone', 'userBrand', 'userPaymentStatus', 'userCoachId'
@@ -1093,10 +1093,11 @@ function App() {
           setUserEmail(localStorage.getItem('userEmail') || '');
           setUserRole(localStorage.getItem('userRole') || 'client');
           setOnboardingComplete(true);
-          // Show wizard if this client has not yet completed 4-step onboarding
+          // Show wizard only for clients who haven't completed 4-step onboarding
           const completedWizard = localStorage.getItem('onboardingCompleted');
           const role = localStorage.getItem('userRole') || 'client';
-          if (completedWizard !== 'true' && (role === 'client' || !role)) {
+          const isCoachRole = role === 'coach' || role === 'super-admin' || role === 'admin';
+          if (!isCoachRole && completedWizard !== 'true' && (role === 'client' || !role)) {
             localStorage.setItem('onboardingCompleted', 'false');
             setShowClientWizard(true);
           } else {

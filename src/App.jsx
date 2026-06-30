@@ -383,6 +383,14 @@ function App() {
         }
         setPendingConfirmationEmail('');
 
+        // Capture the role the coach login form authoritatively stored (via
+        // loadProfileIntoLocalStorage with role:'coach') BEFORE getUserProfileByEmail
+        // overwrites localStorage.userRole as a side-effect. Under RLS timing races the
+        // coaches read can come back empty here, making the fetch report 'client' for a
+        // genuine coach — this captured value lets us refuse that bogus downgrade.
+        const cachedRoleBefore = localStorage.getItem('userRole') || '';
+        const cachedIsCoach = cachedRoleBefore === 'coach' || cachedRoleBefore === 'super-admin' || cachedRoleBefore === 'admin';
+
         const profile = await databaseService.getUserProfileByEmail(email);
         console.log("Login successful. Role found: " + (profile?.role || 'none'));
         const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
@@ -402,10 +410,13 @@ function App() {
           return;
         }
 
-        // Fall back to localStorage role if the DB fetch failed (RLS timing race).
-        // getUserProfileByEmail sets localStorage.userRole as a side-effect, so for
-        // email coach logins this is already 'coach' before processSessionUser runs.
-        const resolvedRole = profile?.role || localStorage.getItem('userRole') || '';
+        // Resolve role, refusing to downgrade a verified coach to client. A racy
+        // profile fetch can report role:'client' (truthy) for a real coach, which would
+        // otherwise win over the fallback — so when the form already established a coach
+        // role, that takes precedence regardless of what this fetch returned.
+        const resolvedRole = (cachedIsCoach && !isSuperAdminEmail)
+          ? cachedRoleBefore
+          : (profile?.role || cachedRoleBefore || '');
         const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
@@ -419,18 +430,20 @@ function App() {
           if (googleName) localStorage.setItem('userName', googleName);
 
           if (isApprovedCoach) {
+            const coachRole = isSuperAdminEmail ? 'super-admin' : 'coach';
             if (profile) {
               await databaseService.loadProfileIntoLocalStorage(profile, email);
-              setUserRole(profile.role);
             } else {
               localStorage.setItem('userName', googleName || 'Coach');
-              const finalRole = email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach';
-              localStorage.setItem('userRole', finalRole);
-              setUserRole(finalRole);
             }
+            // Force the coach role even if loadProfile/the fetch wrote 'client' under a race.
+            localStorage.setItem('userRole', coachRole);
+            localStorage.setItem('onboardingCompleted', 'true');
+            setUserRole(coachRole);
             setUserEmail(email);
             localStorage.setItem('onboardingComplete', 'true');
             setOnboardingComplete(true);
+            setShowClientWizard(false);
             return;
           }
 
@@ -521,19 +534,22 @@ function App() {
             finalName = googleName;
           }
           
+          // This branch is only ever reached when isApprovedCoach is true (the client
+          // branch above returns first otherwise), so the role is definitively a coach.
+          const coachRole = isSuperAdminEmail ? 'super-admin' : 'coach';
           if (profile) {
             await databaseService.loadProfileIntoLocalStorage(profile, email);
-            setUserRole(profile.role);
           } else {
             localStorage.setItem('userName', finalName);
             localStorage.setItem('userEmail', email);
-            const fallbackRole = isUserTrainer ? (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach') : 'client';
-            localStorage.setItem('userRole', fallbackRole);
-            setUserRole(fallbackRole);
           }
+          // Force the coach role + onboarding-done even if a raced fetch said 'client'.
+          localStorage.setItem('userRole', coachRole);
+          localStorage.setItem('onboardingCompleted', 'true');
+          setUserRole(coachRole);
           if (profile?.userGoal) setUserGoal(profile.userGoal);
           setUserEmail(email);
-          
+
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
           setShowClientWizard(false);

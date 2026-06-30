@@ -1640,64 +1640,29 @@ const WorkoutTracker = () => {
             </div>
           )}
 
-          {/* Generic Workouts section — always shown */}
+          {/* Workout Library — Beginner / Intermediate / Advanced */}
           <div className="wt-section">
-            <div className="wt-section-header">
-              <span className="wt-section-badge generic">💡 Generic Workouts</span>
-              <span className="wt-section-sub">Available to all clients</span>
+            <div className="wt-library-header">
+              <div>
+                <h3 className="wt-library-title">Workout Library</h3>
+                <p className="wt-library-sub">Structured programs for every level</p>
+              </div>
             </div>
 
-            {genericTemplates.length === 0 ? (
-              <div className="wt-empty-state">
-                <span>⏳</span> Loading templates…
-              </div>
-            ) : (
-              <div className="wt-template-grid">
-                {genericTemplates.map(template => (
-                  <div key={template.id} className="wt-generic-card">
-                    <div className="wt-generic-icon">{template.emoji}</div>
-                    <div className="wt-generic-name">{template.name}</div>
-                    <div className="wt-generic-desc">{template.description}</div>
-
-                    <div className="wt-generic-exercises">
-                      {template.exercises.map((ex, i) => (
-                        <div key={i} className="wt-generic-ex-row">
-                          <span className="wt-ex-dot">•</span>
-                          <span className="wt-ex-name">{ex.name}</span>
-                          <span className="wt-ex-meta">{ex.sets}×{ex.reps}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      className="wt-start-btn generic-start"
-                      onClick={() => handleStartFromTemplate(template)}
-                    >
-                      ▶ Start Workout
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Generic Workout Library — filtered by difficulty level */}
-          <div className="wt-section">
-            <div className="wt-section-header">
-              <span className="wt-section-badge generic">📚 Generic Workout Library</span>
-              <span className="wt-section-sub">Pick a level to see matching workouts</span>
+            <div className="wt-level-tabs">
+              {['beginner', 'intermediate', 'advanced'].map(level => (
+                <button
+                  key={level}
+                  className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
+                  onClick={() => setGenericLevel(level)}
+                >
+                  {level === 'beginner' && '🌱 '}
+                  {level === 'intermediate' && '⚡ '}
+                  {level === 'advanced' && '🔥 '}
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </button>
+              ))}
             </div>
-
-            <select
-              className="exercise-select-dropdown"
-              style={{ marginBottom: '12px', width: '100%' }}
-              value={genericLevel}
-              onChange={(e) => setGenericLevel(e.target.value)}
-            >
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
 
             {loadingLevelWorkouts ? (
               <div className="wt-empty-state">
@@ -1708,31 +1673,36 @@ const WorkoutTracker = () => {
                 <span>📭</span> No {genericLevel} workouts available yet.
               </div>
             ) : (
-              <div className="wt-template-list">
+              <div className="wt-library-grid">
                 {levelWorkouts.map(workout => (
-                  <div key={workout.id} className="wt-template-card">
-                    <div className="wt-tpl-info">
-                      <span className="wt-tpl-icon">📋</span>
-                      <div>
-                        <span className="wt-tpl-name">{workout.name}</span>
-                        <span className="wt-tpl-meta">
-                          {Array.isArray(workout.exercises) ? workout.exercises.length : 0} exercises
-                        </span>
-                      </div>
+                  <div key={workout.id} className={`wt-library-card wt-library-card--${genericLevel}`}>
+                    <div className="wt-library-card-header">
+                      <span className={`wt-difficulty-badge wt-difficulty-badge--${genericLevel}`}>
+                        {genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1)}
+                      </span>
+                      <span className="wt-exercise-count">
+                        {Array.isArray(workout.exercises) ? workout.exercises.length : 0} exercises
+                      </span>
                     </div>
-                    <div className="wt-tpl-exercises">
+                    <h4 className="wt-library-name">{workout.name}</h4>
+                    <div className="wt-library-exercises">
                       {(Array.isArray(workout.exercises) ? workout.exercises : []).slice(0, 4).map((ex, i) => (
-                        <span key={i} className="wt-ex-pill">{ex.name}</span>
+                        <span key={i} className={`wt-lib-pill wt-lib-pill--${genericLevel}`}>{ex.name}</span>
                       ))}
+                      {(Array.isArray(workout.exercises) ? workout.exercises : []).length > 4 && (
+                        <span className="wt-lib-pill wt-lib-pill--more">
+                          +{workout.exercises.length - 4} more
+                        </span>
+                      )}
                     </div>
                     <button
-                      className="wt-start-btn level-start"
+                      className={`wt-lib-start-btn wt-lib-start-btn--${genericLevel}`}
                       onClick={() => handleStartFromTemplate({
                         name: workout.name,
                         exercises: (Array.isArray(workout.exercises) ? workout.exercises : [])
                       })}
                     >
-                      ▶ Start Workout
+                      Start Workout
                     </button>
                   </div>
                 ))}

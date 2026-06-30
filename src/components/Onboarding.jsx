@@ -422,12 +422,17 @@ const Onboarding = ({ onComplete }) => {
     e.preventDefault();
     setAuthError('');
     setAuthLoading(true);
+    // Signal to App.jsx's processSessionUser that a coach-tab login is the authority
+    // for this session, so it doesn't race ahead and route by table lookup (which would
+    // drop a client-only email into the client wizard and swallow our rejection below).
+    // Cleared in the finally block once we've resolved coach vs. error.
+    localStorage.setItem('coachLoginInProgress', 'true');
     try {
       let profile = await databaseService.getUserProfileByEmail(authEmail);
       let signInSuccess = false;
 
       if (!profile) {
-        throw new Error('No coach account found. Apply now to get started.');
+        throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
       }
 
       // Check credentials
@@ -532,12 +537,17 @@ const Onboarding = ({ onComplete }) => {
           localStorage.setItem('onboardingCompleted', 'true');
           onComplete();
         } else {
-          throw new Error('No coach account found. Sign up to get started.');
+          // Credentials were valid, but this identity has no coaches row — it's a
+          // client-only (or never-registered-as-coach) account. Sign the session back
+          // out so it can't linger and route as a client, then reject clearly.
+          try { await databaseService.signOut(); } catch (e) { /* */ }
+          throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
         }
       }
     } catch (err) {
       setAuthError(err.message || 'Coach authentication failed.');
     } finally {
+      localStorage.removeItem('coachLoginInProgress');
       setAuthLoading(false);
     }
   };

@@ -745,11 +745,8 @@ const databaseService = {
     if (profile.brand) localStorage.setItem('userBrand', profile.brand);
     if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
     if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
-    // Store onboarding wizard flags (support both camelCase and snake_case callers).
-    // Coaches/admins never go through the client 4-step body-stats wizard, so they're
-    // always treated as onboarding-done regardless of any client onboarding flag.
-    const isCoachRole = profile.role === 'coach' || profile.role === 'super-admin' || profile.role === 'admin';
-    const isOnboardingDone = isCoachRole || profile.onboardingCompleted === true || profile.onboarding_completed === true;
+    // Store onboarding wizard flags (support both camelCase and snake_case callers)
+    const isOnboardingDone = profile.onboardingCompleted === true || profile.onboarding_completed === true;
     localStorage.setItem('onboardingWizardCompleted', isOnboardingDone ? 'true' : 'false');
     localStorage.setItem('onboardingCompleted', isOnboardingDone ? 'true' : 'false');
     if (profile.program) localStorage.setItem('userProgram', profile.program);

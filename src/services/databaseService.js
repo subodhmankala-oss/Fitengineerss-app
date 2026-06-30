@@ -795,6 +795,29 @@ const databaseService = {
     const mappedActivity = activityMap[activity_level] || activity_level || 'Moderately Active';
     localStorage.setItem('userActivity', mappedActivity);
 
+    // Recompute macro targets from the values the client actually entered. Without
+    // this, the Calories/Protein cards keep showing the signup seed defaults
+    // (e.g. 2000 kcal / 120 g) regardless of what the client picked in the wizard.
+    const targets = calculateTargetsGeneric(weight_kg, height_cm, age, mappedActivity, mappedGoal);
+    localStorage.setItem('userCalorieTarget', String(targets.calories));
+    localStorage.setItem('userProteinTarget', String(targets.protein));
+    localStorage.setItem('userCarbsTarget', String(targets.carbs));
+    localStorage.setItem('userFatsTarget', String(targets.fats));
+
+    // Columns the coach dashboard reads — these have existed since the original
+    // schema, so they must save even if the newer wizard-only columns below fail.
+    const coreStats = {
+      fitness_goal: mappedGoal,
+      activity_level: mappedActivity,
+      calorie_target: targets.calories,
+      protein_target: targets.protein,
+      carbs_target: targets.carbs,
+      fats_target: targets.fats
+    };
+    if (age) coreStats.age = parseInt(age);
+    if (weight_kg) coreStats.weight_kg = parseFloat(weight_kg);
+    if (height_cm) coreStats.height_cm = parseFloat(height_cm);
+
     if (isSupabaseConfigured && supabase) {
       try {
         // Resolve user UUID if needed
@@ -807,23 +830,47 @@ const databaseService = {
 
         if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
 
-        const updatePayload = {
-          onboarding_completed: true,
-          program: program || null,
-          activity_level: activity_level || null,
-          primary_concern: primary_concern || null,
-          fitness_goal: mappedGoal
-        };
-        if (age) updatePayload.age = parseInt(age);
-        if (weight_kg) updatePayload.weight_kg = parseFloat(weight_kg);
-        if (height_cm) updatePayload.height_cm = parseFloat(height_cm);
-
-        const { error } = await supabase
+        // 1) Core stats — the data the coach dashboard actually displays. Done in its
+        //    own statement so a problem with the wizard-extras columns (a missing
+        //    migration or a CHECK violation) can't roll back the client's real numbers.
+        //    `.select()` returns the affected rows: a `.update().eq()` that matches
+        //    nothing succeeds silently, which would leave the coach looking at the
+        //    signup seed defaults — so if zero rows changed, create the row instead.
+        const { data: updatedRows, error: coreErr } = await supabase
           .from('clients')
-          .update(updatePayload)
-          .eq('user_id', resolvedUserId);
+          .update(coreStats)
+          .eq('user_id', resolvedUserId)
+          .select('id');
+        if (coreErr) throw coreErr;
 
-        if (error) throw error;
+        if (!updatedRows || updatedRows.length === 0) {
+          console.warn('Cloud DB: no client row matched onboarding update — inserting one.');
+          const { error: insErr } = await supabase
+            .from('clients')
+            .insert({
+              user_id: resolvedUserId,
+              full_name: localStorage.getItem('userName') || (email ? email.split('@')[0] : 'Client'),
+              phone_number: localStorage.getItem('userPhone') || '',
+              coach_id: localStorage.getItem('userCoachId') || null,
+              ...coreStats
+            });
+          if (insErr) throw insErr;
+        }
+
+        // 2) Wizard-only columns (added in a later migration). Best-effort: if they
+        //    aren't present on this DB yet, the core stats above are already saved.
+        const { error: extrasErr } = await supabase
+          .from('clients')
+          .update({
+            onboarding_completed: true,
+            program: program || null,
+            primary_concern: primary_concern || null
+          })
+          .eq('user_id', resolvedUserId);
+        if (extrasErr) {
+          console.warn('Cloud DB: wizard-extra columns not saved (core stats persisted):', extrasErr);
+        }
+
         console.log('Cloud DB: Saved onboarding wizard data.');
       } catch (e) {
         console.error('Cloud DB: Failed to save onboarding data:', e);
@@ -833,14 +880,10 @@ const databaseService = {
       const mockClients = this.getMockTable('clients');
       const mClient = mockClients.find(c => c.user_id === userId);
       if (mClient) {
+        Object.assign(mClient, coreStats);
         mClient.onboarding_completed = true;
         mClient.program = program || null;
-        mClient.activity_level = activity_level || null;
         mClient.primary_concern = primary_concern || null;
-        mClient.fitness_goal = mappedGoal;
-        if (age) mClient.age = parseInt(age);
-        if (weight_kg) mClient.weight_kg = parseFloat(weight_kg);
-        if (height_cm) mClient.height_cm = parseFloat(height_cm);
         this.saveMockTable('clients', mockClients);
       }
     }

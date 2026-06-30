@@ -2007,13 +2007,13 @@ const WorkoutTracker = () => {
 
           <div className="form-double-col">
             <div className="input-group">
-              <label>Client Name</label>
-              <input 
-                type="text" 
-                value={logClient} 
-                onChange={(e) => setLogClient(e.target.value)} 
-                required 
-                placeholder={`e.g. ${loggedInUser}`}
+              <label>Workout Name</label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                required
+                placeholder="e.g. Push Day, Leg Day, Custom Session…"
               />
             </div>
             <div className="input-group">
@@ -2541,7 +2541,7 @@ const WorkoutTracker = () => {
 
             <div className="secure-payment-notice summary-notice-emerald" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start', borderLeft: '3px solid var(--primary-accent-light)', padding: '10px 12px' }}>
               <p style={{ fontSize: '0.78rem', lineHeight: '1.45', color: 'var(--text-main)', margin: 0 }}>
-                <strong>{logClient}</strong> successfully completed this active training session in <strong>{summaryStats.duration}</strong>. Throughout this session, a grand total of <strong>{summaryStats.volume} kg</strong> was lifted across <strong>{summaryStats.totalSets} active sets</strong> to lock in progressive recovery.
+                <strong>{templateName || 'Workout'}</strong> completed in <strong>{summaryStats.duration}</strong>. A total of <strong>{summaryStats.volume} kg</strong> lifted across <strong>{summaryStats.totalSets} active sets</strong> — great work!
               </p>
             </div>
 
@@ -2572,23 +2572,9 @@ const WorkoutTracker = () => {
                 <span>💾 Save this session as a repeat template</span>
               </label>
               {saveAsTemplate && (
-                <input 
-                  type="text" 
-                  placeholder="Enter template name (e.g. Push Routine)" 
-                  value={templateName} 
-                  onChange={(e) => setTemplateName(e.target.value)} 
-                  style={{
-                    width: '100%',
-                    marginTop: '8px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: '#fff',
-                    padding: '8px 12px',
-                    fontSize: '16px',
-                    outline: 'none'
-                  }}
-                />
+                <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: 'rgba(148,163,184,0.7)' }}>
+                  Will be saved as: <strong style={{ color: 'var(--primary-accent-light)' }}>{templateName || 'Custom Session'}</strong>
+                </p>
               )}
             </div>
 

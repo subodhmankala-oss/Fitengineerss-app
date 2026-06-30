@@ -892,30 +892,34 @@ const Onboarding = ({ onComplete }) => {
                 const email = formData.get('email');
                 const name = formData.get('name');
                 const password = formData.get('password');
-                const result = await databaseService.registerCoach({
-                  name,
-                  email,
-                  password,
-                  experience: formData.get('experience'),
-                  brand: formData.get('specialization'),
-                  certifications: formData.get('certifications'),
-                  social: formData.get('social'),
-                  location: formData.get('location')
+                const resp = await fetch('/api/register-coach', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name,
+                    email,
+                    password,
+                    experience: formData.get('experience'),
+                    brand: formData.get('specialization'),
+                    certifications: formData.get('certifications'),
+                    social: formData.get('social'),
+                    location: formData.get('location')
+                  })
                 });
+                const result = await resp.json();
+                if (!resp.ok || result.error) throw new Error(result.error || 'Registration failed');
                 localStorage.removeItem('pendingCoachApply');
-                if (!result?.session) {
-                  // Email confirmation required (same gate as clients). Don't enter
-                  // the dashboard yet — coach confirms, then logs in.
+                if (result.hasSession) {
+                  // Auto-confirmed: session exists server-side but NOT in the browser.
+                  // Route to coach login so the browser gets a real session.
+                  setAuthSuccessMsg(`Coach account created! Log in with your credentials to enter the dashboard.`);
+                } else {
+                  // Email confirmation required — coach confirms then logs in.
                   setAuthSuccessMsg(`Coach account created! We've sent a confirmation link to ${email}. Click it, then log in as a coach.`);
-                  setAuthTab('login');
-                  setUserType('coach');
-                  return;
                 }
-                // Auto-confirmed (confirmation disabled): go straight in.
-                const profile = await databaseService.getUserProfileByEmail(email);
-                if (profile) await databaseService.loadProfileIntoLocalStorage(profile, email);
-                localStorage.setItem('onboardingComplete', 'true');
-                onComplete();
+                setAuthTab('login');
+                setUserType('coach');
+                setAuthEmail(email);
               } catch(err) {
                 setAuthError(err.message);
               } finally {

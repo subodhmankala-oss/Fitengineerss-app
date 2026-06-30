@@ -502,15 +502,16 @@ function App() {
         }
 
         // Approved coach or trainer login flow
-        const hasCompleteProfile = profile && 
-                                   profile.userName && 
+        const hasCompleteProfile = profile &&
+                                   profile.userName &&
                                    profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN' && profile.userAge !== '' &&
                                    profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN' && profile.userHeight !== '' &&
                                    profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN' && profile.userWeight !== '';
 
         const isUserTrainer = isTrainer(email);
 
-        if (isUserTrainer || hasCompleteProfile) {
+        // Coaches don't need body-stats — having the role is enough to enter the dashboard.
+        if (isUserTrainer || hasCompleteProfile || isApprovedCoach) {
           // If the profile has a placeholder name, update it with their real Google name
           let finalName = profile?.userName || 'Trainer';
           if (googleName && (finalName.toLowerCase().includes('test') || finalName === 'Warrior' || finalName === '')) {

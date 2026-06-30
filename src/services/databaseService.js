@@ -1118,6 +1118,85 @@ const databaseService = {
     return [];
   },
 
+  // ─── COACH WORKOUT SUMMARY ───
+  // Recent workout activity for ONLY the clients currently attached to the
+  // logged-in coach (clients.coach_id === coach's users.id). Strictly scoped:
+  // generic/unattached clients (coach_id null) and other coaches' clients are
+  // never included, and a client who switches coaches stops appearing here for
+  // the previous coach the moment their coach_id is overwritten. Rows from
+  // workout_logs are grouped into one "session" per client + local date + plan.
+  async getWorkoutSummaryForCoach(limit = 25) {
+    const coachUserId = localStorage.getItem('userId');
+    if (!coachUserId) return [];
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // 1) The coach's currently-attached clients (and their display names).
+        const { data: clientRows, error: cErr } = await supabase
+          .from('clients')
+          .select('user_id, full_name, coach_id')
+          .eq('coach_id', coachUserId);
+        if (cErr) throw cErr;
+        if (!clientRows || clientRows.length === 0) return [];
+
+        const idToName = {};
+        const clientIds = [];
+        clientRows.forEach(c => {
+          if (c.user_id) { idToName[c.user_id] = c.full_name || 'Client'; clientIds.push(c.user_id); }
+        });
+        if (clientIds.length === 0) return [];
+
+        // 2) Recent logs for ONLY those client ids — the scope is enforced here in
+        //    the query (workout_logs has no coach_id and RLS is permissive).
+        const { data: logs, error: lErr } = await supabase
+          .from('workout_logs')
+          .select('user_id, log_date, plan_name, exercise_name, set_number, reps, weight_kg, created_at')
+          .in('user_id', clientIds)
+          .order('log_date', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (lErr) throw lErr;
+
+        // 3) Group sets into sessions: client + local log_date + plan name.
+        const sessions = {};
+        (logs || []).forEach(r => {
+          const workoutName = r.plan_name || 'Custom Routine';
+          const key = `${r.user_id}|${r.log_date}|${workoutName}`;
+          if (!sessions[key]) {
+            sessions[key] = {
+              clientId: r.user_id,
+              clientName: idToName[r.user_id] || 'Client',
+              workoutName,
+              date: r.log_date, // already a local-tz YYYY-MM-DD from getLocalDateString()
+              exerciseNames: new Set(),
+              sets: 0,
+              createdAt: r.created_at || ''
+            };
+          }
+          const s = sessions[key];
+          s.exerciseNames.add(r.exercise_name);
+          s.sets += 1;
+          if ((r.created_at || '') > s.createdAt) s.createdAt = r.created_at || '';
+        });
+
+        return Object.values(sessions)
+          .map(s => ({
+            clientId: s.clientId,
+            clientName: s.clientName,
+            workoutName: s.workoutName,
+            date: s.date,
+            exercises: s.exerciseNames.size,
+            sets: s.sets
+          }))
+          .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+          .slice(0, limit);
+      } catch (e) {
+        console.error('Cloud DB getWorkoutSummaryForCoach error:', e);
+      }
+    }
+
+    return [];
+  },
+
   async saveChatMessage(clientId, sender, message) {
     if (isSupabaseConfigured && supabase) {
       try {

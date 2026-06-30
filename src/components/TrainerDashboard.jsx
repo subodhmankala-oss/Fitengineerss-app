@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
-import { getLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 import './WorkoutTracker.css';
 
@@ -388,6 +388,8 @@ const TrainerDashboard = ({ handleLogout }) => {
 
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
+  const [workoutSummary, setWorkoutSummary] = useState([]);
+  const [loadingSummary, setLoadingSummary] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState('All');
   const [generatedInviteCode, setGeneratedInviteCode] = useState(() => localStorage.getItem('last_generated_invite_code') || '');
@@ -600,8 +602,21 @@ const TrainerDashboard = ({ handleLogout }) => {
       }
     };
 
+    const fetchSummary = async () => {
+      try {
+        const summary = await databaseService.getWorkoutSummaryForCoach();
+        setWorkoutSummary(summary || []);
+      } catch (err) {
+        console.error('Error fetching workout summary:', err);
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+
     setLoadingClients(true);
+    setLoadingSummary(true);
     fetchClients();
+    fetchSummary();
 
     let channel = null;
     if (isSupabaseConfigured && databaseService.supabase) {
@@ -611,10 +626,15 @@ const TrainerDashboard = ({ handleLogout }) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
           console.log('[DEBUG] Trainer Dashboard: Real-time clients table change:', payload);
           fetchClients();
+          fetchSummary();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
           console.log('[DEBUG] Trainer Dashboard: Real-time users table change:', payload);
           fetchClients();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'workout_logs' }, (payload) => {
+          console.log('[DEBUG] Trainer Dashboard: Real-time workout_logs change:', payload);
+          fetchSummary();
         })
         .subscribe();
     }
@@ -1536,7 +1556,18 @@ const TrainerDashboard = ({ handleLogout }) => {
                               >
                                 {getAvatarInitials(client.userName)}
                               </div>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
+                                <span style={{
+                                  display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
+                                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
+                                  background: client.coach_id ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                                  color: client.coach_id ? '#10b981' : 'var(--text-muted)',
+                                  border: `1px solid ${client.coach_id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.2)'}`
+                                }}>
+                                  {client.coach_id ? 'Attached' : 'Generic'}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -1591,6 +1622,71 @@ const TrainerDashboard = ({ handleLogout }) => {
                               Manage
                             </button>
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ── Workout Summary ── recent activity for THIS coach's attached clients only */}
+              <h4 className="client-directory-title" style={{ marginTop: '28px' }}>
+                Workout Summary
+              </h4>
+              {loadingSummary ? (
+                <div className="trainer-loading-container">
+                  <div className="trainer-spinner"></div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading recent workout activity...</p>
+                </div>
+              ) : workoutSummary.length === 0 ? (
+                <div className="trainer-empty-state">
+                  <div className="trainer-empty-icon">🏋️</div>
+                  <h5>No Workout Activity Yet</h5>
+                  <p>When your connected clients log or complete a workout, it will appear here.</p>
+                </div>
+              ) : (
+                <div className="glass-panel" style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  overflowX: 'auto'
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '560px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Workout</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Date</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Exercises</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Sets</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workoutSummary.map((row, idx) => (
+                        <tr key={`${row.clientId}-${row.date}-${row.workoutName}-${idx}`} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '52px' }}>
+                          <td style={{ padding: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div
+                                className="client-avatar"
+                                style={{
+                                  backgroundColor: getAvatarColor(row.clientName),
+                                  width: '30px', height: '30px', borderRadius: '50%',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: '0.72rem', fontWeight: 'bold', color: '#fff', flexShrink: 0
+                                }}
+                              >
+                                {getAvatarInitials(row.clientName)}
+                              </div>
+                              <span style={{ fontSize: '0.83rem', fontWeight: 600 }}>{row.clientName}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{row.workoutName}</td>
+                          <td style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {parseLocalDateString(row.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td style={{ padding: '8px', fontSize: '0.82rem', textAlign: 'center', fontWeight: 700 }}>{row.exercises}</td>
+                          <td style={{ padding: '8px', fontSize: '0.82rem', textAlign: 'center', fontWeight: 700 }}>{row.sets}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2025,7 +2121,12 @@ const TrainerDashboard = ({ handleLogout }) => {
                                 <div>
                                   <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
                                   <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
-                                    Created by: {plan.createdBy === 'coach' ? '🧑‍🏫 Coach' : '👤 Client'}
+                                    📋 Assigned to: {selectedClient.userName}
+                                    {plan.createdBy === 'client' && (
+                                      <span style={{ marginLeft: '6px', color: 'var(--text-subtle)', textTransform: 'none', fontWeight: 600 }}>
+                                        (self-created)
+                                      </span>
+                                    )}
                                   </span>
                                 </div>
                                 <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>

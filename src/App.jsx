@@ -329,8 +329,13 @@ function App() {
   const [resendStatus, setResendStatus] = useState('idle');
   const [resendError, setResendError] = useState('');
 
-  // Password Reset Modal States
-  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  // Password Reset Modal States — initialise from URL hash so the very first render
+  // already shows the modal when Supabase redirects back with #access_token=...&type=recovery,
+  // before onAuthStateChange has had a chance to fire.
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(() => {
+    const hash = window.location.hash;
+    return /type=recovery/.test(hash) && /access_token=/.test(hash);
+  });
   const [newResetPassword, setNewResetPassword] = useState('');
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
@@ -548,6 +553,7 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setShowResetPasswordModal(true);
+        return; // Don't run processSessionUser — just show the reset form
       }
       if (session && session.user) {
         await processSessionUser(session.user);

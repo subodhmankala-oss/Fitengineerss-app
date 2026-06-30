@@ -402,7 +402,10 @@ function App() {
           return;
         }
 
-        const resolvedRole = profile?.role || '';
+        // Fall back to localStorage role if the DB fetch failed (RLS timing race).
+        // getUserProfileByEmail sets localStorage.userRole as a side-effect, so for
+        // email coach logins this is already 'coach' before processSessionUser runs.
+        const resolvedRole = profile?.role || localStorage.getItem('userRole') || '';
         const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
@@ -533,6 +536,7 @@ function App() {
           
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
+          setShowClientWizard(false);
         } else {
           // Incomplete trainer profile!
           localStorage.setItem('userEmail', email);

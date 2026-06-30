@@ -24,23 +24,24 @@ export const calculateTargetsGeneric = (wVal, hVal, aVal, actVal, goalVal) => {
 
   calorieTarget = Math.round(calorieTarget / 50) * 50;
 
-  let proteinRatio = 0.30;
-  let carbsRatio = 0.40;
-  let fatsRatio = 0.30;
-
+  // Protein is set per kg of bodyweight (sports-nutrition standard), NOT as a
+  // percentage of calories. Deriving it from calories made it balloon for light
+  // but very-active clients (e.g. a 64 kg client got 215 g ≈ 3.4 g/kg). Goal
+  // drives the factor: more protein in a deficit to spare muscle.
+  let proteinPerKg = 1.8; // general / maintenance
   if (goalVal && goalVal.includes('Fat Loss')) {
-    proteinRatio = 0.35;
-    carbsRatio = 0.35;
-    fatsRatio = 0.30;
+    proteinPerKg = 2.2;
   } else if (goalVal && goalVal.includes('Muscle Building')) {
-    proteinRatio = 0.30;
-    carbsRatio = 0.45;
-    fatsRatio = 0.25;
+    proteinPerKg = 2.0;
   }
+  const proteinGrams = Math.round(w * proteinPerKg);
 
-  const proteinGrams = Math.round((calorieTarget * proteinRatio) / 4);
-  const fatGrams = Math.round((calorieTarget * fatsRatio) / 9);
-  const carbGrams = Math.round((calorieTarget * carbsRatio) / 4);
+  // Fats take ~27% of calories; carbs fill whatever calories remain after
+  // protein and fat. Clamp carbs at 0 so an extreme high-protein/low-calorie
+  // combination can never produce a negative number.
+  const fatGrams = Math.round((calorieTarget * 0.27) / 9);
+  const remainingCals = calorieTarget - proteinGrams * 4 - fatGrams * 9;
+  const carbGrams = Math.max(0, Math.round(remainingCals / 4));
 
   return {
     calories: calorieTarget,

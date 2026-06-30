@@ -2544,98 +2544,7 @@
   font-weight: 600;
 }
 
-/* ─── Generic workout card grid ─── */
-.wt-template-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
-}
-
-.wt-generic-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(139, 92, 246, 0.18);
-  border-radius: 16px;
-  padding: 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: all 0.22s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.wt-generic-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #8b5cf6, #10b981);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.wt-generic-card:hover {
-  border-color: rgba(139, 92, 246, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.12);
-}
-
-.wt-generic-card:hover::before {
-  opacity: 1;
-}
-
-.wt-generic-icon {
-  font-size: 2rem;
-  line-height: 1;
-  margin-bottom: 2px;
-}
-
-.wt-generic-name {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #f8faff;
-  letter-spacing: -0.01em;
-}
-
-.wt-generic-desc {
-  font-size: 0.76rem;
-  color: rgba(148, 163, 184, 0.75);
-  margin-bottom: 4px;
-}
-
-.wt-generic-exercises {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 4px;
-}
-
-.wt-generic-ex-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
-}
-
-.wt-ex-dot {
-  color: rgba(139, 92, 246, 0.7);
-  font-size: 0.9rem;
-  flex-shrink: 0;
-}
-
-.wt-ex-name {
-  color: rgba(226, 232, 240, 0.9);
-  flex: 1;
-}
-
-.wt-ex-meta {
-  color: rgba(148, 163, 184, 0.6);
-  font-size: 0.7rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* ─── Start Workout button ─── */
+/* ─── Start Workout button (coach plan cards) ─── */
 .wt-start-btn {
   margin-top: 8px;
   padding: 12px 16px;
@@ -2649,18 +2558,6 @@
   font-family: inherit;
 }
 
-.wt-start-btn.generic-start {
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
-}
-
-.wt-start-btn.generic-start:hover {
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.4);
-}
-
 .wt-start-btn.coach-start {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #1a1100;
@@ -2672,15 +2569,234 @@
   transform: translateY(-1px);
 }
 
-.wt-start-btn.level-start {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #1a1100;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+/* ─── Workout Library ─── */
+.wt-library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2px;
 }
 
-.wt-start-btn.level-start:hover {
+.wt-library-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8faff;
+  letter-spacing: -0.01em;
+  margin: 0 0 3px;
+}
+
+.wt-library-sub {
+  font-size: 0.73rem;
+  color: rgba(148, 163, 184, 0.55);
+  margin: 0;
+}
+
+/* Level tab buttons */
+.wt-level-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.wt-level-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: rgba(148, 163, 184, 0.55);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+
+.wt-level-tab:hover:not(.active) {
+  color: rgba(248, 250, 255, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wt-level-tab.active.wt-level-tab--beginner {
+  background: rgba(16, 185, 129, 0.14);
+  color: #10b981;
+  box-shadow: 0 1px 6px rgba(16, 185, 129, 0.15);
+}
+
+.wt-level-tab.active.wt-level-tab--intermediate {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  box-shadow: 0 1px 6px rgba(245, 158, 11, 0.15);
+}
+
+.wt-level-tab.active.wt-level-tab--advanced {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  box-shadow: 0 1px 6px rgba(239, 68, 68, 0.15);
+}
+
+/* Library card list */
+.wt-library-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wt-library-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.wt-library-card--beginner  { border: 1px solid rgba(16, 185, 129, 0.18); }
+.wt-library-card--intermediate { border: 1px solid rgba(245, 158, 11, 0.18); }
+.wt-library-card--advanced  { border: 1px solid rgba(239, 68, 68, 0.18); }
+
+.wt-library-card--beginner:hover  { border-color: rgba(16, 185, 129, 0.4); }
+.wt-library-card--intermediate:hover { border-color: rgba(245, 158, 11, 0.4); }
+.wt-library-card--advanced:hover  { border-color: rgba(239, 68, 68, 0.4); }
+
+.wt-library-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wt-difficulty-badge {
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wt-difficulty-badge--beginner {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.wt-difficulty-badge--intermediate {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.wt-difficulty-badge--advanced {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.wt-exercise-count {
+  font-size: 0.71rem;
+  color: rgba(148, 163, 184, 0.5);
+  font-weight: 600;
+}
+
+.wt-library-name {
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: #f8faff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.wt-library-exercises {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.wt-lib-pill {
+  font-size: 0.67rem;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-weight: 600;
+}
+
+.wt-lib-pill--beginner {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: rgba(16, 185, 129, 0.85);
+}
+
+.wt-lib-pill--intermediate {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: rgba(245, 158, 11, 0.85);
+}
+
+.wt-lib-pill--advanced {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: rgba(239, 68, 68, 0.85);
+}
+
+.wt-lib-pill--more {
+  background: rgba(148, 163, 184, 0.07);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  color: rgba(148, 163, 184, 0.65);
+}
+
+/* Library start button */
+.wt-lib-start-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+  margin-top: 2px;
+}
+
+.wt-lib-start-btn--beginner {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+}
+
+.wt-lib-start-btn--beginner:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.38);
+}
+
+.wt-lib-start-btn--intermediate {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1a1100;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.28);
+}
+
+.wt-lib-start-btn--intermediate:hover {
   background: linear-gradient(135deg, #d97706, #b45309);
   transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.38);
+}
+
+.wt-lib-start-btn--advanced {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.28);
+}
+
+.wt-lib-start-btn--advanced:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.38);
 }
 
 /* ─── Empty state ─── */

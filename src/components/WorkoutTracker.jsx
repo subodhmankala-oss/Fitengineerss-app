@@ -854,6 +854,18 @@ const WorkoutTracker = () => {
       return;
     }
 
+    // All sets ticked — now validate workout name
+    if (!templateName || !templateName.trim()) {
+      const nameInput = document.getElementById('workoutNameInput');
+      if (nameInput) {
+        nameInput.focus();
+        nameInput.setCustomValidity('Please enter a workout name before finishing.');
+        nameInput.reportValidity();
+        nameInput.setCustomValidity('');
+      }
+      return;
+    }
+
     let currentExercises = [...logExercises];
     let totalVolume = 0;
     const prs = [];
@@ -1947,10 +1959,10 @@ const WorkoutTracker = () => {
             <div className="input-group">
               <label>Workout Name</label>
               <input
+                id="workoutNameInput"
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                required
                 placeholder="e.g. Push Day, Leg Day, Custom Session…"
               />
             </div>
@@ -2715,6 +2727,8 @@ const WorkoutTracker = () => {
                 onClick={() => {
                   setWorkoutActiveSeconds(0);
                   setWorkoutTimerRunning(false);
+                  setIsLoggingWorkout(false);
+                  setTemplateName('');
                   setLogExercises([
                     { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
                     { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },

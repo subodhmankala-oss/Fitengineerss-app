@@ -1769,70 +1769,6 @@ const WorkoutTracker = () => {
             ➕ Start Empty Workout
           </button>
 
-          {/* Generic Workouts — baseline templates every client has, regardless of coach_id */}
-          <div className="routines-section" style={{ marginBottom: '20px' }}>
-            <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>🏠 Generic Workouts</h4>
-            {loadingDefaultTemplates ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading starter templates...</p>
-            ) : defaultTemplates.length === 0 ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No starter templates available.</p>
-            ) : (
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
-                <select
-                  className="exercise-select-dropdown"
-                  style={{ flex: 1 }}
-                  value={selectedDefaultTemplateId}
-                  onChange={(e) => setSelectedDefaultTemplateId(e.target.value)}
-                >
-                  {defaultTemplates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn-start-routine"
-                  style={{
-                    padding: '8px 14px',
-                    background: 'var(--primary-accent-light)',
-                    color: '#fff',
-                    fontWeight: '700',
-                    fontSize: '0.8rem',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                  onClick={() => {
-                    const template = defaultTemplates.find(t => t.id === selectedDefaultTemplateId);
-                    if (!template) return;
-                    // "8-12" is a target range for display, not a loggable rep count — seed the
-                    // numeric reps input with the low end so it's a valid starting number to log against.
-                    const startingReps = (ex) => {
-                      const match = String(ex.reps || '10').match(/\d+/);
-                      return match ? match[0] : '10';
-                    };
-                    setLogClient(selectedClient);
-                    setLogDate(getLocalDateString());
-                    setLogExercises(template.exercises.map(ex => ({
-                      name: ex.name,
-                      sets: Array.from({ length: ex.sets || 3 }, () => ({
-                        reps: startingReps(ex),
-                        weight: '',
-                        isCompleted: false,
-                        targetReps: ex.reps ? String(ex.reps) : null
-                      }))
-                    })));
-                    setTemplateName(template.name);
-                    setIsLoggingWorkout(true);
-                    setWorkoutActiveSeconds(0);
-                    setWorkoutTimerRunning(true);
-                  }}
-                >
-                  Start Workout
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* Coach Assigned Plans — only relevant once a coach is actually assigned */}
           {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
             <div className="routines-section" style={{ marginBottom: '20px' }}>
@@ -1994,16 +1930,18 @@ const WorkoutTracker = () => {
             <p>Input reps, weights, and sets directly from client notebooks.</p>
           </div>
 
-          {/* Quick Package details for coach */}
-          <div className="coach-billing-status-box">
-            <div className="status-meta">
-              <strong>Billing Tracker ({selectedClient})</strong>
-              <p>Completed: {completedSessionsCount} / {activeProfile.totalSessions} sessions</p>
+          {/* Quick Package details — only for clients with a coach */}
+          {hasCoachAssigned && (
+            <div className="coach-billing-status-box">
+              <div className="status-meta">
+                <strong>Billing Tracker ({selectedClient})</strong>
+                <p>Completed: {completedSessionsCount} / {activeProfile.totalSessions} sessions</p>
+              </div>
+              <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
+                💳 Renew Package (+12 Sessions)
+              </button>
             </div>
-            <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
-              💳 Renew Package (+12 Sessions)
-            </button>
-          </div>
+          )}
 
           <div className="form-double-col">
             <div className="input-group">

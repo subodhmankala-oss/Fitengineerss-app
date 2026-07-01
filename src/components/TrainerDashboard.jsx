@@ -208,6 +208,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
+  const [adminSubTab, setAdminSubTab] = useState('clients'); // 'clients' or 'coaches'
   const [coachesList, setCoachesList] = useState([]);
   const [pendingCoachesList, setPendingCoachesList] = useState([]);
   const [platformStats, setPlatformStats] = useState({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
@@ -947,13 +948,17 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   // Filter clients list
+  const loggedInUserId = localStorage.getItem('userId');
   const filteredClients = clients.filter(c => {
-    const matchesSearch = 
-      c.userName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    // In coach view: super-admin only sees their own attached clients (not generics or other coaches' clients)
+    if (superAdmin && viewMode === 'coach' && c.coach_id !== loggedInUserId) return false;
+
+    const matchesSearch =
+      c.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.email.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
     const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
-    
+
     return matchesSearch && matchesGoal;
   });
 
@@ -995,59 +1000,62 @@ const TrainerDashboard = ({ handleLogout }) => {
       </div>
 
       {superAdmin && (
-        <div className="trainer-view-selector" style={{
+        <div style={{
           display: 'flex',
-          gap: '12px',
-          padding: '0 16px',
-          marginBottom: '16px',
-          borderBottom: '1px solid var(--border-color)',
-          overflowX: 'auto'
+          gap: '8px',
+          padding: '4px',
+          marginBottom: '20px',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '14px',
         }}>
-          <button 
-            className={`view-selector-btn ${viewMode === 'coach' ? 'active' : ''}`}
-            onClick={() => {
-              setViewMode('coach');
-              setSelectedClient(null);
-            }}
+          <button
+            onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
             style={{
-              padding: '12px 16px',
-              fontSize: '0.85rem',
-              fontWeight: '700',
-              color: viewMode === 'coach' ? 'var(--primary-accent-light)' : 'var(--text-muted)',
-              borderBottom: viewMode === 'coach' ? '2px solid var(--primary-accent-light)' : 'none',
-              background: 'none',
+              flex: 1,
+              padding: '11px 16px',
+              borderRadius: '10px',
+              border: 'none',
+              background: viewMode === 'coach' ? 'rgba(16,185,129,0.14)' : 'transparent',
+              color: viewMode === 'coach' ? '#10b981' : 'rgba(148,163,184,0.55)',
+              fontSize: '0.88rem',
+              fontWeight: 800,
               cursor: 'pointer',
-              whiteSpace: 'nowrap'
+              transition: 'all 0.2s',
+              fontFamily: 'inherit',
+              boxShadow: viewMode === 'coach' ? '0 1px 8px rgba(16,185,129,0.15)' : 'none',
+              letterSpacing: '0.01em',
             }}
           >
             👥 My Clients
           </button>
-          <button 
-            className={`view-selector-btn ${viewMode === 'admin' ? 'active' : ''}`}
-            onClick={() => {
-              setViewMode('admin');
-              setSelectedClient(null);
-            }}
+          <button
+            onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
             style={{
-              padding: '12px 16px',
-              fontSize: '0.85rem',
-              fontWeight: '700',
-              color: viewMode === 'admin' ? 'var(--primary-accent-light)' : 'var(--text-muted)',
-              borderBottom: viewMode === 'admin' ? '2px solid var(--primary-accent-light)' : 'none',
-              background: 'none',
+              flex: 1,
+              padding: '11px 16px',
+              borderRadius: '10px',
+              border: 'none',
+              background: viewMode === 'admin' ? 'rgba(139,92,246,0.14)' : 'transparent',
+              color: viewMode === 'admin' ? '#a78bfa' : 'rgba(148,163,184,0.55)',
+              fontSize: '0.88rem',
+              fontWeight: 800,
               cursor: 'pointer',
-              whiteSpace: 'nowrap'
+              transition: 'all 0.2s',
+              fontFamily: 'inherit',
+              boxShadow: viewMode === 'admin' ? '0 1px 8px rgba(139,92,246,0.15)' : 'none',
+              letterSpacing: '0.01em',
             }}
           >
-            🛡️ Platform Admin
+            🛡️ Super-Admin
           </button>
         </div>
       )}
 
       {viewMode === 'admin' ? (
-        <div className="platform-admin-view animate-scale-in" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>Platform-wide Performance</h4>
+        <div className="platform-admin-view animate-scale-in" style={{ margin: '0 -16px', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px' }}>
+            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>Super-Admin Overview</h4>
             <button 
               onClick={handleRefresh}
               disabled={refreshing}
@@ -1071,276 +1079,295 @@ const TrainerDashboard = ({ handleLogout }) => {
             )}
           </div>
 
-          {/* Stats Grid */}
-          <div className="admin-stats-grid" style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '12px'
+          {/* Admin Sub-tabs: Total Clients | Total Coaches */}
+          <div style={{
+            display: 'flex', gap: '8px', padding: '4px',
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '14px', margin: '0 16px'
           }}>
-            <div 
-              className="metric-mini-card clickable-card" 
-              onClick={() => {
-                setViewMode('coach');
-                setSelectedClient(null);
-              }}
-              style={{ 
-                padding: '16px', 
-                borderRadius: '12px', 
-                background: 'rgba(16, 185, 129, 0.05)', 
-                border: '1px solid rgba(16, 185, 129, 0.15)',
-                cursor: 'pointer'
-              }}
-            >
-              <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Clients</div>
-              <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: '#10b981', fontWeight: 800 }}>
-                {platformStats.totalActiveClients}
-              </div>
-            </div>
-            <div className="metric-mini-card" style={{ padding: '16px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
-              <div className="metric-mini-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Coaches</div>
-              <div className="metric-mini-value" style={{ fontSize: '1.5rem', color: '#f59e0b', fontWeight: 800 }}>
-                {coachesList.length}
-              </div>
-            </div>
-          </div>
-
-          {/* Coaches Table Card */}
-          <div className="glass-panel" style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '16px',
-            overflowX: 'auto'
-          }}>
-            <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
-
-            {loadingAdmin ? (
-              <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
-                <div className="trainer-spinner"></div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coaches details...</p>
-              </div>
-            ) : coachesList.length === 0 ? (
-              <div className="trainer-empty-state">
-                <h5>No Registered Coaches</h5>
-                <p>No coach profiles exist on the platform.</p>
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '620px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Brand</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Experience</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Clients</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Access</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {coachesList.map(coach => (
-                    <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
-                      <td style={{ padding: '8px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{coach.name}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{coach.email}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '8px', fontSize: '0.8rem' }}>{coach.brand}</td>
-                      <td style={{ padding: '8px', fontSize: '0.8rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        {(coach.experienceYears ?? null) !== null ? `${coach.experienceYears} yrs` : '—'}
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleViewCoachClients(coach)}
-                          title="View this coach's clients"
-                          style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary-accent-light)',
-                            textDecoration: 'underline', padding: 0
-                          }}
-                        >
-                          {coach.clientsCount}
-                        </button>
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          background: coach.isBlocked ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                          color: coach.isBlocked ? 'var(--danger)' : '#10b981',
-                          border: `1px solid ${coach.isBlocked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
-                        }}>
-                          {coach.isBlocked ? 'Blocked' : 'Active'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        {coach.email && coach.email.toLowerCase() === 'subodhmankala@gmail.com' ? (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>—</span>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleCoachBlock(coach)}
-                            style={{
-                              background: coach.isBlocked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                              border: `1px solid ${coach.isBlocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                              color: coach.isBlocked ? '#10b981' : 'var(--danger)',
-                              padding: '4px 10px',
-                              borderRadius: '4px',
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                          >
-                            {coach.isBlocked ? 'Unblock' : 'Block'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Coach Client Drill-down Modal */}
-          {drilldownCoach && (
-            <div
+            <button
+              onClick={() => setAdminSubTab('clients')}
               style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(0,0,0,0.6)', zIndex: 1000,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+                flex: 1, padding: '11px 16px', borderRadius: '10px', border: 'none',
+                background: adminSubTab === 'clients' ? 'rgba(16,185,129,0.14)' : 'transparent',
+                color: adminSubTab === 'clients' ? '#10b981' : 'rgba(148,163,184,0.55)',
+                fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
+                fontFamily: 'inherit', letterSpacing: '0.01em',
+                boxShadow: adminSubTab === 'clients' ? '0 1px 8px rgba(16,185,129,0.15)' : 'none'
               }}
-              onClick={() => setDrilldownCoach(null)}
             >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                  borderRadius: '14px', padding: '20px', maxWidth: '600px', width: '100%',
-                  maxHeight: '80vh', overflowY: 'auto'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>{drilldownCoach.name}'s Clients</h4>
-                  <button
-                    type="button"
-                    onClick={() => setDrilldownCoach(null)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer' }}
-                  >✕</button>
-                </div>
-                <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{drilldownCoach.email}</p>
+              👥 Total Clients
+              <span style={{
+                marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
+                color: adminSubTab === 'clients' ? '#10b981' : 'rgba(148,163,184,0.4)'
+              }}>
+                {platformStats.totalActiveClients}
+              </span>
+            </button>
+            <button
+              onClick={() => setAdminSubTab('coaches')}
+              style={{
+                flex: 1, padding: '11px 16px', borderRadius: '10px', border: 'none',
+                background: adminSubTab === 'coaches' ? 'rgba(245,158,11,0.14)' : 'transparent',
+                color: adminSubTab === 'coaches' ? '#f59e0b' : 'rgba(148,163,184,0.55)',
+                fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
+                fontFamily: 'inherit', letterSpacing: '0.01em',
+                boxShadow: adminSubTab === 'coaches' ? '0 1px 8px rgba(245,158,11,0.15)' : 'none'
+              }}
+            >
+              🏋️ Total Coaches
+              <span style={{
+                marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
+                color: adminSubTab === 'coaches' ? '#f59e0b' : 'rgba(148,163,184,0.4)'
+              }}>
+                {coachesList.length}
+              </span>
+            </button>
+          </div>
 
-                {loadingDrilldown ? (
-                  <div className="trainer-loading-container" style={{ padding: '30px 0' }}>
+          {/* Sub-tab content */}
+          {adminSubTab === 'coaches' ? (
+            <>
+              {/* Coaches Table Card */}
+              <div className="glass-panel" style={{
+                background: 'var(--bg-card)',
+                borderTop: '1px solid var(--border-color)',
+                borderBottom: '1px solid var(--border-color)',
+                padding: '16px',
+                overflowX: 'auto'
+              }}>
+                <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
+
+                {loadingAdmin ? (
+                  <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
                     <div className="trainer-spinner"></div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading clients...</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coaches details...</p>
                   </div>
-                ) : drilldownClients.length === 0 ? (
+                ) : coachesList.length === 0 ? (
                   <div className="trainer-empty-state">
-                    <h5>No Clients Yet</h5>
-                    <p>This coach has no clients attached via invite code yet.</p>
+                    <h5>No Registered Coaches</h5>
+                    <p>No coach profiles exist on the platform.</p>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {drilldownClients.map(client => (
-                      <div
-                        key={client.id}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)',
-                          borderRadius: '10px', padding: '10px 14px'
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{client.userName}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{client.email}</div>
-                        </div>
-                        <span style={{
-                          fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-accent-light)',
-                          background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
-                          borderRadius: '12px', padding: '3px 10px'
-                        }}>
-                          {client.userGoal || 'No goal set'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '620px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Brand</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Experience</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Clients</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Access</th>
+                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coachesList.map(coach => (
+                        <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
+                          <td style={{ padding: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{coach.name}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{coach.email}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px', fontSize: '0.8rem' }}>{coach.brand}</td>
+                          <td style={{ padding: '8px', fontSize: '0.8rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            {(coach.experienceYears ?? null) !== null ? `${coach.experienceYears} yrs` : '—'}
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleViewCoachClients(coach)}
+                              title="View this coach's clients"
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary-accent-light)',
+                                textDecoration: 'underline', padding: 0
+                              }}
+                            >
+                              {coach.clientsCount}
+                            </button>
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '3px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              background: coach.isBlocked ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                              color: coach.isBlocked ? 'var(--danger)' : '#10b981',
+                              border: `1px solid ${coach.isBlocked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                            }}>
+                              {coach.isBlocked ? 'Blocked' : 'Active'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            {coach.email && coach.email.toLowerCase() === 'subodhmankala@gmail.com' ? (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>—</span>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleCoachBlock(coach)}
+                                style={{
+                                  background: coach.isBlocked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                                  border: `1px solid ${coach.isBlocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                  color: coach.isBlocked ? '#10b981' : 'var(--danger)',
+                                  padding: '4px 10px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                {coach.isBlocked ? 'Unblock' : 'Block'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
+
+              {/* Coach Client Drill-down Modal */}
+              {drilldownCoach && (
+                <div
+                  style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+                  }}
+                  onClick={() => setDrilldownCoach(null)}
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                      borderRadius: '14px', padding: '20px', maxWidth: '600px', width: '100%',
+                      maxHeight: '80vh', overflowY: 'auto'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <h4 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>{drilldownCoach.name}'s Clients</h4>
+                      <button
+                        type="button"
+                        onClick={() => setDrilldownCoach(null)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer' }}
+                      >✕</button>
+                    </div>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{drilldownCoach.email}</p>
+
+                    {loadingDrilldown ? (
+                      <div className="trainer-loading-container" style={{ padding: '30px 0' }}>
+                        <div className="trainer-spinner"></div>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading clients...</p>
+                      </div>
+                    ) : drilldownClients.length === 0 ? (
+                      <div className="trainer-empty-state">
+                        <h5>No Clients Yet</h5>
+                        <p>This coach has no clients attached via invite code yet.</p>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {drilldownClients.map(client => (
+                          <div
+                            key={client.id}
+                            style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)',
+                              borderRadius: '10px', padding: '10px 14px'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{client.userName}</div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{client.email}</div>
+                            </div>
+                            <span style={{
+                              fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-accent-light)',
+                              background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
+                              borderRadius: '12px', padding: '3px 10px'
+                            }}>
+                              {client.userGoal || 'No goal set'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Clients Directory (platform-wide, includes unattached/generic clients) */
+            <div className="glass-panel" style={{
+              background: 'var(--bg-card)',
+              borderTop: '1px solid var(--border-color)',
+              borderBottom: '1px solid var(--border-color)',
+              padding: '16px',
+              overflowX: 'auto'
+            }}>
+              <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>All Clients ({clients.length})</h5>
+
+              {/* Goal filter pills */}
+              <div className="filter-tags" style={{ marginBottom: '14px' }}>
+                {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
+                  <button
+                    key={goal}
+                    className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
+                    onClick={() => setGoalFilter(goal)}
+                  >
+                    {goal}
+                  </button>
+                ))}
+              </div>
+
+              {loadingClients ? (
+                <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
+                  <div className="trainer-spinner"></div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading clients list...</p>
+                </div>
+              ) : clients.filter(c => goalFilter === 'All' || c.userGoal === goalFilter).length === 0 ? (
+                <div className="trainer-empty-state">
+                  <h5>No Clients Found</h5>
+                  <p>No client profiles match the current filter.</p>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '520px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                      <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Name</th>
+                      <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email</th>
+                      <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Goal</th>
+                      <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Coach</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clients
+                      .filter(c => goalFilter === 'All' || c.userGoal === goalFilter)
+                      .map(client => (
+                        <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
+                          <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 600 }}>{client.userName}</td>
+                          <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{client.email}</td>
+                          <td style={{ padding: '8px', fontSize: '0.78rem' }}>{client.userGoal || '—'}</td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-block', padding: '3px 8px', borderRadius: '12px',
+                              fontSize: '0.68rem', fontWeight: 700,
+                              background: client.coach_id ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                              color: client.coach_id ? '#10b981' : 'var(--text-muted)',
+                              border: `1px solid ${client.coach_id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.2)'}`
+                            }}>
+                              {client.coach_id ? 'Attached' : 'Generic'}
+                            </span>
+                          </td>
+                        </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
-
-          {/* Clients Directory Card (platform-wide, includes unattached/generic clients) */}
-          <div className="glass-panel" style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '16px',
-            overflowX: 'auto',
-            marginTop: '20px'
-          }}>
-            <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Clients ({filteredClients.length})</h5>
-
-            {/* Goal filter pills (same as My Clients) */}
-            <div className="filter-tags" style={{ marginBottom: '14px' }}>
-              {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
-                <button
-                  key={goal}
-                  className={`filter-tag ${goalFilter === goal ? 'active' : ''}`}
-                  onClick={() => setGoalFilter(goal)}
-                >
-                  {goal}
-                </button>
-              ))}
-            </div>
-
-            {loadingClients ? (
-              <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
-                <div className="trainer-spinner"></div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading clients list...</p>
-              </div>
-            ) : filteredClients.length === 0 ? (
-              <div className="trainer-empty-state">
-                <h5>No Clients Found</h5>
-                <p>No client profiles match the current filter.</p>
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '520px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Name</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Email</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Goal</th>
-                    <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Coach</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredClients.map(client => (
-                    <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '48px' }}>
-                      <td style={{ padding: '8px', fontSize: '0.82rem', fontWeight: 600 }}>{client.userName}</td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{client.email}</td>
-                      <td style={{ padding: '8px', fontSize: '0.78rem' }}>{client.userGoal || '—'}</td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-block', padding: '3px 8px', borderRadius: '12px',
-                          fontSize: '0.68rem', fontWeight: 700,
-                          background: client.coach_id ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                          color: client.coach_id ? '#10b981' : 'var(--text-muted)',
-                          border: `1px solid ${client.coach_id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.2)'}`
-                        }}>
-                          {client.coach_id ? 'Attached' : 'Generic'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
         </div>
       ) : (
         <>

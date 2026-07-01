@@ -1,0 +1,374 @@
+/* ── ClientProfile — Hevy-inspired settings page ─────────────────────── */
+
+.cp-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg-app);
+  padding-bottom: 32px;
+  overflow-y: auto;
+}
+
+/* ── User hero card ──────────────────────────────────────────────────────── */
+.cp-user-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 20px 20px;
+}
+
+.cp-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+}
+
+.cp-user-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.cp-user-email {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Section labels ──────────────────────────────────────────────────────── */
+.cp-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 14px 20px 6px;
+}
+
+/* ── Section card (list of rows) ─────────────────────────────────────────── */
+.cp-section-card {
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+/* ── Row ──────────────────────────────────────────────────────────────────── */
+.cp-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 15px 20px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  color: var(--text-main);
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s;
+  gap: 14px;
+}
+
+.cp-row:hover,
+.cp-row:active {
+  background: rgba(255,255,255,0.04);
+}
+
+.cp-row--last {
+  border-bottom: none;
+}
+
+.cp-row--action {
+  /* same as cp-row but used for button-style actions */
+}
+
+.cp-row-icon {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.cp-row-label {
+  flex: 1;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.cp-row-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cp-row-value {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Log Out button ──────────────────────────────────────────────────────── */
+.cp-logout-btn {
+  margin: 24px 20px 0;
+  width: calc(100% - 40px);
+  padding: 14px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 12px;
+  color: #ef4444;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.cp-logout-btn:hover {
+  background: rgba(239,68,68,0.15);
+}
+
+/* ── App version footer ──────────────────────────────────────────────────── */
+.cp-app-version {
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(148,163,184,0.3);
+  margin-top: 24px;
+  letter-spacing: 0.04em;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sub-section views (Profile edit, Account, Notifications, Units, Workouts)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.cp-sub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background: var(--bg-app);
+  z-index: 10;
+}
+
+.cp-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  color: var(--text-main);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.cp-back-btn:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.cp-sub-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.cp-save-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: inherit;
+  min-width: 60px;
+}
+
+.cp-save-btn--loading {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ── Form scroll area ─────────────────────────────────────────────────────── */
+.cp-form-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 40px;
+}
+
+.cp-form-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 16px 20px 6px;
+}
+
+.cp-form-card {
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* ── Form field row ──────────────────────────────────────────────────────── */
+.cp-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  gap: 12px;
+}
+
+.cp-field--border {
+  border-top: 1px solid var(--border-color);
+}
+
+.cp-field--last {
+  /* no special override needed; keeps consistent with card bottom */
+}
+
+.cp-field-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  flex-shrink: 0;
+}
+
+.cp-field-unit {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+
+.cp-field-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 0;
+}
+
+.cp-field-input--right {
+  text-align: right;
+  max-width: 100px;
+}
+
+.cp-field-input::placeholder {
+  color: rgba(148,163,184,0.35);
+}
+
+.cp-field-select {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: right;
+  cursor: pointer;
+  max-width: 180px;
+  /* hide default OS arrow on some browsers */
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 4px;
+}
+
+.cp-field-select option {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+.cp-field-static {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Save error ──────────────────────────────────────────────────────────── */
+.cp-save-error {
+  font-size: 0.78rem;
+  color: #ef4444;
+  text-align: center;
+  padding: 12px 20px 0;
+  margin: 0;
+}
+
+/* ── Account sub-section ─────────────────────────────────────────────────── */
+.cp-account-danger-zone {
+  padding: 24px 20px 0;
+}
+
+.cp-danger-btn {
+  width: 100%;
+  padding: 14px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 12px;
+  color: #ef4444;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.cp-danger-btn:hover {
+  background: rgba(239,68,68,0.15);
+}
+
+/* ── Notifications toggle ─────────────────────────────────────────────────── */
+.cp-notif-toggle {
+  min-width: 52px;
+  height: 30px;
+  border-radius: 15px;
+  border: none;
+  background: rgba(148,163,184,0.2);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+
+.cp-notif-toggle--on {
+  background: rgba(16,185,129,0.2);
+  color: #10b981;
+  border: 1px solid rgba(16,185,129,0.3);
+}
+
+.cp-notif-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 12px 20px;
+  margin: 0;
+  line-height: 1.5;
+}

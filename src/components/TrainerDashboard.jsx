@@ -2107,7 +2107,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                         <div className="trainer-loading-container">
                           <div className="trainer-spinner"></div>
                         </div>
-                      ) : clientPlans.length === 0 ? (
+                      ) : clientPlans.filter(p => p.createdBy === 'coach').length === 0 ? (
                         <div className="trainer-empty-state" style={{ padding: '30px' }}>
                           <span style={{ fontSize: '1.5rem' }}>📋</span>
                           <h5 style={{ marginTop: '8px' }}>No Plans Assigned</h5>
@@ -2115,18 +2115,13 @@ const TrainerDashboard = ({ handleLogout }) => {
                         </div>
                       ) : (
                         <div className="plans-cards-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {clientPlans.map(plan => (
+                          {clientPlans.filter(p => p.createdBy === 'coach').map(plan => (
                             <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                   <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
                                   <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
                                     📋 Assigned to: {selectedClient.userName}
-                                    {plan.createdBy === 'client' && (
-                                      <span style={{ marginLeft: '6px', color: 'var(--text-subtle)', textTransform: 'none', fontWeight: 600 }}>
-                                        (self-created)
-                                      </span>
-                                    )}
                                   </span>
                                 </div>
                                 <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>

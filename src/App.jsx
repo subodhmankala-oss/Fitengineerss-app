@@ -8,7 +8,7 @@ import MealCheck from './components/MealCheck';
 import BloatingTracker from './components/BloatingTracker';
 import SmartMealPlans from './components/SmartMealPlans';
 import ProgressDashboard from './components/ProgressDashboard';
-import CoachChat from './components/CoachChat';
+import ClientProfile from './components/ClientProfile';
 import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
@@ -1178,7 +1178,7 @@ function App() {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
       case 'workouts': return <WorkoutTracker />;
-      case 'chat': return <CoachChat />;
+      case 'profile': return <ClientProfile handleLogout={handleLogout} />;
       default: return renderHomeDashboard();
     }
   };
@@ -1378,13 +1378,14 @@ function App() {
             </span>
             <span>Workout</span>
           </button>
-          <button className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>
+          <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M20 21a8 8 0 1 0-16 0"/>
               </svg>
             </span>
-            <span>Coach</span>
+            <span>Profile</span>
           </button>
         </nav>
       )}

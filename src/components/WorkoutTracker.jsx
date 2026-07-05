@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
+import SetTypeMenu from './SetTypeMenu';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -111,7 +112,9 @@ const presetExercises = [
   {
     name: 'Shoulders Press',
     category: 'Shoulders',
-    videoId: 'qEwKCR5JCog',
+    primary: 'Deltoids',
+    secondary: 'Triceps, Upper Chest',
+    videoFile: '/videos/shoulders-press.mp4',
     guide: {
       target: 'Deltoids (Shoulders), Triceps, Upper Chest',
       setup: 'Sit on a bench with back support. Hold dumbbells at shoulder height with an overhand grip, elbows bent at 90 degrees.',
@@ -122,7 +125,9 @@ const presetExercises = [
   {
     name: 'Biceps Curls',
     category: 'Arms',
-    videoId: 'P5k8K_vX6-s',
+    primary: 'Biceps',
+    secondary: 'Brachialis, Brachioradialis',
+    videoFile: '/videos/biceps-curls.mp4',
     guide: {
       target: 'Biceps Brachii, Brachialis, Brachioradialis',
       setup: 'Stand upright with feet shoulder-width apart, holding dumbbells at your sides with palms facing forward.',
@@ -133,7 +138,9 @@ const presetExercises = [
   {
     name: 'One Arm Row',
     category: 'Back',
-    videoId: '6TSP1TRMUzs',
+    primary: 'Latissimus Dorsi',
+    secondary: 'Rhomboids, Trapezius, Biceps',
+    videoFile: '/videos/one-arm-row.mp4',
     guide: {
       target: 'Latissimus Dorsi (Lats), Rhomboids, Trapezius, Biceps',
       setup: 'Place one knee and same-side hand on a flat bench. Keep your back flat and parallel to the floor, holding a dumbbell in the other hand.',
@@ -144,7 +151,9 @@ const presetExercises = [
   {
     name: 'Lat Pull Down',
     category: 'Back',
-    videoId: '6f9GfW_nCWE',
+    primary: 'Latissimus Dorsi',
+    secondary: 'Upper Back, Biceps',
+    videoFile: '/videos/lat-pull-down.mp4',
     guide: {
       target: 'Latissimus Dorsi (Lats), Upper Back, Biceps',
       setup: 'Sit at a pulldown station and adjust the thigh pad. Grasp the bar with a wide overhand grip, leaning slightly back.',
@@ -155,7 +164,9 @@ const presetExercises = [
   {
     name: 'Flat Bench Press',
     category: 'Chest',
-    videoId: 'ysUTNll8JQ8',
+    primary: 'Pectoralis Major',
+    secondary: 'Anterior Deltoids, Triceps',
+    videoFile: '/videos/flat-bench-press.mp4',
     guide: {
       target: 'Pectoralis Major (Chest), Anterior Deltoids, Triceps',
       setup: 'Lie flat on a bench, grip the barbell slightly wider than shoulder-width. Keep feet flat on the floor and retract shoulder blades.',
@@ -166,7 +177,9 @@ const presetExercises = [
   {
     name: 'Incline Dumbbell Press',
     category: 'Chest',
-    videoId: '8iPEnn-ltC8',
+    primary: 'Upper Chest',
+    secondary: 'Shoulders, Triceps',
+    videoFile: '/videos/incline-dumbbell-press.mp4',
     guide: {
       target: 'Clavicular Pectoralis (Upper Chest), Shoulders, Triceps',
       setup: 'Set an incline bench to 30-45 degrees. Sit with dumbbells at your chest, elbows tucked, feet firmly planted.',
@@ -177,7 +190,9 @@ const presetExercises = [
   {
     name: 'Cable Crossover',
     category: 'Chest',
-    videoId: 'kY73o1o2s88',
+    primary: 'Pectoralis Major',
+    secondary: 'Anterior Deltoids',
+    videoFile: '/videos/cable-crossover.mp4',
     guide: {
       target: 'Sternal Pectoralis (Inner & Lower Chest)',
       setup: 'Set pulleys to high position. Hold handles, step forward with one foot, lean slightly forward, arms extended out.',
@@ -188,7 +203,9 @@ const presetExercises = [
   {
     name: 'Barbell Squat',
     category: 'Legs',
-    videoId: 'b3s_0kP0s1c',
+    primary: 'Quadriceps',
+    secondary: 'Glutes, Hamstrings, Core',
+    videoFile: '/videos/barbell-squat.mp4',
     guide: {
       target: 'Quadriceps, Gluteus Maximus, Hamstrings, Core',
       setup: 'Rest the barbell across your upper traps. Stand with feet slightly wider than shoulder-width, toes flared out.',
@@ -199,7 +216,9 @@ const presetExercises = [
   {
     name: 'Romanian Deadlift',
     category: 'Legs',
-    videoId: '1fCg_9W7ZqE',
+    primary: 'Hamstrings',
+    secondary: 'Glutes, Lower Back',
+    videoFile: '/videos/romanian-deadlift.mp4',
     guide: {
       target: 'Hamstrings, Glutes, Lower Back (Erectors)',
       setup: 'Stand tall holding dumbbells or a barbell at hip height. Feet hip-width apart, knees slightly unlocked.',
@@ -210,7 +229,9 @@ const presetExercises = [
   {
     name: 'Leg Extensions',
     category: 'Legs',
-    videoId: 'YyvSfVjQeL0',
+    primary: 'Quadriceps',
+    secondary: 'Rectus Femoris, Vastus Lateralis',
+    videoFile: '/videos/leg-extensions.mp4',
     guide: {
       target: 'Quadriceps (Rectus Femoris, Vastus Lateralis)',
       setup: 'Sit in the extension machine, back flush against pad. Place ankles under the roller pad and hold the side handles.',
@@ -221,7 +242,9 @@ const presetExercises = [
   {
     name: 'Overhead Triceps Extension',
     category: 'Arms',
-    videoId: '6_4Q1W47Y5s',
+    primary: 'Triceps',
+    secondary: 'Core, Shoulders',
+    videoFile: '/videos/overhead-triceps-extension.mp4',
     guide: {
       target: 'Triceps Brachii (Long Head focus)',
       setup: 'Stand or sit, holding a dumbbell with both hands vertically overhead, cupping the top plate under your palms.',
@@ -232,7 +255,9 @@ const presetExercises = [
   {
     name: 'Hammer Curls',
     category: 'Arms',
-    videoId: '8XLxfXROrTo',
+    primary: 'Brachialis',
+    secondary: 'Brachioradialis, Biceps',
+    videoFile: '/videos/hammer-curls.mp4',
     guide: {
       target: 'Brachialis, Brachioradialis (Forearms), Biceps',
       setup: 'Stand tall with dumbbells in each hand, palms facing each other (neutral grip).',
@@ -243,7 +268,9 @@ const presetExercises = [
   {
     name: 'Plank',
     category: 'Core',
-    videoId: 'p1f8_142Fys',
+    primary: 'Core',
+    secondary: 'Glutes, Shoulders',
+    videoFile: '/videos/plank.mp4',
     guide: {
       target: 'Core (Rectus Abdominis, Obliques, Transverse Abdominis)',
       setup: 'Place forearms on the floor, elbows aligned under shoulders. Extend legs straight back, resting on toes.',
@@ -254,7 +281,9 @@ const presetExercises = [
   {
     name: 'Hanging Leg Raises',
     category: 'Core',
-    videoId: 'b8P27J067F8',
+    primary: 'Lower Abs',
+    secondary: 'Hip Flexors, Core',
+    videoFile: '/videos/hanging-leg-raises.mp4',
     guide: {
       target: 'Lower Rectus Abdominis, Iliopsoas (Hip Flexors)',
       setup: 'Hang from a pull-up bar with an overhand grip, arms and legs fully extended, shoulders active.',
@@ -265,7 +294,9 @@ const presetExercises = [
   {
     name: 'Dumbbell Lateral Raises',
     category: 'Shoulders',
-    videoId: '3VcKaXtouo0',
+    primary: 'Lateral Deltoids',
+    secondary: 'Trapezius',
+    videoFile: '/videos/dumbbell-lateral-raises.mp4',
     guide: {
       target: 'Lateral Deltoids (Side Shoulders)',
       setup: 'Stand upright holding dumbbells at your sides, palms facing inward. Lean forward very slightly.',
@@ -276,7 +307,9 @@ const presetExercises = [
   {
     name: 'Pull-ups',
     category: 'Back',
-    videoId: 'G-F-R_3R4pE',
+    primary: 'Latissimus Dorsi',
+    secondary: 'Rhomboids, Teres Major, Biceps',
+    videoFile: '/videos/pull-ups.mp4',
     guide: {
       target: 'Latissimus Dorsi (Lats), Teres Major, Rhomboids, Biceps',
       setup: 'Hang from a bar with a wide overhand grip. Depress and retract your scapula (pull shoulders down).',
@@ -313,6 +346,8 @@ const WorkoutTracker = () => {
   const [genericLevel, setGenericLevel] = useState('beginner');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
+  // Set type popup menu: { exIdx, sIdx } when open, null when closed
+  const [setTypeMenu, setSetTypeMenu] = useState(null);
   // Guards against legacy sessions where localStorage.setItem('userCoachId', null) was
   // called directly, which stores the literal (truthy) string "null".
   const storedCoachId = localStorage.getItem('userCoachId');
@@ -387,6 +422,13 @@ const WorkoutTracker = () => {
   useEffect(() => {
     fetchPlans();
   }, [selectedClient]);
+
+  useEffect(() => {
+    if (!setTypeMenu) return;
+    const close = () => setSetTypeMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [setTypeMenu]);
   const [chartMetric, setChartMetric] = useState('weight'); // 'weight' or 'volume'
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(4);
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' or 'monthly'
@@ -420,7 +462,14 @@ const WorkoutTracker = () => {
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [summaryStats, setSummaryStats] = useState(null);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
+  const [guideTab, setGuideTab] = useState('summary');
+
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
+
+  useEffect(() => {
+    if (!activeGuideExercise) { setGuideTab('summary'); return; }
+    setGuideTab('summary');
+  }, [activeGuideExercise]);
 
   // Coach Log Form States
   const [logClient, setLogClient] = useState(loggedInUser);
@@ -785,18 +834,23 @@ const WorkoutTracker = () => {
     }));
   };
 
-  // Warm-up sets ("W") don't count toward the working-set number shown to the
-  // lifter — set-row labels are computed from this instead of the raw array index.
-  const handleToggleSetType = (exerciseIndex, setIndex) => {
+  const handleChangeSetType = (exerciseIndex, setIndex, type) => {
+    if (type === 'remove') {
+      handleRemoveSet(exerciseIndex, setIndex);
+      setSetTypeMenu(null);
+      return;
+    }
     setLogExercises(prev => prev.map((ex, idx) => {
-      if (idx === exerciseIndex) {
-        return {
-          ...ex,
-          sets: ex.sets.map((s, sIdx) => sIdx === setIndex ? { ...s, isWarmup: !s.isWarmup } : s)
-        };
-      }
-      return ex;
+      if (idx !== exerciseIndex) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, sIdx) => {
+          if (sIdx !== setIndex) return s;
+          return { ...s, isWarmup: type === 'warmup', setType: type };
+        })
+      };
     }));
+    setSetTypeMenu(null);
   };
 
   const handleRemoveSet = (exerciseIndex, setIndex) => {
@@ -2157,20 +2211,29 @@ const WorkoutTracker = () => {
                       <div className="hevy-table-body">
                         {ex.sets.map((set, sIdx) => {
                           const prevStats = getPreviousSessionSet(ex.name, sIdx);
-                          // Warm-up sets show "W" and don't consume a working-set number.
-                          const workingSetNumber = ex.sets.slice(0, sIdx + 1).filter(s => !s.isWarmup).length;
+                          // Warm-up sets show "W"; failure = "F"; drop = "D"; others get a working-set number.
+                          const workingSetNumber = ex.sets.slice(0, sIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                          const setDisplayLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : workingSetNumber;
                           return (
                             <div
                               key={sIdx}
-                              className={`hevy-set-row ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''}`}
+                              className={`hevy-set-row ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}
                             >
-                              <span
-                                className={`col-set set-num-lbl ${set.isWarmup ? 'warmup' : ''}`}
-                                onClick={() => handleToggleSetType(exIdx, sIdx)}
-                                title="Tap to toggle warm-up / working set"
-                                role="button"
-                              >
-                                {set.isWarmup ? 'W' : workingSetNumber}
+                              <span className="col-set set-type-menu-wrapper">
+                                <span
+                                  className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSetTypeMenu(prev => (prev?.exIdx === exIdx && prev?.sIdx === sIdx) ? null : { exIdx, sIdx });
+                                  }}
+                                  role="button"
+                                  title="Change set type"
+                                >
+                                  {setDisplayLabel}
+                                </span>
+                                {setTypeMenu?.exIdx === exIdx && setTypeMenu?.sIdx === sIdx && (
+                                  <SetTypeMenu onSelect={(type) => handleChangeSetType(exIdx, sIdx, type)} />
+                                )}
                               </span>
                               <span className="col-prev set-prev-lbl">{prevStats}</span>
                               <div className="col-weight set-input-field">
@@ -2228,13 +2291,6 @@ const WorkoutTracker = () => {
                         onClick={() => handleAddSet(exIdx)}
                       >
                         ➕ Add Set
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-add-set-link btn-add-warmup-link"
-                        onClick={() => handleAddSet(exIdx, true)}
-                      >
-                        🔥 Add Warm-up
                       </button>
                     </div>
                   </div>
@@ -2580,90 +2636,95 @@ const WorkoutTracker = () => {
         </div>
       )}
 
-      {/* Exercise Video & Form Guide Modal Overlay */}
+      {/* Form Guide — Hevy-style bottom sheet */}
       {activeGuideExercise && (
-        <div className="payment-gateway-backdrop guide-modal-backdrop" onClick={() => setActiveGuideExercise(null)}>
-          <div className="payment-gateway-modal guide-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            <div className="payment-modal-header">
-              <div className="modal-title-box">
-                <span className="secure-badge">🎬 FORM & VIDEO GUIDE</span>
-                <h3>{activeGuideExercise.name}</h3>
-              </div>
-              <button 
-                type="button" 
-                className="btn-close-modal-x"
-                onClick={() => setActiveGuideExercise(null)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  fontSize: '1.2rem',
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                ✕
-              </button>
+        <div className="guide-sheet-backdrop" onClick={() => setActiveGuideExercise(null)}>
+          <div className="guide-sheet animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            {/* drag handle */}
+            <div className="guide-sheet-handle" />
+
+            {/* exercise video */}
+            <div className="guide-image-section">
+              {activeGuideExercise.videoFile ? (
+                <video
+                  key={activeGuideExercise.videoFile}
+                  src={activeGuideExercise.videoFile}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div className="guide-image-placeholder">
+                  <span className="guide-image-icon">🏋️</span>
+                </div>
+              )}
+              {/* close button over video */}
+              <button type="button" className="guide-sheet-close" onClick={() => setActiveGuideExercise(null)}>✕</button>
             </div>
 
-            <div className="guide-modal-split-body">
-              <div className="video-player-wrapper">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${activeGuideExercise.videoId}?autoplay=1&mute=1&playlist=${activeGuideExercise.videoId}&loop=1&controls=1&rel=0`}
-                  title={`${activeGuideExercise.name} Video Guide`}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                ></iframe>
-              </div>
-
-              <div className="guide-details-section">
-                <div className="cue-card">
-                  <span className="cue-icon">🎯</span>
-                  <div className="cue-content">
-                    <h5>Target Muscle</h5>
-                    <p>{activeGuideExercise.guide?.target}</p>
-                  </div>
-                </div>
-
-                <div className="cue-card">
-                  <span className="cue-icon">🪜</span>
-                  <div className="cue-content">
-                    <h5>Setup & Position</h5>
-                    <p>{activeGuideExercise.guide?.setup}</p>
-                  </div>
-                </div>
-
-                <div className="cue-card">
-                  <span className="cue-icon">⚡</span>
-                  <div className="cue-content">
-                    <h5>Execution</h5>
-                    <p>{activeGuideExercise.guide?.execution}</p>
-                  </div>
-                </div>
-
-                <div className="cue-card cue-tip-card">
-                  <span className="cue-icon">💡</span>
-                  <div className="cue-content">
-                    <h5>Coach's Tip</h5>
-                    <p>{activeGuideExercise.guide?.tip}</p>
-                  </div>
-                </div>
-              </div>
+            {/* tabs */}
+            <div className="guide-tab-bar">
+              {['summary', 'howto'].map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`guide-tab-btn ${guideTab === tab ? 'guide-tab-btn--active' : ''}`}
+                  onClick={() => setGuideTab(tab)}
+                >
+                  {tab === 'summary' ? 'Summary' : 'How to'}
+                </button>
+              ))}
             </div>
 
-            <div className="guide-actions-row">
-              <button 
-                type="button" 
-                className="btn-confirm-save-hevy"
-                onClick={() => setActiveGuideExercise(null)}
-              >
-                Got It, Thanks!
-              </button>
+            {/* tab content */}
+            <div className="guide-tab-content">
+              {guideTab === 'summary' && (
+                <div className="guide-summary">
+                  <h2 className="guide-ex-name">{activeGuideExercise.name}</h2>
+                  <div className="guide-muscle-row">
+                    <span className="guide-muscle-label">Primary:</span>
+                    <span className="guide-muscle-value">{activeGuideExercise.primary || activeGuideExercise.category}</span>
+                  </div>
+                  {activeGuideExercise.secondary && (
+                    <div className="guide-muscle-row">
+                      <span className="guide-muscle-label">Secondary:</span>
+                      <span className="guide-muscle-value guide-muscle-secondary">{activeGuideExercise.secondary}</span>
+                    </div>
+                  )}
+                  <div className="guide-log-tip">
+                    <span className="guide-log-tip-icon">💡</span>
+                    <span>Focus on mind-muscle connection — feel the primary muscle work each rep.</span>
+                  </div>
+                </div>
+              )}
+              {guideTab === 'howto' && (
+                <div className="guide-howto">
+                  <div className="guide-howto-step">
+                    <span className="guide-step-num">1</span>
+                    <div>
+                      <div className="guide-step-label">Setup</div>
+                      <div className="guide-step-text">{activeGuideExercise.guide?.setup}</div>
+                    </div>
+                  </div>
+                  <div className="guide-howto-step">
+                    <span className="guide-step-num">2</span>
+                    <div>
+                      <div className="guide-step-label">Execution</div>
+                      <div className="guide-step-text">{activeGuideExercise.guide?.execution}</div>
+                    </div>
+                  </div>
+                  <div className="guide-howto-step">
+                    <span className="guide-step-num">3</span>
+                    <div>
+                      <div className="guide-step-label">Coach's Tip</div>
+                      <div className="guide-step-text">{activeGuideExercise.guide?.tip}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

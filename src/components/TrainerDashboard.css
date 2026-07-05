@@ -320,6 +320,26 @@
   font-size: 1.1rem;
 }
 
+.session-heading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.session-plan-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.session-date-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .session-exercises-list {
   display: flex;
   flex-direction: column;

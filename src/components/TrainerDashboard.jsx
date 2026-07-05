@@ -3,6 +3,7 @@ import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services
 import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 import './WorkoutTracker.css';
+import SetTypeMenu from './SetTypeMenu';
 
 // Comprehensive A-Z Exercise Library (150+ exercises)
 const LIVE_EXERCISE_LIST = [
@@ -433,6 +434,23 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [liveCustomExercise, setLiveCustomExercise] = useState('');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
+  const [liveSetTypeMenu, setLiveSetTypeMenu] = useState(null);
+  // Set type popup in the Plan Editor: { exIdx, setIdx } when open, null when closed
+  const [editorSetTypeMenu, setEditorSetTypeMenu] = useState(null);
+
+  useEffect(() => {
+    if (!liveSetTypeMenu) return;
+    const close = () => setLiveSetTypeMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [liveSetTypeMenu]);
+
+  useEffect(() => {
+    if (!editorSetTypeMenu) return;
+    const close = () => setEditorSetTypeMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [editorSetTypeMenu]);
 
   const triggerLiveToast = (msg) => {
     setLiveToast(msg);
@@ -459,6 +477,25 @@ const TrainerDashboard = ({ handleLogout }) => {
       if (idx !== exIdx) return ex;
       return { ...ex, sets: ex.sets.filter((_, si) => si !== setIdx) };
     }));
+  };
+
+  const handleLiveChangeSetType = (exIdx, setIdx, type) => {
+    if (type === 'remove') {
+      handleLiveRemoveSet(exIdx, setIdx);
+      setLiveSetTypeMenu(null);
+      return;
+    }
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => {
+          if (si !== setIdx) return s;
+          return { ...s, isWarmup: type === 'warmup', setType: type };
+        })
+      };
+    }));
+    setLiveSetTypeMenu(null);
   };
 
   const handleLiveSetChange = (exIdx, setIdx, field, value) => {
@@ -678,6 +715,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                         set_number: sIdx + 1,
                         reps: parseInt(set.reps || '0'),
                         weight_kg: parseFloat(set.weight || '0'),
+                        plan_name: sess.planName || sess.plan_name || 'Custom Routine',
                         loggedByCoach: sess.loggedByCoach
                       });
                     });
@@ -707,6 +745,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                         set_number: sIdx + 1,
                         reps: parseInt(set.reps || '0'),
                         weight_kg: parseFloat(set.weight || '0'),
+                        plan_name: sess.planName || sess.plan_name || 'Custom Routine',
                         loggedByCoach: sess.loggedByCoach
                       });
                     });
@@ -744,13 +783,20 @@ const TrainerDashboard = ({ handleLogout }) => {
 
   const groupLogs = (logs) => {
     const datesMap = {};
-    
+    const planNames = {};
+
     logs.forEach(log => {
       const date = log.log_date;
       if (!datesMap[date]) {
         datesMap[date] = {};
       }
-      
+      // Prefer a real workout name; only fall back to (or keep) 'Custom Routine'
+      // when no named entry exists for the date.
+      const incomingName = log.plan_name || log.planName;
+      if (incomingName && (!planNames[date] || planNames[date] === 'Custom Routine')) {
+        planNames[date] = incomingName;
+      }
+
       const exercise = log.exercise_name;
       if (!datesMap[date][exercise]) {
         datesMap[date][exercise] = [];
@@ -776,6 +822,7 @@ const TrainerDashboard = ({ handleLogout }) => {
         
         return {
           date: dateStr,
+          planName: planNames[dateStr] || 'Custom Routine',
           exercises: exercisesList
         };
       });
@@ -838,7 +885,9 @@ const TrainerDashboard = ({ handleLogout }) => {
       name: ex.name,
       sets: ex.sets.map(s => ({
         reps: parseInt(s.reps) || 10,
-        weight: parseFloat(s.weight) || 0
+        weight: parseFloat(s.weight) || 0,
+        ...(s.isWarmup ? { isWarmup: true } : {}),
+        ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
       }))
     })).filter(ex => ex.sets.length > 0);
 
@@ -891,6 +940,24 @@ const TrainerDashboard = ({ handleLogout }) => {
       }
       return ex;
     }));
+  };
+
+  const handleEditorChangeSetType = (exIdx, setIdx, type) => {
+    if (type === 'remove') {
+      handleRemoveSetFromExercise(exIdx, setIdx);
+      setEditorSetTypeMenu(null);
+      return;
+    }
+    setEditorExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => (
+          si !== setIdx ? s : { ...s, isWarmup: type === 'warmup', setType: type }
+        ))
+      };
+    }));
+    setEditorSetTypeMenu(null);
   };
 
   const handleUpdateSetInExercise = (exIdx, setIdx, field, val) => {
@@ -1880,12 +1947,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                         <div key={sIdx} className="session-block">
                           <div className="session-date-header">
                             <span className="session-date-icon">📅</span>
-                            {new Date(session.date).toLocaleDateString('en-US', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
+                            <div className="session-heading-text">
+                              <span className="session-plan-name">{session.planName || 'Custom Routine'}</span>
+                              <span className="session-date-sub">
+                                {new Date(session.date).toLocaleDateString('en-US', {
+                                  weekday: 'long',
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="session-exercises-list">
@@ -1951,82 +2023,95 @@ const TrainerDashboard = ({ handleLogout }) => {
                         />
                       </div>
 
-                      {/* Exercises in the editor */}
-                      <div className="editor-exercises-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
-                        <h5 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exercises</h5>
-                        
+                      {/* Exercises in the editor — matches the Live Log's Hevy-style
+                          layout (flush cards, styled set rows, set-type badges). */}
+                      <div className="editor-exercises-list" style={{ marginBottom: '16px' }}>
+                        <h5 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Exercises</h5>
+
                         {editorExercises.length === 0 ? (
                           <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No exercises added to this plan yet. Use the dropdown below to add exercises.</p>
                         ) : (
-                          editorExercises.map((ex, exIdx) => (
-                            <div key={exIdx} className="editor-exercise-item" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
-                              <div className="ex-item-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                <strong style={{ fontSize: '0.85rem', color: '#fff' }}>{ex.name}</strong>
-                                <button 
-                                  type="button" 
-                                  onClick={() => handleRemoveExerciseFromEditor(exIdx)}
-                                  style={{ color: 'var(--danger)', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer' }}
-                                >
-                                  🗑️ Remove Exercise
-                                </button>
-                              </div>
+                          <div className="live-logger-exercise-list">
+                            {editorExercises.map((ex, exIdx) => (
+                              <div key={exIdx} className="live-logger-exercise-card">
+                                <div className="live-logger-ex-header">
+                                  <span className="live-logger-ex-name">{ex.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveExerciseFromEditor(exIdx)}
+                                    style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                                  >🗑️ Remove</button>
+                                </div>
 
-                              <table className="editor-sets-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                  <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '20%' }}>Set</th>
-                                    <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '40%' }}>Weight (kg)</th>
-                                    <th style={{ padding: '6px 4px', fontSize: '0.75rem', color: 'var(--text-muted)', width: '40%' }}>Reps</th>
-                                    <th style={{ width: '10%' }}></th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {ex.sets.map((set, setIdx) => (
-                                    <tr key={setIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                      <td style={{ padding: '6px 4px' }}>
-                                        <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', textAlign: 'center', fontSize: '0.75rem', color: '#fff', lineHeight: '20px' }}>{setIdx + 1}</span>
-                                      </td>
-                                      <td style={{ padding: '6px 4px' }}>
-                                        <input
-                                          type="number"
-                                          value={set.weight}
-                                          onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
-                                          style={{ width: '80%', padding: '6px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '16px' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '6px 4px' }}>
-                                        <input
-                                          type="number"
-                                          value={set.reps}
-                                          onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
-                                          style={{ width: '80%', padding: '6px 8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '16px' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '6px 4px', textAlign: 'center' }}>
-                                        {ex.sets.length > 1 && (
-                                          <button 
-                                            type="button" 
-                                            onClick={() => handleRemoveSetFromExercise(exIdx, setIdx)}
-                                            style={{ color: 'var(--danger)', fontSize: '0.85rem', cursor: 'pointer' }}
+                                <div className="hevy-sets-table cols-4">
+                                  <div className="hevy-table-header">
+                                    <span className="col-set">SET</span>
+                                    <span className="col-weight">WEIGHT (KG)</span>
+                                    <span className="col-reps">REPS</span>
+                                    <span className="col-check"></span>
+                                  </div>
+                                  <div className="hevy-table-body">
+                                    {ex.sets.map((set, setIdx) => {
+                                      const workingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                      const label = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : workingNum;
+                                      return (
+                                      <div key={setIdx} className={`hevy-set-row cols-4 ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
+                                        <span className="col-set set-type-menu-wrapper">
+                                          <span
+                                            className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditorSetTypeMenu(prev => (prev?.exIdx === exIdx && prev?.setIdx === setIdx) ? null : { exIdx, setIdx });
+                                            }}
+                                            role="button"
+                                            title="Change set type"
                                           >
-                                            🗑️
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                            {label}
+                                          </span>
+                                          {editorSetTypeMenu?.exIdx === exIdx && editorSetTypeMenu?.setIdx === setIdx && (
+                                            <SetTypeMenu onSelect={(type) => handleEditorChangeSetType(exIdx, setIdx, type)} />
+                                          )}
+                                        </span>
+                                        <div className="col-weight set-input-field">
+                                          <input
+                                            type="number"
+                                            value={set.weight}
+                                            onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
+                                          />
+                                        </div>
+                                        <div className="col-reps set-input-field">
+                                          <input
+                                            type="number"
+                                            value={set.reps}
+                                            onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
+                                          />
+                                        </div>
+                                        <div className="col-check set-actions-field">
+                                          {ex.sets.length > 1 && (
+                                            <button
+                                              type="button"
+                                              className="btn-hevy-row-delete"
+                                              onClick={() => handleRemoveSetFromExercise(exIdx, setIdx)}
+                                              title="Delete Set"
+                                            >
+                                              🗑️
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
 
-                              <button 
-                                type="button" 
-                                onClick={() => handleAddSetToExercise(exIdx)}
-                                style={{ marginTop: '8px', padding: '6px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.75rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
-                              >
-                                ➕ Add Set
-                              </button>
-                            </div>
-                          ))
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddSetToExercise(exIdx)}
+                                  className="btn-add-set-link live-logger-add-set"
+                                >➕ Add Set</button>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
 
@@ -2332,9 +2417,27 @@ const TrainerDashboard = ({ handleLogout }) => {
                             <span className="col-check">DONE</span>
                           </div>
                           <div className="hevy-table-body">
-                            {ex.sets.map((set, setIdx) => (
-                              <div key={setIdx} className={`hevy-set-row cols-4 ${set.isCompleted ? 'set-row-completed' : ''}`}>
-                                <span className="col-set set-num-lbl">{setIdx + 1}</span>
+                            {ex.sets.map((set, setIdx) => {
+                              const liveWorkingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                              const liveLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : liveWorkingNum;
+                              return (
+                              <div key={setIdx} className={`hevy-set-row cols-4 ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
+                                <span className="col-set set-type-menu-wrapper">
+                                  <span
+                                    className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLiveSetTypeMenu(prev => (prev?.exIdx === exIdx && prev?.setIdx === setIdx) ? null : { exIdx, setIdx });
+                                    }}
+                                    role="button"
+                                    title="Change set type"
+                                  >
+                                    {liveLabel}
+                                  </span>
+                                  {liveSetTypeMenu?.exIdx === exIdx && liveSetTypeMenu?.setIdx === setIdx && (
+                                    <SetTypeMenu onSelect={(type) => handleLiveChangeSetType(exIdx, setIdx, type)} />
+                                  )}
+                                </span>
                                 <div className="col-weight set-input-field">
                                   <input
                                     type="number"
@@ -2370,7 +2473,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   )}
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
 

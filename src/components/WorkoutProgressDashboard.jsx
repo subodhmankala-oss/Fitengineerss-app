@@ -727,9 +727,17 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
               {/* Day stats card */}
               <div className="day-stats-overview glass-panel">
                 <div className="overview-header justify-between">
-                  <h3>
-                    {isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                  </h3>
+                  <div>
+                    <h3>
+                      {groupedLogs[selectedDateStr]?.planName
+                        || (isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                    </h3>
+                    {groupedLogs[selectedDateStr]?.planName && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                        {isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                      </div>
+                    )}
+                  </div>
                   <span className="active-badge">{groupedLogs[selectedDateStr] ? '🏋️‍♂️ Workout Done' : '☕ Rest Day'}</span>
                 </div>
                 <div className="stats-row-cards mini mt-2">

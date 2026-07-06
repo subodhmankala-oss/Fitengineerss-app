@@ -329,6 +329,10 @@ const WorkoutTracker = () => {
   // This is the source of truth for the session total, overriding the legacy
   // mock package counts so the Workout tab matches the client home card.
   const [coachSetTotalSessions, setCoachSetTotalSessions] = useState(null);
+  // DB-backed completed-session count (distinct workout_logs dates) for the
+  // logged-in client — same source as the home progress card, so the two
+  // surfaces agree on "Completed".
+  const [dbCompletedSessions, setDbCompletedSessions] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
 
   // Custom templates and plans state
@@ -593,6 +597,13 @@ const WorkoutTracker = () => {
       }
     }).catch(() => {});
 
+    // Completed count = distinct workout_logs dates (identical to the home card)
+    const ownKey = localStorage.getItem('userId') || loggedInUser;
+    databaseService.getWorkoutLogsForUser(ownKey).then(logs => {
+      const uniqueDates = new Set((logs || []).map(l => l.log_date));
+      setDbCompletedSessions(uniqueDates.size);
+    }).catch(() => {});
+
     fetchPlans();
   }, []);
 
@@ -742,7 +753,11 @@ const WorkoutTracker = () => {
     .filter(s => s.clientName.toLowerCase() === selectedClient.toLowerCase())
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  const completedSessionsCount = clientSessions.length;
+  // For the logged-in client, "Completed" mirrors the home card's DB-backed
+  // distinct-date count; other (coach-viewed) profiles keep the local count.
+  const completedSessionsCount = (isOwnProfile && dbCompletedSessions != null)
+    ? dbCompletedSessions
+    : clientSessions.length;
   const remainingSessionsCount = Math.max(0, activeProfile.totalSessions - completedSessionsCount);
   const showPaymentAlert = remainingSessionsCount <= 3;
 

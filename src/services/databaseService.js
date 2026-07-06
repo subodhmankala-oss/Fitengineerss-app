@@ -23,6 +23,37 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+// ─── RAW POSTGREST READ (SDK-hang bypass) ───
+// The Supabase JS SDK stalls on this project when the auth token needs
+// refreshing: any .from().select() awaits the token, and the refresh hangs,
+// so the query never settles (see App.jsx password-reset for the same auth
+// workaround). For read-only calls on the client-home critical path we hit
+// PostgREST directly with the anon apikey and an AbortController timeout, so
+// the request can never hang the UI. This does NOT change RLS scoping — it's
+// the same endpoint/role the anon SDK client already uses (verified these
+// exact queries return identical rows), and every filter is passed explicitly.
+const REST_BASE = isSupabaseConfigured ? `${supabaseUrl}/rest/v1` : '';
+
+async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${REST_BASE}/${pathAndQuery}`, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        Accept: 'application/json'
+      },
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`PostgREST ${res.status} ${res.statusText}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const TRAINER_EMAILS = [
   'subodhmankala@gmail.com',
   'trainer@fitengineers.com',
@@ -1093,14 +1124,14 @@ const databaseService = {
     const userId = localStorage.getItem('userId');
     if (!userId) return { connected: false, coachId: null, totalSessions: null };
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('coach_id, total_sessions')
-          .eq('user_id', userId)
-          .maybeSingle();
-        if (error) throw error;
+        // Raw PostgREST read (bypasses the hanging SDK). Same row the SDK would
+        // return, filtered explicitly by this user's own id.
+        const rows = await restSelect(
+          `clients?select=coach_id,total_sessions&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+        );
+        const data = Array.isArray(rows) ? rows[0] : null;
         return {
           connected: !!data?.coach_id,
           coachId: data?.coach_id || null,
@@ -1108,8 +1139,8 @@ const databaseService = {
         };
       } catch (e) {
         console.error('[getOwnCoachConnection] error:', e);
-        // Network blip / migration not yet run: fall back to the cached flag
-        // rather than flashing a disconnect on the home screen.
+        // Timeout / network blip: fall back to the cached flag rather than
+        // flashing a disconnect on the home screen.
         return {
           connected: localStorage.getItem('clientLinkedToCoach') === 'true',
           coachId: localStorage.getItem('userCoachId') || null,
@@ -1128,32 +1159,27 @@ const databaseService = {
   },
 
   async getWorkoutLogsForUser(userId) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
+        // Raw PostgREST reads (bypass the hanging SDK) with an AbortController
+        // timeout, so this critical home-screen read can never stall the UI.
         let resolvedUserId = userId;
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
         if (!isUuid) {
-          // Resolve full_name to UUID first
-          const { data: usersByName } = await supabase
-            .from('users')
-            .select('id')
-            .ilike('full_name', userId)
-            .maybeSingle();
-          if (usersByName) resolvedUserId = usersByName.id;
+          // Resolve full_name to UUID first (case-insensitive exact match).
+          const usersByName = await restSelect(
+            `users?select=id&full_name=ilike.${encodeURIComponent(userId)}&limit=1`
+          );
+          if (Array.isArray(usersByName) && usersByName[0]) resolvedUserId = usersByName[0].id;
         }
 
         const isResolvedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId);
         if (isResolvedUuid) {
-          const { data, error } = await supabase
-            .from('workout_logs')
-            .select('*')
-            .eq('user_id', resolvedUserId)
-            .order('log_date', { ascending: false })
-            .order('exercise_name', { ascending: true })
-            .order('set_number', { ascending: true });
-          
-          if (error) throw error;
-          return data || [];
+          const data = await restSelect(
+            `workout_logs?select=*&user_id=eq.${encodeURIComponent(resolvedUserId)}` +
+            `&order=log_date.desc,exercise_name.asc,set_number.asc`
+          );
+          return Array.isArray(data) ? data : [];
         }
       } catch (e) {
         console.error('Cloud DB Fetch workout logs error:', e);

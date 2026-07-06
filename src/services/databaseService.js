@@ -419,25 +419,34 @@ const databaseService = {
     if (isSupabaseConfigured && supabase) {
       try {
         let user = null;
-        
-        // 1. Try looking up user by email
-        const { data: userByEmail } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
 
-        if (userByEmail) {
-          user = userByEmail;
+        // 0. Prefer the exact client UUID the caller passed (the coach live-log
+        //    sends selectedClient.id). Resolving by email/name is ambiguous when
+        //    several accounts share a display name — e.g. multiple "Warrior"s —
+        //    and silently writes the session to the WRONG user's workout_logs,
+        //    so the intended client never sees it on their home screen.
+        if (session.clientId && UUID_RE.test(session.clientId)) {
+          user = { id: session.clientId };
         } else {
-          // 2. Try looking up user by full_name/sessionClientName (case-insensitive)
-          const { data: usersByName } = await supabase
+          // 1. Try looking up user by email
+          const { data: userByEmail } = await supabase
             .from('users')
             .select('id')
-            .ilike('full_name', sessionClientName);
-          
-          if (usersByName && usersByName.length > 0) {
-            user = usersByName[0];
+            .eq('email', email)
+            .maybeSingle();
+
+          if (userByEmail) {
+            user = userByEmail;
+          } else {
+            // 2. Try looking up user by full_name/sessionClientName (case-insensitive)
+            const { data: usersByName } = await supabase
+              .from('users')
+              .select('id')
+              .ilike('full_name', sessionClientName);
+
+            if (usersByName && usersByName.length > 0) {
+              user = usersByName[0];
+            }
           }
         }
 

@@ -2098,10 +2098,35 @@
   border-color: rgba(255, 255, 255, 0.04);
 }
 
+.preset-icon-monogram {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  margin-right: 10px;
+}
+
 .preset-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.preset-info strong,
+.preset-info span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .preset-info strong {
@@ -2134,8 +2159,48 @@
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.25);
   color: var(--primary-accent-light);
-  cursor: not-allowed;
-  pointer-events: none;
+  /* Tapping an added item removes it again (toggle), so keep it clickable. */
+  cursor: pointer;
+}
+
+.btn-add-preset-action.added:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+/* Sticky footer with the running count + Done button */
+.exercise-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exercise-modal-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.btn-exercise-modal-done {
+  padding: 9px 22px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary-accent-light);
+  color: #06281c;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-exercise-modal-done:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 
 /* Workout Summary Modal */

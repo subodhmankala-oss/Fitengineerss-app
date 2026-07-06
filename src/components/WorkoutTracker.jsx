@@ -319,6 +319,92 @@ const presetExercises = [
   }
 ];
 
+// Comprehensive A–Z exercise library (lightweight: name + category + primary muscle).
+// The 16 rich presets above keep their form-guide videos; these fill out the
+// picker so a client can find almost any movement. Categories map to the modal's
+// filter chips (Chest, Back, Legs, Shoulders, Arms, Core).
+const exerciseLibrary = [
+  { name: 'Arnold Press', category: 'Shoulders', primary: 'Deltoids' },
+  { name: 'Assisted Dip', category: 'Chest', primary: 'Lower Chest, Triceps' },
+  { name: 'Assisted Pull-up', category: 'Back', primary: 'Latissimus Dorsi' },
+  { name: 'Back Extension', category: 'Core', primary: 'Lower Back, Erectors' },
+  { name: 'Barbell Curl', category: 'Arms', primary: 'Biceps' },
+  { name: 'Barbell Row', category: 'Back', primary: 'Latissimus Dorsi, Rhomboids' },
+  { name: 'Barbell Shrug', category: 'Back', primary: 'Trapezius' },
+  { name: 'Bench Press (Barbell)', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Bench Press (Dumbbell)', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Bent Over Row (Barbell)', category: 'Back', primary: 'Upper Back' },
+  { name: 'Bicep Curl (Dumbbell)', category: 'Arms', primary: 'Biceps' },
+  { name: 'Bulgarian Split Squat', category: 'Legs', primary: 'Quadriceps, Glutes' },
+  { name: 'Cable Fly Crossovers', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Cable Kickback', category: 'Legs', primary: 'Glutes' },
+  { name: 'Calf Raise', category: 'Legs', primary: 'Calves (Gastrocnemius)' },
+  { name: 'Chest Dip', category: 'Chest', primary: 'Lower Chest, Triceps' },
+  { name: 'Chest Fly (Dumbbell)', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Chin Up', category: 'Back', primary: 'Latissimus Dorsi, Biceps' },
+  { name: 'Close-Grip Bench Press', category: 'Arms', primary: 'Triceps' },
+  { name: 'Concentration Curl', category: 'Arms', primary: 'Biceps' },
+  { name: 'Crunch', category: 'Core', primary: 'Rectus Abdominis' },
+  { name: 'Deadlift (Barbell)', category: 'Legs', primary: 'Glutes, Hamstrings, Back' },
+  { name: 'Decline Bench Press', category: 'Chest', primary: 'Lower Chest' },
+  { name: 'Dumbbell Fly', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Dumbbell Row', category: 'Back', primary: 'Latissimus Dorsi' },
+  { name: 'Face Pull', category: 'Shoulders', primary: 'Rear Deltoids, Traps' },
+  { name: 'Front Raise', category: 'Shoulders', primary: 'Anterior Deltoids' },
+  { name: 'Front Squat', category: 'Legs', primary: 'Quadriceps' },
+  { name: 'Glute Bridge', category: 'Legs', primary: 'Glutes' },
+  { name: 'Goblet Squat', category: 'Legs', primary: 'Quadriceps, Glutes' },
+  { name: 'Good Morning', category: 'Legs', primary: 'Hamstrings, Lower Back' },
+  { name: 'Hack Squat', category: 'Legs', primary: 'Quadriceps' },
+  { name: 'Hammer Curl (Dumbbell)', category: 'Arms', primary: 'Biceps, Brachialis' },
+  { name: 'Hanging Leg Raise', category: 'Core', primary: 'Lower Abs, Hip Flexors' },
+  { name: 'Hip Thrust', category: 'Legs', primary: 'Glutes' },
+  { name: 'Incline Bench Press (Barbell)', category: 'Chest', primary: 'Upper Chest' },
+  { name: 'Incline Dumbbell Curl', category: 'Arms', primary: 'Biceps' },
+  { name: 'Jump Squat', category: 'Legs', primary: 'Quadriceps, Glutes' },
+  { name: 'Kettlebell Swing', category: 'Legs', primary: 'Glutes, Hamstrings' },
+  { name: 'Lateral Raise (Dumbbell)', category: 'Shoulders', primary: 'Lateral Deltoids' },
+  { name: 'Leg Curl (Machine)', category: 'Legs', primary: 'Hamstrings' },
+  { name: 'Leg Press', category: 'Legs', primary: 'Quadriceps, Glutes' },
+  { name: 'Lunge (Dumbbell)', category: 'Legs', primary: 'Quadriceps, Glutes' },
+  { name: 'Mountain Climber', category: 'Core', primary: 'Abs, Hip Flexors' },
+  { name: 'Overhead Press (Barbell)', category: 'Shoulders', primary: 'Deltoids' },
+  { name: 'Overhead Triceps Extension', category: 'Arms', primary: 'Triceps' },
+  { name: 'Pec Deck Fly', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Pendlay Row', category: 'Back', primary: 'Upper Back' },
+  { name: 'Preacher Curl', category: 'Arms', primary: 'Biceps' },
+  { name: 'Push Press', category: 'Shoulders', primary: 'Deltoids, Triceps' },
+  { name: 'Push Up', category: 'Chest', primary: 'Pectoralis Major' },
+  { name: 'Rear Delt Fly', category: 'Shoulders', primary: 'Rear Deltoids' },
+  { name: 'Reverse Curl', category: 'Arms', primary: 'Brachioradialis, Biceps' },
+  { name: 'Russian Twist', category: 'Core', primary: 'Obliques' },
+  { name: 'Seated Cable Row', category: 'Back', primary: 'Mid Back, Lats' },
+  { name: 'Seated Leg Curl', category: 'Legs', primary: 'Hamstrings' },
+  { name: 'Shoulder Press (Machine)', category: 'Shoulders', primary: 'Deltoids' },
+  { name: 'Side Plank', category: 'Core', primary: 'Obliques' },
+  { name: 'Single-Leg Romanian Deadlift', category: 'Legs', primary: 'Hamstrings, Glutes' },
+  { name: 'Sit Up', category: 'Core', primary: 'Rectus Abdominis' },
+  { name: 'Skullcrusher', category: 'Arms', primary: 'Triceps' },
+  { name: 'Smith Machine Squat', category: 'Legs', primary: 'Quadriceps' },
+  { name: 'Standing Calf Raise', category: 'Legs', primary: 'Calves' },
+  { name: 'Step Up', category: 'Legs', primary: 'Quadriceps, Glutes' },
+  { name: 'Sumo Deadlift', category: 'Legs', primary: 'Glutes, Adductors' },
+  { name: 'T-Bar Row', category: 'Back', primary: 'Mid Back' },
+  { name: 'Triceps Dip', category: 'Arms', primary: 'Triceps' },
+  { name: 'Triceps Pushdown', category: 'Arms', primary: 'Triceps' },
+  { name: 'Upright Row', category: 'Shoulders', primary: 'Deltoids, Traps' },
+  { name: 'Wall Sit', category: 'Legs', primary: 'Quadriceps' },
+  { name: 'Wide-Grip Lat Pulldown', category: 'Back', primary: 'Latissimus Dorsi' },
+  { name: 'Wrist Curl', category: 'Arms', primary: 'Forearms' },
+  { name: 'Zercher Squat', category: 'Legs', primary: 'Quadriceps, Core' },
+];
+
+// Full picker list: rich presets + library, de-duped by name (case-insensitive),
+// sorted alphabetically so the modal reads A → Z.
+const allExerciseOptions = [...presetExercises, ...exerciseLibrary]
+  .filter((ex, idx, arr) => arr.findIndex(e => e.name.toLowerCase() === ex.name.toLowerCase()) === idx)
+  .sort((a, b) => a.name.localeCompare(b.name));
+
 const WorkoutTracker = () => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
   const [activeView, setActiveView] = useState('analytics'); // 'analytics', 'log', or 'programs'
@@ -467,8 +553,6 @@ const WorkoutTracker = () => {
   const [workoutActiveSeconds, setWorkoutActiveSeconds] = useState(0);
   const [workoutTimerRunning, setWorkoutTimerRunning] = useState(false);
   const [showExerciseDbModal, setShowExerciseDbModal] = useState(false);
-  const [showAddExerciseDropdown, setShowAddExerciseDropdown] = useState(false);
-  const [dropdownSearchQuery, setDropdownSearchQuery] = useState('');
   const [showFinishSummary, setShowFinishSummary] = useState(false);
   const [exerciseFilterTag, setExerciseFilterTag] = useState('All');
   const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
@@ -2089,110 +2173,13 @@ const WorkoutTracker = () => {
             <div className="section-title-row" style={{ position: 'relative' }}>
               <h4>Workout Lift Logs</h4>
               <div className="add-exercise-dropdown-wrapper">
-                <button 
-                  type="button" 
-                  className="btn-secondary-sm btn-add-hevy-ex" 
-                  onClick={() => setShowAddExerciseDropdown(!showAddExerciseDropdown)}
+                <button
+                  type="button"
+                  className="btn-secondary-sm btn-add-hevy-ex"
+                  onClick={() => { setExerciseSearchQuery(''); setExerciseFilterTag('All'); setShowExerciseDbModal(true); }}
                 >
                   ➕ Add Exercise
                 </button>
-                
-                {showAddExerciseDropdown && (
-                  <div className="add-exercise-dropdown-menu animate-scale-in">
-                    <div className="dropdown-search-wrapper">
-                      <input 
-                        type="text" 
-                        placeholder="Search exercises..." 
-                        value={dropdownSearchQuery}
-                        onChange={(e) => setDropdownSearchQuery(e.target.value)}
-                        className="dropdown-search-input"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="dropdown-presets-list">
-                      {dropdownSearchQuery.trim() && (
-                        <div 
-                          className="dropdown-preset-item"
-                          style={{
-                            border: '1px dashed rgba(16, 185, 129, 0.4)',
-                            background: 'rgba(16, 185, 129, 0.03)',
-                            marginBottom: '4px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '8px 10px',
-                            borderRadius: 'var(--radius-sm)',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => {
-                            const name = dropdownSearchQuery.trim();
-                            const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
-                            if (!alreadyAdded) {
-                              setLogExercises(prev => [...prev, { name, sets: [{ reps: 10, weight: '5.0', isCompleted: false }] }]);
-                              triggerToast(`Added custom exercise "${name}"!`);
-                              setShowAddExerciseDropdown(false);
-                              setDropdownSearchQuery('');
-                            } else {
-                              triggerToast(`"${name}" is already in your active workout.`);
-                            }
-                          }}
-                        >
-                          <div className="dropdown-preset-info">
-                            <strong style={{ color: 'var(--primary-accent-light)' }}>Create "{dropdownSearchQuery}"</strong>
-                            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Custom Exercise</span>
-                          </div>
-                          <span style={{ fontSize: '0.8rem' }}>➕</span>
-                        </div>
-                      )}
-                      
-                      {(() => {
-                        const filtered = presetExercises.filter(ex => 
-                          ex.name.toLowerCase().includes(dropdownSearchQuery.toLowerCase())
-                        );
-                        
-                        if (filtered.length === 0 && !dropdownSearchQuery.trim()) {
-                          return (
-                            <span style={{ padding: '12', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                              No exercises found.
-                            </span>
-                          );
-                        }
-                        
-                        return filtered.map(ex => {
-                          const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === ex.name.toLowerCase());
-                          return (
-                            <div 
-                              key={ex.name} 
-                              className="dropdown-preset-item"
-                              onClick={() => {
-                                if (!alreadyAdded) {
-                                  setLogExercises(prev => [...prev, { name: ex.name, sets: [{ reps: 10, weight: '5.0', isCompleted: false }] }]);
-                                  triggerToast(`Added ${ex.name} to active workout!`);
-                                  setShowAddExerciseDropdown(false);
-                                  setDropdownSearchQuery('');
-                                } else {
-                                  triggerToast(`${ex.name} is already in your workout log.`);
-                                }
-                              }}
-                              style={{
-                                opacity: alreadyAdded ? 0.6 : 1,
-                                cursor: alreadyAdded ? 'default' : 'pointer'
-                              }}
-                            >
-                              <div className="dropdown-preset-info">
-                                <strong>{ex.name}</strong>
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{ex.category}</span>
-                              </div>
-                              <span style={{ fontSize: '0.75rem', color: alreadyAdded ? 'var(--primary-accent-light)' : 'var(--text-muted)' }}>
-                                {alreadyAdded ? '✓' : '➕'}
-                              </span>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -2209,7 +2196,7 @@ const WorkoutTracker = () => {
                           type="button"
                           className="btn-form-guide-sm"
                           onClick={() => {
-                            const matched = presetExercises.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase());
+                            const matched = allExerciseOptions.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase());
                             if (matched) {
                               setActiveGuideExercise(matched);
                             } else {
@@ -2507,7 +2494,7 @@ const WorkoutTracker = () => {
                       if (!alreadyAdded) {
                         setLogExercises(prev => [...prev, { name, sets: [{ reps: 10, weight: '5.0', isCompleted: false }] }]);
                         triggerToast(`Added custom exercise "${name}"!`);
-                        setShowExerciseDbModal(false);
+                        // Keep the picker open; just clear the search to add more.
                         setExerciseSearchQuery('');
                       } else {
                         triggerToast(`"${name}" is already in your active workout.`);
@@ -2520,7 +2507,8 @@ const WorkoutTracker = () => {
               )}
 
               {(() => {
-                const filtered = presetExercises.filter(ex => {
+                // A–Z library, filtered by search + muscle chip.
+                const filtered = allExerciseOptions.filter(ex => {
                   const matchesSearch = ex.name.toLowerCase().includes(exerciseSearchQuery.toLowerCase());
                   const matchesCategory = exerciseFilterTag === 'All' || ex.category === exerciseFilterTag;
                   return matchesSearch && matchesCategory;
@@ -2530,7 +2518,7 @@ const WorkoutTracker = () => {
                   return (
                     <div className="no-presets-found" style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
                       <p style={{ fontSize: '0.9rem', marginBottom: '8px' }}>
-                        {exerciseSearchQuery.trim() ? "No matching preset exercises found." : "No exercises in this category."}
+                        {exerciseSearchQuery.trim() ? "No matching exercises found." : "No exercises in this category."}
                       </p>
                       {!exerciseSearchQuery.trim() && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -2545,20 +2533,26 @@ const WorkoutTracker = () => {
                   const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === ex.name.toLowerCase());
                   return (
                     <div key={ex.name} className="exercise-preset-item">
+                      <div className="preset-icon-monogram" aria-hidden="true">
+                        {ex.name.charAt(0).toUpperCase()}
+                      </div>
                       <div className="preset-info">
                         <strong>{ex.name}</strong>
-                        <span>{ex.category}</span>
+                        <span>{ex.primary || ex.category}</span>
                       </div>
                       <button
                         type="button"
                         className={`btn-add-preset-action ${alreadyAdded ? 'added' : ''}`}
                         onClick={() => {
                           if (!alreadyAdded) {
+                            // Keep the modal open so the client can add several
+                            // exercises in a row without scrolling back up.
                             setLogExercises(prev => [...prev, { name: ex.name, sets: [{ reps: 10, weight: '5.0', isCompleted: false }] }]);
                             triggerToast(`Added ${ex.name} to active workout!`);
-                            setShowExerciseDbModal(false); // Close the modal automatically
                           } else {
-                            triggerToast(`${ex.name} is already in your workout log.`);
+                            // Toggle off — remove it if tapped again.
+                            setLogExercises(prev => prev.filter(le => le.name.toLowerCase() !== ex.name.toLowerCase()));
+                            triggerToast(`Removed ${ex.name}.`);
                           }
                         }}
                       >
@@ -2568,6 +2562,20 @@ const WorkoutTracker = () => {
                   );
                 });
               })()}
+            </div>
+
+            {/* Footer: added count + Done — dismisses the picker once finished. */}
+            <div className="exercise-modal-footer">
+              <span className="exercise-modal-count">
+                {logExercises.length} exercise{logExercises.length !== 1 ? 's' : ''} in this workout
+              </span>
+              <button
+                type="button"
+                className="btn-exercise-modal-done"
+                onClick={() => { setShowExerciseDbModal(false); setExerciseSearchQuery(''); }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

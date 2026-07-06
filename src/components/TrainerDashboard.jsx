@@ -212,6 +212,11 @@ const TrainerDashboard = ({ handleLogout }) => {
   // renders inside the Live Log tab, so a save on another tab looked like it
   // did nothing. This message is local to the panel and always visible.
   const [totalSessionsSaveMsg, setTotalSessionsSaveMsg] = useState('');
+  // The exact input value that was last saved successfully. While the input
+  // still matches it, the Save button locks into a disabled "✓ Saved" state
+  // (not clickable, not highlighted); editing the input to any other value
+  // clears this and the button goes back to its normal clickable "Save" state.
+  const [totalSessionsSavedValue, setTotalSessionsSavedValue] = useState(null);
   
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
@@ -516,6 +521,7 @@ const TrainerDashboard = ({ handleLogout }) => {
         setSelectedClient(prev => prev ? { ...prev, total_sessions: parsed } : prev);
         setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, total_sessions: parsed } : c));
         setTotalSessionsSaveMsg(`✅ Saved — ${parsed} sessions`);
+        setTotalSessionsSavedValue(totalSessionsInput);
       } else {
         setTotalSessionsSaveMsg('❌ ' + (result.error || 'Could not save program length.'));
       }
@@ -533,6 +539,9 @@ const TrainerDashboard = ({ handleLogout }) => {
     setSelectedClient(client);
     setDetailTab('plans');
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
+    // Reset the save-lock so a coincidental value match with the previous
+    // client doesn't falsely show "✓ Saved" for this one.
+    setTotalSessionsSavedValue(null);
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {
@@ -1749,7 +1758,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                     step="1"
                     placeholder="e.g. 24"
                     value={totalSessionsInput}
-                    onChange={(e) => setTotalSessionsInput(e.target.value)}
+                    onChange={(e) => {
+                      setTotalSessionsInput(e.target.value);
+                      // Editing after a save unlocks the button again.
+                      if (totalSessionsSavedValue !== null) setTotalSessionsSavedValue(null);
+                    }}
                     disabled={savingTotalSessions}
                     style={{
                       width: '90px',
@@ -1762,22 +1775,33 @@ const TrainerDashboard = ({ handleLogout }) => {
                       fontWeight: 700
                     }}
                   />
-                  <button
-                    onClick={handleSaveTotalSessions}
-                    disabled={savingTotalSessions || !totalSessionsInput.trim()}
-                    style={{
-                      padding: '8px 16px',
-                      background: savingTotalSessions ? 'rgba(139, 92, 246, 0.4)' : 'var(--primary-accent, #8b5cf6)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: '0.8rem',
-                      cursor: savingTotalSessions ? 'wait' : 'pointer'
-                    }}
-                  >
-                    {savingTotalSessions ? 'Saving…' : 'Save'}
-                  </button>
+                  {(() => {
+                    const isSavedLocked = totalSessionsSavedValue !== null && totalSessionsSavedValue === totalSessionsInput;
+                    const isDisabled = savingTotalSessions || isSavedLocked || !totalSessionsInput.trim();
+                    const label = savingTotalSessions ? 'Saving…' : isSavedLocked ? '✓ Saved' : 'Save';
+                    return (
+                      <button
+                        onClick={handleSaveTotalSessions}
+                        disabled={isDisabled}
+                        style={{
+                          padding: '8px 16px',
+                          background: isSavedLocked
+                            ? 'rgba(255,255,255,0.05)'
+                            : savingTotalSessions
+                              ? 'rgba(139, 92, 246, 0.4)'
+                              : 'var(--primary-accent, #8b5cf6)',
+                          border: isSavedLocked ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                          borderRadius: '8px',
+                          color: isSavedLocked ? 'var(--text-muted)' : '#fff',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          cursor: isDisabled ? 'default' : 'pointer'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })()}
                   {totalSessionsSaveMsg && (
                     <div style={{
                       width: '100%',

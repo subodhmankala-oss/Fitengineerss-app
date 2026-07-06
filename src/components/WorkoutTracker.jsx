@@ -688,15 +688,56 @@ const WorkoutTracker = () => {
       }
     }).catch(() => {});
 
-    // Completed count = distinct workout_logs dates (identical to the home card)
+    // Completed count = distinct workout_logs dates (identical to the home card).
+    // Also rebuild the analytics sessions from the DB (the source of truth) so
+    // the progression graph + Workout History match the home screen instead of
+    // stale localStorage — the localStorage store can lag behind coach-logged
+    // sessions and miss exercises entirely.
     const ownKey = localStorage.getItem('userId') || loggedInUser;
     databaseService.getWorkoutLogsForUser(ownKey).then(logs => {
-      const uniqueDates = new Set((logs || []).map(l => l.log_date));
-      setDbCompletedSessions(uniqueDates.size);
+      const rows = logs || [];
+      setDbCompletedSessions(new Set(rows.map(l => l.log_date)).size);
+
+      if (rows.length > 0) {
+        // Group flat log rows into one session per date → { exercises:[{name,sets}] }
+        const byDate = {};
+        rows.forEach(l => {
+          const d = l.log_date;
+          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', exMap: {} };
+          const ex = l.exercise_name;
+          if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
+          byDate[d].exMap[ex].push({ reps: l.reps, weight: l.weight_kg });
+        });
+        const dbSessions = Object.values(byDate).map(s => ({
+          id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
+          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
+        }));
+        // DB is authoritative per date; keep any local-only (unsynced) dates too.
+        const dbDates = new Set(dbSessions.map(s => s.date));
+        const localOnly = allSessions.filter(s => !dbDates.has(s.date));
+        const merged = [...localOnly, ...dbSessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+        setSessions(merged);
+        setSelectedSessionIndex(merged.length - 1);
+      }
     }).catch(() => {});
 
     fetchPlans();
   }, []);
+
+  // Keep the graphed exercise on one the client has actually logged, so the
+  // progression chart is never empty while sessions exist (e.g. the default
+  // "Shoulders Press" when the client only logged chest/arm work).
+  useEffect(() => {
+    const names = [...new Set(
+      sessions
+        .filter(s => s.clientName && s.clientName.toLowerCase() === selectedClient.toLowerCase())
+        .flatMap(s => (s.exercises || []).map(e => e.name))
+    )];
+    if (names.length > 0 && !names.some(n => n.toLowerCase() === selectedExercise.toLowerCase())) {
+      setSelectedExercise(names[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions, selectedClient]);
 
   // Hevy stopwatch & rest timer side effects
   useEffect(() => {

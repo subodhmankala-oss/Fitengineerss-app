@@ -207,6 +207,11 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Coaching program length (clients.total_sessions) editor for the selected client
   const [totalSessionsInput, setTotalSessionsInput] = useState('');
   const [savingTotalSessions, setSavingTotalSessions] = useState(false);
+  // Inline confirmation for the Program Total Sessions save — the panel sits
+  // above the tab bar and is visible on every tab, but `liveToast` only
+  // renders inside the Live Log tab, so a save on another tab looked like it
+  // did nothing. This message is local to the panel and always visible.
+  const [totalSessionsSaveMsg, setTotalSessionsSaveMsg] = useState('');
   
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
@@ -499,24 +504,27 @@ const TrainerDashboard = ({ handleLogout }) => {
     if (!selectedClient) return;
     const parsed = parseInt(totalSessionsInput, 10);
     if (!Number.isFinite(parsed) || parsed < 1) {
-      triggerLiveToast('⚠️ Enter a valid number of sessions (1 or more).');
+      setTotalSessionsSaveMsg('⚠️ Enter a valid number of sessions (1 or more).');
+      setTimeout(() => setTotalSessionsSaveMsg(''), 3500);
       return;
     }
     setSavingTotalSessions(true);
+    setTotalSessionsSaveMsg('');
     try {
       const result = await databaseService.setClientTotalSessions(selectedClient.id, parsed);
       if (result.success) {
         setSelectedClient(prev => prev ? { ...prev, total_sessions: parsed } : prev);
         setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, total_sessions: parsed } : c));
-        triggerLiveToast(`✅ Program set to ${parsed} sessions for ${selectedClient.userName}.`);
+        setTotalSessionsSaveMsg(`✅ Saved — ${parsed} sessions`);
       } else {
-        triggerLiveToast('❌ ' + (result.error || 'Could not save program length.'));
+        setTotalSessionsSaveMsg('❌ ' + (result.error || 'Could not save program length.'));
       }
     } catch (e) {
       console.error('Error saving total sessions:', e);
-      triggerLiveToast('❌ Could not save program length. Please try again.');
+      setTotalSessionsSaveMsg('❌ Could not save program length. Please try again.');
     } finally {
       setSavingTotalSessions(false);
+      setTimeout(() => setTotalSessionsSaveMsg(''), 3500);
     }
   };
 
@@ -1770,6 +1778,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                   >
                     {savingTotalSessions ? 'Saving…' : 'Save'}
                   </button>
+                  {totalSessionsSaveMsg && (
+                    <div style={{
+                      width: '100%',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: totalSessionsSaveMsg.startsWith('✅') ? '#34d399' : totalSessionsSaveMsg.startsWith('⚠️') ? '#f59e0b' : '#f87171'
+                    }}>
+                      {totalSessionsSaveMsg}
+                    </div>
+                  )}
                 </div>
               )}
 

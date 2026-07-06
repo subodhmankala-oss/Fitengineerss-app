@@ -2053,9 +2053,13 @@ const WorkoutTracker = () => {
                 <strong>Billing Tracker ({selectedClient})</strong>
                 <p>Completed: {completedSessionsCount} / {activeProfile.totalSessions} sessions</p>
               </div>
-              <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
-                💳 Renew Package (+12 Sessions)
-              </button>
+              {/* Renewal only surfaces when the package is nearly used up (≤3 left),
+                  matching the warning banner — not while sessions remain plentiful. */}
+              {remainingSessionsCount <= 3 && (
+                <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
+                  💳 Renew Package (+12 Sessions)
+                </button>
+              )}
             </div>
           )}
 

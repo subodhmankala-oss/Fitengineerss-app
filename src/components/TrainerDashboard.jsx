@@ -4,205 +4,8 @@ import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 import './WorkoutTracker.css';
 import SetTypeMenu from './SetTypeMenu';
+import ExercisePickerModal from './ExercisePickerModal';
 
-// Comprehensive A-Z Exercise Library (150+ exercises)
-const LIVE_EXERCISE_LIST = [
-  // A
-  'Ab Wheel Rollout',
-  'Arnold Press',
-  'Around the World (Chest)',
-  'Assisted Pull-up',
-  'Assisted Dip',
-  // B
-  'Back Extension',
-  'Ball Slam',
-  'Band Pull Apart',
-  'Barbell Curl',
-  'Barbell Hip Thrust',
-  'Barbell Row',
-  'Barbell Shrug',
-  'Barbell Squat',
-  'Behind Neck Press',
-  'Bench Press',
-  'Bent Over Dumbbell Row',
-  'Bent Over Row (Barbell)',
-  'Bicep Curl (Cable)',
-  'Bicep Curl (Dumbbell)',
-  'Box Jump',
-  'Box Squat',
-  'Bulgarian Split Squat',
-  'Burpee',
-  // C
-  'Cable Crossover',
-  'Cable Crunch',
-  'Cable Curl',
-  'Cable Fly',
-  'Cable Kickback',
-  'Cable Lateral Raise',
-  'Cable Overhead Triceps Extension',
-  'Cable Pull Through',
-  'Cable Row (Seated)',
-  'Calf Raise (Machine)',
-  'Calf Raise (Standing)',
-  'Chest Dip',
-  'Chest Fly (Dumbbell)',
-  'Chest Press (Machine)',
-  'Chin-up',
-  'Clean and Press',
-  'Close Grip Bench Press',
-  'Concentration Curl',
-  'Crunch',
-  'Curtsy Lunge',
-  // D
-  'Dead Bug',
-  'Deadlift',
-  'Deadlift (Sumo)',
-  'Decline Bench Press',
-  'Decline Crunch',
-  'Deficit Push-up',
-  'Diamond Push-up',
-  'Dip',
-  'Dumbbell Curl',
-  'Dumbbell Fly',
-  'Dumbbell Lunge',
-  'Dumbbell Press (Incline)',
-  'Dumbbell Press (Seated)',
-  'Dumbbell Row',
-  'Dumbbell Shrug',
-  'Dumbbell Squat',
-  // E
-  'EZ Bar Curl',
-  'EZ Bar Skullcrusher',
-  // F
-  'Face Pull',
-  'Face Pull (Cable)',
-  'Farmer Walk',
-  'Floor Press',
-  'Front Raise',
-  'Front Raise (Barbell)',
-  'Front Squat',
-  // G
-  'Glute Bridge',
-  'Glute Kickback',
-  'Goblet Squat',
-  'Good Morning',
-  // H
-  'Hack Squat',
-  'Hammer Curl',
-  'Hanging Knee Raise',
-  'Hanging Leg Raise',
-  'High Cable Curl',
-  'High Row (Machine)',
-  'Hip Abduction (Machine)',
-  'Hip Adduction (Machine)',
-  'Hip Thrust',
-  'Hyperextension',
-  // I
-  'Incline Barbell Press',
-  'Incline Dumbbell Curl',
-  'Incline Dumbbell Press',
-  'Incline Dumbbell Row',
-  'Incline Push-up',
-  // J
-  'Jump Squat',
-  'Jumping Jack',
-  // K
-  'Kettlebell Swing',
-  'Kettlebell Goblet Squat',
-  'Kneeling Cable Crunch',
-  // L
-  'Lat Pulldown',
-  'Lat Pulldown (Close Grip)',
-  'Lat Pulldown (Wide Grip)',
-  'Lateral Raise',
-  'Lateral Raise (Cable)',
-  'Lateral Raise (Machine)',
-  'Leg Curl (Lying)',
-  'Leg Curl (Seated)',
-  'Leg Extension',
-  'Leg Press',
-  'Leg Press (Narrow Stance)',
-  'Low Cable Row',
-  'Lunge',
-  'Lying Triceps Extension',
-  // M
-  'Military Press',
-  'Mountain Climber',
-  // N
-  'Neutral Grip Pull-up',
-  // O
-  'Oblique Crunch',
-  'One Arm Cable Row',
-  'One Arm Dumbbell Row',
-  'Overhead Press (Barbell)',
-  'Overhead Press (Dumbbell)',
-  'Overhead Triceps Extension',
-  // P
-  'Pec Deck Fly',
-  'Pendlay Row',
-  'Plank',
-  'Plank (Side)',
-  'Preacher Curl',
-  'Press (Smith Machine)',
-  'Pull-up',
-  'Push-up',
-  'Push-up (Wide Grip)',
-  // R
-  'Rack Pull',
-  'Rear Delt Fly',
-  'Rear Delt Fly (Cable)',
-  'Rear Delt Fly (Machine)',
-  'Reverse Curl',
-  'Reverse Fly',
-  'Reverse Lunge',
-  'Romanian Deadlift',
-  'Romanian Deadlift (Dumbbell)',
-  'Russian Twist',
-  // S
-  'Seated Cable Row',
-  'Seated Calf Raise',
-  'Seated Dumbbell Curl',
-  'Seated Leg Curl',
-  'Seated Row (Machine)',
-  'Shoulder Press (Barbell)',
-  'Shoulder Press (Dumbbell)',
-  'Shoulder Press (Machine)',
-  'Shrug',
-  'Shrug (Barbell)',
-  'Shrug (Dumbbell)',
-  'Side Lateral Raise',
-  'Single Leg Deadlift',
-  'Single Leg Press',
-  'Skullcrusher',
-  'Smith Machine Squat',
-  'Split Squat',
-  'Squat',
-  'Step-up',
-  'Stiff Leg Deadlift',
-  'Straight Bar Curl',
-  'Sumo Deadlift',
-  'Superman',
-  // T
-  'T-Bar Row',
-  'Triceps Dip',
-  'Triceps Extension (Cable)',
-  'Triceps Extension (Dumbbell)',
-  'Triceps Kickback',
-  'Triceps Pushdown',
-  'Triceps Rope Pushdown',
-  // U
-  'Upright Row (Barbell)',
-  'Upright Row (Cable)',
-  'Upright Row (Dumbbell)',
-  // V
-  'V Up',
-  'V-Bar Pulldown',
-  // W
-  'Wide Grip Pull-up',
-  'Wrist Curl',
-  // Z
-  'Zercher Squat',
-];
 
 const TrainerDashboard = ({ handleLogout }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
@@ -412,6 +215,8 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [editingPlan, setEditingPlan] = useState(null);
   const [editorPlanName, setEditorPlanName] = useState('');
   const [editorExercises, setEditorExercises] = useState([]);
+  // Which surface opened the shared exercise picker: 'editor' | 'live' | null
+  const [exercisePickerContext, setExercisePickerContext] = useState(null);
 
   const fetchClientPlans = async (clientId) => {
     setLoadingPlans(true);
@@ -435,7 +240,6 @@ const TrainerDashboard = ({ handleLogout }) => {
     { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
   ]);
   const [livePlanName, setLivePlanName] = useState('Live Routine');
-  const [liveCustomExercise, setLiveCustomExercise] = useState('');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
   const [liveSetTypeMenu, setLiveSetTypeMenu] = useState(null);
@@ -2211,60 +2015,15 @@ const TrainerDashboard = ({ handleLogout }) => {
                         )}
                       </div>
 
-                      {/* Add Exercise — Autocomplete Input + Datalist */}
+                      {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
                       <div className="add-exercise-selector-box" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginBottom: '24px' }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>➕ Add Exercise</div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <input
-                            type="text"
-                            placeholder="Type or search exercise (e.g. Bench, Squat, Cable...)"
-                            id="planEditorCustomExercise"
-                            list="plan-exercise-datalist"
-                            style={{
-                              flex: 1,
-                              padding: '9px 12px',
-                              background: 'rgba(255,255,255,0.04)',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: 'var(--radius-sm)',
-                              color: '#fff',
-                              fontSize: '16px',
-                              outline: 'none'
-                            }}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter' && e.target.value.trim()) {
-                                handleAddExerciseToEditor(e.target.value.trim());
-                                e.target.value = '';
-                              }
-                            }}
-                          />
-                          <datalist id="plan-exercise-datalist">
-                            {LIVE_EXERCISE_LIST.map(name => <option key={name} value={name} />)}
-                          </datalist>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const input = document.getElementById('planEditorCustomExercise');
-                              const val = input?.value?.trim();
-                              if (val) {
-                                handleAddExerciseToEditor(val);
-                                input.value = '';
-                              }
-                            }}
-                            style={{
-                              padding: '9px 14px',
-                              background: 'rgba(16,185,129,0.12)',
-                              border: '1px solid rgba(16,185,129,0.3)',
-                              borderRadius: 'var(--radius-sm)',
-                              color: 'var(--primary-accent-light)',
-                              fontWeight: 700,
-                              fontSize: '0.82rem',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            + Add
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          className="btn-secondary-sm btn-add-hevy-ex"
+                          onClick={() => setExercisePickerContext('editor')}
+                        >
+                          ➕ Add Exercise
+                        </button>
                       </div>
 
                       {/* Editor actions */}
@@ -2582,60 +2341,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                     ))}
                   </div>
 
-                  {/* Add Exercise — Autocomplete Input + Datalist */}
+                  {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
                   <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>➕ Add Exercise to Session</div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        placeholder="Type or search exercise (e.g. Bench, Squat, Cable...)"
-                        value={liveCustomExercise}
-                        list="live-exercise-datalist"
-                        onChange={e => setLiveCustomExercise(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && liveCustomExercise.trim()) {
-                            handleLiveAddExercise(liveCustomExercise.trim());
-                            setLiveCustomExercise('');
-                          }
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '9px 12px',
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: 'var(--radius-sm)',
-                          color: '#fff',
-                          fontSize: '16px',
-                          outline: 'none'
-                        }}
-                      />
-                      <datalist id="live-exercise-datalist">
-                        {LIVE_EXERCISE_LIST.map(name => <option key={name} value={name} />)}
-                      </datalist>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const name = liveCustomExercise.trim();
-                          if (name) {
-                            handleLiveAddExercise(name);
-                            setLiveCustomExercise('');
-                          }
-                        }}
-                        style={{
-                          padding: '9px 16px',
-                          background: 'rgba(245,158,11,0.15)',
-                          border: '1px solid rgba(245,158,11,0.35)',
-                          borderRadius: 'var(--radius-sm)',
-                          color: '#f59e0b',
-                          fontWeight: 700,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        + Add
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary-sm btn-add-hevy-ex"
+                      onClick={() => setExercisePickerContext('live')}
+                    >
+                      ➕ Add Exercise
+                    </button>
                   </div>
 
                   {/* Save Button */}
@@ -2664,6 +2379,22 @@ const TrainerDashboard = ({ handleLogout }) => {
           )}
         </>
       )}
+
+      {/* Shared Hevy-style exercise picker (identical to the client side) */}
+      <ExercisePickerModal
+        open={!!exercisePickerContext}
+        onClose={() => setExercisePickerContext(null)}
+        addedNames={(exercisePickerContext === 'editor' ? editorExercises : liveExercises).map(e => e.name)}
+        onAdd={(name) => {
+          if (exercisePickerContext === 'editor') handleAddExerciseToEditor(name);
+          else handleLiveAddExercise(name);
+        }}
+        onRemove={(name) => {
+          const notName = (e) => e.name.toLowerCase() !== name.toLowerCase();
+          if (exercisePickerContext === 'editor') setEditorExercises(prev => prev.filter(notName));
+          else setLiveExercises(prev => prev.filter(notName));
+        }}
+      />
     </div>
   );
 };

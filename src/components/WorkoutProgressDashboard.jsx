@@ -14,15 +14,46 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
   const [selectedDateStr, setSelectedDateStr] = useState(getLocalDateString());
+  // Coach-set program length (clients.total_sessions). null = not configured
+  // yet — the progress card shows a "waiting on your coach" state, never a
+  // fake default denominator. localStorage is only a fast-paint cache; the
+  // real value is reconciled from the DB on mount.
   const [sessionsTotal, setSessionsTotal] = useState(() => {
-    const cachedLimit = localStorage.getItem('userSessionsLimit');
-    return cachedLimit ? parseInt(cachedLimit) : 24;
+    const cachedLimit = parseInt(localStorage.getItem('userSessionsLimit'), 10);
+    return Number.isFinite(cachedLimit) && cachedLimit > 0 ? cachedLimit : null;
   });
   const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
     if (storedName) setUserName(storedName);
+
+    // Reconcile connection status + coach-set program length from the DB.
+    // The localStorage flag is only a cache and can be stale — the progress
+    // card belongs to a coaching relationship, so both the header state and
+    // the card gate off the client's own clients row (coach_id).
+    databaseService.getOwnCoachConnection().then(conn => {
+      setIsLinkedToCoach(conn.connected);
+      localStorage.setItem('clientLinkedToCoach', conn.connected ? 'true' : 'false');
+      if (conn.coachId) localStorage.setItem('userCoachId', conn.coachId);
+      if (conn.connected && Number.isFinite(conn.totalSessions) && conn.totalSessions > 0) {
+        setSessionsTotal(conn.totalSessions);
+        localStorage.setItem('userSessionsLimit', String(conn.totalSessions));
+      } else {
+        setSessionsTotal(null);
+        localStorage.removeItem('userSessionsLimit');
+      }
+      // Header shows the coach's name — resolve it if the cache is empty
+      // (e.g. the localStorage flag was stale-false so the mount backfill
+      // below didn't run).
+      if (conn.connected && conn.coachId && !localStorage.getItem('userCoachName')) {
+        databaseService.getCoachNameById(conn.coachId).then(resolvedName => {
+          const displayName = resolvedName || conn.coachId;
+          localStorage.setItem('userCoachName', displayName);
+          setCoachName(displayName);
+        });
+      }
+    });
 
     // Backfill the coach's name for clients who connected before this lookup
     // existed — they have userCoachId but never got a userCoachName cached.
@@ -525,8 +556,32 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
           {/* ─── WEEKLY VIEW CONTENT ─── */}
           {timeframe === 'weekly' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Single Prominent Sessions Done Progress Card */}
-              {(() => {
+              {/* Single Prominent Sessions Done Progress Card — belongs to the
+                  coaching relationship, so it only renders for clients actually
+                  connected to a coach via invite code. */}
+              {isLinkedToCoach && (() => {
+                const hasConfiguredTotal = Number.isFinite(sessionsTotal) && sessionsTotal > 0;
+                if (!hasConfiguredTotal) {
+                  // Connected, but the coach hasn't set a program length yet —
+                  // show an honest waiting state instead of fake numbers.
+                  return (
+                    <div className="sessions-progress-card glass-panel animate-scale-in" style={{
+                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
+                      border: '1px solid rgba(139, 92, 246, 0.25)',
+                      borderRadius: '16px',
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
+                    }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+                        Your coach hasn't set your program length yet. Your session progress will appear here once they do. 🗓️
+                      </p>
+                    </div>
+                  );
+                }
                 const percentComplete = Math.min(100, Math.round((totalSessionsDone / sessionsTotal) * 100));
                 return (
                   <div className="sessions-progress-card glass-panel animate-scale-in" style={{

@@ -931,7 +931,8 @@ const databaseService = {
             userFatsTarget: String(c.fats_target || ''),
             role: 'client',
             phone: c.phone_number,
-            coach_id: c.coach_id
+            coach_id: c.coach_id,
+            total_sessions: c.total_sessions ?? null
           }));
         }
       } catch (e) {
@@ -968,7 +969,8 @@ const databaseService = {
         userFatsTarget: String(c.fats_target || ''),
         role: 'client',
         phone: c.phone_number,
-        coach_id: c.coach_id
+        coach_id: c.coach_id,
+        total_sessions: c.total_sessions ?? null
       };
     });
   },
@@ -1006,7 +1008,8 @@ const databaseService = {
             userFatsTarget: String(c.fats_target || ''),
             role: 'client',
             phone: c.phone_number,
-            coach_id: c.coach_id
+            coach_id: c.coach_id,
+            total_sessions: c.total_sessions ?? null
           }));
         }
       } catch (e) {
@@ -1035,9 +1038,93 @@ const databaseService = {
         userFatsTarget: String(c.fats_target || ''),
         role: 'client',
         phone: c.phone_number,
-        coach_id: c.coach_id
+        coach_id: c.coach_id,
+        total_sessions: c.total_sessions ?? null
       };
     });
+  },
+
+  // ─── COACHING PROGRAM TOTAL SESSIONS ───
+  // Coach sets the program length for one attached client. Goes through the
+  // SECURITY DEFINER RPC (supabase_total_sessions.sql) so the coach↔client
+  // scope check happens server-side regardless of which clients RLS policy
+  // set is deployed — no policy changes needed.
+  async setClientTotalSessions(clientUserId, totalSessions) {
+    const coachUserId = localStorage.getItem('userId');
+    if (!coachUserId || !clientUserId) {
+      return { success: false, error: 'Missing coach or client id.' };
+    }
+    const parsed = parseInt(totalSessions, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return { success: false, error: 'Total sessions must be a number of 1 or more.' };
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.rpc('set_client_total_sessions', {
+          p_coach_id: coachUserId,
+          p_client_id: clientUserId,
+          p_total: parsed
+        });
+        if (error) throw error;
+        if (data && data.success === false) {
+          return { success: false, error: data.error || 'Update failed.' };
+        }
+        return { success: true, total_sessions: parsed };
+      } catch (e) {
+        console.error('[setClientTotalSessions] error:', e);
+        return { success: false, error: e.message || 'Update failed.' };
+      }
+    }
+
+    // Mock fallback — same coach↔client scoping as the RPC's WHERE clause
+    const mockClients = this.getMockTable('clients');
+    const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
+    if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
+    mockClients[idx].total_sessions = parsed;
+    this.saveMockTable('clients', mockClients);
+    return { success: true, total_sessions: parsed };
+  },
+
+  // Client-side read of its own connection record: is a coach attached, and
+  // what program length (total_sessions) did that coach set? Only ever reads
+  // the logged-in user's own clients row.
+  async getOwnCoachConnection() {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return { connected: false, coachId: null, totalSessions: null };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('coach_id, total_sessions')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (error) throw error;
+        return {
+          connected: !!data?.coach_id,
+          coachId: data?.coach_id || null,
+          totalSessions: data?.total_sessions ?? null
+        };
+      } catch (e) {
+        console.error('[getOwnCoachConnection] error:', e);
+        // Network blip / migration not yet run: fall back to the cached flag
+        // rather than flashing a disconnect on the home screen.
+        return {
+          connected: localStorage.getItem('clientLinkedToCoach') === 'true',
+          coachId: localStorage.getItem('userCoachId') || null,
+          totalSessions: null
+        };
+      }
+    }
+
+    const mockClients = this.getMockTable('clients');
+    const row = mockClients.find(c => c.user_id === userId);
+    return {
+      connected: !!row?.coach_id,
+      coachId: row?.coach_id || null,
+      totalSessions: row?.total_sessions ?? null
+    };
   },
 
   async getWorkoutLogsForUser(userId) {

@@ -400,6 +400,10 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
+
+  // Coaching program length (clients.total_sessions) editor for the selected client
+  const [totalSessionsInput, setTotalSessionsInput] = useState('');
+  const [savingTotalSessions, setSavingTotalSessions] = useState(false);
   
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
@@ -685,10 +689,38 @@ const TrainerDashboard = ({ handleLogout }) => {
     };
   }, []);
 
+  // Coach sets this client's coaching-program length. Persisted via the
+  // coach↔client-scoped RPC; drives the client's home progress card.
+  const handleSaveTotalSessions = async () => {
+    if (!selectedClient) return;
+    const parsed = parseInt(totalSessionsInput, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      triggerLiveToast('⚠️ Enter a valid number of sessions (1 or more).');
+      return;
+    }
+    setSavingTotalSessions(true);
+    try {
+      const result = await databaseService.setClientTotalSessions(selectedClient.id, parsed);
+      if (result.success) {
+        setSelectedClient(prev => prev ? { ...prev, total_sessions: parsed } : prev);
+        setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, total_sessions: parsed } : c));
+        triggerLiveToast(`✅ Program set to ${parsed} sessions for ${selectedClient.userName}.`);
+      } else {
+        triggerLiveToast('❌ ' + (result.error || 'Could not save program length.'));
+      }
+    } catch (e) {
+      console.error('Error saving total sessions:', e);
+      triggerLiveToast('❌ Could not save program length. Please try again.');
+    } finally {
+      setSavingTotalSessions(false);
+    }
+  };
+
   // Fetch client workout logs when a client is selected
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
     setDetailTab('plans');
+    setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {
@@ -1872,6 +1904,70 @@ const TrainerDashboard = ({ handleLogout }) => {
                   <div className="metric-mini-value">{selectedClient.userProteinTarget || '--'}g</div>
                 </div>
               </div>
+
+              {/* Coaching Program Length — coach-set total sessions that drives the
+                  "Coaching Program Progress" card on this client's home screen.
+                  Only shown for clients attached to the logged-in coach; the RPC
+                  re-checks that relationship server-side on save. */}
+              {selectedClient.coach_id === loggedInUserId && (
+                <div className="glass-panel" style={{
+                  padding: '14px 16px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  borderRadius: '12px',
+                  background: 'rgba(139, 92, 246, 0.06)'
+                }}>
+                  <div style={{ flex: 1, minWidth: '180px' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                      🎯 Program Total Sessions
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {selectedClient.total_sessions != null
+                        ? `Currently ${selectedClient.total_sessions} sessions — shown on ${selectedClient.userName}'s progress card.`
+                        : 'Not set yet — the client sees a "waiting on your coach" state until you set it.'}
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 24"
+                    value={totalSessionsInput}
+                    onChange={(e) => setTotalSessionsInput(e.target.value)}
+                    disabled={savingTotalSessions}
+                    style={{
+                      width: '90px',
+                      padding: '8px 10px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.85rem',
+                      fontWeight: 700
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveTotalSessions}
+                    disabled={savingTotalSessions || !totalSessionsInput.trim()}
+                    style={{
+                      padding: '8px 16px',
+                      background: savingTotalSessions ? 'rgba(139, 92, 246, 0.4)' : 'var(--primary-accent, #8b5cf6)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '0.8rem',
+                      cursor: savingTotalSessions ? 'wait' : 'pointer'
+                    }}
+                  >
+                    {savingTotalSessions ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              )}
 
               {/* Tab Navigation */}
               <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>

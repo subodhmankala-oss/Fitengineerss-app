@@ -325,6 +325,10 @@ const WorkoutTracker = () => {
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
+  // Coach-set program length (clients.total_sessions) for the logged-in client.
+  // This is the source of truth for the session total, overriding the legacy
+  // mock package counts so the Workout tab matches the client home card.
+  const [coachSetTotalSessions, setCoachSetTotalSessions] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
 
   // Custom templates and plans state
@@ -578,6 +582,17 @@ const WorkoutTracker = () => {
       localStorage.setItem('workoutClientProfiles', JSON.stringify(freshProfiles));
       setClientProfiles(freshProfiles);
     }
+
+    // Pull the coach-set program length for this client so the session total
+    // matches what the coach configured (and the client home progress card).
+    databaseService.getOwnCoachConnection().then(conn => {
+      if (conn.connected && Number.isFinite(conn.totalSessions) && conn.totalSessions > 0) {
+        setCoachSetTotalSessions(conn.totalSessions);
+      } else {
+        setCoachSetTotalSessions(null);
+      }
+    }).catch(() => {});
+
     fetchPlans();
   }, []);
 
@@ -710,9 +725,17 @@ const WorkoutTracker = () => {
   };
 
   // Get active client profile
-  const activeProfile = clientProfiles.find(
+  const baseProfile = clientProfiles.find(
     p => p.clientName.toLowerCase() === selectedClient.toLowerCase()
   ) || { clientName: selectedClient, activeProgram: 'Custom Program', totalSessions: 12 };
+
+  // For the logged-in client's own profile, the coach-set total_sessions is
+  // authoritative — override the legacy mock count so Billing Tracker and the
+  // Client Profile summary show the same total as the home progress card.
+  const isOwnProfile = selectedClient.toLowerCase() === loggedInUser.toLowerCase();
+  const activeProfile = (isOwnProfile && coachSetTotalSessions != null)
+    ? { ...baseProfile, totalSessions: coachSetTotalSessions }
+    : baseProfile;
 
   // Sessions count calculations
   const clientSessions = sessions

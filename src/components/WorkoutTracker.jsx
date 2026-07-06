@@ -356,10 +356,16 @@ const WorkoutTracker = () => {
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
-  // Guards against legacy sessions where localStorage.setItem('userCoachId', null) was
-  // called directly, which stores the literal (truthy) string "null".
+  // Whether this client is actually connected to a coach. Initialized from the
+  // localStorage cache for fast paint (guarding against the literal string
+  // "null"/"undefined" left by legacy writes), then reconciled against the DB
+  // connection record on mount — same source of truth as the home card. Gates
+  // every coaching-only surface (billing/session accounting, coach's plan) so a
+  // generic/unconnected client never sees them.
   const storedCoachId = localStorage.getItem('userCoachId');
-  const hasCoachAssigned = !!(storedCoachId && storedCoachId !== 'null' && storedCoachId !== 'undefined');
+  const [hasCoachAssigned, setHasCoachAssigned] = useState(
+    () => !!(storedCoachId && storedCoachId !== 'null' && storedCoachId !== 'undefined')
+  );
 
   useEffect(() => {
     const loadDefaultTemplates = async () => {
@@ -590,6 +596,7 @@ const WorkoutTracker = () => {
     // Pull the coach-set program length for this client so the session total
     // matches what the coach configured (and the client home progress card).
     databaseService.getOwnCoachConnection().then(conn => {
+      setHasCoachAssigned(conn.connected);
       if (conn.connected && Number.isFinite(conn.totalSessions) && conn.totalSessions > 0) {
         setCoachSetTotalSessions(conn.totalSessions);
       } else {
@@ -759,7 +766,9 @@ const WorkoutTracker = () => {
     ? dbCompletedSessions
     : clientSessions.length;
   const remainingSessionsCount = Math.max(0, activeProfile.totalSessions - completedSessionsCount);
-  const showPaymentAlert = remainingSessionsCount <= 3;
+  // Renewal warning is coaching-package specific — only for connected clients
+  // (or a coach viewing one), never a generic/unconnected client.
+  const showPaymentAlert = (hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && remainingSessionsCount <= 3;
 
   const displayedSessions = timeframe === 'weekly' 
     ? clientSessions.slice(-3) 
@@ -1287,7 +1296,9 @@ const WorkoutTracker = () => {
               </div>
             </div>
 
-            {/* Session counters breakdown */}
+            {/* Session counters breakdown — coaching-program accounting, only for
+                clients connected to a coach (or a coach viewing a client). */}
+            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
             <div className="sessions-accounting-split">
               <div className="acc-item">
                 <span className="acc-lbl">Program Name</span>
@@ -1304,6 +1315,7 @@ const WorkoutTracker = () => {
                 </strong>
               </div>
             </div>
+            )}
 
             <div className="session-filters">
               <select 

@@ -1771,7 +1771,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                       border: '1px solid var(--border-color)',
                       borderRadius: '8px',
                       color: '#fff',
-                      fontSize: '0.85rem',
+                      // Must stay >= 16px: iOS Safari auto-zooms the whole page
+                      // on focus for any input with a smaller font-size.
+                      fontSize: '16px',
                       fontWeight: 700
                     }}
                   />

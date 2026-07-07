@@ -27,28 +27,50 @@ export default async function handler(req, res) {
   const anonClient = createClient(supabaseUrl, anonKey);
 
   try {
+    const normalizedEmail = email.trim().toLowerCase();
+    let userId = null;
+    let session = null;
+
     // 1. Create the auth user
     const { data: signUpData, error: signUpErr } = await anonClient.auth.signUp({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       password,
       options: { emailRedirectTo: `${process.env.VITE_APP_URL || 'https://fitengineerss-app.vercel.app'}/auth/confirm` }
     });
     if (signUpErr) throw new Error(signUpErr.message);
 
-    // Supabase returns a user with an EMPTY identities array when the email is already
-    // registered (enumeration protection) and sends no email. Don't silently attach a
-    // coach profile to a pre-existing account — reject clearly so they log in instead.
-    if (signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
-      return res.status(409).json({ error: 'This email is already registered. Please log in instead, or use "Forgot password?" to recover the account.' });
+    // Supabase returns a user with an EMPTY identities array when the email is
+    // already registered (enumeration protection) and sends no email. This is
+    // the expected path for a coach who already has an account — e.g. one set
+    // up via "Forgot password?" before they'd ever filled out a coach profile.
+    // Verify the password they just typed against that existing account instead
+    // of rejecting outright; only reject if it genuinely doesn't match.
+    const alreadyRegistered =
+      signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
+
+    if (alreadyRegistered) {
+      const { data: signInData, error: signInErr } = await anonClient.auth.signInWithPassword({
+        email: normalizedEmail,
+        password
+      });
+      if (signInErr || !signInData?.user) {
+        return res.status(409).json({
+          error: 'This email is already registered, but that password doesn\'t match. Use "Forgot password?" to set a new one, then try signing up again with it.'
+        });
+      }
+      userId = signInData.user.id;
+      session = signInData.session;
+    } else {
+      userId = signUpData?.user?.id;
+      session = signUpData?.session;
     }
 
-    const userId = signUpData?.user?.id;
     if (!userId) throw new Error('Could not create coach account. Please try again.');
 
     // 2. Insert public.users row (service role bypasses RLS)
     const { error: userErr } = await adminClient
       .from('users')
-      .upsert({ id: userId, email: email.trim().toLowerCase(), full_name: name, role: 'coach' }, { onConflict: 'id' });
+      .upsert({ id: userId, email: normalizedEmail, full_name: name, role: 'coach' }, { onConflict: 'id' });
     if (userErr) console.warn('register-coach: users row error:', userErr.message);
 
     // 3. Insert coaches row (service role bypasses RLS)
@@ -69,8 +91,13 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      hasSession: !!(signUpData?.session),
-      userId
+      hasSession: !!session,
+      userId,
+      // Present only for the already-registered/just-verified path — lets the
+      // frontend establish the session directly and land on the coach
+      // dashboard without a second manual login step.
+      access_token: session?.access_token || null,
+      refresh_token: session?.refresh_token || null
     });
   } catch (err) {
     return res.status(400).json({ error: err.message || 'Registration failed' });

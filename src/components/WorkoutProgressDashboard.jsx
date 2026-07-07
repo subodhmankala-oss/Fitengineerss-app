@@ -45,7 +45,32 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     // The localStorage flag is only a cache and can be stale — the progress
     // card belongs to a coaching relationship, so both the header state and
     // the card gate off the client's own clients row (coach_id).
-    databaseService.getOwnCoachConnection().then(conn => {
+    //
+    // getOwnCoachConnection() can come back with resolved:false when every
+    // internal retry failed (this read competes with sign-in, profile-fetch
+    // and workout-log requests all firing at once right after login). That is
+    // NOT proof of disconnection — treating it as one previously wrote a false
+    // "disconnected" into the cache, which then looked confirmed forever even
+    // though the client stayed genuinely connected. So on resolved:false, keep
+    // the pending state and retry from here too, instead of settling wrong.
+    let cancelled = false;
+    const reconcileCoachStatus = async (attemptsLeft = 4) => {
+      const conn = await databaseService.getOwnCoachConnection();
+      if (cancelled) return;
+
+      if (!conn.resolved) {
+        if (attemptsLeft > 0) {
+          setTimeout(() => reconcileCoachStatus(attemptsLeft - 1), 3000);
+        } else {
+          // Genuinely could not reach the DB after many tries — show the best
+          // guess we have without pretending it's confirmed, and without
+          // poisoning the cache with a guess.
+          setIsLinkedToCoach(conn.connected);
+          setCoachStatusPending(false);
+        }
+        return;
+      }
+
       setIsLinkedToCoach(conn.connected);
       setCoachStatusPending(false);
       localStorage.setItem('clientLinkedToCoach', conn.connected ? 'true' : 'false');
@@ -67,7 +92,8 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
           setCoachName(displayName);
         });
       }
-    });
+    };
+    reconcileCoachStatus();
 
     // Backfill the coach's name for clients who connected before this lookup
     // existed — they have userCoachId but never got a userCoachName cached.
@@ -107,6 +133,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     window.addEventListener('workoutUpdated', handleWorkoutUpdate);
 
     return () => {
+      cancelled = true;
       window.removeEventListener('workoutSessionsUpdated', handleWorkoutUpdate);
       window.removeEventListener('workoutUpdated', handleWorkoutUpdate);
     };

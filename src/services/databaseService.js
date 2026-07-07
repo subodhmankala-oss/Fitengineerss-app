@@ -1119,15 +1119,16 @@ const databaseService = {
   // the logged-in user's own clients row.
   async getOwnCoachConnection() {
     const userId = localStorage.getItem('userId');
-    if (!userId) return { connected: false, coachId: null, totalSessions: null };
+    if (!userId) return { connected: false, coachId: null, totalSessions: null, resolved: false };
 
     if (isSupabaseConfigured) {
       // A coach connection, once made, must not appear to drop just because a
-      // single mobile-network request stalled — retry once before trusting a
-      // failure. Without this, a weak-signal read timeout looked identical to
-      // "never connected" and briefly showed "Connect to coach" for an already
-      // -linked client.
-      for (let attempt = 0; attempt < 2; attempt++) {
+      // request stalled — this read is competing with sign-in, profile-fetch
+      // and workout-log requests that all fire at once right after login, so
+      // it can genuinely fail more than once under that load. Retry a few
+      // times with backoff before giving up.
+      const maxAttempts = 4;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const rows = await restSelect(
             `clients?select=coach_id,total_sessions&user_id=eq.${encodeURIComponent(userId)}&limit=1`
@@ -1136,20 +1137,26 @@ const databaseService = {
           return {
             connected: !!data?.coach_id,
             coachId: data?.coach_id || null,
-            totalSessions: data?.total_sessions ?? null
+            totalSessions: data?.total_sessions ?? null,
+            resolved: true
           };
         } catch (e) {
           console.error('[getOwnCoachConnection] error:', e);
-          if (attempt === 0) {
-            await new Promise(r => setTimeout(r, 800));
+          if (attempt < maxAttempts - 1) {
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
             continue;
           }
-          // Both attempts failed: fall back to the cached flag rather than
-          // flashing a disconnect on the home screen.
+          // Every attempt failed: this is NOT a definitive "disconnected" answer,
+          // it's "we don't know yet". Callers must not treat resolved:false as
+          // proof of disconnection or persist it as the cached status — doing so
+          // previously poisoned the cache with a false "disconnected" that then
+          // looked confirmed on every later load, even though the client was
+          // (and remained) genuinely connected the whole time.
           return {
             connected: localStorage.getItem('clientLinkedToCoach') === 'true',
             coachId: localStorage.getItem('userCoachId') || null,
-            totalSessions: null
+            totalSessions: null,
+            resolved: false
           };
         }
       }
@@ -1160,7 +1167,8 @@ const databaseService = {
     return {
       connected: !!row?.coach_id,
       coachId: row?.coach_id || null,
-      totalSessions: row?.total_sessions ?? null
+      totalSessions: row?.total_sessions ?? null,
+      resolved: true
     };
   },
 

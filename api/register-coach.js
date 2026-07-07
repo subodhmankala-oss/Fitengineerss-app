@@ -1,6 +1,12 @@
 // Server-side coach registration — uses service role key to bypass RLS so we can
-// insert into public.users and coaches immediately after signUp, even before
-// the coach has confirmed their email (no session yet on the client).
+// insert into public.users and coaches immediately after account creation.
+//
+// Accounts are created pre-confirmed via the admin API rather than
+// anonClient.auth.signUp(), which relies on Supabase's own signup-confirmation
+// email — that mailer uses the same dead SMTP credential that broke password
+// reset emails, so it fails outright for a genuinely brand-new signup. Coaches
+// created here are auto-approved (status: 'approved' below) regardless, so
+// there's no gate an unconfirmed pending state would have protected anyway.
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -29,26 +35,26 @@ export default async function handler(req, res) {
   try {
     const normalizedEmail = email.trim().toLowerCase();
     let userId = null;
-    let session = null;
 
-    // 1. Create the auth user
-    const { data: signUpData, error: signUpErr } = await anonClient.auth.signUp({
+    // 1. Create the auth user, pre-confirmed (see file header for why).
+    const { data: createData, error: createErr } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
       password,
-      options: { emailRedirectTo: `${process.env.VITE_APP_URL || 'https://fitengineerss-app.vercel.app'}/auth/confirm` }
+      email_confirm: true
     });
-    if (signUpErr) throw new Error(signUpErr.message);
 
-    // Supabase returns a user with an EMPTY identities array when the email is
-    // already registered (enumeration protection) and sends no email. This is
-    // the expected path for a coach who already has an account — e.g. one set
-    // up via "Forgot password?" before they'd ever filled out a coach profile.
-    // Verify the password they just typed against that existing account instead
-    // of rejecting outright; only reject if it genuinely doesn't match.
-    const alreadyRegistered =
-      signUpData?.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0;
+    if (createErr) {
+      const msg = (createErr.message || '').toLowerCase();
+      const alreadyExists =
+        createErr.status === 422 ||
+        msg.includes('already registered') ||
+        msg.includes('already been registered') ||
+        msg.includes('already exists');
+      if (!alreadyExists) throw new Error(createErr.message);
 
-    if (alreadyRegistered) {
+      // Already has an account — e.g. one set up via "Forgot password?" before
+      // they'd ever filled out a coach profile. Verify the password they just
+      // typed against that existing account instead of rejecting outright.
       const { data: signInData, error: signInErr } = await anonClient.auth.signInWithPassword({
         email: normalizedEmail,
         password
@@ -59,10 +65,8 @@ export default async function handler(req, res) {
         });
       }
       userId = signInData.user.id;
-      session = signInData.session;
     } else {
-      userId = signUpData?.user?.id;
-      session = signUpData?.session;
+      userId = createData.user.id;
     }
 
     if (!userId) throw new Error('Could not create coach account. Please try again.');
@@ -89,15 +93,22 @@ export default async function handler(req, res) {
       }, { onConflict: 'user_id' });
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
 
+    // 4. Sign in fresh for a real session — admin.createUser() doesn't return
+    // one (it's an out-of-band admin action, not a login). This lets the
+    // frontend establish the session directly and land on the coach
+    // dashboard without a second manual login step, for both a genuinely new
+    // account and the already-existing-account path above.
+    const { data: finalSignIn } = await anonClient.auth.signInWithPassword({
+      email: normalizedEmail,
+      password
+    });
+
     return res.status(200).json({
       success: true,
-      hasSession: !!session,
+      hasSession: !!finalSignIn?.session,
       userId,
-      // Present only for the already-registered/just-verified path — lets the
-      // frontend establish the session directly and land on the coach
-      // dashboard without a second manual login step.
-      access_token: session?.access_token || null,
-      refresh_token: session?.refresh_token || null
+      access_token: finalSignIn?.session?.access_token || null,
+      refresh_token: finalSignIn?.session?.refresh_token || null
     });
   } catch (err) {
     return res.status(400).json({ error: err.message || 'Registration failed' });

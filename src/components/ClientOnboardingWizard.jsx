@@ -23,6 +23,7 @@ const ClientOnboardingWizard = ({ onComplete }) => {
   const [primaryConcern, setPrimaryConcern] = useState('');
 
   const [slideDir, setSlideDir] = useState('forward');
+  const [saveError, setSaveError] = useState('');
 
   const goNext = () => {
     setSlideDir('forward');
@@ -36,6 +37,7 @@ const ClientOnboardingWizard = ({ onComplete }) => {
 
   const handleFinish = async () => {
     setIsSubmitting(true);
+    setSaveError('');
     try {
       await databaseService.saveClientOnboardingData({
         age: age || '30',
@@ -45,11 +47,16 @@ const ClientOnboardingWizard = ({ onComplete }) => {
         activity_level: activityLevel || 'moderately_active',
         primary_concern: primaryConcern || 'just_stay_fit'
       });
+      onComplete();
     } catch (err) {
+      // Don't let onComplete() run on a failed save — that was the original bug:
+      // the UI moved on to the dashboard while onboarding_completed silently stayed
+      // false in the DB, so the client got sent right back through this wizard on
+      // their next login. Now the client can retry instead of getting stuck.
       console.error('Wizard save error:', err);
+      setSaveError(err.message || 'Could not save your info. Please try again.');
     } finally {
       setIsSubmitting(false);
-      onComplete();
     }
   };
 
@@ -262,6 +269,12 @@ const ClientOnboardingWizard = ({ onComplete }) => {
           </button>
         ))}
       </div>
+
+      {saveError && (
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+          {saveError}
+        </div>
+      )}
 
       <div className="cow-nav-row">
         <button className="cow-back-btn" onClick={goBack}>← Back</button>

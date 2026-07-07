@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
-import SetTypeMenu from './SetTypeMenu';
+import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 
@@ -627,7 +627,7 @@ const WorkoutTracker = () => {
           if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', exMap: {} };
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
-          byDate[d].exMap[ex].push({ reps: l.reps, weight: l.weight_kg });
+          byDate[d].exMap[ex].push({ reps: l.reps, weight: l.weight_kg, setType: l.set_type || null, isWarmup: l.set_type === 'warmup' });
         });
         const dbSessions = Object.values(byDate).map(s => ({
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
@@ -1091,7 +1091,11 @@ const WorkoutTracker = () => {
           .filter(s => s.isCompleted)
           .map(s => ({
             reps: parseInt(s.reps) || 0,
-            weight: parseFloat(s.weight) || 0
+            weight: parseFloat(s.weight) || 0,
+            // Preserve the Warmup/Dropset/Failure tag chosen in the logger so
+            // it reaches workout_logs.set_type instead of being discarded.
+            ...(s.isWarmup ? { setType: 'warmup' } : {}),
+            ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
           }))
       }))
       .filter(ex => ex.sets.length > 0);
@@ -1729,16 +1733,28 @@ const WorkoutTracker = () => {
                                     <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Vol</th>
                                   </tr></thead>
                                   <tbody>
-                                    {ex.sets.map((set, sIdx) => (
-                                      <tr key={sIdx} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                                        <td style={{ padding:'4px 0', fontSize:'0.72rem' }}>
-                                          <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:'17px', height:'17px', borderRadius:'50%', background:'rgba(255,255,255,0.08)', fontSize:'0.62rem', fontWeight:800, color:'#fff' }}>{sIdx+1}</span>
-                                        </td>
-                                        <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.weight} kg</td>
-                                        <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
-                                        <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
-                                      </tr>
-                                    ))}
+                                    {ex.sets.map((set, sIdx) => {
+                                      // Sequential number among normal working sets only —
+                                      // matches the logger's own Warmup/Dropset/Failure badges.
+                                      const workingNum = ex.sets.slice(0, sIdx + 1)
+                                        .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                      const visual = getSetTypeVisual(set, workingNum);
+                                      return (
+                                        <tr key={sIdx} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                                          <td style={{ padding:'4px 0', fontSize:'0.72rem' }}>
+                                            <span style={{
+                                              display:'inline-flex', alignItems:'center', justifyContent:'center', width:'17px', height:'17px', borderRadius:'50%',
+                                              background: visual.color ? `${visual.color}22` : 'rgba(255,255,255,0.08)',
+                                              fontSize:'0.62rem', fontWeight:800,
+                                              color: visual.color || '#fff'
+                                            }}>{visual.label}</span>
+                                          </td>
+                                          <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.weight} kg</td>
+                                          <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
+                                          <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>

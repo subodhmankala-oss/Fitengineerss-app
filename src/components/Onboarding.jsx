@@ -87,7 +87,6 @@ const Onboarding = ({ onComplete }) => {
     localStorage.getItem('pendingCoachApply') === 'true'
   );
   const [showClientEmailForm, setShowClientEmailForm] = useState(false);
-  const [clientAuthMode, setClientAuthMode] = useState('login');
   const [forgotPasswordSuccessMsg, setForgotPasswordSuccessMsg] = useState('');
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
   const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
@@ -311,92 +310,8 @@ const Onboarding = ({ onComplete }) => {
           throw new Error('Invalid email or password.');
         }
       } else {
-        // User does not exist! Sign up as a new client
-        if (clientAuthMode === 'login') {
-          throw new Error('Account not found. Click "Sign up" below to create a new client account.');
-        } else {
-          // Sign up flow
-          let newUserId = null;
-          if (isSupabaseConfigured && databaseService.supabase) {
-            let signUpResult;
-            try {
-              signUpResult = await databaseService.signUp(authEmail, authPassword);
-            } catch (signUpErr) {
-              // Re-attempting signUp on an email that already has an account but
-              // was never confirmed makes Supabase throw "Email not confirmed"
-              // directly (it implicitly checks credentials), rather than
-              // returning a clean { session: null } response like a brand-new
-              // signup does. Treat it the same way: resend the confirmation
-              // link and show the friendly message instead of the raw error.
-              if ((signUpErr.message || '').toLowerCase().includes('email not confirmed')) {
-                try {
-                  await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
-                  setAuthSuccessMsg(`You already started signing up with this email. We've resent a confirmation link to ${authEmail} — click it, then come back here.`);
-                } catch (resendErr) {
-                  setAuthSuccessMsg(`You already started signing up with this email but haven't confirmed it yet. Please check your inbox for the confirmation link.`);
-                }
-                return;
-              }
-              throw signUpErr;
-            }
-            // Supabase returns a user with an EMPTY identities array when the email is
-            // already registered and confirmed (enumeration protection). Crucially, it
-            // does NOT send any confirmation email in that case — so without this guard
-            // we'd tell the user to wait for a link that never arrives. Send them to log
-            // in instead (or reset their password).
-            const alreadyRegistered =
-              signUpResult?.user &&
-              Array.isArray(signUpResult.user.identities) &&
-              signUpResult.user.identities.length === 0;
-            if (alreadyRegistered) {
-              setClientAuthMode('login');
-              setAuthError('This email is already registered — no new confirmation link is needed. Please log in below, or use "Forgot password?" if you don\'t remember your password.');
-              return;
-            }
-            if (!signUpResult?.session) {
-              // Confirmation required and pending — don't create any client/user
-              // rows or treat this as a completed signup yet. Supabase's
-              // confirmation link logs the user in with a real session on click,
-              // which processSessionUser (App.jsx) picks up via onAuthStateChange;
-              // its existing "no profile yet" fallback creates the client row at
-              // that point, so nothing more is needed here.
-              setAuthSuccessMsg(`We've sent a confirmation link to ${authEmail}. Click it to activate your account, then come back here.`);
-              return;
-            }
-            // auth.users.id (from signUp) is not the id the rest of the schema keys off of —
-            // public.users.id is generated independently, so resolve/create that row by email.
-            // Normalize casing so we don't create a case-variant duplicate of an existing row.
-            const normalizedEmail = authEmail.trim().toLowerCase();
-            const { data: existingUser } = await databaseService.supabase
-              .from('users')
-              .select('id')
-              .eq('email', normalizedEmail)
-              .maybeSingle();
-            if (existingUser) {
-              newUserId = existingUser.id;
-            } else {
-              const { data: createdUser, error: createUserError } = await databaseService.supabase
-                .from('users')
-                .insert({ email: normalizedEmail })
-                .select()
-                .single();
-              if (createUserError) throw createUserError;
-              newUserId = createdUser.id;
-            }
-            if (!newUserId) {
-              throw new Error('Could not resolve your account ID. Please try signing in again.');
-            }
-          }
-
-          // Write to users table (public)
-          const mockUsers = databaseService.getMockTable('users');
-          const uid = newUserId || `mock-uid-${Date.now()}`;
-          const mUser = { id: uid, email: authEmail, auth_provider: 'email', password_hash: authPassword };
-          mockUsers.push(mUser);
-          databaseService.saveMockTable('users', mockUsers);
-
-          await createDefaultClientRowAndComplete(uid, authEmail, null);
-        }
+        // Client accounts are created by their coach — there is no self-serve sign-up.
+        throw new Error('No account found with this email. Please check the email address and try again.');
       }
     } catch (err) {
       setAuthError(err.message || 'Client authentication failed.');
@@ -414,21 +329,43 @@ const Onboarding = ({ onComplete }) => {
     const confirmation = "If that email is registered, you'll receive a password reset link shortly.";
 
     try {
+      // Server-side dispatch: /api/request-password-reset generates the recovery
+      // link with the service-role key and emails it via Resend's HTTP API,
+      // bypassing Supabase's SMTP mailer (which was failing with 500s and the
+      // old code hid it by showing the confirmation message unconditionally).
+      let resp = null;
+      try {
+        resp = await fetch('/api/request-password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail.trim().toLowerCase() })
+        });
+      } catch (networkErr) {
+        // Couldn't reach our own API (e.g. offline) — fall through to Supabase.
+      }
+      if (resp?.ok) {
+        setForgotPasswordSuccessMsg(confirmation);
+        return;
+      }
+      if (resp && resp.status !== 404) {
+        // The endpoint exists but reported a real send failure — surface it
+        // honestly instead of pretending the email went out.
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error || 'We couldn\'t send the reset email right now. Please try again in a few minutes.');
+      }
+      // 404 / unreachable → running without Vercel functions (local vite dev).
+
       if (isSupabaseConfigured && databaseService.supabase) {
-        // Use Supabase's built-in resetPasswordForEmail so the email template
-        // (which links to /auth/confirm?token=...&type=recovery) is what gets sent.
         const { error } = await databaseService.supabase.auth.resetPasswordForEmail(
           authEmail.trim().toLowerCase(),
           { redirectTo: window.location.origin }
         );
-        if (error) throw error;
-        setForgotPasswordSuccessMsg(confirmation);
-      } else {
-        setForgotPasswordSuccessMsg(confirmation);
+        if (error) throw new Error('We couldn\'t send the reset email right now. Please try again in a few minutes.');
       }
+      setForgotPasswordSuccessMsg(confirmation);
     } catch (err) {
       console.error('Forgot password submission error:', err);
-      setForgotPasswordSuccessMsg(confirmation);
+      setAuthError(err.message || 'We couldn\'t send the reset email. Please try again later.');
     } finally {
       setAuthLoading(false);
     }
@@ -1218,9 +1155,7 @@ const Onboarding = ({ onComplete }) => {
               {/* CLIENT EMAIL FORM */}
               {userType === 'client' && showClientEmailForm && authTab !== 'forgot_password' && (
                 <form onSubmit={handleClientEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>
-                    {clientAuthMode === 'login' ? 'Client Login' : 'Client Sign Up'}
-                  </h4>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Client Login</h4>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
@@ -1238,20 +1173,18 @@ const Onboarding = ({ onComplete }) => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Password</label>
-                      {clientAuthMode === 'login' && (
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setAuthTab('forgot_password');
-                            setAuthError('');
-                            setAuthSuccessMsg('');
-                            setForgotPasswordSuccessMsg('');
-                          }}
-                          style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                        >
-                          Forgot password?
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthTab('forgot_password');
+                          setAuthError('');
+                          setAuthSuccessMsg('');
+                          setForgotPasswordSuccessMsg('');
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      >
+                        Forgot password?
+                      </button>
                     </div>
                     <input 
                       type="password" 
@@ -1270,19 +1203,11 @@ const Onboarding = ({ onComplete }) => {
                     style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff' }}
                     disabled={authLoading}
                   >
-                    {authLoading ? 'Authenticating...' : clientAuthMode === 'login' ? 'Log In' : 'Create Account'}
+                    {authLoading ? 'Authenticating...' : 'Log In'}
                   </button>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                    <button 
-                      type="button" 
-                      onClick={() => { setClientAuthMode(clientAuthMode === 'login' ? 'signup' : 'login'); setAuthSuccessMsg(''); setAuthError(''); }}
-                      style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      {clientAuthMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
-                    </button>
-                    
-                    <button 
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
+                    <button
                       type="button" 
                       onClick={() => { setShowClientEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
                       style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}

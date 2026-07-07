@@ -14,16 +14,17 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
-  // Distinguishes "never checked on this device/session" (e.g. right after a
-  // fresh login, when localStorage was just cleared) from a real cached
-  // false. Without this, a client who IS connected saw the wrong "Connect to
-  // coach" CTA for the few seconds it took the DB check to resolve — it was
-  // competing with sign-in, profile-fetch and workout-log requests all firing
-  // at once right after login — and only saw the correct state after
-  // switching tabs and back (which remounted this component after the check
-  // had already finished in the background).
+  // A cached 'true' is trusted for instant paint (low risk — disconnection is
+  // a rare, deliberate action). A cached 'false' is NOT trusted the same way:
+  // it can be stale from before this device ever ran a real, successful check
+  // (e.g. no full logout was ever done, or it dates from before this fix
+  // existed), so it's treated the same as "never checked" — pending until the
+  // DB confirms it. Without this, an already-connected client could see the
+  // wrong "Connect to coach" CTA indefinitely on that device, only correcting
+  // itself once something else (like a tab switch) happened to remount this
+  // component after the DB check had quietly finished in the background.
   const [coachStatusPending, setCoachStatusPending] = useState(
-    () => localStorage.getItem('clientLinkedToCoach') === null
+    () => localStorage.getItem('clientLinkedToCoach') !== 'true'
   );
   const [selectedDateStr, setSelectedDateStr] = useState(getLocalDateString());
   // Coach-set program length (clients.total_sessions). null = not configured

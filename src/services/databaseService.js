@@ -1436,19 +1436,19 @@ const databaseService = {
   ],
 
   async getDefaultWorkoutTemplates() {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
         // Excludes difficulty-leveled generic workouts (see getGenericWorkoutsByLevel)
         // so this keeps returning only the original undifferentiated Push/Pull/Leg
         // Day templates — the leveled library is a separate, additive surface.
-        const { data, error } = await supabase
-          .from('workout_templates')
-          .select('*')
-          .eq('is_default', true)
-          .is('difficulty_level', null)
-          .order('created_at', { ascending: true });
+        // Raw PostgREST read (bypasses the hanging SDK) — this feeds the
+        // "Workout Library" screen's loading state, which otherwise spins
+        // forever if the SDK's auth-token refresh stalls.
+        const data = await restSelect(
+          `workout_templates?select=*&is_default=eq.true&difficulty_level=is.null&order=created_at.asc`
+        );
 
-        if (!error && data && data.length > 0) {
+        if (data && data.length > 0) {
           return data.map(t => ({
             id: t.id,
             name: t.name,
@@ -1471,15 +1471,13 @@ const databaseService = {
   async getGenericWorkoutsByLevel(level) {
     if (!['beginner', 'intermediate', 'advanced'].includes(level)) return [];
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase
-          .from('workout_templates')
-          .select('*')
-          .eq('difficulty_level', level)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
+        // Raw PostgREST read (bypasses the hanging SDK) — feeds the
+        // "Loading {level} workouts..." state on the Workout Library screen.
+        const data = await restSelect(
+          `workout_templates?select=*&difficulty_level=eq.${encodeURIComponent(level)}&order=created_at.asc`
+        );
         if (data) {
           return data.map(t => ({
             id: t.id,
@@ -1497,22 +1495,24 @@ const databaseService = {
 
   // ─── WORKOUT ROUTINE TEMPLATES / PLANS ───
   async getWorkoutPlansForUser(userId) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        // Resolve user UUID — try the passed value first, then session userId
+        // Resolve user UUID — try the passed value first, then session userId.
+        // Raw PostgREST reads throughout (bypass the hanging SDK) — this feeds
+        // "Loading coach plans..." / "Loading templates..." on the Log Sets
+        // screen, which otherwise spins forever if the SDK's auth-token
+        // refresh stalls.
         let resolvedUserId = userId;
         const UUID_RE_LOCAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const isUuid = UUID_RE_LOCAL.test(userId);
 
         if (!isUuid) {
           // Try name lookup first
-          const { data: usersByName } = await supabase
-            .from('users')
-            .select('id')
-            .ilike('full_name', userId)
-            .maybeSingle();
-          if (usersByName) {
-            resolvedUserId = usersByName.id;
+          const usersByName = await restSelect(
+            `users?select=id&full_name=ilike.${encodeURIComponent(userId)}&limit=1`
+          );
+          if (Array.isArray(usersByName) && usersByName[0]) {
+            resolvedUserId = usersByName[0].id;
           } else {
             // Fall back to the authenticated session's userId from localStorage
             const sessionId = localStorage.getItem('userId');
@@ -1524,13 +1524,9 @@ const databaseService = {
 
         const isResolvedUuid = UUID_RE_LOCAL.test(resolvedUserId);
         if (isResolvedUuid) {
-          const { data, error } = await supabase
-            .from('workout_plans')
-            .select('*')
-            .eq('user_id', resolvedUserId)
-            .order('created_at', { ascending: false });
-          
-          if (error) throw error;
+          const data = await restSelect(
+            `workout_plans?select=*&user_id=eq.${encodeURIComponent(resolvedUserId)}&order=created_at.desc`
+          );
           if (data) {
             return data.map(p => ({
               id: p.id,

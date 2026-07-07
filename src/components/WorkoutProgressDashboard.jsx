@@ -14,6 +14,17 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
+  // Distinguishes "never checked on this device/session" (e.g. right after a
+  // fresh login, when localStorage was just cleared) from a real cached
+  // false. Without this, a client who IS connected saw the wrong "Connect to
+  // coach" CTA for the few seconds it took the DB check to resolve — it was
+  // competing with sign-in, profile-fetch and workout-log requests all firing
+  // at once right after login — and only saw the correct state after
+  // switching tabs and back (which remounted this component after the check
+  // had already finished in the background).
+  const [coachStatusPending, setCoachStatusPending] = useState(
+    () => localStorage.getItem('clientLinkedToCoach') === null
+  );
   const [selectedDateStr, setSelectedDateStr] = useState(getLocalDateString());
   // Coach-set program length (clients.total_sessions). null = not configured
   // yet — the progress card shows a "waiting on your coach" state, never a
@@ -35,6 +46,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     // the card gate off the client's own clients row (coach_id).
     databaseService.getOwnCoachConnection().then(conn => {
       setIsLinkedToCoach(conn.connected);
+      setCoachStatusPending(false);
       localStorage.setItem('clientLinkedToCoach', conn.connected ? 'true' : 'false');
       if (conn.coachId) localStorage.setItem('userCoachId', conn.coachId);
       if (conn.connected && Number.isFinite(conn.totalSessions) && conn.totalSessions > 0) {
@@ -497,18 +509,21 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
-            onClick={() => setShowConnectModal(true)}
-            title={isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach'}
+            onClick={() => { if (!coachStatusPending) setShowConnectModal(true); }}
+            disabled={coachStatusPending}
+            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: isLinkedToCoach ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
-              border: isLinkedToCoach ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(255,255,255,0.12)',
-              color: isLinkedToCoach ? 'var(--primary-accent-light)' : '#fff',
+              background: coachStatusPending ? 'rgba(255,255,255,0.03)' : (isLinkedToCoach ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)'),
+              border: coachStatusPending ? '1px solid rgba(255,255,255,0.06)' : (isLinkedToCoach ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(255,255,255,0.12)'),
+              color: coachStatusPending ? 'rgba(255,255,255,0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : '#fff'),
               borderRadius: '20px', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
-              cursor: 'pointer', whiteSpace: 'nowrap'
+              cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap'
             }}
           >
-            {isLinkedToCoach ? (
+            {coachStatusPending ? (
+              'Checking…'
+            ) : isLinkedToCoach ? (
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.25 }}>
                 <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Coach:</span>
                 <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>{coachName || 'Coach'}</span>

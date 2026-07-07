@@ -1122,27 +1122,36 @@ const databaseService = {
     if (!userId) return { connected: false, coachId: null, totalSessions: null };
 
     if (isSupabaseConfigured) {
-      try {
-        // Raw PostgREST read (bypasses the hanging SDK). Same row the SDK would
-        // return, filtered explicitly by this user's own id.
-        const rows = await restSelect(
-          `clients?select=coach_id,total_sessions&user_id=eq.${encodeURIComponent(userId)}&limit=1`
-        );
-        const data = Array.isArray(rows) ? rows[0] : null;
-        return {
-          connected: !!data?.coach_id,
-          coachId: data?.coach_id || null,
-          totalSessions: data?.total_sessions ?? null
-        };
-      } catch (e) {
-        console.error('[getOwnCoachConnection] error:', e);
-        // Timeout / network blip: fall back to the cached flag rather than
-        // flashing a disconnect on the home screen.
-        return {
-          connected: localStorage.getItem('clientLinkedToCoach') === 'true',
-          coachId: localStorage.getItem('userCoachId') || null,
-          totalSessions: null
-        };
+      // A coach connection, once made, must not appear to drop just because a
+      // single mobile-network request stalled — retry once before trusting a
+      // failure. Without this, a weak-signal read timeout looked identical to
+      // "never connected" and briefly showed "Connect to coach" for an already
+      // -linked client.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const rows = await restSelect(
+            `clients?select=coach_id,total_sessions&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+          );
+          const data = Array.isArray(rows) ? rows[0] : null;
+          return {
+            connected: !!data?.coach_id,
+            coachId: data?.coach_id || null,
+            totalSessions: data?.total_sessions ?? null
+          };
+        } catch (e) {
+          console.error('[getOwnCoachConnection] error:', e);
+          if (attempt === 0) {
+            await new Promise(r => setTimeout(r, 800));
+            continue;
+          }
+          // Both attempts failed: fall back to the cached flag rather than
+          // flashing a disconnect on the home screen.
+          return {
+            connected: localStorage.getItem('clientLinkedToCoach') === 'true',
+            coachId: localStorage.getItem('userCoachId') || null,
+            totalSessions: null
+          };
+        }
       }
     }
 

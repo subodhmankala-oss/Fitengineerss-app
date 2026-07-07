@@ -874,57 +874,34 @@ const databaseService = {
         // Resolve user UUID if needed
         let resolvedUserId = userId;
         if (!resolvedUserId && email) {
-          const { data: u } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-          resolvedUserId = u?.id;
+          const rows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+          resolvedUserId = rows?.[0]?.id;
           if (resolvedUserId) localStorage.setItem('userId', resolvedUserId);
         }
 
         if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
 
-        // 1) Core stats — the data the coach dashboard actually displays. Done in its
-        //    own statement so a problem with the wizard-extras columns (a missing
-        //    migration or a CHECK violation) can't roll back the client's real numbers.
-        //    `.select()` returns the affected rows: a `.update().eq()` that matches
-        //    nothing succeeds silently, which would leave the coach looking at the
-        //    signup seed defaults — so if zero rows changed, create the row instead.
-        const { data: updatedRows, error: coreErr } = await supabase
-          .from('clients')
-          .update(coreStats)
-          .eq('user_id', resolvedUserId)
-          .select('id');
-        if (coreErr) throw coreErr;
-
-        if (!updatedRows || updatedRows.length === 0) {
-          console.warn('Cloud DB: no client row matched onboarding update — inserting one.');
-          const { error: insErr } = await supabase
-            .from('clients')
-            .insert({
-              user_id: resolvedUserId,
-              full_name: localStorage.getItem('userName') || (email ? email.split('@')[0] : 'Client'),
-              phone_number: localStorage.getItem('userPhone') || '',
-              coach_id: localStorage.getItem('userCoachId') || null,
-              ...coreStats
-            });
-          if (insErr) throw insErr;
-        }
-
-        // 2) Wizard-only columns (added in a later migration). Best-effort: if they
-        //    aren't present on this DB yet, the core stats above are already saved.
-        const { error: extrasErr } = await supabase
-          .from('clients')
-          .update({
-            onboarding_completed: true,
-            program: program || null,
-            primary_concern: primary_concern || null
-          })
-          .eq('user_id', resolvedUserId);
-        if (extrasErr) {
-          console.warn('Cloud DB: wizard-extra columns not saved (core stats persisted):', extrasErr);
+        // Write core stats + onboarding_completed/program/primary_concern in one
+        // atomic, service-role server call. Previously this was two separate
+        // browser-side .update() calls; the second (setting onboarding_completed)
+        // was silently dropped for several real clients by the known Supabase SDK
+        // auth-token-refresh race (see feedback-supabase-sdk-hang memory), leaving
+        // their body stats saved but onboarding_completed stuck false — so they
+        // were sent back through the wizard on every subsequent login.
+        const resp = await fetch('/api/complete-onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: resolvedUserId, coreStats, program, primary_concern })
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to save onboarding data.');
         }
 
         console.log('Cloud DB: Saved onboarding wizard data.');
       } catch (e) {
         console.error('Cloud DB: Failed to save onboarding data:', e);
+        throw e;
       }
     } else {
       // Mock DB update

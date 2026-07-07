@@ -89,6 +89,7 @@ const Onboarding = ({ onComplete }) => {
     localStorage.getItem('pendingCoachApply') === 'true'
   );
   const [showClientEmailForm, setShowClientEmailForm] = useState(false);
+  const [showCoachEmailForm, setShowCoachEmailForm] = useState(false);
   const [clientAuthMode, setClientAuthMode] = useState('login');
   const [forgotPasswordSuccessMsg, setForgotPasswordSuccessMsg] = useState('');
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
@@ -104,7 +105,7 @@ const Onboarding = ({ onComplete }) => {
     setAuthError('');
     localStorage.setItem('pendingCoachLogin', 'true');
     try {
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      if (!isSupabaseConfigured && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         setShowGoogleModal(true);
       } else {
         await databaseService.signInWithGoogle();
@@ -620,8 +621,23 @@ const Onboarding = ({ onComplete }) => {
     const email = localStorage.getItem('userEmail');
     const role = localStorage.getItem('userRole') || 'client';
     const coachId = localStorage.getItem('userCoachId');
-    if (email && role === 'client' && !coachId) {
+    const pendingCoachApply = localStorage.getItem('pendingCoachApply');
+    const pendingCoachLogin = localStorage.getItem('pendingCoachLogin');
+    // Only route to invite code screen for actual clients, not coach applicants
+    if (email && role === 'client' && !coachId && !pendingCoachApply && !pendingCoachLogin) {
       setAuthTab('awaiting_invite_code');
+    }
+  }, []);
+
+  // Route pending/rejected coach users to their status screens
+  useEffect(() => {
+    const role = localStorage.getItem('userRole');
+    if (role === 'coach_pending') {
+      setAuthTab('coach_pending_approval');
+      setStep(0);
+    } else if (role === 'coach_rejected') {
+      setAuthTab('coach_rejected');
+      setStep(0);
     }
   }, []);
 
@@ -926,7 +942,14 @@ const Onboarding = ({ onComplete }) => {
                    setAuthLoading(true);
                    try {
                       let coachId = null;
-                      const clientId = localStorage.getItem('userId');
+                      let clientId = localStorage.getItem('userId');
+                      if (!clientId && isSupabaseConfigured && databaseService.supabase) {
+                        const { data: authData } = await databaseService.supabase.auth.getUser();
+                        clientId = authData?.user?.id;
+                        if (clientId) {
+                          localStorage.setItem('userId', clientId);
+                        }
+                      }
                       const email = localStorage.getItem('userEmail');
                       const userName = localStorage.getItem('userName') || 'Warrior';
 
@@ -988,6 +1011,86 @@ const Onboarding = ({ onComplete }) => {
         </div>
       )}
 
+      {/* Coach Application Under Review Screen */}
+      {authTab === 'coach_pending_approval' && (
+        <div style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', position: 'fixed', top: 0, left: 0, zIndex: 9999 }}>
+          <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px', animation: 'pulse 2s ease-in-out infinite' }}>🕐</div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', margin: '0 0 8px 0' }}>Application Under Review</h1>
+            <p style={{ fontSize: '14px', color: 'rgba(226, 232, 240, 0.9)', marginBottom: '20px', lineHeight: '1.5' }}>
+              Thank you for applying to join the <strong style={{ color: '#34d399' }}>FitEngineers</strong> coaching network.
+            </p>
+            <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'left' }}>
+              <p style={{ fontSize: '13px', color: 'rgba(148, 163, 184, 0.9)', margin: 0, lineHeight: '1.6' }}>
+                Our admin team reviews credentials, active certifications, and experience notes within <strong style={{ color: '#93c5fd' }}>24–48 hours</strong>. We will update your status as soon as the review is complete.
+              </p>
+            </div>
+            <p style={{ fontSize: '12px', color: 'rgba(148, 163, 184, 0.6)', marginBottom: '24px' }}>
+              Registered as <strong style={{ color: '#34d399' }}>{localStorage.getItem('userEmail')}</strong>
+            </p>
+            <button
+              type="button"
+              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={async () => {
+                setAuthLoading(true);
+                await databaseService.signOut();
+                localStorage.clear();
+                setAuthTab('login');
+                setStep(0);
+                setAuthLoading(false);
+                window.location.reload();
+              }}
+              disabled={authLoading}
+            >
+              Log Out / Switch Account
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Coach Application Rejected Screen */}
+      {authTab === 'coach_rejected' && (
+        <div style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', position: 'fixed', top: 0, left: 0, zIndex: 9999 }}>
+          <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px', filter: 'drop-shadow(0 4px 12px rgba(239, 68, 68, 0.3))' }}>❌</div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', margin: '0 0 8px 0' }}>Application Not Approved</h1>
+            <p style={{ fontSize: '14px', color: 'rgba(226, 232, 240, 0.9)', marginBottom: '20px', lineHeight: '1.5' }}>
+              Thank you for your interest in coaching with <strong style={{ color: '#34d399' }}>FitEngineers</strong>.
+            </p>
+            <div style={{ background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.15)', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'left' }}>
+              <p style={{ fontSize: '13px', color: 'rgba(148, 163, 184, 0.9)', margin: 0, lineHeight: '1.6' }}>
+                Unfortunately, your coach application was not approved at this time. If you have questions or believe this was an error, please reach out to our team.
+              </p>
+            </div>
+            <p style={{ fontSize: '12px', color: 'rgba(148, 163, 184, 0.6)', marginBottom: '24px' }}>
+              Registered as <strong style={{ color: '#34d399' }}>{localStorage.getItem('userEmail')}</strong>
+            </p>
+            <a
+              href="mailto:support@fitengineers.app?subject=Coach%20Application%20Inquiry"
+              style={{ display: 'block', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#fff', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', width: '100%', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.2)', textDecoration: 'none', textAlign: 'center', marginBottom: '12px' }}
+            >
+              📧 Contact Support
+            </a>
+            <button
+              type="button"
+              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={async () => {
+                setAuthLoading(true);
+                await databaseService.signOut();
+                localStorage.clear();
+                setAuthTab('login');
+                setStep(0);
+                setAuthLoading(false);
+                window.location.reload();
+              }}
+              disabled={authLoading}
+            >
+              Log Out / Switch Account
+            </button>
+          </div>
+        </div>
+      )}
+
       {step > 0 && (
         <div className="onboarding-header">
           <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
@@ -1035,9 +1138,8 @@ const Onboarding = ({ onComplete }) => {
                   location: formData.get('location')
                 });
                 localStorage.removeItem('pendingCoachApply');
-                localStorage.setItem('onboardingComplete', 'true');
-                alert('Application submitted successfully! Redirecting to Dashboard.');
-                onComplete();
+                localStorage.setItem('userRole', 'coach_pending');
+                setAuthTab('coach_pending_approval');
               } catch(err) {
                 setAuthError(err.message);
               }
@@ -1233,7 +1335,7 @@ const Onboarding = ({ onComplete }) => {
                   <button 
                     type="button" 
                     className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
-                    onClick={() => { setUserType('coach'); setAuthError(''); setAuthSuccessMsg(''); }}
+                    onClick={() => { setUserType('coach'); setAuthError(''); setAuthSuccessMsg(''); setShowCoachEmailForm(false); }}
                   >
                     Coach
                   </button>
@@ -1267,7 +1369,7 @@ const Onboarding = ({ onComplete }) => {
                     onClick={async () => {
                       setAuthError('');
                       try {
-                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        if (!isSupabaseConfigured && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
                           setShowGoogleModal(true);
                         } else {
                           await databaseService.signInWithGoogle();
@@ -1428,8 +1530,53 @@ const Onboarding = ({ onComplete }) => {
                 </form>
               )}
 
+              {/* COACH FLOW */}
+              {userType === 'coach' && !showCoachEmailForm && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <button 
+                    type="button" 
+                    className="gmail-login-btn"
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+                    onClick={startCoachGoogleLogin}
+                  >
+                    <div className="google-icon-wrapper" style={{ display: 'inline-flex', alignSelf: 'center', marginRight: '8px' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                    </div>
+                    Continue with Google
+                  </button>
+
+                  <button 
+                    type="button" 
+                    className="guest-bypass-btn-new"
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    onClick={() => setShowCoachEmailForm(true)}
+                  >
+                    Continue with email
+                  </button>
+
+                  <p style={{ margin: '8px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
+                    Not a coach yet?{' '}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setAuthTab('coach_apply');
+                        localStorage.setItem('pendingCoachApply', 'true');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      Apply Now
+                    </button>
+                  </p>
+                </div>
+              )}
+
               {/* COACH EMAIL FORM */}
-              {userType === 'coach' && (
+              {userType === 'coach' && showCoachEmailForm && (
                 <form onSubmit={handleCoachEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach Login</h4>
                   
@@ -1491,19 +1638,17 @@ const Onboarding = ({ onComplete }) => {
                     {authLoading ? 'Logging In...' : 'Log In as Coach'}
                   </button>
 
-                  <p style={{ margin: '8px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
-                    Not a coach yet?{' '}
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setAuthTab('coach_apply');
-                        localStorage.setItem('pendingCoachApply', 'true');
-                      }}
-                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      Apply Now
-                    </button>
-                  </p>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowCoachEmailForm(false);
+                      setAuthSuccessMsg('');
+                      setAuthError('');
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0, alignSelf: 'center', marginTop: '4px' }}
+                  >
+                    ← Back
+                  </button>
                 </form>
               )}
 

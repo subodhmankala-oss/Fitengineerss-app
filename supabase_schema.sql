@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   calorie_target INTEGER,
   protein_target INTEGER,
   fats_target INTEGER,
+  auth_provider TEXT DEFAULT 'email',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

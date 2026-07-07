@@ -606,9 +606,11 @@ const databaseService = {
           if (isSuperAdminEmail) {
             activeRole = 'super-admin';
           } else if (coach) {
-            activeRole = coach.status === 'approved' ? 'coach' : 'coach_pending';
+            activeRole = coach.status === 'approved' ? 'coach' : (coach.status === 'rejected' ? 'coach_rejected' : 'coach_pending');
           } else if (app && app.status === 'pending') {
             activeRole = 'coach_pending';
+          } else if (app && app.status === 'rejected') {
+            activeRole = 'coach_rejected';
           } else if (client) {
             activeRole = 'client';
           }
@@ -664,9 +666,11 @@ const databaseService = {
       if (isSuperAdminEmail) {
         activeRole = 'super-admin';
       } else if (mCoach) {
-        activeRole = mCoach.status === 'approved' ? 'coach' : 'coach_pending';
+        activeRole = mCoach.status === 'approved' ? 'coach' : (mCoach.status === 'rejected' ? 'coach_rejected' : 'coach_pending');
       } else if (mApp && mApp.status === 'pending') {
         activeRole = 'coach_pending';
+      } else if (mApp && mApp.status === 'rejected') {
+        activeRole = 'coach_rejected';
       } else if (mClient) {
         activeRole = 'client';
       }
@@ -734,7 +738,7 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        let query = supabase.from('clients').select('*, users(email)');
+        let query = supabase.from('clients').select('*, users!clients_user_id_fkey(email)');
         
         const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
         if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
@@ -1298,6 +1302,9 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
+        const { data: authData } = await supabase.auth.getUser();
+        const authUser = authData?.user;
+
         // Check if user exists in users table
         const { data: existingUser } = await supabase
           .from('users')
@@ -1307,12 +1314,28 @@ const databaseService = {
 
         if (existingUser) {
           userId = existingUser.id;
+          await supabase.from('users').update({ role: 'coach_pending' }).eq('id', userId);
+        } else if (authUser) {
+          // Insert into users using the authUser.id to align with auth.uid()
+          const { data: newUser, error: userError } = await supabase
+            .from('users')
+            .insert({
+              id: authUser.id,
+              email: email,
+              role: 'coach_pending',
+              auth_provider: authUser.app_metadata?.provider || 'email'
+            })
+            .select()
+            .single();
+          if (userError) throw userError;
+          userId = newUser.id;
         } else {
-          // Insert into users
+          // Fallback if not authenticated (should not happen in ordinary Google OAuth flow)
           const { data: newUser, error: userError } = await supabase
             .from('users')
             .insert({
               email: email,
+              role: 'coach_pending',
               auth_provider: 'email'
             })
             .select()
@@ -1342,10 +1365,12 @@ const databaseService = {
     const mockUsers = this.getMockTable('users');
     let mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (!mUser) {
-      mUser = { id: `mock-uid-${Date.now()}`, email, auth_provider: 'email' };
+      mUser = { id: `mock-uid-${Date.now()}`, email, role: 'coach_pending', auth_provider: 'email' };
       mockUsers.push(mUser);
-      this.saveMockTable('users', mockUsers);
+    } else {
+      mUser.role = 'coach_pending';
     }
+    this.saveMockTable('users', mockUsers);
     userId = mUser.id;
 
     const mockApps = this.getMockTable('coach_applications');
@@ -1373,7 +1398,7 @@ const databaseService = {
       try {
         const { data, error } = await supabase
           .from('coach_applications')
-          .select('*, users(email)')
+          .select('*, users!coach_applications_user_id_fkey(email)')
           .eq('status', 'pending');
         if (!error && data) {
           cloudPending = data.map(app => ({
@@ -1515,6 +1540,12 @@ const databaseService = {
             .from('coaches')
             .update({ status: 'rejected' })
             .eq('user_id', user.id);
+
+          // Update users role
+          await supabase
+            .from('users')
+            .update({ role: 'coach_rejected' })
+            .eq('id', user.id);
         }
       } catch (e) {
         console.error('Cloud DB Reject Coach Error:', e);
@@ -1525,6 +1556,8 @@ const databaseService = {
     const mockUsers = this.getMockTable('users');
     const mUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (mUser) {
+      mUser.role = 'coach_rejected';
+      this.saveMockTable('users', mockUsers);
       const mockApps = this.getMockTable('coach_applications');
       const updatedApps = mockApps.map(a => a.user_id === mUser.id ? { ...a, status: 'rejected', reviewed_at: new Date().toISOString() } : a);
       this.saveMockTable('coach_applications', updatedApps);
@@ -2129,9 +2162,11 @@ const databaseService = {
             if (isSuperAdminEmail) {
               role = 'super-admin';
             } else if (coach) {
-              role = coach.status === 'approved' ? 'coach' : 'coach_pending';
+              role = coach.status === 'approved' ? 'coach' : (coach.status === 'rejected' ? 'coach_rejected' : 'coach_pending');
             } else if (app && app.status === 'pending') {
               role = 'coach_pending';
+            } else if (app && app.status === 'rejected') {
+              role = 'coach_rejected';
             } else if (client) {
               role = 'client';
             }
@@ -2168,9 +2203,11 @@ const databaseService = {
         if (isSuperAdminEmail) {
           role = 'super-admin';
         } else if (coach) {
-          role = coach.status === 'approved' ? 'coach' : 'coach_pending';
+          role = coach.status === 'approved' ? 'coach' : (coach.status === 'rejected' ? 'coach_rejected' : 'coach_pending');
         } else if (app && app.status === 'pending') {
           role = 'coach_pending';
+        } else if (app && app.status === 'rejected') {
+          role = 'coach_rejected';
         } else if (client) {
           role = 'client';
         }

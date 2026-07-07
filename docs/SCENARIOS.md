@@ -25,12 +25,14 @@ This document maps out all functional scenarios, user flows, inputs, outputs, an
 - **Workflow**:
   1. System checks for a valid session token in `localStorage` (via `supabase.auth.getSession()`).
   2. If a session exists, the system fetches the user profile from the database (`databaseService.getUserProfileByEmail(email)`).
-  3. System reads the role from the profile and redirects:
+  3. System reads the role and verification status from the profile and routes accordingly:
      - `super-admin` ➔ `/admin-dashboard` (Trainer/Admin UI)
-     - `coach` (approved) ➔ `/coach-dashboard` (Trainer/Admin UI)
-     - `coach_pending` (pending approval) ➔ Blocks login, showing a pending status message.
-     - `client` ➔ `/dashboard` (Client UI)
-- **Postconditions**: The dashboard matches the user's role.
+     - `coach` (approved & verified) ➔ `/coach-dashboard` (Trainer/Admin UI)
+     - `coach_pending` / unverified coach ➔ Displays a pulsing **"Application Under Review"** status screen.
+     - `coach_rejected` ➔ Displays a soft-red **"Application Not Approved"** status screen with support contact link.
+     - `client` (onboarding complete) ➔ `/dashboard` (Client UI)
+     - `client` (onboarding incomplete) ➔ Onboarding stepper or locked invite code screen.
+- **Postconditions**: The UI or status overlay matches the user's role and approval state.
 
 ### Scenario 1.3: Password Recovery & Reset
 - **Actor**: Client or Coach using Email Credentials
@@ -68,11 +70,11 @@ The onboarding flow is managed by [Onboarding.jsx](file:///Users/mankalmr/Docume
 ```
 
 ### Scenario 2.1: Welcome & Persona Select
-- **Trigger**: Authenticated user with no profile record in `user_profiles` or `coach_profiles`.
+- **Trigger**: Authenticated user with no profile record in `users` or `coaches`.
 - **Workflow**:
-  1. User selects whether they are joining as a **Client** looking for coaching or a **Coach** applying to the platform.
-  2. If **Coach**, the system redirects to the coach application form (Screen 2).
-  3. If **Client**, the onboarding flow proceeds to Step 1.
+  1. New users choose client or coach onboarding on the landing page.
+  2. If they choose **Coach**, signing in via Google authenticates them and redirects them directly to the coach application form.
+  3. If they choose **Client**, signing in via Google authenticates them and starts the client Onboarding Wizard.
 
 ### Scenario 2.2: Step 1 - Contact Details
 - **Inputs**: Phone number.
@@ -110,7 +112,7 @@ The onboarding flow is managed by [Onboarding.jsx](file:///Users/mankalmr/Docume
      - **Fat target**: Aligned to 20-30% of target calories.
      - **Carb target**: Fills remaining calorie targets.
   2. Saves the profile:
-     - Inserts record into `user_profiles` (or local storage partitions).
+     - Inserts record into `users` and `clients` tables (or local storage partitions).
      - Initializes a 30-day `progress_history` table.
      - Sets `onboardingComplete = true` in browser cache.
 - **Postconditions**: Directs the user to the active client dashboard.
@@ -249,7 +251,7 @@ All super-admin workflows are managed by [AdminDashboard.jsx](file:///Users/mank
   1. Admin inspects applicant profiles (credentials, certifications, locations).
   2. Admin clicks **Approve**:
      - Updates application status to `approved`.
-     - Creates a record in `coach_profiles`.
+     - Creates a record in the `coaches` table.
      - Promotes the user's role to `coach`.
      - Logs the action to `audit_logs` and sends an approval notification.
   3. Admin clicks **Reject**:

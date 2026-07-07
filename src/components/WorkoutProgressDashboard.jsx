@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
+import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday } from '../utils/dateUtils';
 import './WorkoutProgressDashboard.css';
 
@@ -152,7 +153,9 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       }
       grouped[date].exercises[log.exercise_name].push({
         reps,
-        weight
+        weight,
+        setType: log.set_type || null,
+        isWarmup: log.set_type === 'warmup'
       });
     });
 
@@ -828,16 +831,28 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                               </tr>
                             </thead>
                             <tbody>
-                              {ex.sets.map((set, sIdx) => (
-                                <tr key={sIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                  <td style={{ padding: '5px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                                    <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,0.06)', fontSize:'0.68rem', fontWeight:800, color:'#fff' }}>{sIdx+1}</span>
-                                  </td>
-                                  <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
-                                  <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
-                                  <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
-                                </tr>
-                              ))}
+                              {ex.sets.map((set, sIdx) => {
+                                // Sequential number among normal working sets only —
+                                // matches the logger's own Warmup/Dropset/Failure badges.
+                                const workingNum = ex.sets.slice(0, sIdx + 1)
+                                  .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                const visual = getSetTypeVisual(set, workingNum);
+                                return (
+                                  <tr key={sIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <td style={{ padding: '5px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                      <span style={{
+                                        display:'inline-flex', alignItems:'center', justifyContent:'center', width:'20px', height:'20px', borderRadius:'50%',
+                                        background: visual.color ? `${visual.color}22` : 'rgba(255,255,255,0.06)',
+                                        fontSize:'0.68rem', fontWeight:800,
+                                        color: visual.color || '#fff'
+                                      }}>{visual.label}</span>
+                                    </td>
+                                    <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
+                                    <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
+                                    <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>

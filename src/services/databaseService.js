@@ -461,16 +461,27 @@ const databaseService = {
                 set_number: sIdx + 1,
                 reps: parseInt(set.reps || '0'),
                 weight_kg: parseFloat(set.weight || '0.0'),
-                plan_name: session.planName || 'Custom Routine'
+                plan_name: session.planName || 'Custom Routine',
+                // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
+                ...(set.setType ? { set_type: set.setType } : {})
               });
             });
           });
 
           if (records.length > 0) {
-            const { error } = await supabase
+            let { error } = await supabase
               .from('workout_logs')
               .insert(records);
-            
+
+            // Degrade gracefully if the set_type column hasn't been migrated
+            // in yet (PostgREST "column not found" — code 42703 / PGRST204):
+            // retry without it rather than losing the whole session save.
+            if (error && (error.code === '42703' || error.code === 'PGRST204')) {
+              console.warn('workout_logs.set_type not found yet — retrying without set type tags.');
+              const fallbackRecords = records.map(({ set_type, ...rest }) => rest);
+              ({ error } = await supabase.from('workout_logs').insert(fallbackRecords));
+            }
+
             if (error) throw error;
             console.log('Cloud DB: Saved workout session sets.');
           }

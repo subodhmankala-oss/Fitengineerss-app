@@ -3,7 +3,7 @@ import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services
 import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 import './WorkoutTracker.css';
-import SetTypeMenu from './SetTypeMenu';
+import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 
 
@@ -355,7 +355,11 @@ const TrainerDashboard = ({ handleLogout }) => {
         name: ex.name,
         sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
           reps: parseInt(s.reps) || 0,
-          weight: parseFloat(s.weight) || 0
+          weight: parseFloat(s.weight) || 0,
+          // Preserve the Warmup/Dropset/Failure tag chosen in the live logger
+          // so it reaches workout_logs.set_type instead of being discarded.
+          ...(s.isWarmup ? { setType: 'warmup' } : {}),
+          ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
         }))
       })).filter(ex => ex.sets.length > 0);
 
@@ -658,7 +662,9 @@ const TrainerDashboard = ({ handleLogout }) => {
       datesMap[date][exercise].push({
         setNumber: log.set_number,
         reps: log.reps,
-        weight: log.weight_kg
+        weight: log.weight_kg,
+        setType: log.set_type || null,
+        isWarmup: log.set_type === 'warmup'
       });
     });
 
@@ -1918,15 +1924,27 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {exercise.sets.map((set, setIdx) => (
-                                      <tr key={setIdx}>
-                                        <td>
-                                          <span className="set-num-badge">{set.setNumber}</span>
-                                        </td>
-                                        <td>{set.weight} kg</td>
-                                        <td>{set.reps} reps</td>
-                                      </tr>
-                                    ))}
+                                    {exercise.sets.map((set, setIdx) => {
+                                      // Sequential number among normal working sets only —
+                                      // matches the Live Log / Plan editor's badge logic.
+                                      const workingNum = exercise.sets.slice(0, setIdx + 1)
+                                        .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                      const visual = getSetTypeVisual(set, workingNum);
+                                      return (
+                                        <tr key={setIdx}>
+                                          <td>
+                                            <span
+                                              className="set-num-badge"
+                                              style={visual.color ? { color: visual.color, borderColor: `${visual.color}55`, background: `${visual.color}22` } : undefined}
+                                            >
+                                              {visual.label}
+                                            </span>
+                                          </td>
+                                          <td>{set.weight} kg</td>
+                                          <td>{set.reps} reps</td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>

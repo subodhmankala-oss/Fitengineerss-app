@@ -385,6 +385,9 @@ const Onboarding = ({ onComplete }) => {
       let signInSuccess = false;
 
       if (!profile) {
+        // Carry the email over so that if they click "Sign up" below, it's
+        // already filled in instead of asking them to retype it.
+        setCoachApplyEmail(authEmail);
         throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
       }
 
@@ -493,8 +496,13 @@ const Onboarding = ({ onComplete }) => {
           // Credentials were valid, but this identity has no coaches row — it's a
           // client-only (or never-registered-as-coach) account. Sign the session back
           // out so it can't linger and route as a client, then reject clearly.
+          // This is the exact "new coach" case: they already have a working auth
+          // account (e.g. just set a password via Forgot Password) but haven't
+          // filled out the coach profile yet — carry the verified email into the
+          // Sign Up form instead of asking them to retype it.
           try { await databaseService.signOut(); } catch (e) { /* */ }
-          throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
+          setCoachApplyEmail(authEmail);
+          throw new Error('This account is not yet registered as a coach. Click "Sign up" below to finish setting up your coach profile.');
         }
       }
     } catch (err) {
@@ -874,6 +882,29 @@ const Onboarding = ({ onComplete }) => {
                 const result = await resp.json();
                 if (!resp.ok || result.error) throw new Error(result.error || 'Registration failed');
                 localStorage.removeItem('pendingCoachApply');
+
+                if (result.access_token && result.refresh_token && isSupabaseConfigured && databaseService.supabase) {
+                  // This is the "new coach who already had an account" path (e.g. set a
+                  // password via Forgot Password before ever filling out this form) —
+                  // the server already verified their credentials, so establish that
+                  // session directly and drop them straight into the coach dashboard
+                  // instead of sending them back to log in a second time.
+                  const { error: sessionErr } = await databaseService.supabase.auth.setSession({
+                    access_token: result.access_token,
+                    refresh_token: result.refresh_token
+                  });
+                  if (sessionErr) throw sessionErr;
+                  const profile = await databaseService.getUserProfileByEmail(email);
+                  await databaseService.loadProfileIntoLocalStorage({
+                    ...profile,
+                    role: 'coach',
+                    userCoachId: result.userId
+                  }, email);
+                  localStorage.setItem('onboardingCompleted', 'true');
+                  onComplete();
+                  return;
+                }
+
                 if (result.hasSession) {
                   // Auto-confirmed: session exists server-side but NOT in the browser.
                   // Route to coach login so the browser gets a real session.
@@ -900,12 +931,17 @@ const Onboarding = ({ onComplete }) => {
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Email Address</label>
-                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!localStorage.getItem('userEmail')} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!coachApplyEmail} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
                 <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
+                {coachApplyEmail && (
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.5)' }}>
+                    Enter the password you just set via "Forgot password?" for this account.
+                  </p>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1297,10 +1333,26 @@ const Onboarding = ({ onComplete }) => {
                             setAuthError('Please enter your coach email address first to reset password.');
                             return;
                           }
+                          setAuthError('');
+                          setAuthSuccessMsg('');
                           try {
                             setAuthLoading(true);
-                            await databaseService.resetPassword(authEmail);
-                            alert('Password reset link sent to your email.');
+                            // Same server-side dispatch as the client flow: generates the
+                            // recovery link via the admin API and emails it through Resend,
+                            // bypassing Supabase's own mailer (which fails outright for
+                            // every address — see api/request-password-reset.js). The old
+                            // direct resetPasswordForEmail() call here hit that same broken
+                            // mailer and silently never delivered anything.
+                            const resp = await fetch('/api/request-password-reset', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email: authEmail.trim().toLowerCase() })
+                            });
+                            if (!resp.ok) {
+                              const data = await resp.json().catch(() => ({}));
+                              throw new Error(data.error || 'We couldn\'t send the reset email right now. Please try again in a few minutes.');
+                            }
+                            setAuthSuccessMsg("If that email is registered, you'll receive a password reset link shortly.");
                           } catch(err) {
                             setAuthError(err.message || 'Failed to send reset link.');
                           } finally {

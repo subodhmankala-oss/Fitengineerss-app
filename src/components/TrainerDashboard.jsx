@@ -904,6 +904,15 @@ const TrainerDashboard = ({ handleLogout }) => {
             }} 
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{
+              fontSize: '0.68rem',
+              color: 'var(--text-muted)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}>
+              Coach Dashboard
+            </span>
             <h3 style={{ margin: 0, lineHeight: 1.2 }}>{localStorage.getItem('userName') || 'Coach'}</h3>
             <span style={{
               fontSize: '0.85rem',

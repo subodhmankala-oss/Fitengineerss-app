@@ -931,21 +931,19 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // clients has two FKs to users (user_id and coach_id), so the embed
-        // must specify which relationship to follow or PostgREST rejects the
-        // query as ambiguous (PGRST201) — here we want the client's own user row.
-        let query = supabase.from('clients').select('*, users!clients_user_id_fkey(email)');
-        
+        // Raw PostgREST read (bypasses the hanging SDK — see
+        // feedback-supabase-sdk-hang memory). clients has two FKs to users
+        // (user_id and coach_id), so the embed must specify which
+        // relationship to follow or PostgREST rejects the query as ambiguous
+        // (PGRST201) — here we want the client's own user row.
         const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-        if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
-          // In Supabase, clients.coach_id stores the coach's users.id UUID
-          if (loggedInUserId) {
-            query = query.eq('coach_id', loggedInUserId);
-          }
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
+        // In Supabase, clients.coach_id stores the coach's users.id UUID
+        const coachFilter = (isCoachOrAdmin && loggedInRole !== 'super-admin' && loggedInUserId)
+          ? `&coach_id=eq.${encodeURIComponent(loggedInUserId)}`
+          : '';
+        const data = await restSelect(
+          `clients?select=*,users!clients_user_id_fkey(email)${coachFilter}`
+        );
 
         if (data) {
           return data.map(c => ({
@@ -1264,12 +1262,12 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
+        // Raw PostgREST reads (bypass the hanging SDK — see
+        // feedback-supabase-sdk-hang memory).
         // 1) The coach's currently-attached clients (and their display names).
-        const { data: clientRows, error: cErr } = await supabase
-          .from('clients')
-          .select('user_id, full_name, coach_id')
-          .eq('coach_id', coachUserId);
-        if (cErr) throw cErr;
+        const clientRows = await restSelect(
+          `clients?select=user_id,full_name,coach_id&coach_id=eq.${encodeURIComponent(coachUserId)}`
+        );
         if (!clientRows || clientRows.length === 0) return [];
 
         const idToName = {};
@@ -1281,13 +1279,11 @@ const databaseService = {
 
         // 2) Recent logs for ONLY those client ids — the scope is enforced here in
         //    the query (workout_logs has no coach_id and RLS is permissive).
-        const { data: logs, error: lErr } = await supabase
-          .from('workout_logs')
-          .select('user_id, log_date, plan_name, exercise_name, set_number, reps, weight_kg, created_at')
-          .in('user_id', clientIds)
-          .order('log_date', { ascending: false })
-          .order('created_at', { ascending: false });
-        if (lErr) throw lErr;
+        const idList = clientIds.map(encodeURIComponent).join(',');
+        const logs = await restSelect(
+          `workout_logs?select=user_id,log_date,plan_name,exercise_name,set_number,reps,weight_kg,created_at` +
+          `&user_id=in.(${idList})&order=log_date.desc,created_at.desc`
+        );
 
         // 3) Group sets into sessions: client + local log_date + plan name.
         const sessions = {};

@@ -383,19 +383,22 @@ const Onboarding = ({ onComplete }) => {
     try {
       let profile = await databaseService.getUserProfileByEmail(authEmail);
       let signInSuccess = false;
-
-      if (!profile) {
-        // Carry the email over so that if they click "Sign up" below, it's
-        // already filled in instead of asking them to retype it.
-        setCoachApplyEmail(authEmail);
-        throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
-      }
+      // profile.id is the users.id we need for the coaches lookup below, but a
+      // coach's Supabase Auth account can exist (e.g. one they just claimed
+      // via "Forgot password?") with no public.users row yet — profile is null
+      // in that case. Verify credentials first regardless, then resolve the
+      // real auth user id from the sign-in result itself. Previously this
+      // rejected with a generic "no account found" message the instant
+      // profile was null, before ever checking whether the typed password was
+      // actually correct.
+      let authUserId = profile?.id || null;
 
       // Check credentials
       if (isSupabaseConfigured && databaseService.supabase) {
         try {
-          await databaseService.signIn(authEmail, authPassword);
+          const signInResult = await databaseService.signIn(authEmail, authPassword);
           signInSuccess = true;
+          if (!authUserId) authUserId = signInResult?.user?.id || null;
         } catch (signInErr) {
           // Coach hasn't confirmed their email yet — offer a resend, same as clients.
           if ((signInErr.message || '').toLowerCase().includes('email not confirmed')) {
@@ -413,8 +416,10 @@ const Onboarding = ({ onComplete }) => {
           const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
           if (mUser && mUser.password_hash === authPassword) {
             signInSuccess = true;
+            authUserId = mUser.id;
           } else {
-            throw signInErr;
+            setCoachApplyEmail(authEmail);
+            throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
           }
         }
       } else {
@@ -423,26 +428,31 @@ const Onboarding = ({ onComplete }) => {
         const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
         if (mUser && mUser.password_hash === authPassword) {
           signInSuccess = true;
+          authUserId = mUser.id;
         } else {
-          throw new Error('Invalid email or password.');
+          setCoachApplyEmail(authEmail);
+          throw new Error('No coach account found with this email. If you have a client account, switch to the Client tab — or sign up as a coach.');
         }
       }
 
       if (signInSuccess) {
+        if (!authUserId) {
+          throw new Error('Could not verify your account. Please try again.');
+        }
         const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
         const mockCoaches = databaseService.getMockTable('coaches');
-        
+
         // Find if coach record exists
         let coachRecord = null;
         if (isSupabaseConfigured && databaseService.supabase) {
           const { data } = await databaseService.supabase
             .from('coaches')
             .select('*')
-            .eq('user_id', profile.id)
+            .eq('user_id', authUserId)
             .maybeSingle();
           coachRecord = data;
         } else {
-          coachRecord = mockCoaches.find(c => c.user_id === profile.id);
+          coachRecord = mockCoaches.find(c => c.user_id === authUserId);
         }
 
         if (isSuperAdminEmail) {
@@ -451,21 +461,21 @@ const Onboarding = ({ onComplete }) => {
             const { data: existingAdminCoach } = await databaseService.supabase
               .from('coaches')
               .select('*')
-              .eq('user_id', profile.id)
+              .eq('user_id', authUserId)
               .maybeSingle();
             if (!existingAdminCoach) {
               await databaseService.supabase.from('coaches').insert({
-                user_id: profile.id,
+                user_id: authUserId,
                 status: 'approved',
                 brand_name: 'Admin Fitness'
               });
             }
           } else {
-            const existingAdminCoach = mockCoaches.find(c => c.user_id === profile.id);
+            const existingAdminCoach = mockCoaches.find(c => c.user_id === authUserId);
             if (!existingAdminCoach) {
               mockCoaches.push({
                 id: 'coach-subodh',
-                user_id: profile.id,
+                user_id: authUserId,
                 status: 'approved',
                 brand_name: 'Admin Fitness'
               });
@@ -474,6 +484,7 @@ const Onboarding = ({ onComplete }) => {
           }
           await databaseService.loadProfileIntoLocalStorage({
             ...profile,
+            id: authUserId,
             role: 'super-admin',
             userCoachId: 'coach-subodh'
           }, authEmail);
@@ -485,8 +496,13 @@ const Onboarding = ({ onComplete }) => {
             try { await databaseService.signOut(); } catch (e) { /* */ }
             throw new Error('Your coach access has been suspended. Please contact the Fitengineers team.');
           }
+          // profile can still be null here if this account somehow got a
+          // coaches row without a public.users row — re-fetch now that we
+          // have a confirmed real user id, rather than losing their name/etc.
+          if (!profile) profile = await databaseService.getUserProfileByEmail(authEmail);
           await databaseService.loadProfileIntoLocalStorage({
             ...profile,
+            id: authUserId,
             role: 'coach',
             userCoachId: coachRecord.id
           }, authEmail);

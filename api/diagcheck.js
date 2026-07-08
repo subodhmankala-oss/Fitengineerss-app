@@ -1,5 +1,5 @@
-// TEMPORARY read-only diagnostic — checks if a Supabase Auth account exists
-// for an email via generate_link (does not create anything). Removed after use.
+// TEMPORARY read-only diagnostic — returns the raw generate_link response so
+// we can see the true Supabase Auth user id for an email. Removed after use.
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -17,13 +17,14 @@ export default async function handler(req, res) {
       body: JSON.stringify({ type: 'recovery', email })
     });
     const linkData = await linkResp.json().catch(() => ({}));
-    return res.status(200).json({
-      generateLinkStatus: linkResp.status,
-      generateLinkOk: linkResp.ok,
-      msg: linkData.msg || linkData.error_description || linkData.error || null,
-      userId: linkData.user?.id || linkData.properties?.action_link ? (linkData.user?.id || null) : null,
-      hasHashedToken: !!(linkData.hashed_token || linkData.properties?.hashed_token)
-    });
+    // Strip the sensitive token fields, keep everything else raw for inspection.
+    delete linkData.hashed_token;
+    delete linkData.action_link;
+    if (linkData.properties) {
+      delete linkData.properties.hashed_token;
+      delete linkData.properties.action_link;
+    }
+    return res.status(200).json({ status: linkResp.status, data: linkData });
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }

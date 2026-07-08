@@ -685,7 +685,13 @@ const databaseService = {
 
           return {
             id: user.id,
-            userName: client?.full_name || coach?.brand_name || user.email.split('@')[0],
+            // A coach has no client row, so this used to fall straight to
+            // coach.brand_name (their business/specialization name) instead of
+            // their own name — e.g. showing "Strength & Conditioning" where
+            // the coach's actual name ("lilly") should appear. users.full_name
+            // is set for coaches too (register-coach.js writes it), so check
+            // that before falling back to branding.
+            userName: client?.full_name || user.full_name || coach?.brand_name || user.email.split('@')[0],
             userAge: client?.age ? String(client.age) : '',
             userHeight: client?.height_cm ? String(client.height_cm) : '',
             userWeight: client?.weight_kg ? String(client.weight_kg) : '',
@@ -750,7 +756,7 @@ const databaseService = {
 
       return {
         id: userId,
-        userName: mClient?.full_name || mCoach?.brand_name || email.split('@')[0],
+        userName: mClient?.full_name || mUser?.full_name || mCoach?.brand_name || email.split('@')[0],
         userAge: mClient?.age ? String(mClient.age) : '',
         userHeight: mClient?.height_cm ? String(mClient.height_cm) : '',
         userWeight: mClient?.weight_kg ? String(mClient.weight_kg) : '',

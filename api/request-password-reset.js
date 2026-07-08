@@ -16,6 +16,26 @@
 
 const APP_ORIGIN = 'https://fitengineerss-app.vercel.app';
 
+// Best-effort durable audit trail in public.email_events (see api/resend-webhook.js
+// for the table DDL). Never throws — a logging failure must not break the reset flow.
+async function recordEmailEvent(supabaseUrl, serviceKey, row) {
+  if (!serviceKey) return;
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/email_events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(row)
+    });
+  } catch (err) {
+    console.error('email_events insert failed (non-fatal):', err.message || err);
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -55,6 +75,14 @@ export default async function handler(req, res) {
         const msg = (linkData.msg || linkData.error_description || linkData.error || '').toLowerCase();
         if (linkResp.status === 404 || msg.includes('not found') || msg.includes('unable to find user')) {
           // Unknown email — same response as success so accounts can't be enumerated.
+          // Logged server-side because this is invisible to the user: a real
+          // coach whose email has no auth.users row lands here every time and
+          // "never receives the reset email" with no error anywhere.
+          console.warn('Password reset requested for email with no auth user (fake success returned):', email);
+          await recordEmailEvent(supabaseUrl, serviceKey, {
+            event_type: 'reset.no_auth_user',
+            recipient: email
+          });
           return res.status(200).json({ success: true, message: confirmation });
         }
         console.error('generate_link failed:', linkResp.status, linkData.msg || linkData.error);
@@ -100,6 +128,17 @@ export default async function handler(req, res) {
       });
 
       if (sendResp.ok) {
+        // Capture Resend's message id so delivery can be traced end-to-end:
+        // this id is what shows up in the Resend dashboard and in the
+        // email.bounced / email.delivered webhook events (api/resend-webhook.js).
+        const sendData = await sendResp.json().catch(() => ({}));
+        console.log('Reset email accepted by Resend:', sendData.id || '(no id)', 'recipient:', email);
+        await recordEmailEvent(supabaseUrl, serviceKey, {
+          event_type: 'reset.requested',
+          email_id: sendData.id || null,
+          recipient: email,
+          subject: 'Reset Your Fitengineers Password'
+        });
         return res.status(200).json({ success: true, message: confirmation });
       }
       const sendErr = await sendResp.json().catch(() => ({}));

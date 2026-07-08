@@ -22,7 +22,18 @@ const AuthConfirm = () => {
   const params = new URLSearchParams(window.location.search);
   const token_hash = params.get('token_hash');
   const type = params.get('type');
+  const roleHint = params.get('role');
+  const emailHint = params.get('email');
   const isValid = !!(token_hash && type);
+
+  // Carries the requester's tab (coach vs client) and email back through the
+  // reset-link redirect, so the login screen that follows can land on the
+  // right tab with the email prefilled instead of always defaulting to
+  // Client. Called right before any localStorage.clear() below.
+  const rememberAuthContext = () => {
+    if (emailHint) localStorage.setItem('last_logged_in_email', emailHint);
+    if (roleHint === 'coach') localStorage.setItem('lastAuthUserType', 'coach');
+  };
 
   // status: idle | verifying | password | saving | success | error
   const [status, setStatus] = useState('idle');
@@ -79,6 +90,7 @@ const AuthConfirm = () => {
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${accessToken}` }
       }).catch(() => {});
       localStorage.clear();
+      rememberAuthContext();
 
       setStatus('success');
       setTimeout(() => { window.location.href = window.location.origin; }, 1500);
@@ -93,7 +105,7 @@ const AuthConfirm = () => {
     // app lands on a clean login screen. Without this, a stale client session left in
     // this browser (e.g. from earlier) makes the app boot straight into that client's
     // onboarding wizard instead of the login screen after a failed/expired link.
-    try { localStorage.clear(); } catch (e) { /* ignore */ }
+    try { localStorage.clear(); rememberAuthContext(); } catch (e) { /* ignore */ }
     window.location.href = window.location.origin;
   };
 

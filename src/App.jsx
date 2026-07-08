@@ -1121,6 +1121,7 @@ function App() {
 
   const handleLogout = async () => {
     const activeEmail = localStorage.getItem('userEmail') || userEmail;
+    const activeRole = localStorage.getItem('userRole') || userRole;
 
     // Sign out from Supabase Auth if active and wait for it to complete
     try {
@@ -1135,6 +1136,11 @@ function App() {
     // Re-save prefilled email for persistence
     if (activeEmail) {
       localStorage.setItem('last_logged_in_email', activeEmail);
+    }
+    // Remember which tab (coach vs client) they were using, so the login
+    // screen defaults back to it instead of always landing on Client.
+    if (activeRole === 'coach' || activeRole === 'super-admin') {
+      localStorage.setItem('lastAuthUserType', 'coach');
     }
     
     // Invalidate PWA cache and old service workers to force reload the fresh code

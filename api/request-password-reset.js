@@ -30,6 +30,10 @@ export default async function handler(req, res) {
 
   const email = ((req.body && req.body.email) || '').trim().toLowerCase();
   if (!email) return res.status(400).json({ error: 'Email address is required.' });
+  // Optional hint so the confirm link can carry the caller's tab back through
+  // the redirect — without it, AuthConfirm.jsx has no way to know whether a
+  // coach or a client requested this reset, and always defaulted to Client.
+  const role = req.body && req.body.role === 'coach' ? 'coach' : 'client';
 
   const confirmation = "If that email is registered, you'll receive a password reset link shortly.";
 
@@ -65,7 +69,7 @@ export default async function handler(req, res) {
         return res.status(502).json({ error: 'We couldn\'t create your reset link right now. Please try again in a few minutes.' });
       }
 
-      const resetLink = `${APP_ORIGIN}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
+      const resetLink = `${APP_ORIGIN}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}&type=recovery&role=${role}&email=${encodeURIComponent(email)}`;
       const senderEmail = process.env.SENDER_EMAIL || 'noreply@fitengineerss.com';
       const senderName = process.env.SENDER_NAME || 'Fitengineers';
 

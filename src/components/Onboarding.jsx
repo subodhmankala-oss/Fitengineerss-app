@@ -75,9 +75,14 @@ const Onboarding = ({ onComplete }) => {
   const [authTab, setAuthTab] = useState(() =>
     localStorage.getItem('pendingCoachApply') === 'true' ? 'coach_apply' : 'login'
   );
-  const [userType, setUserType] = useState(() =>
-    localStorage.getItem('pendingCoachApply') === 'true' ? 'coach' : 'client'
-  );
+  const [userType, setUserType] = useState(() => {
+    if (localStorage.getItem('pendingCoachApply') === 'true') return 'coach';
+    // Set by AuthConfirm.jsx after a coach resets their password, so the
+    // login screen that follows lands on the Coach tab instead of always
+    // defaulting to Client.
+    if (localStorage.getItem('lastAuthUserType') === 'coach') return 'coach';
+    return 'client';
+  });
   const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('last_logged_in_email') || '');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -1367,7 +1372,11 @@ const Onboarding = ({ onComplete }) => {
                             const resp = await fetch('/api/request-password-reset', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email: authEmail.trim().toLowerCase() })
+                              // role: 'coach' is embedded into the emailed confirm link so
+                              // that after they set their new password, the app knows to
+                              // land them back on the Coach tab (with this email prefilled)
+                              // instead of defaulting to the Client tab — see AuthConfirm.jsx.
+                              body: JSON.stringify({ email: authEmail.trim().toLowerCase(), role: 'coach' })
                             });
                             if (!resp.ok) {
                               const data = await resp.json().catch(() => ({}));

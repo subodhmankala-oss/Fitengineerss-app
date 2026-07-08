@@ -509,16 +509,21 @@ const Onboarding = ({ onComplete }) => {
           localStorage.setItem('onboardingCompleted', 'true');
           onComplete();
         } else {
-          // Credentials were valid, but this identity has no coaches row — it's a
-          // client-only (or never-registered-as-coach) account. Sign the session back
-          // out so it can't linger and route as a client, then reject clearly.
-          // This is the exact "new coach" case: they already have a working auth
+          // Credentials were valid, but this identity has no coaches row yet —
+          // the exact "new coach" case: they already have a working auth
           // account (e.g. just set a password via Forgot Password) but haven't
-          // filled out the coach profile yet — carry the verified email into the
-          // Sign Up form instead of asking them to retype it.
+          // filled out the coach profile yet. Sign the session back out so it
+          // can't linger and route as a client, then go straight to the Sign
+          // Up form with their verified email prefilled — no error banner,
+          // no extra click needed.
           try { await databaseService.signOut(); } catch (e) { /* */ }
           setCoachApplyEmail(authEmail);
-          throw new Error('This account is not yet registered as a coach. Click "Sign up" below to finish setting up your coach profile.');
+          setUserType('coach');
+          setAuthTab('coach_apply');
+          setAuthError('');
+          setAuthSuccessMsg('');
+          setAuthLoading(false);
+          return;
         }
       }
     } catch (err) {

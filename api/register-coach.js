@@ -71,11 +71,15 @@ export default async function handler(req, res) {
 
     if (!userId) throw new Error('Could not create coach account. Please try again.');
 
-    // 2. Insert public.users row (service role bypasses RLS)
+    // 2. Insert public.users row (service role bypasses RLS). This must
+    // succeed before the coaches insert below, which has a foreign key on
+    // this row — silently swallowing a failure here (as before) let the
+    // coaches insert run against a missing row and fail with a confusing,
+    // unrelated "coaches_user_id_fkey" error instead of the real cause.
     const { error: userErr } = await adminClient
       .from('users')
       .upsert({ id: userId, email: normalizedEmail, full_name: name, role: 'coach' }, { onConflict: 'id' });
-    if (userErr) console.warn('register-coach: users row error:', userErr.message);
+    if (userErr) throw new Error(userErr.message || 'Could not save your account details.');
 
     // 3. Insert coaches row (service role bypasses RLS)
     const expYears = parseInt(experience, 10);

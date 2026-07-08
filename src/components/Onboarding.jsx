@@ -919,13 +919,29 @@ const Onboarding = ({ onComplete }) => {
                   // hang issue on this project (see feedback-supabase-sdk-hang memory)
                   // turns out to affect setSession() too, not just verifyOtp/updateUser.
                   // That's what left the "Creating account..." button stuck forever.
-                  await databaseService.signIn(email, password);
-                  const profile = await databaseService.getUserProfileByEmail(email);
-                  await databaseService.loadProfileIntoLocalStorage({
-                    ...profile,
-                    role: 'coach',
-                    userCoachId: result.userId
-                  }, email);
+                  //
+                  // coachLoginInProgress guards against the same race the Coach Login
+                  // form already protects against: signIn() fires Supabase's
+                  // onAuthStateChange, which App.jsx's processSessionUser also listens
+                  // to. A brand-new coach has no age/height/weight (those are client
+                  // fitness fields), so processSessionUser's "hasCompleteProfile" check
+                  // fails for them, and isTrainer() depends on a userRole that hasn't
+                  // been written yet — so without this flag it could misclassify the
+                  // new coach and leave localStorage.userRole stale, corrupting both
+                  // the coach dashboard's client-list scoping and the tab remembered
+                  // on next logout.
+                  localStorage.setItem('coachLoginInProgress', 'true');
+                  try {
+                    await databaseService.signIn(email, password);
+                    const profile = await databaseService.getUserProfileByEmail(email);
+                    await databaseService.loadProfileIntoLocalStorage({
+                      ...profile,
+                      role: 'coach',
+                      userCoachId: result.userId
+                    }, email);
+                  } finally {
+                    localStorage.removeItem('coachLoginInProgress');
+                  }
                   localStorage.setItem('onboardingCompleted', 'true');
                   onComplete();
                   return;

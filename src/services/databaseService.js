@@ -936,11 +936,24 @@ const databaseService = {
         // (user_id and coach_id), so the embed must specify which
         // relationship to follow or PostgREST rejects the query as ambiguous
         // (PGRST201) — here we want the client's own user row.
-        const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-        // In Supabase, clients.coach_id stores the coach's users.id UUID
-        const coachFilter = (isCoachOrAdmin && loggedInRole !== 'super-admin' && loggedInUserId)
-          ? `&coach_id=eq.${encodeURIComponent(loggedInUserId)}`
-          : '';
+        //
+        // PRIVACY: this must never fall through to an unfiltered query just
+        // because loggedInRole is momentarily empty/unresolved (e.g. a brief
+        // window right after login/reload before localStorage.userRole is
+        // written) — that previously showed a coach every other coach's
+        // clients during that window. Only a *confirmed* super-admin/admin
+        // role gets the unfiltered view; a confirmed coach gets their own
+        // coach_id filter; anything else (including "don't know yet")
+        // returns nothing rather than guessing permissively.
+        const isSuperAdminRole = loggedInRole === 'super-admin' || loggedInRole === 'admin';
+        let coachFilter;
+        if (isSuperAdminRole) {
+          coachFilter = '';
+        } else if (loggedInRole === 'coach' && loggedInUserId) {
+          coachFilter = `&coach_id=eq.${encodeURIComponent(loggedInUserId)}`;
+        } else {
+          return [];
+        }
         const data = await restSelect(
           `clients?select=*,users!clients_user_id_fkey(email)${coachFilter}`
         );
@@ -972,14 +985,19 @@ const databaseService = {
       }
     }
 
-    // Local Storage Fallback
+    // Local Storage Fallback — same privacy rule as above: only a confirmed
+    // super-admin/admin role sees everything; a confirmed coach sees only
+    // their own; anything else returns nothing.
     const mockClients = this.getMockTable('clients');
     const mockUsers = this.getMockTable('users');
-    
-    let filtered = mockClients;
-    const isCoachOrAdmin = loggedInRole === 'coach' || loggedInRole === 'super-admin' || loggedInRole === 'admin';
-    if (isCoachOrAdmin && loggedInRole !== 'super-admin') {
+
+    let filtered;
+    if (loggedInRole === 'super-admin' || loggedInRole === 'admin') {
+      filtered = mockClients;
+    } else if (loggedInRole === 'coach' && (loggedInCoachId || loggedInUserId)) {
       filtered = mockClients.filter(c => c.coach_id === loggedInCoachId || c.coach_id === loggedInUserId);
+    } else {
+      filtered = [];
     }
 
     return filtered.map(c => {

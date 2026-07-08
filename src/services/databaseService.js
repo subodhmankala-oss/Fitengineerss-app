@@ -527,9 +527,33 @@ const databaseService = {
       throw new Error("Supabase is not configured.");
     }
     email = (email || '').trim().toLowerCase();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
+    // Raw fetch instead of supabase.auth.signInWithPassword() — same SDK-hang
+    // workaround as restSelect above and the password-reset flow. A coach who
+    // just reset their password (a flow that already bypasses the SDK
+    // entirely) hit this hanging forever on "Logging In...": the promise from
+    // signInWithPassword() never resolved or rejected.
+    const resp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnonKey },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      throw new Error(data.msg || data.error_description || data.error || 'Invalid login credentials.');
+    }
+    // Hydrate the SDK client's session so downstream .from() calls and
+    // onAuthStateChange listeners still see the logged-in user. Best-effort
+    // with a timeout: setSession() also goes through the same browser SDK,
+    // so it must never be allowed to re-introduce the hang we just avoided.
+    try {
+      await Promise.race([
+        supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('setSession timed out')), 5000))
+      ]);
+    } catch (e) {
+      console.warn('supabase.auth.setSession did not complete (continuing with raw session anyway):', e.message || e);
+    }
+    return { user: data.user, session: { access_token: data.access_token, refresh_token: data.refresh_token, user: data.user } };
   },
 
   async signInWithGoogle() {

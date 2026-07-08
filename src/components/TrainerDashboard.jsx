@@ -904,14 +904,14 @@ const TrainerDashboard = ({ handleLogout }) => {
             }} 
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{ margin: 0, lineHeight: 1.2 }}>Coach Dashboard</h3>
-            <span style={{ 
-              fontSize: '0.85rem', 
-              color: 'var(--text-muted)', 
+            <h3 style={{ margin: 0, lineHeight: 1.2 }}>{localStorage.getItem('userName') || 'Coach'}</h3>
+            <span style={{
+              fontSize: '0.85rem',
+              color: 'var(--text-muted)',
               fontWeight: 600,
               marginTop: '3px'
             }}>
-              {localStorage.getItem('userName') || 'Coach Subodh'}
+              {localStorage.getItem('userBrand') || 'Fit Engineers'}
             </span>
           </div>
         </div>

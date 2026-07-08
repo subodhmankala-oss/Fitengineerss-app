@@ -899,17 +899,17 @@ const Onboarding = ({ onComplete }) => {
                 if (!resp.ok || result.error) throw new Error(result.error || 'Registration failed');
                 localStorage.removeItem('pendingCoachApply');
 
-                if (result.access_token && result.refresh_token && isSupabaseConfigured && databaseService.supabase) {
-                  // This is the "new coach who already had an account" path (e.g. set a
-                  // password via Forgot Password before ever filling out this form) —
-                  // the server already verified their credentials, so establish that
-                  // session directly and drop them straight into the coach dashboard
-                  // instead of sending them back to log in a second time.
-                  const { error: sessionErr } = await databaseService.supabase.auth.setSession({
-                    access_token: result.access_token,
-                    refresh_token: result.refresh_token
-                  });
-                  if (sessionErr) throw sessionErr;
+                if (result.hasSession && isSupabaseConfigured && databaseService.supabase) {
+                  // The server already verified/created these credentials — establish a
+                  // real browser session via signInWithPassword (the same method used
+                  // everywhere else in this app) and drop them straight into the coach
+                  // dashboard instead of sending them back to log in a second time.
+                  // NOTE: supabase.auth.setSession() was used here before and hung
+                  // indefinitely (never resolved or rejected) — the known Supabase SDK
+                  // hang issue on this project (see feedback-supabase-sdk-hang memory)
+                  // turns out to affect setSession() too, not just verifyOtp/updateUser.
+                  // That's what left the "Creating account..." button stuck forever.
+                  await databaseService.signIn(email, password);
                   const profile = await databaseService.getUserProfileByEmail(email);
                   await databaseService.loadProfileIntoLocalStorage({
                     ...profile,

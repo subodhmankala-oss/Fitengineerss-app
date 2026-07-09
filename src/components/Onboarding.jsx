@@ -896,7 +896,13 @@ const Onboarding = ({ onComplete }) => {
         <div style={{ width: '100%', min_height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
           <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
             <button
-              onClick={() => setAuthTab('login')}
+              onClick={() => {
+                // Abandoning the coach sign-up: clear the sticky flag, or the
+                // next visitor on this device (even a brand-new CLIENT) gets
+                // dumped straight back into this coach form at mount.
+                localStorage.removeItem('pendingCoachApply');
+                setAuthTab('login');
+              }}
               style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginBottom: '20px', padding: '6px 10px', borderRadius: '6px', transition: 'all 0.3s ease' }}
               onMouseEnter={(e) => { e.target.style.color = '#93c5fd'; e.target.style.background = 'rgba(59, 130, 246, 0.1)'; }}
               onMouseLeave={(e) => { e.target.style.color = 'rgba(148, 163, 184, 0.8)'; e.target.style.background = 'none'; }}
@@ -1046,7 +1052,7 @@ const Onboarding = ({ onComplete }) => {
               </button>
             </form>
             
-            <button type="button" onClick={() => setAuthTab('login')} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline', marginTop: '12px' }}>
+            <button type="button" onClick={() => { localStorage.removeItem('pendingCoachApply'); setAuthTab('login'); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline', marginTop: '12px' }}>
               Back to Coach Login
             </button>
           </div>
@@ -1187,7 +1193,7 @@ const Onboarding = ({ onComplete }) => {
                     type="button"
                     className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
                     style={{ flex: 1 }}
-                    onClick={() => { setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); setShowCoachEmailForm(false); }}
+                    onClick={() => { localStorage.removeItem('pendingCoachApply'); setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); setShowCoachEmailForm(false); }}
                   >
                     Client
                   </button>
@@ -1228,6 +1234,18 @@ const Onboarding = ({ onComplete }) => {
                     style={{ width: '100%', margin: 0, padding: '12px' }}
                     onClick={async () => {
                       setAuthError('');
+                      // MUTUAL EXCLUSION: a CLIENT-initiated Google login must
+                      // never route through any coach flow. Clear every coach
+                      // flag that could linger from an earlier abandoned coach
+                      // attempt on this device — a stale pendingCoachApply
+                      // otherwise forces the coach sign-up form at mount when
+                      // the OAuth redirect reloads the app (reported 2026-07-09:
+                      // fresh client sent to "coach sign up"), and a stale
+                      // pendingCoachLogin would route the returning session
+                      // through the coach path in App.jsx.
+                      localStorage.removeItem('pendingCoachApply');
+                      sessionStorage.removeItem('pendingCoachLogin');
+                      setGoogleModalIntent('client');
                       try {
                         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                           setShowGoogleModal(true);

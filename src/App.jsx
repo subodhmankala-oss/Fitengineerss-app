@@ -495,6 +495,12 @@ function App() {
         
         if (!isApprovedCoach) {
           // It's a client user! Route straight to dashboard.
+          // Self-heal: this session is definitively a CLIENT, so any lingering
+          // coach-signup flag from an earlier abandoned coach attempt on this
+          // device must not survive it — a stale pendingCoachApply otherwise
+          // forces the coach sign-up form on the next Onboarding mount (e.g.
+          // right after this OAuth redirect, or the next logout).
+          localStorage.removeItem('pendingCoachApply');
           // First, check if client row exists. If not, create with coach_id = null and defaults.
           let clientProfile = profile;
           if (!clientProfile) {

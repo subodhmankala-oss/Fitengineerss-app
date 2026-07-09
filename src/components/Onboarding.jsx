@@ -1394,11 +1394,20 @@ const Onboarding = ({ onComplete }) => {
                               // instead of defaulting to the Client tab — see AuthConfirm.jsx.
                               body: JSON.stringify({ email: authEmail.trim().toLowerCase(), role: 'coach' })
                             });
+                            const data = await resp.json().catch(() => ({}));
                             if (!resp.ok) {
-                              const data = await resp.json().catch(() => ({}));
                               throw new Error(data.error || 'We couldn\'t send the reset email right now. Please try again in a few minutes.');
                             }
-                            setAuthSuccessMsg("If that email is registered, you'll receive a password reset link shortly.");
+                            // The coach flow is honest about a missing account
+                            // (unlike the public client flow): show a real error
+                            // instead of a "check your inbox" message the coach
+                            // would wait on forever. See api/request-password-reset.js.
+                            if (data.accountExists === false) {
+                              setCoachApplyEmail(authEmail.trim().toLowerCase());
+                              setAuthError(data.message || 'No coach account found with this email.');
+                            } else {
+                              setAuthSuccessMsg("If that email is registered, you'll receive a password reset link shortly.");
+                            }
                           } catch(err) {
                             setAuthError(err.message || 'Failed to send reset link.');
                           } finally {

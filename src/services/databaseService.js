@@ -2080,18 +2080,26 @@ const databaseService = {
         throw new Error('Could not create your coach account. Please try again.');
       }
 
-      // Ensure the public.users row exists (id mirrors auth.users.id) with coach role.
-      const { error: userErr } = await supabase
+      // public.users.id is a separate, randomly-generated uuid — never the auth
+      // uid (userId above) — so this must upsert by EMAIL, never force id:
+      // userId. Forcing id here previously could collide with an existing row
+      // for this email under a different id (duplicate key on the email
+      // unique constraint). See the identical fix + full explanation in
+      // api/register-coach.js (the live coach-signup path).
+      const { data: userRow, error: userErr } = await supabase
         .from('users')
-        .upsert({ id: userId, email, full_name: name, role: 'coach' }, { onConflict: 'id' });
+        .upsert({ email, full_name: name, role: 'coach' }, { onConflict: 'email' })
+        .select('id')
+        .single();
       if (userErr) console.warn('Cloud DB: could not sync coach users row:', userErr);
+      const publicUserId = userRow?.id || userId;
 
       // Create the approved coaches row with all profile fields.
       const expYears = parseInt(experience, 10);
       const { error: coachErr } = await supabase
         .from('coaches')
         .upsert({
-          user_id: userId,
+          user_id: publicUserId,
           status: 'approved',
           brand_name: brand || `${name} Fitness`,
           experience_years: Number.isFinite(expYears) ? expYears : null,
@@ -2102,7 +2110,7 @@ const databaseService = {
         }, { onConflict: 'user_id' });
       if (coachErr) throw new Error(coachErr.message || 'Could not save your coach profile.');
 
-      return { session: signUpResult?.session || null, userId };
+      return { session: signUpResult?.session || null, userId: publicUserId };
     }
 
     // Mock fallback

@@ -2983,13 +2983,15 @@ const databaseService = {
     // Step 1: Validate the code before committing anything
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: invite, error: lookupErr } = await supabase
-          .from('invitations')
-          .select('*')
-          .filter('code', 'eq', code)
-          .maybeSingle();
+        // Same SDK-hang bypass as linkCoachAndEnterTransaction below (see
+        // restSelect's comment) — this call was missed when that function was
+        // fixed, so a client could still hang here, one step earlier, with
+        // the exact same "Connecting..." forever symptom. Confirmed 2026-07-09
+        // for a client whose code kept showing "no progress" even after that
+        // fix shipped.
+        const rows = await restSelect(`invitations?code=eq.${encodeURIComponent(code)}&limit=1`);
+        const invite = Array.isArray(rows) ? rows[0] : null;
 
-        if (lookupErr) throw lookupErr;
         if (!invite) return { success: false, error: 'Code not found.' };
         if (invite.used === true) return { success: false, error: 'This code has already been used.' };
         if (isPastTimestamp(invite.expires_at)) return { success: false, error: 'This code has expired.' };

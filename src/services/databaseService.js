@@ -2705,13 +2705,14 @@ const databaseService = {
   },
 
   async linkCoachAndEnterDirect(upperCode, clientId) {
-    const { data: invite, error: inviteError } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('code', upperCode)
-      .maybeSingle();
+    // Same SDK-hang bypass as connectClientToCoach/linkCoachAndEnterTransaction
+    // (see restSelect's comment) — this function has no current callers in the
+    // UI, but it shares the exact same connect-to-coach invite lookup pattern
+    // that hung for real clients elsewhere, so it's fixed here too rather than
+    // left as a landmine for whenever it's next wired up.
+    const rows = await restSelect(`invitations?code=eq.${encodeURIComponent(upperCode)}&limit=1`);
+    const invite = Array.isArray(rows) ? rows[0] : null;
 
-    if (inviteError) throw inviteError;
     if (!invite) throw new Error('Invalid invitation code.');
     if (invite.used) throw new Error('Invitation code has already been used.');
 

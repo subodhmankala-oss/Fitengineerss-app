@@ -17,10 +17,17 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
 
-  const { userId, coreStats, program, primary_concern } = req.body || {};
+  const { userId, coreStats, program, primary_concern, full_name } = req.body || {};
   if (!userId || !coreStats) {
     return res.status(400).json({ error: 'Missing userId or coreStats' });
   }
+
+  // Only persist a real name — never let the "Warrior" placeholder (or an empty
+  // value) overwrite a name the client actually set. The wizard sends the name
+  // the client typed; if they left it as the default, we simply don't touch
+  // full_name here.
+  const cleanName = typeof full_name === 'string' ? full_name.trim() : '';
+  const persistName = cleanName && cleanName.toLowerCase() !== 'warrior';
 
   const payload = {
     ...coreStats,
@@ -28,6 +35,7 @@ export default async function handler(req, res) {
     primary_concern: primary_concern || null,
     onboarding_completed: true
   };
+  if (persistName) payload.full_name = cleanName;
 
   try {
     const resp = await fetch(`${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(userId)}`, {
@@ -48,6 +56,27 @@ export default async function handler(req, res) {
     if (!Array.isArray(data) || data.length === 0) {
       return res.status(404).json({ error: 'No client record found for this account.' });
     }
+
+    // Keep users.full_name in sync so every read (coach dashboard, profile
+    // lookups) shows the real name. Best-effort — a failure here must not fail
+    // the whole onboarding save, since the client-row write already succeeded.
+    if (persistName) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            Prefer: 'return=minimal'
+          },
+          body: JSON.stringify({ full_name: cleanName })
+        });
+      } catch (nameErr) {
+        console.error('complete-onboarding: users.full_name sync failed (non-fatal):', nameErr);
+      }
+    }
+
     return res.status(200).json({ success: true, client: data[0] });
   } catch (err) {
     console.error('complete-onboarding error:', err);

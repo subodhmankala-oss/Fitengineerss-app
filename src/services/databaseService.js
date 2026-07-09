@@ -879,9 +879,16 @@ const databaseService = {
   },
 
   // ─── CLIENT ONBOARDING WIZARD ───
-  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern }) {
+  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern, full_name }) {
     const userId = localStorage.getItem('userId');
     const email = localStorage.getItem('userEmail');
+
+    // Persist the client's real name locally right away so the dashboard header
+    // stops showing the "Warrior" default. Only a real, non-placeholder value.
+    const cleanName = (full_name || '').trim();
+    if (cleanName && cleanName.toLowerCase() !== 'warrior') {
+      localStorage.setItem('userName', cleanName);
+    }
 
     // Update localStorage immediately
     if (age) localStorage.setItem('userAge', String(age));
@@ -956,7 +963,7 @@ const databaseService = {
         const resp = await fetch('/api/complete-onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: resolvedUserId, coreStats, program, primary_concern })
+          body: JSON.stringify({ userId: resolvedUserId, coreStats, program, primary_concern, full_name: cleanName })
         });
         if (!resp.ok) {
           const data = await resp.json().catch(() => ({}));
@@ -977,6 +984,7 @@ const databaseService = {
         mClient.onboarding_completed = true;
         mClient.program = program || null;
         mClient.primary_concern = primary_concern || null;
+        if (cleanName && cleanName.toLowerCase() !== 'warrior') mClient.full_name = cleanName;
         this.saveMockTable('clients', mockClients);
       }
     }
@@ -2654,34 +2662,33 @@ const databaseService = {
       throw new Error('Invitation belongs to an inactive or invalid coach.');
     }
 
-    const fullName = localStorage.getItem('userName') || 'Warrior';
+    // Only carry a real name into the connect write — never overwrite an
+    // existing name with the "Warrior" placeholder (or blank). When the name
+    // is a default, we omit full_name entirely so upsert/update leaves any
+    // already-saved real name untouched; the wizard/profile is the source of
+    // truth for the name, not this connect step.
+    const storedName = (localStorage.getItem('userName') || '').trim();
+    const realName = storedName && storedName.toLowerCase() !== 'warrior' ? storedName : null;
+
+    const clientRow = { user_id: clientId, coach_id: invite.coach_id };
+    if (realName) clientRow.full_name = realName;
     const { error: clientError } = await supabase
       .from('clients')
-      .upsert({
-        user_id: clientId,
-        coach_id: invite.coach_id,
-        full_name: fullName
-      }, { onConflict: 'user_id' });
+      .upsert(clientRow, { onConflict: 'user_id' });
     if (clientError) throw clientError;
 
+    const userUpdate = { role: 'client', coach_id: invite.coach_id, verified: true };
+    if (realName) userUpdate.full_name = realName;
     const { error: userError } = await supabase
       .from('users')
-      .update({
-        role: 'client',
-        coach_id: invite.coach_id,
-        full_name: fullName,
-        verified: true
-      })
+      .update(userUpdate)
       .eq('id', clientId);
 
     if (userError) {
+      const { verified, ...userUpdateNoVerified } = userUpdate;
       const { error: fallbackUserError } = await supabase
         .from('users')
-        .update({
-          role: 'client',
-          coach_id: invite.coach_id,
-          full_name: fullName
-        })
+        .update(userUpdateNoVerified)
         .eq('id', clientId);
       if (fallbackUserError) throw fallbackUserError;
     }

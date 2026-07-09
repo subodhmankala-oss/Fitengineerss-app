@@ -62,11 +62,25 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         if (attemptsLeft > 0) {
           setTimeout(() => reconcileCoachStatus(attemptsLeft - 1), 3000);
         } else {
-          // Genuinely could not reach the DB after many tries — show the best
-          // guess we have without pretending it's confirmed, and without
-          // poisoning the cache with a guess.
-          setIsLinkedToCoach(conn.connected);
-          setCoachStatusPending(false);
+          // Genuinely could not get a confirmed answer after many tries. This is
+          // NOT proof of disconnection — it's "we still don't know". Previously
+          // this called setIsLinkedToCoach(conn.connected) here, which for an
+          // already-connected client (isLinkedToCoach started true from a
+          // trusted cache) would flip the UI to "Connect to coach" and hide the
+          // whole Coaching Program Progress card on THIS load, even though
+          // nothing was actually confirmed and nothing was persisted — a scary,
+          // wrong-looking flash that self-corrected only on the next reload.
+          // Never downgrade a trusted "connected" state from an unresolved
+          // read; only apply conn.connected when it's the initial/never-known
+          // case. `isLinkedToCoach` here is the closure-captured cache value
+          // from mount (this effect runs once), so it reflects what the user
+          // is already seeing: if that was already a trusted "true", it's safe
+          // to stop showing "Checking…" — the visible state isn't changing.
+          // Otherwise stay pending and keep quietly retrying in the background
+          // instead of ever declaring a false "not connected".
+          setIsLinkedToCoach(prev => (prev ? prev : conn.connected));
+          if (isLinkedToCoach) setCoachStatusPending(false);
+          setTimeout(() => reconcileCoachStatus(4), 15000);
         }
         return;
       }

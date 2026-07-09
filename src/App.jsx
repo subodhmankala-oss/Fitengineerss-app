@@ -436,7 +436,7 @@ function App() {
         // Enforced centrally so it applies on every login/refresh, not just the
         // coach login form. Super admin can never block themselves out.
         if (profile && profile.role === 'coach' && profile.coachIsBlocked === true && !isSuperAdminEmail) {
-          localStorage.removeItem('pendingCoachLogin');
+          sessionStorage.removeItem('pendingCoachLogin');
           await databaseService.signOut();
           clearLocalStoragePreservingChats();
           setUserEmail('');
@@ -448,7 +448,17 @@ function App() {
         }
 
         const resolvedRole = profile?.role || '';
-        const pendingCoachLogin = localStorage.getItem('pendingCoachLogin') === 'true';
+        // SECURITY BUG FIX (2026-07-09): this flag was in localStorage, but
+        // signInWithGoogle() calls supabase.auth.signOut() as a "clean slate"
+        // step BEFORE the OAuth redirect — that fires a SIGNED_OUT event which
+        // runs clearLocalStoragePreservingChats() (a full localStorage.clear()
+        // minus a small whitelist), wiping this flag before the redirect even
+        // happens. A coach's Google sign-in then came back with no flag, got
+        // treated as a brand-new client, and was routed into the CLIENT
+        // 4-step onboarding wizard. sessionStorage survives the same-tab OAuth
+        // redirect just as well and is completely untouched by
+        // localStorage.clear(), so it can't be collaterally wiped this way.
+        const pendingCoachLogin = sessionStorage.getItem('pendingCoachLogin') === 'true';
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
           resolvedRole === 'coach' ||
@@ -456,7 +466,7 @@ function App() {
           resolvedRole === 'admin';
 
         if (pendingCoachLogin) {
-          localStorage.removeItem('pendingCoachLogin');
+          sessionStorage.removeItem('pendingCoachLogin');
           localStorage.setItem('userEmail', email);
           if (googleName) localStorage.setItem('userName', googleName);
 

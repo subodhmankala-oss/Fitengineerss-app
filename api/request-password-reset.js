@@ -78,11 +78,26 @@ export default async function handler(req, res) {
           // Logged server-side because this is invisible to the user: a real
           // coach whose email has no auth.users row lands here every time and
           // "never receives the reset email" with no error anywhere.
-          console.warn('Password reset requested for email with no auth user (fake success returned):', email);
+          console.warn('Password reset requested for email with no auth user:', email, 'role:', role);
           await recordEmailEvent(supabaseUrl, serviceKey, {
             event_type: 'reset.no_auth_user',
-            recipient: email
+            recipient: email,
+            subject: role
           });
+          // Coach login is not public-facing and the coach LOGIN form already
+          // reveals whether an account exists ("No coach account found with
+          // this email"), so being honest here leaks nothing new — and it stops
+          // coaches from waiting forever for an email that can never arrive
+          // because they have no account (e.g. signed up under a different
+          // email, or never registered). For the public-facing CLIENT flow we
+          // keep the opaque success to prevent account enumeration.
+          if (role === 'coach') {
+            return res.status(200).json({
+              success: true,
+              accountExists: false,
+              message: 'No coach account found with this email. Check the address, or use "Sign up" to create a coach account.'
+            });
+          }
           return res.status(200).json({ success: true, message: confirmation });
         }
         console.error('generate_link failed:', linkResp.status, linkData.msg || linkData.error);

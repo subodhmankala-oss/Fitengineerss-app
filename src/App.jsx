@@ -357,6 +357,40 @@ function App() {
   const [resetPasswordError, setResetPasswordError] = useState('');
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
 
+  // Resume-refresh: if the app was backgrounded (tab hidden, phone locked, or
+  // the PWA suspended) for more than 15 minutes, force a full reload the moment
+  // it's foregrounded again — mirrors Instagram/Facebook reloading stale state
+  // on reopen. This refreshes data, it does not log the user out.
+  useEffect(() => {
+    const REFRESH_AFTER_MS = 15 * 60 * 1000;
+    const STORAGE_KEY = 'appLastHiddenAt';
+
+    const checkAndRefresh = () => {
+      const lastHidden = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+      if (lastHidden && Date.now() - lastHidden > REFRESH_AFTER_MS) {
+        // Clear first so a reload can never re-trigger itself in a loop.
+        localStorage.removeItem(STORAGE_KEY);
+        window.location.reload();
+      }
+    };
+
+    // Covers "closed and relaunched": if the process was killed while
+    // backgrounded, this is a fresh mount and no 'visible' event fires for
+    // it — check once immediately instead.
+    checkAndRefresh();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        localStorage.setItem(STORAGE_KEY, Date.now().toString());
+      } else if (document.visibilityState === 'visible') {
+        checkAndRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 

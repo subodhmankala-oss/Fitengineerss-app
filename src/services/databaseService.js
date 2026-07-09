@@ -994,7 +994,6 @@ const databaseService = {
     const loggedInEmail = localStorage.getItem('userEmail');
     const loggedInRole = localStorage.getItem('userRole');
     const loggedInCoachId = localStorage.getItem('userCoachId');
-    const loggedInUserId = localStorage.getItem('userId');
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -1016,8 +1015,15 @@ const databaseService = {
         let coachFilter;
         if (isSuperAdminRole) {
           coachFilter = '';
-        } else if (loggedInRole === 'coach' && loggedInUserId) {
-          coachFilter = `&coach_id=eq.${encodeURIComponent(loggedInUserId)}`;
+        } else if (loggedInRole === 'coach') {
+          // Resolve the coach's canonical public.users.id by email rather than
+          // trusting localStorage.userId, which can be null/poisoned right after
+          // login (see resolveCanonicalUserId). A wrong or missing id here would
+          // otherwise silently return the wrong client set. Fail CLOSED if it
+          // still can't be determined.
+          const coachId = await resolveCanonicalUserId();
+          if (!coachId) return [];
+          coachFilter = `&coach_id=eq.${encodeURIComponent(coachId)}`;
         } else {
           return [];
         }
@@ -1057,6 +1063,7 @@ const databaseService = {
     // their own; anything else returns nothing.
     const mockClients = this.getMockTable('clients');
     const mockUsers = this.getMockTable('users');
+    const loggedInUserId = localStorage.getItem('userId');
 
     let filtered;
     if (loggedInRole === 'super-admin' || loggedInRole === 'admin') {

@@ -110,7 +110,14 @@ const Onboarding = ({ onComplete }) => {
 
   const startCoachGoogleLogin = async () => {
     setAuthError('');
-    localStorage.setItem('pendingCoachLogin', 'true');
+    // sessionStorage, not localStorage: signInWithGoogle() below calls
+    // supabase.auth.signOut() as a pre-redirect "clean slate" step, which
+    // fires a SIGNED_OUT event that wipes localStorage (see App.jsx's handler)
+    // BEFORE the actual OAuth redirect happens — that used to erase this flag
+    // and silently route the returning coach through the client onboarding
+    // path instead. sessionStorage survives the same-tab redirect fine and is
+    // untouched by localStorage.clear().
+    sessionStorage.setItem('pendingCoachLogin', 'true');
     try {
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         setGoogleModalIntent('coach');
@@ -122,13 +129,13 @@ const Onboarding = ({ onComplete }) => {
         await databaseService.signInWithGoogle();
       }
     } catch (err) {
-      localStorage.removeItem('pendingCoachLogin');
+      sessionStorage.removeItem('pendingCoachLogin');
       setAuthError(err.message || 'Google OAuth failed.');
     }
   };
 
   const finishCoachGoogleLogin = async (email, displayName) => {
-    localStorage.removeItem('pendingCoachLogin');
+    sessionStorage.removeItem('pendingCoachLogin');
     localStorage.setItem('userEmail', email);
     if (displayName) localStorage.setItem('userName', displayName);
 
@@ -677,7 +684,7 @@ const Onboarding = ({ onComplete }) => {
     // Coach tab opened this picker — route through the coach path instead of
     // the client logic below (which always sets userRole 'client').
     if (googleModalIntent === 'coach') {
-      localStorage.setItem('pendingCoachLogin', 'true');
+      sessionStorage.setItem('pendingCoachLogin', 'true');
       await finishCoachGoogleLogin(email, profile.name);
       return;
     }
@@ -1687,7 +1694,7 @@ const Onboarding = ({ onComplete }) => {
                 onClick={() => {
                   setShowGoogleModal(false);
                   if (googleModalIntent === 'coach') {
-                    localStorage.removeItem('pendingCoachLogin');
+                    sessionStorage.removeItem('pendingCoachLogin');
                     setUserType('coach');
                     setAuthError('');
                     return;

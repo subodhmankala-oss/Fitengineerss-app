@@ -111,8 +111,11 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     const loadLogs = async () => {
       setLoading(true);
       try {
-        // Prefer Supabase UUID for exact match; fallback to name
-        const userId = localStorage.getItem('userId');
+        // Prefer Supabase UUID for exact match; fallback to name.
+        // resolveUserId() repairs a userId that was poisoned with the Supabase
+        // auth UID, so logs load against the real public.users.id instead of
+        // silently coming back empty on the first paint.
+        const userId = await databaseService.resolveUserId();
         const userKey = userId || storedName || localStorage.getItem('userName') || 'Warrior';
         const userLogs = await databaseService.getWorkoutLogsForUser(userKey);
         setLogs(userLogs || []);

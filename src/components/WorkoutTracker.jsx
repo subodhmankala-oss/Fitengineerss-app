@@ -614,8 +614,24 @@ const WorkoutTracker = () => {
     // the progression graph + Workout History match the home screen instead of
     // stale localStorage — the localStorage store can lag behind coach-logged
     // sessions and miss exercises entirely.
-    const ownKey = localStorage.getItem('userId') || loggedInUser;
-    databaseService.getWorkoutLogsForUser(ownKey).then(logs => {
+    //
+    // SECURITY: must be the real public.users.id (UUID), never a display name.
+    // getWorkoutLogsForUser used to accept a name and resolve it via an
+    // ambiguous "first match" DB lookup — since many clients share the
+    // placeholder name "Warrior", this could return a different client's
+    // private logs. It now fails closed on a non-UUID, but resolveUserId()
+    // (self-healing, retried) is used here instead of a raw synchronous
+    // localStorage read so this client's own data still loads reliably.
+    const loadOwnDbLogs = async (attemptsLeft = 4) => {
+      const ownKey = await databaseService.resolveUserId();
+      if (!ownKey) {
+        if (attemptsLeft <= 0) return [];
+        await new Promise(r => setTimeout(r, 3000));
+        return loadOwnDbLogs(attemptsLeft - 1);
+      }
+      return databaseService.getWorkoutLogsForUser(ownKey);
+    };
+    loadOwnDbLogs().then(logs => {
       const rows = logs || [];
       setDbCompletedSessions(new Set(rows.map(l => l.log_date)).size);
 

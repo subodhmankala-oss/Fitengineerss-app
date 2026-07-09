@@ -1278,28 +1278,28 @@ const databaseService = {
   },
 
   async getWorkoutLogsForUser(userId) {
+    // SECURITY: userId must be a real public.users.id (UUID). This used to
+    // accept a bare display name and resolve it via
+    // `users?full_name=ilike.<name>&limit=1` — an ambiguous "first match"
+    // lookup. Every current caller passes a genuine UUID EXCEPT two call
+    // sites that used to fall back to a cached display name (often the
+    // literal placeholder "Warrior", shared by every client who hasn't set a
+    // real name yet) whenever id resolution raced with login and failed.
+    // That returned an arbitrary OTHER "Warrior"-named client's private
+    // workout_logs to the logged-in user — a real cross-account data leak,
+    // confirmed 2026-07-09. Never resolve a name to an id here again; a
+    // non-UUID input fails closed (no logs) instead of guessing.
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId || '');
+    if (!isUuid) return [];
+
     if (isSupabaseConfigured) {
       try {
-        // Raw PostgREST reads (bypass the hanging SDK) with an AbortController
-        // timeout, so this critical home-screen read can never stall the UI.
-        let resolvedUserId = userId;
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
-        if (!isUuid) {
-          // Resolve full_name to UUID first (case-insensitive exact match).
-          const usersByName = await restSelect(
-            `users?select=id&full_name=ilike.${encodeURIComponent(userId)}&limit=1`
-          );
-          if (Array.isArray(usersByName) && usersByName[0]) resolvedUserId = usersByName[0].id;
-        }
-
-        const isResolvedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId);
-        if (isResolvedUuid) {
-          const data = await restSelect(
-            `workout_logs?select=*&user_id=eq.${encodeURIComponent(resolvedUserId)}` +
-            `&order=log_date.desc,exercise_name.asc,set_number.asc`
-          );
-          return Array.isArray(data) ? data : [];
-        }
+        // Raw PostgREST read (bypasses the hanging SDK).
+        const data = await restSelect(
+          `workout_logs?select=*&user_id=eq.${encodeURIComponent(userId)}` +
+          `&order=log_date.desc,exercise_name.asc,set_number.asc`
+        );
+        return Array.isArray(data) ? data : [];
       } catch (e) {
         console.error('Cloud DB Fetch workout logs error:', e);
       }

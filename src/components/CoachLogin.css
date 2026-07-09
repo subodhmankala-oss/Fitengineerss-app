@@ -233,7 +233,8 @@
   border-radius: 10px;
   padding: 12px 14px;
   color: #ffffff;
-  font-size: 0.9rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   outline: none;
   transition: all 0.2s ease;
 }

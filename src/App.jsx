@@ -482,6 +482,23 @@ function App() {
           if (clientProfile) {
             await databaseService.loadProfileIntoLocalStorage(clientProfile, email);
             setUserRole(clientProfile.role);
+            // Backfill a real name from the Google display name when the stored
+            // one is still the "Warrior" placeholder (or blank / the email
+            // prefix) — clients created before the name was captured show
+            // "Warrior" otherwise. localStorage updates instantly for the UI;
+            // the DB sync is best-effort (never block login on it).
+            const currentName = (clientProfile.userName || '').trim().toLowerCase();
+            const emailPrefix = email.split('@')[0].toLowerCase();
+            if (googleName && (currentName === '' || currentName === 'warrior' || currentName === emailPrefix)) {
+              localStorage.setItem('userName', googleName);
+              databaseService.saveUserProfile({
+                ...clientProfile,
+                userName: googleName,
+                email,
+                role: clientProfile.role || 'client',
+                coach_id: clientProfile.coach_id || null
+              }).catch(e => console.warn('Client name backfill from Google failed (non-fatal):', e));
+            }
           } else {
             // Fallback storage if db fails
             localStorage.setItem('userName', googleName || email.split('@')[0] || 'Warrior');

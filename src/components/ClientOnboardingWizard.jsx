@@ -8,7 +8,13 @@ const ClientOnboardingWizard = ({ onComplete }) => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Step 1 — Body stats
+  // Step 1 — Name + body stats. Prefill the name from whatever login captured
+  // (e.g. a Google display name), but treat the "Warrior" placeholder as empty
+  // so the client is actually prompted to enter their real name.
+  const [name, setName] = useState(() => {
+    const n = (localStorage.getItem('userName') || '').trim();
+    return n.toLowerCase() === 'warrior' ? '' : n;
+  });
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
@@ -45,7 +51,8 @@ const ClientOnboardingWizard = ({ onComplete }) => {
         height_cm: height || '175',
         program: program || 'fat_loss',
         activity_level: activityLevel || 'moderately_active',
-        primary_concern: primaryConcern || 'just_stay_fit'
+        primary_concern: primaryConcern || 'just_stay_fit',
+        full_name: name.trim()
       });
       onComplete();
     } catch (err) {
@@ -144,6 +151,18 @@ const ClientOnboardingWizard = ({ onComplete }) => {
       <p className="cow-step-subtitle">Help us personalize your experience</p>
 
       <div className="cow-fields">
+        <div className="cow-field">
+          <label className="cow-label">Your name</label>
+          <input
+            type="text"
+            className="cow-input"
+            placeholder="e.g. Priya Sharma"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            autoComplete="name"
+            maxLength="60"
+          />
+        </div>
         <div className="cow-field">
           <label className="cow-label">Age (years)</label>
           <input

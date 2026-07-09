@@ -12,6 +12,12 @@ const TrainerDashboard = ({ handleLogout }) => {
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
+  // This coach's canonical public.users.id (== clients.coach_id for their
+  // clients). Seeded from localStorage but re-resolved by email on mount because
+  // localStorage.userId can be null/poisoned right after login — and the "My
+  // Clients" scoping filter below MUST have the real id to avoid leaking other
+  // (or unattached "Generic") clients. See resolveCanonicalUserId.
+  const [resolvedCoachId, setResolvedCoachId] = useState(() => localStorage.getItem('userId') || null);
   const [adminSubTab, setAdminSubTab] = useState('clients'); // 'clients' or 'coaches'
   const [coachesList, setCoachesList] = useState([]);
   const [pendingCoachesList, setPendingCoachesList] = useState([]);
@@ -442,6 +448,17 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [chatInput, setChatInput] = useState('');
   const [loadingChat, setLoadingChat] = useState(false);
   const chatEndRef = useRef(null);
+
+  // Resolve this coach's canonical id once on mount (repairs a null/poisoned
+  // localStorage.userId after login) so the "My Clients" scoping filter is
+  // reliable. resolveUserId also heals localStorage in place.
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.resolveUserId().then(id => {
+      if (!cancelled && id) setResolvedCoachId(id);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch all clients on mount and set up real-time listener
   useEffect(() => {
@@ -874,10 +891,20 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   // Filter clients list
-  const loggedInUserId = localStorage.getItem('userId');
+  const loggedInUserId = resolvedCoachId;
   const filteredClients = clients.filter(c => {
-    // In coach view: super-admin only sees their own attached clients (not generics or other coaches' clients)
-    if (superAdmin && viewMode === 'coach' && c.coach_id !== loggedInUserId) return false;
+    // SECURITY (data isolation): in coach view EVERY coach — including the
+    // super-admin — sees ONLY their own attached clients. This must FAIL
+    // CLOSED: if this coach's canonical id isn't known yet (e.g. the brief
+    // window right after login before it resolves), show nothing rather than
+    // leaking unattached ("Generic") or other coaches' clients. Comparing
+    // against a null id previously did the opposite — it surfaced exactly the
+    // generic/unattached clients. The platform-wide view lives behind the
+    // separate Super-Admin tab (viewMode 'admin'), not here.
+    if (viewMode === 'coach') {
+      if (!loggedInUserId) return false;
+      if (c.coach_id !== loggedInUserId) return false;
+    }
 
     const matchesSearch =
       c.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||

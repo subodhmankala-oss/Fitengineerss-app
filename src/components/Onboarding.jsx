@@ -963,7 +963,11 @@ const Onboarding = ({ onComplete }) => {
                     await databaseService.loadProfileIntoLocalStorage({
                       ...profile,
                       role: 'coach',
-                      userCoachId: result.userId
+                      // coaches.id (this coach's own coach-profile row), NOT
+                      // result.userId (the Supabase auth uid) — was wrongly
+                      // set to the auth uid before, which is a different id
+                      // space than every other userCoachId write in this app.
+                      userCoachId: result.coachId
                     }, email);
                   } finally {
                     localStorage.removeItem('coachLoginInProgress');

@@ -71,22 +71,42 @@ export default async function handler(req, res) {
 
     if (!userId) throw new Error('Could not create coach account. Please try again.');
 
-    // 2. Insert public.users row (service role bypasses RLS). This must
+    // 2. Insert/update public.users row (service role bypasses RLS). This must
     // succeed before the coaches insert below, which has a foreign key on
     // this row — silently swallowing a failure here (as before) let the
     // coaches insert run against a missing row and fail with a confusing,
     // unrelated "coaches_user_id_fkey" error instead of the real cause.
-    const { error: userErr } = await adminClient
+    //
+    // SECURITY/CORRECTNESS BUG FIX (2026-07-09): this used to upsert with
+    // { id: userId, ... }, onConflict:'id' — forcing id = the Supabase AUTH
+    // uid. But public.users.id is a separate, randomly-generated uuid that is
+    // NEVER equal to the auth uid on this project (see
+    // project-userid-vs-authuid memory) — every other write path (e.g.
+    // saveUserProfile) already upserts by EMAIL for exactly this reason. If a
+    // coach already had a public.users row (e.g. from an earlier signup, or
+    // one created via "Forgot password?" before ever finishing this form)
+    // under its own real id, this insert-by-id could never match that row —
+    // it tried to INSERT A NEW ROW with id = authUid, which then collided
+    // with the UNIQUE constraint on email ("duplicate key value violates
+    // unique constraint..."). Upserting by email instead lets Postgres
+    // correctly update the existing row in place (keeping its real id) or
+    // insert a fresh one (auto-generated id) — id is never force-set here.
+    const { data: userRow, error: userErr } = await adminClient
       .from('users')
-      .upsert({ id: userId, email: normalizedEmail, full_name: name, role: 'coach' }, { onConflict: 'id' });
+      .upsert({ email: normalizedEmail, full_name: name, role: 'coach' }, { onConflict: 'email' })
+      .select('id')
+      .single();
     if (userErr) throw new Error(userErr.message || 'Could not save your account details.');
+    // The coaches row's FK must point at the REAL public.users.id (userRow.id),
+    // which may differ from the auth uid (userId) resolved above.
+    const publicUserId = userRow.id;
 
     // 3. Insert coaches row (service role bypasses RLS)
     const expYears = parseInt(experience, 10);
-    const { error: coachErr } = await adminClient
+    const { data: coachRow, error: coachErr } = await adminClient
       .from('coaches')
       .upsert({
-        user_id: userId,
+        user_id: publicUserId,
         status: 'approved',
         brand_name: brand || `${name} Fitness`,
         experience_years: Number.isFinite(expYears) ? expYears : null,
@@ -94,7 +114,9 @@ export default async function handler(req, res) {
         certifications: certifications || null,
         social_media_handle: social || null,
         location_city: location || null
-      }, { onConflict: 'user_id' });
+      }, { onConflict: 'user_id' })
+      .select('id')
+      .single();
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
 
     // 4. Sign in fresh for a real session — admin.createUser() doesn't return
@@ -110,7 +132,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       hasSession: !!finalSignIn?.session,
-      userId,
+      userId: publicUserId, // public.users.id — NOT the auth uid (userId above)
+      coachId: coachRow.id, // coaches.id — what localStorage.userCoachId should hold
       access_token: finalSignIn?.session?.access_token || null,
       refresh_token: finalSignIn?.session?.refresh_token || null
     });

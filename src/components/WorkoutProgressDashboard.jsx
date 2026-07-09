@@ -122,21 +122,32 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       }
     }
 
-    const loadLogs = async () => {
+    // SECURITY: never fall back to a display name here. getWorkoutLogsForUser
+    // used to accept a bare name and resolve it via an ambiguous "first
+    // match" DB lookup — since many clients share the literal placeholder
+    // name "Warrior" (no real name set yet), a resolution failure right
+    // after login could return a completely different client's private
+    // workout logs. getWorkoutLogsForUser now fails closed on a non-UUID
+    // input, but this loop also needs to actually retry (instead of quietly
+    // showing empty forever) so a client's own data still shows up once
+    // resolveUserId() succeeds.
+    const loadLogs = async (attemptsLeft = 4) => {
       setLoading(true);
       try {
-        // Prefer Supabase UUID for exact match; fallback to name.
-        // resolveUserId() repairs a userId that was poisoned with the Supabase
-        // auth UID, so logs load against the real public.users.id instead of
-        // silently coming back empty on the first paint.
         const userId = await databaseService.resolveUserId();
-        const userKey = userId || storedName || localStorage.getItem('userName') || 'Warrior';
-        const userLogs = await databaseService.getWorkoutLogsForUser(userKey);
-        setLogs(userLogs || []);
+        if (!userId) {
+          if (attemptsLeft > 0 && !cancelled) {
+            setTimeout(() => loadLogs(attemptsLeft - 1), 3000);
+            return; // stay in "loading" — do not clear it while still retrying
+          }
+          if (!cancelled) { setLogs([]); setLoading(false); }
+          return;
+        }
+        const userLogs = await databaseService.getWorkoutLogsForUser(userId);
+        if (!cancelled) { setLogs(userLogs || []); setLoading(false); }
       } catch (err) {
         console.error('Error loading workout progress logs:', err);
-      } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 

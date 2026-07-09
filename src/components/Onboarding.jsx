@@ -1095,7 +1095,7 @@ const Onboarding = ({ onComplete }) => {
 
                     {/* Slide 1: Nutrition */}
                     <div className={`phone-slide ${activeSlide === 1 ? 'slide-active' : ''}`}>
-                      <div className="mini-app-header">🥗 Smart Meal Plan</div>
+                      <div className="mini-app-header">🥗 Nutrition & Macros</div>
                       <div className="mini-app-body">
                         <div className="mini-calories-progress">
                           <div className="progress-ring-mini">
@@ -1167,22 +1167,23 @@ const Onboarding = ({ onComplete }) => {
 
           {/* Right/Bottom Side: Forms & Actions Card */}
           <div className="portal-right-panel">
-            <div className="credentials-form-container animate-slide-in" style={{ padding: '24px 20px', minHeight: '380px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              
-              {/* Role Toggle Tab */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h4 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>Welcome to Fitengineers</h4>
-                <div className="form-role-toggle" style={{ margin: 0 }}>
-                  <button 
-                    type="button" 
+            <div className="credentials-form-container animate-slide-in" style={{ padding: '20px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+
+              {/* Role Toggle Tab — centered, no side heading */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '12px' }}>
+                <div className="form-role-toggle" style={{ margin: 0, width: '100%', maxWidth: '300px' }}>
+                  <button
+                    type="button"
                     className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
+                    style={{ flex: 1 }}
                     onClick={() => { setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); setShowCoachEmailForm(false); }}
                   >
                     Client
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
+                    style={{ flex: 1 }}
                     onClick={() => { setUserType('coach'); setAuthError(''); setAuthSuccessMsg(''); setShowCoachEmailForm(false); }}
                   >
                     Coach

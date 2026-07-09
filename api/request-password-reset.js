@@ -95,7 +95,7 @@ export default async function handler(req, res) {
             return res.status(200).json({
               success: true,
               accountExists: false,
-              message: 'No coach account found with this email. Check the address, or use "Sign up" to create a coach account.'
+              message: 'No coach account found with this email. First time here? Use "Sign up" below to create your account — "Forgot password?" is only for coaches who already have one.'
             });
           }
           return res.status(200).json({ success: true, message: confirmation });

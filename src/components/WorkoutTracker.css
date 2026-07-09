@@ -128,7 +128,8 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   outline: none;

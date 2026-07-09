@@ -308,7 +308,8 @@
   font-family: inherit;
   font-weight: 600;
   outline: none;
-  font-size: 0.8rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
 }
 
 .progress-date-input::-webkit-calendar-picker-indicator {

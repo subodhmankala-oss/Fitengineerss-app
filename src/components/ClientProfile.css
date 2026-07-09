@@ -268,7 +268,8 @@
   border: none;
   outline: none;
   color: var(--text-main);
-  font-size: 0.88rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   padding: 0;
@@ -288,7 +289,8 @@
   border: none;
   outline: none;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
+  font-size: 16px;
   font-weight: 600;
   font-family: inherit;
   text-align: right;

@@ -5,7 +5,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
-import { formatDuration, computeCaloriesFromDuration } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -473,9 +473,17 @@ const WorkoutTracker = () => {
   const [cardCvv, setCardCvv] = useState('');
   const [cardName, setCardName] = useState('');
 
-  // Hevy Workout Tracker States
-  const [workoutActiveSeconds, setWorkoutActiveSeconds] = useState(0);
-  const [workoutTimerRunning, setWorkoutTimerRunning] = useState(false);
+  // Hevy Workout Tracker States — timer state machine matches the coach Live
+  // Log exactly: idle until the first set is marked done, then running/paused
+  // via explicit control. Duration and calories are always recomputed fresh
+  // from these timestamps (never an incrementing counter), same as the coach.
+  const [workoutTimerStatus, setWorkoutTimerStatus] = useState('idle'); // 'idle' | 'running' | 'paused'
+  const [workoutTimerStartedAt, setWorkoutTimerStartedAt] = useState(null);
+  const [workoutPauseIntervals, setWorkoutPauseIntervals] = useState([]); // [{ pausedAt, resumedAt }]
+  const [, forceWorkoutTimerTick] = useState(0);
+  // Derived, not stored — every read site below (Finish summary, live badge,
+  // billing, stopwatch display) keeps using this name/shape unchanged.
+  const workoutActiveSeconds = computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals);
   const [showExerciseDbModal, setShowExerciseDbModal] = useState(false);
   const [showFinishSummary, setShowFinishSummary] = useState(false);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
@@ -683,24 +691,40 @@ const WorkoutTracker = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessions, selectedClient]);
 
-  // Hevy stopwatch & rest timer side effects
+  // Hevy stopwatch — re-render once a second while running so the displayed
+  // elapsed time / calories stay current. Values are always recomputed fresh
+  // from timestamps above (never an incrementing counter), matching the
+  // coach's live timer bar exactly. No more force-starting the clock just
+  // from being on the Log Sets tab — it now only starts on the first
+  // completed set (see handleToggleSetCompleted), same as the coach.
   useEffect(() => {
-    let interval = null;
-    if (activeView === 'log' && workoutTimerRunning) {
-      interval = setInterval(() => {
-        setWorkoutActiveSeconds(prev => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [activeView, workoutTimerRunning]);
+    if (workoutTimerStatus !== 'running') return;
+    const id = setInterval(() => forceWorkoutTimerTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [workoutTimerStatus]);
 
-  useEffect(() => {
-    if (activeView === 'log') {
-      setWorkoutTimerRunning(true);
-    }
-  }, [activeView]);
+  const resetWorkoutTimer = () => {
+    setWorkoutTimerStatus('idle');
+    setWorkoutTimerStartedAt(null);
+    setWorkoutPauseIntervals([]);
+  };
+
+  const handlePauseWorkoutTimer = () => {
+    if (workoutTimerStatus !== 'running') return;
+    setWorkoutPauseIntervals(prev => [...prev, { pausedAt: Date.now(), resumedAt: null }]);
+    setWorkoutTimerStatus('paused');
+  };
+
+  const handleResumeWorkoutTimer = () => {
+    if (workoutTimerStatus !== 'paused') return;
+    setWorkoutPauseIntervals(prev => {
+      const copy = [...prev];
+      const openIdx = copy.map(p => p.resumedAt).lastIndexOf(null);
+      if (openIdx !== -1) copy[openIdx] = { ...copy[openIdx], resumedAt: Date.now() };
+      return copy;
+    });
+    setWorkoutTimerStatus('running');
+  };
 
   useEffect(() => {
     let interval = null;
@@ -768,6 +792,7 @@ const WorkoutTracker = () => {
   };
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
+    const now = Date.now();
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         return {
@@ -780,7 +805,10 @@ const WorkoutTracker = () => {
                 setRestTimerActive(true);
                 triggerToast('⏱️ Rest Timer started (60 seconds). Great set!');
               }
-              return { ...s, isCompleted: nextState };
+              // completedAt is what the live calorie calc's rest-interval math
+              // uses — never cleared retroactively except when this exact set
+              // is unchecked, so re-checking it later is timed fresh.
+              return { ...s, isCompleted: nextState, completedAt: nextState ? now : null };
             }
             return s;
           })
@@ -788,6 +816,14 @@ const WorkoutTracker = () => {
       }
       return ex;
     }));
+    // Logging real work is what starts the session clock — matches the coach.
+    setWorkoutTimerStatus(prevStatus => {
+      if (prevStatus === 'idle') {
+        setWorkoutTimerStartedAt(now);
+        return 'running';
+      }
+      return prevStatus;
+    });
   };
 
   const saveSessionsToLocal = (newSessions) => {
@@ -1101,9 +1137,10 @@ const WorkoutTracker = () => {
 
     // Safeguard: if no sets are marked completed in state yet (due to async updates), auto-complete them
     if (totalCompleted === 0) {
+      const now = Date.now();
       activeExercises = logExercises.map(ex => ({
         ...ex,
-        sets: ex.sets.map(s => ({ ...s, isCompleted: true }))
+        sets: ex.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now }))
       }));
     }
 
@@ -1123,12 +1160,13 @@ const WorkoutTracker = () => {
       }))
       .filter(ex => ex.sets.length > 0);
 
-    // Duration/calories for the client's own workout. workoutActiveSeconds is
-    // the stopwatch total (still valid here — it's reset further below). Uses
-    // the same reps x weight + rest-time formula as the coach Live Log so both
-    // sides read consistently in history.
-    const durationSecs = workoutActiveSeconds;
-    const calorieCalc = computeCaloriesFromDuration(formattedExercises, durationSecs);
+    // Duration/calories for the client's own workout — identical mechanism to
+    // the coach Live Log: elapsed time from the real start/pause timestamps,
+    // and calories from each set's actual completion timestamp (work +
+    // rest-interval gaps), not an approximation. activeExercises (not the
+    // stripped formattedExercises) still carries completedAt on each set.
+    const finalDurationSeconds = workoutTimerStartedAt ? computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals) : null;
+    const finalCalories = workoutTimerStartedAt ? computeLiveCalories(activeExercises, workoutTimerStartedAt, workoutPauseIntervals).totalKcal : null;
 
     const newSession = {
       id: `session-${Date.now()}`,
@@ -1136,8 +1174,8 @@ const WorkoutTracker = () => {
       date: logDate,
       exercises: formattedExercises,
       duration: summaryStats?.duration || '00:15',
-      durationSeconds: durationSecs > 0 ? durationSecs : null,
-      caloriesBurned: formattedExercises.length > 0 ? calorieCalc.totalKcal : null,
+      durationSeconds: finalDurationSeconds,
+      caloriesBurned: finalCalories,
       planName: templateName.trim() || 'Custom Routine'
     };
 
@@ -1172,8 +1210,7 @@ const WorkoutTracker = () => {
     const finalSetsCount = formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
     triggerToast(`🏋️‍♂️ Hevy Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
     
-    setWorkoutActiveSeconds(0);
-    setWorkoutTimerRunning(false);
+    resetWorkoutTimer();
     setShowFinishSummary(false);
     
     setLogExercises([
@@ -1271,8 +1308,7 @@ const WorkoutTracker = () => {
     setActiveTemplateName(template.name);
     setLogClient(loggedInUser);
     setLogDate(getLocalDateString());
-    setWorkoutActiveSeconds(0);
-    setWorkoutTimerRunning(false);
+    resetWorkoutTimer();
     setIsLoggingWorkout(true);
     setActiveView('log');
     triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
@@ -1294,14 +1330,11 @@ const WorkoutTracker = () => {
   };
 
   // Live calorie readout for the client's own "Log Sets" stopwatch banner —
-  // same reps x weight (work) + duration (rest) formula as the coach Live Log
-  // and the Finish-time save, just recomputed on every tick so it climbs live
-  // as sets get checked off, instead of only appearing after Finish.
+  // identical mechanism to the coach Live Log: each completed set's own
+  // completedAt timestamp drives the work + rest-interval calc, recomputed
+  // fresh every render so it climbs live as sets get checked off.
   const liveOwnWorkoutKcal = isLoggingWorkout
-    ? computeCaloriesFromDuration(
-        logExercises.map(ex => ({ ...ex, sets: ex.sets.filter(s => s.isCompleted) })),
-        workoutActiveSeconds
-      ).totalKcal
+    ? computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals).totalKcal
     : 0;
 
   return (
@@ -1956,6 +1989,7 @@ const WorkoutTracker = () => {
                 setTemplateName('Custom Session');
                 setLogClient(loggedInUser);
                 setLogDate(getLocalDateString());
+                resetWorkoutTimer();
                 setIsLoggingWorkout(true);
                 setActiveView('log');
               }}
@@ -1997,8 +2031,7 @@ const WorkoutTracker = () => {
               ]);
               setTemplateName('');
               setIsLoggingWorkout(true);
-              setWorkoutActiveSeconds(0);
-              setWorkoutTimerRunning(true);
+              resetWorkoutTimer();
             }}
           >
             ➕ Start Empty Workout
@@ -2043,8 +2076,7 @@ const WorkoutTracker = () => {
                           })));
                           setTemplateName(plan.planName);
                           setIsLoggingWorkout(true);
-                          setWorkoutActiveSeconds(0);
-                          setWorkoutTimerRunning(true);
+                          resetWorkoutTimer();
                         }}
                       >
                         Start Routine
@@ -2096,8 +2128,7 @@ const WorkoutTracker = () => {
                           })));
                           setTemplateName(plan.planName);
                           setIsLoggingWorkout(true);
-                          setWorkoutActiveSeconds(0);
-                          setWorkoutTimerRunning(true);
+                          resetWorkoutTimer();
                         }}
                       >
                         Start
@@ -2134,28 +2165,36 @@ const WorkoutTracker = () => {
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
-          {/* Hevy Stopwatch Header */}
+          {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
+              Live Log: stays idle (no clock, no Pause button) until the first
+              set is marked done, then ticks and shows live calories. */}
           <div className="hevy-stopwatch-banner">
             <div className="timer-display">
               <span className="stopwatch-icon">⏱️</span>
-              <div className="timer-numbers">
-                <strong>{formatStopwatchTime(workoutActiveSeconds)}</strong>
-                <span className="active-badge">{workoutTimerRunning ? '● Active Tracker' : 'Paused'}</span>
-              </div>
-              {liveOwnWorkoutKcal > 0 && (
-                <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
+              {workoutTimerStatus === 'idle' ? (
+                <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
+              ) : (
+                <>
+                  <div className="timer-numbers">
+                    <strong>{formatStopwatchTime(workoutActiveSeconds)}</strong>
+                    <span className="active-badge">{workoutTimerStatus === 'running' ? '● Active Tracker' : 'Paused'}</span>
+                  </div>
+                  <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
+                </>
               )}
             </div>
             <div className="timer-controls">
-              <button 
-                type="button" 
-                className="btn-timer-toggle"
-                onClick={() => setWorkoutTimerRunning(!workoutTimerRunning)}
-              >
-                {workoutTimerRunning ? '⏸️ Pause' : '▶️ Resume'}
-              </button>
-              <button 
-                type="submit" 
+              {workoutTimerStatus !== 'idle' && (
+                <button
+                  type="button"
+                  className="btn-timer-toggle"
+                  onClick={workoutTimerStatus === 'running' ? handlePauseWorkoutTimer : handleResumeWorkoutTimer}
+                >
+                  {workoutTimerStatus === 'running' ? '⏸️ Pause' : '▶️ Resume'}
+                </button>
+              )}
+              <button
+                type="submit"
                 className="btn-hevy-finish"
               >
                 ✓ Finish
@@ -2741,8 +2780,7 @@ const WorkoutTracker = () => {
                   boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
                 }}
                 onClick={() => {
-                  setWorkoutActiveSeconds(0);
-                  setWorkoutTimerRunning(false);
+                  resetWorkoutTimer();
                   setIsLoggingWorkout(false);
                   setTemplateName('');
                   setLogExercises([

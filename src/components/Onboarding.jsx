@@ -103,6 +103,14 @@ const Onboarding = ({ onComplete }) => {
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
   const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
   const [coachApplyEmail, setCoachApplyEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  // Whether a real, live Supabase session already exists when this coach
+  // sign-up form is showing. True only for someone who just arrived via a
+  // genuine "Continue with Google" redirect — that flow already proves who
+  // they are, so the password field below is unnecessary friction for them
+  // specifically. Every other path to this same form (a failed "Continue
+  // with email" login, or the direct "Sign up" link) has no live session at
+  // this point and keeps the password field exactly as before.
+  const [coachApplyHasSession, setCoachApplyHasSession] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(() => {
     const saved = localStorage.getItem('userPhone') || '';
     return saved.replace(/^\+91/, '');
@@ -192,6 +200,23 @@ const Onboarding = ({ onComplete }) => {
       if (storedName) setCoachApplyName(storedName);
     }
   }, []);
+
+  // Detect whether a real Google session is already live whenever this form
+  // becomes visible. This — not which button was clicked — is the actual
+  // signal for whether the password field is needed: a live session already
+  // proves identity, so nothing else is required.
+  useEffect(() => {
+    if (authTab !== 'coach_apply') {
+      setCoachApplyHasSession(false);
+      return;
+    }
+    if (!isSupabaseConfigured || !databaseService.supabase) return;
+    let cancelled = false;
+    databaseService.supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setCoachApplyHasSession(!!data?.session);
+    });
+    return () => { cancelled = true; };
+  }, [authTab]);
 
   // 'wizard' is a sentinel step meaning "name/identity already known, but the
   // one-time onboarding wizard hasn't been completed yet" — hand off straight
@@ -892,6 +917,154 @@ const Onboarding = ({ onComplete }) => {
 
 
 
+      {(() => {
+        // Unchanged from before: creates a brand-new (or claims an existing
+        // password-based) coach account via email + password. Used whenever
+        // there's no live session already proving who this is — a failed
+        // "Continue with email" login, or the direct "Sign up" link.
+        const handleCoachApplySubmitPassword = async (e) => {
+          e.preventDefault();
+          setAuthError('');
+          setAuthSuccessMsg('');
+          setAuthLoading(true);
+          try {
+            const formData = new FormData(e.target);
+            const email = formData.get('email');
+            const name = formData.get('name');
+            const password = formData.get('password');
+            const resp = await fetch('/api/register-coach', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name,
+                email,
+                password,
+                experience: formData.get('experience'),
+                brand: formData.get('specialization'),
+                certifications: formData.get('certifications'),
+                social: formData.get('social'),
+                location: formData.get('location')
+              })
+            });
+            const result = await resp.json();
+            if (!resp.ok || result.error) throw new Error(result.error || 'Registration failed');
+            localStorage.removeItem('pendingCoachApply');
+
+            if (result.hasSession && isSupabaseConfigured && databaseService.supabase) {
+              // The server already verified/created these credentials — establish a
+              // real browser session via signInWithPassword (the same method used
+              // everywhere else in this app) and drop them straight into the coach
+              // dashboard instead of sending them back to log in a second time.
+              // NOTE: supabase.auth.setSession() was used here before and hung
+              // indefinitely (never resolved or rejected) — the known Supabase SDK
+              // hang issue on this project (see feedback-supabase-sdk-hang memory)
+              // turns out to affect setSession() too, not just verifyOtp/updateUser.
+              // That's what left the "Creating account..." button stuck forever.
+              //
+              // coachLoginInProgress guards against the same race the Coach Login
+              // form already protects against: signIn() fires Supabase's
+              // onAuthStateChange, which App.jsx's processSessionUser also listens
+              // to. A brand-new coach has no age/height/weight (those are client
+              // fitness fields), so processSessionUser's "hasCompleteProfile" check
+              // fails for them, and isTrainer() depends on a userRole that hasn't
+              // been written yet — so without this flag it could misclassify the
+              // new coach and leave localStorage.userRole stale, corrupting both
+              // the coach dashboard's client-list scoping and the tab remembered
+              // on next logout.
+              localStorage.setItem('coachLoginInProgress', 'true');
+              try {
+                await databaseService.signIn(email, password);
+                const profile = await databaseService.getUserProfileByEmail(email);
+                await databaseService.loadProfileIntoLocalStorage({
+                  ...profile,
+                  role: 'coach',
+                  // coaches.id (this coach's own coach-profile row), NOT
+                  // result.userId (the Supabase auth uid) — was wrongly
+                  // set to the auth uid before, which is a different id
+                  // space than every other userCoachId write in this app.
+                  userCoachId: result.coachId
+                }, email);
+              } finally {
+                localStorage.removeItem('coachLoginInProgress');
+              }
+              localStorage.setItem('onboardingCompleted', 'true');
+              onComplete();
+              return;
+            }
+
+            if (result.hasSession) {
+              // Auto-confirmed: session exists server-side but NOT in the browser.
+              // Route to coach login so the browser gets a real session.
+              setAuthSuccessMsg(`Coach account created! Log in with your credentials to enter the dashboard.`);
+            } else {
+              // Email confirmation required — coach confirms then logs in.
+              setAuthSuccessMsg(`Coach account created! We've sent a confirmation link to ${email}. Click it, then log in as a coach.`);
+            }
+            setAuthTab('login');
+            setUserType('coach');
+            setAuthEmail(email);
+          } catch(err) {
+            setAuthError(err.message);
+          } finally {
+            setAuthLoading(false);
+          }
+        };
+
+        // New: for someone who just arrived via a live "Continue with Google"
+        // session. That session already proves identity, so this skips
+        // password creation/verification entirely — it just re-verifies the
+        // session is still fresh (protects against it expiring while this
+        // tab sat open) and attaches a coach profile to the account it's
+        // already signed into.
+        const handleCoachApplySubmitSession = async (e) => {
+          e.preventDefault();
+          setAuthError('');
+          setAuthSuccessMsg('');
+          setAuthLoading(true);
+          try {
+            const formData = new FormData(e.target);
+            const name = formData.get('name');
+
+            const { data: sessionData } = await databaseService.supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (!accessToken) {
+              setCoachApplyHasSession(false);
+              throw new Error('Your sign-in session has expired. Please sign in with Google again.');
+            }
+
+            const resp = await fetch('/api/register-coach-google', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({
+                name,
+                experience: formData.get('experience'),
+                brand: formData.get('specialization'),
+                certifications: formData.get('certifications'),
+                social: formData.get('social'),
+                location: formData.get('location')
+              })
+            });
+            const result = await resp.json();
+            if (!resp.ok || result.error) throw new Error(result.error || 'Registration failed');
+            localStorage.removeItem('pendingCoachApply');
+
+            const profile = await databaseService.getUserProfileByEmail(result.email);
+            await databaseService.loadProfileIntoLocalStorage({
+              ...profile,
+              role: 'coach',
+              userCoachId: result.coachId
+            }, result.email);
+            localStorage.setItem('onboardingCompleted', 'true');
+            onComplete();
+          } catch (err) {
+            setAuthError(err.message);
+          } finally {
+            setAuthLoading(false);
+          }
+        };
+
+        return (
+      <>
       {step === 0 && userType === 'coach' && authTab === 'coach_apply' && (
         <div style={{ width: '100%', min_height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
           <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
@@ -913,93 +1086,7 @@ const Onboarding = ({ onComplete }) => {
             <h2 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '22px', fontWeight: 800 }}>Coach Sign Up</h2>
             <p style={{ margin: '0 0 20px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '14px' }}>Create your coach account and start managing clients</p>
 
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              setAuthError('');
-              setAuthSuccessMsg('');
-              setAuthLoading(true);
-              try {
-                const formData = new FormData(e.target);
-                const email = formData.get('email');
-                const name = formData.get('name');
-                const password = formData.get('password');
-                const resp = await fetch('/api/register-coach', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    name,
-                    email,
-                    password,
-                    experience: formData.get('experience'),
-                    brand: formData.get('specialization'),
-                    certifications: formData.get('certifications'),
-                    social: formData.get('social'),
-                    location: formData.get('location')
-                  })
-                });
-                const result = await resp.json();
-                if (!resp.ok || result.error) throw new Error(result.error || 'Registration failed');
-                localStorage.removeItem('pendingCoachApply');
-
-                if (result.hasSession && isSupabaseConfigured && databaseService.supabase) {
-                  // The server already verified/created these credentials — establish a
-                  // real browser session via signInWithPassword (the same method used
-                  // everywhere else in this app) and drop them straight into the coach
-                  // dashboard instead of sending them back to log in a second time.
-                  // NOTE: supabase.auth.setSession() was used here before and hung
-                  // indefinitely (never resolved or rejected) — the known Supabase SDK
-                  // hang issue on this project (see feedback-supabase-sdk-hang memory)
-                  // turns out to affect setSession() too, not just verifyOtp/updateUser.
-                  // That's what left the "Creating account..." button stuck forever.
-                  //
-                  // coachLoginInProgress guards against the same race the Coach Login
-                  // form already protects against: signIn() fires Supabase's
-                  // onAuthStateChange, which App.jsx's processSessionUser also listens
-                  // to. A brand-new coach has no age/height/weight (those are client
-                  // fitness fields), so processSessionUser's "hasCompleteProfile" check
-                  // fails for them, and isTrainer() depends on a userRole that hasn't
-                  // been written yet — so without this flag it could misclassify the
-                  // new coach and leave localStorage.userRole stale, corrupting both
-                  // the coach dashboard's client-list scoping and the tab remembered
-                  // on next logout.
-                  localStorage.setItem('coachLoginInProgress', 'true');
-                  try {
-                    await databaseService.signIn(email, password);
-                    const profile = await databaseService.getUserProfileByEmail(email);
-                    await databaseService.loadProfileIntoLocalStorage({
-                      ...profile,
-                      role: 'coach',
-                      // coaches.id (this coach's own coach-profile row), NOT
-                      // result.userId (the Supabase auth uid) — was wrongly
-                      // set to the auth uid before, which is a different id
-                      // space than every other userCoachId write in this app.
-                      userCoachId: result.coachId
-                    }, email);
-                  } finally {
-                    localStorage.removeItem('coachLoginInProgress');
-                  }
-                  localStorage.setItem('onboardingCompleted', 'true');
-                  onComplete();
-                  return;
-                }
-
-                if (result.hasSession) {
-                  // Auto-confirmed: session exists server-side but NOT in the browser.
-                  // Route to coach login so the browser gets a real session.
-                  setAuthSuccessMsg(`Coach account created! Log in with your credentials to enter the dashboard.`);
-                } else {
-                  // Email confirmation required — coach confirms then logs in.
-                  setAuthSuccessMsg(`Coach account created! We've sent a confirmation link to ${email}. Click it, then log in as a coach.`);
-                }
-                setAuthTab('login');
-                setUserType('coach');
-                setAuthEmail(email);
-              } catch(err) {
-                setAuthError(err.message);
-              } finally {
-                setAuthLoading(false);
-              }
-            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={coachApplyHasSession ? handleCoachApplySubmitSession : handleCoachApplySubmitPassword} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {authError && <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#fecaca', fontSize: '0.78rem' }}>{authError}</div>}
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1012,15 +1099,21 @@ const Onboarding = ({ onComplete }) => {
                 <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!coachApplyEmail} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
-                <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
-                {coachApplyEmail && (
-                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.5)' }}>
-                    Enter the password you just set via "Forgot password?" for this account.
-                  </p>
-                )}
-              </div>
+              {coachApplyHasSession ? (
+                <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', color: '#a7f3d0', fontSize: '0.75rem' }}>
+                  ✓ Signed in with Google — no password needed.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
+                  <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
+                  {coachApplyEmail && (
+                    <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.5)' }}>
+                      Enter the password you just set via "Forgot password?" for this account.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Certifications (e.g. NASM, ACE)</label>
@@ -1058,6 +1151,9 @@ const Onboarding = ({ onComplete }) => {
           </div>
         </div>
       )}
+      </>
+        );
+      })()}
 
       {step === 0 && authTab !== 'coach_apply' && (
         <div className={`onboarding-portal-wrapper ${showAuthForm ? 'auth-form-active' : ''}`}>

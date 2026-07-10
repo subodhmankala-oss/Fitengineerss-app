@@ -1460,6 +1460,12 @@
   white-space: nowrap;
 }
 
+.live-timer-idle-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .timer-controls {
   display: flex;
   gap: 8px;

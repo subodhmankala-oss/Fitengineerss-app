@@ -34,7 +34,12 @@ export const calculateTargetsGeneric = (wVal, hVal, aVal, actVal, goalVal) => {
   } else if (goalVal && goalVal.includes('Muscle Building')) {
     proteinPerKg = 2.0;
   }
-  const proteinGrams = Math.round(w * proteinPerKg);
+  // g/kg is meant for lean body mass, but we only have total bodyweight, so it
+  // overshoots for heavier/higher-BMI clients (e.g. 93.5kg x 2.2 = 205g — not
+  // realistically achievable/necessary). Cap at a sane daily ceiling instead of
+  // estimating body fat %, which we don't collect.
+  const MAX_PROTEIN_GRAMS = 180;
+  const proteinGrams = Math.min(Math.round(w * proteinPerKg), MAX_PROTEIN_GRAMS);
 
   // Fats take ~27% of calories; carbs fill whatever calories remain after
   // protein and fat. Clamp carbs at 0 so an extreme high-protein/low-calorie

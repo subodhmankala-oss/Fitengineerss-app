@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
+import { formatDuration } from '../utils/liveWorkoutTimer';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout }) => {
@@ -203,12 +204,22 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
           volume: 0,
           sets: 0,
           exercises: {},
-          planName: log.plan_name || log.planName || ''
+          planName: log.plan_name || log.planName || '',
+          durationSeconds: null,
+          caloriesBurned: null
         };
       }
-      
+
       if (!grouped[date].planName && (log.plan_name || log.planName)) {
         grouped[date].planName = log.plan_name || log.planName;
+      }
+      // Session duration/calories are duplicated onto every row of the session
+      // (workout_logs has no session-level row) — take the first non-null seen.
+      if (log.duration_seconds != null && grouped[date].durationSeconds == null) {
+        grouped[date].durationSeconds = log.duration_seconds;
+      }
+      if (log.calories_burned != null && grouped[date].caloriesBurned == null) {
+        grouped[date].caloriesBurned = log.calories_burned;
       }
       
       const weight = parseFloat(log.weight_kg) || 0;
@@ -245,6 +256,8 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     let totalVolume = 0;
     let totalSets = 0;
     let workoutsCount = 0;
+    let totalCalories = 0;
+    let totalDurationSeconds = 0;
     const dailySets = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -253,6 +266,8 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         totalVolume += groupedLogs[day].volume;
         totalSets += groupedLogs[day].sets;
         workoutsCount += 1;
+        totalCalories += groupedLogs[day].caloriesBurned || 0;
+        totalDurationSeconds += groupedLogs[day].durationSeconds || 0;
 
         const dateObj = parseLocalDateString(day);
         const dayOfWeekStr = dayNames[dateObj.getDay() === 0 ? 0 : dateObj.getDay()];
@@ -262,7 +277,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       }
     });
 
-    return { totalVolume, totalSets, workoutsCount, dailySets };
+    return { totalVolume, totalSets, workoutsCount, dailySets, totalCalories: Math.round(totalCalories * 10) / 10, totalDurationSeconds };
   };
 
   const weeklyStats = getWeeklyStats();
@@ -271,7 +286,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
   const getDailyStats = () => {
     const dayData = groupedLogs[selectedDateStr];
     if (!dayData) {
-      return { volume: 0, sets: 0, exercises: [] };
+      return { volume: 0, sets: 0, exercises: [], calories: null, durationSeconds: null };
     }
     const exercisesList = Object.keys(dayData.exercises).map(name => ({
       name,
@@ -280,7 +295,9 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     return {
       volume: dayData.volume,
       sets: dayData.sets,
-      exercises: exercisesList
+      exercises: exercisesList,
+      calories: dayData.caloriesBurned,
+      durationSeconds: dayData.durationSeconds
     };
   };
 
@@ -291,6 +308,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
     let totalVolume = 0;
     let totalSets = 0;
     let workoutsCount = 0;
+    let totalCalories = 0;
     const dailyVolumeHistory = []; // list of last 30 days volumes for graph
     const activeDates = new Set();
 
@@ -305,6 +323,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         totalVolume += volume;
         totalSets += sets;
         workoutsCount += 1;
+        totalCalories += groupedLogs[dateStr].caloriesBurned || 0;
         activeDates.add(dateStr);
       }
 
@@ -315,7 +334,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       });
     }
 
-    return { totalVolume, totalSets, workoutsCount, dailyVolumeHistory, activeDates };
+    return { totalVolume, totalSets, workoutsCount, dailyVolumeHistory, activeDates, totalCalories: Math.round(totalCalories * 10) / 10 };
   };
 
   const monthlyStats = getMonthlyStats();
@@ -752,7 +771,9 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
               <div className="chart-widget-card glass-panel">
                 <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
                   <h4>🗂️ This Week's Sessions</h4>
-                  <span className="trend-badge">{weeklyStats.workoutsCount} days active</span>
+                  <span className="trend-badge">
+                    {weeklyStats.workoutsCount} days active{weeklyStats.totalCalories > 0 ? ` · 🔥 ${weeklyStats.totalCalories} kcal` : ''}
+                  </span>
                 </div>
                 {weeklyStats.workoutsCount === 0 ? (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '16px 0' }}>
@@ -788,13 +809,23 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                                 📋 {session.planName || 'Custom Routine'}
                               </span>
                             </div>
-                            <div style={{ display: 'flex', gap: '6px' }}>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                               <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.sets} sets
                               </span>
                               <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.volume.toLocaleString('en-IN')} kg
                               </span>
+                              {session.caloriesBurned != null && (
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                  🔥 {session.caloriesBurned} kcal
+                                </span>
+                              )}
+                              {session.durationSeconds != null && (
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                  ⏱ {formatDuration(session.durationSeconds)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
@@ -882,6 +913,18 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                     <span className="lbl">Exercises:</span>
                     <strong className="val" style={{ color: '#a78bfa' }}>{dailyStats.exercises.length}</strong>
                   </div>
+                  {dailyStats.calories != null && (
+                    <div className="stat-card inline">
+                      <span className="lbl">🔥 Calories:</span>
+                      <strong className="val" style={{ color: '#fbbf24' }}>{dailyStats.calories} kcal</strong>
+                    </div>
+                  )}
+                  {dailyStats.durationSeconds != null && (
+                    <div className="stat-card inline">
+                      <span className="lbl">⏱ Time:</span>
+                      <strong className="val" style={{ color: '#e5e7eb' }}>{formatDuration(dailyStats.durationSeconds)}</strong>
+                    </div>
+                  )}
                 </div>
 
                 {/* Day Exercise Breakdown — detailed cards */}
@@ -959,6 +1002,11 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                   <strong className="card-value text-amber">{monthlyStats.workoutsCount} <span className="value-unit">workouts</span></strong>
                   <p className="card-sub">Last 30 days</p>
                 </div>
+                <div className="stat-card glass-panel">
+                  <span className="card-label">🔥 Calories</span>
+                  <strong className="card-value" style={{ color: '#fbbf24' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} <span className="value-unit">kcal</span></strong>
+                  <p className="card-sub">Last 30 days</p>
+                </div>
               </div>
 
               {/* Heatmap Grid */}
@@ -1010,13 +1058,18 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                                   📋 {session.planName || 'Custom Routine'}
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', gap: '8px' }}>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                 <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                   {session.sets} sets
                                 </span>
                                 <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                   {session.volume.toLocaleString('en-IN')} kg
                                 </span>
+                                {session.caloriesBurned != null && (
+                                  <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                    🔥 {session.caloriesBurned} kcal
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>

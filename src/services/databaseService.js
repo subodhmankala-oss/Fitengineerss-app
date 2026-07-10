@@ -560,7 +560,12 @@ const databaseService = {
                 weight_kg: parseFloat(set.weight || '0.0'),
                 plan_name: session.planName || 'Custom Routine',
                 // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
-                ...(set.setType ? { set_type: set.setType } : {})
+                ...(set.setType ? { set_type: set.setType } : {}),
+                // Live Log session timer's final duration/calories snapshot —
+                // duplicated onto every row of this session (workout_logs has
+                // no session-level row) and read back from any one of them.
+                ...(session.durationSeconds != null ? { duration_seconds: session.durationSeconds } : {}),
+                ...(session.caloriesBurned != null ? { calories_burned: session.caloriesBurned } : {})
               });
             });
           });
@@ -570,12 +575,13 @@ const databaseService = {
               .from('workout_logs')
               .insert(records);
 
-            // Degrade gracefully if the set_type column hasn't been migrated
-            // in yet (PostgREST "column not found" — code 42703 / PGRST204):
-            // retry without it rather than losing the whole session save.
+            // Degrade gracefully if set_type/duration_seconds/calories_burned
+            // haven't been migrated in yet (PostgREST "column not found" —
+            // code 42703 / PGRST204): retry without them rather than losing
+            // the whole session save.
             if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-              console.warn('workout_logs.set_type not found yet — retrying without set type tags.');
-              const fallbackRecords = records.map(({ set_type, ...rest }) => rest);
+              console.warn('workout_logs missing set_type/duration_seconds/calories_burned — retrying without them. Run sql/supabase_workout_logs_set_type.sql and sql/supabase_workout_logs_session_metrics.sql to enable full tracking.');
+              const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, ...rest }) => rest);
               ({ error } = await supabase.from('workout_logs').insert(fallbackRecords));
             }
 

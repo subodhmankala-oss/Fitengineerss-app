@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import { getSetTypeVisual } from './SetTypeMenu';
-import { getLocalDateString, shiftLocalDateString, isLocalToday } from '../utils/dateUtils';
+import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout }) => {
@@ -254,7 +254,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
         totalSets += groupedLogs[day].sets;
         workoutsCount += 1;
 
-        const dateObj = new Date(day);
+        const dateObj = parseLocalDateString(day);
         const dayOfWeekStr = dayNames[dateObj.getDay() === 0 ? 0 : dateObj.getDay()];
         // Map Sun -> Sun, Mon -> Mon, etc.
         const mappedName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
@@ -357,7 +357,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       }
     });
     if (!bestDay) return { dayName: '—', volume: 0 };
-    const dayName = new Date(bestDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const dayName = parseLocalDateString(bestDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     return { dayName, volume: bestVolume };
   };
 
@@ -1004,7 +1004,7 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>
-                                  📅 {new Date(date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                  📅 {parseLocalDateString(date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                                 </div>
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
                                   📋 {session.planName || 'Custom Routine'}

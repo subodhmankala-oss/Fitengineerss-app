@@ -48,7 +48,7 @@ function secondsBetweenExcludingPauses(from, to, pauseIntervals) {
 // Sums work calories (reps x weight) for every completed set, plus rest
 // calories for the gaps between consecutive completions (anchored to session
 // start for the first one). Sets not yet marked done contribute nothing.
-export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = [], now = Date.now()) {
+export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = []) {
   const completions = [];
   let workKcal = 0;
 
@@ -76,6 +76,30 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
   }
 
   const restKcal = restSeconds * REST_KCAL_PER_SECOND;
+  return {
+    totalKcal: Math.round((workKcal + restKcal) * 10) / 10,
+    workKcal: Math.round(workKcal * 10) / 10,
+    restKcal: Math.round(restKcal * 10) / 10,
+  };
+}
+
+// Same work + rest formula as computeLiveCalories, but for flows that only have
+// a single total-duration stopwatch and no per-set completion timestamps (the
+// client's own "Log Sets" workout). Rest calories are derived from the whole
+// workout duration rather than the gaps between individual set completions —
+// which is equivalent, since in computeLiveCalories the summed inter-set gaps
+// span exactly session-start → last-set anyway. Every set passed is counted as
+// work (callers pass only the completed/kept sets).
+export function computeCaloriesFromDuration(exercises, durationSeconds) {
+  let workKcal = 0;
+  exercises.forEach((ex) => {
+    ex.sets.forEach((set) => {
+      const reps = parseFloat(set.reps) || 0;
+      const weight = parseFloat(set.weight) || 0;
+      workKcal += reps * weight * WORK_KCAL_PER_KG_REP;
+    });
+  });
+  const restKcal = Math.max(0, durationSeconds || 0) * REST_KCAL_PER_SECOND;
   return {
     totalKcal: Math.round((workKcal + restKcal) * 10) / 10,
     workKcal: Math.round(workKcal * 10) / 10,

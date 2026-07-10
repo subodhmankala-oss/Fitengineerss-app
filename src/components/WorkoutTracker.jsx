@@ -5,7 +5,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
-import { formatDuration } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeCaloriesFromDuration } from '../utils/liveWorkoutTimer';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -641,13 +641,19 @@ const WorkoutTracker = () => {
         const byDate = {};
         rows.forEach(l => {
           const d = l.log_date;
-          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', exMap: {} };
+          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, exMap: {} };
+          // Session duration/calories are duplicated onto every row of the
+          // session (workout_logs has no session-level row) — take the first
+          // non-null value seen for this date so the history card can show them.
+          if (l.duration_seconds != null && byDate[d].durationSeconds == null) byDate[d].durationSeconds = l.duration_seconds;
+          if (l.calories_burned != null && byDate[d].caloriesBurned == null) byDate[d].caloriesBurned = l.calories_burned;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
           byDate[d].exMap[ex].push({ reps: l.reps, weight: l.weight_kg, setType: l.set_type || null, isWarmup: l.set_type === 'warmup' });
         });
         const dbSessions = Object.values(byDate).map(s => ({
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
+          durationSeconds: s.durationSeconds, caloriesBurned: s.caloriesBurned,
           exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
         }));
         // DB is authoritative per date; keep any local-only (unsynced) dates too.
@@ -1117,12 +1123,21 @@ const WorkoutTracker = () => {
       }))
       .filter(ex => ex.sets.length > 0);
 
+    // Duration/calories for the client's own workout. workoutActiveSeconds is
+    // the stopwatch total (still valid here — it's reset further below). Uses
+    // the same reps x weight + rest-time formula as the coach Live Log so both
+    // sides read consistently in history.
+    const durationSecs = workoutActiveSeconds;
+    const calorieCalc = computeCaloriesFromDuration(formattedExercises, durationSecs);
+
     const newSession = {
       id: `session-${Date.now()}`,
       clientName: logClient,
       date: logDate,
       exercises: formattedExercises,
       duration: summaryStats?.duration || '00:15',
+      durationSeconds: durationSecs > 0 ? durationSecs : null,
+      caloriesBurned: formattedExercises.length > 0 ? calorieCalc.totalKcal : null,
       planName: templateName.trim() || 'Custom Routine'
     };
 

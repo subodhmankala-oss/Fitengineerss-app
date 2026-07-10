@@ -1293,6 +1293,17 @@ const WorkoutTracker = () => {
     triggerToast(`Package renewed! Appended +12 sessions for ${selectedClient}.`);
   };
 
+  // Live calorie readout for the client's own "Log Sets" stopwatch banner —
+  // same reps x weight (work) + duration (rest) formula as the coach Live Log
+  // and the Finish-time save, just recomputed on every tick so it climbs live
+  // as sets get checked off, instead of only appearing after Finish.
+  const liveOwnWorkoutKcal = isLoggingWorkout
+    ? computeCaloriesFromDuration(
+        logExercises.map(ex => ({ ...ex, sets: ex.sets.filter(s => s.isCompleted) })),
+        workoutActiveSeconds
+      ).totalKcal
+    : 0;
+
   return (
     <>
       <div className="workout-tracker-container animate-slide-up">
@@ -2131,6 +2142,9 @@ const WorkoutTracker = () => {
                 <strong>{formatStopwatchTime(workoutActiveSeconds)}</strong>
                 <span className="active-badge">{workoutTimerRunning ? '● Active Tracker' : 'Paused'}</span>
               </div>
+              {liveOwnWorkoutKcal > 0 && (
+                <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
+              )}
             </div>
             <div className="timer-controls">
               <button 

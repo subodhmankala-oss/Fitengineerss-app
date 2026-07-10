@@ -5,6 +5,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
+import { formatDuration } from '../utils/liveWorkoutTimer';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -1687,6 +1688,11 @@ const WorkoutTracker = () => {
                   const isToday = isLocalToday(sess.date);
                   const isCoachLogged = sess.loggedByCoach;
                   const planName = sess.planName || (isCoachLogged ? 'Coach Session' : 'Workout Session');
+                  // Self-logged sessions store a pre-formatted "duration" string;
+                  // coach Live Log sessions store raw "durationSeconds" instead —
+                  // support whichever this session actually has.
+                  const displayDuration = sess.duration || (sess.durationSeconds != null ? formatDuration(sess.durationSeconds) : null);
+                  const displayCalories = sess.caloriesBurned != null ? sess.caloriesBurned : null;
 
                   return (
                     <div key={sessKey} style={{
@@ -1715,6 +1721,9 @@ const WorkoutTracker = () => {
                             <span style={{ fontSize: '0.6rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>{totalSets} sets</span>
                             <span style={{ fontSize: '0.6rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>{totalVol.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</span>
                             <span style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', padding: '1px 7px', borderRadius: '20px' }}>{sess.exercises.length} exercises</span>
+                            {displayCalories != null && (
+                              <span style={{ fontSize: '0.6rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>🔥 {displayCalories} kcal</span>
+                            )}
                           </div>
                         </div>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 800, marginLeft: '8px', paddingTop: '2px' }}>{isExpanded ? '▲' : '▼'}</span>
@@ -1726,7 +1735,7 @@ const WorkoutTracker = () => {
                           <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
                             <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
                               <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>⏱ Duration</div>
-                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fff', marginTop:'2px' }}>{sess.duration || '—'}</div>
+                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fff', marginTop:'2px' }}>{displayDuration || '—'}</div>
                             </div>
                             <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
                               <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>🏋️ Lifted</div>
@@ -1736,6 +1745,12 @@ const WorkoutTracker = () => {
                               <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>✓ Sets</div>
                               <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#60a5fa', marginTop:'2px' }}>{totalSets}</div>
                             </div>
+                            {displayCalories != null && (
+                              <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
+                                <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>🔥 Calories</div>
+                                <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fbbf24', marginTop:'2px' }}>{displayCalories} kcal</div>
+                              </div>
+                            )}
                           </div>
                           <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                             {sess.exercises.map((ex, exIdx) => (

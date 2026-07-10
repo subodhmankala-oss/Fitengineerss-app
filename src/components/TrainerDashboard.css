@@ -340,6 +340,14 @@
   letter-spacing: 0;
 }
 
+.session-metrics-sub {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fbbf24;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .session-exercises-list {
   display: flex;
   flex-direction: column;
@@ -551,4 +559,69 @@
 .live-logger-add-set {
   margin-top: 8px;
   display: inline-block;
+}
+
+/* Live session timer + calorie bar (Live Log tab). */
+.live-timer-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.live-timer-idle-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.live-timer-value {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-timer-value.is-paused {
+  color: var(--text-muted);
+}
+
+.live-timer-paused-tag {
+  font-family: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.live-timer-kcal {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.live-timer-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-sm);
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.live-timer-btn:hover {
+  background: rgba(245, 158, 11, 0.25);
 }

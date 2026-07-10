@@ -5,6 +5,7 @@ import './TrainerDashboard.css';
 import './WorkoutTracker.css';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
+import { computeElapsedSeconds, computeLiveCalories, formatDuration } from '../utils/liveWorkoutTimer';
 
 
 const TrainerDashboard = ({ handleLogout }) => {
@@ -259,6 +260,14 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
   const [liveSetTypeMenu, setLiveSetTypeMenu] = useState(null);
+  // Live session timer — 'idle' until the coach logs the first set (real work
+  // starting is what should start the clock, not just opening this tab).
+  // Elapsed time and calories are always recomputed from these timestamps on
+  // every render, never from an incrementing counter, so nothing can drift.
+  const [liveTimerStatus, setLiveTimerStatus] = useState('idle'); // 'idle' | 'running' | 'paused'
+  const [liveTimerStartedAt, setLiveTimerStartedAt] = useState(null);
+  const [livePauseIntervals, setLivePauseIntervals] = useState([]); // [{ pausedAt, resumedAt }]
+  const [, forceLiveTimerTick] = useState(0);
   // Set type popup in the Plan Editor: { exIdx, setIdx } when open, null when closed
   const [editorSetTypeMenu, setEditorSetTypeMenu] = useState(null);
 
@@ -275,6 +284,41 @@ const TrainerDashboard = ({ handleLogout }) => {
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, [editorSetTypeMenu]);
+
+  // Re-render once a second while the live timer is running so the displayed
+  // elapsed time / calories stay current. The values themselves are always
+  // recomputed fresh from timestamps below — this tick only drives the UI.
+  useEffect(() => {
+    if (liveTimerStatus !== 'running') return;
+    const id = setInterval(() => forceLiveTimerTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [liveTimerStatus]);
+
+  const resetLiveTimer = () => {
+    setLiveTimerStatus('idle');
+    setLiveTimerStartedAt(null);
+    setLivePauseIntervals([]);
+  };
+
+  const handlePauseLiveTimer = () => {
+    if (liveTimerStatus !== 'running') return;
+    setLivePauseIntervals((prev) => [...prev, { pausedAt: Date.now(), resumedAt: null }]);
+    setLiveTimerStatus('paused');
+  };
+
+  const handleResumeLiveTimer = () => {
+    if (liveTimerStatus !== 'paused') return;
+    setLivePauseIntervals((prev) => {
+      const copy = [...prev];
+      const openIdx = copy.map((p) => p.resumedAt).lastIndexOf(null);
+      if (openIdx !== -1) copy[openIdx] = { ...copy[openIdx], resumedAt: Date.now() };
+      return copy;
+    });
+    setLiveTimerStatus('running');
+  };
+
+  const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
+  const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals);
 
   const triggerLiveToast = (msg) => {
     setLiveToast(msg);
@@ -333,13 +377,29 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const handleLiveToggleSet = (exIdx, setIdx) => {
+    const now = Date.now();
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
       return {
         ...ex,
-        sets: ex.sets.map((s, si) => si === setIdx ? { ...s, isCompleted: !s.isCompleted } : s)
+        sets: ex.sets.map((s, si) => {
+          if (si !== setIdx) return s;
+          const nextCompleted = !s.isCompleted;
+          // completedAt timestamps are what the live timer's rest-interval
+          // calorie calc uses — never cleared retroactively except when this
+          // exact set is unchecked, so re-checking it later is timed fresh.
+          return { ...s, isCompleted: nextCompleted, completedAt: nextCompleted ? now : null };
+        })
       };
     }));
+    // Logging real work is what starts the session clock — not opening the tab.
+    setLiveTimerStatus(prevStatus => {
+      if (prevStatus === 'idle') {
+        setLiveTimerStartedAt(now);
+        return 'running';
+      }
+      return prevStatus;
+    });
   };
 
   const handleLiveRemoveExercise = (exIdx) => {
@@ -376,7 +436,11 @@ const TrainerDashboard = ({ handleLogout }) => {
         date: liveDate,
         exercises: formattedExercises,
         loggedByCoach: true,
-        planName: livePlanName || 'Live Routine'
+        planName: livePlanName || 'Live Routine',
+        // Final timer/calorie snapshot at the moment of save — same formula
+        // the live bar above was already showing the coach.
+        durationSeconds: liveTimerStartedAt ? computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals) : null,
+        caloriesBurned: liveTimerStartedAt ? computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals).totalKcal : null
       };
 
       await databaseService.saveWorkoutSession(session);
@@ -435,6 +499,7 @@ const TrainerDashboard = ({ handleLogout }) => {
       ]);
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
+      resetLiveTimer();
     } catch(e) {
       console.error('Error saving live session:', e);
       triggerLiveToast('❌ Failed to save session. Please try again.');
@@ -560,6 +625,9 @@ const TrainerDashboard = ({ handleLogout }) => {
     setSelectedClient(client);
     setDetailTab('plans');
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
+    // A running clock from the previous client must never carry over —
+    // otherwise their elapsed time/calories would land on this client's save.
+    resetLiveTimer();
     // Reset the save-lock so a coincidental value match with the previous
     // client doesn't falsely show "✓ Saved" for this one.
     setTotalSessionsSavedValue(null);
@@ -658,6 +726,11 @@ const TrainerDashboard = ({ handleLogout }) => {
   const groupLogs = (logs) => {
     const datesMap = {};
     const planNames = {};
+    // Live Log's session timer duplicates its final duration/calories onto
+    // every set row (workout_logs has no session-level row) — pick up the
+    // first non-null value seen per date, same pattern as planNames above.
+    const durationByDate = {};
+    const caloriesByDate = {};
 
     logs.forEach(log => {
       const date = log.log_date;
@@ -670,12 +743,18 @@ const TrainerDashboard = ({ handleLogout }) => {
       if (incomingName && (!planNames[date] || planNames[date] === 'Custom Routine')) {
         planNames[date] = incomingName;
       }
+      if (log.duration_seconds != null && durationByDate[date] == null) {
+        durationByDate[date] = log.duration_seconds;
+      }
+      if (log.calories_burned != null && caloriesByDate[date] == null) {
+        caloriesByDate[date] = log.calories_burned;
+      }
 
       const exercise = log.exercise_name;
       if (!datesMap[date][exercise]) {
         datesMap[date][exercise] = [];
       }
-      
+
       datesMap[date][exercise].push({
         setNumber: log.set_number,
         reps: log.reps,
@@ -695,10 +774,12 @@ const TrainerDashboard = ({ handleLogout }) => {
             sets: sortedSets
           };
         });
-        
+
         return {
           date: dateStr,
           planName: planNames[dateStr] || 'Custom Routine',
+          durationSeconds: durationByDate[dateStr] ?? null,
+          caloriesBurned: caloriesByDate[dateStr] ?? null,
           exercises: exercisesList
         };
       });
@@ -1943,6 +2024,13 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   day: 'numeric'
                                 })}
                               </span>
+                              {(session.durationSeconds != null || session.caloriesBurned != null) && (
+                                <span className="session-metrics-sub">
+                                  {session.durationSeconds != null && `⏱ ${formatDuration(session.durationSeconds)}`}
+                                  {session.durationSeconds != null && session.caloriesBurned != null && '  •  '}
+                                  {session.caloriesBurned != null && `🔥 ${session.caloriesBurned} kcal`}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -2288,6 +2376,32 @@ const TrainerDashboard = ({ handleLogout }) => {
                         }}
                       />
                     </div>
+                  </div>
+
+                  {/* Live Timer + Calorie readout — starts automatically the
+                      first time a set is marked done, so it reflects real
+                      working time rather than setup time. Elapsed/calories
+                      are recomputed from timestamps every render (session
+                      start + pause windows + each set's completion time),
+                      never from an incrementing counter, so getting
+                      distracted or leaving this tab open never causes drift. */}
+                  <div className="live-timer-bar">
+                    {liveTimerStatus === 'idle' ? (
+                      <span className="live-timer-idle-hint">⏱ Timer starts when you log your first set</span>
+                    ) : (
+                      <>
+                        <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                          ⏱ {formatDuration(liveElapsedSeconds)}
+                          {liveTimerStatus === 'paused' && <span className="live-timer-paused-tag">Paused</span>}
+                        </span>
+                        <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        {liveTimerStatus === 'running' ? (
+                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer}>⏸ Pause</button>
+                        ) : (
+                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer}>▶ Resume</button>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   {/* Plan/Routine configuration */}

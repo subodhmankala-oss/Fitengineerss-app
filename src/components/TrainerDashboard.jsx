@@ -2017,7 +2017,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                             <div className="session-heading-text">
                               <span className="session-plan-name">{session.planName || 'Custom Routine'}</span>
                               <span className="session-date-sub">
-                                {new Date(session.date).toLocaleDateString('en-US', {
+                                {parseLocalDateString(session.date).toLocaleDateString('en-US', {
                                   weekday: 'long',
                                   year: 'numeric',
                                   month: 'long',

@@ -1858,12 +1858,22 @@ const databaseService = {
   // name over their business/brand name, since "actual name" was the ask;
   // returns null (caller falls back to the raw coach_id) if neither exists.
   async getCoachNameById(coachId) {
-    if (!coachId || !isSupabaseConfigured || !supabase) return null;
+    if (!coachId || !isSupabaseConfigured) return null;
     try {
-      const { data: userRow } = await supabase.from('users').select('full_name').eq('id', coachId).maybeSingle();
-      if (userRow?.full_name) return userRow.full_name;
-      const { data: coachRow } = await supabase.from('coaches').select('brand_name').eq('user_id', coachId).maybeSingle();
-      return coachRow?.brand_name || null;
+      // Raw PostgREST reads (bypasses the hanging SDK — same workaround as
+      // restSelect's other callers). This previously used supabase.from(),
+      // which can hang indefinitely and never resolve or reject — silently
+      // leaving the coach's name unresolved forever (localStorage.userCoachName
+      // never gets set, so the header keeps showing the literal "Coach"
+      // placeholder even after a refresh, since getOwnCoachConnection's
+      // connection status itself already resolved fine via restSelect and
+      // never retries the name lookup once it thinks a fetch is in flight).
+      const userRows = await restSelect(`users?select=full_name&id=eq.${encodeURIComponent(coachId)}&limit=1`);
+      const fullName = Array.isArray(userRows) ? userRows[0]?.full_name : null;
+      if (fullName) return fullName;
+      const coachRows = await restSelect(`coaches?select=brand_name&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
+      const brandName = Array.isArray(coachRows) ? coachRows[0]?.brand_name : null;
+      return brandName || null;
     } catch (e) {
       console.error('[getCoachNameById] error:', e);
       return null;

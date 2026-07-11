@@ -1406,6 +1406,7 @@ function App() {
             setShowClientWizard(false);
             localStorage.setItem('onboardingCompleted', 'true');
           }}
+          onBackToLogin={handleLogout}
         />
       </div>
     );

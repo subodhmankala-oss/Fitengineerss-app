@@ -628,9 +628,12 @@ const TrainerDashboard = ({ handleLogout }) => {
     // A running clock from the previous client must never carry over —
     // otherwise their elapsed time/calories would land on this client's save.
     resetLiveTimer();
-    // Reset the save-lock so a coincidental value match with the previous
-    // client doesn't falsely show "✓ Saved" for this one.
-    setTotalSessionsSavedValue(null);
+    // Initialize the save-lock to match what's already persisted for THIS
+    // client (not the previous one, and not unconditionally null) — so
+    // reopening a client whose total_sessions is already set correctly
+    // shows "✓ Saved" immediately, instead of always showing the highlighted
+    // "Save" button until a new save happens in this browser session.
+    setTotalSessionsSavedValue(client.total_sessions != null ? String(client.total_sessions) : null);
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {

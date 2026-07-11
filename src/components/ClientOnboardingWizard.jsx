@@ -4,7 +4,7 @@ import './ClientOnboardingWizard.css';
 
 const TOTAL_STEPS = 4;
 
-const ClientOnboardingWizard = ({ onComplete }) => {
+const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -323,6 +323,11 @@ const ClientOnboardingWizard = ({ onComplete }) => {
           <div className="cow-header-text">
             <span className="cow-step-label">Step {step} of {TOTAL_STEPS}</span>
           </div>
+          {onBackToLogin && (
+            <button type="button" className="cow-back-to-login" onClick={onBackToLogin}>
+              ← Back to Login
+            </button>
+          )}
         </div>
 
         {/* Progress */}

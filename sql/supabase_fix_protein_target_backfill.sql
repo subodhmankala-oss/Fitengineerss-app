@@ -7,9 +7,23 @@
 -- was getting 205g/day). The fix now calibrates the whole formula to match
 -- calculator.net's "Balanced" macro calculator output (verified to the exact
 -- gram against two independent real test cases), which also revised the
--- calorie formula itself — so this backfill recomputes all four stored
--- columns (calorie_target, protein_target, carbs_target, fats_target), not
--- just protein.
+-- calorie formula itself.
+--
+-- CORRECTED TABLE (previous version of this script targeted public.users,
+-- which was wrong): the coach dashboard's client list reads calorie_target/
+-- protein_target off public.clients rows (confirmed — every client-fetch
+-- path in databaseService.js reads c.calorie_target / client?.calorie_target
+-- from `clients?select=*...`, never from users), and api/complete-onboarding.js
+-- writes these same fields onto clients too. Running the old users-targeted
+-- version wouldn't error on calorie_target/protein_target (those columns
+-- happen to also exist on users) but would have zero visible effect, since
+-- the dashboard never reads them from there.
+--
+-- Only updates calorie_target and protein_target — carbs_target/fats_target
+-- are dropped from this backfill entirely (a 42703 "column does not exist"
+-- error surfaced when the previous, users-targeted version tried to write
+-- them). The app's own UI only ever displays calories and protein, never
+-- carbs/fats, so this doesn't affect anything visible.
 --
 -- Two intentional differences from a bit-for-bit match to calculator.net,
 -- both explicit product choices made with the user:
@@ -20,7 +34,7 @@
 --   left at raw precision, matching src/utils/targets.js exactly.
 --
 -- Only rows with weight_kg, height_cm, and age already populated are
--- touched. Nothing else on the user row is read or modified.
+-- touched. Nothing else on the client row is read or modified.
 -- ==========================================
 
 DO $$
@@ -33,7 +47,7 @@ DECLARE
 BEGIN
   FOR r IN
     SELECT id, weight_kg, height_cm, age, activity_level, fitness_goal
-    FROM public.users
+    FROM public.clients
     WHERE weight_kg IS NOT NULL
       AND height_cm IS NOT NULL
       AND age IS NOT NULL
@@ -60,11 +74,9 @@ BEGIN
       cal := ROUND(tdee);
     END IF;
 
-    UPDATE public.users
+    UPDATE public.clients
     SET calorie_target = cal,
-        protein_target = ROUND((cal * 0.244) / 4.0),
-        carbs_target = ROUND((cal * 0.533) / 4.0),
-        fats_target = ROUND((cal * 0.256) / 9.0)
+        protein_target = ROUND((cal * 0.244) / 4.0)
     WHERE id = r.id;
   END LOOP;
 END $$;

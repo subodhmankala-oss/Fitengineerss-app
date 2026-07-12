@@ -127,7 +127,7 @@ const Onboarding = ({ onComplete }) => {
     // untouched by localStorage.clear().
     sessionStorage.setItem('pendingCoachLogin', 'true');
     try {
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      if (!isSupabaseConfigured && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         setGoogleModalIntent('coach');
         setShowGoogleModal(true);
       } else {
@@ -1343,7 +1343,7 @@ const Onboarding = ({ onComplete }) => {
                       sessionStorage.removeItem('pendingCoachLogin');
                       setGoogleModalIntent('client');
                       try {
-                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        if (!isSupabaseConfigured && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
                           setShowGoogleModal(true);
                         } else {
                           await databaseService.signInWithGoogle();

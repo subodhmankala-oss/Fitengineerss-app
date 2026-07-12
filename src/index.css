@@ -219,3 +219,8 @@ button {
   color: var(--text-muted);
   font-size: clamp(0.9rem, 3.8vw, 1.1rem);
 }
+
+/* Auth loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

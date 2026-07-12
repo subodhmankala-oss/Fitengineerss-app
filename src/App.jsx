@@ -334,6 +334,9 @@ function App() {
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
   const lastProcessedEmailRef = useRef('');
+  const [authChecking, setAuthChecking] = useState(() => {
+    return isSupabaseConfigured && !!supabase;
+  });
 
   // Gate: set when a logged-in session's email_confirmed_at is null (email/password
   // signup that hasn't clicked the confirmation link yet). Takes priority over the
@@ -395,12 +398,14 @@ function App() {
     if (!isSupabaseConfigured || !supabase) return;
 
     const processSessionUser = async (user) => {
+      let isDuplicate = false;
       try {
         const email = user.email;
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
         if (lastProcessedEmailRef.current === email) {
           // Avoid duplicate processing/database hits on same user to prevent state resets
+          isDuplicate = true;
           return;
         }
         lastProcessedEmailRef.current = email;
@@ -413,6 +418,8 @@ function App() {
           lastProcessedEmailRef.current = '';
           setOnboardingComplete(false);
           setPendingConfirmationEmail(email);
+          setAuthChecking(false);
+          isDuplicate = true;
           return;
         }
         setPendingConfirmationEmail('');
@@ -425,6 +432,7 @@ function App() {
         // which would swallow that rejection. The form clears the flag when done.
         if (localStorage.getItem('coachLoginInProgress') === 'true') {
           lastProcessedEmailRef.current = '';
+          isDuplicate = true;
           return;
         }
 
@@ -641,40 +649,96 @@ function App() {
         console.error("Error processing session user:", err);
         lastProcessedEmailRef.current = '';
         setOnboardingComplete(false);
+      } finally {
+        if (!isDuplicate) {
+          setAuthChecking(false);
+        }
       }
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setShowResetPasswordModal(true);
-        return; // Don't run processSessionUser — just show the reset form
-      }
-      if (session && session.user) {
-        await processSessionUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        const activeEmail = localStorage.getItem('userEmail') || userEmail;
-        if (activeEmail) {
-          localStorage.setItem('last_logged_in_email', activeEmail);
-        }
-        const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
-        const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
-        const lastUserName = localStorage.getItem('lastUserName') || '';
-        
-        lastProcessedEmailRef.current = '';
-        clearLocalStoragePreservingChats();
-        
-        if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
-        if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
-        if (lastUserName) localStorage.setItem('lastUserName', lastUserName);
-        
-        setOnboardingComplete(false);
-        setUserGoal('');
-        setUserEmail('');
-        setActiveTab('home');
-      }
-    });
+    let activeSubscription = null;
+    let fallbackTimeoutId = null;
 
-    return () => subscription.unsubscribe();
+    const initAuth = async () => {
+      const isOAuthCallback = window.location.hash.includes('access_token=') || 
+                            window.location.hash.includes('id_token=') ||
+                            window.location.search.includes('code=');
+
+      // Start safety fallback timeout if we are in an OAuth callback to prevent getting stuck
+      if (isOAuthCallback) {
+        fallbackTimeoutId = setTimeout(() => {
+          console.log('[DEBUG] OAuth callback safety timeout reached. Revealing login screen.');
+          setAuthChecking(false);
+        }, 3000); // 3 seconds safety timeout
+      }
+
+      try {
+        // 1. Get current active session immediately on mount
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          await processSessionUser(session.user);
+        }
+      } catch (err) {
+        console.error("Initial session check failed:", err);
+      } finally {
+        // Only stop showing the loading screen if this is NOT an OAuth redirect.
+        // If it is an OAuth redirect, we wait until SIGNED_IN fires or the safety timeout fires.
+        if (!isOAuthCallback) {
+          setAuthChecking(false);
+        }
+      }
+
+      // 2. Subscribe to subsequent session events
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        try {
+          if (event === 'PASSWORD_RECOVERY') {
+            setShowResetPasswordModal(true);
+            setAuthChecking(false);
+            return; // Don't run processSessionUser — just show the reset form
+          }
+          
+          if (session && session.user) {
+            await processSessionUser(session.user);
+            if (isOAuthCallback && fallbackTimeoutId) {
+              clearTimeout(fallbackTimeoutId);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            const activeEmail = localStorage.getItem('userEmail') || userEmail;
+            if (activeEmail) {
+              localStorage.setItem('last_logged_in_email', activeEmail);
+            }
+            const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
+            const rememberedPassword = localStorage.getItem('rememberedPassword') || '';
+            const lastUserName = localStorage.getItem('lastUserName') || '';
+            
+            lastProcessedEmailRef.current = '';
+            clearLocalStoragePreservingChats();
+            
+            if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
+            if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
+            if (lastUserName) localStorage.setItem('lastUserName', lastUserName);
+            
+            setOnboardingComplete(false);
+            setUserGoal('');
+            setUserEmail('');
+            setActiveTab('home');
+            if (!isOAuthCallback) {
+              setAuthChecking(false);
+            }
+          }
+        } catch (err) {
+          console.error("Auth state change processing error:", err);
+        }
+      });
+      activeSubscription = subscription;
+    };
+
+    initAuth();
+
+    return () => {
+      if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId);
+      if (activeSubscription) activeSubscription.unsubscribe();
+    };
   }, []);
 
   // Keep active tab state persisted across reloads/reopens
@@ -1018,6 +1082,15 @@ function App() {
             Back to login
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (authChecking) {
+    return (
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255, 255, 255, 0.1)', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }}></div>
+        <p style={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '14px', fontWeight: 500 }}>Initializing Fitengineers...</p>
       </div>
     );
   }

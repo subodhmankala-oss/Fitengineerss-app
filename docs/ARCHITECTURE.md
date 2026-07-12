@@ -196,11 +196,25 @@ The application operates as a single-page React app. The core application logic 
 ```
 src/
 ├── components/          # React layout components and stylesheets
+│   ├── admin/            # Modular platform administrator sub-views
+│   │   ├── AdminClientsList.jsx   # Single-column client list
+│   │   └── AdminCoachesList.jsx   # Roster, status indicators, and profile popup
+│   ├── trainer/          # Core state distribution layer
+│   │   ├── context/
+│   │   │   └── TrainerContext.jsx # Shared global context provider
+│   │   └── hooks/
+│   │       └── useTrainerData.js  # Fetching logic & PostgreSQL channel sync
+│   ├── AdminExerciseLibrary.jsx   # Exercise Library Management dashboard
+│   ├── TrainerDashboard.jsx       # Root shell router & guard
+│   └── ...
 ├── assets/              # Static media files
 ├── services/            # Database and access control services
 │   ├── accessControl.js          # Authentication and RBAC guards
 │   ├── databaseService.js        # Core data Layer (Supabase + localStorage fallback)
 │   └── enhancedDatabaseService.js # Extended database operations
+├── utils/               # Standalone helper functions
+│   ├── videoUtils.js             # YouTube parsers & guides normalization helpers
+│   └── ...
 ├── App.jsx              # Main App wrapper & view router
 ├── index.css            # Global CSS styles and design system
 └── main.jsx             # React entry point
@@ -209,7 +223,7 @@ src/
 ### Component Reference
 
 - **Core Framework & Onboarding**:
-  - [Onboarding.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/Onboarding.jsx): Multi-step onboarding questionnaire to compute baseline metabolic constraints.
+  - [Onboarding.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/Onboarding.jsx): Multi-step onboarding questionnaire with typo validations and color-shifting morphing layouts.
   - [Navbar.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/Navbar.jsx): Navigation bar.
 - **Client Features**:
   - [WorkoutProgressDashboard.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/WorkoutProgressDashboard.jsx): Client landing dashboard.
@@ -218,8 +232,8 @@ src/
   - [CoachChat.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/CoachChat.jsx): Messaging UI between clients and coaches.
   - [ProgressDashboard.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/ProgressDashboard.jsx): Interactive metrics charts plotting physical changes over time.
 - **Coach & Admin Portals**:
-  - [TrainerDashboard.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/TrainerDashboard.jsx): Unified workspace for trainers to manage clients and assign routines.
-  - [AdminDashboard.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/AdminDashboard.jsx): System console for platform admins.
+  - [TrainerDashboard.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/TrainerDashboard.jsx): Coordinates trainer workspaces; consumes decoupled global state from `TrainerContext`.
+  - [AdminExerciseLibrary.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/AdminExerciseLibrary.jsx): Searchable directory supporting native video uploads, direct MP4 paths, and responsive YouTube frame embedded players.
   - [CoachLogin.jsx](file:///Users/mankalmr/Documents/Projects/Fitengineerss-app/src/components/CoachLogin.jsx): Portal for coach sign-ins and application submissions.
 
 ---
@@ -268,7 +282,18 @@ npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser to view the application.
 
-### 5. Code Integrity Guidelines
+### 5. Running Unit & Integration Tests
+The project uses **Vitest** for unit and component testing. To run the test suite:
+```bash
+npm run test
+```
+To run tests in watch mode during development:
+```bash
+npm run test:watch
+```
+All helper functions (date formats, video parsers, access flags checks) and React hooks/context layers must retain 100% test coverage.
+
+### 6. Code Integrity Guidelines
 - **Maintain local-only testing**: Ensure any modifications to services check the configuration status (`isSupabaseConfigured`) and support the `localStorage` fallback where applicable.
 - **Row Level Security (RLS)**: When creating new database schemas, always enable RLS and test policies for all target roles.
 - **Audit Trails**: Sensitive actions performed by coaches or admins must be logged to the `audit_logs` table using the `createAuditLog` utility in `accessControl.js`.

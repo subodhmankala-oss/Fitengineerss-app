@@ -29,6 +29,7 @@ To keep this prompt efficient, detailed documentation is separated into specific
 - Run local dev server: `npm run dev`
 - Build for production: `npm run build`
 - Run linter checks: `npm run lint`
+- Run unit tests: `npm run test`
 
 ## Boundaries & Constraints
 - ✅ **Always Do**: Support both Supabase cloud database operations AND the local storage mock engine fallback. Check if Supabase is configured (`isSupabaseConfigured`) before running queries.

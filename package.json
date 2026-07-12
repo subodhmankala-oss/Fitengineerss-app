@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:vercel": "lsof -ti :3000 | xargs kill -9 2>/dev/null; npx -y vercel dev",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

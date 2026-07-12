@@ -1,4 +1,4 @@
-﻿/* ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    CONNECT COACH MODAL — Premium dark glassmorphism
    ═══════════════════════════════════════════════════════════ */
 
@@ -30,8 +30,8 @@
     0 32px 80px rgba(0, 0, 0, 0.6),
     0 0 60px rgba(139, 92, 246, 0.06);
   width: 100%;
-  max-width: 440px;
-  padding: 28px 28px 24px;
+  max-width: 390px;
+  padding: 24px 20px 20px;
   animation: ccmSlideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
   font-family: 'Inter', 'Outfit', system-ui, sans-serif;
 }

@@ -438,7 +438,7 @@ function App() {
 
         const profile = await databaseService.getUserProfileByEmail(email);
         console.log("Login successful. Role found: " + (profile?.role || 'none'));
-        const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
+        const isSuperAdminEmail = isSuperAdmin(email);
 
         // Coach access suspended by the super admin (malpractice block).
         // Enforced centrally so it applies on every login/refresh, not just the
@@ -484,7 +484,7 @@ function App() {
               setUserRole(profile.role);
             } else {
               localStorage.setItem('userName', googleName || 'Coach');
-              const finalRole = email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach';
+              const finalRole = isSuperAdmin(email) ? 'super-admin' : 'coach';
               localStorage.setItem('userRole', finalRole);
               setUserRole(finalRole);
             }
@@ -609,7 +609,7 @@ function App() {
           } else {
             localStorage.setItem('userName', finalName);
             localStorage.setItem('userEmail', email);
-            const fallbackRole = isUserTrainer ? (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach') : 'client';
+            const fallbackRole = isUserTrainer ? (isSuperAdmin(email) ? 'super-admin' : 'coach') : 'client';
             localStorage.setItem('userRole', fallbackRole);
             setUserRole(fallbackRole);
           }

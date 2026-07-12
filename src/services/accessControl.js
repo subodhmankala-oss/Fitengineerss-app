@@ -7,6 +7,7 @@
 // CONSTANTS
 // ==========================================
 
+export const SUPER_ADMIN_EMAILS = ['subodhmankala@gmail.com', 'manohar.mankala@gmail.com'];
 export const SUPER_ADMIN_EMAIL = 'subodhmankala@gmail.com';
 
 export const USER_ROLES = {
@@ -32,11 +33,11 @@ export const ROLE_API_PREFIX = {
 // ==========================================
 
 /**
- * Check if user is super admin (only for subodhmankala@gmail.com)
+ * Check if user is super admin (only for subodhmankala@gmail.com or manohar.mankala@gmail.com)
  */
 export const isSuperAdmin = (email) => {
   if (!email) return false;
-  return email.toLowerCase() === SUPER_ADMIN_EMAIL;
+  return SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
 };
 
 /**

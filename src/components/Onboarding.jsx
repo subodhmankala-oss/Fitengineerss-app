@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from '../services/databaseService';
+import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS, isSuperAdmin } from '../services/databaseService';
 import { calculateTargetsGeneric } from '../utils/targets';
 import './Onboarding.css';
 
@@ -166,7 +166,7 @@ const Onboarding = ({ onComplete }) => {
       } else {
         localStorage.setItem(
           'userRole',
-          email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'
+          isSuperAdmin(email) ? 'super-admin' : 'coach'
         );
       }
       localStorage.setItem('onboardingComplete', 'true');
@@ -601,7 +601,7 @@ const Onboarding = ({ onComplete }) => {
         if (!authUserId) {
           throw new Error('Could not verify your account. Please try again.');
         }
-        const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
+        const isSuperAdminEmail = isSuperAdmin(authEmail);
         const mockCoaches = databaseService.getMockTable('coaches');
 
         // Find if coach record exists

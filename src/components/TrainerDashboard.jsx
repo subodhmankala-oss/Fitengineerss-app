@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
+import AdminExerciseLibrary from './AdminExerciseLibrary';
 import './WorkoutTracker.css';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
@@ -24,6 +25,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [pendingCoachesList, setPendingCoachesList] = useState([]);
   const [platformStats, setPlatformStats] = useState({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
   const [loadingAdmin, setLoadingAdmin] = useState(false);
+  const [exerciseCount, setExerciseCount] = useState(0);
   const [refreshToast, setRefreshToast] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [allUsersList, setAllUsersList] = useState([]);
@@ -77,9 +79,11 @@ const TrainerDashboard = ({ handleLogout }) => {
       const coaches = await databaseService.getAllCoaches();
       const stats = await databaseService.getPlatformStats();
       const pendingCoaches = await databaseService.getPendingCoachApplications();
+      const exercises = await databaseService.getExerciseLibrary();
       setCoachesList(coaches || []);
       setPendingCoachesList(pendingCoaches || []);
       setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
+      setExerciseCount(exercises ? exercises.length : 0);
 
       // Fetch all users for platform directory
       setLoadingUsers(true);
@@ -533,7 +537,7 @@ const TrainerDashboard = ({ handleLogout }) => {
         // Exclude trainer emails from the clients listing to avoid noise
         const filteredData = data.filter(u => 
           u.email !== 'trainer@fitengineers.com' && 
-          u.email !== 'subodhmankala@gmail.com' && 
+          !isSuperAdmin(u.email) && 
           u.email !== 'coach@fitengineers.com'
         );
         setClients(filteredData);
@@ -1125,7 +1129,7 @@ const TrainerDashboard = ({ handleLogout }) => {
             )}
           </div>
 
-          {/* Admin Sub-tabs: Total Clients | Total Coaches */}
+          {/* Admin Sub-tabs: Total Clients | Total Coaches | Exercises */}
           <div style={{
             display: 'flex', gap: '8px', padding: '4px',
             background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
@@ -1161,7 +1165,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                 boxShadow: adminSubTab === 'coaches' ? '0 1px 8px rgba(245,158,11,0.15)' : 'none'
               }}
             >
-              🏋️ Total Coaches
+              🏅 Total Coaches
               <span style={{
                 marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
                 color: adminSubTab === 'coaches' ? '#f59e0b' : 'rgba(148,163,184,0.4)'
@@ -1169,10 +1173,31 @@ const TrainerDashboard = ({ handleLogout }) => {
                 {coachesList.length}
               </span>
             </button>
+            <button
+              onClick={() => setAdminSubTab('exercises')}
+              style={{
+                flex: 1, padding: '11px 16px', borderRadius: '10px', border: 'none',
+                background: adminSubTab === 'exercises' ? 'rgba(139,92,246,0.14)' : 'transparent',
+                color: adminSubTab === 'exercises' ? '#a78bfa' : 'rgba(148,163,184,0.55)',
+                fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
+                fontFamily: 'inherit', letterSpacing: '0.01em',
+                boxShadow: adminSubTab === 'exercises' ? '0 1px 8px rgba(139,92,246,0.15)' : 'none'
+              }}
+            >
+              🏋️ Exercise Library
+              <span style={{
+                marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
+                color: adminSubTab === 'exercises' ? '#a78bfa' : 'rgba(148,163,184,0.4)'
+              }}>
+                {exerciseCount}
+              </span>
+            </button>
           </div>
 
           {/* Sub-tab content */}
-          {adminSubTab === 'coaches' ? (
+          {adminSubTab === 'exercises' ? (
+            <AdminExerciseLibrary onExerciseCountChange={(count) => setExerciseCount(count)} />
+          ) : adminSubTab === 'coaches' ? (
             <>
               {/* Coaches Table Card */}
               <div className="glass-panel" style={{
@@ -1248,7 +1273,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                             </span>
                           </td>
                           <td style={{ padding: '8px', textAlign: 'center' }}>
-                            {coach.email && coach.email.toLowerCase() === 'subodhmankala@gmail.com' ? (
+                            {coach.email && isSuperAdmin(coach.email) ? (
                               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>—</span>
                             ) : (
                               <button

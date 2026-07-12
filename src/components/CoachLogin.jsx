@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import databaseService, { isSupabaseConfigured } from '../services/databaseService';
+import databaseService, { isSupabaseConfigured, isSuperAdmin } from '../services/databaseService';
 import './CoachLogin.css';
 
 const CoachLogin = ({ onLoginSuccess, onApplyNow, onBack }) => {
@@ -103,14 +103,14 @@ const CoachLogin = ({ onLoginSuccess, onApplyNow, onBack }) => {
     setLoading(true);
     try {
       let profile = null;
-      const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
+      const isSuperAdminEmail = isSuperAdmin(email);
       
       if (isSupabaseConfigured && databaseService.supabase) {
         // Query profile from database
         profile = await databaseService.getUserProfileByEmail(email);
       } else {
         // Offline/local development fallback
-        const isHardcodedCoach = ['subodhmankala@gmail.com', 'trainer@fitengineers.com', 'coach@fitengineers.com'].includes(email.toLowerCase());
+        const isHardcodedCoach = isSuperAdminEmail || ['trainer@fitengineers.com', 'coach@fitengineers.com'].includes(email.toLowerCase());
         if (isHardcodedCoach) {
           profile = {
             userName: email.split('@')[0].toUpperCase(),

@@ -20,7 +20,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     return (
       <div className="admin-dashboard-denied">
         <h1>Access Denied</h1>
-        <p>Only subodhmankala@gmail.com can access this dashboard.</p>
+        <p>Only administrators can access this dashboard.</p>
         <button onClick={onLogout}>Logout</button>
       </div>
     );

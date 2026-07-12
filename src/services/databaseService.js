@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
+import { isSuperAdmin, SUPER_ADMIN_EMAILS } from './accessControl';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -152,23 +153,20 @@ async function resolveCanonicalUserId() {
 }
 
 export const TRAINER_EMAILS = [
-  'subodhmankala@gmail.com',
+  ...SUPER_ADMIN_EMAILS,
   'trainer@fitengineers.com',
   'coach@fitengineers.com'
 ];
 
 export const isTrainer = (email) => {
   if (!email) return false;
-  const hardcoded = TRAINER_EMAILS.includes(email.toLowerCase());
+  const hardcoded = TRAINER_EMAILS.includes(email.toLowerCase().trim());
   if (hardcoded) return true;
   const cachedRole = localStorage.getItem('userRole');
   return cachedRole === 'coach' || cachedRole === 'coach_pending' || cachedRole === 'super-admin' || cachedRole === 'admin';
 };
 
-export const isSuperAdmin = (email) => {
-  if (!email) return false;
-  return email.toLowerCase() === 'subodhmankala@gmail.com';
-};
+export { isSuperAdmin } from './accessControl';
 
 
 const getCleanClientKey = async (userId) => {
@@ -763,7 +761,7 @@ const databaseService = {
     // Look up by normalized email so a case-variant (Foo@x.com) resolves to the same
     // profile as foo@x.com instead of missing and spawning a duplicate.
     email = email.trim().toLowerCase();
-    const isSuperAdminEmail = email === 'subodhmankala@gmail.com';
+    const isSuperAdminEmail = isSuperAdmin(email);
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -3059,7 +3057,7 @@ const databaseService = {
           const { data: dbApps } = await supabase.from('coach_applications').select('*');
 
           users = dbUsers.map(u => {
-            const isSuperAdminEmail = u.email.toLowerCase() === 'subodhmankala@gmail.com';
+             const isSuperAdminEmail = isSuperAdmin(u.email);
             const coach = dbCoaches?.find(c => c.user_id === u.id);
             const client = dbClients?.find(c => c.user_id === u.id);
             const app = dbApps?.find(a => a.user_id === u.id);
@@ -3098,7 +3096,7 @@ const databaseService = {
 
     mockUsers.forEach(u => {
       if (!users.find(item => item.email.toLowerCase() === u.email.toLowerCase())) {
-        const isSuperAdminEmail = u.email.toLowerCase() === 'subodhmankala@gmail.com';
+        const isSuperAdminEmail = isSuperAdmin(u.email);
         const coach = mockCoaches.find(c => c.user_id === u.id);
         const client = mockClients.find(c => c.user_id === u.id);
         const app = mockApps.find(a => a.user_id === u.id);
@@ -3229,7 +3227,320 @@ const databaseService = {
     localStorage.setItem('coaches_list', JSON.stringify(coaches));
     try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
     return coaches;
+  },
+
+  // Seeding initial exercises library
+  async seedExerciseLibrary() {
+    // Initial preset exercises with full video and guide text
+    const presets = [
+      {
+        name: 'Shoulders Press',
+        category: 'Shoulders',
+        primary_muscle: 'Deltoids',
+        secondary_muscle: 'Triceps, Upper Chest',
+        video_url: '/videos/shoulders-press.mp4',
+        setup: 'Sit on a bench with back support. Hold dumbbells at shoulder height with an overhand grip, elbows bent at 90 degrees.',
+        execution: 'Press the weights straight up above your head until your arms are fully extended. Lower slowly back to the starting point.',
+        tip: 'Keep your core engaged and avoid arching your lower back as you press the weights overhead.'
+      },
+      {
+        name: 'Biceps Curls',
+        category: 'Arms',
+        primary_muscle: 'Biceps',
+        secondary_muscle: 'Brachialis, Brachioradialis',
+        video_url: '/videos/biceps-curls.mp4',
+        setup: 'Stand upright with feet shoulder-width apart, holding dumbbells at your sides with palms facing forward.',
+        execution: 'Keep elbows close to your torso. Curl the weights while contracting your biceps. Lower slowly to full extension.',
+        tip: 'Do not swing your body or use momentum. Keep your upper arms completely stationary during the movement.'
+      },
+      {
+        name: 'One Arm Row',
+        category: 'Back',
+        primary_muscle: 'Latissimus Dorsi',
+        secondary_muscle: 'Rhomboids, Trapezius, Biceps',
+        video_url: '/videos/one-arm-row.mp4',
+        setup: 'Place one knee and same-side hand on a flat bench. Hold a dumbbell in your opposite hand with your arm extended down.',
+        execution: 'Pull the dumbbell up to your rib cage, keeping your elbow tucked close. Lower slowly back to start.',
+        tip: 'Focus on drawing your elbow back rather than pulling with your forearm. Squeeze your lat at the top.'
+      },
+      {
+        name: 'Flat Bench Press',
+        category: 'Chest',
+        primary_muscle: 'Pectorals',
+        secondary_muscle: 'Triceps, Anterior Deltoids',
+        video_url: '/videos/flat-bench-press.mp4',
+        setup: 'Lie flat on a bench. Grip the barbell slightly wider than shoulder width. Feet flat on the floor.',
+        execution: 'Unrack the bar. Lower it slowly to mid-chest. Press upward forcefully until arms are locked out.',
+        tip: 'Keep your shoulder blades retracted and drive your feet into the floor to maintain tension.'
+      },
+      {
+        name: 'Barbell Squat',
+        category: 'Legs',
+        primary_muscle: 'Quadriceps',
+        secondary_muscle: 'Glutes, Hamstrings, Core',
+        video_url: '/videos/barbell-squat.mp4',
+        setup: 'Rest barbell on your upper back. Feet shoulder-width apart, toes pointed slightly outwards.',
+        execution: 'Send hips back and bend knees to lower until thighs are parallel to the floor or lower. Press back to standing.',
+        tip: 'Keep chest upright, knees tracking in line with toes, and drive through your heels.'
+      },
+      {
+        name: 'Leg Extensions',
+        category: 'Legs',
+        primary_muscle: 'Quadriceps',
+        secondary_muscle: 'None',
+        video_url: '/videos/leg-extensions.mp4',
+        setup: 'Sit in the extension machine. Place shins behind the padded roller. Grip side handles for support.',
+        execution: 'Extend knees fully, squeezing quadriceps at the top. Lower the load under control to starting point.',
+        tip: 'Do not allow your lower back to arch. Keep glutes firmly pressed into the seat.'
+      },
+      {
+        name: 'Romanian Deadlift',
+        category: 'Legs',
+        primary_muscle: 'Hamstrings',
+        secondary_muscle: 'Glutes, Lower Back',
+        video_url: '/videos/romanian-deadlift.mp4',
+        setup: 'Stand holding a barbell at hip height. Feet hip-width apart, knees slightly unlocked.',
+        execution: 'Hinge forward at the hips, keeping back flat. Lower weight along thighs/shins until stretch is felt in hamstrings. Return to top.',
+        tip: 'Ensure the bar remains close to your body and avoid bending the knees further during the descent.'
+      },
+      {
+        name: 'Overhead Triceps Extension',
+        category: 'Arms',
+        primary_muscle: 'Triceps',
+        secondary_muscle: 'Shoulders',
+        video_url: '/videos/overhead-triceps-extension.mp4',
+        setup: 'Hold a dumbbell with both hands overhead, arms fully extended.',
+        execution: 'Keep elbows tucked in close. Lower the weight behind your head by bending elbows. Extend back to top.',
+        tip: 'Ensure only your forearms move; your upper arms should remain stationary and vertical.'
+      },
+      {
+        name: 'Hammer Curls',
+        category: 'Arms',
+        primary_muscle: 'Biceps',
+        secondary_muscle: 'Brachialis, Forearms',
+        video_url: '/videos/hammer-curls.mp4',
+        setup: 'Stand upright with a dumbbell in each hand, palms facing each other (neutral grip).',
+        execution: 'Keep upper arms stationary. Curl the weights forward while contracting biceps. Lower to starting point.',
+        tip: 'Avoid swinging weights or using body momentum. Keep elbows close to your sides.'
+      },
+      {
+        name: 'Plank',
+        category: 'Core',
+        primary_muscle: 'Core / Abs',
+        secondary_muscle: 'Shoulders, Glutes',
+        video_url: '/videos/plank.mp4',
+        setup: 'Place forearms on floor, elbows aligned under shoulders. Extend legs straight back, resting on toes.',
+        execution: 'Hold a straight line from head to heels. Contract abs, glutes, and thighs.',
+        tip: 'Do not allow hips to sag or rise. Keep neck neutral by looking at the floor.'
+      },
+      {
+        name: 'Hanging Leg Raises',
+        category: 'Core',
+        primary_muscle: 'Core / Abs',
+        secondary_muscle: 'Hip Flexors, Grip Strength',
+        video_url: '/videos/hanging-leg-raises.mp4',
+        setup: 'Hang from a pull-up bar with arms fully extended, using an overhand grip.',
+        execution: 'Keep legs straight. Raise them up until they are parallel to the floor or higher. Lower slowly under control.',
+        tip: 'Minimize swinging. Engage your core before starting each rep.'
+      },
+      {
+        name: 'Dumbbell Lateral Raises',
+        category: 'Shoulders',
+        primary_muscle: 'Side Delts',
+        secondary_muscle: 'Trapezius',
+        video_url: '/videos/dumbbell-lateral-raises.mp4',
+        setup: 'Stand upright holding dumbbells at your sides, palms facing inwards.',
+        execution: 'Raise arms out to the sides with a slight elbow bend, until parallel to the floor. Lower under control.',
+        tip: 'Lead the movement with your elbows and avoid shrugging your shoulders at the top.'
+      },
+      {
+        name: 'Pull-ups',
+        category: 'Back',
+        primary_muscle: 'Back / Lats',
+        secondary_muscle: 'Biceps, Rear Delts',
+        video_url: '/videos/pull-ups.mp4',
+        setup: 'Grip pull-up bar with palms facing away from you, wider than shoulder-width.',
+        execution: 'Pull your body up until your chin clears the bar. Lower slowly to a dead hang.',
+        tip: 'Focus on driving your elbows down toward your ribs to engage your back muscles.'
+      }
+    ];
+
+    // Read the general library names and merge them to fill out the seed data
+    const exerciseLibraryModule = await import('../data/exerciseLibrary');
+    const allLibrary = exerciseLibraryModule.EXERCISE_LIBRARY || [];
+
+    const seedData = [...presets];
+    
+    // Add library exercises that aren't already covered in presets
+    allLibrary.forEach(item => {
+      if (!seedData.find(s => s.name.toLowerCase() === item.name.toLowerCase())) {
+        seedData.push({
+          name: item.name,
+          category: item.category,
+          primary_muscle: item.primary,
+          secondary_muscle: '',
+          video_url: '',
+          setup: '',
+          execution: '',
+          tip: ''
+        });
+      }
+    });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.from('exercises').select('id').limit(1);
+        if (!error && (!data || data.length === 0)) {
+          console.log('[seeding] Seeding exercises table in Supabase...');
+          const { error: insertError } = await supabase.from('exercises').insert(seedData);
+          if (insertError) console.error('[seeding] Supabase exercise seeding error:', insertError);
+        }
+      } catch (err) {
+        console.error('[seeding] Failed to seed Supabase exercises:', err);
+      }
+    } else {
+      // Mock mode seeding
+      const mockEx = this.getMockTable('exercises');
+      if (mockEx.length === 0) {
+        console.log('[seeding] Seeding mock_exercises table in localStorage...');
+        const mockedSeed = seedData.map((item, index) => ({
+          id: `ex-${index}-${Math.random().toString(36).substring(2, 6)}`,
+          ...item,
+          created_at: new Date().toISOString()
+        }));
+        this.saveMockTable('exercises', mockedSeed);
+      }
+    }
+  },
+
+  async getExerciseLibrary() {
+    await this.seedExerciseLibrary();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('exercises')
+          .select('*')
+          .order('name', { ascending: true });
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn('Error fetching exercises from Supabase, falling back to local mocks:', err);
+        const mockEx = this.getMockTable('exercises');
+        return mockEx.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    } else {
+      // Mock mode
+      const mockEx = this.getMockTable('exercises');
+      return mockEx.sort((a, b) => a.name.localeCompare(b.name));
+    }
+  },
+
+  async saveExercise(exercise) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const payload = {
+          name: exercise.name,
+          category: exercise.category,
+          primary_muscle: exercise.primary_muscle,
+          secondary_muscle: exercise.secondary_muscle || '',
+          video_url: exercise.video_url || '',
+          setup: exercise.setup || '',
+          execution: exercise.execution || '',
+          tip: exercise.tip || ''
+        };
+
+        if (exercise.id) {
+          const { data, error } = await supabase
+            .from('exercises')
+            .update(payload)
+            .eq('id', exercise.id)
+            .select()
+            .single();
+          if (error) throw error;
+          return data;
+        } else {
+          const { data, error } = await supabase
+            .from('exercises')
+            .insert([payload])
+            .select()
+            .single();
+          if (error) throw error;
+          return data;
+        }
+      } catch (err) {
+        console.error('Error saving exercise to Supabase:', err);
+        throw err;
+      }
+    } else {
+      const mockEx = this.getMockTable('exercises');
+      if (exercise.id) {
+        const idx = mockEx.findIndex(e => e.id === exercise.id);
+        if (idx !== -1) {
+          mockEx[idx] = {
+            ...mockEx[idx],
+            name: exercise.name,
+            category: exercise.category,
+            primary_muscle: exercise.primary_muscle,
+            secondary_muscle: exercise.secondary_muscle || '',
+            video_url: exercise.video_url || '',
+            setup: exercise.setup || '',
+            execution: exercise.execution || '',
+            tip: exercise.tip || ''
+          };
+          this.saveMockTable('exercises', mockEx);
+          return mockEx[idx];
+        }
+      } else {
+        const newEx = {
+          id: `ex-${Math.random().toString(36).substring(2, 9)}`,
+          name: exercise.name,
+          category: exercise.category,
+          primary_muscle: exercise.primary_muscle,
+          secondary_muscle: exercise.secondary_muscle || '',
+          video_url: exercise.video_url || '',
+          setup: exercise.setup || '',
+          execution: exercise.execution || '',
+          tip: exercise.tip || '',
+          created_at: new Date().toISOString()
+        };
+        mockEx.push(newEx);
+        this.saveMockTable('exercises', mockEx);
+        return newEx;
+      }
+    }
+  },
+
+  async uploadExerciseVideo(file) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data, error } = await supabase.storage
+          .from('exercise-videos')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('exercise-videos')
+          .getPublicUrl(filePath);
+
+        return publicUrl;
+      } catch (err) {
+        console.error('Error uploading video to Supabase Storage:', err);
+        throw err;
+      }
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      return `/videos/shoulders-press.mp4`;
+    }
   }
-};
+}
 
 export default databaseService;

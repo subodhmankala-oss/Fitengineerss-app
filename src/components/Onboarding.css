@@ -1522,3 +1522,31 @@
   cursor: not-allowed;
   transform: none;
 }
+
+/* ── Flip Text Animation (Cross-Fade Odometer Style) ── */
+.flip-wrapper {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  height: 1.25em;
+  overflow: hidden;
+  width: 100%;
+}
+
+.flip-text {
+  display: inline-block;
+  white-space: nowrap;
+  animation: flipIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes flipIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

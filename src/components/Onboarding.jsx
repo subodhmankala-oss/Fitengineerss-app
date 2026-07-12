@@ -97,9 +97,12 @@ const Onboarding = ({ onComplete }) => {
   );
   const [showClientEmailForm, setShowClientEmailForm] = useState(false);
   const [showClientSignUpConfirm, setShowClientSignUpConfirm] = useState(false);
+  const [emailExists, setEmailExists] = useState(null);
   // Mirrors showClientEmailForm for the Coach tab: false = clean two-button
   // chooser (Google / Continue with email), true = the coach email login form.
   const [showCoachEmailForm, setShowCoachEmailForm] = useState(false);
+  const [showCoachSignUpConfirm, setShowCoachSignUpConfirm] = useState(false);
+  const [coachApplyPassword, setCoachApplyPassword] = useState('');
   const [forgotPasswordSuccessMsg, setForgotPasswordSuccessMsg] = useState('');
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
   const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
@@ -520,6 +523,27 @@ const Onboarding = ({ onComplete }) => {
     localStorage.setItem('coachLoginInProgress', 'true');
     try {
       let profile = await databaseService.getUserProfileByEmail(authEmail);
+
+      if (!profile) {
+        // Unified flow: new coach account (does not exist in users table)
+        if (!showCoachSignUpConfirm) {
+          setShowCoachSignUpConfirm(true);
+          setAuthLoading(false);
+          localStorage.removeItem('coachLoginInProgress');
+          return;
+        }
+
+        // Confirmed: carry over credentials and forward to coach signup form
+        setCoachApplyEmail(authEmail);
+        setCoachApplyPassword(authPassword);
+        setUserType('coach');
+        setAuthTab('coach_apply');
+        setShowCoachSignUpConfirm(false);
+        setAuthLoading(false);
+        localStorage.removeItem('coachLoginInProgress');
+        return;
+      }
+
       let signInSuccess = false;
       // profile.id is the users.id we need for the coaches lookup below, but a
       // coach's Supabase Auth account can exist (e.g. one they just claimed
@@ -933,6 +957,40 @@ const Onboarding = ({ onComplete }) => {
   }, [name]);
 
 
+  // Debounced email check for dynamic button labels (Continue vs. Sign Up)
+  useEffect(() => {
+    if (!authEmail.trim() || !authEmail.includes('@') || !authEmail.includes('.')) {
+      setEmailExists(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        if (isSupabaseConfigured) {
+          const resp = await fetch('/api/check-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: authEmail.trim() })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            setEmailExists(data.exists);
+          }
+        } else {
+          // Mock mode check
+          const mockUsers = databaseService.getMockTable('users');
+          const exists = mockUsers.some(u => u.email.toLowerCase() === authEmail.toLowerCase().trim());
+          setEmailExists(exists);
+        }
+      } catch (err) {
+        console.warn('Error checking email existence (non-fatal):', err);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [authEmail]);
+
+
   // Automatic sliding carousel for onboarding mockup
   useEffect(() => {
     if (step !== 0 || showAuthForm) return;
@@ -1196,7 +1254,7 @@ const Onboarding = ({ onComplete }) => {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
-                  <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
+                  <input name="password" type="password" placeholder="••••••••" value={coachApplyPassword} onChange={e => setCoachApplyPassword(e.target.value)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
                   {coachApplyEmail && (
                     <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.5)' }}>
                       Enter the password you just set via "Forgot password?" for this account.
@@ -1550,13 +1608,42 @@ const Onboarding = ({ onComplete }) => {
                       <button 
                         type="submit" 
                         className="gmail-login-btn"
-                        style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff' }}
+                        style={{ 
+                          width: '100%', 
+                          margin: 0, 
+                          padding: '12px', 
+                          background: emailExists === true ? 'linear-gradient(135deg, #6d28d9, #4c1d95)' :
+                                      emailExists === false ? 'linear-gradient(135deg, #8b5cf6, #d946ef)' :
+                                      'linear-gradient(135deg, #334155, #1e293b)',
+                          border: 'none', 
+                          color: '#fff',
+                          transition: 'all 0.4s ease'
+                        }}
                         disabled={authLoading}
                       >
-                        {authLoading ? 'Authenticating...' : 'Log In'}
+                        <span className="flip-wrapper">
+                          <span 
+                            key={authLoading ? 'Continuing...' : (
+                              emailExists === true ? 'Log In' :
+                              emailExists === false ? 'Sign Up' :
+                              'Continue'
+                            )} 
+                            className="flip-text"
+                          >
+                            {authLoading ? 'Continuing...' : (
+                              emailExists === true ? 'Log In' :
+                              emailExists === false ? 'Sign Up' :
+                              'Continue'
+                            )}
+                          </span>
+                        </span>
                       </button>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.45)', textAlign: 'center', lineHeight: 1.4 }}>
+                        Enter your email to log in or create a new client account.
+                      </p>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '6px' }}>
                         <button
                           type="button" 
                           onClick={() => { setShowClientEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
@@ -1650,27 +1737,15 @@ const Onboarding = ({ onComplete }) => {
                   >
                     Continue with email
                   </button>
-
-                  <p style={{ margin: '4px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
-                    Not a coach yet?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthTab('coach_apply');
-                        localStorage.setItem('pendingCoachApply', 'true');
-                      }}
-                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      Sign up
-                    </button>
-                  </p>
                 </div>
               )}
 
               {/* COACH EMAIL FORM */}
               {userType === 'coach' && showCoachEmailForm && (
                 <form onSubmit={handleCoachEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach Login</h4>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>
+                    {showCoachSignUpConfirm ? 'Create Coach Profile' : 'Coach Login'}
+                  </h4>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
@@ -1681,63 +1756,51 @@ const Onboarding = ({ onComplete }) => {
                       onChange={e => setAuthEmail(e.target.value)} 
                       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }}
                       required 
-                      disabled={authLoading}
+                      disabled={authLoading || showCoachSignUpConfirm}
                     />
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Password</label>
-                      <button 
-                        type="button"
-                        onClick={async () => {
-                          if (!authEmail) {
-                            setAuthError('Please enter your coach email address first to reset password.');
-                            return;
-                          }
-                          setAuthError('');
-                          setAuthSuccessMsg('');
-                          try {
-                            setAuthLoading(true);
-                            // Same server-side dispatch as the client flow: generates the
-                            // recovery link via the admin API and emails it through Resend,
-                            // bypassing Supabase's own mailer (which fails outright for
-                            // every address — see api/request-password-reset.js). The old
-                            // direct resetPasswordForEmail() call here hit that same broken
-                            // mailer and silently never delivered anything.
-                            const resp = await fetch('/api/request-password-reset', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              // role: 'coach' is embedded into the emailed confirm link so
-                              // that after they set their new password, the app knows to
-                              // land them back on the Coach tab (with this email prefilled)
-                              // instead of defaulting to the Client tab — see AuthConfirm.jsx.
-                              body: JSON.stringify({ email: authEmail.trim().toLowerCase(), role: 'coach' })
-                            });
-                            const data = await resp.json().catch(() => ({}));
-                            if (!resp.ok) {
-                              throw new Error(data.error || 'We couldn\'t send the reset email right now. Please try again in a few minutes.');
+                      {!showCoachSignUpConfirm && (
+                        <button 
+                          type="button"
+                          onClick={async () => {
+                            if (!authEmail) {
+                              setAuthError('Please enter your coach email address first to reset password.');
+                              return;
                             }
-                            // The coach flow is honest about a missing account
-                            // (unlike the public client flow): show a real error
-                            // instead of a "check your inbox" message the coach
-                            // would wait on forever. See api/request-password-reset.js.
-                            if (data.accountExists === false) {
-                              setCoachApplyEmail(authEmail.trim().toLowerCase());
-                              setAuthError(data.message || 'No coach account found with this email.');
-                            } else {
-                              setAuthSuccessMsg("If that email is registered, you'll receive a password reset link shortly.");
+                            setAuthError('');
+                            setAuthSuccessMsg('');
+                            try {
+                              setAuthLoading(true);
+                              const resp = await fetch('/api/request-password-reset', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: authEmail.trim().toLowerCase(), role: 'coach' })
+                              });
+                              const data = await resp.json().catch(() => ({}));
+                              if (!resp.ok) {
+                                throw new Error(data.error || 'We couldn\'t send the reset email right now. Please try again in a few minutes.');
+                              }
+                              if (data.accountExists === false) {
+                                setCoachApplyEmail(authEmail.trim().toLowerCase());
+                                setAuthError(data.message || 'No coach account found with this email.');
+                              } else {
+                                setAuthSuccessMsg("If that email is registered, you'll receive a password reset link shortly.");
+                              }
+                            } catch(err) {
+                              setAuthError(err.message || 'Failed to send reset link.');
+                            } finally {
+                              setAuthLoading(false);
                             }
-                          } catch(err) {
-                            setAuthError(err.message || 'Failed to send reset link.');
-                          } finally {
-                            setAuthLoading(false);
-                          }
-                        }}
-                        style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                      >
-                        Forgot password?
-                      </button>
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
                     </div>
                     <input 
                       type="password" 
@@ -1746,42 +1809,82 @@ const Onboarding = ({ onComplete }) => {
                       onChange={e => setAuthPassword(e.target.value)} 
                       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }}
                       required 
-                      disabled={authLoading}
+                      disabled={authLoading || showCoachSignUpConfirm}
                     />
                   </div>
 
-                  <button 
-                    type="submit" 
-                    className="gmail-login-btn"
-                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
-                    disabled={authLoading}
-                  >
-                    {authLoading ? 'Logging In...' : 'Log In as Coach'}
-                  </button>
+                  {showCoachSignUpConfirm ? (
+                    <div style={{
+                      padding: '14px',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      borderRadius: '10px',
+                      color: '#a7f3d0',
+                      fontSize: '0.85rem',
+                      lineHeight: '1.4'
+                    }}>
+                      <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px' }}>📋 Create coach profile?</div>
+                      No coach account exists for this email. Click below to proceed to the Coach Sign Up form.
+                      
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                        <button 
+                          type="submit" 
+                          className="gmail-login-btn"
+                          style={{ flex: 1, margin: 0, padding: '10px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff', fontSize: '0.82rem' }}
+                          disabled={authLoading}
+                        >
+                          {authLoading ? 'Redirecting...' : 'Yes, Sign Up'}
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => { setShowCoachSignUpConfirm(false); setAuthError(''); }}
+                          style={{ flex: 1, margin: 0, padding: '10px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: '0.82rem', cursor: 'pointer', borderRadius: '8px' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button 
+                        type="submit" 
+                        className="gmail-login-btn"
+                        style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+                        disabled={authLoading}
+                      >
+                        <span className="flip-wrapper">
+                          <span 
+                            key={authLoading ? 'Continuing...' : (
+                              emailExists === true ? 'Log In as Coach' :
+                              emailExists === false ? 'Sign Up as Coach' :
+                              'Continue as Coach'
+                            )} 
+                            className="flip-text"
+                          >
+                            {authLoading ? 'Continuing...' : (
+                              emailExists === true ? 'Log In as Coach' :
+                              emailExists === false ? 'Sign Up as Coach' :
+                              'Continue as Coach'
+                            )}
+                          </span>
+                        </span>
+                      </button>
 
-                  <p style={{ margin: '8px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
-                    Not a coach yet?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthTab('coach_apply');
-                        localStorage.setItem('pendingCoachApply', 'true');
-                      }}
-                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      Sign up
-                    </button>
-                  </p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.45)', textAlign: 'center', lineHeight: 1.4 }}>
+                        New coach? We'll guide you to create your profile.
+                      </p>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
-                    <button
-                      type="button"
-                      onClick={() => { setShowCoachEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
-                      style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      ← Back
-                    </button>
-                  </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => { setShowCoachEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
+                          style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          ← Back
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </form>
               )}
 

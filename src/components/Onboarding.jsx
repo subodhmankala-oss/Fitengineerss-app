@@ -1849,7 +1849,17 @@ const Onboarding = ({ onComplete }) => {
                       <button 
                         type="submit" 
                         className="gmail-login-btn"
-                        style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+                        style={{ 
+                          width: '100%', 
+                          margin: 0, 
+                          padding: '12px', 
+                          background: emailExists === true ? 'linear-gradient(135deg, #059669, #064e3b)' :
+                                      emailExists === false ? 'linear-gradient(135deg, #10b981, #06b6d4)' :
+                                      'linear-gradient(135deg, #334155, #1e293b)',
+                          border: 'none', 
+                          color: '#fff',
+                          transition: 'all 0.4s ease'
+                        }}
                         disabled={authLoading}
                       >
                         <span className="flip-wrapper">

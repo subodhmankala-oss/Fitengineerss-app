@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import './ConnectCoachModal.css';
 
@@ -13,12 +13,29 @@ const ConnectCoachModal = ({ onClose, onSuccess }) => {
   }, []);
 
   const extractCode = (val) => {
+    // 1. Remove all spaces in case they typed/pasted spaced-out letters like "B P M Y T T"
+    const noSpaces = val.replace(/\s+/g, '');
+    if (noSpaces.length === 6 && /^[a-zA-Z0-9]{6}$/.test(noSpaces)) {
+      return noSpaces.toUpperCase();
+    }
+
     const trimmed = val.trim();
+    // 2. If it's a URL, extract the last path segment (and strip query params)
     if (trimmed.startsWith('http')) {
       const parts = trimmed.split('/').filter(Boolean);
-      return parts[parts.length - 1] || '';
+      const lastPart = parts[parts.length - 1] || '';
+      return lastPart.split('?')[0].trim().toUpperCase();
     }
-    return trimmed;
+
+    // 3. If it's the full message text, find a 6-character alphanumeric pattern
+    const codeMatch = trimmed.match(/(?:code:\s*|code\s+|program:\s*)([a-zA-Z0-9]{6})\b/i) || 
+                      trimmed.match(/\b([a-zA-Z0-9]{6})\b/);
+                      
+    if (codeMatch) {
+      return codeMatch[1].toUpperCase();
+    }
+
+    return trimmed.toUpperCase();
   };
 
   const handleSubmit = async (e) => {

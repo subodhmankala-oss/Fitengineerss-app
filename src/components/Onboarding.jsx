@@ -96,6 +96,7 @@ const Onboarding = ({ onComplete }) => {
     localStorage.getItem('pendingCoachApply') === 'true'
   );
   const [showClientEmailForm, setShowClientEmailForm] = useState(false);
+  const [showClientSignUpConfirm, setShowClientSignUpConfirm] = useState(false);
   // Mirrors showClientEmailForm for the Coach tab: false = clean two-button
   // chooser (Google / Continue with email), true = the coach email login form.
   const [showCoachEmailForm, setShowCoachEmailForm] = useState(false);
@@ -358,8 +359,97 @@ const Onboarding = ({ onComplete }) => {
           throw new Error('Invalid email or password.');
         }
       } else {
-        // Client accounts are created by their coach — there is no self-serve sign-up.
-        throw new Error('No account found with this email. Please check the email address and try again.');
+        // User does not exist in DB
+        if (!showClientSignUpConfirm) {
+          // Pause and ask the user to confirm they want to sign up
+          setShowClientSignUpConfirm(true);
+          setAuthLoading(false);
+          return;
+        }
+
+        // Executing signup
+        if (isSupabaseConfigured && databaseService.supabase) {
+          const resp = await fetch('/api/register-client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: authEmail,
+              password: authPassword
+            })
+          });
+          const result = await resp.json();
+          if (!resp.ok || result.error) {
+            throw new Error(result.error || 'Registration failed');
+          }
+
+          if (result.hasSession) {
+            // Establish real browser session via signIn
+            await databaseService.signIn(authEmail, authPassword);
+            // Avoid querying the SDK via getUserProfileByEmail since setSession timeout
+            // indicates the browser SDK client state might be hung. Construct profile from response.
+            const newProfile = {
+              id: result.userId,
+              userClientId: result.clientId,
+              userName: 'Warrior',
+              role: 'client',
+              coach_id: null,
+              userAge: '30',
+              userHeight: '175',
+              userWeight: '70',
+              userActivity: 'Moderately Active',
+              userGoal: 'Fat Loss',
+              userDiet: 'Non-Vegetarian',
+              userCalorieTarget: '2000',
+              userProteinTarget: '120',
+              userCarbsTarget: '220',
+              userFatsTarget: '70',
+              onboardingCompleted: false
+            };
+            await databaseService.loadProfileIntoLocalStorage(newProfile, authEmail);
+            setUserRole('client');
+            setStep(1);
+            onComplete();
+          } else {
+            setAuthSuccessMsg(`Account created! Log in with your credentials to enter the dashboard.`);
+          }
+        } else {
+          // Mock mode: local signup
+          const mockUsers = databaseService.getMockTable('users');
+          const newId = 'user-' + Math.random().toString(36).substring(2, 9);
+          mockUsers.push({
+            id: newId,
+            email: authEmail,
+            password_hash: authPassword,
+            role: 'client'
+          });
+          databaseService.saveMockTable('users', mockUsers);
+
+          // Save default profile
+          await databaseService.saveUserProfile({
+            id: newId,
+            userName: 'Warrior',
+            email: authEmail,
+            role: 'client',
+            coach_id: null,
+            userAge: '30',
+            userHeight: '175',
+            userWeight: '70',
+            userActivity: 'Moderately Active',
+            userGoal: 'Fat Loss',
+            userDiet: 'Non-Vegetarian',
+            userCalorieTarget: '2000',
+            userProteinTarget: '120',
+            userCarbsTarget: '220',
+            userFatsTarget: '70'
+          });
+
+          localStorage.setItem('userEmail', authEmail);
+          localStorage.setItem('userId', newId);
+          localStorage.setItem('userRole', 'client');
+          setStep(1);
+          onComplete();
+        }
+        setShowClientSignUpConfirm(false);
       }
     } catch (err) {
       setAuthError(err.message || 'Client authentication failed.');
@@ -1289,7 +1379,7 @@ const Onboarding = ({ onComplete }) => {
                     type="button"
                     className={`role-toggle-btn ${userType === 'client' ? 'active-client' : ''}`}
                     style={{ flex: 1 }}
-                    onClick={() => { localStorage.removeItem('pendingCoachApply'); setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); setShowCoachEmailForm(false); }}
+                    onClick={() => { localStorage.removeItem('pendingCoachApply'); setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); setShowCoachEmailForm(false); setShowClientSignUpConfirm(false); }}
                   >
                     Client
                   </button>
@@ -1297,7 +1387,7 @@ const Onboarding = ({ onComplete }) => {
                     type="button"
                     className={`role-toggle-btn ${userType === 'coach' ? 'active-coach' : ''}`}
                     style={{ flex: 1 }}
-                    onClick={() => { setUserType('coach'); setAuthError(''); setAuthSuccessMsg(''); setShowCoachEmailForm(false); }}
+                    onClick={() => { setUserType('coach'); setAuthError(''); setAuthSuccessMsg(''); setShowCoachEmailForm(false); setShowClientSignUpConfirm(false); }}
                   >
                     Coach
                   </button>
@@ -1378,7 +1468,9 @@ const Onboarding = ({ onComplete }) => {
               {/* CLIENT EMAIL FORM */}
               {userType === 'client' && showClientEmailForm && authTab !== 'forgot_password' && (
                 <form onSubmit={handleClientEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Client Login</h4>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>
+                    {showClientSignUpConfirm ? 'Create Client Account' : 'Client Login'}
+                  </h4>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
@@ -1389,25 +1481,27 @@ const Onboarding = ({ onComplete }) => {
                       onChange={e => setAuthEmail(e.target.value)} 
                       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }}
                       required 
-                      disabled={authLoading}
+                      disabled={authLoading || showClientSignUpConfirm}
                     />
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Password</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthTab('forgot_password');
-                          setAuthError('');
-                          setAuthSuccessMsg('');
-                          setForgotPasswordSuccessMsg('');
-                        }}
-                        style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                      >
-                        Forgot password?
-                      </button>
+                      {!showClientSignUpConfirm && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthTab('forgot_password');
+                            setAuthError('');
+                            setAuthSuccessMsg('');
+                            setForgotPasswordSuccessMsg('');
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
                     </div>
                     <input 
                       type="password" 
@@ -1416,28 +1510,63 @@ const Onboarding = ({ onComplete }) => {
                       onChange={e => setAuthPassword(e.target.value)} 
                       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }}
                       required 
-                      disabled={authLoading}
+                      disabled={authLoading || showClientSignUpConfirm}
                     />
                   </div>
 
-                  <button 
-                    type="submit" 
-                    className="gmail-login-btn"
-                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff' }}
-                    disabled={authLoading}
-                  >
-                    {authLoading ? 'Authenticating...' : 'Log In'}
-                  </button>
+                  {showClientSignUpConfirm ? (
+                    <div style={{
+                      padding: '14px',
+                      background: 'rgba(139, 92, 246, 0.1)',
+                      border: '1px solid rgba(139, 92, 246, 0.25)',
+                      borderRadius: '10px',
+                      color: '#c4b5fd',
+                      fontSize: '0.85rem',
+                      lineHeight: '1.4'
+                    }}>
+                      <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px' }}>✉️ Create new account?</div>
+                      No account exists for this email address. Click below to register as a client.
+                      
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                        <button 
+                          type="submit" 
+                          className="gmail-login-btn"
+                          style={{ flex: 1, margin: 0, padding: '10px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff', fontSize: '0.82rem' }}
+                          disabled={authLoading}
+                        >
+                          {authLoading ? 'Registering...' : 'Yes, Sign Up'}
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => { setShowClientSignUpConfirm(false); setAuthError(''); }}
+                          style={{ flex: 1, margin: 0, padding: '10px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: '0.82rem', cursor: 'pointer', borderRadius: '8px' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button 
+                        type="submit" 
+                        className="gmail-login-btn"
+                        style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', border: 'none', color: '#fff' }}
+                        disabled={authLoading}
+                      >
+                        {authLoading ? 'Authenticating...' : 'Log In'}
+                      </button>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
-                    <button
-                      type="button" 
-                      onClick={() => { setShowClientEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
-                      style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      ← Back
-                    </button>
-                  </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
+                        <button
+                          type="button" 
+                          onClick={() => { setShowClientEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
+                          style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          ← Back
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </form>
               )}
 

@@ -6,6 +6,7 @@ import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
+import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -322,9 +323,10 @@ const presetExercises = [
   }
 ];
 
-// Form-guide lookup source: the 16 rich presets (with video/guide) take
-// precedence, then the shared EXERCISE_LIBRARY for muscle info. The picker
-// itself uses the shared library via <ExercisePickerModal>.
+// Form-guide lookup order: DB-sourced exercises (if loaded) take precedence,
+// then the 16 rich presets (with video/guide), then the shared
+// EXERCISE_LIBRARY for muscle info. The picker itself uses the shared
+// library via <ExercisePickerModal>.
 const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
   .filter((ex, idx, arr) => arr.findIndex(e => e.name.toLowerCase() === ex.name.toLowerCase()) === idx)
   .sort((a, b) => a.name.localeCompare(b.name));
@@ -491,6 +493,11 @@ const WorkoutTracker = () => {
   const [summaryStats, setSummaryStats] = useState(null);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   const [guideTab, setGuideTab] = useState('summary');
+  const [exercisesList, setExercisesList] = useState([]);
+
+  useEffect(() => {
+    databaseService.getExerciseLibrary().then(setExercisesList).catch(err => console.error(err));
+  }, []);
 
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
 
@@ -1467,14 +1474,15 @@ const WorkoutTracker = () => {
                 type="button"
                 className="video-guide-btn"
                 onClick={() => {
-                  const matched = presetExercises.find(ex => ex.name.toLowerCase() === selectedExercise.toLowerCase());
+                  const matched = exercisesList.find(ex => ex.name.toLowerCase() === selectedExercise.toLowerCase()) ||
+                                  presetExercises.find(ex => ex.name.toLowerCase() === selectedExercise.toLowerCase());
                   if (matched) {
-                    setActiveGuideExercise(matched);
+                    setActiveGuideExercise(normalizeExerciseForGuide(matched));
                   } else {
                     setActiveGuideExercise({
                       name: selectedExercise,
                       category: 'Custom',
-                      videoId: 'P5k8K_vX6-s',
+                      videoFile: '',
                       guide: {
                         target: 'Primary Muscle Group',
                         setup: 'Position yourself comfortably with stable support and check alignment.',
@@ -2273,14 +2281,15 @@ const WorkoutTracker = () => {
                           type="button"
                           className="btn-form-guide-sm"
                           onClick={() => {
-                            const matched = allExerciseOptions.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase());
+                            const matched = exercisesList.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase()) ||
+                                            allExerciseOptions.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase());
                             if (matched) {
-                              setActiveGuideExercise(matched);
+                              setActiveGuideExercise(normalizeExerciseForGuide(matched));
                             } else {
                               setActiveGuideExercise({
                                 name: ex.name,
                                 category: 'Custom',
-                                videoId: 'P5k8K_vX6-s',
+                                videoFile: '',
                                 guide: {
                                   target: 'Primary Muscle Group',
                                   setup: 'Position yourself comfortably with stable support and check alignment.',
@@ -2640,16 +2649,27 @@ const WorkoutTracker = () => {
             {/* exercise video */}
             <div className="guide-image-section">
               {activeGuideExercise.videoFile ? (
-                <video
-                  key={activeGuideExercise.videoFile}
-                  src={activeGuideExercise.videoFile}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  controls
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
+                getYouTubeEmbedUrl(activeGuideExercise.videoFile) ? (
+                  <iframe
+                    key={activeGuideExercise.videoFile}
+                    src={getYouTubeEmbedUrl(activeGuideExercise.videoFile)}
+                    title="Exercise Form Guide"
+                    frameBorder="0"
+                    allowFullScreen
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' }}
+                  />
+                ) : (
+                  <video
+                    key={activeGuideExercise.videoFile}
+                    src={activeGuideExercise.videoFile}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                )
               ) : (
                 <div className="guide-image-placeholder">
                   <span className="guide-image-icon">🏋️</span>

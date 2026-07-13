@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import './ClientProfile.css';
 
@@ -65,6 +65,32 @@ export default function ClientProfile({ handleLogout }) {
 
   const userEmail = localStorage.getItem('userEmail') || '';
   const notifState = 'Notification' in window ? Notification.permission : 'unsupported';
+
+  // The fields above are seeded from localStorage for an instant paint, but
+  // that cache is never refreshed on its own — it can go stale relative to
+  // the actual clients row (e.g. after a coach recalculates targets), which
+  // showed up as this screen displaying different calorie/protein numbers
+  // than the coach's dashboard for the same person. Reconcile once on mount
+  // from the same source of truth the coach dashboard reads, same
+  // cache-then-reconcile pattern used elsewhere in this app. Only overwrites
+  // fields the DB actually has a value for, so it can't blank out something
+  // the cache had that the fetch (e.g. a transient failure) didn't return.
+  useEffect(() => {
+    if (!userEmail) return;
+    let cancelled = false;
+    databaseService.getUserProfileByEmail(userEmail).then(profile => {
+      if (cancelled || !profile) return;
+      const fresh = {};
+      ['userName', 'userAge', 'userHeight', 'userWeight', 'userGoal', 'userActivity', 'userDiet',
+        'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget'].forEach(key => {
+        if (profile[key]) fresh[key] = String(profile[key]);
+      });
+      if (Object.keys(fresh).length === 0) return;
+      setForm(f => ({ ...f, ...fresh }));
+      Object.entries(fresh).forEach(([k, v]) => localStorage.setItem(k, v));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [userEmail]);
 
   const initial = form.userName?.charAt(0)?.toUpperCase() || '?';
 

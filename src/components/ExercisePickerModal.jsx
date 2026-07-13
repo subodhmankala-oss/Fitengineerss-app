@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES } from '../data/exerciseLibrary';
+import databaseService from '../services/databaseService';
 
 // Shared Hevy-style "Add Exercise" modal used by both the client (WorkoutTracker)
 // and the coach (TrainerDashboard). Stays open after each add so several
@@ -8,17 +9,27 @@ import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES } from '../data/exerciseLibrary';
 export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove }) {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState('All');
+  const [exercises, setExercises] = useState([]);
+
+  useEffect(() => {
+    if (open) {
+      databaseService.getExerciseLibrary()
+        .then(setExercises)
+        .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
+    }
+  }, [open]);
 
   if (!open) return null;
 
+  const activeLibrary = exercises.length > 0 ? exercises : EXERCISE_LIBRARY;
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();
-  const filtered = EXERCISE_LIBRARY.filter(ex => {
+  const filtered = activeLibrary.filter(ex => {
     const matchesSearch = ex.name.toLowerCase().includes(query.toLowerCase());
     const matchesCategory = tag === 'All' || ex.category === tag;
     return matchesSearch && matchesCategory;
   });
-  const exactExists = EXERCISE_LIBRARY.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
+  const exactExists = activeLibrary.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
 
   return (
     <div className="payment-gateway-backdrop exercise-modal-backdrop">
@@ -94,7 +105,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                   </div>
                   <div className="preset-info">
                     <strong>{ex.name}</strong>
-                    <span>{ex.primary || ex.category}</span>
+                    <span>{ex.primary_muscle || ex.primary || ex.category}</span>
                   </div>
                   <button
                     type="button"

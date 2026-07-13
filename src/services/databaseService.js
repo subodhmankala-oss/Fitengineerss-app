@@ -3229,6 +3229,345 @@ const databaseService = {
     localStorage.setItem('coaches_list', JSON.stringify(coaches));
     try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
     return coaches;
+  },
+
+  // Seeding initial exercises library
+  async seedExerciseLibrary() {
+    // Initial preset exercises with full video and guide text
+    const presets = [
+      {
+        name: 'Shoulders Press',
+        category: 'Shoulders',
+        primary_muscle: 'Deltoids',
+        secondary_muscle: 'Triceps, Upper Chest',
+        video_url: '/videos/shoulders-press.mp4',
+        setup: 'Sit on a bench with back support. Hold dumbbells at shoulder height with an overhand grip, elbows bent at 90 degrees.',
+        execution: 'Press the weights straight up above your head until your arms are fully extended. Lower slowly back to the starting point.',
+        tip: 'Keep your core engaged and avoid arching your lower back as you press the weights overhead.'
+      },
+      {
+        name: 'Biceps Curls',
+        category: 'Arms',
+        primary_muscle: 'Biceps',
+        secondary_muscle: 'Brachialis, Brachioradialis',
+        video_url: '/videos/biceps-curls.mp4',
+        setup: 'Stand upright with feet shoulder-width apart, holding dumbbells at your sides with palms facing forward.',
+        execution: 'Keep elbows close to your torso. Curl the weights while contracting your biceps. Lower slowly to full extension.',
+        tip: 'Do not swing your body or use momentum. Keep your upper arms completely stationary during the movement.'
+      },
+      {
+        name: 'One Arm Row',
+        category: 'Back',
+        primary_muscle: 'Latissimus Dorsi',
+        secondary_muscle: 'Rhomboids, Trapezius, Biceps',
+        video_url: '/videos/one-arm-row.mp4',
+        setup: 'Place one knee and same-side hand on a flat bench. Hold a dumbbell in your opposite hand with your arm extended down.',
+        execution: 'Pull the dumbbell up to your rib cage, keeping your elbow tucked close. Lower slowly back to start.',
+        tip: 'Focus on drawing your elbow back rather than pulling with your forearm. Squeeze your lat at the top.'
+      },
+      {
+        name: 'Flat Bench Press',
+        category: 'Chest',
+        primary_muscle: 'Pectorals',
+        secondary_muscle: 'Triceps, Anterior Deltoids',
+        video_url: '/videos/flat-bench-press.mp4',
+        setup: 'Lie flat on a bench. Grip the barbell slightly wider than shoulder width. Feet flat on the floor.',
+        execution: 'Unrack the bar. Lower it slowly to mid-chest. Press upward forcefully until arms are locked out.',
+        tip: 'Keep your shoulder blades retracted and drive your feet into the floor to maintain tension.'
+      },
+      {
+        name: 'Barbell Squat',
+        category: 'Legs',
+        primary_muscle: 'Quadriceps',
+        secondary_muscle: 'Glutes, Hamstrings, Core',
+        video_url: '/videos/barbell-squat.mp4',
+        setup: 'Rest barbell on your upper back. Feet shoulder-width apart, toes pointed slightly outwards.',
+        execution: 'Send hips back and bend knees to lower until thighs are parallel to the floor or lower. Press back to standing.',
+        tip: 'Keep chest upright, knees tracking in line with toes, and drive through your heels.'
+      },
+      {
+        name: 'Leg Extensions',
+        category: 'Legs',
+        primary_muscle: 'Quadriceps',
+        secondary_muscle: 'None',
+        video_url: '/videos/leg-extensions.mp4',
+        setup: 'Sit in the extension machine. Place shins behind the padded roller. Grip side handles for support.',
+        execution: 'Extend knees fully, squeezing quadriceps at the top. Lower the load under control to starting point.',
+        tip: 'Do not allow your lower back to arch. Keep glutes firmly pressed into the seat.'
+      },
+      {
+        name: 'Romanian Deadlift',
+        category: 'Legs',
+        primary_muscle: 'Hamstrings',
+        secondary_muscle: 'Glutes, Lower Back',
+        video_url: '/videos/romanian-deadlift.mp4',
+        setup: 'Stand holding a barbell at hip height. Feet hip-width apart, knees slightly unlocked.',
+        execution: 'Hinge forward at the hips, keeping back flat. Lower weight along thighs/shins until stretch is felt in hamstrings. Return to top.',
+        tip: 'Ensure the bar remains close to your body and avoid bending the knees further during the descent.'
+      },
+      {
+        name: 'Overhead Triceps Extension',
+        category: 'Arms',
+        primary_muscle: 'Triceps',
+        secondary_muscle: 'Shoulders',
+        video_url: '/videos/overhead-triceps-extension.mp4',
+        setup: 'Hold a dumbbell with both hands overhead, arms fully extended.',
+        execution: 'Keep elbows tucked in close. Lower the weight behind your head by bending elbows. Extend back to top.',
+        tip: 'Ensure only your forearms move; your upper arms should remain stationary and vertical.'
+      },
+      {
+        name: 'Hammer Curls',
+        category: 'Arms',
+        primary_muscle: 'Biceps',
+        secondary_muscle: 'Brachialis, Forearms',
+        video_url: '/videos/hammer-curls.mp4',
+        setup: 'Stand upright with a dumbbell in each hand, palms facing each other (neutral grip).',
+        execution: 'Keep upper arms stationary. Curl the weights forward while contracting biceps. Lower to starting point.',
+        tip: 'Avoid swinging weights or using body momentum. Keep elbows close to your sides.'
+      },
+      {
+        name: 'Plank',
+        category: 'Core',
+        primary_muscle: 'Core / Abs',
+        secondary_muscle: 'Shoulders, Glutes',
+        video_url: '/videos/plank.mp4',
+        setup: 'Place forearms on floor, elbows aligned under shoulders. Extend legs straight back, resting on toes.',
+        execution: 'Hold a straight line from head to heels. Contract abs, glutes, and thighs.',
+        tip: 'Do not allow hips to sag or rise. Keep neck neutral by looking at the floor.'
+      },
+      {
+        name: 'Hanging Leg Raises',
+        category: 'Core',
+        primary_muscle: 'Core / Abs',
+        secondary_muscle: 'Hip Flexors, Grip Strength',
+        video_url: '/videos/hanging-leg-raises.mp4',
+        setup: 'Hang from a pull-up bar with arms fully extended, using an overhand grip.',
+        execution: 'Keep legs straight. Raise them up until they are parallel to the floor or higher. Lower slowly under control.',
+        tip: 'Minimize swinging. Engage your core before starting each rep.'
+      },
+      {
+        name: 'Dumbbell Lateral Raises',
+        category: 'Shoulders',
+        primary_muscle: 'Side Delts',
+        secondary_muscle: 'Trapezius',
+        video_url: '/videos/dumbbell-lateral-raises.mp4',
+        setup: 'Stand upright holding dumbbells at your sides, palms facing inwards.',
+        execution: 'Raise arms out to the sides with a slight elbow bend, until parallel to the floor. Lower under control.',
+        tip: 'Lead the movement with your elbows and avoid shrugging your shoulders at the top.'
+      },
+      {
+        name: 'Pull-ups',
+        category: 'Back',
+        primary_muscle: 'Back / Lats',
+        secondary_muscle: 'Biceps, Rear Delts',
+        video_url: '/videos/pull-ups.mp4',
+        setup: 'Grip pull-up bar with palms facing away from you, wider than shoulder-width.',
+        execution: 'Pull your body up until your chin clears the bar. Lower slowly to a dead hang.',
+        tip: 'Focus on driving your elbows down toward your ribs to engage your back muscles.'
+      }
+    ];
+
+    // Read the general library names and merge them to fill out the seed data
+    const exerciseLibraryModule = await import('../data/exerciseLibrary');
+    const allLibrary = exerciseLibraryModule.EXERCISE_LIBRARY || [];
+
+    const seedData = [...presets];
+
+    // Add library exercises that aren't already covered in presets
+    allLibrary.forEach(item => {
+      if (!seedData.find(s => s.name.toLowerCase() === item.name.toLowerCase())) {
+        seedData.push({
+          name: item.name,
+          category: item.category,
+          primary_muscle: item.primary,
+          secondary_muscle: '',
+          video_url: '',
+          setup: '',
+          execution: '',
+          tip: ''
+        });
+      }
+    });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Emptiness check goes through restSelect (anon-key + timeout), not
+        // the SDK client — .from().select() can hang indefinitely on this
+        // project if the auth token needs a refresh (see restSelect comment
+        // above). The exercises table's read RLS is public, so the anon key
+        // is sufficient here regardless of the caller's own session state.
+        const existing = await restSelect('exercises?select=id&limit=1');
+        if (!existing || existing.length === 0) {
+          // Seed via the admin_seed_exercises SECURITY DEFINER RPC (see
+          // sql/exercises_table.sql). The exercises table's write RLS denies
+          // all direct writes; only these functions can write, called with
+          // the anon key — the same pattern link_coach_and_enter_transaction
+          // uses. This also runs regardless of how the admin logged in, since
+          // this app's coach login is localStorage-based (no auth JWT).
+          const adminEmail = localStorage.getItem('userEmail') || '';
+          console.log('[seeding] Seeding exercises table in Supabase...');
+          try {
+            await restRpc('admin_seed_exercises', { p_exercises: seedData, p_admin_email: adminEmail });
+          } catch (insertError) {
+            console.error('[seeding] Supabase exercise seeding error:', insertError);
+          }
+        }
+      } catch (err) {
+        console.error('[seeding] Failed to seed Supabase exercises:', err);
+      }
+    } else {
+      // Mock mode seeding
+      const mockEx = this.getMockTable('exercises');
+      if (mockEx.length === 0) {
+        console.log('[seeding] Seeding mock_exercises table in localStorage...');
+        const mockedSeed = seedData.map((item, index) => ({
+          id: `ex-${index}-${Math.random().toString(36).substring(2, 6)}`,
+          ...item,
+          created_at: new Date().toISOString()
+        }));
+        this.saveMockTable('exercises', mockedSeed);
+      }
+    }
+  },
+
+  async getExerciseLibrary() {
+    // Don't let a seed-check failure block reads — the table is very likely
+    // already populated, and getExerciseLibrary() runs on every page load.
+    await this.seedExerciseLibrary().catch(err =>
+      console.warn('[exercises] seed check failed, continuing to read:', err)
+    );
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // restSelect instead of supabase.from().select() — see restSelect's
+        // doc comment: the SDK client can hang forever waiting on an auth
+        // token refresh, which previously made this screen stick at "0
+        // exercises" with no error. restSelect has a hard timeout instead.
+        const data = await restSelect('exercises?select=*&order=name.asc');
+        return data || [];
+      } catch (err) {
+        console.warn('Error fetching exercises via REST, falling back to local mocks:', err);
+        const mockEx = this.getMockTable('exercises');
+        return mockEx.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    } else {
+      // Mock mode
+      const mockEx = this.getMockTable('exercises');
+      return mockEx.sort((a, b) => a.name.localeCompare(b.name));
+    }
+  },
+
+  async saveExercise(exercise) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Writes go through the save_exercise SECURITY DEFINER RPC (see
+        // sql/exercises_table.sql), NOT supabase.from().insert()/.update().
+        // The exercises table denies all direct writes via RLS; the function
+        // (running as its owner) performs the write and is called with the
+        // anon key — exactly how this app already does privileged writes
+        // (e.g. link_coach_and_enter_transaction). This works no matter how
+        // the admin logged in, since the coach login here is localStorage-
+        // based and produces no auth JWT for an RLS policy to check.
+        const adminEmail = localStorage.getItem('userEmail') || '';
+        const payload = {
+          id: exercise.id || null,
+          name: exercise.name,
+          category: exercise.category,
+          primary_muscle: exercise.primary_muscle,
+          secondary_muscle: exercise.secondary_muscle || '',
+          video_url: exercise.video_url || '',
+          setup: exercise.setup || '',
+          execution: exercise.execution || '',
+          tip: exercise.tip || ''
+        };
+
+        const data = await restRpc('save_exercise', { p_exercise: payload, p_admin_email: adminEmail });
+        return Array.isArray(data) ? data[0] : data;
+      } catch (err) {
+        console.error('Error saving exercise to Supabase:', err);
+        throw err;
+      }
+    } else {
+      const mockEx = this.getMockTable('exercises');
+      if (exercise.id) {
+        const idx = mockEx.findIndex(e => e.id === exercise.id);
+        if (idx !== -1) {
+          mockEx[idx] = {
+            ...mockEx[idx],
+            name: exercise.name,
+            category: exercise.category,
+            primary_muscle: exercise.primary_muscle,
+            secondary_muscle: exercise.secondary_muscle || '',
+            video_url: exercise.video_url || '',
+            setup: exercise.setup || '',
+            execution: exercise.execution || '',
+            tip: exercise.tip || ''
+          };
+          this.saveMockTable('exercises', mockEx);
+          return mockEx[idx];
+        }
+      } else {
+        const newEx = {
+          id: `ex-${Math.random().toString(36).substring(2, 9)}`,
+          name: exercise.name,
+          category: exercise.category,
+          primary_muscle: exercise.primary_muscle,
+          secondary_muscle: exercise.secondary_muscle || '',
+          video_url: exercise.video_url || '',
+          setup: exercise.setup || '',
+          execution: exercise.execution || '',
+          tip: exercise.tip || '',
+          created_at: new Date().toISOString()
+        };
+        mockEx.push(newEx);
+        this.saveMockTable('exercises', mockEx);
+        return newEx;
+      }
+    }
+  },
+
+  async uploadExerciseVideo(file) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Raw Storage REST upload with the anon key. The exercise-videos
+        // bucket's INSERT policy allows the anon role (see
+        // sql/exercises_table.sql) — consistent with this app's anon-key
+        // write model, since the coach login produces no auth JWT. Using
+        // raw fetch (not supabase.storage.upload()) also sidesteps the SDK
+        // session-hang issue, with a hard timeout.
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+        try {
+          const res = await fetch(`${supabaseUrl}/storage/v1/object/exercise-videos/${fileName}`, {
+            method: 'POST',
+            headers: {
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
+              'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file,
+            signal: controller.signal
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => null);
+            throw new Error((errData && (errData.message || errData.error)) || `Upload failed: ${res.status}`);
+          }
+        } finally {
+          clearTimeout(timer);
+        }
+
+        return `${supabaseUrl}/storage/v1/object/public/exercise-videos/${fileName}`;
+      } catch (err) {
+        console.error('Error uploading video to Supabase Storage:', err);
+        throw err;
+      }
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      return `/videos/shoulders-press.mp4`;
+    }
   }
 };
 

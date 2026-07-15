@@ -75,7 +75,7 @@
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 6px 12px;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   box-shadow: 0 4px 10px rgba(245, 158, 11, 0.08);
 }
 
@@ -114,7 +114,7 @@
   border: 1px solid rgba(16, 185, 129, 0.4);
   color: #fff;
   padding: 12px 24px;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -131,7 +131,7 @@
 .calorie-summary-widget {
   margin: 0 12px;
   padding: 20px;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   background: rgba(21, 29, 44, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -243,7 +243,7 @@
   justify-content: space-between;
   background: rgba(9, 14, 23, 0.4);
   padding: 10px 14px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
@@ -291,7 +291,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.15);
   color: var(--primary-accent-light);
@@ -326,7 +326,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background: rgba(21, 29, 44, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -433,7 +433,7 @@
 
 .activity-split-card {
   padding: 16px;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   background: rgba(21, 29, 44, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -496,7 +496,7 @@
 .btn-quick-log {
   width: 100%;
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: rgba(16, 185, 129, 0.06);
   border: 1px solid rgba(16, 185, 129, 0.15);
   color: var(--primary-accent-light);
@@ -533,7 +533,7 @@
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 14px 18px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   color: var(--text-main);
   transition: all var(--transition-fast);
   text-align: left;
@@ -589,7 +589,7 @@
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 16px 20px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   color: var(--text-main);
   text-align: left;
   cursor: pointer;
@@ -648,14 +648,14 @@
   width: 100%;
   height: 6px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-full);
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .water-progress-bar {
   height: 100%;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -709,7 +709,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.68rem;
   font-weight: 600;
   margin-top: 10px;
@@ -762,7 +762,7 @@
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.2);
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   letter-spacing: 0.02em;
 }
 

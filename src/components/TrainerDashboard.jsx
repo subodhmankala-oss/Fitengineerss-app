@@ -8,8 +8,9 @@ import AdminClientsList from './admin/AdminClientsList';
 import './WorkoutTracker.css';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeLiveCalories, formatDuration } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
+import { isCardioExercise } from '../data/exerciseLibrary';
 
 
 const TrainerDashboard = ({ handleLogout }) => {
@@ -364,7 +365,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
-  const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals);
+  const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, parseFloat(selectedClient?.userWeight) || DEFAULT_BODY_WEIGHT_KG);
 
   // Debounce-push the Live Log session to workout_drafts once there's
   // actually something worth resuming (a set ticked, or the timer running/
@@ -403,15 +404,22 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const handleLiveAddExercise = (name) => {
+    const newSet = isCardioExercise(name)
+      ? { distanceKm: '', time: '', isCompleted: false }
+      : { reps: '10', weight: '20', isCompleted: false };
     setLiveExercises(prev => [
       ...prev,
-      { name, sets: [{ reps: '10', weight: '20', isCompleted: false }] }
+      { name, sets: [newSet] }
     ]);
   };
 
   const handleLiveAddSet = (exIdx) => {
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
+      if (isCardioExercise(ex.name)) {
+        const last = ex.sets[ex.sets.length - 1];
+        return { ...ex, sets: [...ex.sets, { distanceKm: last?.distanceKm || '', time: '', isCompleted: false }] };
+      }
       const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
       return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: last.weight, isCompleted: false }] };
     }));
@@ -494,17 +502,24 @@ const TrainerDashboard = ({ handleLogout }) => {
     try {
       // Build session object - only save completed sets, or all if none ticked
       const completedCount = liveExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
-      const formattedExercises = liveExercises.map(ex => ({
-        name: ex.name,
-        sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
-          reps: parseInt(s.reps) || 0,
-          weight: parseFloat(s.weight) || 0,
-          // Preserve the Warmup/Dropset/Failure tag chosen in the live logger
-          // so it reaches workout_logs.set_type instead of being discarded.
-          ...(s.isWarmup ? { setType: 'warmup' } : {}),
-          ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
-        }))
-      })).filter(ex => ex.sets.length > 0);
+      const formattedExercises = liveExercises.map(ex => {
+        const exIsCardio = isCardioExercise(ex.name);
+        return {
+          name: ex.name,
+          sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
+            // Cardio sets carry distance/time instead of reps/weight so the
+            // save step (and workout_logs.distance_km/cardio_duration_seconds)
+            // doesn't collapse them to zero.
+            ...(exIsCardio
+              ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+              : { reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }),
+            // Preserve the Warmup/Dropset/Failure tag chosen in the live logger
+            // so it reaches workout_logs.set_type instead of being discarded.
+            ...(s.isWarmup ? { setType: 'warmup' } : {}),
+            ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
+          }))
+        };
+      }).filter(ex => ex.sets.length > 0);
 
       const session = {
         id: `coach-live-${Date.now()}`,
@@ -515,9 +530,10 @@ const TrainerDashboard = ({ handleLogout }) => {
         loggedByCoach: true,
         planName: livePlanName || 'Live Routine',
         // Final timer/calorie snapshot at the moment of save — same formula
-        // the live bar above was already showing the coach.
+        // the live bar above was already showing the coach. Cardio calories
+        // scale with the CLIENT's bodyweight, not the coach's own.
         durationSeconds: liveTimerStartedAt ? computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals) : null,
-        caloriesBurned: liveTimerStartedAt ? computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals).totalKcal : null
+        caloriesBurned: liveTimerStartedAt ? computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, parseFloat(selectedClient.userWeight) || DEFAULT_BODY_WEIGHT_KG).totalKcal : null
       };
 
       await databaseService.saveWorkoutSession(session);
@@ -957,15 +973,19 @@ const TrainerDashboard = ({ handleLogout }) => {
     }
     
     // Clean up empty sets
-    const cleanExercises = editorExercises.map(ex => ({
-      name: ex.name,
-      sets: ex.sets.map(s => ({
-        reps: parseInt(s.reps) || 10,
-        weight: parseFloat(s.weight) || 0,
-        ...(s.isWarmup ? { isWarmup: true } : {}),
-        ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
-      }))
-    })).filter(ex => ex.sets.length > 0);
+    const cleanExercises = editorExercises.map(ex => {
+      const exIsCardio = isCardioExercise(ex.name);
+      return {
+        name: ex.name,
+        sets: ex.sets.map(s => ({
+          ...(exIsCardio
+            ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+            : { reps: parseInt(s.reps) || 10, weight: parseFloat(s.weight) || 0 }),
+          ...(s.isWarmup ? { isWarmup: true } : {}),
+          ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
+        }))
+      };
+    }).filter(ex => ex.sets.length > 0);
 
     const plan = {
       id: editingPlan ? editingPlan.id : null,
@@ -986,11 +1006,14 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const handleAddExerciseToEditor = (name) => {
+    const newSet = isCardioExercise(name)
+      ? { distanceKm: '', time: '' }
+      : { reps: 10, weight: 20 };
     setEditorExercises(prev => [
       ...prev,
       {
         name,
-        sets: [{ reps: 10, weight: 20 }]
+        sets: [newSet]
       }
     ]);
   };
@@ -998,6 +1021,10 @@ const TrainerDashboard = ({ handleLogout }) => {
   const handleAddSetToExercise = (exIdx) => {
     setEditorExercises(prev => prev.map((ex, idx) => {
       if (idx === exIdx) {
+        if (isCardioExercise(ex.name)) {
+          const lastSet = ex.sets[ex.sets.length - 1];
+          return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: '' }] };
+        }
         const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: 20 };
         return {
           ...ex,
@@ -2272,7 +2299,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                           <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No exercises added to this plan yet. Use the dropdown below to add exercises.</p>
                         ) : (
                           <div className="live-logger-exercise-list">
-                            {editorExercises.map((ex, exIdx) => (
+                            {editorExercises.map((ex, exIdx) => {
+                            const exIsCardio = isCardioExercise(ex.name);
+                            return (
                               <div key={exIdx} className="live-logger-exercise-card">
                                 <div className="live-logger-ex-header">
                                   <span className="live-logger-ex-name">{ex.name}</span>
@@ -2286,8 +2315,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                                 <div className="hevy-sets-table cols-4">
                                   <div className="hevy-table-header">
                                     <span className="col-set">SET</span>
-                                    <span className="col-weight">WEIGHT (KG)</span>
-                                    <span className="col-reps">REPS</span>
+                                    {exIsCardio ? (
+                                      <>
+                                        <span className="col-weight">KM</span>
+                                        <span className="col-reps">TIME</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="col-weight">WEIGHT (KG)</span>
+                                        <span className="col-reps">REPS</span>
+                                      </>
+                                    )}
                                     <span className="col-check"></span>
                                   </div>
                                   <div className="hevy-table-body">
@@ -2312,20 +2350,45 @@ const TrainerDashboard = ({ handleLogout }) => {
                                             <SetTypeMenu onSelect={(type) => handleEditorChangeSetType(exIdx, setIdx, type)} />
                                           )}
                                         </span>
-                                        <div className="col-weight set-input-field">
-                                          <input
-                                            type="number"
-                                            value={set.weight}
-                                            onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
-                                          />
-                                        </div>
-                                        <div className="col-reps set-input-field">
-                                          <input
-                                            type="number"
-                                            value={set.reps}
-                                            onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
-                                          />
-                                        </div>
+                                        {exIsCardio ? (
+                                          <>
+                                            <div className="col-weight set-input-field">
+                                              <input
+                                                type="tel"
+                                                inputMode="tel"
+                                                placeholder="0"
+                                                value={set.distanceKm}
+                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'distanceKm', e.target.value)}
+                                              />
+                                            </div>
+                                            <div className="col-reps set-input-field">
+                                              <input
+                                                type="tel"
+                                                inputMode="tel"
+                                                placeholder="mm:ss"
+                                                value={set.time}
+                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                              />
+                                            </div>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <div className="col-weight set-input-field">
+                                              <input
+                                                type="number"
+                                                value={set.weight}
+                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
+                                              />
+                                            </div>
+                                            <div className="col-reps set-input-field">
+                                              <input
+                                                type="number"
+                                                value={set.reps}
+                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
+                                              />
+                                            </div>
+                                          </>
+                                        )}
                                         <div className="col-check set-actions-field">
                                           {ex.sets.length > 1 && (
                                             <button
@@ -2350,7 +2413,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   className="btn-add-set-link live-logger-add-set"
                                 >➕ Add Set</button>
                               </div>
-                            ))}
+                            );
+                            })}
                           </div>
                         )}
                       </div>
@@ -2589,7 +2653,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                               setLivePlanName(plan.planName);
                               setLiveExercises(plan.exercises.map(ex => ({
                                 name: ex.name,
-                                sets: ex.sets.map(s => ({ reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false }))
+                                sets: ex.sets.map(s => isCardioExercise(ex.name)
+                                  ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                                  : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
                               })));
                               triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
                             }
@@ -2618,7 +2684,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                       16px outer padding so the table reaches the true screen
                       edges, matching the app's standard flush logging layout. */}
                   <div className="live-logger-exercise-list">
-                    {liveExercises.map((ex, exIdx) => (
+                    {liveExercises.map((ex, exIdx) => {
+                    const exIsCardio = isCardioExercise(ex.name);
+                    return (
                       <div key={exIdx} className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
@@ -2633,8 +2701,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                         <div className="hevy-sets-table cols-4">
                           <div className="hevy-table-header">
                             <span className="col-set">SET</span>
-                            <span className="col-weight">WEIGHT (KG)</span>
-                            <span className="col-reps">REPS</span>
+                            {exIsCardio ? (
+                              <>
+                                <span className="col-weight">KM</span>
+                                <span className="col-reps">TIME</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="col-weight">WEIGHT (KG)</span>
+                                <span className="col-reps">REPS</span>
+                              </>
+                            )}
                             <span className="col-check">DONE</span>
                           </div>
                           <div className="hevy-table-body">
@@ -2659,20 +2736,45 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     <SetTypeMenu onSelect={(type) => handleLiveChangeSetType(exIdx, setIdx, type)} />
                                   )}
                                 </span>
-                                <div className="col-weight set-input-field">
-                                  <input
-                                    type="number"
-                                    value={set.weight}
-                                    onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
-                                  />
-                                </div>
-                                <div className="col-reps set-input-field">
-                                  <input
-                                    type="number"
-                                    value={set.reps}
-                                    onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
-                                  />
-                                </div>
+                                {exIsCardio ? (
+                                  <>
+                                    <div className="col-weight set-input-field">
+                                      <input
+                                        type="tel"
+                                        inputMode="tel"
+                                        placeholder="0"
+                                        value={set.distanceKm}
+                                        onChange={e => handleLiveSetChange(exIdx, setIdx, 'distanceKm', e.target.value)}
+                                      />
+                                    </div>
+                                    <div className="col-reps set-input-field">
+                                      <input
+                                        type="tel"
+                                        inputMode="tel"
+                                        placeholder="mm:ss"
+                                        value={set.time}
+                                        onChange={e => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                      />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="col-weight set-input-field">
+                                      <input
+                                        type="number"
+                                        value={set.weight}
+                                        onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
+                                      />
+                                    </div>
+                                    <div className="col-reps set-input-field">
+                                      <input
+                                        type="number"
+                                        value={set.reps}
+                                        onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
+                                      />
+                                    </div>
+                                  </>
+                                )}
                                 <div className="col-check set-actions-field">
                                   <button
                                     type="button"
@@ -2704,7 +2806,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                           className="btn-add-set-link live-logger-add-set"
                         >➕ Add Set</button>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
 
                   {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}

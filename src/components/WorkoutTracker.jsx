@@ -377,6 +377,7 @@ const WorkoutTracker = () => {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState(savedWorkoutDraft?.saveAsTemplate ?? false);
   const [templateName, setTemplateName] = useState(savedWorkoutDraft?.templateName ?? '');
+  const [workoutSource, setWorkoutSource] = useState(savedWorkoutDraft?.workoutSource ?? 'self'); // 'self' | 'coach'
   // Generic workout templates (Push/Pull/Leg)
   const [genericTemplates, setGenericTemplates] = useState([]);
   const [activeTemplateName, setActiveTemplateName] = useState(savedWorkoutDraft?.activeTemplateName ?? '');
@@ -1249,7 +1250,8 @@ const WorkoutTracker = () => {
       duration: summaryStats?.duration || '00:15',
       durationSeconds: finalDurationSeconds,
       caloriesBurned: finalCalories,
-      planName: templateName.trim() || 'Custom Routine'
+      planName: templateName.trim() || 'Custom Routine',
+      source: workoutSource // 'self' for client self-logged, 'coach' for coach-assigned plans
     };
 
     const updated = [...sessions, newSession];
@@ -1275,7 +1277,8 @@ const WorkoutTracker = () => {
     setIsLoggingWorkout(false);
     setSaveAsTemplate(false);
     setTemplateName('');
-    
+    setWorkoutSource('self'); // Reset to self-logged for next workout
+
     setSelectedClient(logClient);
     const newClientSessions = updated.filter(s => s.clientName.toLowerCase() === logClient.toLowerCase());
     setSelectedSessionIndex(newClientSessions.length - 1);
@@ -2155,6 +2158,7 @@ const WorkoutTracker = () => {
                             sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
                           })));
                           setTemplateName(plan.planName);
+                          setWorkoutSource('coach');
                           setIsLoggingWorkout(true);
                           resetWorkoutTimer();
                         }}
@@ -2186,8 +2190,8 @@ const WorkoutTracker = () => {
                       </div>
                     </div>
                     <div className="routine-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         className="btn-start-routine"
                         style={{
                           padding: '8px 14px',
@@ -2207,6 +2211,7 @@ const WorkoutTracker = () => {
                             sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
                           })));
                           setTemplateName(plan.planName);
+                          setWorkoutSource('self');
                           setIsLoggingWorkout(true);
                           resetWorkoutTimer();
                         }}
@@ -2325,6 +2330,7 @@ const WorkoutTracker = () => {
                     const plan = clientPlans.find(p => p.id === e.target.value);
                     if (plan) {
                       setTemplateName(plan.planName);
+                      setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
                       setLogExercises(plan.exercises.map(ex => ({
                         name: ex.name,
                         sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))

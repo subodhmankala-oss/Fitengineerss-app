@@ -14,20 +14,54 @@ webPush.setVapidDetails(
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Look up a target user's email + display name so we can match their push
+// subscriptions even when the row predates the user_id column.
+async function getUserContact(userId) {
+  const { data } = await supabase
+    .from('users')
+    .select('email, full_name')
+    .eq('id', userId)
+    .maybeSingle();
+  return data || null;
+}
+
+// Collect every push subscription belonging to a target user. Matches on
+// user_id (new rows) AND, as a fallback, the email stored inside the
+// subscription JSON and the display name (older rows created before the
+// user_id column existed) — so a coach/client who subscribed earlier still
+// receives targeted notifications without having to re-subscribe.
+async function findSubscriptions(targetUserId, email, name) {
+  const byEndpoint = new Map();
+  const collect = (rows) => (rows || []).forEach((r) => byEndpoint.set(r.endpoint, r));
+
+  const q1 = await supabase.from('push_subscriptions').select('*').eq('user_id', targetUserId);
+  collect(q1.data);
+  if (email) {
+    const q2 = await supabase.from('push_subscriptions').select('*').eq('subscription->>userEmail', email);
+    collect(q2.data);
+  }
+  if (name) {
+    const q3 = await supabase.from('push_subscriptions').select('*').eq('user_name', name);
+    collect(q3.data);
+  }
+  return Array.from(byEndpoint.values());
+}
+
 // Deliver a web-push to every device subscribed for a given users.id.
 async function pushToUser(targetUserId, title, body) {
-  const { data: subs, error } = await supabase
-    .from('push_subscriptions')
-    .select('*')
-    .eq('user_id', targetUserId);
-  if (error) throw error;
-  if (!subs || subs.length === 0) return { sent: 0, failed: 0 };
+  const contact = await getUserContact(targetUserId);
+  const subs = await findSubscriptions(targetUserId, contact?.email, contact?.full_name);
+  if (!subs || subs.length === 0) return { sent: 0, failed: 0, matched: 0 };
 
   const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300] });
   let sent = 0, failed = 0;
   for (const sub of subs) {
     try {
       await webPush.sendNotification(sub.subscription, payload);
+      // Backfill user_id on legacy rows so future lookups are a direct hit.
+      if (!sub.user_id) {
+        await supabase.from('push_subscriptions').update({ user_id: targetUserId }).eq('id', sub.id);
+      }
       sent++;
     } catch (err) {
       failed++;
@@ -37,7 +71,7 @@ async function pushToUser(targetUserId, title, body) {
       }
     }
   }
-  return { sent, failed };
+  return { sent, failed, matched: subs.length };
 }
 
 async function getClientRow(clientUserId) {

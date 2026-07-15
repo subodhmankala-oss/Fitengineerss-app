@@ -451,27 +451,11 @@ const TrainerDashboard = ({ handleLogout }) => {
 
       await databaseService.saveWorkoutSession(session);
 
-      // Save/update the workout plan template
-      if (livePlanName.trim()) {
-        try {
-          const existingPlans = await databaseService.getWorkoutPlansForUser(selectedClient.id);
-          const match = existingPlans?.find(p => p.planName.toLowerCase() === livePlanName.trim().toLowerCase());
-          const plan = {
-            id: match?.id,
-            userId: selectedClient.id,
-            planName: livePlanName.trim(),
-            exercises: liveExercises.map(ex => ({
-              name: ex.name,
-              sets: ex.sets.map(s => ({ reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }))
-            })),
-            createdBy: 'coach'
-          };
-          await databaseService.saveWorkoutPlan(plan);
-          fetchClientPlans(selectedClient.id);
-        } catch(errPlan) {
-          console.error('Error auto-saving workout plan template:', errPlan);
-        }
-      }
+      // Live Log only records the completed session (goes to the client's
+      // workout summary/history) — it must NOT also create or update a
+      // coach-assigned Workout Plan template. Assigned plans are a separate,
+      // deliberate action via the "Workout Plan" editor (saveWorkoutPlan
+      // above at handleSavePlan), not an automatic side effect of logging.
 
       // Also update the client's own workoutSessions in localStorage for immediate dashboard refresh
       const clientKey = selectedClient.userName.toLowerCase().replace(/\s+/g, '');

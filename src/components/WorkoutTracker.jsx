@@ -1284,7 +1284,7 @@ const WorkoutTracker = () => {
     setSelectedSessionIndex(newClientSessions.length - 1);
 
     const finalSetsCount = formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
-    triggerToast(`🏋️‍♂️ Hevy Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
+    triggerToast(`🏋️‍♂️ Your Fitengineers Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
     
     resetWorkoutTimer();
     setShowFinishSummary(false);

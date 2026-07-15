@@ -20,6 +20,31 @@ export function formatDuration(totalSeconds) {
   return [h, m, sec].map((v) => String(v).padStart(2, '0')).join(':');
 }
 
+// Cardio sets store their duration as a free-typed "mm:ss" string (matches
+// what's shown as the field's placeholder). Accepts "mm:ss" or a bare number
+// of seconds; returns null (not 0) for empty/unparseable input so it's never
+// mistaken for an actually-logged zero-second set.
+export function parseTimeStringToSeconds(str) {
+  const trimmed = String(str ?? '').trim();
+  if (!trimmed) return null;
+  if (trimmed.includes(':')) {
+    const [m, s] = trimmed.split(':').map((v) => parseInt(v, 10) || 0);
+    return m * 60 + s;
+  }
+  const n = parseInt(trimmed, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Inverse of parseTimeStringToSeconds — used to redisplay a saved cardio
+// duration back into the "mm:ss" field.
+export function formatSecondsToTimeString(totalSeconds) {
+  if (totalSeconds == null || !Number.isFinite(totalSeconds)) return '';
+  const s = Math.max(0, Math.round(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
 // elapsed = (now - startedAt) - sum(pause durations)
 export function computeElapsedSeconds(startedAt, pauseIntervals = [], now = Date.now()) {
   if (!startedAt) return 0;

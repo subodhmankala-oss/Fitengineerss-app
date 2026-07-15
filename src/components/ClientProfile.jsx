@@ -62,6 +62,22 @@ export default function ClientProfile({ handleLogout }) {
   });
   const [measSaving, setMeasSaving] = useState(false);
   const [measSaveMsg, setMeasSaveMsg] = useState('');
+  // Full DB history (newest first) so the client can compare against their
+  // last entry, and so the 15-day save cadence can be enforced from the real
+  // last-saved date (not a spoofable local value).
+  const [measHistory, setMeasHistory] = useState([]);
+
+  const MEAS_INTERVAL_DAYS = 15;
+  // Days until the next allowed save, based on the newest history entry.
+  // 0 = allowed now (or no prior entry). Rounded up so "14.2 days left"
+  // reads as 15 remaining, never a misleading 0 while still locked.
+  const measDaysUntilNextSave = (() => {
+    if (!measHistory.length) return 0;
+    const last = new Date(measHistory[0].measuredAt).getTime();
+    const elapsedDays = (Date.now() - last) / (1000 * 60 * 60 * 24);
+    return Math.max(0, Math.ceil(MEAS_INTERVAL_DAYS - elapsedDays));
+  })();
+  const measCanSave = measDaysUntilNextSave === 0;
 
   const userEmail = localStorage.getItem('userEmail') || '';
   const notifState = 'Notification' in window ? Notification.permission : 'unsupported';
@@ -91,6 +107,36 @@ export default function ClientProfile({ handleLogout }) {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [userEmail]);
+
+  // Load the client's own body-measurement history — drives both the
+  // comparison view and the 15-day save lock.
+  const loadMeasHistory = async () => {
+    const userId = await databaseService.resolveUserId();
+    if (!userId) return;
+    const history = await databaseService.getBodyMeasurements(userId);
+    setMeasHistory(history);
+    // Seed the form from the newest entry so the client edits from their
+    // latest numbers, and keep the localStorage cache in sync.
+    if (history.length > 0) {
+      setMeasurements(history[0].measurements || {});
+      localStorage.setItem('userMeasurements', JSON.stringify(history[0].measurements || {}));
+    }
+  };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const userId = await databaseService.resolveUserId();
+      if (cancelled || !userId) return;
+      const history = await databaseService.getBodyMeasurements(userId);
+      if (cancelled) return;
+      setMeasHistory(history);
+      if (history.length > 0) {
+        setMeasurements(history[0].measurements || {});
+        localStorage.setItem('userMeasurements', JSON.stringify(history[0].measurements || {}));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const initial = form.userName?.charAt(0)?.toUpperCase() || '?';
 
@@ -345,6 +391,7 @@ export default function ClientProfile({ handleLogout }) {
   // ── Sub-section: Measurements ─────────────────────────────────────────────
   if (activeSection === 'measurements') {
     const measFields = [
+      { key: 'weight',    label: 'Body Weight', unit: 'kg' },
       { key: 'chest',     label: 'Chest' },
       { key: 'waist',     label: 'Waist' },
       { key: 'hips',      label: 'Hips' },
@@ -355,16 +402,25 @@ export default function ClientProfile({ handleLogout }) {
       { key: 'forearm',   label: 'Forearm' },
       { key: 'neck',      label: 'Neck' },
     ];
+    // Newest = the previous saved entry to compare the current edits against.
+    const previousEntry = measHistory[0] || null;
+    const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
     const saveMeasurements = async () => {
+      if (!measCanSave) return; // 15-day lock — button is disabled, guard anyway
       setMeasSaving(true);
-      localStorage.setItem('userMeasurements', JSON.stringify(measurements));
+      // Persist a new history row (shared with the coach). Keep the numeric
+      // values as strings-in / numbers-out consistent with the form.
+      const cleaned = {};
+      Object.entries(measurements).forEach(([k, v]) => {
+        if (v !== '' && v != null) cleaned[k] = v;
+      });
+      const userId = await databaseService.resolveUserId();
       try {
-        await databaseService.saveUserProfile({
-          email: userEmail,
-          userName: form.userName,
-          role: localStorage.getItem('userRole') || 'client',
-          measurements: JSON.stringify(measurements),
-        });
+        const res = await databaseService.saveBodyMeasurement(userId, cleaned);
+        if (!res.success) throw new Error(res.error);
+        localStorage.setItem('userMeasurements', JSON.stringify(cleaned));
+        await loadMeasHistory();
         setMeasSaveMsg('saved');
       } catch {
         setMeasSaveMsg('error');
@@ -373,6 +429,7 @@ export default function ClientProfile({ handleLogout }) {
         setTimeout(() => setMeasSaveMsg(''), 2500);
       }
     };
+
     return (
       <div className="cp-container animate-slide-up">
         <div className="cp-sub-header">
@@ -381,31 +438,105 @@ export default function ClientProfile({ handleLogout }) {
           <button
             className={`cp-save-btn${measSaving ? ' cp-save-btn--loading' : ''}`}
             onClick={saveMeasurements}
-            disabled={measSaving}
+            disabled={measSaving || !measCanSave}
+            style={!measCanSave ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
           >
             {measSaving ? 'Saving…' : measSaveMsg === 'saved' ? '✓ Saved' : 'Save'}
           </button>
         </div>
         <div className="cp-form-scroll">
+          {/* 15-day cadence notice */}
+          {!measCanSave ? (
+            <div style={{
+              background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+              borderRadius: '12px', padding: '12px 14px', marginBottom: '14px'
+            }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>
+                ⏳ Next update in {measDaysUntilNextSave} day{measDaysUntilNextSave === 1 ? '' : 's'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                Measurements can be updated once every {MEAS_INTERVAL_DAYS} days. Last saved {previousEntry ? fmtDate(previousEntry.measuredAt) : ''}.
+              </div>
+            </div>
+          ) : previousEntry ? (
+            <div style={{
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              borderRadius: '12px', padding: '12px 14px', marginBottom: '14px'
+            }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>
+                ✅ Ready for your next update
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                Enter today's numbers below — changes vs your last entry ({fmtDate(previousEntry.measuredAt)}) are shown live.
+              </div>
+            </div>
+          ) : null}
+
           <div className="cp-form-section-label">Body Measurements (cm)</div>
           <div className="cp-form-card">
-            {measFields.map(({ key, label }, i) => (
-              <div
-                key={key}
-                className={`cp-field${i > 0 ? ' cp-field--border' : ''}${i === measFields.length - 1 ? ' cp-field--last' : ''}`}
-              >
-                <label className="cp-field-label">{label}</label>
-                <input
-                  className="cp-field-input cp-field-input--right"
-                  type="number"
-                  step="0.1"
-                  placeholder="cm"
-                  value={measurements[key] || ''}
-                  onChange={e => setMeasurements(m => ({ ...m, [key]: e.target.value }))}
-                />
-              </div>
-            ))}
+            {measFields.map(({ key, label, unit }, i) => {
+              const prevVal = previousEntry?.measurements?.[key];
+              const curVal = measurements[key];
+              const delta = (prevVal != null && prevVal !== '' && curVal != null && curVal !== '')
+                ? (parseFloat(curVal) - parseFloat(prevVal))
+                : null;
+              return (
+                <div
+                  key={key}
+                  className={`cp-field${i > 0 ? ' cp-field--border' : ''}${i === measFields.length - 1 ? ' cp-field--last' : ''}`}
+                >
+                  <label className="cp-field-label">
+                    {label}
+                    {delta != null && Math.abs(delta) > 0.001 && (
+                      <span style={{
+                        marginLeft: '7px', fontSize: '0.68rem', fontWeight: 700,
+                        color: delta > 0 ? '#34d399' : '#f87171'
+                      }}>
+                        {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}{unit || 'cm'}
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    className="cp-field-input cp-field-input--right"
+                    type="number"
+                    step="0.1"
+                    placeholder={unit || 'cm'}
+                    value={measurements[key] || ''}
+                    disabled={!measCanSave}
+                    onChange={e => setMeasurements(m => ({ ...m, [key]: e.target.value }))}
+                  />
+                </div>
+              );
+            })}
           </div>
+
+          {/* History timeline for at-a-glance comparison */}
+          {measHistory.length > 0 && (
+            <>
+              <div className="cp-form-section-label" style={{ marginTop: '18px' }}>History</div>
+              <div className="cp-form-card" style={{ padding: '4px 0' }}>
+                {measHistory.map((entry, idx) => {
+                  const filled = measFields.filter(f => entry.measurements?.[f.key] != null && entry.measurements[f.key] !== '');
+                  return (
+                    <div key={entry.id} style={{
+                      padding: '10px 14px',
+                      borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none'
+                    }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>
+                        {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: 'var(--primary-accent-light)', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
+                        {filled.length > 0
+                          ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ')
+                          : 'No values recorded'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           {measSaveMsg === 'error' && (
             <p className="cp-save-error">Failed to save. Check your connection and try again.</p>
           )}

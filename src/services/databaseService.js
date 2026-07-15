@@ -1947,6 +1947,51 @@ const databaseService = {
     }
   },
 
+  // ─── BODY MEASUREMENTS (15-day progress, shared with coach) ───
+  // History table: one row per save. The client saves their own; the coach
+  // reads the same rows for a client read-only. The 15-day cadence is
+  // enforced in the UI (see ClientProfile), not here.
+  async saveBodyMeasurement(userId, measurements) {
+    if (!isSupabaseConfigured || !supabase || !userId) {
+      return { success: false, error: 'Not configured' };
+    }
+    try {
+      const { data, error } = await supabase
+        .from('body_measurements')
+        .insert({ user_id: userId, measurements: measurements || {} })
+        .select()
+        .single();
+      if (error) throw error;
+      return {
+        success: true,
+        entry: { id: data.id, userId: data.user_id, measurements: data.measurements || {}, measuredAt: data.measured_at }
+      };
+    } catch (e) {
+      console.error('Cloud DB Save Body Measurement Error:', e);
+      return { success: false, error: e.message || 'Save failed' };
+    }
+  },
+
+  // Full measurement history for a user, newest first — used by both the
+  // client's own Measurements screen and the coach's client detail view.
+  async getBodyMeasurements(userId) {
+    if (!isSupabaseConfigured || !userId) return [];
+    try {
+      const rows = await restSelect(
+        `body_measurements?select=*&user_id=eq.${encodeURIComponent(userId)}&order=measured_at.desc`
+      );
+      return (rows || []).map(r => ({
+        id: r.id,
+        userId: r.user_id,
+        measurements: r.measurements || {},
+        measuredAt: r.measured_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Body Measurements Error:', e);
+      return [];
+    }
+  },
+
   // ─── MULTI-COACH & SUPER ADMIN METHODS ───
   // Resolves a coach's display name for client-facing UI (e.g. "Coach: [Name]"
   // after a successful invite-code connection). Prefers the coach's own account

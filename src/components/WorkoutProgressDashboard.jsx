@@ -6,12 +6,17 @@ import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateS
 import { formatDuration } from '../utils/liveWorkoutTimer';
 import './WorkoutProgressDashboard.css';
 
-const WorkoutProgressDashboard = ({ handleLogout }) => {
+const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   const [userName, setUserName] = useState('Warrior');
   const [timeframe, setTimeframe] = useState('weekly');
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  // An in-progress workout (self-logged, or a coach logging live for this
+  // client) that's still open in workout_drafts — surfaced here so it isn't
+  // silently lost just because the client was away from the app/tab for a
+  // while (backgrounded, switched apps, closed the browser).
+  const [activeDraft, setActiveDraft] = useState(null);
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
@@ -165,6 +170,27 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
       cancelled = true;
       window.removeEventListener('workoutSessionsUpdated', handleWorkoutUpdate);
       window.removeEventListener('workoutUpdated', handleWorkoutUpdate);
+    };
+  }, []);
+
+  // Check for an in-progress workout draft — on mount, and again whenever the
+  // tab/app regains focus (the exact "was away for 15-20 min, came back"
+  // moment this banner exists for).
+  useEffect(() => {
+    let cancelled = false;
+    const checkDraft = async () => {
+      const userId = await databaseService.resolveUserId();
+      if (!userId || cancelled) return;
+      const draft = await databaseService.getWorkoutDraft(userId);
+      if (!cancelled) setActiveDraft(draft);
+    };
+    checkDraft();
+    document.addEventListener('visibilitychange', checkDraft);
+    window.addEventListener('focus', checkDraft);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', checkDraft);
+      window.removeEventListener('focus', checkDraft);
     };
   }, []);
 
@@ -610,6 +636,44 @@ const WorkoutProgressDashboard = ({ handleLogout }) => {
           </button>
         </div>
       </div>
+
+      {/* Resume in-progress workout — a draft survives being away from the
+          app/device (backgrounded, closed the tab, switched apps) via
+          workout_drafts, so it's never silently lost. A 'coach' draft means
+          the coach is live-logging this session right now — shown as
+          read-only status, not a resume button, so the client can't edit the
+          same session concurrently with the coach. */}
+      {activeDraft && (
+        <div
+          onClick={activeDraft.source === 'coach' ? undefined : () => onNavigateToWorkouts && onNavigateToWorkouts()}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: '4px',
+            cursor: activeDraft.source === 'coach' ? 'default' : 'pointer'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <span style={{ fontSize: '1.4rem' }}>⏱️</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fbbf24' }}>
+                {activeDraft.source === 'coach' ? 'Your coach is logging a session for you' : 'Workout in progress'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeDraft.planName || 'Workout'} · {(activeDraft.exercises || []).reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0)} sets logged
+              </div>
+            </div>
+          </div>
+          {activeDraft.source !== 'coach' && (
+            <button type="button" style={{
+              flexShrink: 0, background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
+              border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+            }}>
+              Resume ▶
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Segment Timeframe Tab Switches */}
       <div className="timeframe-navigation">

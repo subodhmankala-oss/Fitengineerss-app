@@ -217,6 +217,12 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
 
+  // Every Live Log session this coach currently has open across their
+  // clients (workout_drafts) — surfaced on the client directory screen so a
+  // session started, then interrupted by navigating away or backgrounding
+  // the app, is never silently lost.
+  const [coachActiveDrafts, setCoachActiveDrafts] = useState([]);
+
   // Coaching program length (clients.total_sessions) editor for the selected client
   const [totalSessionsInput, setTotalSessionsInput] = useState('');
   const [savingTotalSessions, setSavingTotalSessions] = useState(false);
@@ -325,6 +331,37 @@ const TrainerDashboard = ({ handleLogout }) => {
 
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
   const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals);
+
+  // Debounce-push the Live Log session to workout_drafts once there's
+  // actually something worth resuming (a set ticked, or the timer running/
+  // paused) — this is what survives the coach backgrounding the app or
+  // switching to another client mid-session, and what the coach's client
+  // list "Resume Live Log" banner reads. Debounced so typing a weight/rep
+  // doesn't fire a request per keystroke.
+  const liveDraftSaveTimerRef = useRef(null);
+  useEffect(() => {
+    if (!selectedClient) return;
+    const hasProgress = liveTimerStatus !== 'idle' || liveExercises.some(ex => ex.sets.some(s => s.isCompleted));
+    if (!hasProgress) return;
+    if (liveDraftSaveTimerRef.current) clearTimeout(liveDraftSaveTimerRef.current);
+    liveDraftSaveTimerRef.current = setTimeout(() => {
+      databaseService.saveWorkoutDraft({
+        userId: selectedClient.id,
+        coachId: resolvedCoachId,
+        source: 'coach',
+        planName: livePlanName,
+        logDate: liveDate,
+        exercises: liveExercises,
+        timerStatus: liveTimerStatus,
+        timerStartedAt: liveTimerStartedAt,
+        pauseIntervals: livePauseIntervals
+      });
+    }, 1200);
+    return () => {
+      if (liveDraftSaveTimerRef.current) clearTimeout(liveDraftSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId]);
 
   const triggerLiveToast = (msg) => {
     setLiveToast(msg);
@@ -450,6 +487,8 @@ const TrainerDashboard = ({ handleLogout }) => {
       };
 
       await databaseService.saveWorkoutSession(session);
+      // Session is finished and saved to workout_logs — the open draft is done.
+      await databaseService.deleteWorkoutDraft(selectedClient.id);
 
       // Live Log only records the completed session (goes to the client's
       // workout summary/history) — it must NOT also create or update a
@@ -490,6 +529,7 @@ const TrainerDashboard = ({ handleLogout }) => {
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
       resetLiveTimer();
+      refreshCoachActiveDrafts();
     } catch(e) {
       console.error('Error saving live session:', e);
       triggerLiveToast('❌ Failed to save session. Please try again.');
@@ -497,6 +537,25 @@ const TrainerDashboard = ({ handleLogout }) => {
       setLiveSaving(false);
     }
   };
+
+  const refreshCoachActiveDrafts = async () => {
+    if (!resolvedCoachId) return;
+    const drafts = await databaseService.getCoachActiveDrafts(resolvedCoachId);
+    setCoachActiveDrafts(drafts);
+  };
+
+  // Refresh on mount and whenever the coach returns to this tab/app — the
+  // exact "was away for a while, came back" moment this list exists for.
+  useEffect(() => {
+    refreshCoachActiveDrafts();
+    document.addEventListener('visibilitychange', refreshCoachActiveDrafts);
+    window.addEventListener('focus', refreshCoachActiveDrafts);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshCoachActiveDrafts);
+      window.removeEventListener('focus', refreshCoachActiveDrafts);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedCoachId]);
 
   // Chat states
   const [chatMessages, setChatMessages] = useState([]);
@@ -624,6 +683,34 @@ const TrainerDashboard = ({ handleLogout }) => {
     // shows "✓ Saved" immediately, instead of always showing the highlighted
     // "Save" button until a new save happens in this browser session.
     setTotalSessionsSavedValue(client.total_sessions != null ? String(client.total_sessions) : null);
+
+    // Resume this coach's own in-progress Live Log for this client, if any —
+    // survives navigating away / backgrounding the app mid-session. Falls
+    // back to a clean single-exercise starter when there's nothing to
+    // resume, since liveExercises otherwise carries over from whichever
+    // client was open before this one.
+    databaseService.getWorkoutDraft(client.id).then(dbDraft => {
+      const canResume = dbDraft && dbDraft.source === 'coach' && dbDraft.coachId === resolvedCoachId
+        && dbDraft.exercises && dbDraft.exercises.length > 0;
+      if (canResume) {
+        setLiveExercises(dbDraft.exercises);
+        setLivePlanName(dbDraft.planName || 'Live Routine');
+        if (dbDraft.logDate) setLiveDate(dbDraft.logDate);
+        setLiveTimerStatus(dbDraft.timerStatus || 'idle');
+        setLiveTimerStartedAt(dbDraft.timerStartedAt ?? null);
+        setLivePauseIntervals(dbDraft.pauseIntervals || []);
+        triggerLiveToast(`↩️ Resumed in-progress Live Log for ${client.userName}`);
+      } else {
+        setLiveExercises([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]);
+        setLivePlanName('Live Routine');
+        setLiveDate(getLocalDateString());
+      }
+    }).catch(() => {
+      setLiveExercises([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]);
+      setLivePlanName('Live Routine');
+      setLiveDate(getLocalDateString());
+    });
+
     setLoadingLogs(true);
     setWorkoutLogs([]);
     try {
@@ -1274,6 +1361,52 @@ const TrainerDashboard = ({ handleLogout }) => {
           {!selectedClient ? (
             // Client Directory Screen
             <div className="client-directory-view">
+              {/* Resume Live Log — sessions still open in workout_drafts across
+                  this coach's clients. Never silently lost by navigating away
+                  or backgrounding the app mid-session. */}
+              {coachActiveDrafts.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  {coachActiveDrafts.map(draft => {
+                    const draftClient = clients.find(c => c.id === draft.userId);
+                    const totalSets = (draft.exercises || []).reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
+                    return (
+                      <div
+                        key={draft.userId}
+                        onClick={() => {
+                          if (draftClient) {
+                            handleSelectClient(draftClient);
+                            setDetailTab('livelog');
+                          }
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                          background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                          borderRadius: '12px', padding: '12px 14px', cursor: draftClient ? 'pointer' : 'default'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          <span style={{ fontSize: '1.4rem' }}>⏱️</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fbbf24' }}>
+                              Live Log in progress — {draftClient?.userName || 'a client'}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {draft.planName || 'Workout'} · {totalSets} sets logged
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" style={{
+                          flexShrink: 0, background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
+                          border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+                        }}>
+                          Resume ▶
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <div style={{
                 background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)',
                 borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex',

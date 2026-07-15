@@ -9,6 +9,7 @@ import './WorkoutTracker.css';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration } from '../utils/liveWorkoutTimer';
+import { notifyEvent } from '../utils/pushNotify';
 
 
 const TrainerDashboard = ({ handleLogout }) => {
@@ -947,6 +948,8 @@ const TrainerDashboard = ({ handleLogout }) => {
     };
 
     await databaseService.saveWorkoutPlan(plan);
+    // Notify the client their coach sent them a new workout plan.
+    notifyEvent('plan_assigned', { clientUserId: selectedClient.id, planName: plan.planName });
     setShowPlanEditor(false);
     setEditingPlan(null);
     setEditorPlanName('');

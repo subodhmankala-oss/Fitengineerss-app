@@ -4,8 +4,8 @@ import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
+import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
 
@@ -701,7 +701,11 @@ const WorkoutTracker = () => {
           if (l.calories_burned != null && byDate[d].caloriesBurned == null) byDate[d].caloriesBurned = l.calories_burned;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
-          byDate[d].exMap[ex].push({ reps: l.reps, weight: l.weight_kg, setType: l.set_type || null, isWarmup: l.set_type === 'warmup' });
+          byDate[d].exMap[ex].push(
+            l.distance_km != null
+              ? { distanceKm: l.distance_km, time: formatSecondsToTimeString(l.cardio_duration_seconds), setType: l.set_type || null, isWarmup: l.set_type === 'warmup' }
+              : { reps: l.reps, weight: l.weight_kg, setType: l.set_type || null, isWarmup: l.set_type === 'warmup' }
+          );
         });
         const dbSessions = Object.values(byDate).map(s => ({
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
@@ -940,6 +944,10 @@ const WorkoutTracker = () => {
         const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
         if (exercise && exercise.sets && exercise.sets[setIdx]) {
           const set = exercise.sets[setIdx];
+          if (isCardioExercise(exName)) {
+            if (!set.distanceKm) return '—';
+            return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
+          }
           return `${set.weight}${getExerciseUnit(exName)} x ${set.reps}`;
         }
       }
@@ -1156,10 +1164,11 @@ const WorkoutTracker = () => {
   const handleAddSet = (exerciseIndex, isWarmup = false) => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
-        return {
-          ...ex,
-          sets: [...ex.sets, { reps: 10, weight: ex.sets[ex.sets.length - 1]?.weight || '2.5', isCompleted: false, isWarmup }]
-        };
+        const lastSet = ex.sets[ex.sets.length - 1];
+        const newSet = isCardioExercise(ex.name)
+          ? { distanceKm: lastSet?.distanceKm || '', time: '', isCompleted: false, isWarmup }
+          : { reps: 10, weight: lastSet?.weight || '2.5', isCompleted: false, isWarmup };
+        return { ...ex, sets: [...ex.sets, newSet] };
       }
       return ex;
     }));
@@ -1324,19 +1333,26 @@ const WorkoutTracker = () => {
     }
 
     const formattedExercises = activeExercises
-      .map(ex => ({
-        name: ex.name,
-        sets: ex.sets
-          .filter(s => s.isCompleted)
-          .map(s => ({
-            reps: parseInt(s.reps) || 0,
-            weight: parseFloat(s.weight) || 0,
-            // Preserve the Warmup/Dropset/Failure tag chosen in the logger so
-            // it reaches workout_logs.set_type instead of being discarded.
-            ...(s.isWarmup ? { setType: 'warmup' } : {}),
-            ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
-          }))
-      }))
+      .map(ex => {
+        const exIsCardio = isCardioExercise(ex.name);
+        return {
+          name: ex.name,
+          sets: ex.sets
+            .filter(s => s.isCompleted)
+            .map(s => ({
+              // Cardio sets carry distance/time instead of reps/weight so the
+              // save step (and workout_logs.distance_km/cardio_duration_seconds)
+              // doesn't collapse them to zero.
+              ...(exIsCardio
+                ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+                : { reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }),
+              // Preserve the Warmup/Dropset/Failure tag chosen in the logger so
+              // it reaches workout_logs.set_type instead of being discarded.
+              ...(s.isWarmup ? { setType: 'warmup' } : {}),
+              ...(s.setType && s.setType !== 'normal' && !s.isWarmup ? { setType: s.setType } : {})
+            }))
+        };
+      })
       .filter(ex => ex.sets.length > 0);
 
     // Duration/calories for the client's own workout — identical mechanism to
@@ -1372,7 +1388,9 @@ const WorkoutTracker = () => {
         planName: customTemplateName.trim() || templateName.trim() || `My Template — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
         exercises: formattedExercises.map(ex => ({
           name: ex.name,
-          sets: ex.sets.map(s => ({ reps: s.reps, weight: s.weight }))
+          sets: ex.sets.map(s => isCardioExercise(ex.name)
+            ? { distanceKm: s.distanceKm, time: s.time }
+            : { reps: s.reps, weight: s.weight })
         })),
         createdBy: 'client'
       };
@@ -2265,7 +2283,9 @@ const WorkoutTracker = () => {
                           setLogDate(getLocalDateString());
                           setLogExercises(plan.exercises.map(ex => ({
                             name: ex.name,
-                            sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
+                            sets: ex.sets.map(s => isCardioExercise(ex.name)
+                              ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                              : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
                           })));
                           setTemplateName(plan.planName);
                           setWorkoutSource('coach');
@@ -2318,7 +2338,9 @@ const WorkoutTracker = () => {
                           setLogDate(getLocalDateString());
                           setLogExercises(plan.exercises.map(ex => ({
                             name: ex.name,
-                            sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
+                            sets: ex.sets.map(s => isCardioExercise(ex.name)
+                              ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                              : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
                           })));
                           setTemplateName(plan.planName);
                           setWorkoutSource('self');
@@ -2443,7 +2465,9 @@ const WorkoutTracker = () => {
                       setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
                       setLogExercises(plan.exercises.map(ex => ({
                         name: ex.name,
-                        sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
+                        sets: ex.sets.map(s => isCardioExercise(ex.name)
+                          ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                          : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
                       })));
                       triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
                     }
@@ -2467,6 +2491,7 @@ const WorkoutTracker = () => {
             <div className="exercises-input-list">
               {logExercises.map((ex, exIdx) => {
                 const unit = getExerciseUnit(ex.name);
+                const exIsCardio = isCardioExercise(ex.name);
                 return (
                   <div key={exIdx} className="form-exercise-card hevy-exercise-card">
                     <div className="ex-card-header">
@@ -2513,8 +2538,17 @@ const WorkoutTracker = () => {
                       <div className="hevy-table-header">
                         <span className="col-set">SET</span>
                         <span className="col-prev">PREVIOUS</span>
-                        <span className="col-weight">WEIGHT ({unit})</span>
-                        <span className="col-reps">REPS</span>
+                        {exIsCardio ? (
+                          <>
+                            <span className="col-weight">KM</span>
+                            <span className="col-reps">TIME</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="col-weight">WEIGHT ({unit})</span>
+                            <span className="col-reps">REPS</span>
+                          </>
+                        )}
                         <span className="col-check" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                           <button
                             type="button"
@@ -2559,27 +2593,56 @@ const WorkoutTracker = () => {
                                 )}
                               </span>
                               <span className="col-prev set-prev-lbl">{prevStats}</span>
-                              <div className="col-weight set-input-field">
-                                <input
-                                  type="text"
-                                  value={set.weight}
-                                  onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
-                                  required
-                                  placeholder="0"
-                                  disabled={set.isCompleted}
-                                />
-                              </div>
-                              <div className="col-reps set-input-field">
-                                <input
-                                  type="number"
-                                  value={set.reps}
-                                  onChange={(e) => handleSetChange(exIdx, sIdx, 'reps', e.target.value)}
-                                  required
-                                  min="1"
-                                  placeholder={set.targetReps || '0'}
-                                  disabled={set.isCompleted}
-                                />
-                              </div>
+                              {exIsCardio ? (
+                                <>
+                                  <div className="col-weight set-input-field">
+                                    <input
+                                      type="tel"
+                                      inputMode="tel"
+                                      value={set.distanceKm}
+                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'distanceKm', e.target.value)}
+                                      required
+                                      placeholder="0"
+                                      disabled={set.isCompleted}
+                                    />
+                                  </div>
+                                  <div className="col-reps set-input-field">
+                                    <input
+                                      type="tel"
+                                      inputMode="tel"
+                                      value={set.time}
+                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'time', e.target.value)}
+                                      required
+                                      placeholder="mm:ss"
+                                      disabled={set.isCompleted}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="col-weight set-input-field">
+                                    <input
+                                      type="text"
+                                      value={set.weight}
+                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
+                                      required
+                                      placeholder="0"
+                                      disabled={set.isCompleted}
+                                    />
+                                  </div>
+                                  <div className="col-reps set-input-field">
+                                    <input
+                                      type="number"
+                                      value={set.reps}
+                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'reps', e.target.value)}
+                                      required
+                                      min="1"
+                                      placeholder={set.targetReps || '0'}
+                                      disabled={set.isCompleted}
+                                    />
+                                  </div>
+                                </>
+                              )}
                               <div className="col-check set-actions-field">
                                 <button
                                   type="button"
@@ -2798,7 +2861,10 @@ const WorkoutTracker = () => {
         onAdd={(name) => {
           const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
           if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
-          setLogExercises(prev => [...prev, { name, sets: [{ reps: 10, weight: '5.0', isCompleted: false }] }]);
+          const newSet = isCardioExercise(name)
+            ? { distanceKm: '', time: '', isCompleted: false }
+            : { reps: 10, weight: '5.0', isCompleted: false };
+          setLogExercises(prev => [...prev, { name, sets: [newSet] }]);
           triggerToast(`Added ${name} to active workout!`);
         }}
         onRemove={(name) => {

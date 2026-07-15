@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
+import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -551,14 +552,23 @@ const databaseService = {
           const records = [];
           session.exercises.forEach(ex => {
             ex.sets.forEach((set, sIdx) => {
+              // Cardio sets carry distanceKm/time instead of reps/weight (see
+              // isCardioExercise). reps/weight_kg still get written as 0 so
+              // every row keeps the same shape; the real values live in
+              // distance_km/cardio_duration_seconds instead.
+              const isCardioSet = set.distanceKm !== undefined || set.time !== undefined;
               records.push({
                 user_id: user.id,
                 log_date: session.date,
                 exercise_name: ex.name,
                 set_number: sIdx + 1,
-                reps: parseInt(set.reps || '0'),
-                weight_kg: parseFloat(set.weight || '0.0'),
+                reps: isCardioSet ? 0 : parseInt(set.reps || '0'),
+                weight_kg: isCardioSet ? 0 : parseFloat(set.weight || '0.0'),
                 plan_name: session.planName || 'Custom Routine',
+                ...(isCardioSet ? {
+                  distance_km: parseFloat(set.distanceKm || '0') || 0,
+                  cardio_duration_seconds: parseTimeStringToSeconds(set.time)
+                } : {}),
                 // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
                 ...(set.setType ? { set_type: set.setType } : {}),
                 // Live Log session timer's final duration/calories snapshot —
@@ -575,13 +585,13 @@ const databaseService = {
               .from('workout_logs')
               .insert(records);
 
-            // Degrade gracefully if set_type/duration_seconds/calories_burned
-            // haven't been migrated in yet (PostgREST "column not found" —
-            // code 42703 / PGRST204): retry without them rather than losing
-            // the whole session save.
+            // Degrade gracefully if set_type/duration_seconds/calories_burned/
+            // distance_km/cardio_duration_seconds haven't been migrated in yet
+            // (PostgREST "column not found" — code 42703 / PGRST204): retry
+            // without them rather than losing the whole session save.
             if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-              console.warn('workout_logs missing set_type/duration_seconds/calories_burned — retrying without them. Run sql/supabase_workout_logs_set_type.sql and sql/supabase_workout_logs_session_metrics.sql to enable full tracking.');
-              const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, ...rest }) => rest);
+              console.warn('workout_logs missing set_type/duration_seconds/calories_burned/distance_km/cardio_duration_seconds — retrying without them. Run sql/supabase_workout_logs_set_type.sql, sql/supabase_workout_logs_session_metrics.sql and sql/supabase_workout_logs_cardio_fields.sql to enable full tracking.');
+              const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, ...rest }) => rest);
               ({ error } = await supabase.from('workout_logs').insert(fallbackRecords));
             }
 

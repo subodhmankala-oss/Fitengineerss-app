@@ -6,7 +6,12 @@
 // category + primary-muscle inferred for the modal's filter chips and
 // muscle subtitle.
 
-export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'];
+export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
+
+// Cardio exercises are logged as distance + time instead of weight + reps
+// (see isCardioExercise below) — the set shape and the picker/table UI both
+// branch on this list.
+const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk'];
 
 // Coach-side A-Z list (formerly LIVE_EXERCISE_LIST in TrainerDashboard).
 const COACH_NAMES = [
@@ -68,6 +73,7 @@ const CLIENT_NAMES = [
 // Keyword classifier → one filter category. Order matters (specific first).
 export function inferCategory(name) {
   const n = name.toLowerCase();
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|\bwalk\b|rowing machine|\bswim)/.test(n)) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer)/.test(n)) return 'Legs';
@@ -80,6 +86,7 @@ export function inferCategory(name) {
 // Short primary-muscle label for the row subtitle.
 export function inferPrimary(name) {
   const n = name.toLowerCase();
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|\bwalk\b|rowing machine|\bswim)/.test(n)) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$/.test(n)) return 'Triceps';
   if (/(curl|preacher|concentration)/.test(n)) return 'Biceps';
   if (/wrist/.test(n)) return 'Forearms';
@@ -102,7 +109,7 @@ export function inferPrimary(name) {
 export const EXERCISE_LIBRARY = (() => {
   const seen = new Set();
   const out = [];
-  [...COACH_NAMES, ...CLIENT_NAMES].forEach(name => {
+  [...COACH_NAMES, ...CLIENT_NAMES, ...CARDIO_NAMES].forEach(name => {
     const key = name.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
@@ -110,3 +117,11 @@ export const EXERCISE_LIBRARY = (() => {
   });
   return out.sort((a, b) => a.name.localeCompare(b.name));
 })();
+
+// A cardio exercise is logged as distance (km) + time instead of weight +
+// reps. Checked by category rather than a fixed name list so a custom
+// exercise the client types in (e.g. "Swimming") is also recognized.
+export function isCardioExercise(name) {
+  if (!name) return false;
+  return inferCategory(name) === 'Cardio';
+}

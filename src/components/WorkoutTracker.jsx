@@ -5,7 +5,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
 
@@ -2611,7 +2611,7 @@ const WorkoutTracker = () => {
                                       type="tel"
                                       inputMode="tel"
                                       value={set.time}
-                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'time', e.target.value)}
+                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
                                       required
                                       placeholder="mm:ss"
                                       disabled={set.isCompleted}

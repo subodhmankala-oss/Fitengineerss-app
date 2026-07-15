@@ -659,7 +659,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
             background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
-            borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: '4px',
+            borderRadius: 0, padding: '12px 14px', marginBottom: '4px',
             cursor: activeDraft.source === 'coach' ? 'default' : 'pointer'
           }}
         >
@@ -748,7 +748,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                     <div className="sessions-progress-card glass-panel animate-scale-in" style={{
                       background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
                       border: '1px solid rgba(139, 92, 246, 0.25)',
-                      borderRadius: '16px',
+                      borderRadius: 0,
                       padding: '24px',
                       display: 'flex',
                       flexDirection: 'column',
@@ -767,7 +767,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                   <div className="sessions-progress-card glass-panel animate-scale-in" style={{
                     background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
                     border: '1px solid rgba(139, 92, 246, 0.25)',
-                    borderRadius: '16px',
+                    borderRadius: 0,
                     padding: '24px',
                     display: 'flex',
                     alignItems: 'center',

@@ -23,6 +23,34 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Clients" scoping filter below MUST have the real id to avoid leaking other
   // (or unattached "Generic") clients. See resolveCanonicalUserId.
   const [resolvedCoachId, setResolvedCoachId] = useState(() => localStorage.getItem('userId') || null);
+
+  // Coach notification permission. Granting it registers the coach's device
+  // for push (App.jsx auto-subscribes on the notificationPermissionChanged
+  // event) — which is what lets client-triggered alerts (workout started,
+  // measurements saved) actually reach the coach's phone.
+  const [notifPermission, setNotifPermission] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  );
+  const enableCoachNotifications = async () => {
+    if (!('Notification' in window)) {
+      alert('This browser does not support notifications.');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      alert('Notifications are blocked for this site. Please enable them in your browser/phone settings for this app, then try again.');
+      return;
+    }
+    try {
+      const result = await Notification.requestPermission();
+      setNotifPermission(result);
+      // App.jsx listens for this and registers the push subscription (with the
+      // coach's user_id) so targeted alerts can be delivered.
+      window.dispatchEvent(new Event('notificationPermissionChanged'));
+    } catch (e) {
+      console.error('Notification permission request failed:', e);
+    }
+  };
+
   const [adminSubTab, setAdminSubTab] = useState('clients'); // 'clients' or 'coaches'
   const [coachesList, setCoachesList] = useState([]);
   const [pendingCoachesList, setPendingCoachesList] = useState([]);
@@ -1125,14 +1153,36 @@ const TrainerDashboard = ({ handleLogout }) => {
             </span>
           </div>
         </div>
-        <button className="logout-btn-trainer" onClick={handleLogout}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={enableCoachNotifications}
+            title={notifPermission === 'granted' ? 'Notifications are on' : 'Enable notifications to get client alerts'}
+            aria-label="Enable notifications"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: notifPermission === 'granted' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
+              border: notifPermission === 'granted' ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.12)',
+              color: notifPermission === 'granted' ? 'var(--primary-accent-light)' : '#fff',
+              borderRadius: '20px', padding: '7px 12px', fontSize: '0.72rem', fontWeight: 700,
+              cursor: 'pointer', whiteSpace: 'nowrap'
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {notifPermission === 'granted' ? 'On' : 'Notifications'}
+          </button>
+          <button className="logout-btn-trainer" onClick={handleLogout}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Logout
+          </button>
+        </div>
       </div>
 
       {superAdmin && (

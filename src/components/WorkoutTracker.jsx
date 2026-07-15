@@ -333,7 +333,31 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
 
 const WorkoutTracker = () => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
-  const [activeView, setActiveView] = useState('analytics'); // 'analytics', 'log', or 'programs'
+
+  // ─── In-progress workout draft persistence ───
+  // The entire logging session (exercises, timer timestamps, form fields) lives
+  // in component state. Because App renders the Workouts tab via a switch,
+  // navigating to another bottom-nav tab, reloading, logging out, or the browser
+  // evicting a backgrounded tab unmounts WorkoutTracker and used to wipe a
+  // half-finished session — forcing the client to start over. We mirror the
+  // active session into localStorage (keyed per user) so it survives an unmount
+  // and is restored on the next mount. The timer is derived from start/pause
+  // timestamps, so elapsed time and calories stay correct across a reload with
+  // no extra bookkeeping.
+  const workoutDraftKey = `workoutDraft_${localStorage.getItem('userId') || loggedInUser}`;
+  const loadWorkoutDraft = () => {
+    try {
+      const raw = localStorage.getItem(workoutDraftKey);
+      if (!raw) return null;
+      const draft = JSON.parse(raw);
+      return draft && draft.isLoggingWorkout ? draft : null;
+    } catch (e) {
+      return null;
+    }
+  };
+  const [savedWorkoutDraft] = useState(loadWorkoutDraft);
+
+  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : 'analytics'); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
@@ -348,14 +372,14 @@ const WorkoutTracker = () => {
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
 
   // Custom templates and plans state
-  const [isLoggingWorkout, setIsLoggingWorkout] = useState(false);
+  const [isLoggingWorkout, setIsLoggingWorkout] = useState(!!savedWorkoutDraft);
   const [clientPlans, setClientPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState('');
+  const [saveAsTemplate, setSaveAsTemplate] = useState(savedWorkoutDraft?.saveAsTemplate ?? false);
+  const [templateName, setTemplateName] = useState(savedWorkoutDraft?.templateName ?? '');
   // Generic workout templates (Push/Pull/Leg)
   const [genericTemplates, setGenericTemplates] = useState([]);
-  const [activeTemplateName, setActiveTemplateName] = useState('');
+  const [activeTemplateName, setActiveTemplateName] = useState(savedWorkoutDraft?.activeTemplateName ?? '');
 
   // Generic (non-coach) starter workout templates — always available, regardless of coach_id.
   const [defaultTemplates, setDefaultTemplates] = useState([]);
@@ -479,9 +503,9 @@ const WorkoutTracker = () => {
   // Log exactly: idle until the first set is marked done, then running/paused
   // via explicit control. Duration and calories are always recomputed fresh
   // from these timestamps (never an incrementing counter), same as the coach.
-  const [workoutTimerStatus, setWorkoutTimerStatus] = useState('idle'); // 'idle' | 'running' | 'paused'
-  const [workoutTimerStartedAt, setWorkoutTimerStartedAt] = useState(null);
-  const [workoutPauseIntervals, setWorkoutPauseIntervals] = useState([]); // [{ pausedAt, resumedAt }]
+  const [workoutTimerStatus, setWorkoutTimerStatus] = useState(savedWorkoutDraft?.workoutTimerStatus ?? 'idle'); // 'idle' | 'running' | 'paused'
+  const [workoutTimerStartedAt, setWorkoutTimerStartedAt] = useState(savedWorkoutDraft?.workoutTimerStartedAt ?? null);
+  const [workoutPauseIntervals, setWorkoutPauseIntervals] = useState(savedWorkoutDraft?.workoutPauseIntervals ?? []); // [{ pausedAt, resumedAt }]
   const [, forceWorkoutTimerTick] = useState(0);
   // Derived, not stored — every read site below (Finish summary, live badge,
   // billing, stopwatch display) keeps using this name/shape unchanged.
@@ -507,9 +531,9 @@ const WorkoutTracker = () => {
   }, [activeGuideExercise]);
 
   // Coach Log Form States
-  const [logClient, setLogClient] = useState(loggedInUser);
-  const [logDate, setLogDate] = useState(getLocalDateString());
-  const [logExercises, setLogExercises] = useState([
+  const [logClient, setLogClient] = useState(savedWorkoutDraft?.logClient ?? loggedInUser);
+  const [logDate, setLogDate] = useState(savedWorkoutDraft?.logDate ?? getLocalDateString());
+  const [logExercises, setLogExercises] = useState(savedWorkoutDraft?.logExercises ?? [
     { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
     { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },
     { name: 'One Arm Row', sets: [{ reps: 12, weight: '2.5', isCompleted: false }, { reps: 12, weight: '2.6', isCompleted: false }] },
@@ -716,6 +740,34 @@ const WorkoutTracker = () => {
     setWorkoutPauseIntervals([]);
   };
 
+  // Mirror the active logging session into localStorage on every change so it
+  // survives an unmount (tab switch / reload / logout), and clear it the moment
+  // the session ends (finish or discard sets isLoggingWorkout back to false).
+  useEffect(() => {
+    if (isLoggingWorkout) {
+      try {
+        localStorage.setItem(workoutDraftKey, JSON.stringify({
+          isLoggingWorkout: true,
+          logExercises,
+          logClient,
+          logDate,
+          templateName,
+          activeTemplateName,
+          saveAsTemplate,
+          workoutTimerStatus,
+          workoutTimerStartedAt,
+          workoutPauseIntervals,
+          savedAt: Date.now()
+        }));
+      } catch (e) {
+        // Quota/serialization failure shouldn't break the live session.
+      }
+    } else {
+      localStorage.removeItem(workoutDraftKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals]);
+
   const handlePauseWorkoutTimer = () => {
     if (workoutTimerStatus !== 'running') return;
     setWorkoutPauseIntervals(prev => [...prev, { pausedAt: Date.now(), resumedAt: null }]);
@@ -867,6 +919,12 @@ const WorkoutTracker = () => {
     ? { ...baseProfile, totalSessions: coachSetTotalSessions }
     : baseProfile;
 
+  // The client's own goal, exactly as chosen in the onboarding wizard
+  // (localStorage 'userGoal' = 'Fat Loss' | 'Muscle Building' | 'Gut Health' /
+  // 'Gut Fix'). This is what the client recognizes — the mapped mock program
+  // name ('Body Weights & Dumbbells' etc.) is meaningless to them.
+  const clientGoal = (localStorage.getItem('userGoal') || '').trim();
+
   // Sessions count calculations
   const clientSessions = sessions
     .filter(s => s.clientName.toLowerCase() === selectedClient.toLowerCase())
@@ -878,9 +936,17 @@ const WorkoutTracker = () => {
     ? dbCompletedSessions
     : clientSessions.length;
   const remainingSessionsCount = Math.max(0, activeProfile.totalSessions - completedSessionsCount);
+  // A connected client's session package total is only real once the coach has
+  // actually assigned one (clients.total_sessions). Until then we must NOT show
+  // the legacy mock number (12/20/24…) as if it were the coach's plan — the
+  // count is "Unassigned". Coach-viewed roster profiles keep their own total.
+  const hasAssignedSessions = isOwnProfile
+    ? (coachSetTotalSessions != null && coachSetTotalSessions > 0)
+    : true;
   // Renewal warning is coaching-package specific — only for connected clients
-  // (or a coach viewing one), never a generic/unconnected client.
-  const showPaymentAlert = (hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && remainingSessionsCount <= 3;
+  // (or a coach viewing one) who actually have an assigned package running low,
+  // never a generic/unconnected client or one with no coach-set count yet.
+  const showPaymentAlert = (hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && hasAssignedSessions && remainingSessionsCount <= 3;
 
   const displayedSessions = timeframe === 'weekly' 
     ? clientSessions.slice(-3) 
@@ -1434,18 +1500,24 @@ const WorkoutTracker = () => {
             {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
             <div className="sessions-accounting-split">
               <div className="acc-item">
-                <span className="acc-lbl">Program Name</span>
-                <strong>{activeProfile.activeProgram}</strong>
+                <span className="acc-lbl">{isOwnProfile ? 'My Goal' : 'Program Name'}</span>
+                <strong>{isOwnProfile ? (clientGoal || activeProfile.activeProgram) : activeProfile.activeProgram}</strong>
               </div>
               <div className="acc-item">
                 <span className="acc-lbl">Completed</span>
-                <strong className="text-emerald">{completedSessionsCount} / {activeProfile.totalSessions}</strong>
+                <strong className="text-emerald">
+                  {hasAssignedSessions ? `${completedSessionsCount} / ${activeProfile.totalSessions}` : completedSessionsCount}
+                </strong>
               </div>
               <div className="acc-item">
                 <span className="acc-lbl">Remaining</span>
-                <strong className={remainingSessionsCount <= 3 ? 'text-warn' : 'text-blue'}>
-                  {remainingSessionsCount} left
-                </strong>
+                {hasAssignedSessions ? (
+                  <strong className={remainingSessionsCount <= 3 ? 'text-warn' : 'text-blue'}>
+                    {remainingSessionsCount} left
+                  </strong>
+                ) : (
+                  <strong className="text-muted">Unassigned</strong>
+                )}
               </div>
             </div>
             )}
@@ -2173,20 +2245,34 @@ const WorkoutTracker = () => {
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
+          <div className="form-header form-header-with-date">
+            <div>
+              <h3>🏋️ Today's Workout</h3>
+              <p>Enter your reps and weights, then tick each set as you complete it.</p>
+            </div>
+            <div className="input-group session-date-inline">
+              <label>Session Date</label>
+              <input
+                type="date"
+                value={logDate}
+                onChange={(e) => setLogDate(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
           {/* Hevy Stopwatch Header — same idle/running/paused bar as the coach's
               Live Log: stays idle (no clock, no Pause button) until the first
               set is marked done, then ticks and shows live calories. */}
           <div className="hevy-stopwatch-banner">
             <div className="timer-display">
-              <span className="stopwatch-icon">⏱️</span>
               {workoutTimerStatus === 'idle' ? (
                 <span className="live-timer-idle-hint">Timer starts when you log your first set</span>
               ) : (
                 <>
-                  <div className="timer-numbers">
-                    <strong>{formatStopwatchTime(workoutActiveSeconds)}</strong>
-                    <span className="active-badge">{workoutTimerStatus === 'running' ? '● Active Tracker' : 'Paused'}</span>
-                  </div>
+                  <strong className={`stopwatch-time ${workoutTimerStatus === 'paused' ? 'is-paused' : ''}`}>
+                    {formatStopwatchTime(workoutActiveSeconds)}
+                  </strong>
                   <span className="live-kcal-badge">🔥 {liveOwnWorkoutKcal} kcal</span>
                 </>
               )}
@@ -2201,34 +2287,21 @@ const WorkoutTracker = () => {
                   {workoutTimerStatus === 'running' ? '⏸️ Pause' : '▶️ Resume'}
                 </button>
               )}
-              <button
-                type="submit"
-                className="btn-hevy-finish"
-              >
-                ✓ Finish
-              </button>
             </div>
           </div>
 
-          <div className="form-header">
-            <h3>📝 Log New Workout Session</h3>
-            <p>Input reps, weights, and sets directly from client notebooks.</p>
-          </div>
-
-          {/* Quick Package details — only for clients with a coach */}
-          {hasCoachAssigned && (
+          {/* Package status is only relevant to a connected client when their
+              sessions are nearly used up — surface it (with the renewal action)
+              only at ≤3 remaining, otherwise keep the logger clean. */}
+          {hasCoachAssigned && hasAssignedSessions && remainingSessionsCount <= 3 && (
             <div className="coach-billing-status-box">
               <div className="status-meta">
-                <strong>Billing Tracker ({selectedClient})</strong>
-                <p>Completed: {completedSessionsCount} / {activeProfile.totalSessions} sessions</p>
+                <strong>⚠️ Only {remainingSessionsCount} session{remainingSessionsCount === 1 ? '' : 's'} left</strong>
+                <p>You've completed {completedSessionsCount} of {activeProfile.totalSessions}. Renew to keep training with your coach.</p>
               </div>
-              {/* Renewal only surfaces when the package is nearly used up (≤3 left),
-                  matching the warning banner — not while sessions remain plentiful. */}
-              {remainingSessionsCount <= 3 && (
-                <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
-                  💳 Renew Package (+12 Sessions)
-                </button>
-              )}
+              <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
+                💳 Renew Package (+12 Sessions)
+              </button>
             </div>
           )}
 
@@ -2243,29 +2316,36 @@ const WorkoutTracker = () => {
                 placeholder="e.g. Push Day, Leg Day, Custom Session…"
               />
             </div>
-            <div className="input-group">
-              <label>Session Date</label>
-              <input 
-                type="date" 
-                value={logDate} 
-                onChange={(e) => setLogDate(e.target.value)} 
-                required 
-              />
-            </div>
+            {clientPlans.length > 0 && (
+              <div className="input-group">
+                <label>Load from Existing Plan</label>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const plan = clientPlans.find(p => p.id === e.target.value);
+                    if (plan) {
+                      setTemplateName(plan.planName);
+                      setLogExercises(plan.exercises.map(ex => ({
+                        name: ex.name,
+                        sets: ex.sets.map(s => ({ reps: String(s.reps), weight: String(s.weight), isCompleted: false }))
+                      })));
+                      triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
+                    }
+                    e.target.value = '';
+                  }}
+                >
+                  <option value="" disabled>-- Select plan template --</option>
+                  {clientPlans.map(p => (
+                    <option key={p.id} value={p.id}>{p.planName}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="exercises-form-section">
             <div className="section-title-row" style={{ position: 'relative' }}>
               <h4>Workout Lift Logs</h4>
-              <div className="add-exercise-dropdown-wrapper">
-                <button
-                  type="button"
-                  className="btn-secondary-sm btn-add-hevy-ex"
-                  onClick={() => setShowExerciseDbModal(true)}
-                >
-                  ➕ Add Exercise
-                </button>
-              </div>
             </div>
 
             <div className="exercises-input-list">
@@ -2424,6 +2504,23 @@ const WorkoutTracker = () => {
                 );
               })}
             </div>
+
+            {/* Add Exercise — picker button kept at the bottom of the list. */}
+            <div className="live-add-ex-box">
+              <button
+                type="button"
+                className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
+                onClick={() => setShowExerciseDbModal(true)}
+              >
+                ➕ Add Exercise
+              </button>
+            </div>
+
+            {/* Primary session action lives all the way at the bottom (same
+                submit flow the old top "Finish" button used). */}
+            <button type="submit" className="btn-save-workout-session">
+              💾 Save Workout Session
+            </button>
           </div>
         </form>
       )}

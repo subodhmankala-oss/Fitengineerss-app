@@ -2,7 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 16px 12px var(--safe-bottom) 12px;
+  /* Edge-to-edge: no side gutter — cards span full width. */
+  padding: 16px 0 var(--safe-bottom) 0;
   max-width: 100%;
   /* `clip` (not `hidden`) keeps horizontal overflow clipped WITHOUT turning this
      element into a scroll container — `overflow-x: hidden` would force

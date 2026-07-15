@@ -5,10 +5,12 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  padding: 20px;
+  /* Edge-to-edge: no side gutters — cards/sections span the full screen
+     width. Vertical padding kept; horizontal removed. Direct children that
+     need breathing room carry their own horizontal padding. */
+  padding: 20px 0 90px 0; /* bottom = space for bottom nav */
   background: var(--bg-app);
   overflow-y: auto;
-  padding-bottom: 90px; /* Space for bottom nav */
 }
 
 /* Header Panel */
@@ -18,6 +20,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
+  padding: 0 var(--screen-gutter); /* align header text with full-bleed cards */
 }
 
 .profile-group {
@@ -334,6 +337,7 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  padding: 0 var(--screen-gutter); /* align label with full-bleed cards */
 }
 
 .ex-list-wrapper {

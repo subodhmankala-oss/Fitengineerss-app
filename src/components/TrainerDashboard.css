@@ -1,12 +1,36 @@
 /* Trainer Dashboard Premium Styling */
 
+/* Edge-to-edge support: the container has no side gutter, so in the client
+   DETAIL view the hero stat cards + program/tab cards span full width. Plain
+   text, controls, and dense tab content (tables/forms) re-apply
+   --screen-gutter so they keep breathing room and align with card content.
+   The client DIRECTORY view keeps a uniform gutter (search, filters, and the
+   client list read best inset), applied on its own wrapper. */
+.dashboard-breadcrumb,
+.client-detail-header,
+.trainer-tabs,
+.workout-history-content,
+.measurements-content,
+.workout-plans-content,
+.live-logger-container {
+  padding-left: var(--screen-gutter);
+  padding-right: var(--screen-gutter);
+}
+
+.client-directory-view {
+  padding-left: var(--screen-gutter);
+  padding-right: var(--screen-gutter);
+}
+
 .trainer-dashboard-container {
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
   overflow-y: auto;
-  padding: 24px 16px;
+  /* Edge-to-edge: no side gutter — cards span full width. Plain text/control
+     children below re-apply --screen-gutter to align with card content. */
+  padding: 24px 0;
   background-color: var(--bg-app);
   scroll-behavior: smooth;
 }
@@ -17,6 +41,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding: 0 var(--screen-gutter);
 }
 
 .trainer-title-group h3 {

@@ -24,6 +24,10 @@
   /* Layout & Spacing */
   --app-max-width: 480px;
   --safe-bottom: 90px; /* Space for bottom nav */
+  /* Edge-to-edge design: screen containers have NO side gutter (cards span
+     full width). Plain text/headers that aren't in a card use this to align
+     their text with card inner content. Matches typical card inner padding. */
+  --screen-gutter: 16px;
   
   /* Radii */
   --radius-sm: 8px;

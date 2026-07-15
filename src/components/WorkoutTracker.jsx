@@ -526,6 +526,14 @@ const WorkoutTracker = () => {
   const [showFinishSummary, setShowFinishSummary] = useState(false);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
   const [restTimerActive, setRestTimerActive] = useState(false);
+  // Rest start/end used to be announced with a toast; now the floating rest
+  // timer card itself blinks instead — bumping this key forces React to
+  // remount the card so its CSS blink animation replays every time (a class
+  // toggle alone wouldn't restart an already-applied animation).
+  const [restPulseKey, setRestPulseKey] = useState(0);
+  // True for a short window right after the countdown hits 0 — swaps the
+  // card to a "Rest over" blink instead of vanishing instantly.
+  const [restJustFinished, setRestJustFinished] = useState(false);
   const [summaryStats, setSummaryStats] = useState(null);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   const [guideTab, setGuideTab] = useState('summary');
@@ -892,8 +900,15 @@ const WorkoutTracker = () => {
       interval = setInterval(() => {
         setRestSecondsRemaining(prev => {
           if (prev <= 1) {
-            setRestTimerActive(false);
-            triggerToast('⏱️ Rest over! Time for your next set.');
+            // Swap to the "Rest over" blink instead of a toast, then let the
+            // card linger just long enough to actually be seen blinking
+            // before it clears itself.
+            setRestJustFinished(true);
+            setRestPulseKey(k => k + 1);
+            setTimeout(() => {
+              setRestTimerActive(false);
+              setRestJustFinished(false);
+            }, 2200);
             return 0;
           }
           return prev - 1;
@@ -976,7 +991,8 @@ const WorkoutTracker = () => {
               if (nextState) {
                 setRestSecondsRemaining(60);
                 setRestTimerActive(true);
-                triggerToast('⏱️ Rest Timer started (60 seconds). Great set!');
+                setRestJustFinished(false);
+                setRestPulseKey(k => k + 1);
               }
               // completedAt is what the live calorie calc's rest-interval math
               // uses — never cleared retroactively except when this exact set
@@ -2972,35 +2988,54 @@ const WorkoutTracker = () => {
         </div>
       )}
 
-      {/* Floating Hevy Rest Timer Overlay */}
-      {restTimerActive && restSecondsRemaining > 0 && (
-        <div className="rest-timer-floating-card animate-slide-up">
+      {/* Floating Hevy Rest Timer Overlay. Both the rest-started moment and the
+          rest-finished moment used to interrupt with a toast; now the card
+          itself blinks (key={restPulseKey} forces a remount so the CSS blink
+          animation replays every time, since re-applying the same class
+          wouldn't restart an animation already in progress). */}
+      {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && (
+        <div
+          key={restPulseKey}
+          className={`rest-timer-floating-card ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
+        >
           <div className="rest-timer-content">
-            <span className="rest-icon">⏱️</span>
+            <span className="rest-icon">{restJustFinished ? '✅' : '⏱️'}</span>
             <div className="rest-timer-info">
-              <span>REST TIMER</span>
-              <strong>{restSecondsRemaining}s</strong>
+              {restJustFinished ? (
+                <>
+                  <span>REST OVER</span>
+                  <strong style={{ fontSize: '0.9rem' }}>Time for your next set!</strong>
+                </>
+              ) : (
+                <>
+                  <span>REST TIMER</span>
+                  <strong>{restSecondsRemaining}s</strong>
+                </>
+              )}
             </div>
           </div>
-          <div className="rest-timer-actions">
-            <button 
-              type="button" 
-              className="btn-rest-adjust"
-              onClick={() => setRestSecondsRemaining(prev => prev + 30)}
-            >
-              +30s
-            </button>
-            <button 
-              type="button" 
-              className="btn-rest-skip"
-              onClick={() => {
-                setRestTimerActive(false);
-                setRestSecondsRemaining(0);
-              }}
-            >
-              Skip
-            </button>
-          </div>
+          {!restJustFinished && (
+            <div className="rest-timer-actions">
+              <button
+                type="button"
+                className="btn-rest-adjust"
+                onClick={() => setRestSecondsRemaining(prev => prev + 30)}
+              >
+                +30s
+              </button>
+              <button
+                type="button"
+                className="btn-rest-skip"
+                onClick={() => {
+                  setRestTimerActive(false);
+                  setRestSecondsRemaining(0);
+                  setRestJustFinished(false);
+                }}
+              >
+                Skip
+              </button>
+            </div>
+          )}
         </div>
       )}
 

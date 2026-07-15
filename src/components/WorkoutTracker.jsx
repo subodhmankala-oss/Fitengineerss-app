@@ -536,6 +536,7 @@ const WorkoutTracker = () => {
   }, []);
 
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
+  const [showDiscardConfirmModal, setShowDiscardConfirmModal] = useState(false);
 
   useEffect(() => {
     if (!activeGuideExercise) { setGuideTab('summary'); return; }
@@ -750,6 +751,26 @@ const WorkoutTracker = () => {
     setWorkoutTimerStatus('idle');
     setWorkoutTimerStartedAt(null);
     setWorkoutPauseIntervals([]);
+  };
+
+  // Wipe the in-progress session and go back to the log picker. Shared by the
+  // "empty sets" warning modal and the always-available discard button next
+  // to Save — both need the exact same reset (timer, draft row, exercise
+  // list) so a session can't be half-cleared by one path and not the other.
+  const handleDiscardWorkout = () => {
+    resetWorkoutTimer();
+    setIsLoggingWorkout(false);
+    setTemplateName('');
+    setWorkoutSource('self');
+    if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
+    setLogExercises([
+      { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
+      { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },
+      { name: 'One Arm Row', sets: [{ reps: 12, weight: '2.5', isCompleted: false }, { reps: 12, weight: '2.6', isCompleted: false }] },
+      { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
+    ]);
+    setActiveView('analytics');
+    triggerToast('🗑️ Workout session discarded.');
   };
 
   // Resolve this client's canonical DB id once on mount, then reconcile with
@@ -2612,14 +2633,86 @@ const WorkoutTracker = () => {
             </div>
 
             {/* Primary session action lives all the way at the bottom (same
-                submit flow the old top "Finish" button used). */}
-            <button type="submit" className="btn-save-workout-session">
-              💾 Save Workout Session
-            </button>
+                submit flow the old top "Finish" button used), with a direct
+                discard escape hatch beside it for a session the client
+                doesn't want to keep. */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-save-workout-session"
+                style={{
+                  width: 'auto', flex: '0 0 auto', background: 'linear-gradient(135deg,#ef4444,#dc2626)',
+                  padding: '0 18px'
+                }}
+                onClick={() => setShowDiscardConfirmModal(true)}
+                title="Discard this workout session"
+              >
+                🗑️
+              </button>
+              <button type="submit" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
+                💾 Save Workout Session
+              </button>
+            </div>
           </div>
         </form>
       )}
       </div>
+
+      {/* Direct discard confirmation — reachable without needing to hit
+          Finish first (that path is the "empty sets" modal above). */}
+      {showDiscardConfirmModal && (
+        <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowDiscardConfirmModal(false)}>
+          <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+              <div className="modal-title-box">
+                <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ DISCARD SESSION</span>
+                <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Discard this workout?</h3>
+              </div>
+              <button
+                type="button"
+                className="btn-close-modal-x"
+                onClick={() => setShowDiscardConfirmModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="warning-modal-body" style={{ padding: '20px 4px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: '1.6', margin: 0 }}>
+                All sets logged in this session will be permanently deleted. This can't be undone.
+              </p>
+            </div>
+
+            <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                className="btn-cancel-summary"
+                onClick={() => setShowDiscardConfirmModal(false)}
+                style={{ flex: 1, padding: '12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}
+              >
+                Keep Logging
+              </button>
+              <button
+                type="button"
+                className="btn-confirm-save-hevy"
+                style={{
+                  flex: 1, padding: '12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                }}
+                onClick={() => {
+                  handleDiscardWorkout();
+                  setShowDiscardConfirmModal(false);
+                }}
+              >
+                🗑️ Discard Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Premium Invoice Amount Details Modal */}
       {showPaymentModal && paymentProgram && (() => {
@@ -3006,20 +3099,8 @@ const WorkoutTracker = () => {
                   boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
                 }}
                 onClick={() => {
-                  resetWorkoutTimer();
-                  setIsLoggingWorkout(false);
-                  setTemplateName('');
-                  setWorkoutSource('self');
-                  if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
-                  setLogExercises([
-                    { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
-                    { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },
-                    { name: 'One Arm Row', sets: [{ reps: 12, weight: '2.5', isCompleted: false }, { reps: 12, weight: '2.6', isCompleted: false }] },
-                    { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
-                  ]);
+                  handleDiscardWorkout();
                   setShowUntickedFinishModal(false);
-                  setActiveView('analytics');
-                  triggerToast('🗑️ Workout session discarded.');
                 }}
               >
                 🗑️ Discard Session

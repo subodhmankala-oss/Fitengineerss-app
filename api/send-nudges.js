@@ -14,11 +14,11 @@ webPush.setVapidDetails(
 );
 
 const morningQuotes = [
-  "Rise and conquer! Your health is an investment, not an expense. Make today's choices count! ☀️",
-  "Good morning! Great bodies are built on consistency, not convenience. Lock in your habits early today! 🍳",
-  "Wake up! The difference between who you are and who you want to be is what you do today. Let's execute! 💪",
-  "Rise and grind! Prioritize your wellness today. A hydrated body is a high-performing engine! 💧",
-  "Good morning, champion! A fresh start to win your day. Remember: food is fuel, and movement is medicine! 🍏"
+  "Good morning. Today is another chance to invest in yourself — one steady, intentional choice at a time. Let's make it count. ☀️",
+  "Rise and shine. Progress is built on consistency, not perfection. Show up for yourself today and the results will follow. 💪",
+  "Good morning. Your body is capable of remarkable things when you treat it with care. Start today strong and hydrated. 🌿",
+  "A fresh morning, a fresh start. Small disciplined actions today become the strength you'll be proud of tomorrow. 🌅",
+  "Good morning. Fuel your body well, move with purpose, and be kind to yourself. You've got everything it takes. 🙌"
 ];
 
 export default async function handler(req, res) {
@@ -138,40 +138,41 @@ export default async function handler(req, res) {
         }
         const proteinLeft = Math.max(0, proteinTarget - finalProtein);
 
-        // 3. Compose notification based on hour
-        if (hours === 8) {
-          title = `Good Morning, ${userName}! ☀️`;
-          body = morningQuotes[now.getDate() % morningQuotes.length];
-        } else if (hours === 13) {
-          title = "🍱 Post-Lunch Metabolic Check";
-          body = `Optimize your insulin and digest lunch, ${userName}! Take a quick 10-minute stroll now. Movement is medicine!`;
-        } else if (hours === 20) {
-          title = "🚶‍♂️ Post-Dinner Digestion Check";
-          body = "Support healthy metabolic clearance and gut motility with a gentle 10-minute post-dinner walk before you wind down.";
-        } else if (hours === 22) {
-          title = "🌙 Sleep Well & Recover";
-          body = `Regardless of today's tracking, rest deeply tonight, ${userName}. Fitness is a lifetime journey. Reset, recover, and let's win tomorrow!`;
-        } else {
-          // General hours: Hydration, Protein, and Screen time nudges
-          const cycleIndex = hours % 3;
-          if (cycleIndex === 0) {
-            title = "💧 Fluid Intake Status";
-            if (glassesLeft > 0) {
-              body = `Hi ${userName}, you currently have ${glassesLeft} glasses remaining to hit your daily target of ${recommendedWaterTarget} glasses. Drink up! 💧`;
-            } else {
-              body = `Outstanding consistency, ${userName}! You've fully hit your daily hydration target of ${recommendedWaterTarget} glasses.`;
-            }
-          } else if (cycleIndex === 1) {
-            title = "🥩 Protein Intake Check";
-            if (proteinLeft > 0) {
-              body = `Recovery check! You need ${proteinLeft}g of protein to satisfy your daily target of ${proteinTarget}g. Plan a protein source in your next meal!`;
-            } else {
-              body = `Perfect protein precision, ${userName}! Your daily target of ${proteinTarget}g is fully satisfied.`;
-            }
-          } else {
-            title = "📈 High-Performance Focus";
-            body = `Hey ${userName}, put the phone down! Step away from scrolling and redirect your focus toward your goals. Stop wasting time scrolling!`;
+        // Only coach-connected clients receive the wellness schedule.
+        if (userProfile) {
+          const { data: clientRow } = await supabase
+            .from('clients')
+            .select('coach_id')
+            .eq('user_id', userProfile.id)
+            .maybeSingle();
+          if (!clientRow || !clientRow.coach_id) {
+            continue; // no coach — skip this subscriber
           }
+        }
+
+        // 3. Compose the day's supportive slot. IST slot hours: 8 morning,
+        //    11 brunch, 13 lunch, 19 dinner (19:30), 21 evening (21:30).
+        //    Hydration figure is woven into the brunch message.
+        if (hours === 8) {
+          title = `Good Morning, ${userName} ☀️`;
+          body = morningQuotes[now.getDate() % morningQuotes.length];
+        } else if (hours === 11) {
+          title = "Mid-Morning Reset 🚶";
+          body = `Time for a short reset, ${userName}. Take a 5–10 minute walk to loosen up, and keep your hydration steady${glassesLeft > 0 ? ` — about ${glassesLeft} more glasses to reach today's target` : ''}. Small habits, big results. 💧`;
+        } else if (hours === 13) {
+          title = "Post-Lunch Movement 🍱";
+          body = `Try not to sit right after lunch, ${userName}. A gentle 10-minute walk now supports your digestion and metabolism, and keeps your energy steady through the afternoon. 🌿`;
+        } else if (hours === 19) {
+          title = "Dinner Reminder 🍽️";
+          body = proteinLeft > 0
+            ? `Time to wind down with dinner. Focus on a high-protein, balanced plate${proteinLeft > 0 ? ` — around ${proteinLeft}g of protein left for today` : ''} to support your recovery. Try to eat a little earlier so your body can rest well tonight. 🥗`
+            : `Time to wind down with dinner. Focus on a high-protein, balanced plate to support your recovery and strength. Try to eat a little earlier so your body can rest well tonight. 🥗`;
+        } else if (hours === 21) {
+          title = "Well Done Today 🌙";
+          body = `You showed up and gave your best today, ${userName}, and that matters. Rest deeply tonight, let your body recover, and we'll do it all again tomorrow. Proud of you. ✨`;
+        } else {
+          // Not a scheduled slot for this run — don't send anything.
+          continue;
         }
 
         // 4. Send Web Push

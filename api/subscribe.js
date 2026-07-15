@@ -19,11 +19,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed. Please use POST.' });
   }
 
-  const { userName, subscription } = req.body;
+  const { userName, subscription, userId } = req.body;
 
   if (!userName || !subscription) {
     return res.status(400).json({ error: 'userName and subscription parameters are required.' });
   }
+
+  // Only accept a real UUID for user_id (targeted-notification key); ignore
+  // stale/mock ids so they never poison the column.
+  const validUserId = (typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId))
+    ? userId
+    : null;
 
   try {
     // Save/Upsert the subscription in Supabase push_subscriptions table
@@ -56,22 +62,26 @@ export default async function handler(req, res) {
     }
 
     if (existing && existing.length > 0) {
-      // Update userName for existing subscription
+      // Update userName (and user_id when known) for existing subscription
+      const updateFields = { user_name: userName, subscription };
+      if (validUserId) updateFields.user_id = validUserId;
       const { error: updateError } = await supabase
         .from('push_subscriptions')
-        .update({ user_name: userName, subscription })
+        .update(updateFields)
         .eq('endpoint', endpoint);
 
       if (updateError) throw updateError;
     } else {
       // Insert new subscription
+      const insertFields = {
+        user_name: userName,
+        endpoint: endpoint,
+        subscription: subscription
+      };
+      if (validUserId) insertFields.user_id = validUserId;
       const { error: insertError } = await supabase
         .from('push_subscriptions')
-        .insert({
-          user_name: userName,
-          endpoint: endpoint,
-          subscription: subscription
-        });
+        .insert(insertFields);
 
       if (insertError) throw insertError;
     }

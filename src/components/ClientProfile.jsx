@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
+import { notifyEvent } from '../utils/pushNotify';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -421,6 +422,8 @@ export default function ClientProfile({ handleLogout }) {
         if (!res.success) throw new Error(res.error);
         localStorage.setItem('userMeasurements', JSON.stringify(cleaned));
         await loadMeasHistory();
+        // Let the client's coach know new measurements are in.
+        if (userId) notifyEvent('measurements_saved', { clientUserId: userId });
         setMeasSaveMsg('saved');
       } catch {
         setMeasSaveMsg('error');

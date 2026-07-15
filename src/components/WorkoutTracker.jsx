@@ -7,6 +7,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
+import { notifyEvent } from '../utils/pushNotify';
 
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -927,6 +928,13 @@ const WorkoutTracker = () => {
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
     const now = Date.now();
+    // First completed set of an idle session = the client has started working
+    // out. Notify their coach once, at that transition. Only for a client
+    // logging their own session (not the coach's own Live Log path).
+    const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
+    if (workoutTimerStatus === 'idle' && togglingSetOn && ownUserId && workoutSource !== 'coach') {
+      notifyEvent('workout_started', { clientUserId: ownUserId });
+    }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         return {

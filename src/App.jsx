@@ -306,12 +306,15 @@ const registerForPushNotifications = async (userName) => {
       : JSON.parse(JSON.stringify(subscription));
     subJson.userEmail = localStorage.getItem('userEmail') || '';
 
-    // Register with backend Vercel API
+    // Register with backend Vercel API. user_id lets the backend deliver
+    // targeted cross-user notifications (e.g. a client's coach) to the right
+    // person, not just broadcast-by-name.
     await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userName: userName || 'Warrior',
+        userId: localStorage.getItem('userId') || null,
         subscription: subJson
       })
     });
@@ -320,6 +323,69 @@ const registerForPushNotifications = async (userName) => {
     console.error('Push subscription failed:', err);
   }
 };
+
+// ── Shared local-notification helper ──
+// Shows a notification on THIS device (works while the app is open, backgrounded,
+// or the screen is locked, via the service worker). Kept kind and professional
+// in every message the callers pass in.
+const showLocalNotification = (title, body, tag = 'fitengineers-nudge') => {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const options = {
+    body,
+    icon: '/logo.png',
+    badge: '/logo.png',
+    vibrate: [200, 100, 200],
+    tag,
+    renotify: true,
+    requireInteraction: true,
+    silent: false
+  };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then((reg) => reg.showNotification(title, options))
+      .catch(() => { try { new Notification(title, options); } catch (e) { /* ignore */ } });
+  } else {
+    try { new Notification(title, options); } catch (e) { /* ignore */ }
+  }
+};
+
+// ── Daily wellness schedule (coach-connected clients) ──
+// Times are the client's device-local clock (IST for this audience). Each slot
+// fires at most once per day. Messages are supportive and professional.
+const MORNING_MOTIVATION = [
+  "Good morning. Today is another chance to invest in yourself — one steady, intentional choice at a time. Let's make it count. ☀️",
+  "Rise and shine. Progress is built on consistency, not perfection. Show up for yourself today and the results will follow. 💪",
+  "Good morning. Your body is capable of remarkable things when you treat it with care. Start today strong and hydrated. 🌿",
+  "A fresh morning, a fresh start. Small disciplined actions today become the strength you'll be proud of tomorrow. 🌅",
+  "Good morning. Fuel your body well, move with purpose, and be kind to yourself. You've got everything it takes. 🙌"
+];
+const DAILY_SLOTS = [
+  {
+    id: 'morning', hour: 8, minute: 0,
+    title: 'Good Morning ☀️',
+    body: () => MORNING_MOTIVATION[new Date().getDate() % MORNING_MOTIVATION.length]
+  },
+  {
+    id: 'brunch', hour: 11, minute: 0,
+    title: 'Mid-Morning Reset 🚶',
+    body: () => "Time for a short reset. Take a 5–10 minute walk to loosen up, and keep your hydration steady — aim for 2.5–3 litres of water across the day. Small habits, big results. 💧"
+  },
+  {
+    id: 'lunch', hour: 13, minute: 0,
+    title: 'Post-Lunch Movement 🍱',
+    body: () => "Try not to sit right after lunch. A gentle 10-minute walk now supports your digestion and metabolism, and keeps your energy steady through the afternoon. 🌿"
+  },
+  {
+    id: 'dinner', hour: 19, minute: 30,
+    title: 'Dinner Reminder 🍽️',
+    body: () => "Time to wind down with dinner. Focus on a high-protein, balanced plate to support your recovery and strength. Try to eat a little earlier so your body can rest well tonight. 🥗"
+  },
+  {
+    id: 'evening', hour: 21, minute: 30,
+    title: 'Well Done Today 🌙',
+    body: () => "You showed up and gave your best today, and that matters. Rest deeply tonight, let your body recover, and we'll do it all again tomorrow. Proud of you. ✨"
+  }
+];
 
 function App() {
   const [onboardingComplete, setOnboardingComplete] = useState(() => localStorage.getItem('onboardingComplete') === 'true');
@@ -751,146 +817,43 @@ function App() {
     }
   }, [notificationPermission, onboardingComplete]);
 
-  // ── Global Push Notifications Background Service ──
+  // ── Daily Wellness Schedule (coach-connected clients only) ──
+  // Fires the day's structured supportive nudges (morning → evening) at their
+  // set local times, each at most once per day. These run on THIS device while
+  // the app is open or backgrounded; the Vercel cron + web-push backend
+  // (api/send-nudges) covers pure lock-screen delivery when the app is fully
+  // closed. Only coach-connected clients receive the wellness schedule.
   useEffect(() => {
+    if (!onboardingComplete) return;
     if (!('Notification' in window) || notificationPermission !== 'granted') return;
+
+    const isCoachConnectedClient = () => {
+      const role = localStorage.getItem('userRole') || 'client';
+      return role !== 'coach' && role !== 'super-admin' && role !== 'admin'
+        && localStorage.getItem('clientLinkedToCoach') === 'true';
+    };
 
     const checkSchedule = () => {
       checkAndHandleDateRollover();
+      if (!isCoachConnectedClient()) return;
       const now = new Date();
-      const hours = now.getHours();
       const dateStr = now.toDateString();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
 
-      const morningQuotes = [
-        "Rise and conquer! Your health is an investment, not an expense. Make today's choices count! ☀️",
-        "Good morning! Great bodies are built on consistency, not convenience. Lock in your habits early today! 🍳",
-        "Wake up! The difference between who you are and who you want to be is what you do today. Let's execute! 💪",
-        "Rise and grind! Prioritize your wellness today. A hydrated body is a high-performing engine! 💧",
-        "Good morning, champion! A fresh start to win your day. Remember: food is fuel, and movement is medicine! 🍏",
-        "Wake up with intent! Your energy today determines your trajectory tomorrow. Let's get moving! 🏃‍♂️",
-        "Morning! Start your day by checking off your hydration. Fuel your mind and body for peak performance! 🌊",
-        "Happy morning! Do not let yesterday's slip-ups ruin today's progress. Show up and be awesome! ✨",
-        "Rise up! The best project you will ever work on is YOU. Treat yourself with care and respect today. 🙌",
-        "Good morning! Focus on control: your food, your movements, your thoughts. Let's make today exceptional! 🏆"
-      ];
-
-      // Calculate dynamic targets & leftovers for active notifications
-      const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
-      const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
-      const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '100');
-      const steps = parseInt(localStorage.getItem('userSyncedSteps') || '0');
-
-      const baseCalorieGlasses = calorieTarget / 250;
-      const baseWeightGlasses = (userWeight * 35) / 250;
-      const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
-      const stepBooster = Math.floor(steps / 3000);
-      const proteinBooster = userProteinTarget > 100 ? 1 : 0;
-      const recommendedWaterTarget = Math.max(6, baselineTarget + stepBooster + proteinBooster);
-
-      const waterGlasses = parseInt(localStorage.getItem('waterGlasses') || '0');
-      const glassesLeft = Math.max(0, recommendedWaterTarget - waterGlasses);
-
-      const eatenCals = parseInt(localStorage.getItem('userLoggedCalories') || '0');
-      let loggedProt = parseInt(localStorage.getItem('userLoggedProtein') || '0');
-      if (loggedProt === 0 && eatenCals > 0) {
-        loggedProt = Math.round(userProteinTarget * (eatenCals / calorieTarget));
-      }
-      const proteinLeft = Math.max(0, userProteinTarget - loggedProt);
-
-      const showBackgroundNotification = (title, body) => {
-        const options = {
-          body,
-          icon: '/logo.png',
-          badge: '/logo.png',
-          vibrate: [200, 100, 200],
-          tag: 'fitengineers-coach-nudge',
-          renotify: true,
-          requireInteraction: true,
-          silent: false
-        };
-
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then((registration) => {
-            registration.showNotification(title, options);
-          }).catch(() => {
-            try {
-              new Notification(title, options);
-            } catch (err) {
-              console.error("Native notification fallback failed:", err);
-            }
-          });
-        } else {
-          try {
-            new Notification(title, options);
-          } catch (e) {
-            console.error("Browser notification failed: ", e);
-          }
-        }
-      };
-
-      // Only dispatch hourly check-ins between 8 AM and 10 PM (active waking hours)
-      if (hours >= 8 && hours <= 22) {
-        const hourlyStorageKey = `last_hourly_fired_${hours}_${dateStr}`;
-        const hasFiredThisHourToday = localStorage.getItem(hourlyStorageKey) === 'true';
-
-        if (!hasFiredThisHourToday) {
-          let title = "Fitengineers Coach 🥗";
-          let body = "";
-
-          if (hours === 8) {
-            // Morning Motivation
-            const idx = now.getDate() + now.getMonth() * 31;
-            title = "Good Morning! ☀️";
-            body = morningQuotes[idx % morningQuotes.length];
-          } else if (hours === 13) {
-            // Post-Lunch Walk
-            title = "🍱 Post-Lunch Metabolic Check";
-            body = "Optimize your insulin response and digestion by taking a quick 10-minute stroll post-meal. Movement is medicine!";
-          } else if (hours === 20) {
-            // Post-Dinner Walk
-            title = "🚶‍♂️ Post-Dinner Digestion Check";
-            body = "Support healthy metabolic clearance and gut motility with a gentle 10-minute post-dinner walk before you wind down.";
-          } else if (hours === 22) {
-            // Bedtime Appreciation
-            title = "🌙 Sleep Well & Recover";
-            body = "Regardless of today's tracking completion, acknowledge your efforts. Fitness is a lifetime journey. Rest deeply tonight, recover, and we will execute tomorrow with renewed strength. You got this.";
-          } else {
-            // General active hours: Cycle between Hydration, Protein, and Screen time
-            const cycleIndex = hours % 3;
-            if (cycleIndex === 0) {
-              // Hydration Check
-              title = "💧 Fluid Intake Status";
-              if (glassesLeft > 0) {
-                body = `You currently have ${glassesLeft} glasses remaining to hit your daily target of ${recommendedWaterTarget} glasses today. Keep sip-syncing!`;
-              } else {
-                body = `Outstanding consistency! You have fully satisfied your daily target of ${recommendedWaterTarget} glasses. Stay hydrated!`;
-              }
-            } else if (cycleIndex === 1) {
-              // Protein Check
-              title = "🥩 Protein Intake Check";
-              if (proteinLeft > 0) {
-                body = `You currently need ${proteinLeft}g of protein to satisfy your daily target of ${userProteinTarget}g. Prioritize a clean protein source in your next meal!`;
-              } else {
-                body = `Excellent macro precision! Your daily target of ${userProteinTarget}g protein is fully satisfied to support complete recovery.`;
-              }
-            } else {
-              // Screen Time scrolling nudge
-              title = "📈 High-Performance Focus";
-              body = "Put the phone down, step away from passive scrolling, and redirect your focus toward meaningful, productive work. Elevate your discipline today!";
-            }
-          }
-
-          if (body) {
-            showBackgroundNotification(title, body);
-            localStorage.setItem(hourlyStorageKey, 'true');
-            localStorage.setItem('last_fired_hour', String(hours));
-          }
-        }
-      }
+      DAILY_SLOTS.forEach((slot) => {
+        // 5-minute catch window: if the app happens to open a couple minutes
+        // after the slot time, it still delivers (once) rather than skipping.
+        const inWindow = hours === slot.hour && minutes >= slot.minute && minutes < slot.minute + 5;
+        if (!inWindow) return;
+        const key = `nudge_${slot.id}_${dateStr}`;
+        if (localStorage.getItem(key) === 'true') return;
+        showLocalNotification(slot.title, slot.body(), `fitengineers-${slot.id}`);
+        localStorage.setItem(key, 'true');
+      });
     };
 
-    // Delay the initial check-in by 30 seconds on startup to prevent immediate notification pops upon opening the app.
-    const startupTimeout = setTimeout(checkSchedule, 30000);
+    const startupTimeout = setTimeout(checkSchedule, 15000);
     const interval = setInterval(checkSchedule, 60000); // Check every minute
     return () => {
       clearTimeout(startupTimeout);
@@ -898,90 +861,53 @@ function App() {
     };
   }, [onboardingComplete, notificationPermission]);
 
-  // ── Lock / Unlock Push Notifications (Visibility API) ──
+  // ── Screen-Time / Excessive-Use Nudge ──
+  // Encourages the client to step away when they've been continuously in the
+  // app for a long stretch (passive scrolling). Tracks how long the app has
+  // been continuously in the foreground; after the threshold it delivers one
+  // gentle "take a break" nudge, then resets. The counter resets whenever the
+  // app is backgrounded (they already stepped away).
   useEffect(() => {
     if (!onboardingComplete) return;
     if (!('Notification' in window) || notificationPermission !== 'granted') return;
 
-    let lastEventTime = 0;
+    const CONTINUOUS_USE_LIMIT_MS = 20 * 60 * 1000; // 20 minutes of continuous use
+    const COOLDOWN_MS = 30 * 60 * 1000;             // don't re-nudge for 30 min
 
-    const handleVisibilityChange = () => {
-      checkAndHandleDateRollover();
+    let foregroundSince = document.visibilityState === 'visible' ? Date.now() : null;
+    let lastNudgeAt = 0;
+
+    const screenTimeMessages = [
+      "You've been on your phone for a little while now. This is a gentle nudge to stand up, stretch, and take a short walk — your body will thank you. 🚶",
+      "Time for a quick break. Set the phone down for a few minutes, move around, and grab some water. You'll come back refreshed. 💧",
+      "A friendly reminder to look up from the screen. A short walk or a few stretches right now does wonders for your focus and energy. 🌿"
+    ];
+
+    const check = () => {
+      if (document.visibilityState !== 'visible' || foregroundSince == null) return;
       const now = Date.now();
-      // Throttle notifications to prevent double firing or spam (minimum 15 seconds between notifications)
-      if (now - lastEventTime < 15000) return;
-
-      const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
-      const userWeight = parseFloat(localStorage.getItem('userWeight') || '70');
-      const userProteinTarget = parseInt(localStorage.getItem('userProteinTarget') || '100');
-      const steps = parseInt(localStorage.getItem('userSyncedSteps') || '0');
-
-      const baseCalorieGlasses = calorieTarget / 250;
-      const baseWeightGlasses = (userWeight * 35) / 250;
-      const baselineTarget = Math.round((baseCalorieGlasses + baseWeightGlasses) / 2);
-      const stepBooster = Math.floor(steps / 3000);
-      const proteinBooster = userProteinTarget > 100 ? 1 : 0;
-      const recommendedWaterTarget = Math.max(6, baselineTarget + stepBooster + proteinBooster);
-
-      const waterGlasses = parseInt(localStorage.getItem('waterGlasses') || '0');
-      const glassesLeft = Math.max(0, recommendedWaterTarget - waterGlasses);
-
-      const showBackgroundNotification = (title, body) => {
-        const options = {
-          body,
-          icon: '/logo.png',
-          badge: '/logo.png',
-          vibrate: [200, 100, 200],
-          tag: 'fitengineers-coach-nudge',
-          renotify: true,
-          requireInteraction: true,
-          silent: false
-        };
-
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then((registration) => {
-            registration.showNotification(title, options);
-          }).catch(() => {
-            try {
-              new Notification(title, options);
-            } catch (err) {
-              console.error("Native notification fallback failed:", err);
-            }
-          });
-        } else {
-          try {
-            new Notification(title, options);
-          } catch (e) {
-            console.error("Browser notification failed: ", e);
-          }
-        }
-      };
-
-      if (document.visibilityState === 'hidden') {
-        // Screen locked or tab closed
-        lastEventTime = now;
-        let title = "🚶 Posture Check";
-        let body = "Step away, stay active, and keep winning your day!";
-        if (glassesLeft > 0) {
-          title = "💧 Fluid Intake Status";
-          body = `Remember to keep hydrated: ${glassesLeft} glasses remaining today! 💧`;
-        }
-        showBackgroundNotification(title, body);
-      } else if (document.visibilityState === 'visible') {
-        // Screen unlocked or tab focused
-        lastEventTime = now;
-        let title = "🚶 Posture Check";
-        let body = "Do a quick posture check! Stand up, stretch, and grab some water.";
-        if (glassesLeft > 0) {
-          title = "💧 Fluid Intake Status";
-          body = `Quick posture check + take a sip. Need ${glassesLeft} more glasses of water today! 💧`;
-        }
-        showBackgroundNotification(title, body);
+      if (now - foregroundSince >= CONTINUOUS_USE_LIMIT_MS && now - lastNudgeAt >= COOLDOWN_MS) {
+        const msg = screenTimeMessages[Math.floor(Math.random() * screenTimeMessages.length)];
+        showLocalNotification('Time for a Break 🌿', msg, 'fitengineers-screentime');
+        lastNudgeAt = now;
+        foregroundSince = now; // restart the continuous-use window
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        foregroundSince = Date.now();
+      } else {
+        foregroundSince = null; // stepped away — reset the counter
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = setInterval(check, 60000); // Check every minute
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(interval);
+    };
   }, [onboardingComplete, notificationPermission]);
 
   // PKCE / token_hash email-link flow. Links of the form

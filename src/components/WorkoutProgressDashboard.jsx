@@ -3,7 +3,7 @@ import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
-import { formatDuration } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
@@ -17,6 +17,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   // silently lost just because the client was away from the app/tab for a
   // while (backgrounded, switched apps, closed the browser).
   const [activeDraft, setActiveDraft] = useState(null);
+  const [, forceDraftTick] = useState(0);
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
@@ -193,6 +194,15 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       window.removeEventListener('focus', checkDraft);
     };
   }, []);
+
+  // While an in-progress draft's timer is running, re-render the banner once a
+  // second so its live duration + calories tick up (both are recomputed fresh
+  // from the draft's start/pause timestamps on each render, never stored).
+  useEffect(() => {
+    if (activeDraft?.timerStatus !== 'running') return;
+    const id = setInterval(() => forceDraftTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [activeDraft?.timerStatus]);
 
   // Helpers for date calculations
   const getStartOfWeek = (d) => {
@@ -659,6 +669,19 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fbbf24' }}>
                 {activeDraft.source === 'coach' ? 'Your coach is logging a session for you' : 'Workout in progress'}
               </div>
+              {/* Live duration + calories, recomputed from the draft's timer
+                  timestamps (idle = timer not started yet, so no clock shown). */}
+              {activeDraft.timerStatus !== 'idle' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '3px 0 2px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24', fontFamily: "'Courier New', monospace" }}>
+                    {formatDuration(computeElapsedSeconds(activeDraft.timerStartedAt, activeDraft.pauseIntervals || []))}
+                    {activeDraft.timerStatus === 'paused' && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '5px' }}>PAUSED</span>}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 7px', borderRadius: '20px' }}>
+                    🔥 {computeLiveCalories(activeDraft.exercises || [], activeDraft.timerStartedAt, activeDraft.pauseIntervals || []).totalKcal} kcal
+                  </span>
+                </div>
+              )}
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {activeDraft.planName || 'Workout'} · {(activeDraft.exercises || []).reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0)} sets logged
               </div>

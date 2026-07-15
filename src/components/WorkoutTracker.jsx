@@ -5,7 +5,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
 
@@ -1377,7 +1377,8 @@ const WorkoutTracker = () => {
     // rest-interval gaps), not an approximation. activeExercises (not the
     // stripped formattedExercises) still carries completedAt on each set.
     const finalDurationSeconds = workoutTimerStartedAt ? computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals) : null;
-    const finalCalories = workoutTimerStartedAt ? computeLiveCalories(activeExercises, workoutTimerStartedAt, workoutPauseIntervals).totalKcal : null;
+    const clientBodyWeightKg = parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG;
+    const finalCalories = workoutTimerStartedAt ? computeLiveCalories(activeExercises, workoutTimerStartedAt, workoutPauseIntervals, clientBodyWeightKg).totalKcal : null;
 
     const newSession = {
       id: `session-${Date.now()}`,
@@ -1554,7 +1555,7 @@ const WorkoutTracker = () => {
   // completedAt timestamp drives the work + rest-interval calc, recomputed
   // fresh every render so it climbs live as sets get checked off.
   const liveOwnWorkoutKcal = isLoggingWorkout
-    ? computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals).totalKcal
+    ? computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals, parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG).totalKcal
     : 0;
 
   return (

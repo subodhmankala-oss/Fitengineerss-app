@@ -10,12 +10,57 @@
 // then set -> set) contributes at this rate, representing light activity
 // between sets rather than a full stop.
 export const WORK_KCAL_PER_KG_REP = 0.10;
-// Cardio sets have no reps/weight to burn calories from — approximate at a
-// flat rate per km (~1 kcal/kg bodyweight/km is the standard running/walking
-// rule of thumb; 60 kcal/km assumes a ~70kg average without needing the
-// user's actual weight here).
-export const CARDIO_KCAL_PER_KM = 60;
 export const REST_KCAL_PER_SECOND = 0.05; // ~3 kcal/min of rest
+export const DEFAULT_BODY_WEIGHT_KG = 70;
+
+// MET (Metabolic Equivalent of Task) by exercise + pace, from the Compendium
+// of Physical Activities. A flat kcal/km rate was tried first and badly
+// overestimated cycling in particular (10km in 20min ~ 600kcal vs a
+// realistic ~250-300kcal for that pace) — km alone doesn't capture effort;
+// the same 10km is an easy jog or a hard sprint depending on how long it
+// took, and cycling covers far more ground per unit of effort than running.
+// Speed (derived from distance/time) picks the right intensity bracket
+// instead.
+function cardioMET(exerciseName, speedKmh) {
+  const n = (exerciseName || '').toLowerCase();
+
+  if (/cycl|bik/.test(n)) {
+    if (speedKmh < 16) return 4.0;   // leisure
+    if (speedKmh < 19) return 6.8;   // light effort
+    if (speedKmh < 22.5) return 8.0; // moderate
+    if (speedKmh < 25.7) return 10.0; // vigorous
+    if (speedKmh < 30.6) return 12.0; // racing pace
+    return 15.8; // >30.6 km/h, competitive
+  }
+  if (/cross trainer|elliptical/.test(n)) return 5.0;
+  if (/incline walk/.test(n)) return 6.0;
+  if (/\bwalk/.test(n)) {
+    if (speedKmh < 4.8) return 2.8;
+    if (speedKmh < 6.4) return 3.5;
+    return 5.0;
+  }
+  // Running / jogging (and any other custom cardio exercise) — pace brackets.
+  if (speedKmh < 8.0) return 6.0;
+  if (speedKmh < 9.7) return 8.3;
+  if (speedKmh < 10.8) return 9.8;
+  if (speedKmh < 11.9) return 10.5;
+  if (speedKmh < 12.9) return 11.0;
+  if (speedKmh < 13.9) return 11.8;
+  if (speedKmh < 16.1) return 12.8;
+  return 14.5; // faster than 16.1 km/h
+}
+
+// Standard MET calorie formula: kcal = MET x 3.5 x weightKg / 200 x minutes.
+// Needs actual elapsed time (not just distance) since the same distance at
+// different paces burns very different amounts — see cardioMET above.
+function cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) {
+  const km = parseFloat(distanceKm) || 0;
+  const minutes = (durationSeconds || 0) / 60;
+  if (km <= 0 || minutes <= 0) return 0;
+  const speedKmh = km / (minutes / 60);
+  const met = cardioMET(exerciseName, speedKmh);
+  return (met * 3.5 * bodyWeightKg / 200) * minutes;
+}
 
 export function formatDuration(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds || 0));
@@ -87,10 +132,13 @@ function secondsBetweenExcludingPauses(from, to, pauseIntervals) {
   return Math.max(0, Math.floor((to - from - pausedOverlap) / 1000));
 }
 
-// Sums work calories (reps x weight) for every completed set, plus rest
-// calories for the gaps between consecutive completions (anchored to session
-// start for the first one). Sets not yet marked done contribute nothing.
-export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = []) {
+// Sums work calories (reps x weight, or MET-based for cardio) for every
+// completed set, plus rest calories for the gaps between consecutive
+// completions (anchored to session start for the first one). Sets not yet
+// marked done contribute nothing. bodyWeightKg only affects cardio sets (the
+// strength-set formula doesn't use it) — defaults to an average adult when
+// the caller doesn't have the client's actual weight on hand.
+export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   const completions = [];
   let workKcal = 0;
 
@@ -98,8 +146,7 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
     ex.sets.forEach((set) => {
       if (!set.isCompleted || !set.completedAt) return;
       if (set.distanceKm !== undefined) {
-        const km = parseFloat(set.distanceKm) || 0;
-        workKcal += km * CARDIO_KCAL_PER_KM;
+        workKcal += cardioKcal(ex.name, set.distanceKm, parseTimeStringToSeconds(set.time), bodyWeightKg);
       } else {
         const reps = parseFloat(set.reps) || 0;
         const weight = parseFloat(set.weight) || 0;

@@ -7,6 +7,7 @@ import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../u
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
+  const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Warrior');
   const [timeframe, setTimeframe] = useState('weekly');
   const [logs, setLogs] = useState([]);
@@ -141,8 +142,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
     const loadLogs = async (attemptsLeft = 4) => {
       setLoading(true);
       try {
-        const userId = await databaseService.resolveUserId();
-        if (!userId) {
+        const resolvedUserId = await databaseService.resolveUserId();
+        if (!resolvedUserId) {
           if (attemptsLeft > 0 && !cancelled) {
             setTimeout(() => loadLogs(attemptsLeft - 1), 3000);
             return; // stay in "loading" — do not clear it while still retrying
@@ -150,7 +151,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           if (!cancelled) { setLogs([]); setLoading(false); }
           return;
         }
-        const userLogs = await databaseService.getWorkoutLogsForUser(userId);
+        if (!cancelled) setUserId(resolvedUserId);
+        const userLogs = await databaseService.getWorkoutLogsForUser(resolvedUserId);
         if (!cancelled) { setLogs(userLogs || []); setLoading(false); }
       } catch (err) {
         console.error('Error loading workout progress logs:', err);
@@ -688,12 +690,39 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
             </div>
           </div>
           {activeDraft.source !== 'coach' && (
-            <button type="button" style={{
-              flexShrink: 0, background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
-              border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
-            }}>
-              Resume ▶
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <button type="button" style={{
+                background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
+                border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+              }}
+              onClick={() => onNavigateToWorkouts && onNavigateToWorkouts()}
+              >
+                Resume ▶
+              </button>
+              <button type="button" style={{
+                background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: '#fff',
+                border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+              }}
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (userId) {
+                  await databaseService.deleteWorkoutDraft(userId);
+                  // The Workout tab mirrors its in-progress session into a
+                  // localStorage draft (workoutDraft_<userId>) so it survives
+                  // an unmount. That mirror is separate from the DB row we
+                  // just deleted — without clearing it too, WorkoutTracker
+                  // reloads this stale local copy the next time it mounts
+                  // (e.g. the client switches to the Workout tab) and the
+                  // "discarded" session reappears as if nothing happened.
+                  localStorage.removeItem(`workoutDraft_${userId}`);
+                  setActiveDraft(null);
+                }
+              }}
+              title="Discard this workout session"
+              >
+                ✕ Discard
+              </button>
+            </div>
           )}
         </div>
       )}

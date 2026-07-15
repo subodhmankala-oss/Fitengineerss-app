@@ -4,7 +4,11 @@
   gap: 20px;
   padding: 16px 12px var(--safe-bottom) 12px;
   max-width: 100%;
-  overflow-x: hidden;
+  /* `clip` (not `hidden`) keeps horizontal overflow clipped WITHOUT turning this
+     element into a scroll container — `overflow-x: hidden` would force
+     `overflow-y: auto` and break `position: sticky` on the stopwatch banner,
+     which needs to stick to the real scroll container (.main-content). */
+  overflow-x: clip;
   box-sizing: border-box;
 }
 
@@ -495,10 +499,49 @@
   margin-top: 1px;
 }
 
+.form-header-with-date {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.form-header-with-date > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.session-date-inline {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 0;
+}
+
+.session-date-inline label {
+  white-space: nowrap;
+}
+
+.session-date-inline input[type="date"] {
+  width: 140px;
+  padding: 8px 8px;
+}
+
 .form-double-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+.form-double-col .input-group {
+  min-width: 0;
+}
+
+.form-double-col .input-group select,
+.form-double-col .input-group input {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
 }
 
 .input-group {
@@ -529,6 +572,23 @@
 }
 
 .input-group input:focus {
+  border-color: var(--primary-accent-light);
+  box-shadow: 0 0 8px var(--primary-accent-glow);
+}
+
+.input-group select {
+  background: rgba(9, 14, 23, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 16px;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.input-group select:focus {
   border-color: var(--primary-accent-light);
   box-shadow: 0 0 8px var(--primary-accent-glow);
 }
@@ -573,7 +633,26 @@
 .exercises-input-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  /* Edge-to-edge: bleed past the form's 20px padding so each exercise's sets
+     table spans the full width of the panel (matching the coach's Live Log),
+     with flush top/bottom dividers instead of floating rounded cards. */
+  gap: 0;
+  margin: 0 -20px;
+}
+
+/* Flush, full-width exercise rows (override the floating-card look for the
+   logger list only). */
+.exercises-input-list .form-exercise-card {
+  background: rgba(0, 0, 0, 0.18);
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 14px 16px;
+}
+
+.exercises-input-list .form-exercise-card:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .form-exercise-card {
@@ -865,6 +944,12 @@
 
 .text-blue {
   color: #3b82f6 !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 /* Coaching Programs Selection Space */
@@ -1397,56 +1482,69 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Stopwatch Banner */
+/* Stopwatch Banner — sticks to the top of the scroll area while logging so the
+   live duration + calories stay visible as the client scrolls through their
+   sets, then returns to normal flow when scrolled back up (position: sticky). */
 .hevy-stopwatch-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(16, 185, 129, 0.04);
-  border: 1px solid rgba(16, 185, 129, 0.15);
-  padding: 14px 18px;
+  /* Single inline row: icon, time, kcal and Pause all stay on one line. With
+     "Finish" gone the content is small enough to never need wrapping; the timer
+     group shrinks before anything is pushed to a new line. */
+  flex-wrap: nowrap;
+  /* Opaque base under the amber tint so scrolled content doesn't show through
+     while the bar is pinned. */
+  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), #141d2c;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   margin-bottom: 8px;
-  gap: 12px;
+  gap: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 .timer-display {
   display: flex;
   align-items: center;
-  gap: 12px;
+  /* Compact content width (can shrink, doesn't grow) so icon + time + kcal stay
+     grouped together on the left and Pause sits at the far right via the
+     banner's space-between — all on one line. */
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 8px;
 }
 
 .stopwatch-icon {
-  font-size: 1.6rem;
+  font-size: 1.2rem;
   animation: pulseStopwatch 1.5s infinite ease-in-out;
 }
 
 @keyframes pulseStopwatch {
-  0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
-  50% { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8)); }
-  100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4)); }
+  0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.4)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.4)); }
 }
 
-.timer-numbers {
-  display: flex;
-  flex-direction: column;
-}
-
-.timer-numbers strong {
-  font-size: 1.3rem;
-  color: #fff;
+/* Compact inline clock — no stacked "Active Tracker" badge; icon, time, kcal and
+   Pause all sit on one row. */
+.stopwatch-time {
+  font-size: 1rem;
+  color: #fbbf24;
   font-family: 'Courier New', Courier, monospace;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   font-weight: 700;
+  white-space: nowrap;
 }
 
-.timer-numbers .active-badge {
-  font-size: 0.65rem;
-  color: var(--primary-accent-light);
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.stopwatch-time.is-paused {
+  color: var(--text-muted);
 }
 
 .live-kcal-badge {
@@ -1469,23 +1567,24 @@
 .timer-controls {
   display: flex;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .btn-timer-toggle {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-main);
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
   padding: 8px 14px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .btn-timer-toggle:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
 }
 
 .btn-hevy-finish {
@@ -1910,21 +2009,22 @@
 
 /* Floating Rest Timer */
 .rest-timer-floating-card {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 260px;
-  background: rgba(9, 14, 23, 0.85);
+  position: absolute;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  width: 100%;
+  background: rgba(9, 14, 23, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.15);
+  border-top: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 0;
+  padding: 12px 20px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(16, 185, 129, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 9999;
+  z-index: 999;
   animation: restTimerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -2382,6 +2482,55 @@
 /* Add Exercise Dropdown Styles */
 .add-exercise-dropdown-wrapper {
   position: relative;
+}
+
+/* Add Exercise to Session — labeled box at the bottom of the list, matching the
+   coach's Live Log. The picker button is full-width inside it. */
+.live-add-ex-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.live-add-ex-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.btn-add-hevy-ex.add-ex-fullwidth {
+  width: 100%;
+  justify-content: center;
+  padding: 12px 14px;
+}
+
+/* Primary "Save Workout Session" action — full-width amber button at the very
+   bottom, matching the coach's Live Log save button. */
+.btn-save-workout-session {
+  width: 100%;
+  padding: 14px;
+  margin-top: 4px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-save-workout-session:hover {
+  filter: brightness(1.06);
+}
+
+.btn-save-workout-session:active {
+  transform: translateY(1px);
 }
 
 .add-exercise-dropdown-menu {

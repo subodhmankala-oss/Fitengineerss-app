@@ -263,6 +263,11 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [workoutLogs, setWorkoutLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
+  // Selected client's body-measurement history (read-only for the coach) —
+  // loaded when the Measurements tab is opened.
+  const [clientMeasurements, setClientMeasurements] = useState([]);
+  const [loadingMeasurements, setLoadingMeasurements] = useState(false);
+
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
   const [liveExercises, setLiveExercises] = useState([
@@ -904,6 +909,11 @@ const TrainerDashboard = ({ handleLogout }) => {
       setLoadingChat(false);
     } else if (tab === 'plans' && selectedClient) {
       await fetchClientPlans(selectedClient.id);
+    } else if (tab === 'measurements' && selectedClient) {
+      setLoadingMeasurements(true);
+      const history = await databaseService.getBodyMeasurements(selectedClient.id);
+      setClientMeasurements(history);
+      setLoadingMeasurements(false);
     }
   };
 
@@ -1976,6 +1986,22 @@ const TrainerDashboard = ({ handleLogout }) => {
                 >
                   🏋️ Workout History
                 </button>
+                <button
+                  className={`trainer-tab-btn ${detailTab === 'measurements' ? 'active' : ''}`}
+                  style={{
+                    flex: 1,
+                    minWidth: '80px',
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    borderBottom: detailTab === 'measurements' ? '2px solid #38bdf8' : 'none',
+                    color: detailTab === 'measurements' ? '#38bdf8' : 'var(--text-muted)'
+                  }}
+                  onClick={() => handleTabChange('measurements')}
+                >
+                  📏 Measurements
+                </button>
               </div>
 
               {/* Condition tab rendering */}
@@ -2066,6 +2092,95 @@ const TrainerDashboard = ({ handleLogout }) => {
                   )}
                 </div>
               )}
+
+              {detailTab === 'measurements' && (() => {
+                const measFields = [
+                  { key: 'weight',    label: 'Body Weight', unit: 'kg' },
+                  { key: 'chest',     label: 'Chest' },
+                  { key: 'waist',     label: 'Waist' },
+                  { key: 'hips',      label: 'Hips' },
+                  { key: 'thighs',    label: 'Thighs' },
+                  { key: 'calves',    label: 'Calves' },
+                  { key: 'shoulders', label: 'Shoulders' },
+                  { key: 'upperArm',  label: 'Upper Arm' },
+                  { key: 'forearm',   label: 'Forearm' },
+                  { key: 'neck',      label: 'Neck' },
+                ];
+                const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+                const latest = clientMeasurements[0] || null;
+                const previous = clientMeasurements[1] || null;
+                return (
+                  <div className="measurements-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h4 className="history-section-title">📏 Body Measurements</h4>
+                    {loadingMeasurements ? (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading measurements…</p>
+                    ) : clientMeasurements.length === 0 ? (
+                      <div className="trainer-empty-state">
+                        <h5>No measurements yet</h5>
+                        <p>{selectedClient.userName} hasn't recorded any body measurements yet. They can add them from their Profile → Measurements.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Latest vs previous comparison table */}
+                        <div className="glass-panel" style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.2)', background: 'rgba(56,189,248,0.04)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.03em' }}>
+                            <span>Latest — {fmtDate(latest.measuredAt)}</span>
+                            {previous && <span>vs {fmtDate(previous.measuredAt)}</span>}
+                          </div>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                <th style={{ textAlign: 'left', fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 700, padding: '4px 0', textTransform: 'uppercase' }}>Part</th>
+                                <th style={{ textAlign: 'right', fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 700, padding: '4px 0', textTransform: 'uppercase' }}>Current</th>
+                                {previous && <th style={{ textAlign: 'right', fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 700, padding: '4px 0', textTransform: 'uppercase' }}>Change</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {measFields.map(({ key, label, unit }) => {
+                                const cur = latest.measurements?.[key];
+                                if (cur == null || cur === '') return null;
+                                const prev = previous?.measurements?.[key];
+                                const delta = (prev != null && prev !== '') ? (parseFloat(cur) - parseFloat(prev)) : null;
+                                return (
+                                  <tr key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <td style={{ fontSize: '0.8rem', color: '#e5e7eb', padding: '6px 0' }}>{label}</td>
+                                    <td style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 700, textAlign: 'right', padding: '6px 0' }}>{cur}{unit || 'cm'}</td>
+                                    {previous && (
+                                      <td style={{ textAlign: 'right', padding: '6px 0', fontSize: '0.76rem', fontWeight: 700, color: delta == null ? 'var(--text-muted)' : Math.abs(delta) < 0.001 ? 'var(--text-muted)' : delta > 0 ? '#34d399' : '#f87171' }}>
+                                        {delta == null ? '—' : Math.abs(delta) < 0.001 ? '±0' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}`}
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Full history timeline */}
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.03em', marginBottom: '8px' }}>Full History</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {clientMeasurements.map((entry, idx) => {
+                              const filled = measFields.filter(f => entry.measurements?.[f.key] != null && entry.measurements[f.key] !== '');
+                              return (
+                                <div key={entry.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 14px' }}>
+                                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>
+                                    {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: '#38bdf8', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
+                                  </div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
+                                    {filled.length > 0 ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ') : 'No values recorded'}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
 
               {detailTab === 'plans' && (
                 <div className="workout-plans-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

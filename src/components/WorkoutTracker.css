@@ -2034,6 +2034,26 @@
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* Draws attention to the rest-started / rest-finished moment without a toast
+   interrupting the screen — the card itself flashes 3 times instead. */
+@keyframes restTimerBlink {
+  0%, 100% { box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(16, 185, 129, 0.1); border-top-color: rgba(16, 185, 129, 0.25); }
+  25%, 75% { box-shadow: 0 -8px 32px rgba(16, 185, 129, 0.55), 0 0 34px rgba(16, 185, 129, 0.65); border-top-color: rgba(16, 185, 129, 0.95); }
+}
+
+@keyframes restTimerBlinkFinish {
+  0%, 100% { background: rgba(9, 14, 23, 0.92); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(16, 185, 129, 0.1); border-top-color: rgba(16, 185, 129, 0.25); }
+  25%, 75% { background: rgba(16, 185, 129, 0.22); box-shadow: 0 -8px 32px rgba(16, 185, 129, 0.6), 0 0 40px rgba(16, 185, 129, 0.7); border-top-color: rgba(16, 185, 129, 1); }
+}
+
+.rest-timer-pulse-start {
+  animation: restTimerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards, restTimerBlink 0.4s ease-in-out 3;
+}
+
+.rest-timer-pulse-finish {
+  animation: restTimerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards, restTimerBlinkFinish 0.45s ease-in-out 3;
+}
+
 .rest-timer-content {
   display: flex;
   align-items: center;

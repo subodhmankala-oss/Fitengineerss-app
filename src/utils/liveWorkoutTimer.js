@@ -10,6 +10,11 @@
 // then set -> set) contributes at this rate, representing light activity
 // between sets rather than a full stop.
 export const WORK_KCAL_PER_KG_REP = 0.10;
+// Cardio sets have no reps/weight to burn calories from — approximate at a
+// flat rate per km (~1 kcal/kg bodyweight/km is the standard running/walking
+// rule of thumb; 60 kcal/km assumes a ~70kg average without needing the
+// user's actual weight here).
+export const CARDIO_KCAL_PER_KM = 60;
 export const REST_KCAL_PER_SECOND = 0.05; // ~3 kcal/min of rest
 
 export function formatDuration(totalSeconds) {
@@ -43,6 +48,18 @@ export function formatSecondsToTimeString(totalSeconds) {
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+// Live "mm:ss" mask for the TIME field's onChange — every keystroke shifts
+// digits in from the right, like a stopwatch entry, so typing "3" then "3"
+// reads "00:03" then "00:33" instead of the raw digits the field would
+// otherwise show. Backspacing down to zero digits clears back to the
+// placeholder instead of getting stuck at "00:00".
+export function maskDigitsToTimeString(rawValue) {
+  const digits = String(rawValue ?? '').replace(/\D/g, '').slice(-4);
+  if (!digits) return '';
+  const padded = digits.padStart(4, '0');
+  return `${padded.slice(0, 2)}:${padded.slice(2, 4)}`;
 }
 
 // elapsed = (now - startedAt) - sum(pause durations)
@@ -80,9 +97,14 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
   exercises.forEach((ex) => {
     ex.sets.forEach((set) => {
       if (!set.isCompleted || !set.completedAt) return;
-      const reps = parseFloat(set.reps) || 0;
-      const weight = parseFloat(set.weight) || 0;
-      workKcal += reps * weight * WORK_KCAL_PER_KG_REP;
+      if (set.distanceKm !== undefined) {
+        const km = parseFloat(set.distanceKm) || 0;
+        workKcal += km * CARDIO_KCAL_PER_KM;
+      } else {
+        const reps = parseFloat(set.reps) || 0;
+        const weight = parseFloat(set.weight) || 0;
+        workKcal += reps * weight * WORK_KCAL_PER_KG_REP;
+      }
       completions.push(set.completedAt);
     });
   });

@@ -930,10 +930,12 @@ const WorkoutTracker = () => {
     const now = Date.now();
     // First completed set of an idle session = the client has started working
     // out. Notify their coach once, at that transition. Only for a client
-    // logging their own session (not the coach's own Live Log path).
+    // logging their own session (not the coach's own Live Log path). Fall back
+    // to the cached userId so a not-yet-resolved ownUserId doesn't drop it.
     const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
-    if (workoutTimerStatus === 'idle' && togglingSetOn && ownUserId && workoutSource !== 'coach') {
-      notifyEvent('workout_started', { clientUserId: ownUserId });
+    const clientId = ownUserId || localStorage.getItem('userId');
+    if (workoutTimerStatus === 'idle' && togglingSetOn && clientId && workoutSource !== 'coach') {
+      notifyEvent('workout_started', { clientUserId: clientId });
     }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {

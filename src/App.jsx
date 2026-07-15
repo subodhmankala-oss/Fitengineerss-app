@@ -1244,7 +1244,7 @@ function App() {
   };
 
   const renderHomeDashboard = () => {
-    return <WorkoutProgressDashboard handleLogout={handleLogout} />;
+    return <WorkoutProgressDashboard handleLogout={handleLogout} onNavigateToWorkouts={() => setActiveTab('workouts')} />;
   };
 
   const renderContent = () => {

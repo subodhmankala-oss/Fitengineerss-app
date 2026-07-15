@@ -1852,6 +1852,101 @@ const databaseService = {
     }
   },
 
+  // ─── WORKOUT DRAFTS (resume an in-progress logging session) ───
+  // One row per client (upsert on user_id) holding whichever session is
+  // currently open for them — written by the client's own Log Sets screen
+  // (source:'self') or by their coach's Live Log (source:'coach', coachId
+  // set). Deleted the moment that session is finished or discarded. This is
+  // a live "what's open right now" table, never history.
+  async saveWorkoutDraft(draft) {
+    if (!isSupabaseConfigured || !supabase || !draft?.userId) return;
+    try {
+      const record = {
+        user_id: draft.userId,
+        coach_id: draft.coachId || null,
+        source: draft.source === 'coach' ? 'coach' : 'self',
+        plan_name: draft.planName || null,
+        log_date: draft.logDate || null,
+        exercises: draft.exercises || [],
+        timer_status: draft.timerStatus || 'idle',
+        timer_started_at: draft.timerStartedAt ?? null,
+        pause_intervals: draft.pauseIntervals || [],
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabase
+        .from('workout_drafts')
+        .upsert(record, { onConflict: 'user_id' });
+      if (error) throw error;
+    } catch (e) {
+      console.error('Cloud DB Save Workout Draft Error:', e);
+    }
+  },
+
+  async getWorkoutDraft(userId) {
+    if (!isSupabaseConfigured || !userId) return null;
+    try {
+      const rows = await restSelect(
+        `workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+      );
+      const row = Array.isArray(rows) ? rows[0] : null;
+      if (!row) return null;
+      return {
+        userId: row.user_id,
+        coachId: row.coach_id,
+        source: row.source,
+        planName: row.plan_name,
+        logDate: row.log_date,
+        exercises: row.exercises || [],
+        timerStatus: row.timer_status || 'idle',
+        timerStartedAt: row.timer_started_at ?? null,
+        pauseIntervals: row.pause_intervals || [],
+        updatedAt: row.updated_at
+      };
+    } catch (e) {
+      console.error('Cloud DB Get Workout Draft Error:', e);
+      return null;
+    }
+  },
+
+  // For the coach's own home/client-list screen: every session currently
+  // open that THEY are logging live for a client, across all their clients.
+  async getCoachActiveDrafts(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const rows = await restSelect(
+        `workout_drafts?select=*&coach_id=eq.${encodeURIComponent(coachId)}`
+      );
+      return (rows || []).map(row => ({
+        userId: row.user_id,
+        coachId: row.coach_id,
+        source: row.source,
+        planName: row.plan_name,
+        logDate: row.log_date,
+        exercises: row.exercises || [],
+        timerStatus: row.timer_status || 'idle',
+        timerStartedAt: row.timer_started_at ?? null,
+        pauseIntervals: row.pause_intervals || [],
+        updatedAt: row.updated_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Coach Active Drafts Error:', e);
+      return [];
+    }
+  },
+
+  async deleteWorkoutDraft(userId) {
+    if (!isSupabaseConfigured || !supabase || !userId) return;
+    try {
+      const { error } = await supabase
+        .from('workout_drafts')
+        .delete()
+        .eq('user_id', userId);
+      if (error) throw error;
+    } catch (e) {
+      console.error('Cloud DB Delete Workout Draft Error:', e);
+    }
+  },
+
   // ─── MULTI-COACH & SUPER ADMIN METHODS ───
   // Resolves a coach's display name for client-facing UI (e.g. "Coach: [Name]"
   // after a successful invite-code connection). Prefers the coach's own account

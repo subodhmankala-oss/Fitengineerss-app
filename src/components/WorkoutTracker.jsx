@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
@@ -356,6 +356,11 @@ const WorkoutTracker = () => {
     }
   };
   const [savedWorkoutDraft] = useState(loadWorkoutDraft);
+  // Canonical DB user id, resolved async on mount — needed to save/load/clear
+  // this client's workout_drafts row (the DB copy of the same in-progress
+  // session, which is what survives being away from the app/device and is
+  // what the Home tab's "Resume Workout" banner reads).
+  const [ownUserId, setOwnUserId] = useState(null);
 
   const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : 'analytics'); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
@@ -741,9 +746,52 @@ const WorkoutTracker = () => {
     setWorkoutPauseIntervals([]);
   };
 
+  // Resolve this client's canonical DB id once on mount, then reconcile with
+  // whatever's in workout_drafts for them. The DB row wins whenever it's
+  // newer than (or the only) local draft — e.g. this is a different device,
+  // or localStorage was cleared, or the client force-closed the app before
+  // the local mirror below ever ran.
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.resolveUserId().then(id => {
+      if (cancelled || !id) return;
+      setOwnUserId(id);
+      databaseService.getWorkoutDraft(id).then(dbDraft => {
+        // Only ever auto-load a draft this client started themselves. A
+        // 'coach' draft means the coach's Live Log is actively editing that
+        // same session right now — pulling it into the client's own form too
+        // would let both sides edit it concurrently and stomp each other's
+        // saves (last debounced write wins, silently dropping sets).
+        if (cancelled || !dbDraft || dbDraft.source === 'coach') return;
+        const dbTime = dbDraft.updatedAt ? new Date(dbDraft.updatedAt).getTime() : 0;
+        const localTime = savedWorkoutDraft?.savedAt || 0;
+        if (!savedWorkoutDraft || dbTime > localTime) {
+          if (dbDraft.exercises && dbDraft.exercises.length > 0) setLogExercises(dbDraft.exercises);
+          if (dbDraft.logDate) setLogDate(dbDraft.logDate);
+          setTemplateName(dbDraft.planName || '');
+          setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
+          setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
+          setWorkoutTimerStartedAt(dbDraft.timerStartedAt ?? null);
+          setWorkoutPauseIntervals(dbDraft.pauseIntervals || []);
+          setIsLoggingWorkout(true);
+          setActiveView('log');
+        }
+      }).catch(() => {});
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const draftSaveTimerRef = useRef(null);
+
   // Mirror the active logging session into localStorage on every change so it
   // survives an unmount (tab switch / reload / logout), and clear it the moment
   // the session ends (finish or discard sets isLoggingWorkout back to false).
+  // Also debounce-push the same session to workout_drafts in the DB — that
+  // copy is what survives being away from the device entirely (backgrounded
+  // for 15-20 min, different device) and what the Home tab's "Resume
+  // Workout" banner reads. Debounced so typing a weight/rep doesn't fire a
+  // request per keystroke; a completed-set tick still lands within ~1.2s.
   useEffect(() => {
     if (isLoggingWorkout) {
       try {
@@ -763,11 +811,32 @@ const WorkoutTracker = () => {
       } catch (e) {
         // Quota/serialization failure shouldn't break the live session.
       }
+
+      if (ownUserId) {
+        if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = setTimeout(() => {
+          databaseService.saveWorkoutDraft({
+            userId: ownUserId,
+            coachId: null,
+            source: workoutSource,
+            planName: templateName,
+            logDate,
+            exercises: logExercises,
+            timerStatus: workoutTimerStatus,
+            timerStartedAt: workoutTimerStartedAt,
+            pauseIntervals: workoutPauseIntervals
+          });
+        }, 1200);
+      }
     } else {
       localStorage.removeItem(workoutDraftKey);
+      if (draftSaveTimerRef.current) {
+        clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals]);
+  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals, ownUserId, workoutSource]);
 
   const handlePauseWorkoutTimer = () => {
     if (workoutTimerStatus !== 'running') return;
@@ -1278,6 +1347,8 @@ const WorkoutTracker = () => {
     setSaveAsTemplate(false);
     setTemplateName('');
     setWorkoutSource('self'); // Reset to self-logged for next workout
+    // Session is finished and saved to workout_logs — the open draft is done.
+    if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
 
     setSelectedClient(logClient);
     const newClientSessions = updated.filter(s => s.clientName.toLowerCase() === logClient.toLowerCase());
@@ -2906,6 +2977,8 @@ const WorkoutTracker = () => {
                   resetWorkoutTimer();
                   setIsLoggingWorkout(false);
                   setTemplateName('');
+                  setWorkoutSource('self');
+                  if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
                   setLogExercises([
                     { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
                     { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },

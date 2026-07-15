@@ -382,6 +382,11 @@ const WorkoutTracker = () => {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState(savedWorkoutDraft?.saveAsTemplate ?? false);
   const [templateName, setTemplateName] = useState(savedWorkoutDraft?.templateName ?? '');
+  // Name the saved-template will use — editable in the finish summary so the
+  // client can give the reusable template its own name instead of being
+  // locked to the session's workout name. Empty = fall back to the workout
+  // name (then a dated default).
+  const [customTemplateName, setCustomTemplateName] = useState('');
   const [workoutSource, setWorkoutSource] = useState(savedWorkoutDraft?.workoutSource ?? 'self'); // 'self' | 'coach'
   // Generic workout templates (Push/Pull/Leg)
   const [genericTemplates, setGenericTemplates] = useState([]);
@@ -1331,7 +1336,9 @@ const WorkoutTracker = () => {
       // Use Supabase UUID if available, fall back to display name
       const plan = {
         userId: getPlanOwnerId(),
-        planName: templateName.trim() || `My Template — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
+        // Client's own custom template name wins; else fall back to the
+        // session's workout name, then a dated default.
+        planName: customTemplateName.trim() || templateName.trim() || `My Template — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
         exercises: formattedExercises.map(ex => ({
           name: ex.name,
           sets: ex.sets.map(s => ({ reps: s.reps, weight: s.weight }))
@@ -1346,6 +1353,7 @@ const WorkoutTracker = () => {
     setIsLoggingWorkout(false);
     setSaveAsTemplate(false);
     setTemplateName('');
+    setCustomTemplateName('');
     setWorkoutSource('self'); // Reset to self-logged for next workout
     // Session is finished and saved to workout_logs — the open draft is done.
     if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
@@ -2755,9 +2763,23 @@ const WorkoutTracker = () => {
                 <span>💾 Save this session as a repeat template</span>
               </label>
               {saveAsTemplate && (
-                <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: 'rgba(148,163,184,0.7)' }}>
-                  Will be saved as: <strong style={{ color: 'var(--primary-accent-light)' }}>{templateName || 'Custom Session'}</strong>
-                </p>
+                <div style={{ marginTop: '8px' }}>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'rgba(148,163,184,0.8)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '4px' }}>
+                    Template Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customTemplateName}
+                    onChange={(e) => setCustomTemplateName(e.target.value)}
+                    placeholder={templateName || 'e.g. Push Day, My Leg Routine…'}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: 'rgba(9,14,23,0.6)', border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 'var(--radius-sm)', padding: '9px 11px', color: '#fff',
+                      fontSize: '16px', outline: 'none'
+                    }}
+                  />
+                </div>
               )}
             </div>
 

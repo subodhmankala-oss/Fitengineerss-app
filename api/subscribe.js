@@ -5,15 +5,32 @@ const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SU
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  // Folded into this route (rather than a separate /api/unsubscribe
+  // function) to stay under Vercel's Hobby-plan serverless function count
+  // limit — this file already owns the full push_subscriptions row
+  // lifecycle, so a DELETE here is a natural fit, not a separate endpoint.
+  if (req.method === 'DELETE') {
+    const { endpoint } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: 'endpoint is required.' });
+    try {
+      const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+      if (error) throw error;
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Push Subscription Removal Error:', error);
+      return res.status(500).json({ error: 'Failed to unsubscribe.', details: error.message });
+    }
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed. Please use POST.' });
+    return res.status(405).json({ error: 'Method not allowed. Please use POST or DELETE.' });
   }
 
   const { userName, subscription, userId } = req.body;

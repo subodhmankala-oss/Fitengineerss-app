@@ -2927,16 +2927,13 @@ const TrainerDashboard = ({ handleLogout }) => {
                   </div>
 
                   {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
-                  <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>➕ Add Exercise to Session</div>
-                    <button
-                      type="button"
-                      className="btn-secondary-sm btn-add-hevy-ex"
-                      onClick={() => setExercisePickerContext('live')}
-                    >
-                      ➕ Add Exercise
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
+                    onClick={() => setExercisePickerContext('live')}
+                  >
+                    ➕ Add Exercise
+                  </button>
 
                   {/* Discard (left) + Save (right) */}
                   <div style={{ display: 'flex', gap: '10px' }}>

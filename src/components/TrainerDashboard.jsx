@@ -1280,10 +1280,10 @@ const TrainerDashboard = ({ handleLogout }) => {
             aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: notifOn ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.06)',
-              border: notifOn ? '1px solid var(--primary-accent-light)' : '1px solid rgba(255,255,255,0.12)',
-              color: notifOn ? '#06281c' : '#fff',
-              boxShadow: notifOn ? '0 0 10px rgba(16,185,129,0.4)' : 'none',
+              background: notifOn ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
+              border: notifOn ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
+              color: notifOn ? 'var(--primary-accent-light)' : '#fff',
+              boxShadow: notifOn ? '0 4px 14px rgba(16,185,129,0.35)' : 'none',
               borderRadius: '50%', padding: '8px',
               cursor: 'pointer'
             }}

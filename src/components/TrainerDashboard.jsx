@@ -10,6 +10,7 @@ import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
+import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise } from '../data/exerciseLibrary';
 
 
@@ -25,14 +26,30 @@ const TrainerDashboard = ({ handleLogout }) => {
   // (or unattached "Generic") clients. See resolveCanonicalUserId.
   const [resolvedCoachId, setResolvedCoachId] = useState(() => localStorage.getItem('userId') || null);
 
-  // Coach notification permission. Granting it registers the coach's device
-  // for push (App.jsx auto-subscribes on the notificationPermissionChanged
-  // event) — which is what lets client-triggered alerts (workout started,
-  // measurements saved) actually reach the coach's phone.
+  // Coach notification permission + this device's actual push subscription.
+  // Tracked separately: the browser's Notification permission (granted/
+  // denied) can never be revoked from JS once granted — only the user can
+  // undo that via browser/OS site settings. So "On"/"Off" here reflects
+  // whether THIS device currently has an active push subscription, which we
+  // *can* create and remove on demand — that's what actually starts/stops
+  // pushes arriving, regardless of what the OS permission indicator shows.
   const [notifPermission, setNotifPermission] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   );
-  const enableCoachNotifications = async () => {
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+
+  useEffect(() => {
+    hasActivePushSubscription().then(setPushSubscribed);
+  }, []);
+
+  const notifOn = notifPermission === 'granted' && pushSubscribed;
+
+  const toggleCoachNotifications = async () => {
+    if (notifOn) {
+      await unsubscribeFromPush();
+      setPushSubscribed(false);
+      return;
+    }
     if (!('Notification' in window)) {
       alert('This browser does not support notifications.');
       return;
@@ -44,9 +61,12 @@ const TrainerDashboard = ({ handleLogout }) => {
     try {
       const result = await Notification.requestPermission();
       setNotifPermission(result);
-      // App.jsx listens for this and registers the push subscription (with the
-      // coach's user_id) so targeted alerts can be delivered.
       window.dispatchEvent(new Event('notificationPermissionChanged'));
+      if (result === 'granted') {
+        const coachName = localStorage.getItem('userName');
+        await subscribeToPush(coachName);
+        setPushSubscribed(true);
+      }
     } catch (e) {
       console.error('Notification permission request failed:', e);
     }
@@ -1241,14 +1261,14 @@ const TrainerDashboard = ({ handleLogout }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
-            onClick={enableCoachNotifications}
-            title={notifPermission === 'granted' ? 'Notifications are on' : 'Enable notifications to get client alerts'}
-            aria-label="Enable notifications"
+            onClick={toggleCoachNotifications}
+            title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications to get client alerts'}
+            aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: notifPermission === 'granted' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
-              border: notifPermission === 'granted' ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.12)',
-              color: notifPermission === 'granted' ? 'var(--primary-accent-light)' : '#fff',
+              background: notifOn ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
+              border: notifOn ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.12)',
+              color: notifOn ? 'var(--primary-accent-light)' : '#fff',
               borderRadius: '20px', padding: '7px 12px', fontSize: '0.72rem', fontWeight: 700,
               cursor: 'pointer', whiteSpace: 'nowrap'
             }}
@@ -1257,7 +1277,7 @@ const TrainerDashboard = ({ handleLogout }) => {
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-            {notifPermission === 'granted' ? 'On' : 'Notifications'}
+            {notifOn ? 'On' : 'Notifications'}
           </button>
           <button className="logout-btn-trainer" onClick={handleLogout}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

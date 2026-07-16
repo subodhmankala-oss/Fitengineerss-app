@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
+import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -87,12 +88,18 @@ export default function ClientProfile({ handleLogout }) {
   // trigger a re-render. The toggle would look stuck on "OFF" even after the
   // client actually granted permission.
   const [notifState, setNotifState] = useState('Notification' in window ? Notification.permission : 'unsupported');
+  // Whether THIS device currently has an active push subscription. Tracked
+  // separately from notifState: browser permission can never be revoked
+  // from JS once granted, so "on"/"off" here has to mean "is this device
+  // actually subscribed", which we CAN create/remove on demand.
+  const [pushSubscribed, setPushSubscribed] = useState(false);
 
   useEffect(() => {
     const syncNotifState = () => {
       if ('Notification' in window) setNotifState(Notification.permission);
     };
     window.addEventListener('notificationPermissionChanged', syncNotifState);
+    hasActivePushSubscription().then(setPushSubscribed);
     return () => window.removeEventListener('notificationPermissionChanged', syncNotifState);
   }, []);
 
@@ -177,12 +184,20 @@ export default function ClientProfile({ handleLogout }) {
   };
 
   const requestNotifications = async () => {
+    if (notifState === 'granted' && pushSubscribed) {
+      // Already on — this tap means turn it off.
+      await unsubscribeFromPush();
+      setPushSubscribed(false);
+      return;
+    }
     if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
     setNotifState(result);
-    // Also tells App.jsx (which owns the actual push subscription) to react
-    // to the new permission and call registerForPushNotifications.
     window.dispatchEvent(new Event('notificationPermissionChanged'));
+    if (result === 'granted') {
+      await subscribeToPush(localStorage.getItem('userName'));
+      setPushSubscribed(true);
+    }
     return result;
   };
 
@@ -326,6 +341,10 @@ export default function ClientProfile({ handleLogout }) {
   if (activeSection === 'notifications') {
     const granted = notifState === 'granted';
     const denied = notifState === 'denied';
+    // "On" means this device is actually subscribed, not just that browser
+    // permission was granted at some point (permission can be granted with
+    // no active subscription right after turning notifications off).
+    const notifOn = granted && pushSubscribed;
     // 'Notification' in window is false on iOS Safari unless the app was
     // installed via Share → Add to Home Screen (and opened from that icon,
     // not the browser tab) — a very common way clients first open a shared
@@ -350,7 +369,7 @@ export default function ClientProfile({ handleLogout }) {
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                   {denied
                     ? 'Blocked in browser settings — enable in your device settings.'
-                    : granted
+                    : notifOn
                     ? 'Active — you\'ll receive daily reminders.'
                     : unsupported
                     ? (isIOS ? 'Not available in Safari — add this app to your Home Screen first.' : 'Push notifications aren\'t supported in this browser.')
@@ -359,10 +378,10 @@ export default function ClientProfile({ handleLogout }) {
               </div>
               {!denied && !unsupported && (
                 <button
-                  className={`cp-notif-toggle${granted ? ' cp-notif-toggle--on' : ''}`}
+                  className={`cp-notif-toggle${notifOn ? ' cp-notif-toggle--on' : ''}`}
                   onClick={requestNotifications}
                 >
-                  {granted ? 'ON' : 'OFF'}
+                  {notifOn ? 'ON' : 'OFF'}
                 </button>
               )}
             </div>

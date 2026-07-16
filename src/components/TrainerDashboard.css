@@ -650,3 +650,29 @@
 .live-timer-btn:hover {
   background: rgba(245, 158, 11, 0.25);
 }
+
+.live-timer-discard-btn {
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  color: #ef4444;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.live-timer-discard-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fff;
+}
+
+.live-timer-discard-btn:active {
+  transform: scale(0.95);
+}

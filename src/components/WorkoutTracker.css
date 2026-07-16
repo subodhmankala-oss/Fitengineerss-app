@@ -1588,6 +1588,59 @@
   border-color: rgba(245, 158, 11, 0.5);
 }
 
+.btn-timer-discard {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.btn-timer-discard:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fff;
+}
+
+.btn-timer-discard:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 390px) {
+  .hevy-stopwatch-banner {
+    padding: 10px 10px;
+    gap: 6px;
+  }
+
+  .stopwatch-time {
+    font-size: 0.95rem;
+  }
+
+  .live-kcal-badge {
+    font-size: 0.72rem;
+    padding: 3px 8px;
+  }
+
+  .btn-timer-toggle {
+    padding: 6px 12px;
+    font-size: 0.7rem;
+  }
+
+  .btn-timer-discard {
+    padding: 6px 8px;
+    font-size: 0.95rem;
+    min-width: 28px;
+  }
+}
+
 .btn-hevy-finish {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #fff;
@@ -1694,13 +1747,6 @@
 .hevy-table-header .col-set {
   text-align: left;
   padding-left: 6px;
-}
-
-/* 4-column variant: no PREVIOUS column (used by the coach's Live Session Logger,
-   which has no prior-session lookup wired up). */
-.hevy-sets-table.cols-4 .hevy-table-header,
-.hevy-set-row.cols-4 {
-  grid-template-columns: 0.6fr 1.5fr 1.2fr 1fr;
 }
 
 .hevy-set-row {

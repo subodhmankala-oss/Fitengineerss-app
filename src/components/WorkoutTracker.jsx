@@ -2433,13 +2433,23 @@ const WorkoutTracker = () => {
             </div>
             <div className="timer-controls">
               {workoutTimerStatus !== 'idle' && (
-                <button
-                  type="button"
-                  className="btn-timer-toggle"
-                  onClick={workoutTimerStatus === 'running' ? handlePauseWorkoutTimer : handleResumeWorkoutTimer}
-                >
-                  {workoutTimerStatus === 'running' ? '⏸️ Pause' : '▶️ Resume'}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn-timer-toggle"
+                    onClick={workoutTimerStatus === 'running' ? handlePauseWorkoutTimer : handleResumeWorkoutTimer}
+                  >
+                    {workoutTimerStatus === 'running' ? '⏸️ Pause' : '▶️ Resume'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-timer-discard"
+                    onClick={() => setShowDiscardConfirmModal(true)}
+                    title="Discard this workout session"
+                  >
+                    ✕
+                  </button>
+                </>
               )}
             </div>
           </div>

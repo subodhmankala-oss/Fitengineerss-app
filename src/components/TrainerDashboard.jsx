@@ -8,7 +8,7 @@ import AdminClientsList from './admin/AdminClientsList';
 import './WorkoutTracker.css';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { isCardioExercise } from '../data/exerciseLibrary';
 
@@ -315,6 +315,10 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [liveTimerStartedAt, setLiveTimerStartedAt] = useState(null);
   const [livePauseIntervals, setLivePauseIntervals] = useState([]); // [{ pausedAt, resumedAt }]
   const [, forceLiveTimerTick] = useState(0);
+  const [showDiscardLiveModal, setShowDiscardLiveModal] = useState(false);
+  // Which draft (from the client directory's "Live Log in progress" list) is
+  // pending a discard confirmation — { userId, userName } or null when closed.
+  const [discardDraftTarget, setDiscardDraftTarget] = useState(null);
   // Set type popup in the Plan Editor: { exIdx, setIdx } when open, null when closed
   const [editorSetTypeMenu, setEditorSetTypeMenu] = useState(null);
 
@@ -362,6 +366,21 @@ const TrainerDashboard = ({ handleLogout }) => {
       return copy;
     });
     setLiveTimerStatus('running');
+  };
+
+  const handleDiscardLiveSession = async () => {
+    resetLiveTimer();
+    setLiveExercises([]);
+    setLivePlanName('');
+    setShowDiscardLiveModal(false);
+    // Also clear the persisted draft — otherwise the "Live Log in progress"
+    // banner on the client directory screen keeps showing this session as
+    // resumable even though it was just discarded here.
+    if (selectedClient) {
+      await databaseService.deleteWorkoutDraft(selectedClient.id);
+      refreshCoachActiveDrafts();
+    }
+    triggerLiveToast('🗑️ Live session discarded.');
   };
 
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
@@ -592,6 +611,23 @@ const TrainerDashboard = ({ handleLogout }) => {
     if (!resolvedCoachId) return;
     const drafts = await databaseService.getCoachActiveDrafts(resolvedCoachId);
     setCoachActiveDrafts(drafts);
+  };
+
+  // Discard a draft directly from the client directory's "Live Log in
+  // progress" list — lets the coach clear a stale/unwanted session without
+  // having to open it first. Also resets the in-tab live state if that same
+  // client happens to be the one currently open in the Live Log tab.
+  const handleDiscardDraftFromList = async () => {
+    if (!discardDraftTarget) return;
+    const { userId } = discardDraftTarget;
+    await databaseService.deleteWorkoutDraft(userId);
+    if (selectedClient?.id === userId) {
+      resetLiveTimer();
+      setLiveExercises([]);
+      setLivePlanName('');
+    }
+    setDiscardDraftTarget(null);
+    refreshCoachActiveDrafts();
   };
 
   // Refresh on mount and whenever the coach returns to this tab/app — the
@@ -890,7 +926,10 @@ const TrainerDashboard = ({ handleLogout }) => {
         reps: log.reps,
         weight: log.weight_kg,
         setType: log.set_type || null,
-        isWarmup: log.set_type === 'warmup'
+        isWarmup: log.set_type === 'warmup',
+        // Cardio rows carry distance/time instead of reps/weight — see
+        // isCardioExercise / the workout_logs.distance_km column.
+        ...(log.distance_km != null ? { distanceKm: log.distance_km, time: formatSecondsToTimeString(log.cardio_duration_seconds) } : {})
       });
     });
 
@@ -915,6 +954,25 @@ const TrainerDashboard = ({ handleLogout }) => {
       });
 
     return sortedDatesList;
+  };
+
+  // "PREVIOUS" column lookup for the Live Log / Plan editor set tables — same
+  // idea as the client's own getPreviousSessionSet, but workoutLogs here is
+  // already scoped to the one selected client, so no name filtering needed.
+  const getPreviousSessionSet = (exName, setIdx) => {
+    const history = [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
+    for (const session of history) {
+      const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
+      if (exercise && exercise.sets && exercise.sets[setIdx]) {
+        const set = exercise.sets[setIdx];
+        if (isCardioExercise(exName)) {
+          if (!set.distanceKm) return '—';
+          return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
+        }
+        return `${set.weight}kg x ${set.reps}`;
+      }
+    }
+    return '—';
   };
 
   const fetchClientChat = async (clientId) => {
@@ -1485,12 +1543,30 @@ const TrainerDashboard = ({ handleLogout }) => {
                             </div>
                           </div>
                         </div>
-                        <button type="button" style={{
-                          flexShrink: 0, background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
-                          border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
-                        }}>
-                          Resume ▶
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <button type="button" style={{
+                            background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
+                            border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+                          }}>
+                            Resume ▶
+                          </button>
+                          <button
+                            type="button"
+                            title="Discard this live session"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDiscardDraftTarget({ userId: draft.userId, userName: draftClient?.userName || 'this client' });
+                            }}
+                            style={{
+                              background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                              color: '#ef4444', borderRadius: '8px', padding: '8px 10px', fontSize: '1rem',
+                              fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', minWidth: '32px'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -2312,9 +2388,10 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   >🗑️ Remove</button>
                                 </div>
 
-                                <div className="hevy-sets-table cols-4">
+                                <div className="hevy-sets-table">
                                   <div className="hevy-table-header">
                                     <span className="col-set">SET</span>
+                                    <span className="col-prev">PREVIOUS</span>
                                     {exIsCardio ? (
                                       <>
                                         <span className="col-weight">KM</span>
@@ -2332,8 +2409,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     {ex.sets.map((set, setIdx) => {
                                       const workingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
                                       const label = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : workingNum;
+                                      const prevStats = getPreviousSessionSet(ex.name, setIdx);
                                       return (
-                                      <div key={setIdx} className={`hevy-set-row cols-4 ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
+                                      <div key={setIdx} className={`hevy-set-row ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
                                         <span className="col-set set-type-menu-wrapper">
                                           <span
                                             className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
@@ -2350,6 +2428,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                             <SetTypeMenu onSelect={(type) => handleEditorChangeSetType(exIdx, setIdx, type)} />
                                           )}
                                         </span>
+                                        <span className="col-prev set-prev-lbl">{prevStats}</span>
                                         {exIsCardio ? (
                                           <>
                                             <div className="col-weight set-input-field">
@@ -2613,11 +2692,21 @@ const TrainerDashboard = ({ handleLogout }) => {
                           {liveTimerStatus === 'paused' && <span className="live-timer-paused-tag">Paused</span>}
                         </span>
                         <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
-                        {liveTimerStatus === 'running' ? (
-                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer}>⏸ Pause</button>
-                        ) : (
-                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer}>▶ Resume</button>
-                        )}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {liveTimerStatus === 'running' ? (
+                            <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer}>⏸ Pause</button>
+                          ) : (
+                            <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer}>▶ Resume</button>
+                          )}
+                          <button
+                            type="button"
+                            className="live-timer-discard-btn"
+                            onClick={() => setShowDiscardLiveModal(true)}
+                            title="Discard this live session"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -2698,9 +2787,10 @@ const TrainerDashboard = ({ handleLogout }) => {
                         </div>
 
                         {/* Sets Table */}
-                        <div className="hevy-sets-table cols-4">
+                        <div className="hevy-sets-table">
                           <div className="hevy-table-header">
                             <span className="col-set">SET</span>
+                            <span className="col-prev">PREVIOUS</span>
                             {exIsCardio ? (
                               <>
                                 <span className="col-weight">KM</span>
@@ -2718,8 +2808,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                             {ex.sets.map((set, setIdx) => {
                               const liveWorkingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
                               const liveLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : liveWorkingNum;
+                              const prevStats = getPreviousSessionSet(ex.name, setIdx);
                               return (
-                              <div key={setIdx} className={`hevy-set-row cols-4 ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
+                              <div key={setIdx} className={`hevy-set-row ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
                                 <span className="col-set set-type-menu-wrapper">
                                   <span
                                     className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
@@ -2736,6 +2827,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     <SetTypeMenu onSelect={(type) => handleLiveChangeSetType(exIdx, setIdx, type)} />
                                   )}
                                 </span>
+                                <span className="col-prev set-prev-lbl">{prevStats}</span>
                                 {exIsCardio ? (
                                   <>
                                     <div className="col-weight set-input-field">
@@ -2847,6 +2939,158 @@ const TrainerDashboard = ({ handleLogout }) => {
             </div>
           )}
         </>
+      )}
+
+      {/* Discard live session confirmation modal */}
+      {showDiscardLiveModal && (
+        <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowDiscardLiveModal(false)}>
+          <div className="payment-gateway-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>⚠️ DISCARD SESSION</div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 700 }}>End this live session?</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                  All unsaved sets and timer data will be lost. This cannot be undone.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDiscardLiveModal(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  color: 'var(--text-muted)',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
+                  marginLeft: '12px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button
+                onClick={() => setShowDiscardLiveModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDiscardLiveSession}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#f87171',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                }}
+              >
+                🗑️ Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discard-from-list confirmation modal — for the "Live Log in progress"
+          banner on the client directory screen, where a session can be
+          discarded without first opening it. */}
+      {discardDraftTarget && (
+        <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setDiscardDraftTarget(null)}>
+          <div className="payment-gateway-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>⚠️ DISCARD SESSION</div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 700 }}>
+                  End {discardDraftTarget.userName}'s live session?
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                  All unsaved sets and timer data will be lost. This cannot be undone.
+                </p>
+              </div>
+              <button
+                onClick={() => setDiscardDraftTarget(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  color: 'var(--text-muted)',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
+                  marginLeft: '12px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button
+                onClick={() => setDiscardDraftTarget(null)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDiscardDraftFromList}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#f87171',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                }}
+              >
+                🗑️ Discard
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Shared Hevy-style exercise picker (identical to the client side) */}

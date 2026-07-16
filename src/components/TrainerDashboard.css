@@ -28,8 +28,15 @@
   height: 100%;
   width: 100%;
   overflow-y: auto;
-  /* Edge-to-edge: no side gutter — cards span full width. Plain text/control
-     children below re-apply --screen-gutter to align with card content. */
+  /* Edge-to-edge children (e.g. .platform-admin-view, .client-detail-view)
+     bleed with a negative side margin so their cards span full width. Without
+     this, that bleed opens up horizontal scroll on the container, and
+     switching tabs can leave it scrolled off from x:0 — clipping the left
+     edge of every heading/card underneath ("Super-Admin Overview" reading as
+     "uper-Admin Overview", etc). `clip` (not `hidden`) avoids turning this
+     into an independent x-scroll container, which would fight the
+     `scroll-behavior: smooth` / sticky-header behavior on the y axis. */
+  overflow-x: clip;
   padding: 24px 0;
   background-color: var(--bg-app);
   scroll-behavior: smooth;

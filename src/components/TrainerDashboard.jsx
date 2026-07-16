@@ -1279,27 +1279,24 @@ const TrainerDashboard = ({ handleLogout }) => {
             title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications to get client alerts'}
             aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
             style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: notifOn ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
               border: notifOn ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.12)',
               color: notifOn ? 'var(--primary-accent-light)' : '#fff',
-              borderRadius: '20px', padding: '7px 12px', fontSize: '0.72rem', fontWeight: 700,
-              cursor: 'pointer', whiteSpace: 'nowrap'
+              borderRadius: '50%', padding: '8px',
+              cursor: 'pointer'
             }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-            {notifOn ? 'On' : 'Notifications'}
           </button>
-          <button className="logout-btn-trainer" onClick={handleLogout}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
+          <button className="logout-btn-trainer" onClick={handleLogout} title="Logout" aria-label="Logout">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+              <line x1="12" y1="2" x2="12" y2="12" />
             </svg>
-            Logout
           </button>
         </div>
       </div>

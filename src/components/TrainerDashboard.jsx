@@ -2726,21 +2726,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                           {liveTimerStatus === 'paused' && <span className="live-timer-paused-tag">Paused</span>}
                         </span>
                         <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          {liveTimerStatus === 'running' ? (
-                            <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer}>⏸ Pause</button>
-                          ) : (
-                            <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer}>▶ Resume</button>
-                          )}
-                          <button
-                            type="button"
-                            className="live-timer-discard-btn"
-                            onClick={() => setShowDiscardLiveModal(true)}
-                            title="Discard this live session"
-                          >
-                            ✕
-                          </button>
-                        </div>
+                        {liveTimerStatus === 'running' ? (
+                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer}>⏸ Pause</button>
+                        ) : (
+                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer}>▶ Resume</button>
+                        )}
                       </>
                     )}
                   </div>
@@ -2948,25 +2938,47 @@ const TrainerDashboard = ({ handleLogout }) => {
                     </button>
                   </div>
 
-                  {/* Save Button */}
-                  <button
-                    onClick={handleSaveLiveSession}
-                    disabled={liveSaving}
-                    style={{
-                      padding: '13px',
-                      background: liveSaving ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                      border: 'none',
-                      borderRadius: 'var(--radius-md)',
-                      color: '#fff',
-                      fontWeight: 800,
-                      fontSize: '0.9rem',
-                      cursor: liveSaving ? 'default' : 'pointer',
-                      transition: 'all 0.2s ease',
-                      letterSpacing: '0.02em'
-                    }}
-                  >
-                    {liveSaving ? '⏳ Saving...' : '💾 Save Workout Session'}
-                  </button>
+                  {/* Discard (left) + Save (right) */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscardLiveModal(true)}
+                      title="Discard this live session"
+                      style={{
+                        flex: '0 0 auto',
+                        padding: '13px 18px',
+                        background: 'rgba(239,68,68,0.12)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: 'var(--radius-md)',
+                        color: '#ef4444',
+                        fontWeight: 800,
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      ✕
+                    </button>
+                    <button
+                      onClick={handleSaveLiveSession}
+                      disabled={liveSaving}
+                      style={{
+                        flex: 1,
+                        padding: '13px',
+                        background: liveSaving ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        cursor: liveSaving ? 'default' : 'pointer',
+                        transition: 'all 0.2s ease',
+                        letterSpacing: '0.02em'
+                      }}
+                    >
+                      {liveSaving ? '⏳ Saving...' : '💾 Save Workout Session'}
+                    </button>
+                  </div>
                 </div>
               )}
 

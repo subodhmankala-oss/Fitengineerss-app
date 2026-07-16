@@ -92,8 +92,10 @@ export async function unsubscribeFromPush() {
     if (!subscription) return;
     const endpoint = subscription.endpoint;
     await subscription.unsubscribe();
-    await fetch('/api/unsubscribe', {
-      method: 'POST',
+    // DELETE on /api/subscribe (not a separate function) — see the comment
+    // in api/subscribe.js for why.
+    await fetch('/api/subscribe', {
+      method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint })
     }).catch(() => {});

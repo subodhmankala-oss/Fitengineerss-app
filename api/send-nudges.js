@@ -1,16 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wzifwepqggyqkylyxqcx.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6aWZ3ZXBxZ2d5cWt5bHl4cWN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2ODE4NjE5NjIsImV4cCI6MTk5NzQzNzk2Mn0.a452hS-sR6c_g0W1Z_37_0';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
 // Set VAPID keys
 webPush.setVapidDetails(
   'mailto:support@fitengineers.com',
-  process.env.VITE_VAPID_PUBLIC_KEY || 'BIupVfv6kg0G6uCsUWYciNynMR5xs6F3dl3QWXjRWGFkfZzvBPClM_FSLCEInVTDF0wtMkk5sDfbmWH1b2RMuqk',
-  process.env.VAPID_PRIVATE_KEY || 'Fi8qX-4M-3qo3IfOUT174OPWrcX6uoa0YFilm82IJTs'
+  process.env.VITE_VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
 );
 
 const morningQuotes = [

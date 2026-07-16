@@ -81,7 +81,20 @@ export default function ClientProfile({ handleLogout }) {
   const measCanSave = measDaysUntilNextSave === 0;
 
   const userEmail = localStorage.getItem('userEmail') || '';
-  const notifState = 'Notification' in window ? Notification.permission : 'unsupported';
+  // Real React state (not a plain const re-read from the live Notification
+  // API) — otherwise this screen never reflects a permission change made via
+  // its own toggle, since granting/denying the native prompt doesn't itself
+  // trigger a re-render. The toggle would look stuck on "OFF" even after the
+  // client actually granted permission.
+  const [notifState, setNotifState] = useState('Notification' in window ? Notification.permission : 'unsupported');
+
+  useEffect(() => {
+    const syncNotifState = () => {
+      if ('Notification' in window) setNotifState(Notification.permission);
+    };
+    window.addEventListener('notificationPermissionChanged', syncNotifState);
+    return () => window.removeEventListener('notificationPermissionChanged', syncNotifState);
+  }, []);
 
   // The fields above are seeded from localStorage for an instant paint, but
   // that cache is never refreshed on its own — it can go stale relative to
@@ -166,6 +179,9 @@ export default function ClientProfile({ handleLogout }) {
   const requestNotifications = async () => {
     if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
+    setNotifState(result);
+    // Also tells App.jsx (which owns the actual push subscription) to react
+    // to the new permission and call registerForPushNotifications.
     window.dispatchEvent(new Event('notificationPermissionChanged'));
     return result;
   };
@@ -310,6 +326,14 @@ export default function ClientProfile({ handleLogout }) {
   if (activeSection === 'notifications') {
     const granted = notifState === 'granted';
     const denied = notifState === 'denied';
+    // 'Notification' in window is false on iOS Safari unless the app was
+    // installed via Share → Add to Home Screen (and opened from that icon,
+    // not the browser tab) — a very common way clients first open a shared
+    // link. Previously the toggle rendered as a normal, tappable "OFF"
+    // button in this case, but requestNotifications() silently no-ops, so
+    // it looked broken with zero feedback. Surface the real reason instead.
+    const unsupported = notifState === 'unsupported';
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     return (
       <div className="cp-container animate-slide-up">
         <div className="cp-sub-header">
@@ -324,10 +348,16 @@ export default function ClientProfile({ handleLogout }) {
               <div>
                 <div className="cp-field-label" style={{ marginBottom: 4 }}>Coach Nudges & Reminders</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {denied ? 'Blocked in browser settings — enable in your device settings.' : granted ? 'Active — you\'ll receive daily reminders.' : 'Tap to enable push notifications.'}
+                  {denied
+                    ? 'Blocked in browser settings — enable in your device settings.'
+                    : granted
+                    ? 'Active — you\'ll receive daily reminders.'
+                    : unsupported
+                    ? (isIOS ? 'Not available in Safari — add this app to your Home Screen first.' : 'Push notifications aren\'t supported in this browser.')
+                    : 'Tap to enable push notifications.'}
                 </div>
               </div>
-              {!denied && (
+              {!denied && !unsupported && (
                 <button
                   className={`cp-notif-toggle${granted ? ' cp-notif-toggle--on' : ''}`}
                   onClick={requestNotifications}
@@ -340,6 +370,11 @@ export default function ClientProfile({ handleLogout }) {
           {denied && (
             <p className="cp-notif-hint">
               To re-enable, go to your browser / OS notification settings and allow Fitengineers, then reload the app.
+            </p>
+          )}
+          {unsupported && isIOS && (
+            <p className="cp-notif-hint">
+              On iPhone/iPad: open this app in Safari, tap the Share icon, choose "Add to Home Screen", then launch it from that new icon instead of Safari. Notifications only work from the installed app.
             </p>
           )}
         </div>

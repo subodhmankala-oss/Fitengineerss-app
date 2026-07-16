@@ -663,6 +663,20 @@ const TrainerDashboard = ({ handleLogout }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCoachId]);
 
+  // Re-pull the active-drafts list every time the coach lands back on the
+  // client directory (home). The "Live Log in progress" banner reads this
+  // list, and clicking the in-app "Dashboard" breadcrumb to leave a live
+  // session fires NO visibilitychange/focus event — so without this, the
+  // list stays as it was at mount (empty) and the banner never appears
+  // until a full page reload. This is the exact "logged a workout, went
+  // back to home, saw no banner" case.
+  useEffect(() => {
+    if (viewMode === 'coach' && !selectedClient) {
+      refreshCoachActiveDrafts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClient, viewMode]);
+
   // Chat states
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');

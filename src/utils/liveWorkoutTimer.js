@@ -13,6 +13,12 @@ export const WORK_KCAL_PER_KG_REP = 0.10;
 export const REST_KCAL_PER_SECOND = 0.05; // ~3 kcal/min of rest
 export const DEFAULT_BODY_WEIGHT_KG = 70;
 
+// MET for a static core hold (plank, side plank, wall sit) — Compendium of
+// Physical Activities lists isometric abdominal/calisthenic holds around
+// 3.5-4.0 MET; a single flat value here matches the app's existing approach
+// of fixed MET brackets rather than per-exercise tuning (see cardioMET).
+const TIMED_HOLD_MET = 3.8;
+
 // MET (Metabolic Equivalent of Task) by exercise + pace, from the Compendium
 // of Physical Activities. A flat kcal/km rate was tried first and badly
 // overestimated cycling in particular (10km in 20min ~ 600kcal vs a
@@ -60,6 +66,14 @@ function cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) {
   const speedKmh = km / (minutes / 60);
   const met = cardioMET(exerciseName, speedKmh);
   return (met * 3.5 * bodyWeightKg / 200) * minutes;
+}
+
+// Same MET formula as cardioKcal, but for a static hold (no distance/pace to
+// derive intensity from) — duration alone drives the estimate.
+function timedHoldKcal(durationSeconds, bodyWeightKg) {
+  const minutes = (durationSeconds || 0) / 60;
+  if (minutes <= 0) return 0;
+  return (TIMED_HOLD_MET * 3.5 * bodyWeightKg / 200) * minutes;
 }
 
 export function formatDuration(totalSeconds) {
@@ -132,12 +146,13 @@ function secondsBetweenExcludingPauses(from, to, pauseIntervals) {
   return Math.max(0, Math.floor((to - from - pausedOverlap) / 1000));
 }
 
-// Sums work calories (reps x weight, or MET-based for cardio) for every
-// completed set, plus rest calories for the gaps between consecutive
-// completions (anchored to session start for the first one). Sets not yet
-// marked done contribute nothing. bodyWeightKg only affects cardio sets (the
-// strength-set formula doesn't use it) — defaults to an average adult when
-// the caller doesn't have the client's actual weight on hand.
+// Sums work calories (reps x weight, MET-based for cardio, or MET-based on
+// hold duration for timed sets like plank) for every completed set, plus
+// rest calories for the gaps between consecutive completions (anchored to
+// session start for the first one). Sets not yet marked done contribute
+// nothing. bodyWeightKg only affects cardio/timed sets (the strength-set
+// formula doesn't use it) — defaults to an average adult when the caller
+// doesn't have the client's actual weight on hand.
 export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   const completions = [];
   let workKcal = 0;
@@ -147,6 +162,9 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
       if (!set.isCompleted || !set.completedAt) return;
       if (set.distanceKm !== undefined) {
         workKcal += cardioKcal(ex.name, set.distanceKm, parseTimeStringToSeconds(set.time), bodyWeightKg);
+      } else if (set.time !== undefined) {
+        // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
+        workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg);
       } else {
         const reps = parseFloat(set.reps) || 0;
         const weight = parseFloat(set.weight) || 0;

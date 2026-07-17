@@ -2596,8 +2596,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                           <>
                                             <div className="col-weight set-input-field">
                                               <input
-                                                type="tel"
-                                                inputMode="tel"
+                                                type="text"
+                                                inputMode="decimal"
                                                 placeholder="0"
                                                 value={set.distanceKm}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'distanceKm', e.target.value)}
@@ -2605,8 +2605,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                             </div>
                                             <div className="col-reps set-input-field">
                                               <input
-                                                type="tel"
-                                                inputMode="tel"
+                                                type="text"
+                                                inputMode="numeric"
                                                 placeholder="mm:ss"
                                                 value={set.time}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
@@ -2617,14 +2617,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                                           <>
                                             <div className="col-weight set-input-field">
                                               <input
-                                                type="number"
+                                                type="text"
+                                                inputMode="decimal"
                                                 value={set.weight}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
                                               />
                                             </div>
                                             <div className="col-reps set-input-field">
                                               <input
-                                                type="number"
+                                                type="text"
+                                                inputMode="numeric"
                                                 value={set.reps}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
                                               />
@@ -2992,8 +2994,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   <>
                                     <div className="col-weight set-input-field">
                                       <input
-                                        type="tel"
-                                        inputMode="tel"
+                                        type="text"
+                                        inputMode="decimal"
                                         placeholder="0"
                                         value={set.distanceKm}
                                         onChange={e => handleLiveSetChange(exIdx, setIdx, 'distanceKm', e.target.value)}
@@ -3001,8 +3003,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     </div>
                                     <div className="col-reps set-input-field">
                                       <input
-                                        type="tel"
-                                        inputMode="tel"
+                                        type="text"
+                                        inputMode="numeric"
                                         placeholder="mm:ss"
                                         value={set.time}
                                         onChange={e => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
@@ -3061,14 +3063,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   <>
                                     <div className="col-weight set-input-field">
                                       <input
-                                        type="number"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={set.weight}
                                         onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
                                       />
                                     </div>
                                     <div className="col-reps set-input-field">
                                       <input
-                                        type="number"
+                                        type="text"
+                                        inputMode="numeric"
                                         value={set.reps}
                                         onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
                                       />

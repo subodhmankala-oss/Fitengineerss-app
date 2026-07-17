@@ -11,7 +11,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
-import { isCardioExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
 
 
 const TrainerDashboard = ({ handleLogout }) => {
@@ -335,6 +335,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [liveTimerStartedAt, setLiveTimerStartedAt] = useState(null);
   const [livePauseIntervals, setLivePauseIntervals] = useState([]); // [{ pausedAt, resumedAt }]
   const [, forceLiveTimerTick] = useState(0);
+  // Timed exercise stopwatches in Live Log: { "exIdx,setIdx": { isRunning, startedAt, pausedDuration } }
+  const [liveSetTimers, setLiveSetTimers] = useState({});
+  const [, forceLiveSetTimerTick] = useState(0);
   const [showDiscardLiveModal, setShowDiscardLiveModal] = useState(false);
   // Which draft (from the client directory's "Live Log in progress" list) is
   // pending a discard confirmation — { userId, userName } or null when closed.
@@ -365,6 +368,14 @@ const TrainerDashboard = ({ handleLogout }) => {
     return () => clearInterval(id);
   }, [liveTimerStatus]);
 
+  // Live set timers for timed exercises — re-render every 100ms for smooth UI
+  useEffect(() => {
+    const anyRunning = Object.values(liveSetTimers).some(t => t.isRunning);
+    if (!anyRunning) return;
+    const id = setInterval(() => forceLiveSetTimerTick(t => t + 1), 100);
+    return () => clearInterval(id);
+  }, [liveSetTimers]);
+
   const resetLiveTimer = () => {
     setLiveTimerStatus('idle');
     setLiveTimerStartedAt(null);
@@ -386,6 +397,46 @@ const TrainerDashboard = ({ handleLogout }) => {
       return copy;
     });
     setLiveTimerStatus('running');
+  };
+
+  const getSetTimerKey = (exIdx, setIdx) => `${exIdx},${setIdx}`;
+
+  const getLiveSetElapsedSeconds = (exIdx, setIdx) => {
+    const key = getSetTimerKey(exIdx, setIdx);
+    const timer = liveSetTimers[key];
+    if (!timer) return 0;
+    if (!timer.startedAt) return timer.pausedDuration || 0;
+    const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
+    return elapsed;
+  };
+
+  const handleLiveSetStopwatchStart = (exIdx, setIdx) => {
+    const key = getSetTimerKey(exIdx, setIdx);
+    setLiveSetTimers(prev => ({
+      ...prev,
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration: prev[key]?.pausedDuration || 0 }
+    }));
+  };
+
+  const handleLiveSetStopwatchPause = (exIdx, setIdx) => {
+    const key = getSetTimerKey(exIdx, setIdx);
+    const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+    setLiveSetTimers(prev => ({
+      ...prev,
+      [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
+    }));
+  };
+
+  const handleLiveSetStopwatchComplete = (exIdx, setIdx) => {
+    const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+    handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+    handleLiveToggleSet(exIdx, setIdx);
+    const key = getSetTimerKey(exIdx, setIdx);
+    setLiveSetTimers(prev => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
   };
 
   const handleDiscardLiveSession = async () => {
@@ -443,9 +494,14 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const handleLiveAddExercise = (name) => {
-    const newSet = isCardioExercise(name)
-      ? { distanceKm: '', time: '', isCompleted: false }
-      : { reps: '10', weight: '20', isCompleted: false };
+    let newSet;
+    if (isCardioExercise(name)) {
+      newSet = { distanceKm: '', time: '', isCompleted: false };
+    } else if (isTimedExercise(name)) {
+      newSet = { time: '', isCompleted: false };
+    } else {
+      newSet = { reps: '10', weight: '20', isCompleted: false };
+    }
     setLiveExercises(prev => [
       ...prev,
       { name, sets: [newSet] }
@@ -458,6 +514,9 @@ const TrainerDashboard = ({ handleLogout }) => {
       if (isCardioExercise(ex.name)) {
         const last = ex.sets[ex.sets.length - 1];
         return { ...ex, sets: [...ex.sets, { distanceKm: last?.distanceKm || '', time: '', isCompleted: false }] };
+      }
+      if (isTimedExercise(ex.name)) {
+        return { ...ex, sets: [...ex.sets, { time: '', isCompleted: false }] };
       }
       const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
       return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: last.weight, isCompleted: false }] };
@@ -546,11 +605,14 @@ const TrainerDashboard = ({ handleLogout }) => {
         return {
           name: ex.name,
           sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
-            // Cardio sets carry distance/time instead of reps/weight so the
-            // save step (and workout_logs.distance_km/cardio_duration_seconds)
-            // doesn't collapse them to zero.
+            // Cardio sets carry distance/time instead of reps/weight, and
+            // timed holds (plank etc.) carry time only, so the save step
+            // (and workout_logs.distance_km/cardio_duration_seconds) doesn't
+            // collapse them to zero.
             ...(exIsCardio
               ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+              : isTimedExercise(ex.name)
+              ? { time: s.time || '' }
               : { reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }),
             // Preserve the Warmup/Dropset/Failure tag chosen in the live logger
             // so it reaches workout_logs.set_type instead of being discarded.
@@ -962,8 +1024,14 @@ const TrainerDashboard = ({ handleLogout }) => {
         setType: log.set_type || null,
         isWarmup: log.set_type === 'warmup',
         // Cardio rows carry distance/time instead of reps/weight — see
-        // isCardioExercise / the workout_logs.distance_km column.
-        ...(log.distance_km != null ? { distanceKm: log.distance_km, time: formatSecondsToTimeString(log.cardio_duration_seconds) } : {})
+        // isCardioExercise / the workout_logs.distance_km column. Timed holds
+        // (plank etc., see isTimedExercise) reuse cardio_duration_seconds
+        // without a distance_km value — see databaseService.saveWorkoutSession.
+        ...(log.distance_km != null
+          ? { distanceKm: log.distance_km, time: formatSecondsToTimeString(log.cardio_duration_seconds) }
+          : log.cardio_duration_seconds != null
+          ? { time: formatSecondsToTimeString(log.cardio_duration_seconds) }
+          : {})
       });
     });
 
@@ -1002,6 +1070,9 @@ const TrainerDashboard = ({ handleLogout }) => {
         if (isCardioExercise(exName)) {
           if (!set.distanceKm) return '—';
           return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
+        }
+        if (isTimedExercise(exName)) {
+          return set.time || '—';
         }
         return `${set.weight}kg x ${set.reps}`;
       }
@@ -1072,6 +1143,8 @@ const TrainerDashboard = ({ handleLogout }) => {
         sets: ex.sets.map(s => ({
           ...(exIsCardio
             ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+            : isTimedExercise(ex.name)
+            ? { time: s.time || '' }
             : { reps: parseInt(s.reps) || 10, weight: parseFloat(s.weight) || 0 }),
           ...(s.isWarmup ? { isWarmup: true } : {}),
           ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
@@ -1098,9 +1171,14 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const handleAddExerciseToEditor = (name) => {
-    const newSet = isCardioExercise(name)
-      ? { distanceKm: '', time: '' }
-      : { reps: 10, weight: 20 };
+    let newSet;
+    if (isCardioExercise(name)) {
+      newSet = { distanceKm: '', time: '' };
+    } else if (isTimedExercise(name)) {
+      newSet = { time: '' };
+    } else {
+      newSet = { reps: 10, weight: 20 };
+    }
     setEditorExercises(prev => [
       ...prev,
       {
@@ -1116,6 +1194,9 @@ const TrainerDashboard = ({ handleLogout }) => {
         if (isCardioExercise(ex.name)) {
           const lastSet = ex.sets[ex.sets.length - 1];
           return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: '' }] };
+        }
+        if (isTimedExercise(ex.name)) {
+          return { ...ex, sets: [...ex.sets, { time: '' }] };
         }
         const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: 20 };
         return {
@@ -2235,16 +2316,30 @@ const TrainerDashboard = ({ handleLogout }) => {
                           </div>
 
                           <div className="session-exercises-list">
-                            {session.exercises.map((exercise, eIdx) => (
+                            {session.exercises.map((exercise, eIdx) => {
+                              const exIsTimedHist = isTimedExercise(exercise.name);
+                              const exIsCardioHist = isCardioExercise(exercise.name);
+                              return (
                               <div key={eIdx} className="exercise-log-card">
                                 <div className="exercise-log-name">{exercise.name}</div>
-                                
+
                                 <table className="sets-table">
                                   <thead>
                                     <tr>
                                       <th style={{ width: '25%' }}>Set</th>
-                                      <th style={{ width: '40%' }}>Weight</th>
-                                      <th style={{ width: '35%' }}>Reps</th>
+                                      {exIsTimedHist ? (
+                                        <th style={{ width: '75%' }}>Time</th>
+                                      ) : exIsCardioHist ? (
+                                        <>
+                                          <th style={{ width: '40%' }}>Km</th>
+                                          <th style={{ width: '35%' }}>Time</th>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <th style={{ width: '40%' }}>Weight</th>
+                                          <th style={{ width: '35%' }}>Reps</th>
+                                        </>
+                                      )}
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -2264,15 +2359,27 @@ const TrainerDashboard = ({ handleLogout }) => {
                                               {visual.label}
                                             </span>
                                           </td>
-                                          <td>{set.weight} kg</td>
-                                          <td>{set.reps} reps</td>
+                                          {exIsTimedHist ? (
+                                            <td>{set.time || '00:00'}</td>
+                                          ) : exIsCardioHist ? (
+                                            <>
+                                              <td>{set.distanceKm} km</td>
+                                              <td>{set.time || '00:00'}</td>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <td>{set.weight} kg</td>
+                                              <td>{set.reps} reps</td>
+                                            </>
+                                          )}
                                         </tr>
                                       );
                                     })}
                                   </tbody>
                                 </table>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -2766,6 +2873,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                 name: ex.name,
                                 sets: ex.sets.map(s => isCardioExercise(ex.name)
                                   ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                                  : isTimedExercise(ex.name)
+                                  ? { time: s.time ?? '', isCompleted: false }
                                   : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
                               })));
                               triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
@@ -2817,6 +2926,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                               <>
                                 <span className="col-weight">KM</span>
                                 <span className="col-reps">TIME</span>
+                              </>
+                            ) : isTimedExercise(ex.name) ? (
+                              <>
+                                <span className="col-weight">TIME</span>
+                                <span className="col-reps"></span>
                               </>
                             ) : (
                               <>
@@ -2871,6 +2985,54 @@ const TrainerDashboard = ({ handleLogout }) => {
                                       />
                                     </div>
                                   </>
+                                ) : isTimedExercise(ex.name) ? (
+                                  <>
+                                    <div className="col-weight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
+                                      {(() => {
+                                        // Once the set is completed, its time is frozen in set.time —
+                                        // the live timer entry is deleted on completion (see
+                                        // handleLiveSetStopwatchComplete), so reading from liveSetTimers
+                                        // here would show 00:00 instead of the saved duration.
+                                        if (set.isCompleted) {
+                                          return (
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                              {set.time || formatSecondsToTimeString(0)}
+                                            </span>
+                                          );
+                                        }
+                                        const timerKey = getSetTimerKey(exIdx, setIdx);
+                                        const timer = liveSetTimers[timerKey];
+                                        const isRunning = timer?.isRunning || false;
+                                        const elapsedSeconds = getLiveSetElapsedSeconds(exIdx, setIdx);
+                                        const timeStr = formatSecondsToTimeString(elapsedSeconds);
+                                        return (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => isRunning ? handleLiveSetStopwatchPause(exIdx, setIdx) : handleLiveSetStopwatchStart(exIdx, setIdx)}
+                                              style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'rgba(148,163,184,0.7)',
+                                                fontSize: '1.1rem',
+                                                cursor: 'pointer',
+                                                padding: '2px 4px',
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                              }}
+                                              title={isRunning ? 'Pause' : 'Start'}
+                                            >
+                                              {isRunning ? '⏸' : '▶'}
+                                            </button>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                              {timeStr}
+                                            </span>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                    <div className="col-reps"></div>
+                                  </>
                                 ) : (
                                   <>
                                     <div className="col-weight set-input-field">
@@ -2893,8 +3055,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   <button
                                     type="button"
                                     className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
-                                    onClick={() => handleLiveToggleSet(exIdx, setIdx)}
-                                    title={set.isCompleted ? 'Mark incomplete' : 'Mark complete'}
+                                    onClick={() => isTimedExercise(ex.name) && !set.isCompleted ? handleLiveSetStopwatchComplete(exIdx, setIdx) : handleLiveToggleSet(exIdx, setIdx)}
+                                    title={isTimedExercise(ex.name) && !set.isCompleted ? "Save time and complete" : (set.isCompleted ? 'Mark incomplete' : 'Mark complete')}
                                   >
                                     {set.isCompleted ? '✓' : ''}
                                   </button>

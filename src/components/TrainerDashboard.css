@@ -681,3 +681,41 @@
 .live-timer-discard-btn:active {
   transform: scale(0.95);
 }
+
+/* ── Workout Summary timeframe segmented control ──
+   Mirrors the client-side WorkoutProgressDashboard timeframe switch so the
+   coach's Workout Summary uses the exact same Weekly/Daily/Monthly control. */
+.wsum-timeframe-nav {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin: 12px 0 16px;
+}
+
+.wsum-timeframe-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: calc(var(--radius-md) - 4px);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+
+.wsum-timeframe-btn:hover {
+  color: #fff;
+}
+
+.wsum-timeframe-btn.active {
+  background: var(--bg-card);
+  color: var(--primary-accent-light);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}

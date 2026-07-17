@@ -1125,6 +1125,21 @@ const TrainerDashboard = ({ handleLogout }) => {
     }
   };
 
+  // Coach override for a bad measurement entry (e.g. a blank row saved during
+  // the "stuck on Saving…" bug) — an insert-only history table means the
+  // client herself can't undo a bad save, and it still burns her 15-day
+  // window. Deleting it here re-opens that window immediately.
+  const handleDeleteMeasurementEntry = async (entryId, dateLabel) => {
+    if (!window.confirm(`Delete the ${dateLabel} measurement entry? This can't be undone, and will let the client save a new entry right away.`)) return;
+    const res = await databaseService.deleteBodyMeasurement(entryId);
+    if (!res.success) {
+      window.alert(`Couldn't delete: ${res.error || 'unknown error'}`);
+      return;
+    }
+    const history = await databaseService.getBodyMeasurements(selectedClient.id);
+    setClientMeasurements(history);
+  };
+
   const handleSavePlan = async () => {
     if (!editorPlanName.trim()) {
       alert("Please enter a plan name.");
@@ -2459,13 +2474,22 @@ const TrainerDashboard = ({ handleLogout }) => {
                             {clientMeasurements.map((entry, idx) => {
                               const filled = measFields.filter(f => entry.measurements?.[f.key] != null && entry.measurements[f.key] !== '');
                               return (
-                                <div key={entry.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 14px' }}>
-                                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>
-                                    {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: '#38bdf8', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
+                                <div key={entry.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                                  <div>
+                                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>
+                                      {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: '#38bdf8', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
+                                      {filled.length > 0 ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ') : 'No values recorded'}
+                                    </div>
                                   </div>
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
-                                    {filled.length > 0 ? filled.map(f => `${f.label}: ${entry.measurements[f.key]}${f.unit || 'cm'}`).join(' · ') : 'No values recorded'}
-                                  </div>
+                                  <button
+                                    onClick={() => handleDeleteMeasurementEntry(entry.id, fmtDate(entry.measuredAt))}
+                                    title="Delete this entry"
+                                    style={{ flexShrink: 0, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: '#f87171', fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', cursor: 'pointer' }}
+                                  >
+                                    🗑
+                                  </button>
                                 </div>
                               );
                             })}

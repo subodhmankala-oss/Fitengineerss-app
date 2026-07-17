@@ -2730,8 +2730,8 @@ const WorkoutTracker = () => {
                                 <>
                                   <div className="col-weight set-input-field">
                                     <input
-                                      type="tel"
-                                      inputMode="tel"
+                                      type="text"
+                                      inputMode="decimal"
                                       value={set.distanceKm}
                                       onChange={(e) => handleSetChange(exIdx, sIdx, 'distanceKm', e.target.value)}
                                       required
@@ -2741,8 +2741,8 @@ const WorkoutTracker = () => {
                                   </div>
                                   <div className="col-reps set-input-field">
                                     <input
-                                      type="tel"
-                                      inputMode="tel"
+                                      type="text"
+                                      inputMode="numeric"
                                       value={set.time}
                                       onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
                                       required
@@ -2804,6 +2804,7 @@ const WorkoutTracker = () => {
                                   <div className="col-weight set-input-field">
                                     <input
                                       type="text"
+                                      inputMode="decimal"
                                       value={set.weight}
                                       onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
                                       required
@@ -2813,11 +2814,11 @@ const WorkoutTracker = () => {
                                   </div>
                                   <div className="col-reps set-input-field">
                                     <input
-                                      type="number"
+                                      type="text"
+                                      inputMode="numeric"
                                       value={set.reps}
                                       onChange={(e) => handleSetChange(exIdx, sIdx, 'reps', e.target.value)}
                                       required
-                                      min="1"
                                       placeholder={set.targetReps || '0'}
                                       disabled={set.isCompleted}
                                     />

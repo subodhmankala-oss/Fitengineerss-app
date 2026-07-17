@@ -463,13 +463,23 @@ export default function ClientProfile({ handleLogout }) {
 
     const saveMeasurements = async () => {
       if (!measCanSave) return; // 15-day lock — button is disabled, guard anyway
-      setMeasSaving(true);
       // Persist a new history row (shared with the coach). Keep the numeric
       // values as strings-in / numbers-out consistent with the form.
       const cleaned = {};
       Object.entries(measurements).forEach(([k, v]) => {
         if (v !== '' && v != null) cleaned[k] = v;
       });
+      // This is an insert-only history table, so a save with nothing filled
+      // in (e.g. the form reset to a stale/empty cache after a reload) would
+      // still create a row and burn the 15-day window on a blank entry, with
+      // no way to fix it until the lock clears. Refuse instead of locking
+      // the client out over nothing.
+      if (Object.keys(cleaned).length === 0) {
+        setMeasSaveMsg('error');
+        setTimeout(() => setMeasSaveMsg(''), 2500);
+        return;
+      }
+      setMeasSaving(true);
       const userId = await databaseService.resolveUserId();
       try {
         const res = await databaseService.saveBodyMeasurement(userId, cleaned);

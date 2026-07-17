@@ -3187,21 +3187,18 @@
 }
 
 .wt-level-tab.active.wt-level-tab--beginner {
-  background: rgba(16, 185, 129, 0.14);
+  background: rgba(16, 185, 129, 0.12);
   color: #10b981;
-  box-shadow: 0 1px 6px rgba(16, 185, 129, 0.15);
 }
 
 .wt-level-tab.active.wt-level-tab--intermediate {
-  background: rgba(245, 158, 11, 0.14);
+  background: rgba(245, 158, 11, 0.12);
   color: #f59e0b;
-  box-shadow: 0 1px 6px rgba(245, 158, 11, 0.15);
 }
 
 .wt-level-tab.active.wt-level-tab--advanced {
-  background: rgba(239, 68, 68, 0.14);
+  background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
-  box-shadow: 0 1px 6px rgba(239, 68, 68, 0.15);
 }
 
 /* Library card list */
@@ -3211,157 +3208,129 @@
   gap: 10px;
 }
 
-.wt-library-card {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 14px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: border-color 0.2s ease;
-}
-
-.wt-library-card--beginner  { border: 1px solid rgba(16, 185, 129, 0.18); }
-.wt-library-card--intermediate { border: 1px solid rgba(245, 158, 11, 0.18); }
-.wt-library-card--advanced  { border: 1px solid rgba(239, 68, 68, 0.18); }
-
-.wt-library-card--beginner:hover  { border-color: rgba(16, 185, 129, 0.4); }
-.wt-library-card--intermediate:hover { border-color: rgba(245, 158, 11, 0.4); }
-.wt-library-card--advanced:hover  { border-color: rgba(239, 68, 68, 0.4); }
-
-.wt-library-card-header {
+/* Program row card — typographic tile on the left, program info on the
+   right, whole card is the tap target (starts the workout). */
+.wt-program-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.wt-difficulty-badge {
-  font-size: 0.66rem;
-  font-weight: 800;
-  padding: 3px 9px;
-  border-radius: 99px;
+.wt-program-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.wt-program-card:active {
+  transform: scale(0.99);
+}
+
+/* Light tile with bold stacked program words — the visual anchor of each
+   row, echoing print-style program covers. First word takes the level color. */
+.wt-program-tile {
+  width: 84px;
+  min-width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  background: #eef1f5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.wt-program-tile span {
+  font-size: 0.82rem;
+  font-weight: 900;
+  font-style: italic;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: #111827;
+  white-space: nowrap;
 }
 
-.wt-difficulty-badge--beginner {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+.wt-program-tile--beginner .wt-program-tile-accent { color: #059669; }
+.wt-program-tile--intermediate .wt-program-tile-accent { color: #d97706; }
+.wt-program-tile--advanced .wt-program-tile-accent { color: #dc2626; }
+
+.wt-program-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.wt-difficulty-badge--intermediate {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-}
-
-.wt-difficulty-badge--advanced {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-}
-
-.wt-exercise-count {
-  font-size: 0.71rem;
-  color: rgba(148, 163, 184, 0.5);
-  font-weight: 600;
-}
-
-.wt-library-name {
-  font-size: 0.94rem;
-  font-weight: 800;
+.wt-program-name {
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #f8faff;
-  margin: 0;
   letter-spacing: -0.01em;
 }
 
-.wt-library-exercises {
+.wt-program-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.wt-lib-pill {
-  font-size: 0.67rem;
-  padding: 3px 8px;
-  border-radius: 99px;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
   font-weight: 600;
+  color: rgba(148, 163, 184, 0.75);
 }
 
-.wt-lib-pill--beginner {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  color: rgba(16, 185, 129, 0.85);
+.wt-program-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
-.wt-lib-pill--intermediate {
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  color: rgba(245, 158, 11, 0.85);
+.wt-program-dot--beginner { background: #10b981; }
+.wt-program-dot--intermediate { background: #f59e0b; }
+.wt-program-dot--advanced { background: #ef4444; }
+
+.wt-program-preview {
+  font-size: 0.69rem;
+  color: rgba(148, 163, 184, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.wt-lib-pill--advanced {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: rgba(239, 68, 68, 0.85);
+.wt-program-chevron {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: rgba(148, 163, 184, 0.45);
+  padding-right: 2px;
 }
 
-.wt-lib-pill--more {
-  background: rgba(148, 163, 184, 0.07);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  color: rgba(148, 163, 184, 0.65);
-}
-
-/* Library start button */
-.wt-lib-start-btn {
+/* Collapsed-list expander, e.g. "Show all 12 programs" */
+.wt-show-all-btn {
   width: 100%;
-  padding: 11px;
-  border-radius: 10px;
-  border: none;
-  font-size: 0.84rem;
-  font-weight: 700;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  letter-spacing: 0.02em;
   font-family: inherit;
-  margin-top: 2px;
+  transition: background 0.15s ease;
 }
 
-.wt-lib-start-btn--beginner {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
-}
-
-.wt-lib-start-btn--beginner:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.38);
-}
-
-.wt-lib-start-btn--intermediate {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #1a1100;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.28);
-}
-
-.wt-lib-start-btn--intermediate:hover {
-  background: linear-gradient(135deg, #d97706, #b45309);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.38);
-}
-
-.wt-lib-start-btn--advanced {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.28);
-}
-
-.wt-lib-start-btn--advanced:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.38);
+.wt-show-all-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ─── Empty state ─── */

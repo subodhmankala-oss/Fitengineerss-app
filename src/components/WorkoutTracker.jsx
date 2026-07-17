@@ -10,6 +10,24 @@ import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUti
 import { notifyEvent } from '../utils/pushNotify';
 
 
+// Bold stacked words for a library card's typographic tile (e.g. "Beginner
+// Full Body A" → ["FULL", "BODY A"]). Strips the level word (the tabs already
+// filter by it) and joiners, merges a trailing single-letter variant ("A"/"B")
+// into the previous line, and caps at 3 lines so the tile never overflows.
+const programTileWords = (name) => {
+  const words = String(name || '')
+    .replace(/\(.*?\)/g, '')
+    .split(/\s+/)
+    .filter(w => w && !/^(beginner|intermediate|advanced|&|and|-|\+)$/i.test(w))
+    .map(w => w.toUpperCase());
+  const lines = [];
+  words.forEach(w => {
+    if (w.length <= 2 && lines.length > 0) lines[lines.length - 1] += ` ${w}`;
+    else lines.push(w);
+  });
+  return lines.slice(0, 3);
+};
+
 // Initial pre-hydrated historical progression logs for client "Sridhar"
 const defaultHistoricalSessions = [
   {
@@ -402,6 +420,9 @@ const WorkoutTracker = () => {
   const [genericLevel, setGenericLevel] = useState('beginner');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
+  // Library list is collapsed to the first few programs with a "Show all N"
+  // expander (resets when switching level tabs).
+  const [showAllLevelWorkouts, setShowAllLevelWorkouts] = useState(false);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
   // Whether this client is actually connected to a coach. Initialized from the
@@ -2245,7 +2266,7 @@ const WorkoutTracker = () => {
                 <button
                   key={level}
                   className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
-                  onClick={() => setGenericLevel(level)}
+                  onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); }}
                 >
                   {level === 'beginner' && '🌱 '}
                   {level === 'intermediate' && '⚡ '}
@@ -2265,38 +2286,45 @@ const WorkoutTracker = () => {
               </div>
             ) : (
               <div className="wt-library-grid">
-                {levelWorkouts.map(workout => (
-                  <div key={workout.id} className={`wt-library-card wt-library-card--${genericLevel}`}>
-                    <div className="wt-library-card-header">
-                      <span className={`wt-difficulty-badge wt-difficulty-badge--${genericLevel}`}>
-                        {genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1)}
-                      </span>
-                      <span className="wt-exercise-count">
-                        {Array.isArray(workout.exercises) ? workout.exercises.length : 0} exercises
-                      </span>
-                    </div>
-                    <h4 className="wt-library-name">{workout.name}</h4>
-                    <div className="wt-library-exercises">
-                      {(Array.isArray(workout.exercises) ? workout.exercises : []).slice(0, 4).map((ex, i) => (
-                        <span key={i} className={`wt-lib-pill wt-lib-pill--${genericLevel}`}>{ex.name}</span>
-                      ))}
-                      {(Array.isArray(workout.exercises) ? workout.exercises : []).length > 4 && (
-                        <span className="wt-lib-pill wt-lib-pill--more">
-                          +{workout.exercises.length - 4} more
-                        </span>
-                      )}
-                    </div>
+                {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => {
+                  const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
+                  return (
                     <button
-                      className={`wt-lib-start-btn wt-lib-start-btn--${genericLevel}`}
-                      onClick={() => handleStartFromTemplate({
-                        name: workout.name,
-                        exercises: (Array.isArray(workout.exercises) ? workout.exercises : [])
-                      })}
+                      key={workout.id}
+                      type="button"
+                      className={`wt-program-card wt-program-card--${genericLevel}`}
+                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList })}
                     >
-                      Start Workout
+                      <div className={`wt-program-tile wt-program-tile--${genericLevel}`}>
+                        {programTileWords(workout.name).map((word, i) => (
+                          <span key={i} className={i === 0 ? 'wt-program-tile-accent' : undefined}>{word}</span>
+                        ))}
+                      </div>
+                      <div className="wt-program-info">
+                        <div className="wt-program-name">{workout.name}</div>
+                        <div className="wt-program-meta">
+                          <span className={`wt-program-dot wt-program-dot--${genericLevel}`} />
+                          {exList.length} exercise{exList.length === 1 ? '' : 's'}
+                        </div>
+                        {exList.length > 0 && (
+                          <div className="wt-program-preview">
+                            {exList.slice(0, 3).map(e => e.name).join(' · ')}{exList.length > 3 ? ` +${exList.length - 3}` : ''}
+                          </div>
+                        )}
+                      </div>
+                      <span className="wt-program-chevron">›</span>
                     </button>
-                  </div>
-                ))}
+                  );
+                })}
+                {!showAllLevelWorkouts && levelWorkouts.length > 4 && (
+                  <button
+                    type="button"
+                    className="wt-show-all-btn"
+                    onClick={() => setShowAllLevelWorkouts(true)}
+                  >
+                    Show all {levelWorkouts.length} programs
+                  </button>
+                )}
               </div>
             )}
           </div>

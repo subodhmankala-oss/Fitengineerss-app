@@ -14,6 +14,20 @@ import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from 
 import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
 
 
+// Filters Workout Summary rows to a timeframe by their local YYYY-MM-DD date
+// (lexicographically comparable): daily = today only, weekly = last 7 days,
+// monthly = last 30 days. Rows are already sorted newest-first upstream.
+const filterSummaryByTimeframe = (rows, timeframe) => {
+  const today = getLocalDateString(new Date());
+  const daysAgo = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return getLocalDateString(d);
+  };
+  const from = timeframe === 'daily' ? today : timeframe === 'monthly' ? daysAgo(29) : daysAgo(6);
+  return (rows || []).filter((r) => r.date >= from && r.date <= today);
+};
+
 const TrainerDashboard = ({ handleLogout }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
@@ -256,8 +270,6 @@ const TrainerDashboard = ({ handleLogout }) => {
 
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
-  const [workoutSummary, setWorkoutSummary] = useState([]);
-  const [loadingSummary, setLoadingSummary] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState('All');
   const [generatedInviteCode, setGeneratedInviteCode] = useState(() => localStorage.getItem('last_generated_invite_code') || '');
@@ -312,6 +324,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Workout history states
   const [workoutLogs, setWorkoutLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  // Workout History tab timeframe filter: 'weekly' (last 7 days), 'daily'
+  // (today), or 'monthly' (last 30 days) — same control as Workout Summary.
+  const [historyTimeframe, setHistoryTimeframe] = useState('weekly');
 
   // Selected client's body-measurement history (read-only for the coach) —
   // loaded when the Measurements tab is opened.
@@ -775,21 +790,8 @@ const TrainerDashboard = ({ handleLogout }) => {
       }
     };
 
-    const fetchSummary = async () => {
-      try {
-        const summary = await databaseService.getWorkoutSummaryForCoach();
-        setWorkoutSummary(summary || []);
-      } catch (err) {
-        console.error('Error fetching workout summary:', err);
-      } finally {
-        setLoadingSummary(false);
-      }
-    };
-
     setLoadingClients(true);
-    setLoadingSummary(true);
     fetchClients();
-    fetchSummary();
 
     let channel = null;
     if (isSupabaseConfigured && databaseService.supabase) {
@@ -799,15 +801,10 @@ const TrainerDashboard = ({ handleLogout }) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
           console.log('[DEBUG] Trainer Dashboard: Real-time clients table change:', payload);
           fetchClients();
-          fetchSummary();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
           console.log('[DEBUG] Trainer Dashboard: Real-time users table change:', payload);
           fetchClients();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'workout_logs' }, (payload) => {
-          console.log('[DEBUG] Trainer Dashboard: Real-time workout_logs change:', payload);
-          fetchSummary();
         })
         .subscribe();
     }
@@ -1979,70 +1976,6 @@ const TrainerDashboard = ({ handleLogout }) => {
                 </div>
               )}
 
-              {/* ── Workout Summary ── recent activity for THIS coach's attached clients only */}
-              <h4 className="client-directory-title" style={{ marginTop: '28px' }}>
-                Workout Summary
-              </h4>
-              {loadingSummary ? (
-                <div className="trainer-loading-container">
-                  <div className="trainer-spinner"></div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading recent workout activity...</p>
-                </div>
-              ) : workoutSummary.length === 0 ? (
-                <div className="trainer-empty-state">
-                  <div className="trainer-empty-icon">🏋️</div>
-                  <h5>No Workout Activity Yet</h5>
-                  <p>When your connected clients log or complete a workout, it will appear here.</p>
-                </div>
-              ) : (
-                <div className="glass-panel" style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  overflowX: 'auto'
-                }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', minWidth: '560px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client</th>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Workout</th>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Date</th>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Exercises</th>
-                        <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>Sets</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {workoutSummary.map((row, idx) => (
-                        <tr key={`${row.clientId}-${row.date}-${row.workoutName}-${idx}`} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '52px' }}>
-                          <td style={{ padding: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div
-                                className="client-avatar"
-                                style={{
-                                  backgroundColor: getAvatarColor(row.clientName),
-                                  width: '30px', height: '30px', borderRadius: '50%',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  fontSize: '0.72rem', fontWeight: 'bold', color: '#fff', flexShrink: 0
-                                }}
-                              >
-                                {getAvatarInitials(row.clientName)}
-                              </div>
-                              <span style={{ fontSize: '0.83rem', fontWeight: 600 }}>{row.clientName}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{row.workoutName}</td>
-                          <td style={{ padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            {parseLocalDateString(row.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </td>
-                          <td style={{ padding: '8px', fontSize: '0.82rem', textAlign: 'center', fontWeight: 700 }}>{row.exercises}</td>
-                          <td style={{ padding: '8px', fontSize: '0.82rem', textAlign: 'center', fontWeight: 700 }}>{row.sets}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
           ) : (
             // Client Detail & Workout Logs Screen
@@ -2293,20 +2226,43 @@ const TrainerDashboard = ({ handleLogout }) => {
                 <div className="workout-history-content">
                   <h4 className="history-section-title">Workout History</h4>
 
+                  {/* Timeframe segmented control (Weekly / Daily / Monthly) */}
+                  <div className="wsum-timeframe-nav">
+                    {['weekly', 'daily', 'monthly'].map((tf) => (
+                      <button
+                        key={tf}
+                        type="button"
+                        className={`wsum-timeframe-btn ${historyTimeframe === tf ? 'active' : ''}`}
+                        onClick={() => setHistoryTimeframe(tf)}
+                      >
+                        {tf.charAt(0).toUpperCase() + tf.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+
                   {loadingLogs ? (
                     <div className="trainer-loading-container">
                       <div className="trainer-spinner"></div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading workout history logs...</p>
                     </div>
-                  ) : workoutLogs.length === 0 ? (
+                  ) : (() => {
+                    const filteredLogs = filterSummaryByTimeframe(workoutLogs, historyTimeframe);
+                    const tfLabel = historyTimeframe === 'daily' ? 'today' : historyTimeframe === 'monthly' ? 'the last 30 days' : 'the last 7 days';
+                    return workoutLogs.length === 0 ? (
                     <div className="trainer-empty-state">
                       <div className="trainer-empty-icon">🏋️‍♂️</div>
                       <h5>No Workouts Logged</h5>
                       <p>This client has not logged or synchronized any workout sessions to the database yet.</p>
                     </div>
+                  ) : filteredLogs.length === 0 ? (
+                    <div className="trainer-empty-state">
+                      <div className="trainer-empty-icon">🏋️‍♂️</div>
+                      <h5>No Workouts for {tfLabel}</h5>
+                      <p>No sessions logged in {tfLabel}. Try a wider timeframe above.</p>
+                    </div>
                   ) : (
                     <div className="workout-sessions-list">
-                      {workoutLogs.map((session, sIdx) => (
+                      {filteredLogs.map((session, sIdx) => (
                         <div key={sIdx} className="session-block">
                           <div className="session-date-header">
                             <span className="session-date-icon">📅</span>
@@ -2399,7 +2355,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                         </div>
                       ))}
                     </div>
-                  )}
+                  );
+                  })()}
                 </div>
               )}
 

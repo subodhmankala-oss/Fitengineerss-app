@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
 import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
+import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -553,20 +554,27 @@ const databaseService = {
           session.exercises.forEach(ex => {
             ex.sets.forEach((set, sIdx) => {
               // Cardio sets carry distanceKm/time instead of reps/weight (see
-              // isCardioExercise). reps/weight_kg still get written as 0 so
-              // every row keeps the same shape; the real values live in
-              // distance_km/cardio_duration_seconds instead.
-              const isCardioSet = set.distanceKm !== undefined || set.time !== undefined;
+              // isCardioExercise). Timed holds (plank etc., see isTimedExercise)
+              // carry time only, no distanceKm — they reuse cardio_duration_seconds
+              // to avoid a schema migration, but must NOT get a distance_km value
+              // (even 0), or the read-back can't tell them apart from real cardio.
+              // reps/weight_kg still get written as 0 for both so every row keeps
+              // the same shape; the real values live in distance_km/
+              // cardio_duration_seconds instead.
+              const isCardioSet = set.distanceKm !== undefined;
+              const isTimedSet = !isCardioSet && set.time !== undefined;
               records.push({
                 user_id: user.id,
                 log_date: session.date,
                 exercise_name: ex.name,
                 set_number: sIdx + 1,
-                reps: isCardioSet ? 0 : parseInt(set.reps || '0'),
-                weight_kg: isCardioSet ? 0 : parseFloat(set.weight || '0.0'),
+                reps: (isCardioSet || isTimedSet) ? 0 : parseInt(set.reps || '0'),
+                weight_kg: (isCardioSet || isTimedSet) ? 0 : parseFloat(set.weight || '0.0'),
                 plan_name: session.planName || 'Custom Routine',
                 ...(isCardioSet ? {
                   distance_km: parseFloat(set.distanceKm || '0') || 0,
+                  cardio_duration_seconds: parseTimeStringToSeconds(set.time)
+                } : isTimedSet ? {
                   cardio_duration_seconds: parseTimeStringToSeconds(set.time)
                 } : {}),
                 // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
@@ -1407,14 +1415,22 @@ const databaseService = {
           if (isMatch && sess.exercises) {
             sess.exercises.forEach(ex => {
               if (ex.sets) {
+                const exIsCardio = isCardioExercise(ex.name);
+                const exIsTimed = isTimedExercise(ex.name);
                 ex.sets.forEach((set, sIdx) => {
                   flatLogs.push({
                     log_date: sess.date,
                     exercise_name: ex.name,
                     set_number: sIdx + 1,
-                    reps: parseInt(set.reps || '0'),
-                    weight_kg: parseFloat(set.weight || '0.0'),
-                    plan_name: sess.planName || 'Custom Routine'
+                    reps: (exIsCardio || exIsTimed) ? 0 : parseInt(set.reps || '0'),
+                    weight_kg: (exIsCardio || exIsTimed) ? 0 : parseFloat(set.weight || '0.0'),
+                    plan_name: sess.planName || 'Custom Routine',
+                    ...(exIsCardio ? {
+                      distance_km: parseFloat(set.distanceKm || '0') || 0,
+                      cardio_duration_seconds: parseTimeStringToSeconds(set.time)
+                    } : exIsTimed ? {
+                      cardio_duration_seconds: parseTimeStringToSeconds(set.time)
+                    } : {})
                   });
                 });
               }

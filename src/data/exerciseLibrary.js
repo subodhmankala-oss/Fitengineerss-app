@@ -125,3 +125,11 @@ export function isCardioExercise(name) {
   if (!name) return false;
   return inferCategory(name) === 'Cardio';
 }
+
+// Timed exercises (isometric holds like plank, wall sit) are logged with duration only,
+// shown with a stopwatch UI instead of weight + reps fields.
+export function isTimedExercise(name) {
+  if (!name) return false;
+  const n = name.toLowerCase();
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|farmer.{0,20}carry/.test(n);
+}

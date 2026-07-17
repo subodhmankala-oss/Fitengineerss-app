@@ -4,8 +4,8 @@ import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
 
@@ -536,6 +536,9 @@ const WorkoutTracker = () => {
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [summaryStats, setSummaryStats] = useState(null);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
+  // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
+  const [setTimers, setSetTimers] = useState({});
+  const [, forceSetTimerTick] = useState(0);
   const [guideTab, setGuideTab] = useState('summary');
   const [exercisesList, setExercisesList] = useState([]);
 
@@ -709,9 +712,14 @@ const WorkoutTracker = () => {
           if (l.calories_burned != null && byDate[d].caloriesBurned == null) byDate[d].caloriesBurned = l.calories_burned;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
+          // distance_km present = real cardio; cardio_duration_seconds present
+          // without distance_km = a timed hold (plank etc.) reusing that column
+          // (see databaseService.saveWorkoutSession) — else a normal reps/weight set.
           byDate[d].exMap[ex].push(
             l.distance_km != null
               ? { distanceKm: l.distance_km, time: formatSecondsToTimeString(l.cardio_duration_seconds), setType: l.set_type || null, isWarmup: l.set_type === 'warmup' }
+              : l.cardio_duration_seconds != null
+              ? { time: formatSecondsToTimeString(l.cardio_duration_seconds), setType: l.set_type || null, isWarmup: l.set_type === 'warmup' }
               : { reps: l.reps, weight: l.weight_kg, setType: l.set_type || null, isWarmup: l.set_type === 'warmup' }
           );
         });
@@ -758,6 +766,14 @@ const WorkoutTracker = () => {
     const id = setInterval(() => forceWorkoutTimerTick(t => t + 1), 1000);
     return () => clearInterval(id);
   }, [workoutTimerStatus]);
+
+  // Set timers for timed exercises — re-render every 100ms for smooth UI
+  useEffect(() => {
+    const anyRunning = Object.values(setTimers).some(t => t.isRunning);
+    if (!anyRunning) return;
+    const id = setInterval(() => forceSetTimerTick(t => t + 1), 100);
+    return () => clearInterval(id);
+  }, [setTimers]);
 
   const resetWorkoutTimer = () => {
     setWorkoutTimerStatus('idle');
@@ -962,6 +978,9 @@ const WorkoutTracker = () => {
           if (isCardioExercise(exName)) {
             if (!set.distanceKm) return '—';
             return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
+          }
+          if (isTimedExercise(exName)) {
+            return set.time || '—';
           }
           return `${set.weight}${getExerciseUnit(exName)} x ${set.reps}`;
         }
@@ -1181,9 +1200,14 @@ const WorkoutTracker = () => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         const lastSet = ex.sets[ex.sets.length - 1];
-        const newSet = isCardioExercise(ex.name)
-          ? { distanceKm: lastSet?.distanceKm || '', time: '', isCompleted: false, isWarmup }
-          : { reps: 10, weight: lastSet?.weight || '2.5', isCompleted: false, isWarmup };
+        let newSet;
+        if (isCardioExercise(ex.name)) {
+          newSet = { distanceKm: lastSet?.distanceKm || '', time: '', isCompleted: false, isWarmup };
+        } else if (isTimedExercise(ex.name)) {
+          newSet = { time: '', isCompleted: false, isWarmup };
+        } else {
+          newSet = { reps: 10, weight: lastSet?.weight || '2.5', isCompleted: false, isWarmup };
+        }
         return { ...ex, sets: [...ex.sets, newSet] };
       }
       return ex;
@@ -1236,6 +1260,46 @@ const WorkoutTracker = () => {
       }
       return ex;
     }));
+  };
+
+  const getSetTimerKey = (exIdx, sIdx) => `${exIdx},${sIdx}`;
+
+  const getSetElapsedSeconds = (exIdx, sIdx) => {
+    const key = getSetTimerKey(exIdx, sIdx);
+    const timer = setTimers[key];
+    if (!timer) return 0;
+    if (!timer.startedAt) return timer.pausedDuration || 0;
+    const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
+    return elapsed;
+  };
+
+  const handleSetStopwatchStart = (exIdx, sIdx) => {
+    const key = getSetTimerKey(exIdx, sIdx);
+    setSetTimers(prev => ({
+      ...prev,
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration: prev[key]?.pausedDuration || 0 }
+    }));
+  };
+
+  const handleSetStopwatchPause = (exIdx, sIdx) => {
+    const key = getSetTimerKey(exIdx, sIdx);
+    const elapsed = getSetElapsedSeconds(exIdx, sIdx);
+    setSetTimers(prev => ({
+      ...prev,
+      [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
+    }));
+  };
+
+  const handleSetStopwatchComplete = (exIdx, sIdx) => {
+    const elapsed = getSetElapsedSeconds(exIdx, sIdx);
+    handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+    handleToggleSetCompleted(exIdx, sIdx);
+    const key = getSetTimerKey(exIdx, sIdx);
+    setSetTimers(prev => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
   };
 
   const handleAddCustomExercise = () => {
@@ -1356,11 +1420,14 @@ const WorkoutTracker = () => {
           sets: ex.sets
             .filter(s => s.isCompleted)
             .map(s => ({
-              // Cardio sets carry distance/time instead of reps/weight so the
-              // save step (and workout_logs.distance_km/cardio_duration_seconds)
-              // doesn't collapse them to zero.
+              // Cardio sets carry distance/time instead of reps/weight, and
+              // timed holds (plank etc.) carry time only, so the save step
+              // (and workout_logs.distance_km/cardio_duration_seconds) doesn't
+              // collapse them to zero.
               ...(exIsCardio
                 ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+                : isTimedExercise(ex.name)
+                ? { time: s.time || '' }
                 : { reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }),
               // Preserve the Warmup/Dropset/Failure tag chosen in the logger so
               // it reaches workout_logs.set_type instead of being discarded.
@@ -1407,6 +1474,8 @@ const WorkoutTracker = () => {
           name: ex.name,
           sets: ex.sets.map(s => isCardioExercise(ex.name)
             ? { distanceKm: s.distanceKm, time: s.time }
+            : isTimedExercise(ex.name)
+            ? { time: s.time }
             : { reps: s.reps, weight: s.weight })
         })),
         createdBy: 'client'
@@ -2040,15 +2109,29 @@ const WorkoutTracker = () => {
                             )}
                           </div>
                           <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                            {sess.exercises.map((ex, exIdx) => (
+                            {sess.exercises.map((ex, exIdx) => {
+                              const exIsTimed = isTimedExercise(ex.name);
+                              const exIsCardioHist = isCardioExercise(ex.name);
+                              return (
                               <div key={exIdx} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'8px', padding:'10px 12px' }}>
                                 <div style={{ fontWeight:700, fontSize:'0.82rem', color:'#fff', marginBottom:'8px' }}>{ex.name}</div>
                                 <table style={{ width:'100%', borderCollapse:'collapse' }}>
                                   <thead><tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                                     <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Set</th>
-                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Weight</th>
-                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Reps</th>
-                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Vol</th>
+                                    {exIsTimed ? (
+                                      <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Time</th>
+                                    ) : exIsCardioHist ? (
+                                      <>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Km</th>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Time</th>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Weight</th>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Reps</th>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Vol</th>
+                                      </>
+                                    )}
                                   </tr></thead>
                                   <tbody>
                                     {ex.sets.map((set, sIdx) => {
@@ -2067,16 +2150,28 @@ const WorkoutTracker = () => {
                                               color: visual.color || '#fff'
                                             }}>{visual.label}</span>
                                           </td>
-                                          <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.weight} kg</td>
-                                          <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
-                                          <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
+                                          {exIsTimed ? (
+                                            <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.time || '00:00'}</td>
+                                          ) : exIsCardioHist ? (
+                                            <>
+                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.distanceKm} km</td>
+                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.time || '00:00'}</td>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.weight} kg</td>
+                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
+                                              <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
+                                            </>
+                                          )}
                                         </tr>
                                       );
                                     })}
                                   </tbody>
                                 </table>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -2302,6 +2397,8 @@ const WorkoutTracker = () => {
                             name: ex.name,
                             sets: ex.sets.map(s => isCardioExercise(ex.name)
                               ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                              : isTimedExercise(ex.name)
+                              ? { time: s.time ?? '', isCompleted: false }
                               : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
                           })));
                           setTemplateName(plan.planName);
@@ -2357,6 +2454,8 @@ const WorkoutTracker = () => {
                             name: ex.name,
                             sets: ex.sets.map(s => isCardioExercise(ex.name)
                               ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                              : isTimedExercise(ex.name)
+                              ? { time: s.time ?? '', isCompleted: false }
                               : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
                           })));
                           setTemplateName(plan.planName);
@@ -2494,6 +2593,8 @@ const WorkoutTracker = () => {
                         name: ex.name,
                         sets: ex.sets.map(s => isCardioExercise(ex.name)
                           ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                          : isTimedExercise(ex.name)
+                          ? { time: s.time ?? '', isCompleted: false }
                           : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
                       })));
                       triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
@@ -2570,6 +2671,11 @@ const WorkoutTracker = () => {
                             <span className="col-weight">KM</span>
                             <span className="col-reps">TIME</span>
                           </>
+                        ) : isTimedExercise(ex.name) ? (
+                          <>
+                            <span className="col-weight">TIME</span>
+                            <span className="col-reps"></span>
+                          </>
                         ) : (
                           <>
                             <span className="col-weight">WEIGHT ({unit})</span>
@@ -2645,6 +2751,54 @@ const WorkoutTracker = () => {
                                     />
                                   </div>
                                 </>
+                              ) : isTimedExercise(ex.name) ? (
+                                <>
+                                  <div className="col-weight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
+                                    {(() => {
+                                      // Once the set is completed, its time is frozen in set.time —
+                                      // the live timer entry is deleted on completion (see
+                                      // handleSetStopwatchComplete), so reading from setTimers here
+                                      // would show 00:00 instead of the saved duration.
+                                      if (set.isCompleted) {
+                                        return (
+                                          <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                            {set.time || formatSecondsToTimeString(0)}
+                                          </span>
+                                        );
+                                      }
+                                      const timerKey = getSetTimerKey(exIdx, sIdx);
+                                      const timer = setTimers[timerKey];
+                                      const isRunning = timer?.isRunning || false;
+                                      const elapsedSeconds = getSetElapsedSeconds(exIdx, sIdx);
+                                      const timeStr = formatSecondsToTimeString(elapsedSeconds);
+                                      return (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => isRunning ? handleSetStopwatchPause(exIdx, sIdx) : handleSetStopwatchStart(exIdx, sIdx)}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              color: 'rgba(148,163,184,0.7)',
+                                              fontSize: '1.1rem',
+                                              cursor: 'pointer',
+                                              padding: '2px 4px',
+                                              display: 'flex',
+                                              alignItems: 'center'
+                                            }}
+                                            title={isRunning ? 'Pause' : 'Start'}
+                                          >
+                                            {isRunning ? '⏸' : '▶'}
+                                          </button>
+                                          <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                            {timeStr}
+                                          </span>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                  <div className="col-reps"></div>
+                                </>
                               ) : (
                                 <>
                                   <div className="col-weight set-input-field">
@@ -2674,8 +2828,8 @@ const WorkoutTracker = () => {
                                 <button
                                   type="button"
                                   className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
-                                  onClick={() => handleToggleSetCompleted(exIdx, sIdx)}
-                                  title="Toggle Complete"
+                                  onClick={() => isTimedExercise(ex.name) && !set.isCompleted ? handleSetStopwatchComplete(exIdx, sIdx) : handleToggleSetCompleted(exIdx, sIdx)}
+                                  title={isTimedExercise(ex.name) && !set.isCompleted ? "Save time and complete" : "Toggle Complete"}
                                 >
                                   {set.isCompleted ? '✓' : ''}
                                 </button>
@@ -2888,9 +3042,14 @@ const WorkoutTracker = () => {
         onAdd={(name) => {
           const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
           if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
-          const newSet = isCardioExercise(name)
-            ? { distanceKm: '', time: '', isCompleted: false }
-            : { reps: 10, weight: '5.0', isCompleted: false };
+          let newSet;
+          if (isCardioExercise(name)) {
+            newSet = { distanceKm: '', time: '', isCompleted: false };
+          } else if (isTimedExercise(name)) {
+            newSet = { time: '', isCompleted: false };
+          } else {
+            newSet = { reps: 10, weight: '5.0', isCompleted: false };
+          }
           setLogExercises(prev => [...prev, { name, sets: [newSet] }]);
           triggerToast(`Added ${name} to active workout!`);
         }}

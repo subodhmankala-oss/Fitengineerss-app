@@ -339,6 +339,17 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [coachNoteText, setCoachNoteText] = useState('');
   const [sendingCoachNote, setSendingCoachNote] = useState(false);
   const [coachNoteSentMsg, setCoachNoteSentMsg] = useState('');
+  // Hides the whole composer card 5s after a successful send — its job is
+  // done once the coach sees the "Note sent" confirmation, and leaving it
+  // sitting there open is just clutter. Reappears on a fresh "workout
+  // finished" moment: switching to a different client (handleSelectClient
+  // resets this), or workoutLogs picking up a newer session than the one the
+  // note was about (below).
+  const [coachNoteCardHidden, setCoachNoteCardHidden] = useState(false);
+  // Identifies which session the card was hidden for, so a NEWER completed
+  // session (a fresh "client just finished" moment) un-hides it even if the
+  // 5s auto-hide already fired for the previous one.
+  const [coachNoteHiddenForSessionKey, setCoachNoteHiddenForSessionKey] = useState(null);
 
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
@@ -862,6 +873,8 @@ const TrainerDashboard = ({ handleLogout }) => {
     // Clear any coach-note composer state carried over from a previous client.
     setCoachNoteText('');
     setCoachNoteSentMsg('');
+    setCoachNoteCardHidden(false);
+    setCoachNoteHiddenForSessionKey(null);
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
     // A running clock from the previous client must never carry over —
     // otherwise their elapsed time/calories would land on this client's save.
@@ -1294,6 +1307,20 @@ const TrainerDashboard = ({ handleLogout }) => {
     await fetchClientChat(selectedClient.id);
   };
 
+  // The client's most recent completed session (for tailoring note
+  // suggestions to what they just did). workoutLogs is already grouped and
+  // carries durationSeconds/caloriesBurned per session.
+  const latestClientSession = (() => {
+    if (!workoutLogs || workoutLogs.length === 0) return null;
+    return [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
+  })();
+  // Identifies "which session" for the auto-hide check above — changes the
+  // instant a newer session shows up in workoutLogs, which is what un-hides
+  // the card for a fresh completion even if it was auto-hidden for the last one.
+  const latestSessionKey = latestClientSession
+    ? `${latestClientSession.date}-${latestClientSession.durationSeconds}-${latestClientSession.caloriesBurned}`
+    : null;
+
   // Send a one-off coach note to the selected client: store it (so they can
   // see it later even if the push is missed) AND fire a push with the note's
   // text as the notification body. Works from any suggestion chip or the
@@ -1314,18 +1341,17 @@ const TrainerDashboard = ({ handleLogout }) => {
       notifyEvent('coach_note', { clientUserId: selectedClient.id, message });
       setCoachNoteText('');
       setCoachNoteSentMsg(`✅ Note sent to ${selectedClient.userName || 'your client'}.`);
+      // Auto-hide the composer 5s after a successful send — its job is done
+      // once the coach has seen the confirmation. Remembers which session it
+      // was hidden for, so a newer "workout finished" moment un-hides it.
+      setTimeout(() => {
+        setCoachNoteCardHidden(true);
+        setCoachNoteHiddenForSessionKey(latestSessionKey);
+      }, 5000);
     } finally {
       setSendingCoachNote(false);
     }
   };
-
-  // The client's most recent completed session (for tailoring note
-  // suggestions to what they just did). workoutLogs is already grouped and
-  // carries durationSeconds/caloriesBurned per session.
-  const latestClientSession = (() => {
-    if (!workoutLogs || workoutLogs.length === 0) return null;
-    return [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
-  })();
 
   // Three ready-to-send note suggestions. When we know the last session's
   // stats, the first one references them so it feels personal; the rest are
@@ -2286,7 +2312,13 @@ const TrainerDashboard = ({ handleLogout }) => {
               {/* Coach note composer — send a one-off note to this client
                   (push + stored fallback). Shown above every tab so the coach
                   can respond right after opening from a "workout completed"
-                  notification, regardless of which tab is active. */}
+                  notification, regardless of which tab is active. Auto-hides
+                  5s after a successful send (see handleSendCoachNote) unless a
+                  newer session has shown up since — that's what
+                  coachNoteHiddenForSessionKey === latestSessionKey checks: if
+                  the session changed, treat it as a fresh "workout finished"
+                  moment and show the card again regardless of the hidden flag. */}
+              {!(coachNoteCardHidden && coachNoteHiddenForSessionKey === latestSessionKey) && (
               <div className="coach-note-card">
                 <div className="coach-note-head">
                   <span className="coach-note-title">💬 Send {(selectedClient.userName || 'client').split(/\s+/)[0]} a note</span>
@@ -2335,6 +2367,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                   </button>
                 </div>
               </div>
+              )}
 
               {/* Condition tab rendering */}
               {detailTab === 'workout' && (

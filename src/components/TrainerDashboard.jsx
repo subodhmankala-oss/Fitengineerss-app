@@ -2185,6 +2185,15 @@ const TrainerDashboard = ({ handleLogout }) => {
                         ? `Currently ${selectedClient.total_sessions} sessions — shown on ${selectedClient.userName}'s progress card.`
                         : 'Not set yet — the client sees a "waiting on your coach" state until you set it.'}
                     </div>
+                    {/* How many of those sessions the client has actually
+                        logged so far — same "unique session dates" count the
+                        client's own Coaching Program Progress card uses
+                        (getTotalSessionsDone in WorkoutProgressDashboard.jsx),
+                        so the two numbers always agree. */}
+                    <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: 700, marginTop: '5px' }}>
+                      ✅ {workoutLogs.length} completed
+                      {selectedClient.total_sessions != null && ` of ${selectedClient.total_sessions}`}
+                    </div>
                   </div>
                   <input
                     type="number"

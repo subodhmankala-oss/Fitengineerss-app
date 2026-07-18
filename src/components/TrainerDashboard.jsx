@@ -1210,7 +1210,12 @@ const TrainerDashboard = ({ handleLogout }) => {
       userId: selectedClient.id,
       planName: editorPlanName.trim(),
       exercises: cleanExercises,
-      createdBy: 'coach'
+      createdBy: 'coach',
+      // The editor's button reads "Assign to client" — this is the deliberate
+      // assignment action, so it always sets isAssigned: true, even when
+      // editing a plan that started out unassigned (e.g. one auto-saved from
+      // Live Log). That's how such a plan becomes visible to the client.
+      isAssigned: true
     };
 
     await databaseService.saveWorkoutPlan(plan);
@@ -2831,7 +2836,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                           onClick={handleSavePlan}
                           style={{ padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
                         >
-                          Save Plan
+                          Assign to client
                         </button>
                       </div>
                     </div>
@@ -2873,30 +2878,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                   <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
-                                  <span style={{ fontSize: '0.68rem', color: plan.isAssigned === false ? '#f59e0b' : 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
-                                    {plan.isAssigned === false
-                                      ? '🕗 Not assigned — only visible to you'
-                                      : `📋 Assigned to: ${selectedClient.userName}`}
+                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
+                                    📋 Assigned to: {selectedClient.userName}
                                   </span>
                                 </div>
                                 <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>
-                                  {plan.isAssigned === false && (
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        // Turns a coach-only record (e.g. one saved
-                                        // automatically from Live Log) into a real
-                                        // assignment — the same deliberate action as
-                                        // saving a new plan, just applied after the fact.
-                                        await databaseService.saveWorkoutPlan({ ...plan, isAssigned: true });
-                                        notifyEvent('plan_assigned', { clientUserId: selectedClient.id, planName: plan.planName });
-                                        fetchClientPlans(selectedClient.id);
-                                      }}
-                                      style={{ padding: '4px 8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '4px', color: '#34d399', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}
-                                    >
-                                      Assign to client
-                                    </button>
-                                  )}
                                   <button
                                     type="button"
                                     onClick={() => {

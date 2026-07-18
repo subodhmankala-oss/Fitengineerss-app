@@ -89,6 +89,9 @@ const Onboarding = ({ onComplete }) => {
   });
   const [authEmail, setAuthEmail] = useState(() => localStorage.getItem('last_logged_in_email') || '');
   const [authPassword, setAuthPassword] = useState('');
+  // Full name captured on the client self-sign-up form (mirrors the coach
+  // sign-up). Only used by handleClientSignup → carried into the wizard.
+  const [authName, setAuthName] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -299,70 +302,149 @@ const Onboarding = ({ onComplete }) => {
     try {
       let profile = await databaseService.getUserProfileByEmail(authEmail);
       let signInSuccess = false;
+      // A client who self-signed-up has a Supabase Auth account but no
+      // public.users/clients row yet (that's created when they finish the
+      // wizard). So verify credentials FIRST regardless of whether a profile
+      // row exists, then resolve the real auth user id from the sign-in
+      // result — never reject just because profile is null (that was the old
+      // behaviour, which locked every freshly-signed-up client out).
+      let authUserId = profile?.id || null;
 
-      if (profile) {
-        // User exists! Try signing in
-        if (isSupabaseConfigured && databaseService.supabase) {
-          try {
-            await databaseService.signIn(authEmail, authPassword);
-            signInSuccess = true;
-          } catch (signInErr) {
-            // Account exists (often from before email confirmation was enforced)
-            // but was never actually confirmed — offer a resend instead of the
-            // raw "Email not confirmed" error, since the credentials are correct.
-            if ((signInErr.message || '').toLowerCase().includes('email not confirmed')) {
-              try {
-                await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
-                setAuthSuccessMsg(`Your email isn't confirmed yet. We've resent a confirmation link to ${authEmail} — click it, then log in again.`);
-              } catch (resendErr) {
-                setAuthSuccessMsg(`Your email isn't confirmed yet. Please check your inbox for the confirmation link, then log in again.`);
-              }
-              setAuthLoading(false);
-              return;
+      if (isSupabaseConfigured && databaseService.supabase) {
+        try {
+          const signInResult = await databaseService.signIn(authEmail, authPassword);
+          signInSuccess = true;
+          if (!authUserId) authUserId = signInResult?.user?.id || null;
+        } catch (signInErr) {
+          // Account exists (often from before email confirmation was enforced)
+          // but was never actually confirmed — offer a resend instead of the
+          // raw "Email not confirmed" error, since the credentials are correct.
+          if ((signInErr.message || '').toLowerCase().includes('email not confirmed')) {
+            try {
+              await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
+              setAuthSuccessMsg(`Your email isn't confirmed yet. We've resent a confirmation link to ${authEmail} — click it, then log in again.`);
+            } catch (resendErr) {
+              setAuthSuccessMsg(`Your email isn't confirmed yet. Please check your inbox for the confirmation link, then log in again.`);
             }
-            console.warn("Supabase Sign In failed, checking mock password fallback:", signInErr);
-            const mockUsers = databaseService.getMockTable('users');
-            const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
-            if (mUser && mUser.password_hash === authPassword) {
-              signInSuccess = true;
-            } else {
-              throw signInErr;
-            }
+            setAuthLoading(false);
+            return;
           }
-        } else {
-          // Local storage verification: check if password matches (simulate password check)
+          console.warn("Supabase Sign In failed, checking mock password fallback:", signInErr);
           const mockUsers = databaseService.getMockTable('users');
           const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
           if (mUser && mUser.password_hash === authPassword) {
             signInSuccess = true;
+            if (!authUserId) authUserId = mUser.id;
+          } else if (!profile) {
+            // No auth account and no profile — a brand-new person who hasn't
+            // signed up. Point them at the new Sign up button.
+            throw new Error('No account found with this email. New here? Tap "Sign up" to create your account.');
           } else {
             throw new Error('Invalid email or password.');
           }
         }
-
-        if (signInSuccess) {
-          if (profile.onboardingCompleted) {
-            // Already finished the one-time wizard on a previous login — straight to the dashboard.
-            await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
-            onComplete();
-          } else {
-            // Either no clients row yet, or the wizard was started but never finished —
-            // resume it (name is already known, so skip straight past the name/phone step).
-            localStorage.setItem('userEmail', authEmail);
-            localStorage.setItem('userId', profile.id);
-            localStorage.setItem('userRole', 'client');
-            if (profile.userName) localStorage.setItem('userName', profile.userName);
-            setStep(profile.userName ? 'wizard' : 1);
-          }
+      } else {
+        // Local storage verification: check if password matches (simulate password check)
+        const mockUsers = databaseService.getMockTable('users');
+        const mUser = mockUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
+        if (mUser && mUser.password_hash === authPassword) {
+          signInSuccess = true;
+          if (!authUserId) authUserId = mUser.id;
         } else {
           throw new Error('Invalid email or password.');
         }
+      }
+
+      if (signInSuccess) {
+        if (profile?.onboardingCompleted) {
+          // Already finished the one-time wizard on a previous login — straight to the dashboard.
+          await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
+          onComplete();
+        } else {
+          // Either no clients row yet (just signed up), or the wizard was
+          // started but never finished — send them into the wizard. If we
+          // already know their name, skip straight past the name step.
+          const knownName = profile?.userName || localStorage.getItem('userName') || '';
+          localStorage.setItem('userEmail', authEmail);
+          if (authUserId) localStorage.setItem('userId', authUserId);
+          localStorage.setItem('userRole', 'client');
+          if (knownName) localStorage.setItem('userName', knownName);
+          setStep(knownName ? 'wizard' : 1);
+        }
       } else {
-        // Client accounts are created by their coach — there is no self-serve sign-up.
-        throw new Error('No account found with this email. Please check the email address and try again.');
+        throw new Error('Invalid email or password.');
       }
     } catch (err) {
       setAuthError(err.message || 'Client authentication failed.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Client self-sign-up: creates a real Supabase Auth account (email +
+  // password), then drops them into the onboarding wizard to build their
+  // profile. Mirrors the coach sign-up's shape; the wizard's completion is
+  // what writes the public.users/clients rows (via saveUserProfile), so we
+  // don't create them here. If Supabase requires email confirmation, signUp
+  // returns no session — we surface the "confirm your email" message and the
+  // client lands in the wizard after confirming + logging in.
+  const handleClientSignup = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccessMsg('');
+    const cleanName = (authName || '').trim();
+    const email = (authEmail || '').trim().toLowerCase();
+    if (!cleanName) { setAuthError('Please enter your name.'); return; }
+    if (!email) { setAuthError('Please enter your email address.'); return; }
+    if (!authPassword || authPassword.length < 6) { setAuthError('Password must be at least 6 characters.'); return; }
+
+    setAuthLoading(true);
+    try {
+      // Guard against signing up over an existing account.
+      const existing = await databaseService.getUserProfileByEmail(email);
+      if (existing) {
+        setAuthError('An account with this email already exists. Please log in instead.');
+        setAuthTab('login');
+        setAuthLoading(false);
+        return;
+      }
+
+      if (!isSupabaseConfigured || !databaseService.supabase) {
+        throw new Error('Sign up is unavailable right now. Please try again later.');
+      }
+
+      const signUpResult = await databaseService.signUp(email, authPassword);
+      const newUserId = signUpResult?.user?.id || null;
+      const hasSession = !!signUpResult?.session;
+
+      // Persist name/email up front so both the wizard and a post-confirmation
+      // login can pick them up.
+      localStorage.setItem('userEmail', email);
+      localStorage.setItem('userName', cleanName);
+      localStorage.setItem('userRole', 'client');
+      if (newUserId) localStorage.setItem('userId', newUserId);
+
+      if (!hasSession) {
+        // Email confirmation is enabled — no session yet. Send them back to
+        // login with a clear "check your inbox" message.
+        setAuthSuccessMsg(`We've sent a confirmation link to ${email}. Click it, then log in to finish setting up your profile.`);
+        setAuthTab('login');
+        setShowClientEmailForm(true);
+        setAuthPassword('');
+        return;
+      }
+
+      // Confirmation disabled — straight into the wizard.
+      setName(cleanName);
+      setStep('wizard');
+    } catch (err) {
+      const msg = (err.message || '').toLowerCase();
+      if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('user already exists')) {
+        setAuthError('An account with this email already exists. Please log in instead.');
+        setAuthTab('login');
+      } else {
+        setAuthError(err.message || 'Could not create your account. Please try again.');
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -1155,7 +1237,53 @@ const Onboarding = ({ onComplete }) => {
         );
       })()}
 
-      {step === 0 && authTab !== 'coach_apply' && (
+      {/* CLIENT SIGN UP — mirrors the coach sign-up screen's design; creates a
+          real Auth account then routes into the onboarding wizard. */}
+      {step === 0 && authTab === 'client_signup' && (
+        <div style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+          <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
+            <button
+              type="button"
+              onClick={() => { setAuthTab('login'); setAuthError(''); setAuthSuccessMsg(''); }}
+              style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginBottom: '20px', padding: '6px 10px', borderRadius: '6px' }}
+            >
+              ← Back to Login
+            </button>
+
+            <h2 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '22px', fontWeight: 800 }}>Create your account</h2>
+            <p style={{ margin: '0 0 20px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '14px' }}>Sign up to start your fitness journey with Fitengineers.</p>
+
+            <form onSubmit={handleClientSignup} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {authError && <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#fecaca', fontSize: '0.78rem' }}>{authError}</div>}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Full Name</label>
+                <input type="text" placeholder="Your name" value={authName} onChange={e => setAuthName(e.target.value)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required disabled={authLoading} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Email Address</label>
+                <input type="email" placeholder="you@email.com" value={authEmail} onChange={e => setAuthEmail(e.target.value)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required disabled={authLoading} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
+                <input type="password" placeholder="At least 6 characters" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} disabled={authLoading} />
+              </div>
+
+              <button type="submit" disabled={authLoading} style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.25)' }}>
+                {authLoading ? 'Creating account...' : 'Create Account'}
+              </button>
+            </form>
+
+            <button type="button" onClick={() => { setAuthTab('login'); setAuthError(''); setAuthSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline', marginTop: '12px', width: '100%' }}>
+              Already have an account? Log in
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 0 && authTab !== 'coach_apply' && authTab !== 'client_signup' && (
         <div className={`onboarding-portal-wrapper ${showAuthForm ? 'auth-form-active' : ''}`}>
           {/* Left/Center Side: Logo and Slide Mockup */}
           <div className="portal-left-panel">
@@ -1364,14 +1492,25 @@ const Onboarding = ({ onComplete }) => {
                     Continue with Google
                   </button>
 
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="guest-bypass-btn-new"
                     style={{ width: '100%', margin: 0, padding: '12px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                     onClick={() => setShowClientEmailForm(true)}
                   >
                     Continue with email
                   </button>
+
+                  <p style={{ margin: '4px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
+                    New to Fitengineers?{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setAuthTab('client_signup'); setAuthError(''); setAuthSuccessMsg(''); setAuthPassword(''); }}
+                      style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      Sign up
+                    </button>
+                  </p>
                 </div>
               )}
 
@@ -1429,9 +1568,19 @@ const Onboarding = ({ onComplete }) => {
                     {authLoading ? 'Authenticating...' : 'Log In'}
                   </button>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                    <span style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px' }}>
+                      New here?{' '}
+                      <button
+                        type="button"
+                        onClick={() => { setAuthTab('client_signup'); setAuthError(''); setAuthSuccessMsg(''); setAuthPassword(''); }}
+                        style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      >
+                        Sign up
+                      </button>
+                    </span>
                     <button
-                      type="button" 
+                      type="button"
                       onClick={() => { setShowClientEmailForm(false); setAuthSuccessMsg(''); setAuthError(''); }}
                       style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >

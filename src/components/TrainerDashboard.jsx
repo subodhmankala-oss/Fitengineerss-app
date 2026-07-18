@@ -2810,7 +2810,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <div className="add-exercise-selector-box" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginBottom: '24px' }}>
                         <button
                           type="button"
-                          className="btn-secondary-sm btn-add-hevy-ex"
+                          className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
                           onClick={() => setExercisePickerContext('editor')}
                         >
                           ➕ Add Exercise

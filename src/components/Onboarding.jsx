@@ -474,7 +474,16 @@ const Onboarding = ({ onComplete }) => {
         // Couldn't reach our own API (e.g. offline) — fall through to Supabase.
       }
       if (resp?.ok) {
-        setForgotPasswordSuccessMsg(confirmation);
+        const data = await resp.json().catch(() => ({}));
+        // Honest about a missing account (same as the coach flow): don't leave
+        // a brand-new person waiting on an email that can never arrive — point
+        // them at Sign up instead. The login form already reveals existence,
+        // so this leaks nothing new.
+        if (data.accountExists === false) {
+          setAuthError(data.message || 'No account found with this email. New to Fitengineers? Tap "Sign up" to create your account.');
+        } else {
+          setForgotPasswordSuccessMsg(confirmation);
+        }
         return;
       }
       if (resp && resp.status !== 404) {
@@ -1626,18 +1635,30 @@ const Onboarding = ({ onComplete }) => {
                     {authLoading ? 'Sending...' : 'Send reset link'}
                   </button>
 
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setAuthTab('login');
-                      setAuthError('');
-                      setAuthSuccessMsg('');
-                      setForgotPasswordSuccessMsg('');
-                    }}
-                    style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0, alignSelf: 'center', marginTop: '4px' }}
-                  >
-                    ← Back
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                    <span style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px' }}>
+                      New here?{' '}
+                      <button
+                        type="button"
+                        onClick={() => { setAuthTab('client_signup'); setAuthError(''); setAuthSuccessMsg(''); setForgotPasswordSuccessMsg(''); setAuthPassword(''); }}
+                        style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      >
+                        Sign up
+                      </button>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthTab('login');
+                        setAuthError('');
+                        setAuthSuccessMsg('');
+                        setForgotPasswordSuccessMsg('');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      ← Back
+                    </button>
+                  </div>
                 </form>
               )}
 

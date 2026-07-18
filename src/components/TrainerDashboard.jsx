@@ -675,11 +675,24 @@ const TrainerDashboard = ({ handleLogout }) => {
       // Session is finished and saved to workout_logs — the open draft is done.
       await databaseService.deleteWorkoutDraft(selectedClient.id);
 
-      // Live Log only records the completed session (goes to the client's
-      // workout summary/history) — it must NOT also create or update a
-      // coach-assigned Workout Plan template. Assigned plans are a separate,
-      // deliberate action via the "Workout Plan" editor (saveWorkoutPlan
-      // above at handleSavePlan), not an automatic side effect of logging.
+      // Also save what was just logged as a reusable plan in the coach's own
+      // "Workout Plan" tab, so a real in-person session doesn't have to be
+      // rebuilt from scratch next time. isAssigned: false keeps it OUT of the
+      // client's "Coach Assigned Plans" list and skips the plan_assigned
+      // push — becoming a real assignment stays a deliberate action (the
+      // plan editor's Save/Duplicate, same as it already works today), not
+      // an automatic side effect of logging a session.
+      try {
+        await databaseService.saveWorkoutPlan({
+          userId: selectedClient.id,
+          planName: livePlanName || 'Live Routine',
+          exercises: formattedExercises,
+          createdBy: 'coach',
+          isAssigned: false
+        });
+      } catch (planErr) {
+        console.error('Error saving live session as a plan:', planErr);
+      }
 
       // Also update the client's own workoutSessions in localStorage for immediate dashboard refresh
       const clientKey = selectedClient.userName.toLowerCase().replace(/\s+/g, '');
@@ -707,6 +720,9 @@ const TrainerDashboard = ({ handleLogout }) => {
       // Refresh workout history
       const logs = await databaseService.getWorkoutLogsForUser(selectedClient.id);
       setWorkoutLogs(groupLogs(logs || []));
+      // Refresh the Workout Plan tab so the plan just saved above shows up
+      // immediately if the coach switches to it.
+      fetchClientPlans(selectedClient.id);
       // Reset exercises for next session
       setLiveExercises([
         { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
@@ -2857,12 +2873,31 @@ const TrainerDashboard = ({ handleLogout }) => {
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                   <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
-                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
-                                    📋 Assigned to: {selectedClient.userName}
+                                  <span style={{ fontSize: '0.68rem', color: plan.isAssigned === false ? '#f59e0b' : 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
+                                    {plan.isAssigned === false
+                                      ? '🕗 Not assigned — only visible to you'
+                                      : `📋 Assigned to: ${selectedClient.userName}`}
                                   </span>
                                 </div>
                                 <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>
-                                  <button 
+                                  {plan.isAssigned === false && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        // Turns a coach-only record (e.g. one saved
+                                        // automatically from Live Log) into a real
+                                        // assignment — the same deliberate action as
+                                        // saving a new plan, just applied after the fact.
+                                        await databaseService.saveWorkoutPlan({ ...plan, isAssigned: true });
+                                        notifyEvent('plan_assigned', { clientUserId: selectedClient.id, planName: plan.planName });
+                                        fetchClientPlans(selectedClient.id);
+                                      }}
+                                      style={{ padding: '4px 8px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '4px', color: '#34d399', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                      Assign to client
+                                    </button>
+                                  )}
+                                  <button
                                     type="button"
                                     onClick={() => {
                                       setEditingPlan(plan);
@@ -2874,14 +2909,18 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   >
                                     Edit
                                   </button>
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={async () => {
                                       const duplicated = {
                                         planName: `${plan.planName} (Copy)`,
                                         exercises: plan.exercises,
                                         userId: selectedClient.id,
-                                        createdBy: 'coach'
+                                        createdBy: 'coach',
+                                        // Duplicating a not-yet-assigned plan shouldn't
+                                        // silently assign + notify the client — the
+                                        // copy starts in the same state as the original.
+                                        isAssigned: plan.isAssigned !== false
                                       };
                                       await databaseService.saveWorkoutPlan(duplicated);
                                       fetchClientPlans(selectedClient.id);
@@ -2890,7 +2929,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   >
                                     Duplicate
                                   </button>
-                                  <button 
+                                  <button
                                     type="button"
                                     onClick={async () => {
                                       if (confirm('Delete this workout plan?')) {

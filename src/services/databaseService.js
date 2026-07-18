@@ -2132,6 +2132,25 @@ const databaseService = {
     }
   },
 
+  // Timestamp of the most recently sent note for a client, read or not — lets
+  // the coach's "Send [client] a note" composer tell whether the LATEST
+  // session has already been responded to, so it doesn't keep resurfacing for
+  // a session the coach already sent a note about (previously this was only
+  // tracked in React state, which reset every time the coach navigated away
+  // and back, and had no cutoff at all for stale sessions).
+  async getLatestCoachNoteSentAt(clientId) {
+    if (!isSupabaseConfigured || !clientId) return null;
+    try {
+      const rows = await restSelect(
+        `coach_notes?select=created_at&client_id=eq.${encodeURIComponent(clientId)}&order=created_at.desc&limit=1`
+      );
+      return (rows && rows[0] && rows[0].created_at) || null;
+    } catch (e) {
+      console.error('Cloud DB Get Latest Coach Note Error:', e);
+      return null;
+    }
+  },
+
   // Mark a note read once the client has seen it, so it stops resurfacing.
   async markCoachNoteRead(noteId) {
     if (!isSupabaseConfigured || !noteId) return { success: false };

@@ -719,3 +719,117 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.02);
 }
+
+/* ── Coach note composer (top of client detail view) ───────────────────── */
+.coach-note-card {
+  margin: 0 var(--screen-gutter, 16px) 16px;
+  padding: 14px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 12px;
+}
+
+.coach-note-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 10px;
+}
+
+.coach-note-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.coach-note-lastsession {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.coach-note-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.coach-note-chip {
+  text-align: left;
+  padding: 8px 11px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-main, #e5e7eb);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.coach-note-chip:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.coach-note-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.coach-note-textarea {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: #fff;
+  /* >= 16px so iOS Safari doesn't auto-zoom the page on focus. */
+  font-size: 16px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.coach-note-textarea:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.coach-note-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.coach-note-feedback {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-right: auto;
+}
+
+.coach-note-feedback.ok { color: #34d399; }
+.coach-note-feedback.err { color: #f87171; }
+
+.coach-note-send {
+  padding: 8px 18px;
+  background: var(--primary-accent, #8b5cf6);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.coach-note-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

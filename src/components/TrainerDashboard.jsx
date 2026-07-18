@@ -333,6 +333,13 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [clientMeasurements, setClientMeasurements] = useState([]);
   const [loadingMeasurements, setLoadingMeasurements] = useState(false);
 
+  // Coach-note composer (top of the client detail view). Lets the coach send
+  // a one-off note to the client — picking a suggestion or writing their own —
+  // which fires a push to the client and is stored so they can see it later.
+  const [coachNoteText, setCoachNoteText] = useState('');
+  const [sendingCoachNote, setSendingCoachNote] = useState(false);
+  const [coachNoteSentMsg, setCoachNoteSentMsg] = useState('');
+
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
   const [liveExercises, setLiveExercises] = useState([
@@ -852,6 +859,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
     setDetailTab('plans');
+    // Clear any coach-note composer state carried over from a previous client.
+    setCoachNoteText('');
+    setCoachNoteSentMsg('');
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
     // A running clock from the previous client must never carry over —
     // otherwise their elapsed time/calories would land on this client's save.
@@ -1283,6 +1293,58 @@ const TrainerDashboard = ({ handleLogout }) => {
     // Refresh history
     await fetchClientChat(selectedClient.id);
   };
+
+  // Send a one-off coach note to the selected client: store it (so they can
+  // see it later even if the push is missed) AND fire a push with the note's
+  // text as the notification body. Works from any suggestion chip or the
+  // custom textarea — both funnel through here.
+  const handleSendCoachNote = async (rawMessage) => {
+    const message = (rawMessage ?? coachNoteText).trim();
+    if (!message || !selectedClient || sendingCoachNote) return;
+
+    setSendingCoachNote(true);
+    setCoachNoteSentMsg('');
+    try {
+      const res = await databaseService.saveCoachNote(selectedClient.id, resolvedCoachId, message);
+      if (!res.success) {
+        setCoachNoteSentMsg(`⚠️ Couldn't send: ${res.error || 'unknown error'}`);
+        return;
+      }
+      // Push the note straight to the client's device.
+      notifyEvent('coach_note', { clientUserId: selectedClient.id, message });
+      setCoachNoteText('');
+      setCoachNoteSentMsg(`✅ Note sent to ${selectedClient.userName || 'your client'}.`);
+    } finally {
+      setSendingCoachNote(false);
+    }
+  };
+
+  // The client's most recent completed session (for tailoring note
+  // suggestions to what they just did). workoutLogs is already grouped and
+  // carries durationSeconds/caloriesBurned per session.
+  const latestClientSession = (() => {
+    if (!workoutLogs || workoutLogs.length === 0) return null;
+    return [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
+  })();
+
+  // Three ready-to-send note suggestions. When we know the last session's
+  // stats, the first one references them so it feels personal; the rest are
+  // evergreen encouragement.
+  const coachNoteSuggestions = (() => {
+    const firstName = (selectedClient?.userName || '').trim().split(/\s+/)[0] || 'there';
+    const s = latestClientSession;
+    const statBits = s
+      ? [s.durationSeconds != null ? `${formatDuration(s.durationSeconds)}` : null, s.caloriesBurned != null ? `${s.caloriesBurned} kcal` : null].filter(Boolean).join(', ')
+      : '';
+    const opener = statBits
+      ? `Great session, ${firstName}! ${statBits} — solid work 💪`
+      : `Great work today, ${firstName}! Really solid session 💪`;
+    return [
+      opener,
+      `Proud of your consistency this week — keep it going! 🔥`,
+      `How did that feel? Let me know if anything was too easy or too tough.`
+    ];
+  })();
 
   const getAvatarInitials = (name) => {
     if (!name) return 'W';
@@ -2219,6 +2281,59 @@ const TrainerDashboard = ({ handleLogout }) => {
                 >
                   📏 Measurements
                 </button>
+              </div>
+
+              {/* Coach note composer — send a one-off note to this client
+                  (push + stored fallback). Shown above every tab so the coach
+                  can respond right after opening from a "workout completed"
+                  notification, regardless of which tab is active. */}
+              <div className="coach-note-card">
+                <div className="coach-note-head">
+                  <span className="coach-note-title">💬 Send {(selectedClient.userName || 'client').split(/\s+/)[0]} a note</span>
+                  {latestClientSession && (latestClientSession.durationSeconds != null || latestClientSession.caloriesBurned != null) && (
+                    <span className="coach-note-lastsession">
+                      Last session:
+                      {latestClientSession.durationSeconds != null && ` ⏱ ${formatDuration(latestClientSession.durationSeconds)}`}
+                      {latestClientSession.durationSeconds != null && latestClientSession.caloriesBurned != null && ' ·'}
+                      {latestClientSession.caloriesBurned != null && ` 🔥 ${latestClientSession.caloriesBurned} kcal`}
+                    </span>
+                  )}
+                </div>
+                <div className="coach-note-suggestions">
+                  {coachNoteSuggestions.map((sug, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="coach-note-chip"
+                      disabled={sendingCoachNote}
+                      onClick={() => setCoachNoteText(sug)}
+                      title="Tap to use — you can still edit before sending"
+                    >
+                      {sug}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  className="coach-note-textarea"
+                  placeholder="Or write your own note…"
+                  value={coachNoteText}
+                  onChange={(e) => { setCoachNoteText(e.target.value); if (coachNoteSentMsg) setCoachNoteSentMsg(''); }}
+                  rows={2}
+                  disabled={sendingCoachNote}
+                />
+                <div className="coach-note-actions">
+                  {coachNoteSentMsg && (
+                    <span className={`coach-note-feedback ${coachNoteSentMsg.startsWith('✅') ? 'ok' : 'err'}`}>{coachNoteSentMsg}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="coach-note-send"
+                    disabled={sendingCoachNote || !coachNoteText.trim()}
+                    onClick={() => handleSendCoachNote()}
+                  >
+                    {sendingCoachNote ? 'Sending…' : 'Send note'}
+                  </button>
+                </div>
               </div>
 
               {/* Condition tab rendering */}

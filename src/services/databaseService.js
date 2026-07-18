@@ -2085,6 +2085,65 @@ const databaseService = {
     }
   },
 
+  // ─── COACH NOTES ───
+  // A one-off note from a coach to a client (not a chat thread). Stored so the
+  // client can still see it if they missed/dismissed the push. Raw REST insert
+  // (same SDK-hang bypass as body measurements). clientId is the client's
+  // users.id; coachId is the coach's users.id.
+  async saveCoachNote(clientId, coachId, message) {
+    if (!isSupabaseConfigured || !clientId || !message?.trim()) {
+      return { success: false, error: 'Not configured' };
+    }
+    try {
+      const data = await restInsert('coach_notes', {
+        client_id: clientId,
+        coach_id: coachId || null,
+        message: message.trim()
+      });
+      return {
+        success: true,
+        note: { id: data.id, clientId: data.client_id, coachId: data.coach_id, message: data.message, createdAt: data.created_at, readAt: data.read_at }
+      };
+    } catch (e) {
+      console.error('Cloud DB Save Coach Note Error:', e);
+      return { success: false, error: e.message || 'Save failed' };
+    }
+  },
+
+  // The client's own unread coach notes, newest first — powers the "Note from
+  // your coach" card on the client home screen (the missed-push fallback).
+  async getUnreadCoachNotes(clientId) {
+    if (!isSupabaseConfigured || !clientId) return [];
+    try {
+      const rows = await restSelect(
+        `coach_notes?select=*&client_id=eq.${encodeURIComponent(clientId)}&read_at=is.null&order=created_at.desc`
+      );
+      return (rows || []).map(r => ({
+        id: r.id,
+        clientId: r.client_id,
+        coachId: r.coach_id,
+        message: r.message,
+        createdAt: r.created_at,
+        readAt: r.read_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Coach Notes Error:', e);
+      return [];
+    }
+  },
+
+  // Mark a note read once the client has seen it, so it stops resurfacing.
+  async markCoachNoteRead(noteId) {
+    if (!isSupabaseConfigured || !noteId) return { success: false };
+    try {
+      await restUpdate(`coach_notes?id=eq.${encodeURIComponent(noteId)}`, { read_at: new Date().toISOString() });
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Mark Coach Note Read Error:', e);
+      return { success: false, error: e.message || 'Update failed' };
+    }
+  },
+
   // ─── MULTI-COACH & SUPER ADMIN METHODS ───
   // Resolves a coach's display name for client-facing UI (e.g. "Coach: [Name]"
   // after a successful invite-code connection). Prefers the coach's own account

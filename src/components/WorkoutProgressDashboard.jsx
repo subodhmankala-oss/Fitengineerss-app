@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
+import CoachNoteBanner from './CoachNoteBanner';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
@@ -651,6 +652,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           </button>
         </div>
       </div>
+
+      {/* Unread notes from the coach — the fallback if the client missed the
+          push notification when the coach sent it. */}
+      <CoachNoteBanner userId={userId} />
 
       {/* Resume in-progress workout — a draft survives being away from the
           app/device (backgrounded, closed the tab, switched apps) via

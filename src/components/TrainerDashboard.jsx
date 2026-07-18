@@ -339,17 +339,18 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [coachNoteText, setCoachNoteText] = useState('');
   const [sendingCoachNote, setSendingCoachNote] = useState(false);
   const [coachNoteSentMsg, setCoachNoteSentMsg] = useState('');
-  // Hides the whole composer card 5s after a successful send — its job is
-  // done once the coach sees the "Note sent" confirmation, and leaving it
-  // sitting there open is just clutter. Reappears on a fresh "workout
-  // finished" moment: switching to a different client (handleSelectClient
-  // resets this), or workoutLogs picking up a newer session than the one the
-  // note was about (below).
-  const [coachNoteCardHidden, setCoachNoteCardHidden] = useState(false);
-  // Identifies which session the card was hidden for, so a NEWER completed
-  // session (a fresh "client just finished" moment) un-hides it even if the
-  // 5s auto-hide already fired for the previous one.
-  const [coachNoteHiddenForSessionKey, setCoachNoteHiddenForSessionKey] = useState(null);
+  // When the most recent note was sent to this client (any note, read or
+  // not) — fetched from the DB in handleSelectClient, so "already responded
+  // to this session" is a real, persisted fact instead of React state that
+  // resets every time the coach navigates away and back. The card is only
+  // shown when the latest session is NEWER than this timestamp.
+  const [lastCoachNoteSentAt, setLastCoachNoteSentAt] = useState(null);
+  // True for 5s right after a successful send, purely so the coach sees the
+  // "Note sent" confirmation before the card disappears — the actual
+  // decision to show/hide is lastCoachNoteSentAt above, which flips to "now"
+  // (after the session) the instant a send succeeds, so without this the
+  // card would vanish mid-confirmation instead of fading out gracefully.
+  const [coachNoteJustSent, setCoachNoteJustSent] = useState(false);
 
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
@@ -873,8 +874,9 @@ const TrainerDashboard = ({ handleLogout }) => {
     // Clear any coach-note composer state carried over from a previous client.
     setCoachNoteText('');
     setCoachNoteSentMsg('');
-    setCoachNoteCardHidden(false);
-    setCoachNoteHiddenForSessionKey(null);
+    setCoachNoteJustSent(false);
+    setLastCoachNoteSentAt(null);
+    databaseService.getLatestCoachNoteSentAt(client.id).then(setLastCoachNoteSentAt);
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
     // A running clock from the previous client must never carry over —
     // otherwise their elapsed time/calories would land on this client's save.
@@ -1314,12 +1316,20 @@ const TrainerDashboard = ({ handleLogout }) => {
     if (!workoutLogs || workoutLogs.length === 0) return null;
     return [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
   })();
-  // Identifies "which session" for the auto-hide check above — changes the
-  // instant a newer session shows up in workoutLogs, which is what un-hides
-  // the card for a fresh completion even if it was auto-hidden for the last one.
-  const latestSessionKey = latestClientSession
-    ? `${latestClientSession.date}-${latestClientSession.durationSeconds}-${latestClientSession.caloriesBurned}`
-    : null;
+
+  // Whether the latest session still needs a response: no note has EVER been
+  // sent to this client, or the last one sent predates this session (so a
+  // fresh session that comes in after an old note was sent counts as new).
+  // Session dates have no time component, so "predates" is start-of-day
+  // comparison — a note sent any time on the session's day or later counts
+  // as already handled. This is what actually fixes the card resurfacing for
+  // a session from days ago every time the coach reopens the client: that
+  // decision now comes from the DB (lastCoachNoteSentAt, fetched in
+  // handleSelectClient), not from React state that reset on every remount.
+  const sessionNeedsResponse = latestClientSession && (
+    !lastCoachNoteSentAt || new Date(lastCoachNoteSentAt) < new Date(`${latestClientSession.date}T00:00:00`)
+  );
+  const showCoachNoteCard = sessionNeedsResponse || coachNoteJustSent;
 
   // Send a one-off coach note to the selected client: store it (so they can
   // see it later even if the push is missed) AND fire a push with the note's
@@ -1341,13 +1351,13 @@ const TrainerDashboard = ({ handleLogout }) => {
       notifyEvent('coach_note', { clientUserId: selectedClient.id, message });
       setCoachNoteText('');
       setCoachNoteSentMsg(`✅ Note sent to ${selectedClient.userName || 'your client'}.`);
-      // Auto-hide the composer 5s after a successful send — its job is done
-      // once the coach has seen the confirmation. Remembers which session it
-      // was hidden for, so a newer "workout finished" moment un-hides it.
-      setTimeout(() => {
-        setCoachNoteCardHidden(true);
-        setCoachNoteHiddenForSessionKey(latestSessionKey);
-      }, 5000);
+      // This session is now handled — persisted immediately (not just in this
+      // render) so reopening this client later won't show the card again for
+      // the same session. coachNoteJustSent just keeps the card visually up
+      // for 5s so the confirmation above is actually seen before it fades.
+      setLastCoachNoteSentAt(new Date().toISOString());
+      setCoachNoteJustSent(true);
+      setTimeout(() => setCoachNoteJustSent(false), 5000);
     } finally {
       setSendingCoachNote(false);
     }
@@ -2312,13 +2322,11 @@ const TrainerDashboard = ({ handleLogout }) => {
               {/* Coach note composer — send a one-off note to this client
                   (push + stored fallback). Shown above every tab so the coach
                   can respond right after opening from a "workout completed"
-                  notification, regardless of which tab is active. Auto-hides
-                  5s after a successful send (see handleSendCoachNote) unless a
-                  newer session has shown up since — that's what
-                  coachNoteHiddenForSessionKey === latestSessionKey checks: if
-                  the session changed, treat it as a fresh "workout finished"
-                  moment and show the card again regardless of the hidden flag. */}
-              {!(coachNoteCardHidden && coachNoteHiddenForSessionKey === latestSessionKey) && (
+                  notification, regardless of which tab is active. Only shown
+                  when the latest session actually needs a response (see
+                  sessionNeedsResponse) — a session already responded to, or a
+                  client with no completed sessions at all, shows nothing. */}
+              {showCoachNoteCard && (
               <div className="coach-note-card">
                 <div className="coach-note-head">
                   <span className="coach-note-title">💬 Send {(selectedClient.userName || 'client').split(/\s+/)[0]} a note</span>

@@ -87,7 +87,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const { event, clientUserId, planName } = req.body || {};
+  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message } = req.body || {};
   if (!event || !clientUserId || !UUID_RE.test(clientUserId)) {
     return res.status(400).json({ error: 'event and a valid clientUserId are required.' });
   }
@@ -112,6 +112,24 @@ export default async function handler(req, res) {
       targetUserId = client.coach_id;
       title = '📏 New Measurements';
       body = `${clientName} has just updated their body measurements. Take a look to track their progress.`;
+    } else if (event === 'workout_finished') {
+      // Notify the client's coach that a session was completed, with the real
+      // duration and calories, so the coach can send a note back.
+      if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
+      targetUserId = client.coach_id;
+      const mins = Number.isFinite(durationSeconds) ? Math.max(1, Math.round(durationSeconds / 60)) : null;
+      const cals = Number.isFinite(caloriesBurned) ? Math.round(caloriesBurned) : null;
+      const stats = [mins != null ? `${mins} min` : null, cals != null ? `${cals} kcal` : null].filter(Boolean).join(' · ');
+      const workoutLabel = workoutName ? `"${workoutName}"` : 'a workout';
+      title = '✅ Workout Completed';
+      body = `${clientName} finished ${workoutLabel}${stats ? ` — ${stats}` : ''}. Open the app to send them a note.`;
+    } else if (event === 'coach_note') {
+      // Notify the client that their coach sent them a note — the coach's
+      // actual words are the notification body.
+      if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for coach_note.' });
+      targetUserId = clientUserId;
+      title = '💬 Note from your coach';
+      body = message.trim();
     } else if (event === 'plan_assigned') {
       // Notify the client that their coach sent a new plan.
       targetUserId = clientUserId;

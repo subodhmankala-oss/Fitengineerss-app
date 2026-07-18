@@ -1514,6 +1514,19 @@ const WorkoutTracker = () => {
     // Session is finished and saved to workout_logs — the open draft is done.
     if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
 
+    // Notify this client's coach that a session was completed, with the real
+    // duration and calories, so the coach can send a note back. Client
+    // self-logged sessions only — a coach's own Live Log save has its own path.
+    const finishedClientId = ownUserId || localStorage.getItem('userId');
+    if (finishedClientId && workoutSource !== 'coach') {
+      notifyEvent('workout_finished', {
+        clientUserId: finishedClientId,
+        durationSeconds: finalDurationSeconds,
+        caloriesBurned: finalCalories,
+        workoutName: newSession.planName
+      });
+    }
+
     setSelectedClient(logClient);
     const newClientSessions = updated.filter(s => s.clientName.toLowerCase() === logClient.toLowerCase());
     setSelectedSessionIndex(newClientSessions.length - 1);

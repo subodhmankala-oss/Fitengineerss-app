@@ -84,13 +84,12 @@ export default async function handler(req, res) {
             recipient: email,
             subject: role
           });
-          // Coach login is not public-facing and the coach LOGIN form already
-          // reveals whether an account exists ("No coach account found with
-          // this email"), so being honest here leaks nothing new — and it stops
-          // coaches from waiting forever for an email that can never arrive
-          // because they have no account (e.g. signed up under a different
-          // email, or never registered). For the public-facing CLIENT flow we
-          // keep the opaque success to prevent account enumeration.
+          // Be honest that no account exists — for BOTH coaches and clients.
+          // The login forms already reveal account existence ("No coach account
+          // found…" / "No account found with this email. New here? Tap Sign
+          // up…"), so an opaque "check your inbox" here leaks nothing new; it
+          // only leaves someone waiting forever for an email that can never
+          // arrive because there's no account to reset. Point them at Sign up.
           if (role === 'coach') {
             return res.status(200).json({
               success: true,
@@ -98,7 +97,11 @@ export default async function handler(req, res) {
               message: 'No coach account found with this email. First time here? Use "Sign up" below to create your account — "Forgot password?" is only for coaches who already have one.'
             });
           }
-          return res.status(200).json({ success: true, message: confirmation });
+          return res.status(200).json({
+            success: true,
+            accountExists: false,
+            message: 'No account found with this email. New to Fitengineers? Tap "Sign up" to create your account — "Forgot password?" is only for clients who already have one.'
+          });
         }
         console.error('generate_link failed:', linkResp.status, linkData.msg || linkData.error);
         return res.status(502).json({ error: 'We couldn\'t create your reset link right now. Please try again in a few minutes.' });

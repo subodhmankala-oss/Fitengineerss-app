@@ -2222,15 +2222,18 @@ const WorkoutTracker = () => {
       {activeView === 'templates' && (
         <div className="wt-templates-outer">
 
-          {/* Coach's Plan section (only if client has a coach plan) */}
-          {clientPlans.filter(p => p.createdBy === 'coach').length > 0 && (
+          {/* Coach's Plan section (only if client has a coach plan). isAssigned
+              excludes coach-only records (e.g. a plan auto-saved from Live
+              Log) that haven't actually been assigned to this client — see
+              TrainerDashboard's "Assign to client" action. */}
+          {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).length > 0 && (
             <div className="wt-section">
               <div className="wt-section-header">
                 <span className="wt-section-badge coach">🎯 Your Coach's Plan</span>
                 <span className="wt-section-sub">Assigned by your coach</span>
               </div>
               <div className="wt-template-list">
-                {clientPlans.filter(p => p.createdBy === 'coach').map(plan => (
+                {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).map(plan => (
                   <div key={plan.id || plan.planName} className="wt-template-card coach-card">
                     <div className="wt-tpl-info">
                       <span className="wt-tpl-icon">📋</span>
@@ -2407,11 +2410,11 @@ const WorkoutTracker = () => {
               <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>📋 Your Coach's Plan</h4>
               {loadingPlans ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coach plans...</p>
-              ) : clientPlans.filter(p => p.createdBy === 'coach').length === 0 ? (
+              ) : clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No workout plans assigned by your coach yet.</p>
               ) : (
                 <div className="routines-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {clientPlans.filter(p => p.createdBy === 'coach').map(plan => (
+                  {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).map(plan => (
                     <div key={plan.id} className="routine-card glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                       <div className="routine-info" style={{ flex: 1, paddingRight: '12px' }}>
                         <strong className="routine-title" style={{ display: 'block', fontSize: '0.88rem', color: '#fff' }}>{plan.planName}</strong>

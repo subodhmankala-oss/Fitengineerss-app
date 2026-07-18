@@ -1793,7 +1793,11 @@ const databaseService = {
               planName: p.plan_name,
               exercises: p.exercises,
               createdBy: p.created_by,
-              createdAt: p.created_at
+              createdAt: p.created_at,
+              // Legacy rows predate this column and read back as undefined —
+              // treat those as assigned (matches the column's own DEFAULT
+              // true, preserving every plan's existing visibility).
+              isAssigned: p.is_assigned !== false
             }));
           }
         }
@@ -1860,7 +1864,12 @@ const databaseService = {
         const planRecord = {
           plan_name: plan.planName,
           exercises: plan.exercises,
-          created_by: plan.createdBy
+          created_by: plan.createdBy,
+          // Defaults to true (an actual assignment) unless the caller says
+          // otherwise — Live Log passes isAssigned: false so the saved plan
+          // shows up in the coach's own list without notifying/appearing on
+          // the client's "Coach Assigned Plans" section.
+          is_assigned: plan.isAssigned !== false
         };
 
         const isPlanUuid = plan.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan.id);

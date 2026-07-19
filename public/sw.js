@@ -45,18 +45,34 @@ self.addEventListener('push', (e) => {
   );
 });
 
-// Focus or open the app when a coach broadcast notification is clicked
+// Focus or open the app when a notification is clicked. Made deliberately
+// robust for installed iOS PWAs, where the naive "focus the first client"
+// often no-ops: an existing window is navigated to the target and focused,
+// and only if there's genuinely no window do we openWindow. The target is an
+// absolute URL (relative paths can silently fail to open from a standalone
+// PWA notification on iOS).
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const targetPath = (e.notification.data && e.notification.data.url) || '/';
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url && 'focus' in client) {
-          return client.focus();
+        // Reuse an already-open app window: navigate it to the target (when
+        // supported) and bring it forward. This is the path that actually
+        // fires when the PWA is backgrounded rather than fully closed.
+        if ('focus' in client) {
+          const focusFirst = () => client.focus();
+          if ('navigate' in client && client.url !== targetUrl) {
+            return client.navigate(targetUrl).then((c) => (c || client).focus()).catch(focusFirst);
+          }
+          return focusFirst();
         }
       }
+      // No window open (app was fully closed) — launch a fresh one.
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/');
+        return self.clients.openWindow(targetUrl);
       }
     })
   );

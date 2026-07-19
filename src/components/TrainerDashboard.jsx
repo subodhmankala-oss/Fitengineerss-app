@@ -285,6 +285,12 @@ const TrainerDashboard = ({ handleLogout }) => {
   // the app, is never silently lost.
   const [coachActiveDrafts, setCoachActiveDrafts] = useState([]);
 
+  // Client replies to a coach note that this coach hasn't seen yet — surfaced
+  // as a card on the client directory (home) screen, same fallback role as
+  // coachActiveDrafts above: a client_reply push fires the moment the client
+  // sends it, this is what shows it here if that push was missed/dismissed.
+  const [pendingClientReplies, setPendingClientReplies] = useState([]);
+
   // Coaching program length (clients.total_sessions) editor for the selected client
   const [totalSessionsInput, setTotalSessionsInput] = useState('');
   const [savingTotalSessions, setSavingTotalSessions] = useState(false);
@@ -351,6 +357,11 @@ const TrainerDashboard = ({ handleLogout }) => {
   // (after the session) the instant a send succeeds, so without this the
   // card would vanish mid-confirmation instead of fading out gracefully.
   const [coachNoteJustSent, setCoachNoteJustSent] = useState(false);
+  // Live Log: the coach-note composer is hidden behind a "Coach note" toggle
+  // and has no Send button of its own — whatever's typed here is sent (via the
+  // same saveCoachNote + coach_note push path) as part of "Save Workout
+  // Session". This flag just controls whether that composer is revealed.
+  const [showLiveCoachNote, setShowLiveCoachNote] = useState(false);
 
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
@@ -716,7 +727,29 @@ const TrainerDashboard = ({ handleLogout }) => {
       window.dispatchEvent(new StorageEvent('storage', { key: 'workoutSessions', newValue: JSON.stringify(globalSessions) }));
       window.dispatchEvent(new CustomEvent('workoutSessionsUpdated', { detail: { clientKey, session } }));
 
-      triggerLiveToast('✅ Workout session saved for ' + selectedClient.userName + '!');
+      // If the coach typed a note in the Live Log composer, send it now as
+      // part of saving the session — same stored + pushed path as the note
+      // card above the tabs, so it reaches the client's home screen exactly
+      // like a push notification. Best-effort: a note failure never blocks
+      // the session save that already succeeded above.
+      const liveNote = coachNoteText.trim();
+      if (liveNote) {
+        try {
+          const noteRes = await databaseService.saveCoachNote(selectedClient.id, resolvedCoachId, liveNote);
+          if (noteRes.success) {
+            notifyEvent('coach_note', { clientUserId: selectedClient.id, message: liveNote });
+            setLastCoachNoteSentAt(new Date().toISOString());
+          }
+        } catch (noteErr) {
+          console.error('Error sending coach note with live session:', noteErr);
+        }
+        setCoachNoteText('');
+        setShowLiveCoachNote(false);
+      }
+
+      triggerLiveToast(liveNote
+        ? '✅ Workout session + note saved for ' + selectedClient.userName + '!'
+        : '✅ Workout session saved for ' + selectedClient.userName + '!');
       // Refresh workout history
       const logs = await databaseService.getWorkoutLogsForUser(selectedClient.id);
       setWorkoutLogs(groupLogs(logs || []));
@@ -745,6 +778,18 @@ const TrainerDashboard = ({ handleLogout }) => {
     setCoachActiveDrafts(drafts);
   };
 
+  const refreshPendingClientReplies = async () => {
+    if (!resolvedCoachId) return;
+    const replies = await databaseService.getPendingClientReplies(resolvedCoachId);
+    setPendingClientReplies(replies);
+  };
+
+  // Coach has seen this reply — dismiss it from the directory card for good.
+  const handleDismissClientReply = async (replyId) => {
+    setPendingClientReplies((prev) => prev.filter((r) => r.id !== replyId));
+    await databaseService.markClientReplySeen(replyId);
+  };
+
   // Discard a draft directly from the client directory's "Live Log in
   // progress" list — lets the coach clear a stale/unwanted session without
   // having to open it first. Also resets the in-tab live state if that same
@@ -766,11 +811,13 @@ const TrainerDashboard = ({ handleLogout }) => {
   // exact "was away for a while, came back" moment this list exists for.
   useEffect(() => {
     refreshCoachActiveDrafts();
-    document.addEventListener('visibilitychange', refreshCoachActiveDrafts);
-    window.addEventListener('focus', refreshCoachActiveDrafts);
+    refreshPendingClientReplies();
+    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); };
+    document.addEventListener('visibilitychange', refreshBoth);
+    window.addEventListener('focus', refreshBoth);
     return () => {
-      document.removeEventListener('visibilitychange', refreshCoachActiveDrafts);
-      window.removeEventListener('focus', refreshCoachActiveDrafts);
+      document.removeEventListener('visibilitychange', refreshBoth);
+      window.removeEventListener('focus', refreshBoth);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCoachId]);
@@ -785,6 +832,7 @@ const TrainerDashboard = ({ handleLogout }) => {
   useEffect(() => {
     if (viewMode === 'coach' && !selectedClient) {
       refreshCoachActiveDrafts();
+      refreshPendingClientReplies();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, viewMode]);
@@ -1817,6 +1865,54 @@ const TrainerDashboard = ({ handleLogout }) => {
                 </div>
               )}
 
+              {/* Client replies to a coach note — fallback for a missed
+                  client_reply push. Lives on the directory (home) screen, not
+                  buried in any one client's detail tabs, so the coach sees it
+                  regardless of which client they open next. */}
+              {pendingClientReplies.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  {pendingClientReplies.map(reply => {
+                    const replyClient = clients.find(c => c.id === reply.clientId);
+                    return (
+                      <div
+                        key={reply.id}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px',
+                          background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)',
+                          borderRadius: '12px', padding: '12px 14px', cursor: replyClient ? 'pointer' : 'default'
+                        }}
+                        onClick={() => { if (replyClient) handleSelectClient(replyClient); }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
+                          <span style={{ fontSize: '1.3rem' }}>💬</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#a78bfa' }}>
+                              Reply from {replyClient?.userName || 'a client'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#fff', marginTop: '2px', wordBreak: 'break-word' }}>
+                              {reply.message}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          title="Dismiss"
+                          onClick={(e) => { e.stopPropagation(); handleDismissClientReply(reply.id); }}
+                          style={{
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                            color: 'var(--text-muted)', borderRadius: '50%', width: '26px', height: '26px',
+                            fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', flexShrink: 0
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <div style={{
                 background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)',
                 borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex',
@@ -2229,7 +2325,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                     }}
                     disabled={savingTotalSessions}
                     style={{
-                      width: '90px',
+                      width: '75px',
                       padding: '8px 10px',
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid var(--border-color)',
@@ -2818,8 +2914,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                       </div>
 
                       {/* Editor actions */}
-                      <div className="editor-actions-row" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                        <button 
+                      <div className="editor-actions-row" style={{ display: 'flex', gap: 0 }}>
+                        <button
                           type="button"
                           onClick={() => {
                             setShowPlanEditor(false);
@@ -2827,14 +2923,14 @@ const TrainerDashboard = ({ handleLogout }) => {
                             setEditorPlanName('');
                             setEditorExercises([]);
                           }}
-                          style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                          style={{ flex: 1, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
                         >
                           Cancel
                         </button>
-                        <button 
+                        <button
                           type="button"
                           onClick={handleSavePlan}
-                          style={{ padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                          style={{ flex: 1, padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
                         >
                           Assign to client
                         </button>
@@ -3269,6 +3365,57 @@ const TrainerDashboard = ({ handleLogout }) => {
                   >
                     ➕ Add Exercise
                   </button>
+
+                  {/* Coach note — hidden behind a toggle. The composer has NO
+                      Send button of its own: whatever's typed here goes out
+                      together with "Save Workout Session" below, via the same
+                      saveCoachNote + coach_note push path, so it lands on the
+                      client's home screen exactly like a push notification
+                      (CoachNoteBanner fallback). No new mechanism. */}
+                  <button
+                    type="button"
+                    className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
+                    onClick={() => setShowLiveCoachNote(v => !v)}
+                    style={{
+                      background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(255,255,255,0.05)',
+                      border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(255,255,255,0.12)',
+                      color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : '#fff',
+                      marginTop: '16px'
+                    }}
+                  >
+                    💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
+                  </button>
+
+                    {showLiveCoachNote && (
+                      <div className="coach-note-card" style={{ margin: '10px 0 0' }}>
+                        <div className="coach-note-head">
+                          <span className="coach-note-title">💬 Note for {(selectedClient.userName || 'client').split(/\s+/)[0]}</span>
+                          <span className="coach-note-lastsession">Sends with “Save Workout Session”</span>
+                        </div>
+                        <div className="coach-note-suggestions">
+                          {coachNoteSuggestions.map((sug, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="coach-note-chip"
+                              disabled={liveSaving}
+                              onClick={() => setCoachNoteText(sug)}
+                              title="Tap to use — you can still edit before sending"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          className="coach-note-textarea"
+                          placeholder="Write a note to send with this session…"
+                          value={coachNoteText}
+                          onChange={(e) => setCoachNoteText(e.target.value)}
+                          rows={2}
+                          disabled={liveSaving}
+                        />
+                      </div>
+                    )}
 
                   {/* Discard (left) + Save (right) */}
                   <div style={{ display: 'flex', gap: '10px' }}>

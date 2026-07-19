@@ -71,3 +71,51 @@
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
+
+.cnb-reply-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cnb-reply-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+  border-radius: 8px;
+  color: #fff;
+  /* Must stay >= 16px: iOS Safari auto-zooms the whole page on focus for any
+     input with a smaller font-size. */
+  font-size: 16px;
+}
+
+.cnb-reply-input::placeholder {
+  color: var(--text-muted, #9ca3af);
+}
+
+.cnb-reply-send {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  background: var(--primary-accent-light, #34d399);
+  border: none;
+  border-radius: 8px;
+  color: #06281f;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.cnb-reply-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cnb-reply-sent {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted, #9ca3af);
+  font-style: italic;
+}

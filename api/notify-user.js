@@ -130,6 +130,14 @@ export default async function handler(req, res) {
       targetUserId = clientUserId;
       title = '💬 Note from your coach';
       body = message.trim();
+    } else if (event === 'client_reply') {
+      // Notify the coach that their client replied to a note — fires
+      // straight to the coach's home screen/device, mirroring workout_finished.
+      if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for client_reply.' });
+      if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
+      targetUserId = client.coach_id;
+      title = `💬 Reply from ${clientName}`;
+      body = message.trim();
     } else if (event === 'plan_assigned') {
       // Notify the client that their coach sent a new plan.
       targetUserId = clientUserId;

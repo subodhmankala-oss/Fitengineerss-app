@@ -2133,7 +2133,9 @@ const databaseService = {
         coachId: r.coach_id,
         message: r.message,
         createdAt: r.created_at,
-        readAt: r.read_at
+        readAt: r.read_at,
+        clientReply: r.client_reply,
+        clientReplyAt: r.client_reply_at
       }));
     } catch (e) {
       console.error('Cloud DB Get Coach Notes Error:', e);
@@ -2168,6 +2170,59 @@ const databaseService = {
       return { success: true };
     } catch (e) {
       console.error('Cloud DB Mark Coach Note Read Error:', e);
+      return { success: false, error: e.message || 'Update failed' };
+    }
+  },
+
+  // Client's one-shot reply to a specific coach note, written straight onto
+  // that same coach_notes row. Guarded by client_reply_at=is.null so the
+  // reply box for a given note can only ever be used once — matches the
+  // banner only rendering the reply box while note.clientReplyAt is unset.
+  async saveClientReplyToNote(noteId, message) {
+    if (!isSupabaseConfigured || !noteId || !message?.trim()) {
+      return { success: false, error: 'Not configured' };
+    }
+    try {
+      const data = await restUpdate(`coach_notes?id=eq.${encodeURIComponent(noteId)}&client_reply_at=is.null`, {
+        client_reply: message.trim(),
+        client_reply_at: new Date().toISOString()
+      });
+      if (!data) return { success: false, error: 'Already replied to this note.' };
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Save Client Reply Error:', e);
+      return { success: false, error: e.message || 'Save failed' };
+    }
+  },
+
+  // This coach's unseen client replies across all their clients — powers the
+  // pending-replies card on the coach's client-directory (home) screen.
+  async getPendingClientReplies(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const rows = await restSelect(
+        `coach_notes?select=id,client_id,client_reply,client_reply_at&coach_id=eq.${encodeURIComponent(coachId)}&client_reply_at=not.is.null&coach_seen_reply_at=is.null&order=client_reply_at.desc`
+      );
+      return (rows || []).map(r => ({
+        id: r.id,
+        clientId: r.client_id,
+        message: r.client_reply,
+        repliedAt: r.client_reply_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Pending Client Replies Error:', e);
+      return [];
+    }
+  },
+
+  // Coach has seen this reply on the directory card — stops it resurfacing.
+  async markClientReplySeen(noteId) {
+    if (!isSupabaseConfigured || !noteId) return { success: false };
+    try {
+      await restUpdate(`coach_notes?id=eq.${encodeURIComponent(noteId)}`, { coach_seen_reply_at: new Date().toISOString() });
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Mark Client Reply Seen Error:', e);
       return { success: false, error: e.message || 'Update failed' };
     }
   },

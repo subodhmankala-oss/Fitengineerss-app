@@ -648,31 +648,155 @@
   box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
 }
 
-/* Portal Layout Wrapper */
+/* Login screen: non-scrolling, split into a top half (slider) and a bottom
+   half (login form). Scoped to login-portal-mode so other onboarding steps
+   keep their normal scrolling layout. */
+.onboarding-container.login-portal-mode {
+  padding: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  justify-content: stretch;
+}
+
+/* Portal Layout Wrapper — fills the viewport as a 50/50 column */
 .onboarding-portal-wrapper {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
   max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   margin: 0 auto;
-  gap: 8px;
+  gap: 0;
   box-sizing: border-box;
+  overflow: hidden;
   animation: fadeIn 0.5s ease;
 }
 
-/* Hide mockup when credentials input form is shown */
+/* When a credentials input form is shown, collapse the slider smoothly
+   instead of snapping via display:none — that instant show/hide was the
+   "jerk" when tapping Sign up / Continue with email. flex-basis + opacity
+   are both animatable, so the panel eases out rather than popping away. */
 .auth-form-active .portal-left-panel {
-  display: none;
+  flex-basis: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.auth-form-active .portal-right-panel {
+  height: 100dvh;
+  flex: 1 1 auto;
+  max-height: 100dvh;
 }
 
-/* Left Panel containing Logo & Carousel Mockup */
+/* TOP: full-bleed screenshot hero (Hevy-style) — the screenshot fills this
+   whole section edge-to-edge; brand + caption are overlaid on it.
+   Fixed to exactly 60% so the split is a 60/40 with the login half. */
 .portal-left-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
   width: 100%;
   max-width: 100%;
+  height: 60dvh;
+  flex: 0 0 60dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  box-sizing: border-box;
+  transition: flex-basis 0.35s ease, opacity 0.3s ease;
+}
+
+/* Slider fills the entire top section and contains each slide */
+.portal-slider {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Each slide: absolute positioned, background + phone mockup inside */
+.portal-slide-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.portal-slide-wrapper.slide-active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Full-bleed background image behind the phone */
+.portal-slide-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Gradient scrims so the overlaid brand/caption stay legible over any
+   screenshot content behind them. */
+.portal-slider-top-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 16px 16px 80px;
+  background: linear-gradient(to bottom, rgba(9, 13, 22, 0.92) 0%, rgba(9, 13, 22, 0.6) 40%, rgba(9, 13, 22, 0) 100%);
+  pointer-events: none;
+  max-height: 35%;
+}
+
+.portal-slider-bottom-scrim {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 80px 16px 14px;
+  background: linear-gradient(to top, rgba(9, 13, 22, 0.96) 0%, rgba(9, 13, 22, 0.7) 50%, rgba(9, 13, 22, 0) 100%);
+  max-height: 35%;
+}
+.portal-slider-bottom-scrim .carousel-dot { pointer-events: auto; }
+
+/* Center the phone mockup on top of the background — z-index above bg, below scrims.
+   Scaled down from the base 200x375 mockup so it reads as a smaller floating
+   device against the full-bleed background, Hevy-style. */
+/* Sized to actually fit the gap between the brand text above and the caption
+   below (measured ~324px) without touching either — scale 1 (375px tall) was
+   too tall for that gap regardless of centering. */
+.phone-mockup-centered {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%) scale(0.68);
+}
+
+/* Phone screen content: show the whole screenshot un-cropped inside the
+   phone screen (contain, not cover) so nothing gets cut off or squished. */
+.phone-slide-content {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .portal-logo-area {
@@ -680,19 +804,23 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 0px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .portal-logo {
   width: 84px;
   height: 84px;
   object-fit: contain;
-  filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.55));
+  filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.45));
+  /* logo.png has built-in transparent padding around the mark itself, so a
+     plain 0 gap still reads as a big gap visually — pull the title up into it. */
+  margin-bottom: -24px;
 }
 
-.portal-brand-title {
-  font-size: 1.7rem;
+.onboarding-container h2.portal-brand-title {
+  font-size: 1.1rem;
   font-weight: 900;
   letter-spacing: 0.18em;
   color: #ffffff;
@@ -1073,7 +1201,7 @@
 
 /* Captions and indicators underneath the mockup */
 .carousel-caption-area {
-  margin-top: 2px;
+  margin-top: 0;
   width: 100%;
 }
 
@@ -1107,11 +1235,30 @@
   background: #3b82f6;
 }
 
-/* Right Panel containing selection/credentials forms */
+/* BOTTOM: selection/credentials forms — occupies the remaining 40% and
+   scrolls internally only if the form is taller than that, so the
+   page itself never scrolls. Height/flex transition mirrors the hero's so
+   expanding to full height (auth-form-active) eases in step with it instead
+   of snapping. */
 .portal-right-panel {
   width: 100%;
   max-width: 400px;
+  margin: 0 auto;
+  height: 40dvh;
+  flex: 0 0 40dvh;
+  min-height: 0;
+  overflow-y: auto;
   box-sizing: border-box;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  transition: flex-basis 0.35s ease, height 0.35s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.portal-right-panel::-webkit-scrollbar {
+  display: none;
 }
 
 /* Selection Cards Container */

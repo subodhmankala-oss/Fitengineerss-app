@@ -992,7 +992,7 @@ const Onboarding = ({ onComplete }) => {
   };
 
   return (
-    <div className="onboarding-container">
+    <div className={`onboarding-container${step === 0 && authTab !== 'coach_apply' && authTab !== 'client_signup' ? ' login-portal-mode' : ''}`}>
       {step > 0 && (
         <div className="onboarding-header">
           <img src="/logo.png" className="onboarding-logo" alt="Fitengineers Logo" />
@@ -1157,25 +1157,14 @@ const Onboarding = ({ onComplete }) => {
         return (
       <>
       {step === 0 && userType === 'coach' && authTab === 'coach_apply' && (
-        <div style={{ width: '100%', min_height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
-          <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
-            <button
-              onClick={() => {
-                // Abandoning the coach sign-up: clear the sticky flag, or the
-                // next visitor on this device (even a brand-new CLIENT) gets
-                // dumped straight back into this coach form at mount.
-                localStorage.removeItem('pendingCoachApply');
-                setAuthTab('login');
-              }}
-              style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginBottom: '20px', padding: '6px 10px', borderRadius: '6px', transition: 'all 0.3s ease' }}
-              onMouseEnter={(e) => { e.target.style.color = '#93c5fd'; e.target.style.background = 'rgba(59, 130, 246, 0.1)'; }}
-              onMouseLeave={(e) => { e.target.style.color = 'rgba(148, 163, 184, 0.8)'; e.target.style.background = 'none'; }}
-            >
-              ← Back to Login
-            </button>
-            
-            <h2 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '22px', fontWeight: 800 }}>Coach Sign Up</h2>
-            <p style={{ margin: '0 0 20px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '14px' }}>Create your coach account and start managing clients</p>
+        <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px 12px 12px', background: '#0a0e1a', boxSizing: 'border-box', overflowY: 'auto', zIndex: 20 }}>
+          <div className="animate-slide-in" style={{ background: '#0a0e1a', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '14px 20px 20px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+              <img src="/logo.png" alt="Fitengineers Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
+            </div>
+
+            <h2 style={{ margin: '0 0 4px 0', color: '#fff', fontSize: '20px', fontWeight: 800 }}>Coach Sign Up</h2>
+            <p style={{ margin: '0 0 12px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '13px' }}>Create your coach account and start managing clients</p>
 
             <form onSubmit={coachApplyHasSession ? handleCoachApplySubmitSession : handleCoachApplySubmitPassword} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {authError && <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#fecaca', fontSize: '0.78rem' }}>{authError}</div>}
@@ -1236,9 +1225,14 @@ const Onboarding = ({ onComplete }) => {
               </button>
             </form>
             
-            <button type="button" onClick={() => { localStorage.removeItem('pendingCoachApply'); setAuthTab('login'); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline', marginTop: '12px' }}>
-              Back to Coach Login
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+              <button type="button" onClick={() => { setShowAuthForm(false); setAuthTab('login'); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                ← Back to Login
+              </button>
+              <button type="button" onClick={() => { setShowAuthForm(false); setAuthTab('login'); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                Already a coach account? Log in
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1249,15 +1243,11 @@ const Onboarding = ({ onComplete }) => {
       {/* CLIENT SIGN UP — mirrors the coach sign-up screen's design; creates a
           real Auth account then routes into the onboarding wizard. */}
       {step === 0 && authTab === 'client_signup' && (
-        <div style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
-          <div style={{ background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
-            <button
-              type="button"
-              onClick={() => { setAuthTab('login'); setAuthError(''); setAuthSuccessMsg(''); }}
-              style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginBottom: '20px', padding: '6px 10px', borderRadius: '6px' }}
-            >
-              ← Back to Login
-            </button>
+        <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: '#0a0e1a', overflowY: 'auto', zIndex: 20 }}>
+          <div className="animate-slide-in" style={{ background: '#0a0e1a', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '20px', padding: '40px 32px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <img src="/logo.png" alt="Fitengineers Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
+            </div>
 
             <h2 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '22px', fontWeight: 800 }}>Create your account</h2>
             <p style={{ margin: '0 0 20px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '14px' }}>Sign up to start your fitness journey with Fitengineers.</p>
@@ -1285,132 +1275,86 @@ const Onboarding = ({ onComplete }) => {
               </button>
             </form>
 
-            <button type="button" onClick={() => { setAuthTab('login'); setAuthError(''); setAuthSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline', marginTop: '12px', width: '100%' }}>
-              Already have an account? Log in
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+              <button type="button" onClick={() => { setAuthTab('login'); setAuthError(''); setAuthSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                ← Back to Login
+              </button>
+              <button type="button" onClick={() => { setAuthTab('login'); setAuthError(''); setAuthSuccessMsg(''); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                Already have an account? Log in
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {step === 0 && authTab !== 'coach_apply' && authTab !== 'client_signup' && (
-        <div className={`onboarding-portal-wrapper ${showAuthForm ? 'auth-form-active' : ''}`}>
-          {/* Left/Center Side: Logo and Slide Mockup */}
+        <div className={`onboarding-portal-wrapper ${(showAuthForm || showClientEmailForm || showCoachEmailForm) ? 'auth-form-active' : ''}`}>
+          {/* TOP: Hevy-style slider with full-bleed background + centered phone mockup.
+              Each slide has a background image, a phone mockup, and the slide content
+              displayed IN the phone. Both background and phone animate together. */}
           <div className="portal-left-panel">
-            <div className="portal-logo-area">
-              <img src="/logo.png" className="portal-logo" alt="Fitengineers Logo" />
-              <h2 className="portal-brand-title">FITENGINEERS</h2>
-            </div>
-            
-            {/* CSS Phone Mockup */}
-            <div className="phone-mockup-wrapper">
-              <div className="phone-mockup">
-                <div className="phone-speaker"></div>
-                <div className="phone-screen">
-                  <div className="phone-status-bar">
-                    <span>9:41</span>
-                    <div className="phone-status-icons">📶 🔋</div>
-                  </div>
-                  <div className="phone-content-carousel">
-                    {/* Slide 0: Workouts */}
-                    <div className={`phone-slide ${activeSlide === 0 ? 'slide-active' : ''}`}>
-                      <div className="mini-app-header">🏋️ Log Workout</div>
-                      <div className="mini-app-body">
-                        <div className="mini-stats-row">
-                          <div><span>Duration</span><strong>45m</strong></div>
-                          <div><span>Volume</span><strong>4.2k kg</strong></div>
-                        </div>
-                        <div className="mini-exercise-card">
-                          <div className="mini-exercise-title">Incline Bench Press</div>
-                          <div className="mini-sets-list">
-                            <div className="mini-set-row checked">
-                              <span className="set-num">1</span>
-                              <span>30kg x 10</span>
-                              <span className="set-check">✓</span>
-                            </div>
-                            <div className="mini-set-row checked">
-                              <span className="set-num">2</span>
-                              <span>30kg x 10</span>
-                              <span className="set-check">✓</span>
-                            </div>
-                            <div className="mini-set-row">
-                              <span className="set-num">3</span>
-                              <span>35kg x 8</span>
-                              <span className="set-check-empty">○</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mini-btn-placeholder">+ Add Exercise</div>
-                      </div>
-                    </div>
-
-                    {/* Slide 1: Nutrition */}
-                    <div className={`phone-slide ${activeSlide === 1 ? 'slide-active' : ''}`}>
-                      <div className="mini-app-header">🥗 Nutrition & Macros</div>
-                      <div className="mini-app-body">
-                        <div className="mini-calories-progress">
-                          <div className="progress-ring-mini">
-                            <span className="progress-calories">1,850</span>
-                            <span className="progress-target">/ 2,200 kcal</span>
-                          </div>
-                        </div>
-                        <div className="mini-macros-row">
-                          <div className="macro-bar-wrap"><div className="macro-bar p-bar" style={{width: '85%'}}></div><span>Pro: 140g</span></div>
-                          <div className="macro-bar-wrap"><div className="macro-bar c-bar" style={{width: '75%'}}></div><span>Carb: 180g</span></div>
-                          <div className="macro-bar-wrap"><div className="macro-bar f-bar" style={{width: '90%'}}></div><span>Fat: 65g</span></div>
-                        </div>
-                        <div className="mini-meals-list">
-                          <div className="mini-meal-item">🥞 Breakfast: Oats & Whey</div>
-                          <div className="mini-meal-item">🍗 Lunch: Chicken & Salad</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Slide 2: Coaching */}
-                    <div className={`phone-slide ${activeSlide === 2 ? 'slide-active' : ''}`}>
-                      <div className="mini-app-header">🎯 Coach Portal</div>
-                      <div className="mini-app-body">
-                        <div className="mini-trainer-info">
-                          <strong>Fitengineers Coach</strong>
-                          <span>Active Clients: 14</span>
-                        </div>
-                        <div className="mini-client-card on-track">
-                          <div className="mini-client-header">
-                            <span className="client-avatar">👤</span>
-                            <div className="client-details">
-                              <strong>Subodh Mankala</strong>
-                              <span>Goal: Fat Loss</span>
-                            </div>
-                          </div>
-                          <div className="client-status-badge">ON TRACK</div>
-                        </div>
-                        <div className="mini-client-card active-workout">
-                          <div className="mini-client-header">
-                            <span className="client-avatar">👤</span>
-                            <div className="client-details">
-                              <strong>lilswaaggg</strong>
-                              <span>Workout Logged</span>
-                            </div>
-                          </div>
-                          <div className="client-status-badge blue">5m ago</div>
-                        </div>
-                      </div>
+            <div className="portal-slider">
+              {/* Slide 1 */}
+              <div className={`portal-slide-wrapper ${activeSlide === 0 ? 'slide-active' : ''}`}>
+                <img src="/background-1.png" alt="" className="portal-slide-bg" draggable="false" />
+                <div className="phone-mockup-centered">
+                  <div className="phone-mockup">
+                    <div className="phone-speaker"></div>
+                    <div className="phone-screen">
+                      <img src="/slide-1.png" alt="Coach dashboard" className="phone-slide-content" draggable="false" />
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Carousel Caption Text */}
-            <div className="carousel-caption-area">
-              <p className="carousel-text">
-                {activeSlide === 0 && "Log your workouts easily, all in one place."}
-                {activeSlide === 1 && "Eat smart with personalized nutrition & macro targets."}
-                {activeSlide === 2 && "Coaches: Manage programs & track client progress."}
-              </p>
-              <div className="carousel-dots">
-                <span className={`carousel-dot ${activeSlide === 0 ? 'active' : ''}`} onClick={() => setActiveSlide(0)}></span>
-                <span className={`carousel-dot ${activeSlide === 1 ? 'active' : ''}`} onClick={() => setActiveSlide(1)}></span>
-                <span className={`carousel-dot ${activeSlide === 2 ? 'active' : ''}`} onClick={() => setActiveSlide(2)}></span>
+              {/* Slide 2 */}
+              <div className={`portal-slide-wrapper ${activeSlide === 1 ? 'slide-active' : ''}`}>
+                <img src="/background-2.png" alt="" className="portal-slide-bg" draggable="false" />
+                <div className="phone-mockup-centered">
+                  <div className="phone-mockup">
+                    <div className="phone-speaker"></div>
+                    <div className="phone-screen">
+                      <img src="/slide-2.png" alt="Client home" className="phone-slide-content" draggable="false" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Slide 3 */}
+              <div className={`portal-slide-wrapper ${activeSlide === 2 ? 'slide-active' : ''}`}>
+                <img src="/background-3.png" alt="" className="portal-slide-bg" draggable="false" />
+                <div className="phone-mockup-centered">
+                  <div className="phone-mockup">
+                    <div className="phone-speaker"></div>
+                    <div className="phone-screen">
+                      <img src="/slide-3.png" alt="Workout log" className="phone-slide-content" draggable="false" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Brand overlaid at the top over a dark scrim */}
+              <div className="portal-slider-top-scrim">
+                <div className="portal-logo-area">
+                  <img src="/logo.png" className="portal-logo" alt="Fitengineers Logo" />
+                  <h2 className="portal-brand-title">FITENGINEERS</h2>
+                </div>
+              </div>
+
+              {/* Caption + dots overlaid at the bottom over a dark scrim */}
+              <div className="portal-slider-bottom-scrim">
+                <div className="carousel-caption-area">
+                  <p className="carousel-text">
+                    {activeSlide === 0 && "Coaches: manage clients & programs in one place."}
+                    {activeSlide === 1 && "Clients: track your program and weekly progress."}
+                    {activeSlide === 2 && "Log every set with a live timer & calorie tracking."}
+                  </p>
+                  <div className="carousel-dots">
+                    <span className={`carousel-dot ${activeSlide === 0 ? 'active' : ''}`} onClick={() => setActiveSlide(0)}></span>
+                    <span className={`carousel-dot ${activeSlide === 1 ? 'active' : ''}`} onClick={() => setActiveSlide(1)}></span>
+                    <span className={`carousel-dot ${activeSlide === 2 ? 'active' : ''}`} onClick={() => setActiveSlide(2)}></span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

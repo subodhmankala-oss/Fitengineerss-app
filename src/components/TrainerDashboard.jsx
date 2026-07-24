@@ -43,7 +43,23 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [pushSubscribed, setPushSubscribed] = useState(false);
 
   useEffect(() => {
-    hasActivePushSubscription().then(setPushSubscribed);
+    hasActivePushSubscription().then(subscribed => {
+      setPushSubscribed(subscribed);
+      // The OS/browser can silently drop a push subscription in the
+      // background (iOS PWAs are especially aggressive about this after
+      // periods of inactivity) — Notification permission stays 'granted' but
+      // the underlying subscription is gone, so pushes just silently stop
+      // with nothing visible to the coach. Mirrors the client app's own
+      // self-healing re-subscribe (see App.jsx's notificationPermission
+      // effect): if permission is already granted, resubscribing needs no
+      // prompt (requestPermission resolves instantly with no dialog), so do
+      // it transparently here too instead of waiting for the coach to notice
+      // notifications stopped and manually re-toggle them.
+      if (!subscribed && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const coachName = localStorage.getItem('userName');
+        subscribeToPush(coachName).then(() => setPushSubscribed(true));
+      }
+    });
   }, []);
 
   const notifOn = notifPermission === 'granted' && pushSubscribed;
@@ -511,8 +527,13 @@ const TrainerDashboard = ({ handleLogout }) => {
     triggerLiveToast('🗑️ Live session discarded.');
   };
 
+  // Latest logged weight (clientMeasurements, freshest) beats the cached
+  // clients.weight_kg snapshot on selectedClient.userWeight — see the
+  // matching comment on the Weight (kg) stat tile above.
+  const resolvedClientWeightKg = parseFloat(clientMeasurements[0]?.measurements?.weight) || parseFloat(selectedClient?.userWeight) || DEFAULT_BODY_WEIGHT_KG;
+
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
-  const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, parseFloat(selectedClient?.userWeight) || DEFAULT_BODY_WEIGHT_KG);
+  const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg);
 
   // Debounce-push the Live Log session to workout_drafts once there's
   // actually something worth resuming (a set ticked, or the timer running/
@@ -691,7 +712,7 @@ const TrainerDashboard = ({ handleLogout }) => {
         // the live bar above was already showing the coach. Cardio calories
         // scale with the CLIENT's bodyweight, not the coach's own.
         durationSeconds: liveTimerStartedAt ? computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals) : null,
-        caloriesBurned: liveTimerStartedAt ? computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, parseFloat(selectedClient.userWeight) || DEFAULT_BODY_WEIGHT_KG).totalKcal : null
+        caloriesBurned: liveTimerStartedAt ? computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg).totalKcal : null
       };
 
       await databaseService.saveWorkoutSession(session);
@@ -1034,6 +1055,14 @@ const TrainerDashboard = ({ handleLogout }) => {
     setHistoryTimeframe('weekly');
     setHistoryDateStr(getLocalDateString());
     databaseService.getLatestCoachNoteSentAt(client.id).then(setLastCoachNoteSentAt);
+    // Fetch measurement history up front (not just when the Measurements tab
+    // is opened) — the "Weight (kg)" stat tile above the tabs needs the
+    // client's latest logged weight to not go stale the moment they log it
+    // via Measurements instead of the top-level profile edit (the only other
+    // path that updates clients.weight_kg, which this tile used to read
+    // exclusively).
+    setClientMeasurements([]);
+    databaseService.getBodyMeasurements(client.id).then(setClientMeasurements);
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
     // A running clock from the previous client must never carry over —
     // otherwise their elapsed time/calories would land on this client's save.
@@ -2505,7 +2534,13 @@ const TrainerDashboard = ({ handleLogout }) => {
                 </div>
                 <div className="metric-mini-card">
                   <div className="metric-mini-label">Weight (kg)</div>
-                  <div className="metric-mini-value">{selectedClient.userWeight || '--'}</div>
+                  {/* Prefer the latest logged measurement (clientMeasurements is
+                      fetched fresh in handleSelectClient) over the cached
+                      clients.weight_kg snapshot on selectedClient.userWeight —
+                      the client logging a new weight via Measurements never
+                      used to update that column, so this tile would go stale
+                      the moment they did. */}
+                  <div className="metric-mini-value">{clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight || '--'}</div>
                 </div>
                 <div className="metric-mini-card">
                   <div className="metric-mini-label">Calories</div>

@@ -710,15 +710,16 @@ const WorkoutTracker = () => {
     const loadOwnDbLogs = async (attemptsLeft = 4) => {
       const ownKey = await databaseService.resolveUserId();
       if (!ownKey) {
-        if (attemptsLeft <= 0) return [];
+        if (attemptsLeft <= 0) return { ownKey: null, logs: [] };
         await new Promise(r => setTimeout(r, 3000));
         return loadOwnDbLogs(attemptsLeft - 1);
       }
-      return databaseService.getWorkoutLogsForUser(ownKey);
+      return { ownKey, logs: await databaseService.getWorkoutLogsForUser(ownKey) };
     };
-    loadOwnDbLogs().then(logs => {
+    loadOwnDbLogs().then(({ ownKey, logs }) => {
       const rows = logs || [];
       setDbCompletedSessions(new Set(rows.map(l => l.log_date)).size);
+      const dbDates = new Set(rows.map(l => l.log_date));
 
       if (rows.length > 0) {
         // Group flat log rows into one session per date → { exercises:[{name,sets}] }
@@ -750,11 +751,33 @@ const WorkoutTracker = () => {
           exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
         }));
         // DB is authoritative per date; keep any local-only (unsynced) dates too.
-        const dbDates = new Set(dbSessions.map(s => s.date));
         const localOnly = allSessions.filter(s => !dbDates.has(s.date));
         const merged = [...localOnly, ...dbSessions].sort((a, b) => new Date(a.date) - new Date(b.date));
         setSessions(merged);
         setSelectedSessionIndex(merged.length - 1);
+      }
+
+      // Self-healing resync: a self-logged local session for THIS device's own
+      // account that never reached workout_logs (the exact silent failure
+      // mode saveWorkoutSession had before it could resolve a deterministic
+      // clientId — see newSession in handleConfirmSaveWorkout). Retried here,
+      // quietly, with that same clientId now supplied, so it lands instead of
+      // repeating whatever ambiguous lookup likely caused it to go missing.
+      // Scoped tightly: only this user's own sessions (never a stray
+      // other-client entry from legacy local multi-client storage), never a
+      // coach-logged one, only dates truly absent from the DB, and only ones
+      // that actually have set data to save.
+      if (ownKey) {
+        allSessions
+          .filter(s =>
+            s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === loggedInKey &&
+            s.source !== 'coach' &&
+            !dbDates.has(s.date) &&
+            (s.exercises || []).some(ex => (ex.sets || []).length > 0)
+          )
+          .forEach(s => {
+            databaseService.saveWorkoutSession({ ...s, clientId: ownKey }).catch(() => {});
+          });
       }
     }).catch(() => {});
 

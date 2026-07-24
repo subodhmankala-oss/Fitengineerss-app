@@ -833,3 +833,17 @@
   opacity: 0.45;
   cursor: default;
 }
+
+/* Finished-workout slider on the coach home screen: each slide change
+   remounts the card (keyed by clientId|date), so these just animate that
+   mount — sliding in from the side matching the arrow/dot that was pressed. */
+@keyframes awaitingSlideInNext {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes awaitingSlideInPrev {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.awaiting-slide-next { animation: awaitingSlideInNext 0.25s ease; }
+.awaiting-slide-prev { animation: awaitingSlideInPrev 0.25s ease; }

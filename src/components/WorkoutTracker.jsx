@@ -1477,7 +1477,19 @@ const WorkoutTracker = () => {
       durationSeconds: finalDurationSeconds,
       caloriesBurned: finalCalories,
       planName: templateName.trim() || 'Custom Routine',
-      source: workoutSource // 'self' for client self-logged, 'coach' for coach-assigned plans
+      source: workoutSource, // 'self' for client self-logged, 'coach' for coach-assigned plans
+      // Deterministic id for saveWorkoutSession's UUID fast path — self-logged
+      // only, since ownUserId is THIS device's own account (not necessarily
+      // whichever client name a coach might be manually logging under in
+      // trainer mode). Without this, saveWorkoutSession falls back to an
+      // ambiguous email/name lookup that can silently match nobody and write
+      // zero rows to workout_logs — even though the "workout finished" push
+      // to the coach still fires regardless, since that's a separate,
+      // DB-independent call. Confirmed 2026-07-24: a client's completed
+      // session never reached workout_logs, so it never showed up as a
+      // "finished a workout" card on the coach's home screen, despite the
+      // push notification arriving.
+      ...(workoutSource !== 'coach' && ownUserId ? { clientId: ownUserId } : {})
     };
 
     const updated = [...sessions, newSession];

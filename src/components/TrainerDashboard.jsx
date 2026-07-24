@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
-import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
 import './WorkoutTracker.css';
+// Weekly/Daily/Monthly chart + card styling — shared with the client's own
+// WorkoutProgressDashboard so the coach's per-client Workout History tab is
+// visually identical (same chart widgets, session cards, heatmap).
+import './WorkoutProgressDashboard.css';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
@@ -13,20 +17,6 @@ import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
 
-
-// Filters Workout Summary rows to a timeframe by their local YYYY-MM-DD date
-// (lexicographically comparable): daily = today only, weekly = last 7 days,
-// monthly = last 30 days. Rows are already sorted newest-first upstream.
-const filterSummaryByTimeframe = (rows, timeframe) => {
-  const today = getLocalDateString(new Date());
-  const daysAgo = (n) => {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
-    return getLocalDateString(d);
-  };
-  const from = timeframe === 'daily' ? today : timeframe === 'monthly' ? daysAgo(29) : daysAgo(6);
-  return (rows || []).filter((r) => r.date >= from && r.date <= today);
-};
 
 const TrainerDashboard = ({ handleLogout }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
@@ -352,6 +342,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Workout History tab timeframe filter: 'weekly' (last 7 days), 'daily'
   // (today), or 'monthly' (last 30 days) — same control as Workout Summary.
   const [historyTimeframe, setHistoryTimeframe] = useState('weekly');
+  // Selected date for the Daily view / calendar heatmap clicks — mirrors the
+  // client's own WorkoutProgressDashboard selectedDateStr.
+  const [historyDateStr, setHistoryDateStr] = useState(() => getLocalDateString());
 
   // Selected client's body-measurement history (read-only for the coach) —
   // loaded when the Measurements tab is opened.
@@ -1038,6 +1031,8 @@ const TrainerDashboard = ({ handleLogout }) => {
     setCoachNoteSentMsg('');
     setCoachNoteJustSent(false);
     setLastCoachNoteSentAt(null);
+    setHistoryTimeframe('weekly');
+    setHistoryDateStr(getLocalDateString());
     databaseService.getLatestCoachNoteSentAt(client.id).then(setLastCoachNoteSentAt);
     setTotalSessionsInput(client.total_sessions != null ? String(client.total_sessions) : '');
     // A running clock from the previous client must never carry over —
@@ -2780,117 +2775,471 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <div className="trainer-spinner"></div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading workout history logs...</p>
                     </div>
-                  ) : (() => {
-                    const filteredLogs = filterSummaryByTimeframe(workoutLogs, historyTimeframe);
-                    const tfLabel = historyTimeframe === 'daily' ? 'today' : historyTimeframe === 'monthly' ? 'the last 30 days' : 'the last 7 days';
-                    return workoutLogs.length === 0 ? (
+                  ) : workoutLogs.length === 0 ? (
                     <div className="trainer-empty-state">
                       <div className="trainer-empty-icon">🏋️‍♂️</div>
                       <h5>No Workouts Logged</h5>
                       <p>This client has not logged or synchronized any workout sessions to the database yet.</p>
                     </div>
-                  ) : filteredLogs.length === 0 ? (
-                    <div className="trainer-empty-state">
-                      <div className="trainer-empty-icon">🏋️‍♂️</div>
-                      <h5>No Workouts for {tfLabel}</h5>
-                      <p>No sessions logged in {tfLabel}. Try a wider timeframe above.</p>
-                    </div>
-                  ) : (
-                    <div className="workout-sessions-list">
-                      {filteredLogs.map((session, sIdx) => (
-                        <div key={sIdx} className="session-block">
-                          <div className="session-date-header">
-                            <span className="session-date-icon">📅</span>
-                            <div className="session-heading-text">
-                              <span className="session-plan-name">{session.planName || 'Custom Routine'}</span>
-                              <span className="session-date-sub">
-                                {parseLocalDateString(session.date).toLocaleDateString('en-US', {
-                                  weekday: 'long',
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
+                  ) : (() => {
+                    // Mirrors the client's own WorkoutProgressDashboard: workoutLogs
+                    // here is already grouped one entry per date (see groupLogs
+                    // above), so this only needs to add the volume/sets totals
+                    // each session is missing, then reshapes into a date lookup.
+                    const groupedByDate = {};
+                    workoutLogs.forEach(s => {
+                      const volume = s.exercises.reduce((sum, ex) => sum + ex.sets.reduce((ss, st) => ss + (parseFloat(st.weight) || 0) * (parseInt(st.reps) || 0), 0), 0);
+                      const sets = s.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+                      groupedByDate[s.date] = { ...s, volume, sets };
+                    });
+
+                    // Monday-start current week, matching the client dashboard.
+                    const getStartOfWeek = (d) => {
+                      const date = new Date(d);
+                      const day = date.getDay();
+                      const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                      const start = new Date(date.setDate(diff));
+                      start.setHours(0, 0, 0, 0);
+                      return start;
+                    };
+                    const weekDays = (() => {
+                      const start = getStartOfWeek(new Date());
+                      const days = [];
+                      for (let i = 0; i < 7; i++) {
+                        const cur = new Date(start);
+                        cur.setDate(start.getDate() + i);
+                        days.push(getLocalDateString(cur));
+                      }
+                      return days;
+                    })();
+
+                    // Weekly aggregation
+                    const dailySets = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+                    let weekWorkoutsCount = 0, weekCaloriesRaw = 0;
+                    weekDays.forEach(day => {
+                      const s = groupedByDate[day];
+                      if (s) {
+                        weekWorkoutsCount += 1;
+                        weekCaloriesRaw += s.caloriesBurned || 0;
+                        dailySets[parseLocalDateString(day).toLocaleDateString('en-US', { weekday: 'short' })] = s.sets;
+                      }
+                    });
+                    const weeklyTotalCalories = Math.round(weekCaloriesRaw * 10) / 10;
+
+                    // Monthly aggregation (last 30 days)
+                    const dailyVolumeHistory = [];
+                    const activeDates = new Set();
+                    let monthVolume = 0, monthSets = 0, monthWorkouts = 0, monthCaloriesRaw = 0;
+                    for (let i = 29; i >= 0; i--) {
+                      const d = new Date();
+                      d.setDate(d.getDate() - i);
+                      const dateStr = getLocalDateString(d);
+                      const s = groupedByDate[dateStr];
+                      if (s) {
+                        monthVolume += s.volume;
+                        monthSets += s.sets;
+                        monthWorkouts += 1;
+                        monthCaloriesRaw += s.caloriesBurned || 0;
+                        activeDates.add(dateStr);
+                      }
+                      dailyVolumeHistory.push({ date: dateStr, dayNum: d.getDate(), volume: s ? s.volume : 0 });
+                    }
+                    const monthlyTotalCalories = Math.round(monthCaloriesRaw * 10) / 10;
+                    const totalSessionsDone = workoutLogs.length;
+
+                    const daySession = groupedByDate[historyDateStr] || null;
+
+                    // Reusable session summary card (badges + exercise chips) —
+                    // clicking jumps straight to that day's Daily view, same as
+                    // the client dashboard.
+                    const renderSessionCard = (dateKey, session, { highlightToday } = {}) => {
+                      const dateLabel = parseLocalDateString(dateKey).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      const today = highlightToday && isLocalToday(dateKey);
+                      return (
+                        <div
+                          key={dateKey}
+                          onClick={() => { setHistoryDateStr(dateKey); setHistoryTimeframe('daily'); }}
+                          style={{
+                            background: 'rgba(0,0,0,0.15)',
+                            border: today ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: today ? 'var(--primary-accent-light)' : '#fff' }}>
+                                📅 {dateLabel}{today ? ' · Today' : ''}
+                              </div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
+                                📋 {session.planName || 'Custom Routine'}
                               </span>
-                              {(session.durationSeconds != null || session.caloriesBurned != null) && (
-                                <span className="session-metrics-sub">
-                                  {session.durationSeconds != null && `⏱ ${formatDuration(session.durationSeconds)}`}
-                                  {session.durationSeconds != null && session.caloriesBurned != null && '  •  '}
-                                  {session.caloriesBurned != null && `🔥 ${session.caloriesBurned} kcal`}
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                {session.sets} sets
+                              </span>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                {session.volume.toLocaleString('en-IN')} kg
+                              </span>
+                              {session.caloriesBurned != null && (
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                  🔥 {session.caloriesBurned} kcal
+                                </span>
+                              )}
+                              {session.durationSeconds != null && (
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                  ⏱ {formatDuration(session.durationSeconds)}
                                 </span>
                               )}
                             </div>
                           </div>
-
-                          <div className="session-exercises-list">
-                            {session.exercises.map((exercise, eIdx) => {
-                              const exIsTimedHist = isTimedExercise(exercise.name);
-                              const exIsCardioHist = isCardioExercise(exercise.name);
-                              return (
-                              <div key={eIdx} className="exercise-log-card">
-                                <div className="exercise-log-name">{exercise.name}</div>
-
-                                <table className="sets-table">
-                                  <thead>
-                                    <tr>
-                                      <th style={{ width: '25%' }}>Set</th>
-                                      {exIsTimedHist ? (
-                                        <th style={{ width: '75%' }}>Time</th>
-                                      ) : exIsCardioHist ? (
-                                        <>
-                                          <th style={{ width: '40%' }}>Km</th>
-                                          <th style={{ width: '35%' }}>Time</th>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <th style={{ width: '40%' }}>Weight</th>
-                                          <th style={{ width: '35%' }}>Reps</th>
-                                        </>
-                                      )}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {exercise.sets.map((set, setIdx) => {
-                                      // Sequential number among normal working sets only —
-                                      // matches the Live Log / Plan editor's badge logic.
-                                      const workingNum = exercise.sets.slice(0, setIdx + 1)
-                                        .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
-                                      const visual = getSetTypeVisual(set, workingNum);
-                                      return (
-                                        <tr key={setIdx}>
-                                          <td>
-                                            <span
-                                              className="set-num-badge"
-                                              style={visual.color ? { color: visual.color, borderColor: `${visual.color}55`, background: `${visual.color}22` } : undefined}
-                                            >
-                                              {visual.label}
-                                            </span>
-                                          </td>
-                                          {exIsTimedHist ? (
-                                            <td>{set.time || '00:00'}</td>
-                                          ) : exIsCardioHist ? (
-                                            <>
-                                              <td>{set.distanceKm} km</td>
-                                              <td>{set.time || '00:00'}</td>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <td>{set.weight} kg</td>
-                                              <td>{set.reps} reps</td>
-                                            </>
-                                          )}
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                              );
-                            })}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            {session.exercises.map((ex, exIdx) => (
+                              <span key={exIdx} style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
+                                {ex.name} · {ex.sets.length}s
+                              </span>
+                            ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  );
+                      );
+                    };
+
+                    const renderWeeklyBarChart = () => {
+                      const keys = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                      const values = keys.map(k => dailySets[k]);
+                      const maxVal = Math.max(...values, 5);
+                      const height = 120, width = 320, barWidth = 24, gap = 16, paddingLeft = 25;
+                      return (
+                        <svg viewBox={`0 0 ${width} ${height}`} className="weekly-bar-chart-svg">
+                          <line x1="20" y1="20" x2={width} y2="20" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="20" y1="60" x2={width} y2="60" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="20" y1="100" x2={width} y2="100" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+                          {keys.map((day, idx) => {
+                            const val = dailySets[day];
+                            const barHeight = (val / maxVal) * 80;
+                            const x = paddingLeft + idx * (barWidth + gap);
+                            const y = 100 - barHeight;
+                            return (
+                              <g key={day} className="bar-group">
+                                {val > 0 && (
+                                  <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill="url(#coachEmeraldGradient)" opacity="0.15" style={{ filter: 'blur(4px)' }} />
+                                )}
+                                <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill={val > 0 ? 'url(#coachEmeraldGradient)' : 'rgba(255,255,255,0.03)'} className="chart-bar" />
+                                {val > 0 && (
+                                  <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="var(--primary-accent-light)" fontSize="9" fontWeight="800">{val}</text>
+                                )}
+                                <text x={x + barWidth / 2} y="115" textAnchor="middle" fill={val > 0 ? '#fff' : 'var(--text-muted)'} fontSize="9" fontWeight="600">{day}</text>
+                              </g>
+                            );
+                          })}
+                          <defs>
+                            <linearGradient id="coachEmeraldGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10b981" />
+                              <stop offset="100%" stopColor="#059669" />
+                            </linearGradient>
+                          </defs>
+                        </svg>
+                      );
+                    };
+
+                    const renderMonthlyLineChart = () => {
+                      const history = dailyVolumeHistory;
+                      const values = history.map(h => h.volume);
+                      const maxVal = Math.max(...values, 100);
+                      const width = 320, height = 120, padding = 20;
+                      const chartWidth = width - padding * 2, chartHeight = height - padding * 2;
+                      const getX = (idx) => padding + (idx / 29) * chartWidth;
+                      const getY = (val) => padding + chartHeight - (val / maxVal) * chartHeight;
+                      let pathD = '', areaD = `M ${getX(0)} ${padding + chartHeight}`;
+                      history.forEach((h, idx) => {
+                        const x = getX(idx), y = getY(h.volume);
+                        pathD += idx === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+                        areaD += ` L ${x} ${y}`;
+                      });
+                      areaD += ` L ${getX(29)} ${padding + chartHeight} Z`;
+                      const activeNodes = history.filter(h => h.volume > 0);
+                      return (
+                        <svg viewBox={`0 0 ${width} ${height}`} className="monthly-chart-svg">
+                          <defs>
+                            <linearGradient id="coachAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
+                              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
+                          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
+                          <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
+                          <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+                          {values.some(v => v > 0) && <path d={areaD} fill="url(#coachAreaGradient)" />}
+                          {values.some(v => v > 0) ? (
+                            <path d={pathD} fill="none" stroke="var(--primary-accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          ) : (
+                            <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
+                          )}
+                          {activeNodes.map((node) => {
+                            const origIdx = history.findIndex(h => h.date === node.date);
+                            return <circle key={node.date} cx={getX(origIdx)} cy={getY(node.volume)} r="4" fill="var(--primary-accent-light)" stroke="var(--bg-card)" strokeWidth="1" />;
+                          })}
+                        </svg>
+                      );
+                    };
+
+                    const renderCalendarHeatmap = () => {
+                      const cells = [];
+                      for (let i = 29; i >= 0; i--) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - i);
+                        const dateStr = getLocalDateString(d);
+                        const isActive = activeDates.has(dateStr);
+                        const isSelected = dateStr === historyDateStr;
+                        cells.push(
+                          <div
+                            key={dateStr}
+                            className={`heatmap-cell ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+                            onClick={() => { setHistoryDateStr(dateStr); setHistoryTimeframe('daily'); }}
+                            title={`${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${isActive ? 'Workout logged 🏋️‍♂️' : 'Rest day ☕'}`}
+                          >
+                            <span className="cell-num">{d.getDate()}</span>
+                            {isActive && <span className="cell-dot">●</span>}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="heatmap-grid-wrapper">
+                          <h4 className="heatmap-title">📅 30-Day Workout Frequency</h4>
+                          <div className="heatmap-grid">{cells}</div>
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <>
+                        {historyTimeframe === 'weekly' && (
+                          <div className="timeframe-content flex-col gap-4">
+                            <div className="chart-widget-card glass-panel">
+                              <div className="widget-header justify-between">
+                                <h4>📊 Sets Completed per Weekday</h4>
+                                <span className="trend-badge">Mon - Sun</span>
+                              </div>
+                              <div className="chart-wrapper">{renderWeeklyBarChart()}</div>
+                            </div>
+
+                            <div className="chart-widget-card glass-panel">
+                              <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
+                                <h4>🗂️ This Week's Sessions</h4>
+                                <span className="trend-badge">
+                                  {weekWorkoutsCount} days active{weeklyTotalCalories > 0 ? ` · 🔥 ${weeklyTotalCalories} kcal` : ''}
+                                </span>
+                              </div>
+                              {weekWorkoutsCount === 0 ? (
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '16px 0' }}>
+                                  No workouts logged this week yet.
+                                </p>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {weekDays.filter(day => groupedByDate[day]).map(day => renderSessionCard(day, groupedByDate[day], { highlightToday: true }))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {historyTimeframe === 'daily' && (
+                          <div className="timeframe-content flex-col gap-4">
+                            <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <button
+                                onClick={() => setHistoryDateStr(shiftLocalDateString(historyDateStr, -1))}
+                                style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                              >
+                                ‹
+                              </button>
+                              <input
+                                type="date"
+                                value={historyDateStr}
+                                onChange={(e) => setHistoryDateStr(e.target.value)}
+                                className="progress-date-input"
+                                style={{ flex: 1 }}
+                              />
+                              <button
+                                onClick={() => {
+                                  const next = shiftLocalDateString(historyDateStr, 1);
+                                  if (next <= getLocalDateString()) setHistoryDateStr(next);
+                                }}
+                                style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                              >
+                                ›
+                              </button>
+                            </div>
+
+                            <div className="day-stats-overview glass-panel">
+                              <div className="overview-header justify-between">
+                                <div>
+                                  <h3>
+                                    {daySession?.planName
+                                      || (isLocalToday(historyDateStr) ? "Today's Progress" : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                                  </h3>
+                                  {daySession?.planName && (
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                                      {isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="active-badge">{daySession ? '🏋️‍♂️ Workout Done' : '☕ Rest Day'}</span>
+                              </div>
+                              <div className="stats-row-cards mini mt-2">
+                                <div className="stat-card inline">
+                                  <span className="lbl">Volume:</span>
+                                  <strong className="val text-emerald">{(daySession?.volume || 0).toLocaleString('en-IN')} kg</strong>
+                                </div>
+                                <div className="stat-card inline">
+                                  <span className="lbl">Sets:</span>
+                                  <strong className="val text-blue">{daySession?.sets || 0} sets</strong>
+                                </div>
+                                <div className="stat-card inline">
+                                  <span className="lbl">Exercises:</span>
+                                  <strong className="val" style={{ color: '#a78bfa' }}>{daySession?.exercises.length || 0}</strong>
+                                </div>
+                                {daySession?.caloriesBurned != null && (
+                                  <div className="stat-card inline">
+                                    <span className="lbl">🔥 Calories:</span>
+                                    <strong className="val" style={{ color: '#fbbf24' }}>{daySession.caloriesBurned} kcal</strong>
+                                  </div>
+                                )}
+                                {daySession?.durationSeconds != null && (
+                                  <div className="stat-card inline">
+                                    <span className="lbl">⏱ Time:</span>
+                                    <strong className="val" style={{ color: '#e5e7eb' }}>{formatDuration(daySession.durationSeconds)}</strong>
+                                  </div>
+                                )}
+                              </div>
+
+                              {daySession && daySession.exercises.length > 0 ? (
+                                <div className="daily-exercises-list mt-3">
+                                  <h4 className="section-subtitle">Exercise Sets Logged</h4>
+                                  <div className="ex-list-wrapper mt-2">
+                                    {daySession.exercises.map((exercise, eIdx) => {
+                                      const exIsTimedHist = isTimedExercise(exercise.name);
+                                      const exIsCardioHist = isCardioExercise(exercise.name);
+                                      return (
+                                        <div key={eIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
+                                          <div className="ex-title" style={{ marginBottom: '6px' }}>{exercise.name}</div>
+                                          <table className="sets-table">
+                                            <thead>
+                                              <tr>
+                                                <th style={{ width: '25%' }}>Set</th>
+                                                {exIsTimedHist ? (
+                                                  <th style={{ width: '75%' }}>Time</th>
+                                                ) : exIsCardioHist ? (
+                                                  <>
+                                                    <th style={{ width: '40%' }}>Km</th>
+                                                    <th style={{ width: '35%' }}>Time</th>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <th style={{ width: '40%' }}>Weight</th>
+                                                    <th style={{ width: '35%' }}>Reps</th>
+                                                  </>
+                                                )}
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {exercise.sets.map((set, setIdx) => {
+                                                const workingNum = exercise.sets.slice(0, setIdx + 1)
+                                                  .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                                const visual = getSetTypeVisual(set, workingNum);
+                                                return (
+                                                  <tr key={setIdx}>
+                                                    <td>
+                                                      <span
+                                                        className="set-num-badge"
+                                                        style={visual.color ? { color: visual.color, borderColor: `${visual.color}55`, background: `${visual.color}22` } : undefined}
+                                                      >
+                                                        {visual.label}
+                                                      </span>
+                                                    </td>
+                                                    {exIsTimedHist ? (
+                                                      <td>{set.time || '00:00'}</td>
+                                                    ) : exIsCardioHist ? (
+                                                      <>
+                                                        <td>{set.distanceKm} km</td>
+                                                        <td>{set.time || '00:00'}</td>
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <td>{set.weight} kg</td>
+                                                        <td>{set.reps} reps</td>
+                                                      </>
+                                                    )}
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="no-daily-workouts mt-3">
+                                  <p>No workout session found on this date.<br />Use ‹ › to navigate days, or switch to Monthly view to click on an active day.</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {historyTimeframe === 'monthly' && (
+                          <div className="timeframe-content flex-col gap-4">
+                            <div className="stats-row-cards">
+                              <div className="stat-card glass-panel">
+                                <span className="card-label">Monthly Volume</span>
+                                <strong className="card-value text-emerald">{monthVolume.toLocaleString('en-IN')} <span className="value-unit">kg</span></strong>
+                                <p className="card-sub">Last 30 days</p>
+                              </div>
+                              <div className="stat-card glass-panel">
+                                <span className="card-label">Monthly Sets</span>
+                                <strong className="card-value text-blue">{monthSets} <span className="value-unit">sets</span></strong>
+                                <p className="card-sub">Last 30 days</p>
+                              </div>
+                              <div className="stat-card glass-panel">
+                                <span className="card-label">Completed</span>
+                                <strong className="card-value text-amber">{monthWorkouts} <span className="value-unit">workouts</span></strong>
+                                <p className="card-sub">Last 30 days</p>
+                              </div>
+                              <div className="stat-card glass-panel">
+                                <span className="card-label">🔥 Calories</span>
+                                <strong className="card-value" style={{ color: '#fbbf24' }}>{monthlyTotalCalories.toLocaleString('en-IN')} <span className="value-unit">kcal</span></strong>
+                                <p className="card-sub">Last 30 days</p>
+                              </div>
+                            </div>
+
+                            <div className="heatmap-widget-card glass-panel">
+                              {renderCalendarHeatmap()}
+                            </div>
+
+                            <div className="chart-widget-card glass-panel">
+                              <div className="widget-header justify-between">
+                                <h4>📈 Monthly Volume Overload Trend</h4>
+                                <span className="trend-badge">Progression</span>
+                              </div>
+                              <div className="chart-wrapper">{renderMonthlyLineChart()}</div>
+                            </div>
+
+                            <div className="chart-widget-card glass-panel">
+                              <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
+                                <h4>📋 Full Workout History</h4>
+                                <span className="trend-badge">{totalSessionsDone} sessions</span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {workoutLogs.map(s => renderSessionCard(s.date, groupedByDate[s.date]))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
                   })()}
                 </div>
               )}

@@ -2123,6 +2123,24 @@ const databaseService = {
     }
     try {
       const data = await restInsert('body_measurements', { user_id: userId, measurements: measurements || {} });
+
+      // Keep clients.weight_kg in sync with the client's latest logged
+      // weight. body_measurements is history-only (insert-only, never
+      // touches clients) — but clients.weight_kg is what the coach's
+      // Manage Client "Weight (kg)" stat tile reads (via userWeight, see
+      // getAllUsers()) and what Live Log calorie math falls back to for
+      // this client. Without this, logging weight here (the normal,
+      // recurring way clients update it) silently never reaches either,
+      // even though the top-level profile edit's weight field does.
+      const weightVal = parseFloat(measurements?.weight);
+      if (Number.isFinite(weightVal) && supabase) {
+        const { error: weightSyncError } = await supabase
+          .from('clients')
+          .update({ weight_kg: weightVal })
+          .eq('user_id', userId);
+        if (weightSyncError) console.warn('Could not sync weight_kg onto clients row:', weightSyncError);
+      }
+
       return {
         success: true,
         entry: { id: data.id, userId: data.user_id, measurements: data.measurements || {}, measuredAt: data.measured_at }

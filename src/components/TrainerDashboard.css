@@ -111,11 +111,22 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-.filter-tags {
+.filter-tags,
+.admin-category-pills {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
+  /* Horizontally scrollable chip row — keep the swipe/drag-to-scroll but hide
+     the raw OS scrollbar, which otherwise renders as a thick gray bar that
+     visually "bleeds" past the card edges and clashes with the dark UI. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.filter-tags::-webkit-scrollbar,
+.admin-category-pills::-webkit-scrollbar {
+  display: none;
 }
 
 .filter-tag {

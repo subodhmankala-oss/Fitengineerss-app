@@ -233,7 +233,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
       </div>
 
       {/* Category selector pills */}
-      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', margin: '0 -4px' }}>
+      <div className="admin-category-pills" style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', margin: '0 -4px' }}>
         {CATEGORIES.map(cat => (
           <button
             key={cat}
@@ -260,8 +260,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
       {/* Library Table Card */}
       <div className="glass-panel" style={{
         background: 'var(--bg-card)',
-        borderTop: '1px solid var(--border-color)',
-        borderBottom: '1px solid var(--border-color)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '12px',
         padding: '16px',
         overflowX: 'auto'
       }}>

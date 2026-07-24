@@ -291,6 +291,25 @@ const TrainerDashboard = ({ handleLogout }) => {
   // sends it, this is what shows it here if that push was missed/dismissed.
   const [pendingClientReplies, setPendingClientReplies] = useState([]);
 
+  // Clients who just finished a workout and haven't received a coach note for
+  // that session yet — the home-screen fallback for a missed "workout
+  // completed" push. Each card has its own inline note composer (chips +
+  // textarea), so the coach can respond right from home without opening the
+  // client. coachNoteDrafts maps clientId → the text typed in that card.
+  const [sessionsAwaitingNote, setSessionsAwaitingNote] = useState([]);
+  const [coachNoteDrafts, setCoachNoteDrafts] = useState({});
+  const [sendingNoteFor, setSendingNoteFor] = useState(null); // clientId currently sending
+  // When multiple clients are awaiting a note, the cards become a horizontal
+  // slider (one visible at a time) — this is the active slide index, plus the
+  // direction of the last move (1 = forward/next, -1 = back/previous) so the
+  // card can animate in from the matching side.
+  const [awaitingSlide, setAwaitingSlide] = useState(0);
+  const [awaitingSlideDir, setAwaitingSlideDir] = useState(1);
+  const goToAwaitingSlide = (nextIndex, count) => {
+    setAwaitingSlideDir(nextIndex > awaitingSlide || (awaitingSlide === count - 1 && nextIndex === 0) ? 1 : -1);
+    setAwaitingSlide(nextIndex);
+  };
+
   // Coaching program length (clients.total_sessions) editor for the selected client
   const [totalSessionsInput, setTotalSessionsInput] = useState('');
   const [savingTotalSessions, setSavingTotalSessions] = useState(false);
@@ -790,6 +809,83 @@ const TrainerDashboard = ({ handleLogout }) => {
     await databaseService.markClientReplySeen(replyId);
   };
 
+  // localStorage key for finished-workout cards the coach dismissed WITHOUT
+  // sending a note. Keyed per session (clientId|date) so a NEW session for the
+  // same client resurfaces a fresh card. Scoped per coach.
+  const dismissedSessionsKey = `dismissedSessionNotes_${resolvedCoachId || 'anon'}`;
+  const getDismissedSessions = () => {
+    try { return JSON.parse(localStorage.getItem(dismissedSessionsKey) || '[]'); }
+    catch { return []; }
+  };
+
+  // Keep the slider's active index in range as cards are sent/dismissed —
+  // otherwise clearing the last card could leave the index pointing past the
+  // end of the (now shorter) array.
+  useEffect(() => {
+    if (awaitingSlide > 0 && awaitingSlide >= sessionsAwaitingNote.length) {
+      setAwaitingSlide(Math.max(0, sessionsAwaitingNote.length - 1));
+    }
+  }, [sessionsAwaitingNote.length, awaitingSlide]);
+
+  const refreshSessionsAwaitingNote = async () => {
+    if (!resolvedCoachId) return;
+    const sessions = await databaseService.getSessionsAwaitingCoachNote(resolvedCoachId);
+    const dismissed = getDismissedSessions();
+    setSessionsAwaitingNote(sessions.filter(s => !dismissed.includes(`${s.clientId}|${s.date}`)));
+  };
+
+  // Coach dismisses a finished-workout card without responding — remembered so
+  // it doesn't reappear for THIS session (a later session resurfaces one).
+  const handleDismissSessionNote = (session) => {
+    const key = `${session.clientId}|${session.date}`;
+    const dismissed = getDismissedSessions();
+    if (!dismissed.includes(key)) {
+      localStorage.setItem(dismissedSessionsKey, JSON.stringify([...dismissed, key]));
+    }
+    setSessionsAwaitingNote(prev => prev.filter(s => `${s.clientId}|${s.date}` !== key));
+  };
+
+  // Send a coach note straight from a home-screen finished-workout card. Same
+  // saveCoachNote + coach_note push path as the in-detail composer, but scoped
+  // to the card's client (not selectedClient). On success the card is removed
+  // (the note now covers that session).
+  const handleSendSessionNote = async (session) => {
+    const message = (coachNoteDrafts[session.clientId] || '').trim();
+    if (!message || sendingNoteFor) return;
+    setSendingNoteFor(session.clientId);
+    try {
+      const res = await databaseService.saveCoachNote(session.clientId, resolvedCoachId, message);
+      if (!res.success) {
+        triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`);
+        return;
+      }
+      notifyEvent('coach_note', { clientUserId: session.clientId, message });
+      setCoachNoteDrafts(prev => { const n = { ...prev }; delete n[session.clientId]; return n; });
+      setSessionsAwaitingNote(prev => prev.filter(s => `${s.clientId}|${s.date}` !== `${session.clientId}|${session.date}`));
+      triggerLiveToast(`✅ Note sent to ${session.clientName.split(/\s+/)[0]}.`);
+    } finally {
+      setSendingNoteFor(null);
+    }
+  };
+
+  // Three ready-to-send suggestions for a finished-workout card, referencing
+  // that session's actual stats so the first chip feels personal.
+  const buildSessionNoteSuggestions = (session) => {
+    const firstName = (session.clientName || '').trim().split(/\s+/)[0] || 'there';
+    const statBits = [
+      session.durationSeconds != null ? formatDuration(session.durationSeconds) : null,
+      session.caloriesBurned != null ? `${session.caloriesBurned} kcal` : null
+    ].filter(Boolean).join(', ');
+    const opener = statBits
+      ? `Great session, ${firstName}! ${statBits} — solid work 💪`
+      : `Great work today, ${firstName}! Really solid session 💪`;
+    return [
+      opener,
+      `Proud of your consistency this week — keep it going! 🔥`,
+      `How did that feel? Let me know if anything was too easy or too tough.`
+    ];
+  };
+
   // Discard a draft directly from the client directory's "Live Log in
   // progress" list — lets the coach clear a stale/unwanted session without
   // having to open it first. Also resets the in-tab live state if that same
@@ -812,7 +908,8 @@ const TrainerDashboard = ({ handleLogout }) => {
   useEffect(() => {
     refreshCoachActiveDrafts();
     refreshPendingClientReplies();
-    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); };
+    refreshSessionsAwaitingNote();
+    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); };
     document.addEventListener('visibilitychange', refreshBoth);
     window.addEventListener('focus', refreshBoth);
     return () => {
@@ -833,6 +930,7 @@ const TrainerDashboard = ({ handleLogout }) => {
     if (viewMode === 'coach' && !selectedClient) {
       refreshCoachActiveDrafts();
       refreshPendingClientReplies();
+      refreshSessionsAwaitingNote();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, viewMode]);
@@ -1451,6 +1549,26 @@ const TrainerDashboard = ({ handleLogout }) => {
     ];
   })();
 
+  // Same three suggestions, but for the Live Log's coach-note composer —
+  // that note sends alongside THIS in-progress session, so it must reference
+  // the live timer/calories, not the client's last SAVED session (which is
+  // what coachNoteSuggestions above uses and would show stale, previous-day
+  // numbers while a live session is still running).
+  const liveCoachNoteSuggestions = (() => {
+    const firstName = (selectedClient?.userName || '').trim().split(/\s+/)[0] || 'there';
+    const statBits = liveTimerStartedAt
+      ? [formatDuration(liveElapsedSeconds), `${liveCalories.totalKcal} kcal`].join(', ')
+      : '';
+    const opener = statBits
+      ? `Great session, ${firstName}! ${statBits} — solid work 💪`
+      : `Great work today, ${firstName}! Really solid session 💪`;
+    return [
+      opener,
+      `Proud of your consistency this week — keep it going! 🔥`,
+      `How did that feel? Let me know if anything was too easy or too tough.`
+    ];
+  })();
+
   const getAvatarInitials = (name) => {
     if (!name) return 'W';
     const parts = name.trim().split(/\s+/);
@@ -1912,6 +2030,141 @@ const TrainerDashboard = ({ handleLogout }) => {
                   })}
                 </div>
               )}
+
+              {/* Client finished a workout, no coach note sent yet — fallback
+                  for a missed "workout completed" push. Lives on the home
+                  screen (not inside any client's detail tabs) with an inline
+                  note composer, so the coach can respond right here. With
+                  more than one pending client, this becomes a one-at-a-time
+                  slider (arrows + clickable dots) instead of a tall stack. */}
+              {sessionsAwaitingNote.length > 0 && (() => {
+                const activeIndex = Math.min(awaitingSlide, sessionsAwaitingNote.length - 1);
+                const session = sessionsAwaitingNote[activeIndex];
+                const statBits = [
+                  session.durationSeconds != null ? `⏱ ${formatDuration(session.durationSeconds)}` : null,
+                  session.caloriesBurned != null ? `🔥 ${session.caloriesBurned} kcal` : null
+                ].filter(Boolean).join('  •  ');
+                const isSending = sendingNoteFor === session.clientId;
+                const hasMultiple = sessionsAwaitingNote.length > 1;
+                return (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ position: 'relative' }}>
+                      {hasMultiple && (
+                        <button
+                          type="button"
+                          title="Previous"
+                          onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                          style={{
+                            position: 'absolute', top: '50%', left: '6px', transform: 'translateY(-50%)', zIndex: 2,
+                            background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
+                            color: '#fff', borderRadius: '50%', width: '30px', height: '30px', flexShrink: 0,
+                            fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          ‹
+                        </button>
+                      )}
+                      <div
+                        key={`${session.clientId}|${session.date}`}
+                        className={`coach-note-card awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
+                        style={{ width: '100%', margin: 0, boxSizing: 'border-box', ...(hasMultiple ? { paddingLeft: '38px', paddingRight: '38px' } : {}) }}
+                      >
+                        <div className="coach-note-head">
+                          <span className="coach-note-title">
+                            ✅ {(session.clientName || 'Client').split(/\s+/)[0]} finished a workout
+                            {hasMultiple && (
+                              <span style={{ marginLeft: '8px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                {activeIndex + 1}/{sessionsAwaitingNote.length}
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            title="Dismiss"
+                            onClick={() => handleDismissSessionNote(session)}
+                            style={{
+                              background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                              color: 'var(--text-muted)', borderRadius: '50%', width: '24px', height: '24px',
+                              fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', flexShrink: 0
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {statBits && (
+                          <div className="coach-note-lastsession" style={{ marginBottom: '8px' }}>
+                            {session.workoutName} — {statBits}
+                          </div>
+                        )}
+                        <div className="coach-note-suggestions">
+                          {buildSessionNoteSuggestions(session).map((sug, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="coach-note-chip"
+                              disabled={isSending}
+                              onClick={() => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: sug }))}
+                              title="Tap to use — you can still edit before sending"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          className="coach-note-textarea"
+                          placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
+                          value={coachNoteDrafts[session.clientId] || ''}
+                          onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
+                          rows={2}
+                          disabled={isSending}
+                        />
+                        <button
+                          type="button"
+                          className="coach-note-send"
+                          disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
+                          onClick={() => handleSendSessionNote(session)}
+                          style={{ marginTop: '8px' }}
+                        >
+                          {isSending ? '⏳ Sending…' : '💬 Send note'}
+                        </button>
+                      </div>
+                      {hasMultiple && (
+                        <button
+                          type="button"
+                          title="Next"
+                          onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                          style={{
+                            position: 'absolute', top: '50%', right: '6px', transform: 'translateY(-50%)', zIndex: 2,
+                            background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
+                            color: '#fff', borderRadius: '50%', width: '30px', height: '30px', flexShrink: 0,
+                            fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          ›
+                        </button>
+                      )}
+                    </div>
+                    {hasMultiple && (
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '10px' }}>
+                        {sessionsAwaitingNote.map((s, i) => (
+                          <button
+                            key={`${s.clientId}|${s.date}`}
+                            type="button"
+                            title={s.clientName}
+                            onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                            style={{
+                              width: i === activeIndex ? '20px' : '7px', height: '7px', borderRadius: '4px',
+                              border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                              background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div style={{
                 background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)',
@@ -3393,7 +3646,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                           <span className="coach-note-lastsession">Sends with “Save Workout Session”</span>
                         </div>
                         <div className="coach-note-suggestions">
-                          {coachNoteSuggestions.map((sug, i) => (
+                          {liveCoachNoteSuggestions.map((sug, i) => (
                             <button
                               key={i}
                               type="button"

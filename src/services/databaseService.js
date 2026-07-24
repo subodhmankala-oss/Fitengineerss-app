@@ -1578,6 +1578,81 @@ const databaseService = {
     return [];
   },
 
+  // ─── SESSIONS AWAITING A COACH NOTE (home-screen prompt) ───
+  // For the logged-in coach, return each attached client's MOST RECENT
+  // workout session that hasn't yet been answered by a coach note — i.e. no
+  // note was sent on/after that session's date. This is what powers the
+  // "client finished a workout, send them a note" cards on the coach's home
+  // screen (the fallback for a missed "workout completed" push). Same coach
+  // scoping and PostgREST-over-SDK approach as getWorkoutSummaryForCoach.
+  async getSessionsAwaitingCoachNote(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      // 1) The coach's attached clients.
+      const clientRows = await restSelect(
+        `clients?select=user_id,full_name&coach_id=eq.${encodeURIComponent(coachId)}`
+      );
+      if (!clientRows || clientRows.length === 0) return [];
+      const idToName = {};
+      const clientIds = [];
+      clientRows.forEach(c => {
+        if (c.user_id) { idToName[c.user_id] = c.full_name || 'Client'; clientIds.push(c.user_id); }
+      });
+      if (clientIds.length === 0) return [];
+      const idList = clientIds.map(encodeURIComponent).join(',');
+
+      // 2) Recent sessions for those clients (session metadata is denormalized
+      //    onto every set row — pick the first non-null duration/calories per
+      //    session, same as groupLogs in TrainerDashboard).
+      const logs = await restSelect(
+        `workout_logs?select=user_id,log_date,plan_name,duration_seconds,calories_burned,created_at` +
+        `&user_id=in.(${idList})&order=log_date.desc,created_at.desc`
+      );
+      const latestByClient = {};
+      (logs || []).forEach(r => {
+        const cur = latestByClient[r.user_id];
+        // Rows are already date-desc, created_at-desc, so the first row seen
+        // for a client is their latest session; later rows only backfill the
+        // duration/calories for that same latest date.
+        if (!cur) {
+          latestByClient[r.user_id] = {
+            clientId: r.user_id,
+            clientName: idToName[r.user_id] || 'Client',
+            date: r.log_date,
+            workoutName: r.plan_name || 'Custom Routine',
+            durationSeconds: r.duration_seconds ?? null,
+            caloriesBurned: r.calories_burned ?? null
+          };
+        } else if (cur.date === r.log_date) {
+          if (cur.durationSeconds == null && r.duration_seconds != null) cur.durationSeconds = r.duration_seconds;
+          if (cur.caloriesBurned == null && r.calories_burned != null) cur.caloriesBurned = r.calories_burned;
+        }
+      });
+
+      // 3) Latest coach-note timestamp per client, so a session already
+      //    responded to (note sent on/after that day) is filtered out.
+      const noteRows = await restSelect(
+        `coach_notes?select=client_id,created_at&coach_id=eq.${encodeURIComponent(coachId)}` +
+        `&client_id=in.(${idList})&order=created_at.desc`
+      );
+      const lastNoteByClient = {};
+      (noteRows || []).forEach(n => {
+        if (!lastNoteByClient[n.client_id]) lastNoteByClient[n.client_id] = n.created_at;
+      });
+
+      // 4) Keep only sessions still needing a response: no note ever, or the
+      //    last note predates the session's day (start-of-day comparison —
+      //    session dates have no time component).
+      return Object.values(latestByClient).filter(s => {
+        const lastNote = lastNoteByClient[s.clientId];
+        return !lastNote || new Date(lastNote) < new Date(`${s.date}T00:00:00`);
+      });
+    } catch (e) {
+      console.error('Cloud DB getSessionsAwaitingCoachNote error:', e);
+      return [];
+    }
+  },
+
   async saveChatMessage(clientId, sender, message) {
     if (isSupabaseConfigured && supabase) {
       try {

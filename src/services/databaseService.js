@@ -3976,6 +3976,27 @@ const databaseService = {
     }
   },
 
+  // Remove a duplicate/stale exercise from the shared catalog. Goes through
+  // the delete_exercise SECURITY DEFINER RPC (see sql/exercises_table.sql) —
+  // same anon-key + admin-email-guard write model as saveExercise, since the
+  // exercises table denies all direct writes/deletes via RLS.
+  async deleteExercise(id) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const adminEmail = localStorage.getItem('userEmail') || '';
+        await restRpc('delete_exercise', { p_id: id, p_admin_email: adminEmail });
+        return { success: true };
+      } catch (err) {
+        console.error('Error deleting exercise from Supabase:', err);
+        return { success: false, error: err.message || 'Delete failed' };
+      }
+    } else {
+      const mockEx = this.getMockTable('exercises').filter(e => e.id !== id);
+      this.saveMockTable('exercises', mockEx);
+      return { success: true };
+    }
+  },
+
   async uploadExerciseVideo(file) {
     if (isSupabaseConfigured && supabase) {
       try {

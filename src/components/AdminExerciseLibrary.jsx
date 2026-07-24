@@ -10,6 +10,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
@@ -145,6 +146,42 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
     }
   };
 
+  const handleDelete = async (ex) => {
+    if (!window.confirm(`Delete "${ex.name}" from the exercise library? This can't be undone.`)) return;
+    setDeletingId(ex.id);
+    try {
+      const res = await databaseService.deleteExercise(ex.id);
+      if (!res.success) {
+        alert('Failed to delete exercise: ' + (res.error || 'unknown error'));
+        return;
+      }
+      setExercises(prev => {
+        const next = prev.filter(e => e.id !== ex.id);
+        if (onExerciseCountChange) onExerciseCountChange(next.length);
+        return next;
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Flag likely duplicates so they're easy to spot in a long A-Z list: same
+  // exercise, different phrasing (e.g. "Push Up" vs "Push-up") — normalize by
+  // stripping parens/hyphens/plurals and comparing the remaining word set.
+  const normalizeForDuplicateCheck = (name) => {
+    let base = (name || '').toLowerCase();
+    const paren = (base.match(/\(([^)]+)\)/) || [, ''])[1];
+    base = base.replace(/\([^)]*\)/g, '').trim();
+    const words = (base + ' ' + paren).split(/[\s-]+/).filter(Boolean).map(w => w.replace(/s$/, ''));
+    words.sort();
+    return words.join(' ');
+  };
+  const duplicateGroupCounts = exercises.reduce((acc, ex) => {
+    const key = normalizeForDuplicateCheck(ex.name);
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
   // Filter exercises
   const filteredExercises = exercises.filter(ex => {
     const matchesSearch = ex.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -251,6 +288,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
               {filteredExercises.map((ex) => {
                 const isYouTube = getYouTubeEmbedUrl(ex.video_url);
                 const hasVideo = !!ex.video_url;
+                const isPossibleDuplicate = duplicateGroupCounts[normalizeForDuplicateCheck(ex.name)] > 1;
                 return (
                   <tr key={ex.id || ex.name} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '64px' }}>
                     <td style={{ padding: '8px' }}>
@@ -279,6 +317,19 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                               {ex.primary_muscle}
                             </span>
                           )}
+                          {isPossibleDuplicate && (
+                            <span title="Another exercise in the library looks like the same movement under a different name" style={{
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              color: '#fbbf24'
+                            }}>
+                              ⚠️ Possible duplicate
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -303,22 +354,43 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                       )}
                     </td>
                     <td style={{ padding: '8px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => handleOpenEdit(ex)}
-                        style={{
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--border-color)',
-                          color: '#fff',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        ⚙️ Edit
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => handleOpenEdit(ex)}
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid var(--border-color)',
+                            color: '#fff',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          ⚙️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(ex)}
+                          disabled={deletingId === ex.id}
+                          title="Delete this exercise"
+                          style={{
+                            background: 'rgba(239,68,68,0.1)',
+                            border: '1px solid rgba(239,68,68,0.3)',
+                            color: '#f87171',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            cursor: deletingId === ex.id ? 'default' : 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            opacity: deletingId === ex.id ? 0.5 : 1,
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {deletingId === ex.id ? '⏳' : '🗑️'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

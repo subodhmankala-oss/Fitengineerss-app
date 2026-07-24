@@ -151,10 +151,30 @@ BEGIN
 END;
 $function$;
 
+-- Delete a single exercise by id. Used by the Admin Exercise Library screen
+-- to remove duplicate/stale catalog entries (e.g. "Push Up" vs "Push-up").
+-- Same admin-email guard as save_exercise/admin_seed_exercises above.
+CREATE OR REPLACE FUNCTION public.delete_exercise(p_id uuid, p_admin_email text DEFAULT NULL)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF p_admin_email IS NULL
+     OR lower(trim(p_admin_email)) <> 'subodhmankala@gmail.com' THEN
+    RAISE EXCEPTION 'Not authorized to modify the exercise library.';
+  END IF;
+
+  DELETE FROM public.exercises WHERE id = p_id;
+END;
+$function$;
+
 -- The app calls these with the anon key (via restRpc), so anon must be
 -- allowed to EXECUTE them. Authorization is enforced inside the functions.
 GRANT EXECUTE ON FUNCTION public.save_exercise(jsonb, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_seed_exercises(jsonb, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_exercise(uuid, text) TO anon, authenticated;
 
 -- 4. Storage Bucket for Exercise Videos
 -- Create a public storage bucket for exercise video uploads

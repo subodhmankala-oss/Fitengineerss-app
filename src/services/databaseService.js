@@ -1621,7 +1621,10 @@ const databaseService = {
             date: r.log_date,
             workoutName: r.plan_name || 'Custom Routine',
             durationSeconds: r.duration_seconds ?? null,
-            caloriesBurned: r.calories_burned ?? null
+            caloriesBurned: r.calories_burned ?? null,
+            // When this session actually landed. Rows are created_at-desc, so
+            // the first one seen is the session's latest write.
+            sessionAt: r.created_at || null
           };
         } else if (cur.date === r.log_date) {
           if (cur.durationSeconds == null && r.duration_seconds != null) cur.durationSeconds = r.duration_seconds;
@@ -1641,11 +1644,17 @@ const databaseService = {
       });
 
       // 4) Keep only sessions still needing a response: no note ever, or the
-      //    last note predates the session's day (start-of-day comparison —
-      //    session dates have no time component).
+      //    last note predates the session itself. Compared against the
+      //    session's real created_at, NOT start-of-day: a coach who'd already
+      //    sent that client a note earlier the same day would otherwise have
+      //    the card suppressed for every workout they finished for the rest
+      //    of that day — the coach gets the "workout completed" push, taps it,
+      //    and lands on a home screen with nothing to respond to. Falls back
+      //    to start-of-day only for legacy rows with no created_at.
       return Object.values(latestByClient).filter(s => {
         const lastNote = lastNoteByClient[s.clientId];
-        return !lastNote || new Date(lastNote) < new Date(`${s.date}T00:00:00`);
+        if (!lastNote) return true;
+        return new Date(lastNote) < new Date(s.sessionAt || `${s.date}T00:00:00`);
       });
     } catch (e) {
       console.error('Cloud DB getSessionsAwaitingCoachNote error:', e);

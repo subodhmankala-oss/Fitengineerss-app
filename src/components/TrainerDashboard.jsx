@@ -1201,6 +1201,10 @@ const TrainerDashboard = ({ handleLogout }) => {
     // first non-null value seen per date, same pattern as planNames above.
     const durationByDate = {};
     const caloriesByDate = {};
+    // Latest created_at per date, so "has this session been responded to?"
+    // can compare against when the session actually landed rather than just
+    // its calendar day (see sessionNeedsResponse).
+    const createdAtByDate = {};
 
     logs.forEach(log => {
       const date = log.log_date;
@@ -1218,6 +1222,9 @@ const TrainerDashboard = ({ handleLogout }) => {
       }
       if (log.calories_burned != null && caloriesByDate[date] == null) {
         caloriesByDate[date] = log.calories_burned;
+      }
+      if (log.created_at && (createdAtByDate[date] == null || log.created_at > createdAtByDate[date])) {
+        createdAtByDate[date] = log.created_at;
       }
 
       const exercise = log.exercise_name;
@@ -1259,6 +1266,7 @@ const TrainerDashboard = ({ handleLogout }) => {
           planName: planNames[dateStr] || 'Custom Routine',
           durationSeconds: durationByDate[dateStr] ?? null,
           caloriesBurned: caloriesByDate[dateStr] ?? null,
+          createdAt: createdAtByDate[dateStr] ?? null,
           exercises: exercisesList
         };
       });
@@ -1511,14 +1519,16 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Whether the latest session still needs a response: no note has EVER been
   // sent to this client, or the last one sent predates this session (so a
   // fresh session that comes in after an old note was sent counts as new).
-  // Session dates have no time component, so "predates" is start-of-day
-  // comparison — a note sent any time on the session's day or later counts
-  // as already handled. This is what actually fixes the card resurfacing for
-  // a session from days ago every time the coach reopens the client: that
-  // decision now comes from the DB (lastCoachNoteSentAt, fetched in
-  // handleSelectClient), not from React state that reset on every remount.
+  // "Predates" compares against the session's real createdAt, NOT its calendar
+  // day: a coach who'd already sent this client a note earlier the same day
+  // would otherwise see no card for anything the client logged afterwards,
+  // for the rest of that day. Falls back to start-of-day for legacy rows with
+  // no created_at. This still keeps the card from resurfacing for a session
+  // from days ago every time the coach reopens the client, since the decision
+  // comes from the DB (lastCoachNoteSentAt, fetched in handleSelectClient),
+  // not from React state that reset on every remount.
   const sessionNeedsResponse = latestClientSession && (
-    !lastCoachNoteSentAt || new Date(lastCoachNoteSentAt) < new Date(`${latestClientSession.date}T00:00:00`)
+    !lastCoachNoteSentAt || new Date(lastCoachNoteSentAt) < new Date(latestClientSession.createdAt || `${latestClientSession.date}T00:00:00`)
   );
   const showCoachNoteCard = sessionNeedsResponse || coachNoteJustSent;
 

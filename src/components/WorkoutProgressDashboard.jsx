@@ -11,6 +11,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Warrior');
   const [timeframe, setTimeframe] = useState('weekly');
+  // 0 = current week, -1 = last week, and so on — lets the weekly view page
+  // back through previous weeks instead of only ever showing the current one.
+  const [weekOffset, setWeekOffset] = useState(0);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -221,6 +224,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
 
   const getWeekDays = () => {
     const start = getStartOfWeek(new Date());
+    // Shift whole weeks back/forward for the ‹ › week navigation.
+    start.setDate(start.getDate() + weekOffset * 7);
     const days = [];
     for (let i = 0; i < 7; i++) {
       const current = new Date(start);
@@ -231,6 +236,24 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   };
 
   const weekDays = getWeekDays();
+
+  // Week navigator label: relative wording for the two most recent weeks
+  // (clearest at a glance), an explicit date range further back.
+  const weekRangeLabel = (() => {
+    if (weekOffset === 0) return 'This week';
+    if (weekOffset === -1) return 'Last week';
+    const start = parseLocalDateString(weekDays[0]);
+    const end = parseLocalDateString(weekDays[6]);
+    const sameMonth = start.getMonth() === end.getMonth();
+    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
+  })();
+
+  const weekNavBtnStyle = {
+    background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+    color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
+    fontSize: '0.9rem', lineHeight: 1, cursor: 'pointer', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', padding: 0
+  };
 
   // Grouping logs by date
   const groupLogsByDate = (targetLogs) => {
@@ -884,7 +907,22 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
               <div className="chart-widget-card glass-panel">
                 <div className="widget-header justify-between">
                   <h4>📊 Sets Completed per Weekday</h4>
-                  <span className="trend-badge">Mon - Sun</span>
+                  {/* Week navigator — ‹ steps back through history, › returns
+                      toward the present and stops at the current week (there's
+                      nothing logged in the future to show). */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button type="button" title="Previous week" onClick={() => setWeekOffset(w => w - 1)} style={weekNavBtnStyle}>‹</button>
+                    <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{weekRangeLabel}</span>
+                    <button
+                      type="button"
+                      title={weekOffset >= 0 ? 'Already on the current week' : 'Next week'}
+                      onClick={() => setWeekOffset(w => Math.min(0, w + 1))}
+                      disabled={weekOffset >= 0}
+                      style={{ ...weekNavBtnStyle, opacity: weekOffset >= 0 ? 0.35 : 1, cursor: weekOffset >= 0 ? 'default' : 'pointer' }}
+                    >
+                      ›
+                    </button>
+                  </div>
                 </div>
                 <div className="chart-wrapper">
                   {renderWeeklyChart()}
@@ -894,14 +932,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
               {/* ── This Week's Sessions ── */}
               <div className="chart-widget-card glass-panel">
                 <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
-                  <h4>🗂️ This Week's Sessions</h4>
+                  <h4>🗂️ {weekOffset === 0 ? "This Week's Sessions" : `Sessions — ${weekRangeLabel}`}</h4>
                   <span className="trend-badge">
                     {weeklyStats.workoutsCount} days active{weeklyStats.totalCalories > 0 ? ` · 🔥 ${weeklyStats.totalCalories} kcal` : ''}
                   </span>
                 </div>
                 {weeklyStats.workoutsCount === 0 ? (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '16px 0' }}>
-                    No workouts logged this week yet. Start logging! 💪
+                    {weekOffset === 0 ? 'No workouts logged this week yet. Start logging! 💪' : 'No workouts logged in this week.'}
                   </p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

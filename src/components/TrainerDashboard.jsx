@@ -361,6 +361,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Selected date for the Daily view / calendar heatmap clicks — mirrors the
   // client's own WorkoutProgressDashboard selectedDateStr.
   const [historyDateStr, setHistoryDateStr] = useState(() => getLocalDateString());
+  // 0 = current week, -1 = last week, etc. — same week navigation the client
+  // has on their own weekly chart.
+  const [historyWeekOffset, setHistoryWeekOffset] = useState(0);
 
   // Selected client's body-measurement history (read-only for the coach) —
   // loaded when the Measurements tab is opened.
@@ -1054,6 +1057,7 @@ const TrainerDashboard = ({ handleLogout }) => {
     setLastCoachNoteSentAt(null);
     setHistoryTimeframe('weekly');
     setHistoryDateStr(getLocalDateString());
+    setHistoryWeekOffset(0);
     databaseService.getLatestCoachNoteSentAt(client.id).then(setLastCoachNoteSentAt);
     // Fetch measurement history up front (not just when the Measurements tab
     // is opened) — the "Weight (kg)" stat tile above the tabs needs the
@@ -2849,6 +2853,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                     };
                     const weekDays = (() => {
                       const start = getStartOfWeek(new Date());
+                      // Shift whole weeks back/forward for the ‹ › navigation.
+                      start.setDate(start.getDate() + historyWeekOffset * 7);
                       const days = [];
                       for (let i = 0; i < 7; i++) {
                         const cur = new Date(start);
@@ -2857,6 +2863,24 @@ const TrainerDashboard = ({ handleLogout }) => {
                       }
                       return days;
                     })();
+
+                    // Relative wording for the two most recent weeks, an
+                    // explicit date range further back.
+                    const weekRangeLabel = (() => {
+                      if (historyWeekOffset === 0) return 'This week';
+                      if (historyWeekOffset === -1) return 'Last week';
+                      const ws = parseLocalDateString(weekDays[0]);
+                      const we = parseLocalDateString(weekDays[6]);
+                      const sameMonth = ws.getMonth() === we.getMonth();
+                      return `${ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${we.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
+                    })();
+
+                    const weekNavBtnStyle = {
+                      background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                      color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
+                      fontSize: '0.9rem', lineHeight: 1, cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', padding: 0
+                    };
 
                     // Weekly aggregation
                     const dailySets = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
@@ -3065,21 +3089,36 @@ const TrainerDashboard = ({ handleLogout }) => {
                             <div className="chart-widget-card glass-panel">
                               <div className="widget-header justify-between">
                                 <h4>📊 Sets Completed per Weekday</h4>
-                                <span className="trend-badge">Mon - Sun</span>
+                                {/* Week navigator — ‹ steps back through this
+                                    client's history, › returns toward the
+                                    present and stops at the current week. */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <button type="button" title="Previous week" onClick={() => setHistoryWeekOffset(w => w - 1)} style={weekNavBtnStyle}>‹</button>
+                                  <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{weekRangeLabel}</span>
+                                  <button
+                                    type="button"
+                                    title={historyWeekOffset >= 0 ? 'Already on the current week' : 'Next week'}
+                                    onClick={() => setHistoryWeekOffset(w => Math.min(0, w + 1))}
+                                    disabled={historyWeekOffset >= 0}
+                                    style={{ ...weekNavBtnStyle, opacity: historyWeekOffset >= 0 ? 0.35 : 1, cursor: historyWeekOffset >= 0 ? 'default' : 'pointer' }}
+                                  >
+                                    ›
+                                  </button>
+                                </div>
                               </div>
                               <div className="chart-wrapper">{renderWeeklyBarChart()}</div>
                             </div>
 
                             <div className="chart-widget-card glass-panel">
                               <div className="widget-header justify-between" style={{ marginBottom: '12px' }}>
-                                <h4>🗂️ This Week's Sessions</h4>
+                                <h4>🗂️ {historyWeekOffset === 0 ? "This Week's Sessions" : `Sessions — ${weekRangeLabel}`}</h4>
                                 <span className="trend-badge">
                                   {weekWorkoutsCount} days active{weeklyTotalCalories > 0 ? ` · 🔥 ${weeklyTotalCalories} kcal` : ''}
                                 </span>
                               </div>
                               {weekWorkoutsCount === 0 ? (
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '16px 0' }}>
-                                  No workouts logged this week yet.
+                                  {historyWeekOffset === 0 ? 'No workouts logged this week yet.' : 'No workouts logged in this week.'}
                                 </p>
                               ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

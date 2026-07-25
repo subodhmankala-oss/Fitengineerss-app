@@ -1562,6 +1562,18 @@ const WorkoutTracker = () => {
       });
     }
 
+    // Auto-disconnect once this session pushes the client to (or past) their
+    // coach-set total_sessions with no renewal (coach raising the total again
+    // counts as renewing — see checkAndHandleSessionPackageCompletion). Self-
+    // logged sessions only, same scope as the workout_finished push above.
+    if (finishedClientId && workoutSource !== 'coach') {
+      databaseService.checkAndHandleSessionPackageCompletion(finishedClientId).then(result => {
+        if (result.disconnected && result.oldCoachId) {
+          notifyEvent('client_disconnected', { clientUserId: finishedClientId, oldCoachId: result.oldCoachId });
+        }
+      }).catch(() => {});
+    }
+
     setSelectedClient(logClient);
     const newClientSessions = updated.filter(s => s.clientName.toLowerCase() === logClient.toLowerCase());
     setSelectedSessionIndex(newClientSessions.length - 1);

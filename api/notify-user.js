@@ -87,7 +87,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message } = req.body || {};
+  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId } = req.body || {};
   if (!event || !clientUserId || !UUID_RE.test(clientUserId)) {
     return res.status(400).json({ error: 'event and a valid clientUserId are required.' });
   }
@@ -138,6 +138,26 @@ export default async function handler(req, res) {
       targetUserId = client.coach_id;
       title = `💬 Reply from ${clientName}`;
       body = message.trim();
+    } else if (event === 'session_reminder') {
+      // Coach-triggered nudge to the client that their session package is
+      // running low — manual "Send renewal reminder" button on the coach
+      // dashboard, shown once sessions-left ≤ 4.
+      targetUserId = clientUserId;
+      const left = Number.isFinite(sessionsLeft) ? sessionsLeft : null;
+      title = '⏳ Sessions Running Low';
+      body = left != null
+        ? `You have ${left} session${left === 1 ? '' : 's'} left in your current package. Talk to your coach about renewing to keep your progress going!`
+        : `Your session package is running low. Talk to your coach about renewing to keep your progress going!`;
+    } else if (event === 'client_disconnected') {
+      // Courtesy notice to the coach that a client's package ran out with no
+      // renewal and they were auto-disconnected (moved to unattached
+      // clients). Fired by the client's own app AFTER the disconnect write,
+      // so client.coach_id is already null and no longer resolvable here —
+      // the caller passes the old coach id directly instead.
+      if (!oldCoachId) return res.status(200).json({ success: true, message: 'No coach to notify.' });
+      targetUserId = oldCoachId;
+      title = '📦 Client Package Ended';
+      body = `${clientName} completed their full session package and was moved to unattached clients. Reconnect them anytime with a new invite code.`;
     } else if (event === 'plan_assigned') {
       // Notify the client that their coach sent a new plan.
       targetUserId = clientUserId;

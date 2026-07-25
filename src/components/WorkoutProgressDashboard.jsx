@@ -5,6 +5,7 @@ import CoachNoteBanner from './CoachNoteBanner';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
+import { notifyEvent } from '../utils/pushNotify';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
@@ -156,6 +157,21 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           return;
         }
         if (!cancelled) setUserId(resolvedUserId);
+
+        // Safety-net check for the auto-disconnect-on-package-complete flow
+        // (the primary trigger is right after a workout save in
+        // WorkoutTracker) — catches edge cases like a coach lowering
+        // total_sessions to/below an already-completed count while the
+        // client is just browsing, not actively finishing a session.
+        databaseService.checkAndHandleSessionPackageCompletion(resolvedUserId).then(result => {
+          if (result.disconnected) {
+            if (result.oldCoachId) notifyEvent('client_disconnected', { clientUserId: resolvedUserId, oldCoachId: result.oldCoachId });
+            setIsLinkedToCoach(false);
+            setSessionsTotal(null);
+            setCoachName('');
+          }
+        }).catch(() => {});
+
         const userLogs = await databaseService.getWorkoutLogsForUser(resolvedUserId);
         if (!cancelled) { setLogs(userLogs || []); setLoading(false); }
       } catch (err) {

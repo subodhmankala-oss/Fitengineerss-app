@@ -1420,6 +1420,55 @@ const databaseService = {
     };
   },
 
+  // Auto-disconnects a client from their coach once they've completed their
+  // full session package (coach_id, total_sessions → null) with no renewal —
+  // renewing means the coach raised total_sessions again before this ran, so
+  // completedCount is still under it. Called from the client's own app right
+  // after a workout save and on the home dashboard's mount.
+  //
+  // Deliberately does NOT touch workout_logs/body_measurements — those are
+  // keyed by user_id, never by the coach relationship, so a client's full
+  // history (sessions done, reps, weights) stays fully intact and visible to
+  // whichever coach they connect to next, including reconnecting to this
+  // same one later via a fresh invite code.
+  //
+  // Returns { disconnected, oldCoachId } — oldCoachId lets the caller fire a
+  // courtesy notifyEvent('client_disconnected', ...) to the coach who just
+  // lost this client, since by the time that fires coach_id is already null
+  // and no longer resolvable from the DB.
+  async checkAndHandleSessionPackageCompletion(userId) {
+    if (!isSupabaseConfigured || !supabase || !userId) return { disconnected: false };
+    try {
+      const conn = await this.getOwnCoachConnection();
+      if (!conn.resolved || !conn.connected || !conn.coachId || !Number.isFinite(conn.totalSessions) || conn.totalSessions <= 0) {
+        return { disconnected: false };
+      }
+
+      const logs = await this.getWorkoutLogsForUser(userId);
+      const completedCount = new Set((logs || []).map(l => l.log_date)).size;
+      if (completedCount < conn.totalSessions) return { disconnected: false };
+
+      const oldCoachId = conn.coachId;
+      const { error } = await supabase
+        .from('clients')
+        .update({ coach_id: null, total_sessions: null })
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Auto-disconnect (session package complete) failed:', error);
+        return { disconnected: false };
+      }
+
+      localStorage.setItem('clientLinkedToCoach', 'false');
+      localStorage.removeItem('userCoachId');
+      localStorage.removeItem('userCoachName');
+      localStorage.removeItem('userSessionsLimit');
+      return { disconnected: true, oldCoachId };
+    } catch (e) {
+      console.error('checkAndHandleSessionPackageCompletion error:', e);
+      return { disconnected: false };
+    }
+  },
+
   async getWorkoutLogsForUser(userId) {
     // SECURITY: userId must be a real public.users.id (UUID). This used to
     // accept a bare display name and resolve it via

@@ -329,7 +329,12 @@ const TrainerDashboard = ({ handleLogout }) => {
   // (not clickable, not highlighted); editing the input to any other value
   // clears this and the button goes back to its normal clickable "Save" state.
   const [totalSessionsSavedValue, setTotalSessionsSavedValue] = useState(null);
-  
+
+  // "Send renewal reminder" button — shown once this client's sessions-left
+  // drops to 4 or fewer, manually triggered by the coach (not automatic).
+  const [sendingSessionReminder, setSendingSessionReminder] = useState(false);
+  const [sessionReminderSentMsg, setSessionReminderSentMsg] = useState('');
+
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -1046,6 +1051,22 @@ const TrainerDashboard = ({ handleLogout }) => {
     }
   };
 
+  // Manual, coach-triggered nudge once this client's sessions-left ≤ 4 — a
+  // push notification only; never sent automatically.
+  const handleSendSessionReminder = async () => {
+    if (!selectedClient || sendingSessionReminder) return;
+    const sessionsLeft = selectedClient.total_sessions != null ? selectedClient.total_sessions - workoutLogs.length : null;
+    setSendingSessionReminder(true);
+    setSessionReminderSentMsg('');
+    try {
+      notifyEvent('session_reminder', { clientUserId: selectedClient.id, sessionsLeft });
+      setSessionReminderSentMsg(`✅ Reminder sent to ${selectedClient.userName || 'the client'}.`);
+    } finally {
+      setSendingSessionReminder(false);
+      setTimeout(() => setSessionReminderSentMsg(''), 3500);
+    }
+  };
+
   // Fetch client workout logs when a client is selected
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
@@ -1055,6 +1076,7 @@ const TrainerDashboard = ({ handleLogout }) => {
     setCoachNoteSentMsg('');
     setCoachNoteJustSent(false);
     setLastCoachNoteSentAt(null);
+    setSessionReminderSentMsg('');
     setHistoryTimeframe('weekly');
     setHistoryDateStr(getLocalDateString());
     setHistoryWeekOffset(0);
@@ -2608,6 +2630,26 @@ const TrainerDashboard = ({ handleLogout }) => {
                       ✅ {workoutLogs.length} completed
                       {selectedClient.total_sessions != null && ` of ${selectedClient.total_sessions}`}
                     </div>
+                    {/* Manual renewal nudge — appears once 4 or fewer sessions
+                        remain. Never sent automatically; the coach decides. */}
+                    {selectedClient.total_sessions != null && (selectedClient.total_sessions - workoutLogs.length) <= 4 && (
+                      <button
+                        type="button"
+                        onClick={handleSendSessionReminder}
+                        disabled={sendingSessionReminder}
+                        style={{
+                          marginTop: '8px', padding: '6px 12px', borderRadius: '20px',
+                          background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
+                          color: '#fbbf24', fontSize: '0.72rem', fontWeight: 700,
+                          cursor: sendingSessionReminder ? 'default' : 'pointer'
+                        }}
+                      >
+                        {sendingSessionReminder ? '⏳ Sending…' : `🔔 Send renewal reminder (${Math.max(0, selectedClient.total_sessions - workoutLogs.length)} left)`}
+                      </button>
+                    )}
+                    {sessionReminderSentMsg && (
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#34d399', marginTop: '5px' }}>{sessionReminderSentMsg}</div>
+                    )}
                   </div>
                   <input
                     type="number"

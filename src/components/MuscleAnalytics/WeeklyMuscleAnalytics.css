@@ -5,6 +5,16 @@
    extension of the app rather than a bolted-on screen.
    ========================================================================== */
 
+/* Coach-side header (bareHeader prop) — same layout chart-widget-card gives
+   (full width, column flex) but no padding/border/background, since the
+   coach's client detail screen already sits in its own bordered panel. */
+.muscle-analytics-header-bare {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
 .muscle-analytics-subtext {
   font-size: 0.75rem;
   color: var(--text-muted);

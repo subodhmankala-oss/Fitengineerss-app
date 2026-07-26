@@ -3397,7 +3397,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                             weekOffset={historyWeekOffset}
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
-                            bareHeader
+                            bareCards
                           />
                         )}
                       </>

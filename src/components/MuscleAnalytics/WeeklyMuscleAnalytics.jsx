@@ -33,8 +33,14 @@ const AnimatedStat = ({ value, label, sub, suffix = '' }) => {
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareHeader = false }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false }) => {
   const weekStartStr = weekDays[0];
+  // bareCards: coach view drops every card's border/background/padding on
+  // this tab — the coach's client detail screen already sits in its own
+  // bordered panel, so every chart-widget-card here doubled up. Client view
+  // keeps the normal bordered cards since it has no such ancestor panel.
+  const cardClass = (extra = '') =>
+    `${bareCards ? 'muscle-analytics-bare-card' : 'chart-widget-card glass-panel'}${extra ? ` ${extra}` : ''}`;
   const weekEndStr = weekDays[6];
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [balanceTab, setBalanceTab] = useState('balance'); // 'balance' | 'neglected'
@@ -70,13 +76,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   return (
     <div className="muscle-analytics-root timeframe-content flex-col gap-4">
       {/* ── Header: week range + top-line stats ── */}
-      {/* bareHeader: coach view drops the card's border/background
-          (glass-panel) AND chart-widget-card's 16px padding here — otherwise
-          this header renders as a second nested bordered card (or, once the
-          border was dropped, a box of unexplained empty space) on the
-          coach's client detail screen. Client view keeps the full padded
-          card since it has no such ancestor card. */}
-      <div className={bareHeader ? 'muscle-analytics-header muscle-analytics-header-bare' : 'chart-widget-card glass-panel muscle-analytics-header'}>
+      <div className={cardClass('muscle-analytics-header')}>
         <div className="widget-header justify-between">
           <h4>🧠 Weekly Muscle Analytics</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -108,7 +108,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           of two separate stacked cards. Neglected Muscles reflects real
           "right now" status (last actual training date), not the browsed
           week, so it reads `logs` directly rather than `muscleStats`. ── */}
-      <div className="chart-widget-card glass-panel">
+      <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{balanceTab === 'balance' ? '💪 Muscle Balance Overview' : '⚠️ Neglected Muscles'}</h4>
           <div className="heatmap-view-toggle">
@@ -146,7 +146,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           above). The heat map keeps its own inner Front/Back toggle — a
           second-level choice (which side of the body), not the same kind
           of switch as this outer Heat Map/Recovery tab. ── */}
-      <div className="chart-widget-card glass-panel">
+      <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{mapTab === 'heatmap' ? '🗺️ Muscle Heat Map' : '🔋 Recovery Dashboard'}</h4>
           <div className="heatmap-view-toggle">
@@ -166,7 +166,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           and Personal Recommendations share one card via a 3-way tab
           switcher (same toggle pattern used above), instead of three
           separate stacked cards. ── */}
-      <div className="chart-widget-card glass-panel">
+      <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>
             {insightsTab === 'insights' && '💡 Weekly Insights'}

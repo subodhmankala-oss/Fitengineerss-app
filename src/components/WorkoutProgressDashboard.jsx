@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachNoteBanner from './CoachNoteBanner';
+import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
@@ -788,11 +789,17 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
         >
           Daily
         </button>
-        <button 
-          className={`timeframe-btn ${timeframe === 'monthly' ? 'active' : ''}`} 
+        <button
+          className={`timeframe-btn ${timeframe === 'monthly' ? 'active' : ''}`}
           onClick={() => setTimeframe('monthly')}
         >
           Monthly
+        </button>
+        <button
+          className={`timeframe-btn ${timeframe === 'muscles' ? 'active' : ''}`}
+          onClick={() => setTimeframe('muscles')}
+        >
+          Muscles
         </button>
       </div>
 
@@ -1275,6 +1282,19 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                 })()}
               </div>
             </div>
+          )}
+
+          {/* ─── MUSCLE ANALYTICS VIEW CONTENT ─── */}
+          {timeframe === 'muscles' && (
+            <WeeklyMuscleAnalytics
+              logs={logs}
+              weekDays={weekDays}
+              weekRangeLabel={weekRangeLabel}
+              weeklyStats={weeklyStats}
+              weekOffset={weekOffset}
+              setWeekOffset={setWeekOffset}
+              weekNavBtnStyle={weekNavBtnStyle}
+            />
           )}
         </div>
       )}

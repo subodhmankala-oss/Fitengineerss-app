@@ -10,6 +10,7 @@ import './WorkoutTracker.css';
 // WorkoutProgressDashboard so the coach's per-client Workout History tab is
 // visually identical (same chart widgets, session cards, heatmap).
 import './WorkoutProgressDashboard.css';
+import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
@@ -359,6 +360,11 @@ const TrainerDashboard = ({ handleLogout }) => {
   
   // Workout history states
   const [workoutLogs, setWorkoutLogs] = useState([]);
+  // Same fetch as workoutLogs, kept in its raw flat (per-set) shape — the
+  // Muscle Analytics tab's utils (muscleAnalytics.js) operate on individual
+  // log_date/exercise_name/weight_kg/reps rows, not the grouped per-date
+  // session objects `workoutLogs` holds.
+  const [rawWorkoutLogs, setRawWorkoutLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   // Workout History tab timeframe filter: 'weekly' (last 7 days), 'daily'
   // (today), or 'monthly' (last 30 days) — same control as Workout Summary.
@@ -794,6 +800,7 @@ const TrainerDashboard = ({ handleLogout }) => {
       // Refresh workout history
       const logs = await databaseService.getWorkoutLogsForUser(selectedClient.id);
       setWorkoutLogs(groupLogs(logs || []));
+      setRawWorkoutLogs(logs || []);
       // Refresh the Workout Plan tab so the plan just saved above shows up
       // immediately if the coach switches to it.
       fetchClientPlans(selectedClient.id);
@@ -1129,6 +1136,7 @@ const TrainerDashboard = ({ handleLogout }) => {
 
     setLoadingLogs(true);
     setWorkoutLogs([]);
+    setRawWorkoutLogs([]);
     try {
       // 1. Get flat logs from database service (Supabase or localStorage via id)
       const logs = await databaseService.getWorkoutLogsForUser(client.id);
@@ -1209,6 +1217,7 @@ const TrainerDashboard = ({ handleLogout }) => {
 
       const grouped = groupLogs(allLogs);
       setWorkoutLogs(grouped);
+      setRawWorkoutLogs(allLogs);
 
       // Load client plans
       fetchClientPlans(client.id);
@@ -2849,7 +2858,7 @@ const TrainerDashboard = ({ handleLogout }) => {
 
                   {/* Timeframe segmented control (Weekly / Daily / Monthly) */}
                   <div className="wsum-timeframe-nav">
-                    {['weekly', 'daily', 'monthly'].map((tf) => (
+                    {['weekly', 'daily', 'monthly', 'muscles'].map((tf) => (
                       <button
                         key={tf}
                         type="button"
@@ -2927,15 +2936,22 @@ const TrainerDashboard = ({ handleLogout }) => {
                     // Weekly aggregation
                     const dailySets = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
                     let weekWorkoutsCount = 0, weekCaloriesRaw = 0;
+                    // Volume/sets totals — only the Muscle Analytics tab's header
+                    // stat cards need these; the weekly bar chart above only uses
+                    // dailySets/weekWorkoutsCount.
+                    let weekTotalVolume = 0, weekTotalSets = 0;
                     weekDays.forEach(day => {
                       const s = groupedByDate[day];
                       if (s) {
                         weekWorkoutsCount += 1;
                         weekCaloriesRaw += s.caloriesBurned || 0;
+                        weekTotalVolume += s.volume;
+                        weekTotalSets += s.sets;
                         dailySets[parseLocalDateString(day).toLocaleDateString('en-US', { weekday: 'short' })] = s.sets;
                       }
                     });
                     const weeklyTotalCalories = Math.round(weekCaloriesRaw * 10) / 10;
+                    const muscleAnalyticsWeeklyStats = { workoutsCount: weekWorkoutsCount, totalSets: weekTotalSets, totalVolume: weekTotalVolume, dailySets };
 
                     // Monthly aggregation (last 30 days)
                     const dailyVolumeHistory = [];
@@ -3363,6 +3379,25 @@ const TrainerDashboard = ({ handleLogout }) => {
                               </div>
                             </div>
                           </div>
+                        )}
+
+                        {/* Coach-side view of the same Weekly Muscle Analytics
+                            the client sees on their own dashboard — reads this
+                            client's rawWorkoutLogs (flat per-set rows, not the
+                            grouped session objects `workoutLogs` holds above)
+                            since the muscle-group utils key off exercise_name
+                            per row. Shares week navigation with the Weekly tab
+                            via historyWeekOffset. */}
+                        {historyTimeframe === 'muscles' && (
+                          <WeeklyMuscleAnalytics
+                            logs={rawWorkoutLogs}
+                            weekDays={weekDays}
+                            weekRangeLabel={weekRangeLabel}
+                            weeklyStats={muscleAnalyticsWeeklyStats}
+                            weekOffset={historyWeekOffset}
+                            setWeekOffset={setHistoryWeekOffset}
+                            weekNavBtnStyle={weekNavBtnStyle}
+                          />
                         )}
                       </>
                     );

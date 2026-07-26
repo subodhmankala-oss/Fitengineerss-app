@@ -99,6 +99,15 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
 
   return (
     <>
+      <div className="muscle-status-legend">
+        {LEGEND.map(l => (
+          <span key={l.key} className="legend-item">
+            <span className="legend-dot" style={{ background: l.color }} />
+            {l.label}
+          </span>
+        ))}
+      </div>
+
       <div className="widget-header justify-between" style={{ marginBottom: '4px' }}>
         <p className="muscle-analytics-subtext" style={{ margin: 0 }}>Tap any muscle for exercises, volume, and recovery detail.</p>
         <div className="heatmap-view-toggle">
@@ -129,15 +138,6 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
             </button>
           );
         })}
-      </div>
-
-      <div className="muscle-status-legend">
-        {LEGEND.map(l => (
-          <span key={l.key} className="legend-item">
-            <span className="legend-dot" style={{ background: l.color }} />
-            {l.label}
-          </span>
-        ))}
       </div>
 
       {/* CC BY-SA 3.0 attribution — required by the license on the vendored

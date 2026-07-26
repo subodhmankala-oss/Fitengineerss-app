@@ -1,0 +1,886 @@
+/* ==========================================================================
+   WEEKLY MUSCLE ANALYTICS — scoped styles for the Muscles tab.
+   Reuses the app's existing tokens (--bg-card, --primary-accent-light,
+   --radius-md, --transition-smooth, etc.) so this feature reads as a native
+   extension of the app rather than a bolted-on screen.
+   ========================================================================== */
+
+.muscle-analytics-subtext {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+
+/* ── Status color tokens (scoped to this feature) ── */
+.status-optimal { --status-color: var(--primary-accent-light); }
+.status-slightly-low { --status-color: #eab308; }
+.status-undertrained { --status-color: #f97316; }
+.status-neglected { --status-color: #ef4444; }
+.status-high-volume { --status-color: #3b82f6; }
+.status-recently-trained { --status-color: #ef4444; }
+.status-recovering { --status-color: #eab308; }
+.status-almost-ready { --status-color: #3b82f6; }
+.status-recovered { --status-color: var(--primary-accent-light); }
+.status-not-trained { --status-color: var(--text-subtle); }
+
+/* ── Muscle card grid (Section 1) ── */
+.muscle-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.muscle-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0;
+  animation: muscleCardFadeUp 0.5s var(--transition-smooth, ease) forwards;
+}
+
+.muscle-card-tappable {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.muscle-card-tappable:hover,
+.muscle-card-tappable:focus-visible {
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.muscle-card-tappable:active {
+  transform: translateY(0);
+}
+
+@keyframes muscleCardFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.muscle-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.muscle-icon-badge {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--status-color);
+  background: color-mix(in srgb, var(--status-color) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-color) 35%, transparent);
+}
+
+/* ── MuscleThumbnail (replaces the text-badge look on MuscleCard) ──
+   Fixed-size viewport, clipped to a circle; an oversized inner canvas
+   (the full 200×369 body, scaled up) is shifted so MUSCLE_CROP's window
+   lands centered — see muscleBodyShapes.js for how that crop was measured. */
+.muscle-thumb {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--status-color) 14%, #0b1120);
+  border: 1px solid color-mix(in srgb, var(--status-color) 35%, transparent);
+}
+
+.muscle-thumb-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.muscle-thumb-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.muscle-thumb-layer svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.muscle-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.muscle-card-title strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.muscle-status-pill {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--status-color);
+  white-space: nowrap;
+}
+
+.muscle-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.muscle-sets-target {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.muscle-completion {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--status-color);
+  letter-spacing: -0.02em;
+}
+
+.muscle-progress-track {
+  width: 100%;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.muscle-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--status-color);
+  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.muscle-volume-line {
+  font-size: 0.66rem;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+
+/* ── Status legend ── */
+.muscle-status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-color);
+  flex-shrink: 0;
+}
+
+/* ── Section 6: Weekly Insights ── */
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insight-item {
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  opacity: 0;
+  animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
+}
+
+/* ── Section 7: Progress Comparison ── */
+.comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comparison-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.comparison-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.comparison-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.comparison-values {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.comparison-curr {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.comparison-prev {
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+
+.comparison-trend {
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.trend-up { color: var(--primary-accent-light); }
+.trend-down { color: #ef4444; }
+.trend-flat { color: var(--text-muted); }
+
+/* ── Section 8: Personal Recommendations ── */
+.recommendation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recommendation-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+  opacity: 0;
+  animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
+}
+
+.recommendation-bullet {
+  color: var(--primary-accent-light);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* ── Section 4: Recovery Dashboard ── */
+.recovery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.recovery-row {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.recovery-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.recovery-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.recovery-muscle-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.recovery-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--status-color);
+  background: color-mix(in srgb, var(--status-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-color) 32%, transparent);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.recovery-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.recovery-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recovery-progress-track {
+  flex: 1;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.recovery-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--status-color);
+  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.recovery-percent {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--status-color);
+  flex-shrink: 0;
+  min-width: 34px;
+  text-align: right;
+}
+
+.recovery-ready-line {
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  margin: 6px 0 0;
+}
+
+/* ── Section 5: Neglected Muscles ── */
+.neglected-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 16px;
+  text-align: center;
+}
+
+.neglected-empty-state span {
+  font-size: 1.6rem;
+}
+
+.neglected-empty-state p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.neglected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neglected-card {
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neglected-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.neglected-muscle-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.neglected-days-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.neglected-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.neglected-recs-label {
+  font-size: 0.64rem;
+  color: var(--text-subtle);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.neglected-recs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neglected-rec-chip {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Section 2: Muscle Heat Map ── */
+.heatmap-view-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  gap: 2px;
+}
+
+.heatmap-view-toggle button {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+}
+
+.heatmap-view-toggle button.active {
+  background: var(--bg-card);
+  color: var(--primary-accent-light);
+}
+
+.muscle-body-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+/* Stacked layers: vendored body illustration (base) + one absolutely
+   positioned overlay div per muscle-file, all matched to the same 200×369
+   source canvas so they align without any manual coordinate math. */
+.muscle-body-stack {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 200 / 369;
+}
+
+/* Every layer is a full-size box stacked on the others, so NOTHING in the
+   stack may capture pointer events at the container level — otherwise the
+   last-rendered layer becomes an invisible full-body click target that
+   swallows every click (this was a real bug: every tap, even on the head,
+   resolved to whichever muscle rendered last).
+   Only the actual painted <path> geometry is clickable; the click then
+   bubbles up to the layer div's React onClick handler. */
+.muscle-svg-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.muscle-svg-layer svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.muscle-svg-layer.interactive svg path {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.muscle-region {
+  transition: filter 0.2s ease, stroke-width 0.2s ease;
+}
+
+/* Hover/focus feedback applies to the whole layer when any of its paths is
+   hovered — keyed off the layer, since a muscle can span several paths. */
+.muscle-svg-layer.interactive:hover,
+.muscle-svg-layer.interactive:focus-visible {
+  filter: brightness(1.15);
+  outline: none;
+}
+
+.heatmap-attribution {
+  font-size: 0.62rem;
+  color: var(--text-subtle);
+  text-align: center;
+  margin: 10px 0 0;
+}
+
+.heatmap-attribution a {
+  color: var(--text-subtle);
+  text-decoration: underline;
+}
+
+.heatmap-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.heatmap-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: color-mix(in srgb, var(--chip-color, #64748b) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chip-color, #64748b) 45%, transparent);
+  padding: 5px 11px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Section 9: Muscle Detail Screen (bottom sheet) ── */
+/* Backdrop fade + sheet slide-up. Kept scoped here (own keyframes, own
+   classes) rather than reusing the app's shared ".animate-slide-up" —
+   that global class (index.css) is actually a 20px fade-in, not a true
+   off-screen slide, and this component doesn't load the OTHER same-named
+   animation that WorkoutTracker.css defines for its own bottom sheets. Using
+   a name collision across files for two different animations was the bug;
+   scoping this modal's own animation avoids depending on which stylesheet
+   happens to be loaded on a given screen. */
+@keyframes muscleDetailBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes muscleDetailSheetIn {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.muscle-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: muscleDetailBackdropIn 0.28s ease both;
+}
+
+.muscle-detail-backdrop.closing {
+  animation: muscleDetailBackdropIn 0.26s ease both reverse;
+}
+
+.muscle-detail-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #141b28;
+  border-radius: 20px 20px 0 0;
+  /* Reaches close to the top of the screen (was 88vh) — leaves just enough
+     room to see the backdrop above it so the sheet still reads as an
+     overlay, not a full-screen swap. */
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4);
+  animation: muscleDetailSheetIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform;
+}
+
+.muscle-detail-sheet.closing {
+  animation: muscleDetailSheetIn 0.26s cubic-bezier(0.4, 0, 1, 1) both reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-detail-backdrop,
+  .muscle-detail-backdrop.closing,
+  .muscle-detail-sheet,
+  .muscle-detail-sheet.closing {
+    animation: none;
+  }
+}
+
+.muscle-detail-handle {
+  width: 36px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+  margin: 10px auto 4px;
+  flex-shrink: 0;
+}
+
+.muscle-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.muscle-detail-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--status-color);
+  background: color-mix(in srgb, var(--status-color) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-color) 40%, transparent);
+  flex-shrink: 0;
+}
+
+.muscle-detail-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.muscle-detail-title-group h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.muscle-detail-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.muscle-detail-body {
+  overflow-y: auto;
+  padding: 16px 18px calc(24px + var(--safe-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.detail-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-stat-block {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.detail-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-stat-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.detail-meta-line {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: -8px 0 0;
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-section-title {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-trend-svg {
+  width: 100%;
+  height: 70px;
+}
+
+.detail-trend-label {
+  font-size: 8px;
+  fill: var(--text-muted);
+  font-weight: 700;
+}
+
+.detail-empty-line {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.detail-exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-exercise-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-exercise-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.detail-exercise-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.detail-exercise-sets {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.detail-contribution-track {
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.detail-contribution-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--primary-accent-light);
+}
+
+.detail-contribution-label {
+  font-size: 0.66rem;
+  color: var(--text-subtle);
+}
+
+.detail-best-lift {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.detail-pr-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.detail-pr-chip {
+  font-size: 0.68rem;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  padding: 4px 9px;
+  border-radius: var(--radius-full);
+}
+
+.detail-growth-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.detail-growth-score-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--primary-accent-light);
+  letter-spacing: -0.02em;
+}
+
+.detail-growth-score-max {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.detail-growth-caption {
+  font-size: 0.68rem;
+  color: var(--text-subtle);
+  line-height: 1.5;
+  margin: 0;
+}

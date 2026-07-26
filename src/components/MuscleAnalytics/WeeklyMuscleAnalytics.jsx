@@ -33,7 +33,7 @@ const AnimatedStat = ({ value, label, sub, suffix = '' }) => {
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareHeader = false }) => {
   const weekStartStr = weekDays[0];
   const weekEndStr = weekDays[6];
   const [selectedMuscle, setSelectedMuscle] = useState(null);
@@ -70,7 +70,13 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   return (
     <div className="muscle-analytics-root timeframe-content flex-col gap-4">
       {/* ── Header: week range + top-line stats ── */}
-      <div className="chart-widget-card glass-panel muscle-analytics-header">
+      {/* bareHeader: coach view drops the card's border/background
+          (glass-panel) AND chart-widget-card's 16px padding here — otherwise
+          this header renders as a second nested bordered card (or, once the
+          border was dropped, a box of unexplained empty space) on the
+          coach's client detail screen. Client view keeps the full padded
+          card since it has no such ancestor card. */}
+      <div className={bareHeader ? 'muscle-analytics-header muscle-analytics-header-bare' : 'chart-widget-card glass-panel muscle-analytics-header'}>
         <div className="widget-header justify-between">
           <h4>🧠 Weekly Muscle Analytics</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

@@ -1098,6 +1098,41 @@ const databaseService = {
         // login with their name still missing.
         let resolvedUserId = userId || await resolveCanonicalUserId();
 
+        // Still nothing: for a genuinely brand-new client, the users/clients
+        // row is normally created by App.jsx's background SIGNED_IN listener
+        // (processSessionUser) — but this wizard's save was written to just
+        // assume that had already finished by the time the client clicks
+        // through 4 quick steps and hits Confirm, which is a race it can
+        // lose. Worse, that listener silently no-ops for an unconfirmed
+        // email (see its email_confirmed_at gate), which would strand the
+        // client on this exact error FOREVER, no matter how many times they
+        // retried — confirmed 2026-07-27 for a second real client (Nikhil)
+        // even after the normalization fix above. Create the row directly
+        // here instead of depending on that other code path having run.
+        if (!resolvedUserId) {
+          const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+          if (email) {
+            await this.saveUserProfile({
+              userName: cleanName || localStorage.getItem('userName') || 'Warrior',
+              email,
+              role: 'client',
+              coach_id: null,
+              userAge: age || '30',
+              userHeight: height_cm || '175',
+              userWeight: weight_kg || '70',
+              userActivity: mappedActivity,
+              userGoal: mappedGoal,
+              userDiet: 'Non-Vegetarian',
+              userCalorieTarget: String(targets.calories),
+              userProteinTarget: String(targets.protein),
+              userCarbsTarget: String(targets.carbs),
+              userFatsTarget: String(targets.fats),
+              verified: false
+            });
+            resolvedUserId = await resolveCanonicalUserId();
+          }
+        }
+
         if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
 
         // Write core stats + onboarding_completed/program/primary_concern in one

@@ -442,7 +442,20 @@ function App() {
           return;
         }
 
-        const profile = await databaseService.getUserProfileByEmail(email);
+        let profile = await databaseService.getUserProfileByEmail(email);
+        // A null result here used to be trusted outright as "this user
+        // doesn't exist yet" and fed straight into the auto-create path below,
+        // which overwrites any EXISTING profile (coach_id: null + placeholder
+        // defaults) via upsert on user_id — so a single transient lookup
+        // failure (e.g. right after a fresh auth session, see
+        // getUserProfileByEmail) could silently wipe a real client's coach
+        // link and data. One short retry before trusting a null costs at
+        // most ~600ms on the rare path where it's needed, and this is the one
+        // place a wrong guess is destructive rather than just a blank screen.
+        if (!profile) {
+          await new Promise(r => setTimeout(r, 600));
+          profile = await databaseService.getUserProfileByEmail(email);
+        }
         console.log("Login successful. Role found: " + (profile?.role || 'none'));
         const isSuperAdminEmail = email.toLowerCase() === 'subodhmankala@gmail.com';
 

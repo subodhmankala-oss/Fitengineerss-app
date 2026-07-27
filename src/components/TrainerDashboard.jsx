@@ -403,6 +403,13 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Which assigned-plan card's ⋮ menu (Edit/Duplicate/Delete/More details)
   // is open — one at a time, keyed by plan id.
   const [openPlanCardMenuId, setOpenPlanCardMenuId] = useState(null);
+  // Bulk-assign — create/AI-draft flows only (editing an existing plan stays
+  // single-client, since that plan already belongs to one client's row).
+  // extraAssignClientIds holds the OTHER clients beyond selectedClient who'll
+  // each get their own independent copy of the plan on save.
+  const [showClientPickerModal, setShowClientPickerModal] = useState(false);
+  const [clientPickerSearch, setClientPickerSearch] = useState('');
+  const [extraAssignClientIds, setExtraAssignClientIds] = useState([]);
 
   const fetchClientPlans = async (clientId) => {
     setLoadingPlans(true);
@@ -1480,6 +1487,7 @@ const TrainerDashboard = ({ handleLogout }) => {
     setEditorExercises([
       { name: 'Bench Press', sets: [{ reps: 10, weight: 40 }] }
     ]);
+    setExtraAssignClientIds([]);
     setShowCreatePlanChoice(false);
     setShowPlanEditor(true);
   };
@@ -1496,6 +1504,7 @@ const TrainerDashboard = ({ handleLogout }) => {
     setEditingPlan(null);
     setEditorPlanName(days[0].planName);
     setEditorExercises(days[0].exercises);
+    setExtraAssignClientIds([]);
     setIsAiDraftMode(true);
     setShowAIBuilder(false);
     setShowPlanEditor(true);
@@ -1528,10 +1537,19 @@ const TrainerDashboard = ({ handleLogout }) => {
       return;
     }
 
+    // Bulk-assign targets: the currently selected client plus any extras
+    // picked via "Assign to more clients" — editing an existing plan stays
+    // single-client (that plan already belongs to one client's row), so
+    // extras are only honored when creating a fresh plan/AI draft.
+    const targetClientIds = editingPlan
+      ? [selectedClient.id]
+      : Array.from(new Set([selectedClient.id, ...extraAssignClientIds]));
+
     if (isAiDraftMode) {
-      // Batch-assign every reviewed day — this is the spec's distinct
-      // "Assign Workout Plan" action, only reachable after the coach has
-      // seen and can still edit every day via the tabs above.
+      // Batch-assign every reviewed day, to every target client — this is
+      // the spec's distinct "Assign Workout Plan" action, only reachable
+      // after the coach has seen and can still edit every day via the tabs
+      // above.
       setAssigningAiDraft(true);
       try {
         const daysToSave = [...aiDraftDays];
@@ -1540,22 +1558,24 @@ const TrainerDashboard = ({ handleLogout }) => {
           planName: editorPlanName,
           exercises: editorExercises
         };
-        for (const day of daysToSave) {
-          if (!day.planName?.trim() || day.exercises.length === 0) continue;
-          const plan = {
-            id: null,
-            userId: selectedClient.id,
-            planName: day.planName.trim(),
-            exercises: cleanEditorExercises(day.exercises),
-            createdBy: 'coach',
-            isAssigned: true
-          };
-          await databaseService.saveWorkoutPlan(plan);
+        for (const clientId of targetClientIds) {
+          for (const day of daysToSave) {
+            if (!day.planName?.trim() || day.exercises.length === 0) continue;
+            const plan = {
+              id: null,
+              userId: clientId,
+              planName: day.planName.trim(),
+              exercises: cleanEditorExercises(day.exercises),
+              createdBy: 'coach',
+              isAssigned: true
+            };
+            await databaseService.saveWorkoutPlan(plan);
+          }
+          notifyEvent('plan_assigned', {
+            clientUserId: clientId,
+            planName: daysToSave.length === 1 ? daysToSave[0].planName : `${daysToSave.length} new workout plans`
+          });
         }
-        notifyEvent('plan_assigned', {
-          clientUserId: selectedClient.id,
-          planName: daysToSave.length === 1 ? daysToSave[0].planName : `${daysToSave.length} new workout plans`
-        });
         setShowPlanEditor(false);
         setIsAiDraftMode(false);
         setAiDraftDays([]);
@@ -1564,6 +1584,7 @@ const TrainerDashboard = ({ handleLogout }) => {
         setEditingPlan(null);
         setEditorPlanName('');
         setEditorExercises([]);
+        setExtraAssignClientIds([]);
         fetchClientPlans(selectedClient.id);
       } finally {
         setAssigningAiDraft(false);
@@ -1571,26 +1592,30 @@ const TrainerDashboard = ({ handleLogout }) => {
       return;
     }
 
-    const plan = {
-      id: editingPlan ? editingPlan.id : null,
-      userId: selectedClient.id,
-      planName: editorPlanName.trim(),
-      exercises: cleanEditorExercises(editorExercises),
-      createdBy: 'coach',
-      // The editor's button reads "Assign to client" — this is the deliberate
-      // assignment action, so it always sets isAssigned: true, even when
-      // editing a plan that started out unassigned (e.g. one auto-saved from
-      // Live Log). That's how such a plan becomes visible to the client.
-      isAssigned: true
-    };
-
-    await databaseService.saveWorkoutPlan(plan);
-    // Notify the client their coach sent them a new workout plan.
-    notifyEvent('plan_assigned', { clientUserId: selectedClient.id, planName: plan.planName });
+    const cleanExercises = cleanEditorExercises(editorExercises);
+    const trimmedPlanName = editorPlanName.trim();
+    for (const clientId of targetClientIds) {
+      const plan = {
+        id: clientId === selectedClient.id && editingPlan ? editingPlan.id : null,
+        userId: clientId,
+        planName: trimmedPlanName,
+        exercises: cleanExercises,
+        createdBy: 'coach',
+        // The editor's button reads "Assign to client" — this is the deliberate
+        // assignment action, so it always sets isAssigned: true, even when
+        // editing a plan that started out unassigned (e.g. one auto-saved from
+        // Live Log). That's how such a plan becomes visible to the client.
+        isAssigned: true
+      };
+      await databaseService.saveWorkoutPlan(plan);
+      // Notify each client their coach sent them a new workout plan.
+      notifyEvent('plan_assigned', { clientUserId: clientId, planName: trimmedPlanName });
+    }
     setShowPlanEditor(false);
     setEditingPlan(null);
     setEditorPlanName('');
     setEditorExercises([]);
+    setExtraAssignClientIds([]);
     fetchClientPlans(selectedClient.id);
   };
 
@@ -3722,6 +3747,49 @@ const TrainerDashboard = ({ handleLogout }) => {
                         />
                       </div>
 
+                      {/* Bulk-assign — only for a fresh plan/AI draft, not
+                          while editing one that already belongs to a client. */}
+                      {!editingPlan && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                            Also assign to
+                          </label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd', borderRadius: '20px', padding: '4px 10px' }}>
+                              {selectedClient.userName}
+                            </span>
+                            {extraAssignClientIds.map(id => {
+                              const c = clients.find(cl => cl.id === id);
+                              if (!c) return null;
+                              return (
+                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '20px', padding: '4px 6px 4px 10px' }}>
+                                  {c.userName}
+                                  <button
+                                    type="button"
+                                    onClick={() => setExtraAssignClientIds(prev => prev.filter(x => x !== id))}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', lineHeight: 1, padding: 0 }}
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={() => setShowClientPickerModal(true)}
+                              style={{ fontSize: '0.75rem', fontWeight: 700, background: 'rgba(16,185,129,0.08)', border: '1px dashed rgba(16,185,129,0.35)', color: 'var(--primary-accent-light)', borderRadius: '20px', padding: '4px 10px', cursor: 'pointer' }}
+                            >
+                              + Add clients
+                            </button>
+                          </div>
+                          {extraAssignClientIds.length > 0 && (
+                            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                              This plan will be created for {1 + extraAssignClientIds.length} clients, each as their own copy.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Exercises in the editor — matches the Live Log's Hevy-style
                           layout (flush cards, styled set rows, set-type badges). */}
                       <div className="editor-exercises-list" style={{ marginBottom: '16px' }}>
@@ -3881,6 +3949,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                             setAiDraftDays([]);
                             setAiDraftSummary('');
                             setActiveAiDraftDayIndex(0);
+                            setExtraAssignClientIds([]);
                           }}
                           style={{ flex: 1, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.5 : 1 }}
                         >
@@ -3892,7 +3961,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                           onClick={handleSavePlan}
                           style={{ flex: 1, padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.7 : 1 }}
                         >
-                          {isAiDraftMode ? (assigningAiDraft ? 'Assigning…' : 'Assign Workout Plan') : 'Assign to client'}
+                          {assigningAiDraft
+                            ? 'Assigning…'
+                            : extraAssignClientIds.length > 0
+                            ? `Assign to ${1 + extraAssignClientIds.length} clients`
+                            : isAiDraftMode ? 'Assign Workout Plan' : 'Assign to client'}
                         </button>
                       </div>
                     </div>
@@ -3992,6 +4065,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                           setEditingPlan(plan);
                                           setEditorPlanName(plan.planName);
                                           setEditorExercises(plan.exercises);
+                                          setExtraAssignClientIds([]);
                                           setShowPlanEditor(true);
                                         }}
                                         style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
@@ -4724,6 +4798,61 @@ const TrainerDashboard = ({ handleLogout }) => {
           onClose={() => setShowAIBuilder(false)}
           onGenerated={handleAiDraftGenerated}
         />
+      )}
+
+      {/* Bulk-assign client picker — attached clients other than the one
+          currently open, so the coach can send this same plan to several
+          people at once instead of recreating it per client. */}
+      {showClientPickerModal && (
+        <div className="payment-gateway-backdrop" onClick={() => setShowClientPickerModal(false)}>
+          <div
+            className="payment-gateway-modal animate-scale-in"
+            style={{ maxWidth: '380px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="payment-modal-header">
+              <div className="modal-title-box">
+                <h3>Assign to more clients</h3>
+              </div>
+              <button type="button" className="btn-close-modal" onClick={() => setShowClientPickerModal(false)}>✕</button>
+            </div>
+            <input
+              type="text"
+              placeholder="Search clients..."
+              value={clientPickerSearch}
+              onChange={(e) => setClientPickerSearch(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: 'rgba(9,14,23,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', color: '#fff', fontSize: '0.85rem', outline: 'none', marginBottom: '10px' }}
+            />
+            <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {clients
+                .filter(c => c.coach_id === loggedInUserId && c.id !== selectedClient?.id)
+                .filter(c => c.userName.toLowerCase().includes(clientPickerSearch.toLowerCase()))
+                .map(c => {
+                  const checked = extraAssignClientIds.includes(c.id);
+                  return (
+                    <label
+                      key={c.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: checked ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setExtraAssignClientIds(prev => checked ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                      />
+                      <span style={{ fontSize: '0.85rem', color: '#fff' }}>{c.userName}</span>
+                    </label>
+                  );
+                })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowClientPickerModal(false)}
+              style={{ marginTop: '14px', padding: '10px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#06251b', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              Done ({extraAssignClientIds.length} selected)
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

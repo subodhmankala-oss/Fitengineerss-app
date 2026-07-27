@@ -17,7 +17,46 @@ import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsT
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
+import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 
+// Converts one AI-generated exercise (api/generate-workout-draft.js's
+// { name, type, setCount, reps, durationMinutes } shape) into this app's
+// actual editorExercises shape ({ name, sets: [{reps,weight}|{time}|
+// {distanceKm,time}] }) — i.e. the exact same shape handleAddExerciseToEditor
+// produces, so the reused plan editor can't tell the difference from an
+// exercise a coach added manually. Weight is always 0 — the AI has no basis
+// to guess a client's working weights, that's left for the coach to fill in.
+const convertAiExerciseToEditorShape = (aiEx) => {
+  const type = aiEx.type || 'strength';
+  const setCount = Math.max(1, parseInt(aiEx.setCount, 10) || (type === 'cardio' ? 1 : 3));
+  let setTemplate;
+  if (type === 'cardio') {
+    const totalSeconds = Math.round((aiEx.durationMinutes || 20) * 60);
+    const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const ss = String(totalSeconds % 60).padStart(2, '0');
+    setTemplate = { distanceKm: '', time: `${mm}:${ss}` };
+  } else if (type === 'timed') {
+    const totalSeconds = Math.round((aiEx.durationMinutes || 1) * 60);
+    const mm = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const ss = String(totalSeconds % 60).padStart(2, '0');
+    setTemplate = { time: `${mm}:${ss}` };
+  } else {
+    setTemplate = { reps: parseInt(aiEx.reps, 10) || 10, weight: 0 };
+  }
+  return {
+    name: aiEx.name,
+    sets: Array.from({ length: setCount }, () => ({ ...setTemplate }))
+  };
+};
+
+// Same conversion, for a whole day — used once right after generation and
+// (defensively) whenever a day is loaded into the editor.
+const convertAiDayToEditorShape = (day) => ({
+  dayLabel: day.dayLabel,
+  focus: day.focus || '',
+  planName: day.planName,
+  exercises: (day.exercises || []).map(convertAiExerciseToEditorShape)
+});
 
 const TrainerDashboard = ({ handleLogout }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
@@ -345,6 +384,22 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [editorExercises, setEditorExercises] = useState([]);
   // Which surface opened the shared exercise picker: 'editor' | 'live' | null
   const [exercisePickerContext, setExercisePickerContext] = useState(null);
+
+  // ── AI Workout Draft Builder ──
+  // "Create Workout Plan" now asks Build Manually vs Create Draft with AI
+  // before opening the (unchanged) editor below. An AI draft is a set of
+  // per-day plans (aiDraftDays) reviewed/edited through that SAME editor —
+  // isAiDraftMode just changes what the editor's save button does (batch-
+  // assign every day) instead of duplicating the editor UI. Nothing is
+  // saved/assigned until the coach presses that final button; generation
+  // itself (api/generate-workout-draft.js) never touches the database.
+  const [showCreatePlanChoice, setShowCreatePlanChoice] = useState(false);
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
+  const [isAiDraftMode, setIsAiDraftMode] = useState(false);
+  const [aiDraftDays, setAiDraftDays] = useState([]); // [{ dayLabel, focus, planName, exercises }]
+  const [activeAiDraftDayIndex, setActiveAiDraftDayIndex] = useState(0);
+  const [aiDraftSummary, setAiDraftSummary] = useState('');
+  const [assigningAiDraft, setAssigningAiDraft] = useState(false);
 
   const fetchClientPlans = async (clientId) => {
     setLoadingPlans(true);
@@ -1391,6 +1446,75 @@ const TrainerDashboard = ({ handleLogout }) => {
     setClientMeasurements(history);
   };
 
+  // Shared by the single-plan save below and the AI-draft batch-assign —
+  // strips the editor's in-progress set shape down to what actually gets
+  // persisted (same cleanup handleSavePlan always did).
+  const cleanEditorExercises = (exercises) => exercises.map(ex => {
+    const exIsCardio = isCardioExercise(ex.name);
+    return {
+      name: ex.name,
+      sets: ex.sets.map(s => ({
+        ...(exIsCardio
+          ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+          : isTimedExercise(ex.name)
+          ? { time: s.time || '' }
+          : { reps: parseInt(s.reps) || 10, weight: parseFloat(s.weight) || 0 }),
+        ...(s.isWarmup ? { isWarmup: true } : {}),
+        ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
+      }))
+    };
+  }).filter(ex => ex.sets.length > 0);
+
+  // Opens the plan editor exactly as the "Create Workout Plan" button always
+  // has — unchanged from before the AI option existed. Used both directly
+  // (editing an existing plan) and as the "Build Manually" choice.
+  const openManualPlanEditor = () => {
+    setIsAiDraftMode(false);
+    setAiDraftDays([]);
+    setAiDraftSummary('');
+    setEditingPlan(null);
+    setEditorPlanName('');
+    setEditorExercises([
+      { name: 'Bench Press', sets: [{ reps: 10, weight: 40 }] }
+    ]);
+    setShowCreatePlanChoice(false);
+    setShowPlanEditor(true);
+  };
+
+  // AIWorkoutBuilderModal's onGenerated — loads the first day into the
+  // existing editor and stashes the rest in aiDraftDays for the day tabs.
+  // Nothing is saved yet; see handleSavePlan's isAiDraftMode branch.
+  const handleAiDraftGenerated = (draft) => {
+    const days = (draft.days || []).map(convertAiDayToEditorShape);
+    if (days.length === 0) return;
+    setAiDraftDays(days);
+    setAiDraftSummary(draft.programSummary || '');
+    setActiveAiDraftDayIndex(0);
+    setEditingPlan(null);
+    setEditorPlanName(days[0].planName);
+    setEditorExercises(days[0].exercises);
+    setIsAiDraftMode(true);
+    setShowAIBuilder(false);
+    setShowPlanEditor(true);
+  };
+
+  // Switching day tabs while reviewing an AI draft: sync whatever the coach
+  // just edited on the current tab back into aiDraftDays before loading the
+  // next tab's exercises into the (shared, unchanged) editor state.
+  const switchAiDraftDay = (newIndex) => {
+    if (newIndex === activeAiDraftDayIndex) return;
+    const updated = [...aiDraftDays];
+    updated[activeAiDraftDayIndex] = {
+      ...updated[activeAiDraftDayIndex],
+      planName: editorPlanName,
+      exercises: editorExercises
+    };
+    setAiDraftDays(updated);
+    setActiveAiDraftDayIndex(newIndex);
+    setEditorPlanName(updated[newIndex].planName);
+    setEditorExercises(updated[newIndex].exercises);
+  };
+
   const handleSavePlan = async () => {
     if (!editorPlanName.trim()) {
       alert("Please enter a plan name.");
@@ -1400,29 +1524,55 @@ const TrainerDashboard = ({ handleLogout }) => {
       alert("Please add at least one exercise.");
       return;
     }
-    
-    // Clean up empty sets
-    const cleanExercises = editorExercises.map(ex => {
-      const exIsCardio = isCardioExercise(ex.name);
-      return {
-        name: ex.name,
-        sets: ex.sets.map(s => ({
-          ...(exIsCardio
-            ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
-            : isTimedExercise(ex.name)
-            ? { time: s.time || '' }
-            : { reps: parseInt(s.reps) || 10, weight: parseFloat(s.weight) || 0 }),
-          ...(s.isWarmup ? { isWarmup: true } : {}),
-          ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
-        }))
-      };
-    }).filter(ex => ex.sets.length > 0);
+
+    if (isAiDraftMode) {
+      // Batch-assign every reviewed day — this is the spec's distinct
+      // "Assign Workout Plan" action, only reachable after the coach has
+      // seen and can still edit every day via the tabs above.
+      setAssigningAiDraft(true);
+      try {
+        const daysToSave = [...aiDraftDays];
+        daysToSave[activeAiDraftDayIndex] = {
+          ...daysToSave[activeAiDraftDayIndex],
+          planName: editorPlanName,
+          exercises: editorExercises
+        };
+        for (const day of daysToSave) {
+          if (!day.planName?.trim() || day.exercises.length === 0) continue;
+          const plan = {
+            id: null,
+            userId: selectedClient.id,
+            planName: day.planName.trim(),
+            exercises: cleanEditorExercises(day.exercises),
+            createdBy: 'coach',
+            isAssigned: true
+          };
+          await databaseService.saveWorkoutPlan(plan);
+        }
+        notifyEvent('plan_assigned', {
+          clientUserId: selectedClient.id,
+          planName: daysToSave.length === 1 ? daysToSave[0].planName : `${daysToSave.length} new workout plans`
+        });
+        setShowPlanEditor(false);
+        setIsAiDraftMode(false);
+        setAiDraftDays([]);
+        setAiDraftSummary('');
+        setActiveAiDraftDayIndex(0);
+        setEditingPlan(null);
+        setEditorPlanName('');
+        setEditorExercises([]);
+        fetchClientPlans(selectedClient.id);
+      } finally {
+        setAssigningAiDraft(false);
+      }
+      return;
+    }
 
     const plan = {
       id: editingPlan ? editingPlan.id : null,
       userId: selectedClient.id,
       planName: editorPlanName.trim(),
-      exercises: cleanExercises,
+      exercises: cleanEditorExercises(editorExercises),
       createdBy: 'coach',
       // The editor's button reads "Assign to client" — this is the deliberate
       // assignment action, so it always sets isAssigned: true, even when
@@ -3510,9 +3660,46 @@ const TrainerDashboard = ({ handleLogout }) => {
                     /* PLAN EDITOR VIEW */
                     <div className="plan-editor-card glass-panel" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                       <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
-                        {editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
+                        {isAiDraftMode ? '✨ Review AI Draft' : editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
                       </h4>
-                      
+
+                      {/* AI draft review — day tabs + the AI's own rationale.
+                          Everything below this (name field, exercise list,
+                          Add Exercise, sets) is the exact same editor a coach
+                          uses for a manual plan; switching tabs just swaps
+                          which day's data is loaded into that same state. */}
+                      {isAiDraftMode && (
+                        <div style={{ marginBottom: '16px' }}>
+                          {aiDraftSummary && (
+                            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '10px', lineHeight: 1.5 }}>
+                              💡 {aiDraftSummary}
+                            </p>
+                          )}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {aiDraftDays.map((day, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => switchAiDraftDay(idx)}
+                                disabled={assigningAiDraft}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '20px',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  cursor: assigningAiDraft ? 'default' : 'pointer',
+                                  border: idx === activeAiDraftDayIndex ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid var(--border-color)',
+                                  background: idx === activeAiDraftDayIndex ? 'rgba(16, 185, 129, 0.14)' : 'rgba(255,255,255,0.03)',
+                                  color: idx === activeAiDraftDayIndex ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                                }}
+                              >
+                                {day.dayLabel}{day.focus ? ` · ${day.focus}` : ''}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="input-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Name (e.g. Week 1 - Day 1: Upper Body)</label>
                         <input 
@@ -3681,22 +3868,28 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <div className="editor-actions-row" style={{ display: 'flex', gap: 0 }}>
                         <button
                           type="button"
+                          disabled={assigningAiDraft}
                           onClick={() => {
                             setShowPlanEditor(false);
                             setEditingPlan(null);
                             setEditorPlanName('');
                             setEditorExercises([]);
+                            setIsAiDraftMode(false);
+                            setAiDraftDays([]);
+                            setAiDraftSummary('');
+                            setActiveAiDraftDayIndex(0);
                           }}
-                          style={{ flex: 1, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                          style={{ flex: 1, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.5 : 1 }}
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
+                          disabled={assigningAiDraft}
                           onClick={handleSavePlan}
-                          style={{ flex: 1, padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                          style={{ flex: 1, padding: '10px 16px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.7 : 1 }}
                         >
-                          Assign to client
+                          {isAiDraftMode ? (assigningAiDraft ? 'Assigning…' : 'Assign Workout Plan') : 'Assign to client'}
                         </button>
                       </div>
                     </div>
@@ -3705,16 +3898,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                     <div className="plans-list-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div className="list-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <h4 style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Workout Plans</h4>
-                        <button 
+                        <button
                           type="button"
-                          onClick={() => {
-                            setEditingPlan(null);
-                            setEditorPlanName('');
-                            setEditorExercises([
-                              { name: 'Bench Press', sets: [{ reps: 10, weight: 40 }] }
-                            ]);
-                            setShowPlanEditor(true);
-                          }}
+                          onClick={() => setShowCreatePlanChoice(true)}
                           style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', color: 'var(--primary-accent-light)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
                         >
                           ➕ Create Workout Plan
@@ -3746,6 +3932,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      setIsAiDraftMode(false);
                                       setEditingPlan(plan);
                                       setEditorPlanName(plan.planName);
                                       setEditorExercises(plan.exercises);
@@ -4397,6 +4584,60 @@ const TrainerDashboard = ({ handleLogout }) => {
           else setLiveExercises(prev => prev.filter(notName));
         }}
       />
+
+      {/* "Create Workout Plan" now asks which way to build it, before
+          touching any editor state — Build Manually reproduces the button's
+          original behavior exactly (openManualPlanEditor). */}
+      {showCreatePlanChoice && (
+        <div className="payment-gateway-backdrop" onClick={() => setShowCreatePlanChoice(false)}>
+          <div
+            className="payment-gateway-modal animate-scale-in"
+            style={{ maxWidth: '360px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="payment-modal-header">
+              <div className="modal-title-box">
+                <h3>Create Workout Plan</h3>
+              </div>
+              <button type="button" className="btn-close-modal" onClick={() => setShowCreatePlanChoice(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={openManualPlanEditor}
+                style={{ padding: '14px', textAlign: 'left', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: '#fff', cursor: 'pointer' }}
+              >
+                <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '2px' }}>Build Manually</strong>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Add exercises yourself, exactly as before.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowCreatePlanChoice(false); setShowAIBuilder(true); }}
+                style={{ padding: '14px', textAlign: 'left', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-md)', color: 'var(--primary-accent-light)', cursor: 'pointer' }}
+              >
+                <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '2px' }}>✨ Create Draft with AI</strong>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Generate a starting point from the client's profile — you review and edit everything before it's assigned.</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAIBuilder && (
+        <AIWorkoutBuilderModal
+          client={{
+            name: selectedClient?.userName,
+            age: selectedClient?.userAge,
+            height: selectedClient?.userHeight,
+            weight: resolvedClientWeightKg,
+            goal: selectedClient?.userGoal,
+            calories: selectedClient?.userCalorieTarget,
+            protein: selectedClient?.userProteinTarget
+          }}
+          onClose={() => setShowAIBuilder(false)}
+          onGenerated={handleAiDraftGenerated}
+        />
+      )}
     </div>
   );
 };

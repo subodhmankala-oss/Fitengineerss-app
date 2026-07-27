@@ -1,0 +1,207 @@
+.ai-builder-modal-card {
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-builder-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 2px 8px;
+}
+
+.ai-builder-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-builder-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.ai-client-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ai-client-summary-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-client-summary-item span {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ai-client-summary-item strong {
+  font-size: 0.82rem;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-builder-hint {
+  font-size: 0.7rem;
+  color: var(--text-subtle, var(--text-muted));
+  margin: 0;
+  font-style: italic;
+}
+
+.ai-optional-fields-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-select,
+.ai-text-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(9, 14, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  color: #fff;
+  font-size: 0.82rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.ai-select:focus,
+.ai-text-input:focus {
+  border-color: var(--primary-accent-light);
+}
+
+.ai-instructions-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(9, 14, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.ai-instructions-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.ai-instructions-textarea:focus {
+  border-color: var(--primary-accent-light);
+}
+
+.ai-option-group {
+  margin-bottom: 12px;
+}
+
+.ai-option-group:last-child {
+  margin-bottom: 0;
+}
+
+.ai-option-group-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.ai-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-option-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ai-option-chip:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.ai-option-chip.active {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: var(--primary-accent-light);
+}
+
+.ai-builder-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: #fca5a5;
+  font-size: 0.78rem;
+}
+
+.ai-builder-footer {
+  display: flex;
+  gap: 10px;
+  padding-top: 14px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ai-builder-cancel-btn {
+  flex: 1;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ai-builder-generate-btn {
+  flex: 2;
+  padding: 11px;
+  background: var(--primary-accent-light, #10b981);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #06251b;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ai-builder-generate-btn.loading,
+.ai-builder-generate-btn:disabled,
+.ai-builder-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

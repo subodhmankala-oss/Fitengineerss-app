@@ -3919,16 +3919,39 @@ const TrainerDashboard = ({ handleLogout }) => {
                         </div>
                       ) : (
                         <div className="plans-cards-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {clientPlans.filter(p => p.createdBy === 'coach').map(plan => (
+                          {clientPlans.filter(p => p.createdBy === 'coach').map(plan => {
+                            // "Done" = the client has at least one logged session whose
+                            // planName matches this plan — workoutLogs is already sorted
+                            // latest-first (see groupLogs), so .find() picks up the most
+                            // recent completion if they've repeated it.
+                            const completedSession = workoutLogs.find(
+                              s => s.planName?.trim().toLowerCase() === plan.planName?.trim().toLowerCase()
+                            );
+                            const assignedDateLabel = plan.createdAt
+                              ? new Date(plan.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : null;
+                            return (
                             <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
-                                  <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
-                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <strong style={{ fontSize: '0.9rem', color: '#fff' }}>{plan.planName}</strong>
+                                    {completedSession ? (
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#34d399', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '2px 8px' }}>
+                                        ✅ Done
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '2px 8px' }}>
+                                        Not done yet
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginTop: '3px' }}>
                                     📋 Assigned to: {selectedClient.userName}
+                                    {assignedDateLabel && ` · ${assignedDateLabel}`}
                                   </span>
                                 </div>
-                                <div className="plan-actions" style={{ display: 'flex', gap: '8px' }}>
+                                <div className="plan-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -3974,6 +3997,22 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   >
                                     Delete
                                   </button>
+                                  {completedSession && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Jump straight to that session in Workout
+                                        // History → Daily, same navigation the
+                                        // calendar heatmap/session cards there use.
+                                        handleTabChange('workout');
+                                        setHistoryDateStr(completedSession.date);
+                                        setHistoryTimeframe('daily');
+                                      }}
+                                      style={{ padding: '4px 8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '4px', color: 'var(--primary-accent-light)', fontSize: '0.75rem', cursor: 'pointer' }}
+                                    >
+                                      More details →
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
@@ -3985,7 +4024,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                 ))}
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

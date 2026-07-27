@@ -5,76 +5,64 @@
 // uses, triggered client-side only when the coach explicitly presses
 // "Assign Workout Plan" (see TrainerDashboard.jsx).
 //
-// Uses Google Gemini's free tier via raw REST (no SDK dependency, same
-// pattern as every other external call in this api/ folder) instead of a
-// paid provider — no billing required, just a free API key from Google AI
-// Studio. Gemini's native structured-output mode (responseSchema) plays the
-// same role Claude's tool_choice/tool_use would have.
+// Uses Groq's free tier (Llama 3.3) via raw REST (OpenAI-compatible chat
+// completions API, no SDK dependency — same pattern as every other external
+// call in this api/ folder) — no billing required, and unlike Gemini's free
+// tier this isn't subject to per-region quota=0 restrictions. Trade-off:
+// Groq's response_format only guarantees valid JSON syntax, not adherence to
+// a specific schema (Claude's tool_use / Gemini's responseSchema both
+// enforce shape) — the exact shape is spelled out in the system prompt
+// instead, and validateDraft() below checks the result before it ever
+// reaches the client, so a malformed response fails loudly rather than
+// silently breaking the editor.
 //
 // Architecture note for future extension (deload weeks, single-day/exercise
 // regeneration, progression updates, coach style memory — see project spec):
-// buildSystemPrompt/buildUserPrompt and DRAFT_SCHEMA are kept as small,
+// buildSystemPrompt/buildUserPrompt and validateDraft are kept as small,
 // isolated pieces specifically so a future regenerate-one-day or
 // regenerate-one-exercise endpoint can reuse them with a narrower `days`/
-// `exercises` schema slice, rather than duplicating the prompt logic. Not
-// implemented now, per spec — this file only does full-draft generation.
+// `exercises` slice, rather than duplicating the prompt/validation logic.
+// Not implemented now, per spec — this file only does full-draft generation.
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Gemini's responseSchema is a restricted OpenAPI-style schema (uppercase
-// type names, no $ref) — same shape/intent as the exercise-editor data this
-// gets converted into client-side (see convertAiDayToEditorShape in
-// TrainerDashboard.jsx), just in Gemini's expected wire format.
-const DRAFT_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    programSummary: {
-      type: 'STRING',
-      description: '1-2 sentence explanation of how this program is structured and why, for the coach to read.'
-    },
-    days: {
-      type: 'ARRAY',
-      description: 'One entry per training day. Do not include rest days.',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          dayLabel: { type: 'STRING', description: 'e.g. "Monday", "Day 1"' },
-          focus: { type: 'STRING', description: 'e.g. "Push", "Upper Body", "Legs"' },
-          planName: { type: 'STRING', description: 'Short plan name, e.g. "Push Day — Chest & Shoulders"' },
-          exercises: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                name: { type: 'STRING', description: 'Exercise name. Avoid words like "run"/"plank"/"hold" unless the exercise genuinely is cardio or an isometric hold.' },
-                type: { type: 'STRING', enum: ['strength', 'cardio', 'timed'], description: 'strength = reps+weight sets, cardio = distance/time, timed = isometric hold' },
-                setCount: { type: 'INTEGER', description: 'Number of sets (strength/timed only).' },
-                reps: { type: 'INTEGER', description: 'Target reps per set (strength only) — a single number, not a range.' },
-                durationMinutes: { type: 'NUMBER', description: 'Duration in minutes (cardio only, or hold time in minutes for timed).' },
-                notes: { type: 'STRING', description: 'Optional short coaching cue, e.g. "controlled tempo, avoid locking knees".' }
-              },
-              required: ['name', 'type']
-            }
-          }
-        },
-        required: ['dayLabel', 'planName', 'exercises']
-      }
+const DRAFT_JSON_SHAPE = `{
+  "programSummary": "1-2 sentence explanation of how this program is structured and why",
+  "days": [
+    {
+      "dayLabel": "e.g. Monday, or Day 1",
+      "focus": "e.g. Push, Upper Body, Legs",
+      "planName": "short plan name, e.g. Push Day — Chest & Shoulders",
+      "exercises": [
+        {
+          "name": "exercise name",
+          "type": "strength | cardio | timed",
+          "setCount": 3,
+          "reps": 10,
+          "durationMinutes": 20,
+          "notes": "optional short coaching cue"
+        }
+      ]
     }
-  },
-  required: ['days']
-};
+  ]
+}`;
 
 const buildSystemPrompt = () => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
 
 Rules:
 - Use the client's stats (age, weight, height, goal, calories, protein target) to size the program appropriately — do not ignore them.
 - If injuries or medical restrictions are mentioned, you MUST avoid exercises that load or aggravate that area, and say so in a note on the safer substitute exercise.
-- Respect the coach's written instructions as the primary source of truth — advanced-option dropdowns are just structured hints, the free-text instructions take priority if they conflict.
+- Respect the coach's written instructions as the primary source of truth — advanced-option hints are secondary, the free-text instructions take priority if they conflict.
 - Keep weekly volume balanced across muscle groups — do not overload one muscle group across multiple days without adequate recovery between sessions.
 - Apply progressive overload thinking (e.g. slightly higher volume/intensity on primary lifts vs accessories) but do not invent specific weights — the coach fills those in.
 - Only output real, recognizable exercises a coach would actually program. No invented or joke exercise names.
-- Respond with the workout draft JSON only, matching the given schema exactly.`;
+- "type" must be exactly "strength", "cardio", or "timed" — strength = reps+weight sets, cardio = distance/time, timed = isometric hold.
+- "reps" is a single target number per set, never a range like "8-10".
+- Do not include rest days as entries in "days".
+
+Respond with ONLY valid JSON matching this exact shape — no prose, no markdown code fences, no commentary before or after:
+${DRAFT_JSON_SHAPE}`;
 
 const buildUserPrompt = ({ client, instructions, options }) => {
   const lines = [
@@ -103,6 +91,19 @@ const buildUserPrompt = ({ client, instructions, options }) => {
   return lines.join('\n');
 };
 
+// Groq/Llama gives no structural guarantee beyond "valid JSON" — check the
+// shape ourselves rather than trusting it, so a malformed response surfaces
+// as a clean retry prompt instead of breaking the editor client-side.
+const VALID_TYPES = new Set(['strength', 'cardio', 'timed']);
+const validateDraft = (draft) => {
+  if (!draft || !Array.isArray(draft.days) || draft.days.length === 0) return false;
+  return draft.days.every(day =>
+    day && typeof day.planName === 'string' && day.planName.trim() &&
+    Array.isArray(day.exercises) && day.exercises.length > 0 &&
+    day.exercises.every(ex => ex && typeof ex.name === 'string' && ex.name.trim() && VALID_TYPES.has(ex.type))
+  );
+};
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -110,9 +111,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Server misconfigured: missing GEMINI_API_KEY' });
+    return res.status(500).json({ error: 'Server misconfigured: missing GROQ_API_KEY' });
   }
 
   const { client, instructions, options } = req.body || {};
@@ -121,27 +122,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    const resp = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
+    const resp = await fetch(GROQ_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
-        contents: [{ role: 'user', parts: [{ text: buildUserPrompt({ client, instructions: instructions || '', options: options || {} }) }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: DRAFT_SCHEMA,
-          temperature: 0.6
-        }
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: buildSystemPrompt() },
+          { role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {} }) }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.6
       })
     });
 
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      console.error('generate-workout-draft: Gemini error:', resp.status, data);
+      console.error('generate-workout-draft: Groq error:', resp.status, data);
       return res.status(502).json({ error: data?.error?.message || 'Failed to generate workout draft.' });
     }
 
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const rawText = data?.choices?.[0]?.message?.content;
     if (!rawText) {
       return res.status(502).json({ error: 'The AI did not return a usable draft. Please try again.' });
     }
@@ -154,8 +158,9 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'The AI returned an unreadable draft. Please try again.' });
     }
 
-    if (!draft?.days?.length) {
-      return res.status(502).json({ error: 'The AI did not return a usable draft. Please try again.' });
+    if (!validateDraft(draft)) {
+      console.error('generate-workout-draft: draft failed validation:', JSON.stringify(draft));
+      return res.status(502).json({ error: 'The AI returned an incomplete draft. Please try again.' });
     }
 
     return res.status(200).json({ draft });

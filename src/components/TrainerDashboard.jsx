@@ -3934,21 +3934,20 @@ const TrainerDashboard = ({ handleLogout }) => {
                               ? new Date(plan.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                               : null;
                             return (
-                            <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', position: 'relative' }}>
+                            <div
+                              key={plan.id}
+                              className="plan-summary-card glass-panel"
+                              style={{
+                                padding: '14px 14px 36px',
+                                background: completedSession ? 'rgba(16,185,129,0.05)' : 'rgba(255,255,255,0.01)',
+                                border: completedSession ? '1px solid rgba(16,185,129,0.35)' : '1px solid var(--border-color)',
+                                borderRadius: 'var(--radius-md)',
+                                position: 'relative'
+                              }}
+                            >
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <strong style={{ fontSize: '0.9rem', color: '#fff' }}>{plan.planName}</strong>
-                                    {completedSession ? (
-                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#34d399', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '2px 8px' }}>
-                                        ✅ Done
-                                      </span>
-                                    ) : (
-                                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '2px 8px' }}>
-                                        Not done yet
-                                      </span>
-                                    )}
-                                  </div>
+                                  <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
                                   <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginTop: '3px' }}>
                                     📋 Assigned to: {selectedClient.userName}
                                     {assignedDateLabel && ` · ${assignedDateLabel}`}
@@ -4045,6 +4044,32 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   </span>
                                 ))}
                               </div>
+
+                              {completedSession ? (
+                                <div
+                                  title="Client completed this workout"
+                                  style={{
+                                    position: 'absolute', bottom: '10px', right: '10px',
+                                    width: '22px', height: '22px', borderRadius: '50%',
+                                    background: '#10b981', color: '#06251b',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '0.72rem', fontWeight: 900
+                                  }}
+                                >
+                                  ✓
+                                </div>
+                              ) : (
+                                <span
+                                  style={{
+                                    position: 'absolute', bottom: '10px', right: '10px',
+                                    fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)',
+                                    background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)',
+                                    borderRadius: '20px', padding: '2px 8px'
+                                  }}
+                                >
+                                  Pending
+                                </span>
+                              )}
                             </div>
                             );
                           })}

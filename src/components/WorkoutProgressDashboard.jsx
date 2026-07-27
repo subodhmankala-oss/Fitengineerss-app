@@ -656,7 +656,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
         <div className="profile-group">
           <div className="avatar-shield">🏋️‍♂️</div>
           <div className="profile-titles">
-            <span className="welcome-span">Welcome back,</span>
+            {/* "Welcome back" reads oddly for a client who's never logged a
+                workout yet — logs.length is the same "first-time" signal
+                the empty state below already uses. */}
+            <span className="welcome-span">{logs.length === 0 ? 'Welcome,' : 'Welcome back,'}</span>
             <h2 className="profile-name-text">{userName}</h2>
           </div>
         </div>

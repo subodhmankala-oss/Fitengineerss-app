@@ -8,6 +8,9 @@ import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise } from '../data/exe
 import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
+import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import WorkoutShareCard from './WorkoutShareCard';
+import './WorkoutShareCard.css';
 
 
 // Bold stacked words for a library card's typographic tile (e.g. "Beginner
@@ -556,6 +559,10 @@ const WorkoutTracker = () => {
   // card to a "Rest over" blink instead of vanishing instantly.
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [summaryStats, setSummaryStats] = useState(null);
+  // Post-save share card (client self-logged sessions only — see
+  // handleConfirmSaveWorkout) — the "Session Finished" confirmation above is
+  // shown BEFORE the save, so duration/calories/PRs aren't final there yet.
+  const [shareCardData, setShareCardData] = useState(null);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
   const [setTimers, setSetTimers] = useState({});
@@ -1579,8 +1586,61 @@ const WorkoutTracker = () => {
     setSelectedSessionIndex(newClientSessions.length - 1);
 
     const finalSetsCount = formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
-    triggerToast(`🏋️‍♂️ Your Fitengineers Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
-    
+
+    // Share card is a client-facing "look what I did" moment — only relevant
+    // for a client's own self-logged session, not a coach logging on a
+    // client's behalf (workoutSource === 'coach'). Coach-logged saves keep
+    // the plain toast.
+    if (workoutSource !== 'coach') {
+      // Best lift: the PR just set (if any — summaryStats.prs is already
+      // sorted by discovery order in currentExercises above), else whichever
+      // completed set this session had the heaviest weight. Cardio/timed
+      // sets have no `weight` field, so they're naturally skipped here.
+      let bestLift = null;
+      if (summaryStats?.prs?.length > 0) {
+        const topPr = summaryStats.prs[0];
+        const matchEx = formattedExercises.find(ex => ex.name === topPr.exerciseName);
+        const matchSet = matchEx?.sets.find(s => s.weight === topPr.newRecord);
+        bestLift = {
+          exerciseName: topPr.exerciseName,
+          weight: topPr.newRecord,
+          reps: matchSet?.reps ?? null,
+          unit: topPr.unit,
+          isPR: true
+        };
+      } else {
+        let maxWeight = -1;
+        formattedExercises.forEach(ex => {
+          ex.sets.forEach(s => {
+            if (typeof s.weight === 'number' && s.weight > maxWeight) {
+              maxWeight = s.weight;
+              bestLift = { exerciseName: ex.name, weight: s.weight, reps: s.reps, unit: 'kg', isPR: false };
+            }
+          });
+        });
+      }
+
+      const muscleSet = new Set();
+      formattedExercises.forEach(ex => {
+        getMuscleGroupsForExercise(ex.name).forEach(m => muscleSet.add(m));
+      });
+
+      setShareCardData({
+        workoutName: newSession.planName,
+        clientName: (localStorage.getItem('userName') || '').trim(),
+        dateLabel: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+          ' · ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        durationLabel: finalDurationSeconds ? `${Math.round(finalDurationSeconds / 60)} min` : summaryStats?.duration || '—',
+        calories: finalCalories != null ? Math.round(finalCalories) : null,
+        bestLift,
+        totalSets: summaryStats?.totalSets || finalSetsCount,
+        volume: summaryStats?.volume ?? '0',
+        muscleGroups: Array.from(muscleSet).slice(0, 4)
+      });
+    } else {
+      triggerToast(`🏋️‍♂️ Your Fitengineers Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
+    }
+
     resetWorkoutTimer();
     setShowFinishSummary(false);
     
@@ -3248,6 +3308,10 @@ const WorkoutTracker = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {shareCardData && (
+        <WorkoutShareCard session={shareCardData} onClose={() => setShareCardData(null)} />
       )}
 
       {/* Floating Hevy Rest Timer Overlay. Both the rest-started moment and the

@@ -400,6 +400,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [activeAiDraftDayIndex, setActiveAiDraftDayIndex] = useState(0);
   const [aiDraftSummary, setAiDraftSummary] = useState('');
   const [assigningAiDraft, setAssigningAiDraft] = useState(false);
+  // Which assigned-plan card's ⋮ menu (Edit/Duplicate/Delete/More details)
+  // is open — one at a time, keyed by plan id.
+  const [openPlanCardMenuId, setOpenPlanCardMenuId] = useState(null);
 
   const fetchClientPlans = async (clientId) => {
     setLoadingPlans(true);
@@ -3895,7 +3898,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                     </div>
                   ) : (
                     /* PLANS LIST VIEW */
-                    <div className="plans-list-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="plans-list-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={() => setOpenPlanCardMenuId(null)}>
                       <div className="list-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <h4 style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Workout Plans</h4>
                         <button
@@ -3931,7 +3934,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                               ? new Date(plan.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                               : null;
                             return (
-                            <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                            <div key={plan.id} className="plan-summary-card glass-panel" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', position: 'relative' }}>
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -3951,67 +3954,86 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     {assignedDateLabel && ` · ${assignedDateLabel}`}
                                   </span>
                                 </div>
-                                <div className="plan-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <div className="plan-actions" style={{ position: 'relative' }}>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setIsAiDraftMode(false);
-                                      setEditingPlan(plan);
-                                      setEditorPlanName(plan.planName);
-                                      setEditorExercises(plan.exercises);
-                                      setShowPlanEditor(true);
-                                    }}
-                                    style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}
+                                    aria-label="Plan options"
+                                    onClick={(e) => { e.stopPropagation(); setOpenPlanCardMenuId(openPlanCardMenuId === plan.id ? null : plan.id); }}
+                                    style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '1rem', lineHeight: 1, cursor: 'pointer' }}
                                   >
-                                    Edit
+                                    ⋮
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      const duplicated = {
-                                        planName: `${plan.planName} (Copy)`,
-                                        exercises: plan.exercises,
-                                        userId: selectedClient.id,
-                                        createdBy: 'coach',
-                                        // Duplicating a not-yet-assigned plan shouldn't
-                                        // silently assign + notify the client — the
-                                        // copy starts in the same state as the original.
-                                        isAssigned: plan.isAssigned !== false
-                                      };
-                                      await databaseService.saveWorkoutPlan(duplicated);
-                                      fetchClientPlans(selectedClient.id);
-                                    }}
-                                    style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '0.75rem', cursor: 'pointer' }}
-                                  >
-                                    Duplicate
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (confirm('Delete this workout plan?')) {
-                                        await databaseService.deleteWorkoutPlan(plan.id, selectedClient.id);
-                                        fetchClientPlans(selectedClient.id);
-                                      }
-                                    }}
-                                    style={{ padding: '4px 8px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '4px', color: 'var(--danger)', fontSize: '0.75rem', cursor: 'pointer' }}
-                                  >
-                                    Delete
-                                  </button>
-                                  {completedSession && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        // Jump straight to that session in Workout
-                                        // History → Daily, same navigation the
-                                        // calendar heatmap/session cards there use.
-                                        handleTabChange('workout');
-                                        setHistoryDateStr(completedSession.date);
-                                        setHistoryTimeframe('daily');
-                                      }}
-                                      style={{ padding: '4px 8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '4px', color: 'var(--primary-accent-light)', fontSize: '0.75rem', cursor: 'pointer' }}
+                                  {openPlanCardMenuId === plan.id && (
+                                    <div
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{ position: 'absolute', top: '32px', right: 0, background: '#141b28', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', zIndex: 5, minWidth: '150px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
                                     >
-                                      More details →
-                                    </button>
+                                      {completedSession && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenPlanCardMenuId(null);
+                                            // Jump straight to that session in Workout
+                                            // History → Daily, same navigation the
+                                            // calendar heatmap/session cards there use.
+                                            handleTabChange('workout');
+                                            setHistoryDateStr(completedSession.date);
+                                            setHistoryTimeframe('daily');
+                                          }}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--primary-accent-light)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                        >
+                                          More details →
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenPlanCardMenuId(null);
+                                          setIsAiDraftMode(false);
+                                          setEditingPlan(plan);
+                                          setEditorPlanName(plan.planName);
+                                          setEditorExercises(plan.exercises);
+                                          setShowPlanEditor(true);
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          setOpenPlanCardMenuId(null);
+                                          const duplicated = {
+                                            planName: `${plan.planName} (Copy)`,
+                                            exercises: plan.exercises,
+                                            userId: selectedClient.id,
+                                            createdBy: 'coach',
+                                            // Duplicating a not-yet-assigned plan shouldn't
+                                            // silently assign + notify the client — the
+                                            // copy starts in the same state as the original.
+                                            isAssigned: plan.isAssigned !== false
+                                          };
+                                          await databaseService.saveWorkoutPlan(duplicated);
+                                          fetchClientPlans(selectedClient.id);
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
+                                      >
+                                        Duplicate
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          setOpenPlanCardMenuId(null);
+                                          if (confirm('Delete this workout plan?')) {
+                                            await databaseService.deleteWorkoutPlan(plan.id, selectedClient.id);
+                                            fetchClientPlans(selectedClient.id);
+                                          }
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--danger)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               </div>

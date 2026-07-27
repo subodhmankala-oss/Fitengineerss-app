@@ -5,58 +5,64 @@
 // uses, triggered client-side only when the coach explicitly presses
 // "Assign Workout Plan" (see TrainerDashboard.jsx).
 //
+// Uses Google Gemini's free tier via raw REST (no SDK dependency, same
+// pattern as every other external call in this api/ folder) instead of a
+// paid provider — no billing required, just a free API key from Google AI
+// Studio. Gemini's native structured-output mode (responseSchema) plays the
+// same role Claude's tool_choice/tool_use would have.
+//
 // Architecture note for future extension (deload weeks, single-day/exercise
 // regeneration, progression updates, coach style memory — see project spec):
-// buildSystemPrompt/buildUserPrompt and the DRAFT_TOOL schema are kept as
-// small, isolated pieces specifically so a future regenerate-one-day or
+// buildSystemPrompt/buildUserPrompt and DRAFT_SCHEMA are kept as small,
+// isolated pieces specifically so a future regenerate-one-day or
 // regenerate-one-exercise endpoint can reuse them with a narrower `days`/
 // `exercises` schema slice, rather than duplicating the prompt logic. Not
 // implemented now, per spec — this file only does full-draft generation.
-import Anthropic from '@anthropic-ai/sdk';
 
-const MODEL = 'claude-sonnet-5';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-const DRAFT_TOOL = {
-  name: 'generate_workout_draft',
-  description: 'Generate a structured, multi-day workout program draft for a coach to review and edit.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      programSummary: {
-        type: 'string',
-        description: '1-2 sentence explanation of how this program is structured and why, for the coach to read.'
-      },
-      days: {
-        type: 'array',
-        description: 'One entry per training day. Do not include rest days.',
-        items: {
-          type: 'object',
-          properties: {
-            dayLabel: { type: 'string', description: 'e.g. "Monday", "Day 1"' },
-            focus: { type: 'string', description: 'e.g. "Push", "Upper Body", "Legs"' },
-            planName: { type: 'string', description: 'Short plan name, e.g. "Push Day — Chest & Shoulders"' },
-            exercises: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string', description: 'Exercise name. Avoid words like "run"/"plank"/"hold" unless the exercise genuinely is cardio or an isometric hold.' },
-                  type: { type: 'string', enum: ['strength', 'cardio', 'timed'], description: 'strength = reps+weight sets, cardio = distance/time, timed = isometric hold' },
-                  setCount: { type: 'integer', description: 'Number of sets (strength/timed only).' },
-                  reps: { type: 'integer', description: 'Target reps per set (strength only) — a single number, not a range.' },
-                  durationMinutes: { type: 'number', description: 'Duration in minutes (cardio only, or hold time in minutes for timed).' },
-                  notes: { type: 'string', description: 'Optional short coaching cue, e.g. "controlled tempo, avoid locking knees".' }
-                },
-                required: ['name', 'type']
-              }
-            }
-          },
-          required: ['dayLabel', 'planName', 'exercises']
-        }
-      }
+// Gemini's responseSchema is a restricted OpenAPI-style schema (uppercase
+// type names, no $ref) — same shape/intent as the exercise-editor data this
+// gets converted into client-side (see convertAiDayToEditorShape in
+// TrainerDashboard.jsx), just in Gemini's expected wire format.
+const DRAFT_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    programSummary: {
+      type: 'STRING',
+      description: '1-2 sentence explanation of how this program is structured and why, for the coach to read.'
     },
-    required: ['days']
-  }
+    days: {
+      type: 'ARRAY',
+      description: 'One entry per training day. Do not include rest days.',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          dayLabel: { type: 'STRING', description: 'e.g. "Monday", "Day 1"' },
+          focus: { type: 'STRING', description: 'e.g. "Push", "Upper Body", "Legs"' },
+          planName: { type: 'STRING', description: 'Short plan name, e.g. "Push Day — Chest & Shoulders"' },
+          exercises: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                name: { type: 'STRING', description: 'Exercise name. Avoid words like "run"/"plank"/"hold" unless the exercise genuinely is cardio or an isometric hold.' },
+                type: { type: 'STRING', enum: ['strength', 'cardio', 'timed'], description: 'strength = reps+weight sets, cardio = distance/time, timed = isometric hold' },
+                setCount: { type: 'INTEGER', description: 'Number of sets (strength/timed only).' },
+                reps: { type: 'INTEGER', description: 'Target reps per set (strength only) — a single number, not a range.' },
+                durationMinutes: { type: 'NUMBER', description: 'Duration in minutes (cardio only, or hold time in minutes for timed).' },
+                notes: { type: 'STRING', description: 'Optional short coaching cue, e.g. "controlled tempo, avoid locking knees".' }
+              },
+              required: ['name', 'type']
+            }
+          }
+        },
+        required: ['dayLabel', 'planName', 'exercises']
+      }
+    }
+  },
+  required: ['days']
 };
 
 const buildSystemPrompt = () => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
@@ -68,7 +74,7 @@ Rules:
 - Keep weekly volume balanced across muscle groups — do not overload one muscle group across multiple days without adequate recovery between sessions.
 - Apply progressive overload thinking (e.g. slightly higher volume/intensity on primary lifts vs accessories) but do not invent specific weights — the coach fills those in.
 - Only output real, recognizable exercises a coach would actually program. No invented or joke exercise names.
-- Call the generate_workout_draft tool exactly once with the complete program.`;
+- Respond with the workout draft JSON only, matching the given schema exactly.`;
 
 const buildUserPrompt = ({ client, instructions, options }) => {
   const lines = [
@@ -104,9 +110,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Server misconfigured: missing ANTHROPIC_API_KEY' });
+    return res.status(500).json({ error: 'Server misconfigured: missing GEMINI_API_KEY' });
   }
 
   const { client, instructions, options } = req.body || {};
@@ -115,22 +121,44 @@ export default async function handler(req, res) {
   }
 
   try {
-    const anthropic = new Anthropic({ apiKey });
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: buildSystemPrompt(),
-      messages: [{ role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {} }) }],
-      tools: [DRAFT_TOOL],
-      tool_choice: { type: 'tool', name: 'generate_workout_draft' }
+    const resp = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
+        contents: [{ role: 'user', parts: [{ text: buildUserPrompt({ client, instructions: instructions || '', options: options || {} }) }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: DRAFT_SCHEMA,
+          temperature: 0.6
+        }
+      })
     });
 
-    const toolUse = response.content.find(block => block.type === 'tool_use' && block.name === 'generate_workout_draft');
-    if (!toolUse || !toolUse.input?.days?.length) {
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      console.error('generate-workout-draft: Gemini error:', resp.status, data);
+      return res.status(502).json({ error: data?.error?.message || 'Failed to generate workout draft.' });
+    }
+
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) {
       return res.status(502).json({ error: 'The AI did not return a usable draft. Please try again.' });
     }
 
-    return res.status(200).json({ draft: toolUse.input });
+    let draft;
+    try {
+      draft = JSON.parse(rawText);
+    } catch (parseErr) {
+      console.error('generate-workout-draft: JSON parse failed:', parseErr, rawText);
+      return res.status(502).json({ error: 'The AI returned an unreadable draft. Please try again.' });
+    }
+
+    if (!draft?.days?.length) {
+      return res.status(502).json({ error: 'The AI did not return a usable draft. Please try again.' });
+    }
+
+    return res.status(200).json({ draft });
   } catch (err) {
     console.error('generate-workout-draft error:', err);
     return res.status(500).json({ error: err.message || 'Failed to generate workout draft.' });

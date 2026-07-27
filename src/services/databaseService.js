@@ -841,28 +841,27 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: user, error: userErr } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .maybeSingle();
+        // Raw PostgREST (SDK-hang bypass, same as restSelect elsewhere in this
+        // file) — this specific lookup runs synchronously on every login,
+        // right after a fresh auth session is established (SIGNED_IN, see
+        // App.jsx processSessionUser). A fresh session is exactly when the
+        // SDK's .from().select() hangs/fails while its token refresh is in
+        // flight — which used to make this call silently return null for a
+        // real, existing user. The caller then treated "lookup failed" as
+        // "brand-new user": routed them into onboarding AND wrote a fresh
+        // profile with coach_id: null over their real row (upsert on
+        // user_id), deleting their actual coach link. Confirmed 2026-07-26
+        // via a client whose password-reset login hit exactly this path.
+        const userRows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=*`);
+        const user = Array.isArray(userRows) && userRows[0] ? userRows[0] : null;
 
-        if (userErr) throw userErr;
-        
         if (user) {
-          // Check if coach profile exists
-          const { data: coach } = await supabase
-            .from('coaches')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          // Check if client profile exists
-          const { data: client } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
+          const [coachRows, clientRows] = await Promise.all([
+            restSelect(`coaches?user_id=eq.${encodeURIComponent(user.id)}&select=*`),
+            restSelect(`clients?user_id=eq.${encodeURIComponent(user.id)}&select=*`)
+          ]);
+          const coach = Array.isArray(coachRows) && coachRows[0] ? coachRows[0] : null;
+          const client = Array.isArray(clientRows) && clientRows[0] ? clientRows[0] : null;
 
           // No more coach approval/pending: any coaches row = an active coach.
           let activeRole = 'client';

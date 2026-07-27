@@ -62,7 +62,19 @@ const Onboarding = ({ onComplete }) => {
       // A returning client whose name we already know but who hasn't finished
       // the one-time onboarding wizard yet (onboardingCompleted gate handles
       // the "already done" case before Onboarding even mounts).
-      return storedName ? 'wizard' : 1;
+      if (storedName) return 'wizard';
+      // No name yet: this file's own "Fitengineers App Setup" name/phone
+      // screen (step 1) used to catch this for every role. For clients that
+      // was a redundant extra screen in front of ClientOnboardingWizard's own
+      // Step 1 (which now also collects phone) — and it could strand a
+      // returning client here on every login if their name lookup ever came
+      // back empty (e.g. right after a password-reset re-login), since the
+      // wizard is what actually persists the name to the DB. Route clients
+      // straight into the wizard; only a coach-ish role (no wizard
+      // equivalent exists for coaches) still lands on this screen.
+      const role = localStorage.getItem('userRole');
+      const isCoachish = role === 'coach' || role === 'coach_pending' || role === 'super-admin' || role === 'admin';
+      return isCoachish ? 1 : 'wizard';
     }
     return isSupabaseConfigured ? 0 : 1;
   });
@@ -362,14 +374,15 @@ const Onboarding = ({ onComplete }) => {
           onComplete();
         } else {
           // Either no clients row yet (just signed up), or the wizard was
-          // started but never finished — send them into the wizard. If we
-          // already know their name, skip straight past the name step.
+          // started but never finished — send them into the wizard, which
+          // collects (and, unlike this login handler used to, actually
+          // persists) name/phone itself on its own Step 1.
           const knownName = profile?.userName || localStorage.getItem('userName') || '';
           localStorage.setItem('userEmail', authEmail);
           if (authUserId) localStorage.setItem('userId', authUserId);
           localStorage.setItem('userRole', 'client');
           if (knownName) localStorage.setItem('userName', knownName);
-          setStep(knownName ? 'wizard' : 1);
+          setStep('wizard');
         }
       } else {
         throw new Error('Invalid email or password.');

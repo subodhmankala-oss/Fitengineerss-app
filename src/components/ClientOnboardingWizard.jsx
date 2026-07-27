@@ -61,16 +61,26 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     setSaveError('');
     try {
       const digitsOnly = phone.replace(/\D/g, '');
-      await databaseService.saveClientOnboardingData({
-        age: age || '30',
-        weight_kg: weight || '70',
-        height_cm: height || '175',
-        program: program || 'fat_loss',
-        activity_level: activityLevel || 'moderately_active',
-        primary_concern: primaryConcern || 'just_stay_fit',
-        full_name: name.trim(),
-        phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
-      });
+      // Hard ceiling on the save — the browser Supabase SDK is known to hang
+      // indefinitely (never resolving, never rejecting) right after a fresh
+      // auth session, which left a real client watching this button spin
+      // forever with no error and no way out (confirmed 2026-07-27). Better
+      // to surface a retryable error than to strand them on a dead spinner.
+      await Promise.race([
+        databaseService.saveClientOnboardingData({
+          age: age || '30',
+          weight_kg: weight || '70',
+          height_cm: height || '175',
+          program: program || 'fat_loss',
+          activity_level: activityLevel || 'moderately_active',
+          primary_concern: primaryConcern || 'just_stay_fit',
+          full_name: name.trim(),
+          phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('This is taking longer than expected. Please check your connection and try again.')), 20000)
+        )
+      ]);
       onComplete();
     } catch (err) {
       // Don't let onComplete() run on a failed save — that was the original bug:

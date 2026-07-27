@@ -1086,71 +1086,41 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // Resolve user UUID if needed. Previously this re-implemented its own
-        // email lookup here with the RAW (un-normalized) localStorage value —
-        // resolveCanonicalUserId() below always trims+lowercases email before
-        // querying, same as every other id-resolution path in this file. A
-        // case/whitespace mismatch between the stored email and the
-        // `public.users` row made this throw "Cannot resolve userId for
-        // onboarding save" for a real, existing client (confirmed 2026-07-27),
-        // which meant the wizard's save — including full_name — never landed,
-        // so the client kept getting routed back through onboarding on every
-        // login with their name still missing.
-        let resolvedUserId = userId || await resolveCanonicalUserId();
+        // Best-effort local id — resolveCanonicalUserId() normalizes email
+        // the same way every other lookup in this file does (a case/
+        // whitespace mismatch used to make this throw "Cannot resolve
+        // userId for onboarding save" for a real, existing client, confirmed
+        // 2026-07-27). Not required to proceed though: complete-onboarding
+        // below can resolve (or create) the row itself from email alone.
+        const resolvedUserId = userId || await resolveCanonicalUserId();
+        const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
 
-        // Still nothing: for a genuinely brand-new client, the users/clients
-        // row is normally created by App.jsx's background SIGNED_IN listener
-        // (processSessionUser) — but this wizard's save was written to just
-        // assume that had already finished by the time the client clicks
-        // through 4 quick steps and hits Confirm, which is a race it can
-        // lose. Worse, that listener silently no-ops for an unconfirmed
-        // email (see its email_confirmed_at gate), which would strand the
-        // client on this exact error FOREVER, no matter how many times they
-        // retried — confirmed 2026-07-27 for a second real client (Nikhil)
-        // even after the normalization fix above. Create the row directly
-        // here instead of depending on that other code path having run.
-        if (!resolvedUserId) {
-          const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
-          if (email) {
-            await this.saveUserProfile({
-              userName: cleanName || localStorage.getItem('userName') || 'Warrior',
-              email,
-              role: 'client',
-              coach_id: null,
-              userAge: age || '30',
-              userHeight: height_cm || '175',
-              userWeight: weight_kg || '70',
-              userActivity: mappedActivity,
-              userGoal: mappedGoal,
-              userDiet: 'Non-Vegetarian',
-              userCalorieTarget: String(targets.calories),
-              userProteinTarget: String(targets.protein),
-              userCarbsTarget: String(targets.carbs),
-              userFatsTarget: String(targets.fats),
-              verified: false
-            });
-            resolvedUserId = await resolveCanonicalUserId();
-          }
-        }
+        if (!resolvedUserId && !email) throw new Error('Cannot resolve your account — please log in again.');
 
-        if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
-
-        // Write core stats + onboarding_completed/program/primary_concern in one
-        // atomic, service-role server call. Previously this was two separate
-        // browser-side .update() calls; the second (setting onboarding_completed)
-        // was silently dropped for several real clients by the known Supabase SDK
-        // auth-token-refresh race (see feedback-supabase-sdk-hang memory), leaving
-        // their body stats saved but onboarding_completed stuck false — so they
-        // were sent back through the wizard on every subsequent login.
+        // Write core stats + onboarding_completed/program/primary_concern in
+        // one atomic, service-role server call — this ALSO resolves/creates
+        // the users+clients row server-side when resolvedUserId is empty
+        // (a brand-new signup), rather than depending on App.jsx's
+        // background SIGNED_IN listener having already won that race, or
+        // routing that creation through the browser Supabase SDK, which is
+        // known to hang right after a fresh auth session (exactly the state
+        // a client is in moments after signing up — confirmed 2026-07-27 for
+        // a real client, Nikhil, stuck on an indefinite spinner here when an
+        // earlier version of this fix tried creating the row client-side).
         const resp = await fetch('/api/complete-onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: resolvedUserId, coreStats, program, primary_concern, full_name: cleanName })
+          body: JSON.stringify({ userId: resolvedUserId || null, email, coreStats, program, primary_concern, full_name: cleanName })
         });
+        const saveData = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          const data = await resp.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to save onboarding data.');
+          throw new Error(saveData.error || 'Failed to save onboarding data.');
         }
+
+        // Cache the id the server resolved/created — for a brand-new signup
+        // this is the first time the browser learns it, and every later read
+        // (dashboard logs, coach connection) keys off localStorage.userId.
+        if (saveData?.client?.user_id) localStorage.setItem('userId', saveData.client.user_id);
 
         console.log('Cloud DB: Saved onboarding wizard data.');
       } catch (e) {

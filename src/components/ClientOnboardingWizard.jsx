@@ -15,6 +15,14 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     const n = (localStorage.getItem('userName') || '').trim();
     return n.toLowerCase() === 'warrior' ? '' : n;
   });
+  // Phone was previously only collected by a separate "Fitengineers App
+  // Setup" screen shown before this wizard for clients whose name hadn't
+  // resolved yet — folded in here instead so that screen is no longer
+  // needed for the client flow.
+  const [phone, setPhone] = useState(() => {
+    const p = (localStorage.getItem('userPhone') || '').replace(/^\+91/, '');
+    return p;
+  });
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
@@ -30,8 +38,15 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
 
   const [slideDir, setSlideDir] = useState('forward');
   const [saveError, setSaveError] = useState('');
+  const [step1Error, setStep1Error] = useState('');
 
   const goNext = () => {
+    if (step === 1) {
+      if (!name.trim()) { setStep1Error('Please enter your name.'); return; }
+      const digitsOnly = phone.replace(/\D/g, '');
+      if (digitsOnly.length !== 10) { setStep1Error('Please enter a valid 10-digit phone number.'); return; }
+      setStep1Error('');
+    }
     setSlideDir('forward');
     setStep(s => Math.min(s + 1, TOTAL_STEPS));
   };
@@ -45,6 +60,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     setIsSubmitting(true);
     setSaveError('');
     try {
+      const digitsOnly = phone.replace(/\D/g, '');
       await databaseService.saveClientOnboardingData({
         age: age || '30',
         weight_kg: weight || '70',
@@ -52,7 +68,8 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         program: program || 'fat_loss',
         activity_level: activityLevel || 'moderately_active',
         primary_concern: primaryConcern || 'just_stay_fit',
-        full_name: name.trim()
+        full_name: name.trim(),
+        phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
       });
       onComplete();
     } catch (err) {
@@ -164,6 +181,23 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           />
         </div>
         <div className="cow-field">
+          <label className="cow-label">Phone number</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <span style={{
+              padding: '0 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '10px', color: '#fff', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center'
+            }}>🇮🇳 +91</span>
+            <input
+              type="tel"
+              className="cow-input"
+              placeholder="10-digit mobile number"
+              value={phone}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              style={{ flex: 1 }}
+            />
+          </div>
+        </div>
+        <div className="cow-field">
           <label className="cow-label">Age (years)</label>
           <input
             type="number"
@@ -202,6 +236,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           </div>
         </div>
       </div>
+
+      {step1Error && (
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+          {step1Error}
+        </div>
+      )}
 
       <button className="cow-next-btn" onClick={goNext}>
         Next →

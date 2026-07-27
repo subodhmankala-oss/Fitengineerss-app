@@ -1020,9 +1020,8 @@ const databaseService = {
   },
 
   // ─── CLIENT ONBOARDING WIZARD ───
-  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern, full_name }) {
+  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern, full_name, phone }) {
     const userId = localStorage.getItem('userId');
-    const email = localStorage.getItem('userEmail');
 
     // Persist the client's real name locally right away so the dashboard header
     // stops showing the "Warrior" default. Only a real, non-placeholder value.
@@ -1030,6 +1029,8 @@ const databaseService = {
     if (cleanName && cleanName.toLowerCase() !== 'warrior') {
       localStorage.setItem('userName', cleanName);
     }
+    const cleanPhone = (phone || '').trim();
+    if (cleanPhone) localStorage.setItem('userPhone', cleanPhone);
 
     // Update localStorage immediately
     if (age) localStorage.setItem('userAge', String(age));
@@ -1081,16 +1082,21 @@ const databaseService = {
     if (age) coreStats.age = parseInt(age);
     if (weight_kg) coreStats.weight_kg = parseFloat(weight_kg);
     if (height_cm) coreStats.height_cm = parseFloat(height_cm);
+    if (cleanPhone) coreStats.phone_number = cleanPhone;
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // Resolve user UUID if needed
-        let resolvedUserId = userId;
-        if (!resolvedUserId && email) {
-          const rows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
-          resolvedUserId = rows?.[0]?.id;
-          if (resolvedUserId) localStorage.setItem('userId', resolvedUserId);
-        }
+        // Resolve user UUID if needed. Previously this re-implemented its own
+        // email lookup here with the RAW (un-normalized) localStorage value —
+        // resolveCanonicalUserId() below always trims+lowercases email before
+        // querying, same as every other id-resolution path in this file. A
+        // case/whitespace mismatch between the stored email and the
+        // `public.users` row made this throw "Cannot resolve userId for
+        // onboarding save" for a real, existing client (confirmed 2026-07-27),
+        // which meant the wizard's save — including full_name — never landed,
+        // so the client kept getting routed back through onboarding on every
+        // login with their name still missing.
+        let resolvedUserId = userId || await resolveCanonicalUserId();
 
         if (!resolvedUserId) throw new Error('Cannot resolve userId for onboarding save');
 

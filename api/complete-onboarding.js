@@ -17,9 +17,9 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
 
-  const { userId, coreStats, program, primary_concern, full_name } = req.body || {};
-  if (!userId || !coreStats) {
-    return res.status(400).json({ error: 'Missing userId or coreStats' });
+  const { userId: bodyUserId, email, coreStats, program, primary_concern, full_name } = req.body || {};
+  if ((!bodyUserId && !email) || !coreStats) {
+    return res.status(400).json({ error: 'Missing userId/email or coreStats' });
   }
 
   // Only persist a real name — never let the "Warrior" placeholder (or an empty
@@ -38,15 +38,63 @@ export default async function handler(req, res) {
   if (persistName) payload.full_name = cleanName;
 
   try {
-    const resp = await fetch(`${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(userId)}`, {
-      method: 'PATCH',
+    let userId = bodyUserId || null;
+
+    // No id up front (a brand-new signup, or the browser's own id-resolution
+    // came up empty) — resolve/create the users row here instead, server-side
+    // with the service-role key, so this never depends on the browser
+    // Supabase SDK, which is known to hang right after a fresh auth session
+    // (exactly the state a client is in moments after signing up or
+    // resetting their password — see feedback-supabase-sdk-hang memory).
+    // Confirmed 2026-07-27: routing this same creation through the client-
+    // side saveUserProfile() (which still uses the raw SDK) just moved the
+    // failure from an immediate error to an indefinite hang for a real
+    // client (Nikhil) whose account had never gotten a users/clients row.
+    if (!userId && email) {
+      const normEmail = String(email).trim().toLowerCase();
+      const lookupResp = await fetch(`${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(normEmail)}&select=id`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
+      const lookupData = await lookupResp.json().catch(() => []);
+      if (Array.isArray(lookupData) && lookupData[0]?.id) {
+        userId = lookupData[0].id;
+      } else {
+        const createResp = await fetch(`${supabaseUrl}/rest/v1/users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            Prefer: 'return=representation'
+          },
+          body: JSON.stringify({ email: normEmail })
+        });
+        const createData = await createResp.json().catch(() => null);
+        if (!createResp.ok || !Array.isArray(createData) || !createData[0]?.id) {
+          console.error('complete-onboarding: could not create users row:', createResp.status, createData);
+          return res.status(502).json({ error: 'Could not create your account record.' });
+        }
+        userId = createData[0].id;
+      }
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Could not resolve your account.' });
+    }
+
+    // Upsert (not a plain PATCH) so this also covers the brand-new-client
+    // case where no clients row exists yet — merge-duplicates only touches
+    // the columns listed here, so an EXISTING row's coach_id (and anything
+    // else not in `payload`) is left untouched, never reset to null.
+    const resp = await fetch(`${supabaseUrl}/rest/v1/clients?on_conflict=user_id`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
-        Prefer: 'return=representation'
+        Prefer: 'resolution=merge-duplicates,return=representation'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ user_id: userId, ...payload })
     });
     const data = await resp.json();
     if (!resp.ok) {

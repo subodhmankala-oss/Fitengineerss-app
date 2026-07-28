@@ -3514,6 +3514,17 @@
   border-radius: var(--radius-md);
 }
 
+.wt-plan-new-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
 .wt-plan-thumb {
   flex-shrink: 0;
 }

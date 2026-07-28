@@ -129,6 +129,32 @@ const assignedDateLabel = (isoString) => {
   return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+// Tracks which coach-assigned plan IDs this client has already opened (i.e.
+// pressed Start on), scoped per-user via localStorage since there's no
+// server-side "viewed" column on workout_plans. Used to show a small "new"
+// dot on cards for plans the client hasn't opened yet.
+const OPENED_PLANS_KEY_PREFIX = 'wt_opened_coach_plan_ids';
+const getOpenedPlanIds = () => {
+  try {
+    const userId = localStorage.getItem('userId') || 'anon';
+    const raw = localStorage.getItem(`${OPENED_PLANS_KEY_PREFIX}_${userId}`);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+const markPlanOpened = (planId) => {
+  if (!planId) return;
+  try {
+    const userId = localStorage.getItem('userId') || 'anon';
+    const ids = getOpenedPlanIds();
+    ids.add(planId);
+    localStorage.setItem(`${OPENED_PLANS_KEY_PREFIX}_${userId}`, JSON.stringify([...ids]));
+  } catch {
+    /* ignore */
+  }
+};
+
 // Routine card — a coach-assigned plan (muscle thumbnail, Push/Pull/Legs
 // color) or a client's own saved template (folder icon). Shared by the Log
 // Sets routine picker and the Workouts tab's "Your Coach's Plan" section, so
@@ -136,8 +162,14 @@ const assignedDateLabel = (isoString) => {
 const PlanCard = ({ plan, source, onStart, onDelete }) => {
   const meta = getPlanCardMeta(plan);
   const isTemplate = source === 'self';
+  const isUnopened = source === 'coach' && plan.id && !getOpenedPlanIds().has(plan.id);
+  const handleStart = () => {
+    if (source === 'coach') markPlanOpened(plan.id);
+    onStart();
+  };
   return (
     <div className="wt-plan-card">
+      {isUnopened && <span className="wt-plan-new-dot" aria-label="New, unopened plan" />}
       {isTemplate ? (
         <div className="wt-plan-thumb-fallback" style={{ background: `${meta.color}1c`, color: meta.color }}>
           <FolderIcon />
@@ -181,7 +213,7 @@ const PlanCard = ({ plan, source, onStart, onDelete }) => {
       </div>
 
       <div className="wt-plan-side">
-        <button type="button" className="wt-plan-start-btn" onClick={onStart}>
+        <button type="button" className="wt-plan-start-btn" onClick={handleStart}>
           ▶ Start
         </button>
         {isTemplate && onDelete && (

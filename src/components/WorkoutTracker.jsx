@@ -2504,31 +2504,39 @@ const WorkoutTracker = () => {
               excludes coach-only records (e.g. a plan auto-saved from Live
               Log) that haven't actually been assigned to this client — see
               TrainerDashboard's "Assign to client" action. */}
-          {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).length > 0 && (
-            <div className="wt-section">
-              <div className="wt-section-header">
-                <span className="wt-section-badge coach">🎯 Your Coach's Plan</span>
-                <span className="wt-section-sub">Assigned by your coach</span>
+          {(() => {
+            const coachPlansTpl = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
+            const visibleCoachPlansTpl = showAllCoachPlans ? coachPlansTpl : coachPlansTpl.slice(0, 3);
+            return coachPlansTpl.length > 0 && (
+              <div className="wt-picker-section">
+                <div className="wt-picker-section-header">
+                  <span className="wt-picker-section-title">📋 Coach Plans <span className="wt-count-badge">{coachPlansTpl.length} available</span></span>
+                  {coachPlansTpl.length > 3 && (
+                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
+                      {showAllCoachPlans ? 'Show less' : 'View all'}
+                    </button>
+                  )}
+                </div>
+                <div className="wt-plan-list">
+                  {visibleCoachPlansTpl.map(plan => (
+                    <PlanCard
+                      key={plan.id || plan.planName}
+                      plan={plan}
+                      source="coach"
+                      onStart={() => handleStartFromTemplate({
+                        name: plan.planName,
+                        exercises: (Array.isArray(plan.exercises) ? plan.exercises : []).map(ex => ({
+                          ...ex,
+                          sets: ex.sets ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) : 3,
+                          reps: ex.reps || '10'
+                        }))
+                      })}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="wt-plan-list">
-                {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).map(plan => (
-                  <PlanCard
-                    key={plan.id || plan.planName}
-                    plan={plan}
-                    source="coach"
-                    onStart={() => handleStartFromTemplate({
-                      name: plan.planName,
-                      exercises: (Array.isArray(plan.exercises) ? plan.exercises : []).map(ex => ({
-                        ...ex,
-                        sets: ex.sets ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) : 3,
-                        reps: ex.reps || '10'
-                      }))
-                    })}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Workout Library — Beginner / Intermediate / Advanced */}
           <div className="wt-section">

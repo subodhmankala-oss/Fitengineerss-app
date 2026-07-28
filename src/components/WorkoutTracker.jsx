@@ -2689,9 +2689,7 @@ const WorkoutTracker = () => {
           resetWorkoutTimer();
         };
 
-        const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
         const templatePlans = clientPlans.filter(p => p.createdBy === 'client');
-        const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
 
         const handleDeleteTemplate = async (plan) => {
@@ -2729,29 +2727,6 @@ const WorkoutTracker = () => {
               </div>
               <span className="wt-start-empty-chevron">›</span>
             </button>
-
-            {/* Coach Assigned Plans — only relevant once a coach is actually assigned */}
-            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
-              <div className="wt-picker-section">
-                <div className="wt-picker-section-header">
-                  <span className="wt-picker-section-title">📋 Coach Plans <span className="wt-count-badge">{coachPlans.length} available</span></span>
-                  {coachPlans.length > 3 && (
-                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
-                      {showAllCoachPlans ? 'Show less' : 'View all'}
-                    </button>
-                  )}
-                </div>
-                {loadingPlans ? (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coach plans...</p>
-                ) : coachPlans.length === 0 ? (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No workout plans assigned by your coach yet.</p>
-                ) : (
-                  <div className="wt-plan-list">
-                    {visibleCoachPlans.map(plan => <PlanCard key={plan.id} plan={plan} source="coach" onStart={() => startPlan(plan, 'coach')} />)}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* My Saved Templates */}
             <div className="wt-picker-section">

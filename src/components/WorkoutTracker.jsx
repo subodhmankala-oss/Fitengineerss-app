@@ -2189,14 +2189,26 @@ const WorkoutTracker = () => {
                     {graphData.map((d, idx) => {
                       const val = chartMetric === 'weight' ? d.weight : d.volume;
                       const active = activeSessionData && activeSessionData.index === d.index;
+                      const px = getPointX(d.index);
+                      const py = getPointY(val);
                       return (
                         <g key={`${d.date}-${idx}`}>
-                          <circle 
-                            cx={getPointX(d.index)} 
-                            cy={getPointY(val)} 
-                            r={active ? "6" : "4"} 
+                          <text
+                            x={px}
+                            y={Math.max(py - 12, 12)}
+                            textAnchor="middle"
+                            fontSize="9"
+                            fontWeight="700"
+                            fill={active ? '#fff' : 'rgba(255,255,255,0.55)'}
+                          >
+                            {chartMetric === 'weight' ? `${val}${getExerciseUnit(selectedExercise)}` : val}
+                          </text>
+                          <circle
+                            cx={px}
+                            cy={py}
+                            r={active ? "6" : "4"}
                             fill={chartMetric === 'weight' ? '#3b82f6' : 'var(--primary-accent-light)'}
-                            stroke="#090e17" 
+                            stroke="#090e17"
                             strokeWidth={active ? "2" : "1.5"}
                             style={{ transition: 'all 0.2s ease-in-out' }}
                           />
@@ -2213,14 +2225,36 @@ const WorkoutTracker = () => {
                       Session {selectedSessionIndex + 1}: <span className="text-highlight">{displayedSessions[selectedSessionIndex]?.date}</span>
                     </strong>
                   </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max={Math.max(graphData.length - 1, 0)} 
-                    value={selectedSessionIndex} 
-                    onChange={(e) => setSelectedSessionIndex(parseInt(e.target.value))} 
+                  <input
+                    type="range"
+                    min="0"
+                    max={Math.max(graphData.length - 1, 0)}
+                    value={selectedSessionIndex}
+                    onChange={(e) => setSelectedSessionIndex(parseInt(e.target.value))}
                     className="timeline-range-slider"
                   />
+                  {graphData.length > 0 && (() => {
+                    const maxLabels = 6;
+                    const step = Math.max(Math.ceil(graphData.length / maxLabels), 1);
+                    return (
+                      <div className="timeline-date-ticks">
+                        {graphData.map((d, idx) => {
+                          if (idx !== 0 && idx !== graphData.length - 1 && idx % step !== 0) return null;
+                          const pct = graphData.length > 1 ? (idx / (graphData.length - 1)) * 100 : 0;
+                          const label = new Date(`${d.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          return (
+                            <span
+                              key={`${d.date}-${idx}`}
+                              className={`timeline-date-tick ${idx === selectedSessionIndex ? 'active' : ''}`}
+                              style={{ left: `${pct}%` }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}

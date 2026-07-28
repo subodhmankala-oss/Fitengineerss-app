@@ -298,6 +298,34 @@
   transform: scale(1.15);
 }
 
+.timeline-date-ticks {
+  position: relative;
+  height: 16px;
+  margin-top: 2px;
+}
+
+.timeline-date-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  color: var(--text-subtle, var(--text-muted));
+  white-space: nowrap;
+}
+
+.timeline-date-tick:first-child {
+  transform: translateX(0);
+}
+
+.timeline-date-tick:last-child {
+  transform: translateX(-100%);
+}
+
+.timeline-date-tick.active {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
 /* Progressive Overload Alert */
 .progressive-overload-alert {
   padding: 14px 18px;

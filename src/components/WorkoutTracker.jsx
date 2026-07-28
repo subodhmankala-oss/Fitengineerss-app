@@ -119,6 +119,86 @@ const relativeDateLabel = (isoString) => {
   return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
+// Absolute "Jul 27, 2026" form — used for the coach-assigned date, where an
+// exact date reads better than a relative one (matches the coach's own
+// "Assigned to: X · Jul 27, 2026" label in TrainerDashboard).
+const assignedDateLabel = (isoString) => {
+  if (!isoString) return '';
+  const then = new Date(isoString);
+  if (Number.isNaN(then.getTime())) return '';
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+// Routine card — a coach-assigned plan (muscle thumbnail, Push/Pull/Legs
+// color) or a client's own saved template (folder icon). Shared by the Log
+// Sets routine picker and the Workouts tab's "Your Coach's Plan" section, so
+// both present a plan the exact same way.
+const PlanCard = ({ plan, source, onStart, onDelete }) => {
+  const meta = getPlanCardMeta(plan);
+  const isTemplate = source === 'self';
+  return (
+    <div className="wt-plan-card">
+      {isTemplate ? (
+        <div className="wt-plan-thumb-fallback" style={{ background: `${meta.color}1c`, color: meta.color }}>
+          <FolderIcon />
+        </div>
+      ) : (
+        <div className="wt-plan-thumb">
+          <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+        </div>
+      )}
+
+      <div className="wt-plan-body">
+        {!isTemplate && (
+          <div className="wt-plan-top-row">
+            <span className="wt-plan-source-label" style={{ color: meta.color }}>
+              Coach assigned{plan.createdAt ? ` · ${assignedDateLabel(plan.createdAt)}` : ''}
+            </span>
+          </div>
+        )}
+
+        <strong className="wt-plan-title">{plan.planName}</strong>
+
+        <div className="wt-plan-meta-row">
+          {isTemplate ? (
+            <span><CalendarIcon /> Updated {relativeDateLabel(plan.createdAt)}</span>
+          ) : (
+            <span><ClockIcon /> {meta.estMinutes} min</span>
+          )}
+          <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
+        </div>
+
+        {meta.muscles.length > 0 && (
+          <div className="wt-plan-chip-row">
+            {meta.muscles.slice(0, 3).map(m => (
+              <span key={m} className="wt-muscle-chip">
+                <span className="wt-muscle-chip-dot" style={{ background: PPLC_COLOR[MUSCLE_TO_PPLC[m]] || meta.color }} />
+                {m}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="wt-plan-side">
+        <button type="button" className="wt-plan-start-btn" onClick={onStart}>
+          ▶ Start
+        </button>
+        {isTemplate && onDelete && (
+          <button
+            type="button"
+            className="wt-plan-delete-btn"
+            aria-label="Delete template"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          >
+            <TrashIcon />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Initial pre-hydrated historical progression logs for client "Sridhar"
 const defaultHistoricalSessions = [
   {
@@ -2430,37 +2510,21 @@ const WorkoutTracker = () => {
                 <span className="wt-section-badge coach">🎯 Your Coach's Plan</span>
                 <span className="wt-section-sub">Assigned by your coach</span>
               </div>
-              <div className="wt-template-list">
+              <div className="wt-plan-list">
                 {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).map(plan => (
-                  <div key={plan.id || plan.planName} className="wt-template-card coach-card">
-                    <div className="wt-tpl-info">
-                      <span className="wt-tpl-icon">📋</span>
-                      <div>
-                        <span className="wt-tpl-name">{plan.planName}</span>
-                        <span className="wt-tpl-meta">
-                          {Array.isArray(plan.exercises) ? plan.exercises.length : 0} exercises
-                        </span>
-                      </div>
-                    </div>
-                    <div className="wt-tpl-exercises">
-                      {(Array.isArray(plan.exercises) ? plan.exercises : []).slice(0, 4).map((ex, i) => (
-                        <span key={i} className="wt-ex-pill">{ex.name}</span>
-                      ))}
-                    </div>
-                    <button
-                      className="wt-start-btn coach-start"
-                      onClick={() => handleStartFromTemplate({
-                        name: plan.planName,
-                        exercises: (Array.isArray(plan.exercises) ? plan.exercises : []).map(ex => ({
-                          ...ex,
-                          sets: ex.sets ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) : 3,
-                          reps: ex.reps || '10'
-                        }))
-                      })}
-                    >
-                      ▶ Start Workout
-                    </button>
-                  </div>
+                  <PlanCard
+                    key={plan.id || plan.planName}
+                    plan={plan}
+                    source="coach"
+                    onStart={() => handleStartFromTemplate({
+                      name: plan.planName,
+                      exercises: (Array.isArray(plan.exercises) ? plan.exercises : []).map(ex => ({
+                        ...ex,
+                        sets: ex.sets ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) : 3,
+                        reps: ex.reps || '10'
+                      }))
+                    })}
+                  />
                 ))}
               </div>
             </div>
@@ -2588,74 +2652,11 @@ const WorkoutTracker = () => {
         const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
 
-        const PlanCard = ({ plan, source }) => {
-          const meta = getPlanCardMeta(plan);
-          const isTemplate = source === 'self';
-          return (
-            <div className="wt-plan-card">
-              {isTemplate ? (
-                <div className="wt-plan-thumb-fallback" style={{ background: `${meta.color}1c`, color: meta.color }}>
-                  <FolderIcon />
-                </div>
-              ) : (
-                <div className="wt-plan-thumb">
-                  <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
-                </div>
-              )}
-
-              <div className="wt-plan-body">
-                {!isTemplate && (
-                  <div className="wt-plan-top-row">
-                    <span className="wt-plan-source-label" style={{ color: meta.color }}>Coach assigned</span>
-                  </div>
-                )}
-
-                <strong className="wt-plan-title">{plan.planName}</strong>
-
-                <div className="wt-plan-meta-row">
-                  {isTemplate ? (
-                    <span><CalendarIcon /> Updated {relativeDateLabel(plan.createdAt)}</span>
-                  ) : (
-                    <span><ClockIcon /> {meta.estMinutes} min</span>
-                  )}
-                  <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
-                </div>
-
-                {meta.muscles.length > 0 && (
-                  <div className="wt-plan-chip-row">
-                    {meta.muscles.slice(0, 3).map(m => (
-                      <span key={m} className="wt-muscle-chip">
-                        <span className="wt-muscle-chip-dot" style={{ background: PPLC_COLOR[MUSCLE_TO_PPLC[m]] || meta.color }} />
-                        {m}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="wt-plan-side">
-                <button type="button" className="wt-plan-start-btn" onClick={() => startPlan(plan, source)}>
-                  ▶ Start
-                </button>
-                {isTemplate && (
-                  <button
-                    type="button"
-                    className="wt-plan-delete-btn"
-                    aria-label="Delete template"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (confirm('Are you sure you want to delete this template?')) {
-                        await databaseService.deleteWorkoutPlan(plan.id, getPlanOwnerId());
-                        fetchPlans();
-                      }
-                    }}
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
+        const handleDeleteTemplate = async (plan) => {
+          if (confirm('Are you sure you want to delete this template?')) {
+            await databaseService.deleteWorkoutPlan(plan.id, getPlanOwnerId());
+            fetchPlans();
+          }
         };
 
         return (
@@ -2704,7 +2705,7 @@ const WorkoutTracker = () => {
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No workout plans assigned by your coach yet.</p>
                 ) : (
                   <div className="wt-plan-list">
-                    {visibleCoachPlans.map(plan => <PlanCard key={plan.id} plan={plan} source="coach" />)}
+                    {visibleCoachPlans.map(plan => <PlanCard key={plan.id} plan={plan} source="coach" onStart={() => startPlan(plan, 'coach')} />)}
                   </div>
                 )}
               </div>
@@ -2726,7 +2727,7 @@ const WorkoutTracker = () => {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
               ) : (
                 <div className="wt-plan-list">
-                  {visibleTemplatePlans.map(plan => <PlanCard key={plan.id} plan={plan} source="self" />)}
+                  {visibleTemplatePlans.map(plan => <PlanCard key={plan.id} plan={plan} source="self" onStart={() => startPlan(plan, 'self')} onDelete={() => handleDeleteTemplate(plan)} />)}
                 </div>
               )}
             </div>

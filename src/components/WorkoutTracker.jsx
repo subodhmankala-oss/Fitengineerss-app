@@ -8,10 +8,43 @@ import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise } from '../data/exe
 import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
-import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
+import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
+import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 
+// Routine-picker card icons — plain stroke SVGs (matches ClientProfile.jsx's
+// icon style) instead of emoji, so Coach Plan and Saved Template cards use
+// the exact same icon language.
+const FolderIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+  </svg>
+);
+const ClockIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <polyline points="12 7 12 12 16 14" />
+  </svg>
+);
+const CalendarIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M3 9h18M8 2v4M16 2v4" />
+  </svg>
+);
+const DumbbellIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6.5 6.5 17.5 17.5M4 4l3 3M20 20l-3-3M2 8l3-3M8 2l3 3M16 22l3-3M22 16l-3 3" />
+  </svg>
+);
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
 
 // Bold stacked words for a library card's typographic tile (e.g. "Beginner
 // Full Body A" → ["FULL", "BODY A"]). Strips the level word (the tabs already
@@ -29,6 +62,61 @@ const programTileWords = (name) => {
     else lines.push(w);
   });
   return lines.slice(0, 3);
+};
+
+// Push/Pull/Legs/Core color coding for the routine-picker cards — same
+// categorization Section 3 of Weekly Muscle Analytics uses (MUSCLE_TO_PPLC),
+// so a "Push Strength" plan's thumbnail/chips read the same warm-red family
+// a client already associates with chest/shoulders/triceps elsewhere.
+const PPLC_COLOR = { Push: '#ef4444', Pull: '#3b82f6', Legs: '#10b981', Core: '#a855f7' };
+
+// Derives the routine-picker card's display data from a plan's exercise list
+// — muscle groups trained, a representative body region + color for its
+// MuscleThumbnail, and a rough duration estimate (no real duration is
+// tracked per plan, so this is a heuristic: ~1min work + ~1.5min rest per
+// set, rounded to the nearest 5 minutes for a clean-looking number).
+const getPlanCardMeta = (plan) => {
+  const exercises = plan.exercises || [];
+  const exerciseCount = exercises.length;
+  const totalSets = exercises.reduce((sum, ex) => sum + (ex.sets?.length || 0), 0);
+
+  const muscleCounts = {};
+  exercises.forEach(ex => {
+    getMuscleGroupsForExercise(ex.name).forEach(m => {
+      muscleCounts[m] = (muscleCounts[m] || 0) + 1;
+    });
+  });
+  const muscles = Object.keys(muscleCounts).sort((a, b) => muscleCounts[b] - muscleCounts[a]);
+
+  const categoryCounts = {};
+  muscles.forEach(m => {
+    const cat = MUSCLE_TO_PPLC[m];
+    if (cat) categoryCounts[cat] = (categoryCounts[cat] || 0) + muscleCounts[m];
+  });
+  const category = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0] || 'Push';
+
+  return {
+    muscles,
+    primaryMuscle: muscles[0] || 'Chest',
+    category,
+    color: PPLC_COLOR[category] || PPLC_COLOR.Push,
+    exerciseCount,
+    totalSets,
+    estMinutes: Math.max(15, Math.round((totalSets * 2.5) / 5) * 5)
+  };
+};
+
+// "3d ago" / "Today" / "Yesterday" from an ISO timestamp — used for saved
+// templates, which only track createdAt (no separate updated-at column).
+const relativeDateLabel = (isoString) => {
+  if (!isoString) return '';
+  const then = new Date(isoString);
+  if (Number.isNaN(then.getTime())) return '';
+  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days}d ago`;
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -563,6 +651,9 @@ const WorkoutTracker = () => {
   // handleConfirmSaveWorkout) — the "Session Finished" confirmation above is
   // shown BEFORE the save, so duration/calories/PRs aren't final there yet.
   const [shareCardData, setShareCardData] = useState(null);
+  // Routine picker (Log Sets → Start Workout Session) — "View all" toggle per section.
+  const [showAllCoachPlans, setShowAllCoachPlans] = useState(false);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
   const [setTimers, setSetTimers] = useState({});
@@ -2474,178 +2565,174 @@ const WorkoutTracker = () => {
         </div>
       )}
 
-      {activeView === 'log' && !isLoggingWorkout && (
-        <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
-          <div className="launcher-header" style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 800 }}>🏋️‍♂️ Start Workout Session</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select a coach plan, a saved template, or start empty.</p>
-          </div>
-          
-          <button 
-            type="button" 
-            className="btn-start-empty-workout"
-            style={{
-              width: '100%',
-              padding: '14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px dashed rgba(16, 185, 129, 0.3)',
-              color: 'var(--primary-accent-light)',
-              fontWeight: '700',
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              marginBottom: '24px',
-              transition: 'all 0.2s ease'
-            }}
-            onClick={() => {
-              setLogClient(selectedClient);
-              setLogDate(getLocalDateString());
-              setLogExercises([
-                { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
-              ]);
-              setTemplateName('');
-              setIsLoggingWorkout(true);
-              resetWorkoutTimer();
-            }}
-          >
-            ➕ Start Empty Workout
-          </button>
+      {activeView === 'log' && !isLoggingWorkout && (() => {
+        const startPlan = (plan, source) => {
+          setLogClient(selectedClient);
+          setLogDate(getLocalDateString());
+          setLogExercises(plan.exercises.map(ex => ({
+            name: ex.name,
+            sets: ex.sets.map(s => isCardioExercise(ex.name)
+              ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+              : isTimedExercise(ex.name)
+              ? { time: s.time ?? '', isCompleted: false }
+              : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
+          })));
+          setTemplateName(plan.planName);
+          setWorkoutSource(source);
+          setIsLoggingWorkout(true);
+          resetWorkoutTimer();
+        };
 
-          {/* Coach Assigned Plans — only relevant once a coach is actually assigned */}
-          {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
-            <div className="routines-section" style={{ marginBottom: '20px' }}>
-              <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>📋 Your Coach's Plan</h4>
-              {loadingPlans ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coach plans...</p>
-              ) : clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No workout plans assigned by your coach yet.</p>
+        const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
+        const templatePlans = clientPlans.filter(p => p.createdBy === 'client');
+        const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
+        const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
+
+        const PlanCard = ({ plan, source }) => {
+          const meta = getPlanCardMeta(plan);
+          const isTemplate = source === 'self';
+          return (
+            <div className="wt-plan-card">
+              {isTemplate ? (
+                <div className="wt-plan-thumb-fallback" style={{ background: `${meta.color}1c`, color: meta.color }}>
+                  <FolderIcon />
+                </div>
               ) : (
-                <div className="routines-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false).map(plan => (
-                    <div key={plan.id} className="routine-card glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                      <div className="routine-info" style={{ flex: 1, paddingRight: '12px' }}>
-                        <strong className="routine-title" style={{ display: 'block', fontSize: '0.88rem', color: '#fff' }}>{plan.planName}</strong>
-                        <div className="routine-ex-summary" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                          {plan.exercises.map(ex => `${ex.name} (${ex.sets?.length || 0}s)`).join(', ')}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn-start-routine"
-                        style={{
-                          padding: '8px 14px',
-                          background: 'var(--primary-accent-light)',
-                          color: '#fff',
-                          fontWeight: '700',
-                          fontSize: '0.8rem',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => {
-                          setLogClient(selectedClient);
-                          setLogDate(getLocalDateString());
-                          setLogExercises(plan.exercises.map(ex => ({
-                            name: ex.name,
-                            sets: ex.sets.map(s => isCardioExercise(ex.name)
-                              ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
-                              : isTimedExercise(ex.name)
-                              ? { time: s.time ?? '', isCompleted: false }
-                              : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
-                          })));
-                          setTemplateName(plan.planName);
-                          setWorkoutSource('coach');
-                          setIsLoggingWorkout(true);
-                          resetWorkoutTimer();
-                        }}
-                      >
-                        Start Routine
-                      </button>
-                    </div>
-                  ))}
+                <div className="wt-plan-thumb">
+                  <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+                </div>
+              )}
+
+              <div className="wt-plan-body">
+                {!isTemplate && (
+                  <div className="wt-plan-top-row">
+                    <span className="wt-plan-source-label" style={{ color: meta.color }}>Coach assigned</span>
+                  </div>
+                )}
+
+                <strong className="wt-plan-title">{plan.planName}</strong>
+
+                <div className="wt-plan-meta-row">
+                  {isTemplate ? (
+                    <span><CalendarIcon /> Updated {relativeDateLabel(plan.createdAt)}</span>
+                  ) : (
+                    <span><ClockIcon /> {meta.estMinutes} min</span>
+                  )}
+                  <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
+                </div>
+
+                {meta.muscles.length > 0 && (
+                  <div className="wt-plan-chip-row">
+                    {meta.muscles.slice(0, 3).map(m => (
+                      <span key={m} className="wt-muscle-chip">
+                        <span className="wt-muscle-chip-dot" style={{ background: PPLC_COLOR[MUSCLE_TO_PPLC[m]] || meta.color }} />
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="wt-plan-side">
+                <button type="button" className="wt-plan-start-btn" onClick={() => startPlan(plan, source)}>
+                  ▶ Start
+                </button>
+                {isTemplate && (
+                  <button
+                    type="button"
+                    className="wt-plan-delete-btn"
+                    aria-label="Delete template"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (confirm('Are you sure you want to delete this template?')) {
+                        await databaseService.deleteWorkoutPlan(plan.id, getPlanOwnerId());
+                        fetchPlans();
+                      }
+                    }}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
+            <div className="launcher-header" style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 800 }}>🏋️‍♂️ Start Workout Session</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select a coach plan, a saved template, or start empty.</p>
+            </div>
+
+            <button
+              type="button"
+              className="wt-start-empty-card"
+              onClick={() => {
+                setLogClient(selectedClient);
+                setLogDate(getLocalDateString());
+                setLogExercises([
+                  { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
+                ]);
+                setTemplateName('');
+                setIsLoggingWorkout(true);
+                resetWorkoutTimer();
+              }}
+            >
+              <span className="wt-start-empty-icon">+</span>
+              <div className="wt-start-empty-text">
+                <strong>Start Empty Workout</strong>
+                <span>Create a workout from scratch</span>
+              </div>
+              <span className="wt-start-empty-chevron">›</span>
+            </button>
+
+            {/* Coach Assigned Plans — only relevant once a coach is actually assigned */}
+            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
+              <div className="wt-picker-section">
+                <div className="wt-picker-section-header">
+                  <span className="wt-picker-section-title">📋 Coach Plans <span className="wt-count-badge">{coachPlans.length} available</span></span>
+                  {coachPlans.length > 3 && (
+                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
+                      {showAllCoachPlans ? 'Show less' : 'View all'}
+                    </button>
+                  )}
+                </div>
+                {loadingPlans ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading coach plans...</p>
+                ) : coachPlans.length === 0 ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No workout plans assigned by your coach yet.</p>
+                ) : (
+                  <div className="wt-plan-list">
+                    {visibleCoachPlans.map(plan => <PlanCard key={plan.id} plan={plan} source="coach" />)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* My Saved Templates */}
+            <div className="wt-picker-section">
+              <div className="wt-picker-section-header">
+                <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{templatePlans.length} templates</span></span>
+                {templatePlans.length > 3 && (
+                  <button type="button" className="wt-view-all-btn" onClick={() => setShowAllTemplates(v => !v)}>
+                    {showAllTemplates ? 'Show less' : 'View all'}
+                  </button>
+                )}
+              </div>
+              {loadingPlans ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
+              ) : templatePlans.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
+              ) : (
+                <div className="wt-plan-list">
+                  {visibleTemplatePlans.map(plan => <PlanCard key={plan.id} plan={plan} source="self" />)}
                 </div>
               )}
             </div>
-          )}
-
-          {/* My Saved Templates */}
-          <div className="routines-section">
-            <h4 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>👤 My Saved Templates</h4>
-            {loadingPlans ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
-            ) : clientPlans.filter(p => p.createdBy === 'client').length === 0 ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
-            ) : (
-              <div className="routines-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {clientPlans.filter(p => p.createdBy === 'client').map(plan => (
-                  <div key={plan.id} className="routine-card glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                    <div className="routine-info" style={{ flex: 1, paddingRight: '12px' }}>
-                      <strong className="routine-title" style={{ display: 'block', fontSize: '0.88rem', color: '#fff' }}>{plan.planName}</strong>
-                      <div className="routine-ex-summary" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                        {plan.exercises.map(ex => `${ex.name} (${ex.sets?.length || 0}s)`).join(', ')}
-                      </div>
-                    </div>
-                    <div className="routine-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button
-                        type="button"
-                        className="btn-start-routine"
-                        style={{
-                          padding: '8px 14px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--border-color)',
-                          color: '#fff',
-                          fontWeight: '700',
-                          fontSize: '0.8rem',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => {
-                          setLogClient(selectedClient);
-                          setLogDate(getLocalDateString());
-                          setLogExercises(plan.exercises.map(ex => ({
-                            name: ex.name,
-                            sets: ex.sets.map(s => isCardioExercise(ex.name)
-                              ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
-                              : isTimedExercise(ex.name)
-                              ? { time: s.time ?? '', isCompleted: false }
-                              : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
-                          })));
-                          setTemplateName(plan.planName);
-                          setWorkoutSource('self');
-                          setIsLoggingWorkout(true);
-                          resetWorkoutTimer();
-                        }}
-                      >
-                        Start
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn-delete-routine-sm" 
-                        style={{
-                          padding: '8px 10px',
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          border: '1px solid rgba(239, 68, 68, 0.2)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem'
-                        }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (confirm('Are you sure you want to delete this template?')) {
-                            await databaseService.deleteWorkoutPlan(plan.id, getPlanOwnerId());
-                            fetchPlans();
-                          }
-                        }}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">

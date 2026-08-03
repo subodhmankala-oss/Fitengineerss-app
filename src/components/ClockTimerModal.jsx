@@ -18,7 +18,7 @@ function formatClock(totalSeconds) {
 // period or warmup during a live session without leaving the app. Purely a
 // utility overlay: no data is saved anywhere, closing it just discards state.
 export default function ClockTimerModal({ onClose }) {
-  const [mode, setMode] = useState('timer');
+  const [mode, setMode] = useState('stopwatch');
 
   const [duration, setDuration] = useState(DEFAULT_DURATION);
   const [remaining, setRemaining] = useState(DEFAULT_DURATION);
@@ -85,6 +85,9 @@ export default function ClockTimerModal({ onClose }) {
   const handleStopwatchReset = () => {
     setStopwatchRunning(false);
     setElapsed(0);
+  };
+  const adjustElapsed = (delta) => {
+    setElapsed(prev => Math.max(0, prev + delta));
   };
 
   const timerFraction = duration > 0 ? remaining / duration : 0;
@@ -162,6 +165,11 @@ export default function ClockTimerModal({ onClose }) {
                 <circle cx="100" cy="100" r={CIRCLE_R} className="clock-ring-fill clock-ring-static" strokeDasharray={CIRCUMFERENCE} strokeDashoffset={0} />
               </svg>
               <div className="clock-ring-label">{formatClock(elapsed)}</div>
+            </div>
+
+            <div className="clock-adjust-row">
+              <button type="button" className="clock-adjust-btn" onClick={() => adjustElapsed(-15)}>-15s</button>
+              <button type="button" className="clock-adjust-btn" onClick={() => adjustElapsed(15)}>+15s</button>
             </div>
 
             {stopwatchRunning || elapsed > 0 ? (

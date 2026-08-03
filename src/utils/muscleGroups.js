@@ -47,10 +47,27 @@ const RULES = [
   // Checked before the generic "curl" rule below — "Wrist Curl" contains
   // "curl" and would otherwise be misclassified as Biceps.
   { test: n => /wrist/.test(n), muscles: ['Forearms'] },
+  // Loaded carries (Farmer Walk, suitcase/sandbag carry, yoke walk). Grip is
+  // the limiting factor (Forearms), with the traps/delts holding the load —
+  // matching this module's own RECOMMENDED_EXERCISES, which already lists
+  // Farmer Walk under Forearms. Without this rule these sets mapped to NO
+  // muscle group and were silently dropped from every analytics number.
+  { test: n => /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n), muscles: ['Forearms', 'Shoulders'] },
   { test: n => /(bicep|curl)/.test(n) && !/(leg curl|hip curl|wrist curl)/.test(n), muscles: ['Biceps'] },
 
+  // ── Shoulders (rotator cuff) ──
+  // Checked BEFORE the calf rule below: coaches type this exercise freehand
+  // and "Rotator calf" is a common misspelling of "Rotator cuff", which the
+  // substring /calf/ rule then credited to Calves (a real bug — a 1 kg
+  // shoulder-rehab movement showed up as calf training). Matching "rotator"
+  // first claims both the correct spelling and that typo for Shoulders.
+  { test: n => /rotator|external rotation|internal rotation/.test(n), muscles: ['Shoulders'] },
+
   // ── Legs (isolation first, then compound) ──
-  { test: n => /calf/.test(n), muscles: ['Calves'] },
+  // Requires an actual calf MOVEMENT (raise/press/extension) or the plural
+  // "calves", rather than the bare substring "calf" — the loose version
+  // matched any custom name that merely contained those four letters.
+  { test: n => /\bcalves\b/.test(n) || (/\bcalf\b/.test(n) && /(raise|press|extension|curl)/.test(n)), muscles: ['Calves'] },
   { test: n => /(glute|hip thrust|glute bridge|hip abduction|hip adduction)/.test(n), muscles: ['Glutes'] },
   // "kettlebell swing" added: a hip-hinge posterior-chain move, classified
   // the same as Romanian Deadlift / Good Morning here.

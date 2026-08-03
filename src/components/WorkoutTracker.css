@@ -513,7 +513,7 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 5px;
 }
 
 .form-header h3 {
@@ -528,32 +528,49 @@
   margin-top: 1px;
 }
 
-.form-header-with-date {
+/* Instruction line now sits above the whole logging card instead of as a
+   subtitle inside the header — see the "Today's Workout" restructure. */
+.workout-log-instructions {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 8px 2px;
+}
+
+.form-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: nowrap;
+  flex-direction: column;
   gap: 10px;
 }
 
-.form-header-with-date > div:first-child {
-  min-width: 0;
-  flex: 1;
+.form-header-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
-.session-date-inline {
+.form-header-title-row h3 {
+  min-width: 0;
+}
+
+/* Compact inline date — sits beside the "Today's Workout" title rather than
+   as its own labeled row. */
+.session-date-tiny {
   flex-shrink: 0;
   width: auto;
-  min-width: 0;
+  max-width: 128px;
+  padding: 4px 6px;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  outline: none;
 }
 
-.session-date-inline label {
-  white-space: nowrap;
-}
-
-.session-date-inline input[type="date"] {
-  width: 140px;
-  padding: 8px 8px;
+.form-header-namerow {
+  gap: 12px;
 }
 
 .form-double-col {
@@ -571,6 +588,10 @@
   width: 100%;
   min-width: 0;
   text-overflow: ellipsis;
+  /* Slightly smaller than the app-wide 16px minimum by request — note this
+     reintroduces iOS Safari's auto-zoom-on-focus behavior for these two
+     fields specifically (a deliberate tradeoff, not an oversight). */
+  font-size: 14px;
 }
 
 .input-group {
@@ -625,9 +646,9 @@
 .exercises-form-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
-  padding-top: 16px;
+  padding-top: 8px;
 }
 
 .section-title-row {
@@ -1599,47 +1620,60 @@
   flex: 0 0 auto;
 }
 
+/* Icon-only, no button chrome — matches the discard/stopwatch controls. */
 .btn-timer-toggle {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: transparent;
+  border: none;
   color: #fbbf24;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 0.78rem;
-  font-weight: 700;
+  padding: 4px 6px;
   cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-timer-toggle:hover {
-  background: rgba(245, 158, 11, 0.25);
-  border-color: rgba(245, 158, 11, 0.5);
-}
-
-.btn-timer-discard {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: transform var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
+}
+
+.btn-timer-toggle:hover {
+  transform: scale(1.1);
+}
+
+/* Icon-only, no button chrome — matches the coach-side discard control. */
+.btn-timer-discard {
+  background: transparent;
+  border: none;
+  color: rgba(239, 68, 68, 0.85);
+  padding: 4px 6px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-timer-discard:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #fff;
+  color: #ef4444;
 }
 
 .btn-timer-discard:active {
   transform: scale(0.95);
+}
+
+.btn-timer-stopwatch {
+  background: transparent;
+  border: none;
+  color: #3b82f6;
+  padding: 4px 6px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-timer-stopwatch:hover {
+  transform: scale(1.1);
 }
 
 @media (max-width: 390px) {
@@ -1657,16 +1691,6 @@
     padding: 3px 8px;
   }
 
-  .btn-timer-toggle {
-    padding: 6px 12px;
-    font-size: 0.7rem;
-  }
-
-  .btn-timer-discard {
-    padding: 6px 8px;
-    font-size: 0.95rem;
-    min-width: 28px;
-  }
 }
 
 .btn-hevy-finish {
@@ -1744,6 +1768,40 @@
 .btn-delete-exercise-card:hover {
   background: rgba(239, 68, 68, 0.08);
   color: rgba(239, 68, 68, 1);
+}
+
+/* Bodyweight / +Add Weight toggle (push-ups, mountain climbers, jumping
+   jacks etc.) — see isBodyweightExercise in src/data/exerciseLibrary.js. */
+.bw-toggle-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.bw-toggle-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bw-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.bw-static-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
 /* Set Table Styling */
@@ -2068,16 +2126,19 @@
 .btn-hevy-row-delete {
   background: transparent;
   border: none;
+  color: rgba(239, 68, 68, 0.75);
   font-size: 0.8rem;
   cursor: pointer;
-  opacity: 0.4;
   padding: 2px;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
 }
 
 .btn-hevy-row-delete:hover {
-  opacity: 1;
+  color: #ef4444;
   background: rgba(239, 68, 68, 0.08);
   transform: scale(1.1);
 }

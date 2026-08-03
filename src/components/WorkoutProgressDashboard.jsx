@@ -6,7 +6,9 @@ import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
+import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { notifyEvent } from '../utils/pushNotify';
+import { PlayIcon, TrashIcon } from './TimerIcons';
 import './WorkoutProgressDashboard.css';
 
 const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
@@ -303,8 +305,12 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       
       const weight = parseFloat(log.weight_kg) || 0;
       const reps = parseInt(log.reps) || 0;
-      grouped[date].volume += weight * reps;
-      grouped[date].sets += 1;
+      // Tonnage/set counting go through the shared analytics helpers so these
+      // headline totals can't disagree with the per-muscle breakdown: warmups
+      // don't count, and cardio/timed/loaded-carry rows contribute no tonnage
+      // (their reps column holds metres or is unused).
+      grouped[date].volume += getSetVolumeKg(log);
+      if (isCountableSet(log)) grouped[date].sets += 1;
 
       if (!grouped[date].exercises[log.exercise_name]) {
         grouped[date].exercises[log.exercise_name] = [];
@@ -743,16 +749,17 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           {activeDraft.source !== 'coach' && (
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
               <button type="button" style={{
-                background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
-                border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+                background: 'transparent', color: '#fbbf24',
+                border: 'none', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
               }}
               onClick={() => onNavigateToWorkouts && onNavigateToWorkouts()}
+              title="Resume"
               >
-                Resume ▶
+                <PlayIcon size={22} />
               </button>
               <button type="button" style={{
-                background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: '#fff',
-                border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+                background: 'transparent', color: '#ef4444',
+                border: 'none', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
               }}
               onClick={async (e) => {
                 e.stopPropagation();
@@ -771,7 +778,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
               }}
               title="Discard this workout session"
               >
-                ✕ Discard
+                <TrashIcon size={22} />
               </button>
             </div>
           )}

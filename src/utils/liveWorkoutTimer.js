@@ -5,6 +5,8 @@
 // non-drifting approach a server-side timer would use, just running on the
 // coach's single device since there's no multi-viewer requirement here.
 
+import { isWarmupExercise } from '../data/exerciseLibrary';
+
 // Work calories: each completed set contributes reps x weight(kg) x this rate.
 // Calories reflect ONLY logged work — there is no background/idle burn, so the
 // number never moves on its own just because the session clock is running.
@@ -141,6 +143,10 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
   let workKcal = 0;
 
   exercises.forEach((ex) => {
+    // Warm-up moves (Arm Circle, Leg Swing) never have a weight to log, so
+    // reps x 0 x rate is already 0 — this check is just explicit about it
+    // rather than relying on that incidentally being true.
+    if (isWarmupExercise(ex.name)) return;
     ex.sets.forEach((set) => {
       if (!set.isCompleted || !set.completedAt) return;
       if (set.distanceKm !== undefined) {

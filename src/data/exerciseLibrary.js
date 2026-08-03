@@ -72,7 +72,7 @@ const CLIENT_NAMES = [
 // Keyword classifier → one filter category. Order matters (specific first).
 export function inferCategory(name) {
   const n = name.toLowerCase();
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|\bwalk\b|rowing machine|\bswim)/.test(n)) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim)/.test(n) || (/\bwalk\b/.test(n) && !/farmer/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer)/.test(n)) return 'Legs';
@@ -85,7 +85,7 @@ export function inferCategory(name) {
 // Short primary-muscle label for the row subtitle.
 export function inferPrimary(name) {
   const n = name.toLowerCase();
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|\bwalk\b|rowing machine|\bswim)/.test(n)) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim)/.test(n) || (/\bwalk\b/.test(n) && !/farmer/.test(n))) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$/.test(n)) return 'Triceps';
   if (/(curl|preacher|concentration)/.test(n)) return 'Biceps';
   if (/wrist/.test(n)) return 'Forearms';
@@ -130,5 +130,16 @@ export function isCardioExercise(name) {
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|farmer.{0,20}carry/.test(n);
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang/.test(n);
+}
+
+// Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
+// logged as weight (kg) + distance (meters) instead of weight + reps — reps
+// don't mean anything for a walk. Reuses the same {weight, reps} set shape
+// as a normal strength exercise (reps holds the meters number); only the
+// column labels differ, so no schema/data changes are needed.
+export function isLoadedCarryExercise(name) {
+  if (!name) return false;
+  const n = name.toLowerCase();
+  return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n);
 }

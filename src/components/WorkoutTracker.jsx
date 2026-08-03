@@ -4,7 +4,7 @@ import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
+import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
@@ -2490,6 +2490,7 @@ const WorkoutTracker = () => {
                             {sess.exercises.map((ex, exIdx) => {
                               const exIsTimed = isTimedExercise(ex.name);
                               const exIsCardioHist = isCardioExercise(ex.name);
+                              const exIsLoadedCarryHist = isLoadedCarryExercise(ex.name);
                               return (
                               <div key={exIdx} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'8px', padding:'10px 12px' }}>
                                 <div style={{ fontWeight:700, fontSize:'0.82rem', color:'#fff', marginBottom:'8px' }}>{ex.name}</div>
@@ -2502,6 +2503,11 @@ const WorkoutTracker = () => {
                                       <>
                                         <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Km</th>
                                         <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Time</th>
+                                      </>
+                                    ) : exIsLoadedCarryHist ? (
+                                      <>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Weight</th>
+                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Meters</th>
                                       </>
                                     ) : (
                                       <>
@@ -2963,6 +2969,11 @@ const WorkoutTracker = () => {
                           <>
                             <span className="col-weight">TIME</span>
                             <span className="col-reps"></span>
+                          </>
+                        ) : isLoadedCarryExercise(ex.name) ? (
+                          <>
+                            <span className="col-weight">WEIGHT ({unit})</span>
+                            <span className="col-reps">METERS</span>
                           </>
                         ) : (
                           <>

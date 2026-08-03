@@ -667,6 +667,51 @@
   background: rgba(245, 158, 11, 0.25);
 }
 
+/* Small "Logging for: <name> · <date>" line — sits directly under the Live
+   Log tab, replacing the old LIVE SESSION badge + client identity card. */
+.live-logging-for-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.live-logging-for-line strong {
+  color: #f59e0b;
+}
+
+.live-logging-for-sep {
+  opacity: 0.5;
+}
+
+.live-logging-for-date-label {
+  white-space: nowrap;
+}
+
+.live-logging-for-date-input {
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.75rem;
+  outline: none;
+}
+
+/* Plan/Routine configuration panel — always visible */
+.live-workout-config-panel {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  border-radius: var(--radius-md);
+}
+
 .live-timer-discard-btn {
   padding: 6px 10px;
   background: rgba(239, 68, 68, 0.12);

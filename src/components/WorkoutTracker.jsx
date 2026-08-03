@@ -4,7 +4,7 @@ import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
+import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
@@ -13,6 +13,19 @@ import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
+import ClockTimerModal from './ClockTimerModal';
+import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
+
+// Default dynamic warm-up block — auto-prepended whenever a client starts a
+// fresh workout log (empty start or from a plan/template), so a warm-up is
+// there without the client having to add it themselves. Reps-only (no
+// weight, no calories — see isWarmupExercise), removable like any exercise.
+// Fresh array/object instances per call so nothing shares references across
+// sessions.
+const getDefaultWarmupExercises = () => [
+  { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+  { name: 'Leg Swing', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+];
 
 // Routine-picker card icons — plain stroke SVGs (matches ClientProfile.jsx's
 // icon style) instead of emoji, so Coach Plan and Saved Template cards use
@@ -39,8 +52,8 @@ const DumbbellIcon = () => (
     <path d="M6.5 6.5 17.5 17.5M4 4l3 3M20 20l-3-3M2 8l3-3M8 2l3 3M16 22l3-3M22 16l-3 3" />
   </svg>
 );
-const TrashIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const TrashIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="3 6 5 6 21 6" />
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
@@ -779,6 +792,9 @@ const WorkoutTracker = () => {
 
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
   const [showDiscardConfirmModal, setShowDiscardConfirmModal] = useState(false);
+  // Rest/warmup timer popup (ClockTimerModal) — same utility as the coach's
+  // Live Log, purely a stopwatch/timer overlay, no data saved.
+  const [showClockTimer, setShowClockTimer] = useState(false);
 
   useEffect(() => {
     if (!activeGuideExercise) { setGuideTab('summary'); return; }
@@ -1459,6 +1475,8 @@ const WorkoutTracker = () => {
           newSet = { distanceKm: lastSet?.distanceKm || '', time: '', isCompleted: false, isWarmup };
         } else if (isTimedExercise(ex.name)) {
           newSet = { time: '', isCompleted: false, isWarmup };
+        } else if (isWarmupExercise(ex.name)) {
+          newSet = { reps: 10, weight: '0', isCompleted: false, isWarmup };
         } else {
           newSet = { reps: 10, weight: lastSet?.weight || '2.5', isCompleted: false, isWarmup };
         }
@@ -1513,6 +1531,26 @@ const WorkoutTracker = () => {
         };
       }
       return ex;
+    }));
+  };
+
+  // Bodyweight exercises (push-ups, mountain climbers, jumping jacks) default
+  // to no added weight. An exercise added before this toggle existed has no
+  // bodyweightMode field — infer it from whether any set already has a
+  // nonzero weight, so existing data doesn't get clobbered by defaulting to
+  // "BW" and wiping it.
+  const getLogExBwMode = (ex) =>
+    ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
+
+  const handleToggleLogBodyweightMode = (exIdx) => {
+    setLogExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      const nextMode = !getLogExBwMode(ex);
+      return {
+        ...ex,
+        bodyweightMode: nextMode,
+        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? '0' : '' }))
+      };
     }));
   };
 
@@ -2692,9 +2730,7 @@ const WorkoutTracker = () => {
             <button
               className="wt-blank-btn"
               onClick={() => {
-                setLogExercises([
-                  { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
-                ]);
+                setLogExercises(getDefaultWarmupExercises());
                 setTemplateName('Custom Session');
                 setLogClient(loggedInUser);
                 setLogDate(getLocalDateString());
@@ -2713,14 +2749,17 @@ const WorkoutTracker = () => {
         const startPlan = (plan, source) => {
           setLogClient(selectedClient);
           setLogDate(getLocalDateString());
-          setLogExercises(plan.exercises.map(ex => ({
-            name: ex.name,
-            sets: ex.sets.map(s => isCardioExercise(ex.name)
-              ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
-              : isTimedExercise(ex.name)
-              ? { time: s.time ?? '', isCompleted: false }
-              : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
-          })));
+          setLogExercises([
+            ...getDefaultWarmupExercises(),
+            ...plan.exercises.map(ex => ({
+              name: ex.name,
+              sets: ex.sets.map(s => isCardioExercise(ex.name)
+                ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                : isTimedExercise(ex.name)
+                ? { time: s.time ?? '', isCompleted: false }
+                : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
+            })),
+          ]);
           setTemplateName(plan.planName);
           setWorkoutSource(source);
           setIsLoggingWorkout(true);
@@ -2750,9 +2789,7 @@ const WorkoutTracker = () => {
               onClick={() => {
                 setLogClient(selectedClient);
                 setLogDate(getLocalDateString());
-                setLogExercises([
-                  { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }] }
-                ]);
+                setLogExercises(getDefaultWarmupExercises());
                 setTemplateName('');
                 setIsLoggingWorkout(true);
                 resetWorkoutTimer();
@@ -2792,19 +2829,58 @@ const WorkoutTracker = () => {
 
       {activeView === 'log' && isLoggingWorkout && (
         <form onSubmit={handleFinishWorkoutPress} className="coach-log-form-wrapper glass-panel hevy-logger-wrapper">
-          <div className="form-header form-header-with-date">
-            <div>
+          <div className="form-header">
+            <div className="form-header-title-row">
               <h3>🏋️ Today's Workout</h3>
-              <p>Enter your reps and weights, then tick each set as you complete it.</p>
-            </div>
-            <div className="input-group session-date-inline">
-              <label>Session Date</label>
               <input
                 type="date"
+                className="session-date-tiny"
                 value={logDate}
                 onChange={(e) => setLogDate(e.target.value)}
                 required
               />
+            </div>
+            <div className="form-double-col form-header-namerow">
+              <div className="input-group">
+                <label>Workout Name</label>
+                <input
+                  id="workoutNameInputTop"
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="e.g. Push Day, Leg Day, Custom Session…"
+                />
+              </div>
+              {clientPlans.length > 0 && (
+                <div className="input-group">
+                  <label>Existing Plan</label>
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const plan = clientPlans.find(p => p.id === e.target.value);
+                      if (plan) {
+                        setTemplateName(plan.planName);
+                        setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
+                        setLogExercises(plan.exercises.map(ex => ({
+                          name: ex.name,
+                          sets: ex.sets.map(s => isCardioExercise(ex.name)
+                            ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                            : isTimedExercise(ex.name)
+                            ? { time: s.time ?? '', isCompleted: false }
+                            : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
+                        })));
+                        triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
+                      }
+                      e.target.value = '';
+                    }}
+                  >
+                    <option value="" disabled>Select template</option>
+                    {clientPlans.map(p => (
+                      <option key={p.id} value={p.id}>{p.planName}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2829,18 +2905,19 @@ const WorkoutTracker = () => {
                 <>
                   <button
                     type="button"
-                    className="btn-timer-toggle"
-                    onClick={workoutTimerStatus === 'running' ? handlePauseWorkoutTimer : handleResumeWorkoutTimer}
+                    className="btn-timer-stopwatch"
+                    onClick={() => setShowClockTimer(true)}
+                    title="Timer / Stopwatch"
                   >
-                    {workoutTimerStatus === 'running' ? '⏸️ Pause' : '▶️ Resume'}
+                    <StopwatchIcon size={22} />
                   </button>
                   <button
                     type="button"
-                    className="btn-timer-discard"
-                    onClick={() => setShowDiscardConfirmModal(true)}
-                    title="Discard this workout session"
+                    className="btn-timer-toggle"
+                    onClick={workoutTimerStatus === 'running' ? handlePauseWorkoutTimer : handleResumeWorkoutTimer}
+                    title={workoutTimerStatus === 'running' ? 'Pause' : 'Resume'}
                   >
-                    ✕
+                    {workoutTimerStatus === 'running' ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
                   </button>
                 </>
               )}
@@ -2862,58 +2939,19 @@ const WorkoutTracker = () => {
             </div>
           )}
 
-          <div className="form-double-col">
-            <div className="input-group">
-              <label>Workout Name</label>
-              <input
-                id="workoutNameInput"
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g. Push Day, Leg Day, Custom Session…"
-              />
-            </div>
-            {clientPlans.length > 0 && (
-              <div className="input-group">
-                <label>Load from Existing Plan</label>
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const plan = clientPlans.find(p => p.id === e.target.value);
-                    if (plan) {
-                      setTemplateName(plan.planName);
-                      setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
-                      setLogExercises(plan.exercises.map(ex => ({
-                        name: ex.name,
-                        sets: ex.sets.map(s => isCardioExercise(ex.name)
-                          ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
-                          : isTimedExercise(ex.name)
-                          ? { time: s.time ?? '', isCompleted: false }
-                          : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
-                      })));
-                      triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
-                    }
-                    e.target.value = '';
-                  }}
-                >
-                  <option value="" disabled>-- Select plan template --</option>
-                  {clientPlans.map(p => (
-                    <option key={p.id} value={p.id}>{p.planName}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
 
           <div className="exercises-form-section">
             <div className="section-title-row" style={{ position: 'relative' }}>
-              <h4>Workout Lift Logs</h4>
+              <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
             </div>
 
             <div className="exercises-input-list">
               {logExercises.map((ex, exIdx) => {
                 const unit = getExerciseUnit(ex.name);
                 const exIsCardio = isCardioExercise(ex.name);
+                const exIsBodyweight = isBodyweightExercise(ex.name);
+                const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
+                const exIsWarmup = isWarmupExercise(ex.name);
                 return (
                   <div key={exIdx} className="form-exercise-card hevy-exercise-card">
                     <div className="ex-card-header">
@@ -2946,15 +2984,35 @@ const WorkoutTracker = () => {
                           🎬 Form Guide
                         </button>
                       </div>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         className="btn-delete-exercise-card"
                         onClick={() => setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx))}
                         title="Remove Exercise"
+                        style={{ display: 'flex', alignItems: 'center' }}
                       >
-                        ✕ Remove
+                        <TrashIcon size={16} />
                       </button>
                     </div>
+
+                    {exIsBodyweight && (
+                      <div className="bw-toggle-row">
+                        <button
+                          type="button"
+                          className={`bw-toggle-btn ${exBwMode ? 'active' : ''}`}
+                          onClick={() => { if (!exBwMode) handleToggleLogBodyweightMode(exIdx); }}
+                        >
+                          Bodyweight
+                        </button>
+                        <button
+                          type="button"
+                          className={`bw-toggle-btn ${!exBwMode ? 'active' : ''}`}
+                          onClick={() => { if (exBwMode) handleToggleLogBodyweightMode(exIdx); }}
+                        >
+                          + Add Weight
+                        </button>
+                      </div>
+                    )}
 
                     <div className="hevy-sets-table">
                       <div className="hevy-table-header">
@@ -2972,12 +3030,22 @@ const WorkoutTracker = () => {
                           </>
                         ) : isLoadedCarryExercise(ex.name) ? (
                           <>
-                            <span className="col-weight">WEIGHT ({unit})</span>
+                            <span className="col-weight">🏋️ {unit}</span>
                             <span className="col-reps">METERS</span>
+                          </>
+                        ) : exIsWarmup ? (
+                          <>
+                            <span className="col-weight"></span>
+                            <span className="col-reps">REPS</span>
+                          </>
+                        ) : exIsBodyweight ? (
+                          <>
+                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
+                            <span className="col-reps">REPS</span>
                           </>
                         ) : (
                           <>
-                            <span className="col-weight">WEIGHT ({unit})</span>
+                            <span className="col-weight">🏋️ {unit}</span>
                             <span className="col-reps">REPS</span>
                           </>
                         )}
@@ -3100,17 +3168,23 @@ const WorkoutTracker = () => {
                                 </>
                               ) : (
                                 <>
-                                  <div className="col-weight set-input-field">
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={set.weight}
-                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
-                                      required
-                                      placeholder="0"
-                                      disabled={set.isCompleted}
-                                    />
-                                  </div>
+                                  {exIsWarmup ? (
+                                    <div className="col-weight" />
+                                  ) : exIsBodyweight && exBwMode ? (
+                                    <div className="col-weight bw-static-label">BW</div>
+                                  ) : (
+                                    <div className="col-weight set-input-field">
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={set.weight}
+                                        onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
+                                        required
+                                        placeholder="0"
+                                        disabled={set.isCompleted}
+                                      />
+                                    </div>
+                                  )}
                                   <div className="col-reps set-input-field">
                                     <input
                                       type="text"
@@ -3137,11 +3211,11 @@ const WorkoutTracker = () => {
                                 {ex.sets.length > 1 && (
                                   <button 
                                     type="button" 
-                                    className="btn-hevy-row-delete" 
+                                    className="btn-hevy-row-delete"
                                     onClick={() => handleRemoveSet(exIdx, sIdx)}
                                     title="Delete Set"
                                   >
-                                    🗑️
+                                    <TrashIcon size={16} />
                                   </button>
                                 )}
                               </div>
@@ -3183,15 +3257,14 @@ const WorkoutTracker = () => {
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
-                className="btn-save-workout-session"
                 style={{
-                  width: 'auto', flex: '0 0 auto', background: 'linear-gradient(135deg,#ef4444,#dc2626)',
-                  padding: '0 18px'
+                  width: 'auto', flex: '0 0 auto', background: 'transparent', border: 'none',
+                  color: '#ef4444', padding: '0 8px', display: 'flex', alignItems: 'center', cursor: 'pointer'
                 }}
                 onClick={() => setShowDiscardConfirmModal(true)}
                 title="Discard this workout session"
               >
-                🗑️
+                <TrashIcon size={28} />
               </button>
               <button type="submit" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
                 💾 Save Workout Session
@@ -3201,6 +3274,10 @@ const WorkoutTracker = () => {
         </form>
       )}
       </div>
+
+      {showClockTimer && (
+        <ClockTimerModal onClose={() => setShowClockTimer(false)} />
+      )}
 
       {/* Direct discard confirmation — reachable without needing to hit
           Finish first (that path is the "empty sets" modal above). */}
@@ -3244,14 +3321,18 @@ const WorkoutTracker = () => {
                   flex: 1, padding: '12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)',
                   background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                   border: '1px solid rgba(239, 68, 68, 0.4)',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
                 onClick={() => {
                   handleDiscardWorkout();
                   setShowDiscardConfirmModal(false);
                 }}
               >
-                🗑️ Discard Session
+                <TrashIcon size={16} /> Discard Session
               </button>
             </div>
           </div>
@@ -3343,14 +3424,17 @@ const WorkoutTracker = () => {
           const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
           if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
           let newSet;
+          const bodyweight = isBodyweightExercise(name);
           if (isCardioExercise(name)) {
             newSet = { distanceKm: '', time: '', isCompleted: false };
           } else if (isTimedExercise(name)) {
             newSet = { time: '', isCompleted: false };
+          } else if (bodyweight || isWarmupExercise(name)) {
+            newSet = { reps: 10, weight: '0', isCompleted: false };
           } else {
             newSet = { reps: 10, weight: '5.0', isCompleted: false };
           }
-          setLogExercises(prev => [...prev, { name, sets: [newSet] }]);
+          setLogExercises(prev => [...prev, bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }]);
           triggerToast(`Added ${name} to active workout!`);
         }}
         onRemove={(name) => {
@@ -3664,21 +3748,25 @@ const WorkoutTracker = () => {
               <button 
                 type="button" 
                 className="btn-confirm-save-hevy"
-                style={{ 
-                  flex: 1, 
-                  padding: '12px', 
+                style={{
+                  flex: 1,
+                  padding: '12px',
                   fontSize: '0.85rem',
                   borderRadius: 'var(--radius-sm)',
                   background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                   border: '1px solid rgba(239, 68, 68, 0.4)',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
                 onClick={() => {
                   handleDiscardWorkout();
                   setShowUntickedFinishModal(false);
                 }}
               >
-                🗑️ Discard Session
+                <TrashIcon size={16} /> Discard Session
               </button>
             </div>
           </div>

@@ -16,6 +16,7 @@
 
 import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, getMuscleGroupsForExercise } from './muscleGroups';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from './dateUtils';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
 
 // ── Configurable targets (Smart Calculations: large 12–20, small 8–15) ──
 // Exported so thresholds can be retuned later without touching the logic
@@ -73,6 +74,35 @@ export function getHeatMapTier(muscleStat) {
 // how the logger itself treats them elsewhere in the app).
 const isWorkingSet = (log) => log.set_type !== 'warmup';
 
+/**
+ * Tonnage (kg) contributed by a single workout_logs row.
+ *
+ * Returns 0 for every row where `weight_kg * reps` is NOT tonnage:
+ *  - warmup sets (excluded from training volume everywhere else too)
+ *  - cardio rows, which store distance_km + cardio_duration_seconds and write
+ *    reps/weight as 0 (see saveWorkoutSession) — already 0, but explicit
+ *  - timed holds (plank, wall sit), which reuse cardio_duration_seconds
+ *  - loaded carries (Farmer Walk etc.), where the `reps` column holds METERS
+ *    walked, not repetitions. Multiplying kg by metres produced a huge bogus
+ *    "volume" number (a 40 kg x 40 m carry read as 1,600 kg lifted), which is
+ *    what inflated the weekly Total Volume stat.
+ */
+export function getSetVolumeKg(log) {
+  if (!isWorkingSet(log)) return 0;
+  const name = log.exercise_name;
+  if (isCardioExercise(name) || isTimedExercise(name) || isLoadedCarryExercise(name)) return 0;
+  const weight = parseFloat(log.weight_kg) || 0;
+  const reps = parseInt(log.reps, 10) || 0;
+  return weight * reps;
+}
+
+// Whether a row counts toward "total sets" — working sets only, matching the
+// per-muscle set counts so the headline stat can't disagree with the
+// breakdown cards.
+export function isCountableSet(log) {
+  return isWorkingSet(log);
+}
+
 const inRange = (dateStr, startStr, endStr) => dateStr >= startStr && dateStr <= endStr;
 
 /**
@@ -93,11 +123,10 @@ export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr) {
     if (!inRange(log.log_date, weekStartStr, weekEndStr)) return;
     const muscles = getMuscleGroupsForExercise(log.exercise_name);
     if (muscles.length === 0) return; // unrecognized exercise name — excluded, not guessed
-    const weight = parseFloat(log.weight_kg) || 0;
-    const reps = parseInt(log.reps, 10) || 0;
+    const volume = getSetVolumeKg(log);
     muscles.forEach(m => {
       bySets[m] += 1;
-      byVolume[m] += weight * reps;
+      byVolume[m] += volume;
       byDays[m].add(log.log_date);
     });
   });

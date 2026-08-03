@@ -135,8 +135,8 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           </>
         ) : (
           <>
-            <p className="muscle-analytics-subtext">Muscles with no training in 7+ days.</p>
-            <NeglectedMuscles logs={logs} />
+            <p className="muscle-analytics-subtext">Muscles with zero sets logged this week.</p>
+            <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} />
           </>
         )}
       </div>

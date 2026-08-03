@@ -602,13 +602,57 @@
   display: inline-block;
 }
 
-/* Live session timer + calorie bar (Live Log tab). */
+/* Bodyweight / +Add Weight toggle (push-ups, mountain climbers, jumping
+   jacks etc.) — see isBodyweightExercise in src/data/exerciseLibrary.js. */
+.bw-toggle-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.bw-toggle-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bw-toggle-btn.active {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.bw-static-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Live session timer + calorie bar (Live Log tab) — sticks to the top of
+   the scroll area while logging, same as the client's hevy-stopwatch-banner,
+   so the running duration + calories stay visible while scrolling through
+   sets. */
 .live-timer-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 10px 14px;
-  background: rgba(245, 158, 11, 0.08);
+  /* Opaque base under the amber tint so scrolled content doesn't show
+     through while the bar is pinned. */
+  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), #141d2c;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: var(--radius-md);
   flex-wrap: wrap;
@@ -652,7 +696,6 @@
 }
 
 .live-timer-btn {
-  margin-left: auto;
   padding: 6px 14px;
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.4);
@@ -661,6 +704,9 @@
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .live-timer-btn:hover {

@@ -16,9 +16,10 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
+import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
 
 // Converts one AI-generated exercise (api/generate-workout-draft.js's
 // { name, type, setCount, reps, durationMinutes } shape) into this app's
@@ -656,17 +657,43 @@ const TrainerDashboard = ({ handleLogout }) => {
 
   const handleLiveAddExercise = (name) => {
     let newSet;
+    const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
       newSet = { distanceKm: '', time: '', isCompleted: false };
     } else if (isTimedExercise(name)) {
       newSet = { time: '', isCompleted: false };
+    } else if (bodyweight) {
+      newSet = { reps: '10', weight: '0', isCompleted: false };
     } else {
       newSet = { reps: '10', weight: '20', isCompleted: false };
     }
     setLiveExercises(prev => [
       ...prev,
-      { name, sets: [newSet] }
+      bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }
     ]);
+  };
+
+  // Bodyweight exercises default to no added weight. An exercise added
+  // before this toggle existed (or loaded from an older plan) has no
+  // bodyweightMode field at all — infer it from whether any set already has
+  // a nonzero weight typed in, so existing data doesn't get clobbered by
+  // switching to "BW" and wiping it.
+  const getLiveExBwMode = (ex) =>
+    ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
+
+  // Toggling to "+ Weight" clears the weight field so the coach types the
+  // plate/vest load; toggling back to Bodyweight zeroes it out again for
+  // every set.
+  const handleToggleLiveBodyweightMode = (exIdx) => {
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      const nextMode = !getLiveExBwMode(ex);
+      return {
+        ...ex,
+        bodyweightMode: nextMode,
+        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? '0' : '' }))
+      };
+    }));
   };
 
   const handleLiveAddSet = (exIdx) => {
@@ -2205,11 +2232,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <button type="button" style={{
-                            background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff',
-                            border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+                          <button type="button" title="Resume" style={{
+                            background: 'transparent', color: '#fbbf24',
+                            border: 'none', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
                           }}>
-                            Resume ▶
+                            <PlayIcon size={22} />
                           </button>
                           <button
                             type="button"
@@ -2219,13 +2246,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                               setDiscardDraftTarget({ userId: draft.userId, userName: draftClient?.userName || 'this client' });
                             }}
                             style={{
-                              background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-                              color: '#ef4444', borderRadius: '8px', padding: '8px 10px', fontSize: '1rem',
-                              fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
-                              justifyContent: 'center', minWidth: '32px'
+                              background: 'transparent', border: 'none',
+                              color: '#ef4444', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
                             }}
                           >
-                            ✕
+                            <TrashIcon size={22} />
                           </button>
                         </div>
                       </div>
@@ -2588,11 +2613,10 @@ const TrainerDashboard = ({ handleLogout }) => {
                   <p>Try refining your search query or selecting a different goal category tag filter.</p>
                 </div>
               ) : (
-                <div className="glass-panel" style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  padding: '16px',
+                <div style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '16px 0',
                   overflowX: 'auto'
                 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', tableLayout: 'fixed' }}>
@@ -2918,12 +2942,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                     textAlign: 'center',
                     fontSize: '0.78rem',
                     fontWeight: '700',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
                     borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
                     color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                   }}
                   onClick={() => handleTabChange('plans')}
                 >
-                  📋 Workout Plan
+                  <span>📋</span>
+                  <span>Send plan</span>
                 </button>
                 <button
                   className={`trainer-tab-btn ${detailTab === 'livelog' ? 'active' : ''}`}
@@ -2934,12 +2963,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                     textAlign: 'center',
                     fontSize: '0.78rem',
                     fontWeight: '700',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
                     borderBottom: detailTab === 'livelog' ? '2px solid #f59e0b' : 'none',
                     color: detailTab === 'livelog' ? '#f59e0b' : 'var(--text-muted)'
                   }}
                   onClick={() => handleTabChange('livelog')}
                 >
-                  🎯 Live Log
+                  <span>🎯</span>
+                  <span>Live Log</span>
                 </button>
                 <button
                   className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
@@ -2950,12 +2984,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                     textAlign: 'center',
                     fontSize: '0.78rem',
                     fontWeight: '700',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
                     borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
                     color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                   }}
                   onClick={() => handleTabChange('workout')}
                 >
-                  🏋️ Workout History
+                  <span>🏋️</span>
+                  <span>History</span>
                 </button>
                 <button
                   className={`trainer-tab-btn ${detailTab === 'measurements' ? 'active' : ''}`}
@@ -2966,12 +3005,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                     textAlign: 'center',
                     fontSize: '0.78rem',
                     fontWeight: '700',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
                     borderBottom: detailTab === 'measurements' ? '2px solid #38bdf8' : 'none',
                     color: detailTab === 'measurements' ? '#38bdf8' : 'var(--text-muted)'
                   }}
                   onClick={() => handleTabChange('measurements')}
                 >
-                  📏 Measurements
+                  <span>📏</span>
+                  <span>Measurements</span>
                 </button>
               </div>
 
@@ -3070,8 +3114,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                     // each session is missing, then reshapes into a date lookup.
                     const groupedByDate = {};
                     workoutLogs.forEach(s => {
-                      const volume = s.exercises.reduce((sum, ex) => sum + ex.sets.reduce((ss, st) => ss + (parseFloat(st.weight) || 0) * (parseInt(st.reps) || 0), 0), 0);
-                      const sets = s.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+                      // Same rules as the client dashboard (getSetVolumeKg):
+                      // warmups excluded, and cardio/timed/loaded-carry rows
+                      // contribute no tonnage — a Farmer Walk's `reps` holds
+                      // METRES, so weight x reps there was inflating volume.
+                      const volume = s.exercises.reduce((sum, ex) => {
+                        if (isCardioExercise(ex.name) || isTimedExercise(ex.name) || isLoadedCarryExercise(ex.name)) return sum;
+                        return sum + ex.sets.reduce((ss, st) => (
+                          st.isWarmup ? ss : ss + (parseFloat(st.weight) || 0) * (parseInt(st.reps) || 0)
+                        ), 0);
+                      }, 0);
+                      const sets = s.exercises.reduce((sum, ex) => sum + ex.sets.filter(st => !st.isWarmup).length, 0);
                       groupedByDate[s.date] = { ...s, volume, sets };
                     });
 
@@ -3818,8 +3871,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveExerciseFromEditor(exIdx)}
-                                    style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
-                                  >🗑️ Remove</button>
+                                    style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
+                                  ><TrashIcon size={16} /></button>
                                 </div>
 
                                 <div className="hevy-sets-table">
@@ -3833,12 +3886,12 @@ const TrainerDashboard = ({ handleLogout }) => {
                                       </>
                                     ) : isLoadedCarryExercise(ex.name) ? (
                                       <>
-                                        <span className="col-weight">WEIGHT (KG)</span>
+                                        <span className="col-weight">🏋️ KG</span>
                                         <span className="col-reps">METERS</span>
                                       </>
                                     ) : (
                                       <>
-                                        <span className="col-weight">WEIGHT (KG)</span>
+                                        <span className="col-weight">🏋️ KG</span>
                                         <span className="col-reps">REPS</span>
                                       </>
                                     )}
@@ -3917,7 +3970,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                               onClick={() => handleRemoveSetFromExercise(exIdx, setIdx)}
                                               title="Delete Set"
                                             >
-                                              🗑️
+                                              <TrashIcon size={16} />
                                             </button>
                                           )}
                                         </div>
@@ -4215,13 +4268,20 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <>
                         <span className={`live-timer-value ${liveTimerStatus === 'paused' ? 'is-paused' : ''}`}>
                           ⏱ {formatDuration(liveElapsedSeconds)}
-                          {liveTimerStatus === 'paused' && <span className="live-timer-paused-tag">Paused</span>}
                         </span>
                         <span className="live-timer-kcal">🔥 {liveCalories.totalKcal} kcal</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowClockTimer(true)}
+                          title="Timer / Stopwatch"
+                          style={{ background: 'transparent', border: 'none', color: '#3b82f6', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer', marginLeft: 'auto' }}
+                        >
+                          <StopwatchIcon size={22} />
+                        </button>
                         {liveTimerStatus === 'running' ? (
-                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer}>⏸ Pause</button>
+                          <button type="button" className="live-timer-btn" onClick={handlePauseLiveTimer} title="Pause"><PauseIcon size={20} /></button>
                         ) : (
-                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer}>▶ Resume</button>
+                          <button type="button" className="live-timer-btn" onClick={handleResumeLiveTimer} title="Resume"><PlayIcon size={20} /></button>
                         )}
                       </>
                     )}
@@ -4242,7 +4302,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                             border: '1px solid var(--border-color)',
                             borderRadius: 'var(--radius-sm)',
                             color: '#fff',
-                            fontSize: '16px',
+                            fontSize: '14px',
                             outline: 'none'
                           }}
                         />
@@ -4258,6 +4318,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                 setLivePlanName(plan.planName);
                                 setLiveExercises(plan.exercises.map(ex => ({
                                   name: ex.name,
+                                  ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
                                   sets: ex.sets.map(s => isCardioExercise(ex.name)
                                     ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
                                     : isTimedExercise(ex.name)
@@ -4274,11 +4335,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                               border: '1px solid var(--border-color)',
                               borderRadius: 'var(--radius-sm)',
                               color: '#fff',
-                              fontSize: '0.82rem',
+                              fontSize: '0.78rem',
                               outline: 'none'
                             }}
                           >
-                            <option value="" disabled>-- Select plan template --</option>
+                            <option value="" disabled>Select template</option>
                             {clientPlans.map(p => (
                               <option key={p.id} value={p.id}>{p.planName}</option>
                             ))}
@@ -4293,6 +4354,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                   <div className="live-logger-exercise-list">
                     {liveExercises.map((ex, exIdx) => {
                     const exIsCardio = isCardioExercise(ex.name);
+                    const exIsBodyweight = isBodyweightExercise(ex.name);
+                    const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
                     return (
                       <div key={exIdx} className="live-logger-exercise-card">
                         {/* Exercise Header */}
@@ -4300,9 +4363,34 @@ const TrainerDashboard = ({ handleLogout }) => {
                           <span className="live-logger-ex-name">{ex.name}</span>
                           <button
                             onClick={() => handleLiveRemoveExercise(exIdx)}
-                            style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
-                          >🗑️ Remove</button>
+                            style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
+                          ><TrashIcon size={16} /></button>
                         </div>
+
+                        {/* Bodyweight/+Weight toggle — push-ups, mountain
+                            climbers, jumping jacks etc. default to no added
+                            weight, but a client may wear a vest or hold a
+                            plate, so this lets the coach switch the weight
+                            column between a fixed "BW" label and an
+                            editable KG input. */}
+                        {exIsBodyweight && (
+                          <div className="bw-toggle-row">
+                            <button
+                              type="button"
+                              className={`bw-toggle-btn ${exBwMode ? 'active' : ''}`}
+                              onClick={() => { if (!exBwMode) handleToggleLiveBodyweightMode(exIdx); }}
+                            >
+                              Bodyweight
+                            </button>
+                            <button
+                              type="button"
+                              className={`bw-toggle-btn ${!exBwMode ? 'active' : ''}`}
+                              onClick={() => { if (exBwMode) handleToggleLiveBodyweightMode(exIdx); }}
+                            >
+                              + Add Weight
+                            </button>
+                          </div>
+                        )}
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
@@ -4321,12 +4409,17 @@ const TrainerDashboard = ({ handleLogout }) => {
                               </>
                             ) : isLoadedCarryExercise(ex.name) ? (
                               <>
-                                <span className="col-weight">WEIGHT (KG)</span>
+                                <span className="col-weight">🏋️ KG</span>
                                 <span className="col-reps">METERS</span>
+                              </>
+                            ) : exIsBodyweight ? (
+                              <>
+                                <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                <span className="col-reps">REPS</span>
                               </>
                             ) : (
                               <>
-                                <span className="col-weight">WEIGHT (KG)</span>
+                                <span className="col-weight">🏋️ KG</span>
                                 <span className="col-reps">REPS</span>
                               </>
                             )}
@@ -4427,14 +4520,18 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="col-weight set-input-field">
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={set.weight}
-                                        onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
-                                      />
-                                    </div>
+                                    {exIsBodyweight && exBwMode ? (
+                                      <div className="col-weight bw-static-label">BW</div>
+                                    ) : (
+                                      <div className="col-weight set-input-field">
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          value={set.weight}
+                                          onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
+                                        />
+                                      </div>
+                                    )}
                                     <div className="col-reps set-input-field">
                                       <input
                                         type="text"
@@ -4461,7 +4558,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                       onClick={() => handleLiveRemoveSet(exIdx, setIdx)}
                                       title="Delete Set"
                                     >
-                                      🗑️
+                                      <TrashIcon size={16} />
                                     </button>
                                   )}
                                 </div>
@@ -4489,46 +4586,25 @@ const TrainerDashboard = ({ handleLogout }) => {
                     ➕ Add Exercise
                   </button>
 
-                  {/* Rest/warmup timer (ClockTimerModal) + Coach note toggle,
-                      side by side — timer is a standalone popup utility with
-                      no saved state, coach note is the existing composer
-                      below (hidden behind a toggle, no Send button of its
-                      own: whatever's typed here goes out together with
-                      "Save Workout Session", via the same saveCoachNote +
-                      coach_note push path, landing on the client's home
-                      screen like a push notification — CoachNoteBanner
-                      fallback. No new mechanism there). */}
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowClockTimer(true)}
-                      title="Timer / Stopwatch"
-                      style={{
-                        flex: '0 0 auto',
-                        background: 'transparent',
-                        border: 'none',
-                        padding: '0 4px',
-                        fontSize: '1.7rem',
-                        lineHeight: 1,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⏱️
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary-sm btn-add-hevy-ex"
-                      onClick={() => setShowLiveCoachNote(v => !v)}
-                      style={{
-                        flex: 1,
-                        background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(255,255,255,0.05)',
-                        border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(255,255,255,0.12)',
-                        color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : '#fff'
-                      }}
-                    >
-                      💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
-                    </button>
-                  </div>
+                  {/* Coach note toggle — the composer below has no Send
+                      button of its own: whatever's typed here goes out
+                      together with "Save Workout Session", via the same
+                      saveCoachNote + coach_note push path, landing on the
+                      client's home screen like a push notification —
+                      CoachNoteBanner fallback. No new mechanism there. */}
+                  <button
+                    type="button"
+                    className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
+                    onClick={() => setShowLiveCoachNote(v => !v)}
+                    style={{
+                      marginTop: '16px',
+                      background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(255,255,255,0.05)',
+                      border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(255,255,255,0.12)',
+                      color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : '#fff'
+                    }}
+                  >
+                    💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
+                  </button>
 
                   {showClockTimer && (
                     <ClockTimerModal onClose={() => setShowClockTimer(false)} />
@@ -4573,18 +4649,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                       title="Discard this live session"
                       style={{
                         flex: '0 0 auto',
-                        padding: '13px 18px',
-                        background: 'rgba(239,68,68,0.12)',
-                        border: '1px solid rgba(239,68,68,0.3)',
-                        borderRadius: 'var(--radius-md)',
+                        padding: '0 8px',
+                        background: 'transparent',
+                        border: 'none',
                         color: '#ef4444',
-                        fontWeight: 800,
-                        fontSize: '1rem',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease'
+                        display: 'flex',
+                        alignItems: 'center'
                       }}
                     >
-                      ✕
+                      <TrashIcon size={28} />
                     </button>
                     <button
                       onClick={handleSaveLiveSession}
@@ -4678,10 +4752,14 @@ const TrainerDashboard = ({ handleLogout }) => {
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
               >
-                🗑️ Discard
+                <TrashIcon size={16} /> Discard
               </button>
             </div>
           </div>
@@ -4756,10 +4834,14 @@ const TrainerDashboard = ({ handleLogout }) => {
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
               >
-                🗑️ Discard
+                <TrashIcon size={16} /> Discard
               </button>
             </div>
           </div>

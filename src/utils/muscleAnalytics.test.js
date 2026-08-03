@@ -6,7 +6,7 @@ import {
   getWeeklySetsTrendForMuscle, getMuscleGrowthScore, getHeatMapTier
 } from './muscleAnalytics';
 import { getMuscleGroupsForExercise } from './muscleGroups';
-import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
+import { EXERCISE_LIBRARY, isCardioExercise, isWarmupExercise } from '../data/exerciseLibrary';
 
 const log = (overrides) => ({
   log_date: '2026-07-20', exercise_name: 'Bench Press', weight_kg: 40, reps: 10,
@@ -454,6 +454,7 @@ describe('getMuscleGroupsForExercise — real exercise-name coverage audit', () 
     // one name at a time.
     const unmapped = EXERCISE_LIBRARY
       .filter(ex => !isCardioExercise(ex.name)) // cardio has no muscle-set concept here
+      .filter(ex => !isWarmupExercise(ex.name)) // warm-ups (Arm Circle, Leg Swing) aren't tracked as training volume either
       .filter(ex => getMuscleGroupsForExercise(ex.name).length === 0)
       .map(ex => ex.name);
     expect(unmapped).toEqual([]);

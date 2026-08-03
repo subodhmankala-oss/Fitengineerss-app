@@ -6,12 +6,17 @@
 // category + primary-muscle inferred for the modal's filter chips and
 // muscle subtitle.
 
-export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
+export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio', 'Warm Up'];
 
 // Cardio exercises are logged as distance + time instead of weight + reps
 // (see isCardioExercise below) — the set shape and the picker/table UI both
 // branch on this list.
 const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk'];
+
+// Dynamic warm-up moves — reps only, no weight, no calorie contribution (see
+// isWarmupExercise below). Arm Circle + Leg Swing are auto-added to a fresh
+// client workout log so a warm-up block is there by default.
+const WARMUP_NAMES = ['Arm Circle', 'Leg Swing'];
 
 // Coach-side A-Z list (formerly LIVE_EXERCISE_LIST in TrainerDashboard).
 const COACH_NAMES = [
@@ -72,6 +77,7 @@ const CLIENT_NAMES = [
 // Keyword classifier → one filter category. Order matters (specific first).
 export function inferCategory(name) {
   const n = name.toLowerCase();
+  if (/(arm circle|leg swing)/.test(n)) return 'Warm Up';
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim)/.test(n) || (/\bwalk\b/.test(n) && !/farmer/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
@@ -108,7 +114,7 @@ export function inferPrimary(name) {
 export const EXERCISE_LIBRARY = (() => {
   const seen = new Set();
   const out = [];
-  [...COACH_NAMES, ...CLIENT_NAMES, ...CARDIO_NAMES].forEach(name => {
+  [...COACH_NAMES, ...CLIENT_NAMES, ...CARDIO_NAMES, ...WARMUP_NAMES].forEach(name => {
     const key = name.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
@@ -142,4 +148,23 @@ export function isLoadedCarryExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n);
+}
+
+// Bodyweight exercises (push-ups, mountain climbers, jumping jacks) are
+// usually logged with no added weight, but a client can wear a weighted
+// vest or hold a plate, so the logger offers a Bodyweight/+Add Weight
+// toggle instead of always requiring a KG number.
+export function isBodyweightExercise(name) {
+  if (!name) return false;
+  const n = name.toLowerCase();
+  return /push[- ]?up|mountain climber|jumping jack/.test(n);
+}
+
+// Warm-up moves (Arm Circle, Leg Swing) are reps-only — no weight/KG field
+// at all (not even the Bodyweight/+Add Weight toggle other bodyweight moves
+// get), and no calorie contribution (see computeLiveCalories). These are the
+// exercises auto-added to a fresh client workout log by default.
+export function isWarmupExercise(name) {
+  if (!name) return false;
+  return inferCategory(name) === 'Warm Up';
 }

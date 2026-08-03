@@ -16,8 +16,9 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
-import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
+import ClockTimerModal from './ClockTimerModal';
 
 // Converts one AI-generated exercise (api/generate-workout-draft.js's
 // { name, type, setCount, reps, durationMinutes } shape) into this app's
@@ -469,6 +470,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   // same saveCoachNote + coach_note push path) as part of "Save Workout
   // Session". This flag just controls whether that composer is revealed.
   const [showLiveCoachNote, setShowLiveCoachNote] = useState(false);
+  // Rest/warmup timer popup (ClockTimerModal) — purely a stopwatch/timer
+  // utility, no data saved, so a single open/closed flag is all it needs.
+  const [showClockTimer, setShowClockTimer] = useState(false);
 
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
@@ -3441,6 +3445,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                     {daySession.exercises.map((exercise, eIdx) => {
                                       const exIsTimedHist = isTimedExercise(exercise.name);
                                       const exIsCardioHist = isCardioExercise(exercise.name);
+                                      const exIsLoadedCarryHist = isLoadedCarryExercise(exercise.name);
                                       return (
                                         <div key={eIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
                                           <div className="ex-title" style={{ marginBottom: '6px' }}>{exercise.name}</div>
@@ -3454,6 +3459,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                                                   <>
                                                     <th style={{ width: '40%' }}>Km</th>
                                                     <th style={{ width: '35%' }}>Time</th>
+                                                  </>
+                                                ) : exIsLoadedCarryHist ? (
+                                                  <>
+                                                    <th style={{ width: '40%' }}>Weight</th>
+                                                    <th style={{ width: '35%' }}>Meters</th>
                                                   </>
                                                 ) : (
                                                   <>
@@ -3821,6 +3831,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                                         <span className="col-weight">KM</span>
                                         <span className="col-reps">TIME</span>
                                       </>
+                                    ) : isLoadedCarryExercise(ex.name) ? (
+                                      <>
+                                        <span className="col-weight">WEIGHT (KG)</span>
+                                        <span className="col-reps">METERS</span>
+                                      </>
                                     ) : (
                                       <>
                                         <span className="col-weight">WEIGHT (KG)</span>
@@ -4170,29 +4185,20 @@ const TrainerDashboard = ({ handleLogout }) => {
                     }}>{liveToast}</div>
                   )}
 
-                  {/* Session Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>🎯 Live Session</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Logging for: <strong style={{ color: '#f59e0b' }}>{selectedClient?.userName}</strong></div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Date:</label>
-                      <input
-                        type="date"
-                        value={liveDate}
-                        onChange={e => setLiveDate(e.target.value)}
-                        style={{
-                          padding: '6px 10px',
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: 'var(--radius-sm)',
-                          color: '#fff',
-                          fontSize: '0.8rem',
-                          outline: 'none'
-                        }}
-                      />
-                    </div>
+                  {/* Small "Logging for" line — replaces the old LIVE SESSION
+                      badge and client identity card. The Live Log tab itself
+                      already says what mode this is, so this just needs to
+                      answer "who, and which day" in one small line. */}
+                  <div className="live-logging-for-line">
+                    Logging for: <strong>{selectedClient?.userName}</strong>
+                    <span className="live-logging-for-sep">·</span>
+                    <span className="live-logging-for-date-label">📅 {liveDate === getLocalDateString() ? 'Today' : 'Session date'}</span>
+                    <input
+                      type="date"
+                      value={liveDate}
+                      onChange={e => setLiveDate(e.target.value)}
+                      className="live-logging-for-date-input"
+                    />
                   </div>
 
                   {/* Live Timer + Calorie readout — starts automatically the
@@ -4221,65 +4227,65 @@ const TrainerDashboard = ({ handleLogout }) => {
                     )}
                   </div>
 
-                  {/* Plan/Routine configuration */}
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan / Routine Name:</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Upper Body, Leg Day"
-                        value={livePlanName}
-                        onChange={e => setLivePlanName(e.target.value)}
-                        style={{
-                          padding: '8px 12px',
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: 'var(--radius-sm)',
-                          color: '#fff',
-                          fontSize: '16px',
-                          outline: 'none'
-                        }}
-                      />
-                    </div>
-                    {clientPlans.length > 0 && (
+                  {/* Plan/Routine configuration — always visible, no toggle */}
+                  <div className="live-workout-config-panel">
                       <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Load from Existing Plan:</label>
-                        <select
-                          defaultValue=""
-                          onChange={e => {
-                            const plan = clientPlans.find(p => p.id === e.target.value);
-                            if (plan) {
-                              setLivePlanName(plan.planName);
-                              setLiveExercises(plan.exercises.map(ex => ({
-                                name: ex.name,
-                                sets: ex.sets.map(s => isCardioExercise(ex.name)
-                                  ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
-                                  : isTimedExercise(ex.name)
-                                  ? { time: s.time ?? '', isCompleted: false }
-                                  : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
-                              })));
-                              triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
-                            }
-                            e.target.value = '';
-                          }}
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan / Routine Name:</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Upper Body, Leg Day"
+                          value={livePlanName}
+                          onChange={e => setLivePlanName(e.target.value)}
                           style={{
                             padding: '8px 12px',
                             background: 'rgba(255,255,255,0.04)',
                             border: '1px solid var(--border-color)',
                             borderRadius: 'var(--radius-sm)',
                             color: '#fff',
-                            fontSize: '0.82rem',
+                            fontSize: '16px',
                             outline: 'none'
                           }}
-                        >
-                          <option value="" disabled>-- Select plan template --</option>
-                          {clientPlans.map(p => (
-                            <option key={p.id} value={p.id}>{p.planName}</option>
-                          ))}
-                        </select>
+                        />
                       </div>
-                    )}
-                  </div>
+                      {clientPlans.length > 0 && (
+                        <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Load from Existing Plan:</label>
+                          <select
+                            defaultValue=""
+                            onChange={e => {
+                              const plan = clientPlans.find(p => p.id === e.target.value);
+                              if (plan) {
+                                setLivePlanName(plan.planName);
+                                setLiveExercises(plan.exercises.map(ex => ({
+                                  name: ex.name,
+                                  sets: ex.sets.map(s => isCardioExercise(ex.name)
+                                    ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                                    : isTimedExercise(ex.name)
+                                    ? { time: s.time ?? '', isCompleted: false }
+                                    : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
+                                })));
+                                triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
+                              }
+                              e.target.value = '';
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 'var(--radius-sm)',
+                              color: '#fff',
+                              fontSize: '0.82rem',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="" disabled>-- Select plan template --</option>
+                            {clientPlans.map(p => (
+                              <option key={p.id} value={p.id}>{p.planName}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
 
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
@@ -4312,6 +4318,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                               <>
                                 <span className="col-weight">TIME</span>
                                 <span className="col-reps"></span>
+                              </>
+                            ) : isLoadedCarryExercise(ex.name) ? (
+                              <>
+                                <span className="col-weight">WEIGHT (KG)</span>
+                                <span className="col-reps">METERS</span>
                               </>
                             ) : (
                               <>
@@ -4478,25 +4489,50 @@ const TrainerDashboard = ({ handleLogout }) => {
                     ➕ Add Exercise
                   </button>
 
-                  {/* Coach note — hidden behind a toggle. The composer has NO
-                      Send button of its own: whatever's typed here goes out
-                      together with "Save Workout Session" below, via the same
-                      saveCoachNote + coach_note push path, so it lands on the
-                      client's home screen exactly like a push notification
-                      (CoachNoteBanner fallback). No new mechanism. */}
-                  <button
-                    type="button"
-                    className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
-                    onClick={() => setShowLiveCoachNote(v => !v)}
-                    style={{
-                      background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(255,255,255,0.05)',
-                      border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(255,255,255,0.12)',
-                      color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : '#fff',
-                      marginTop: '16px'
-                    }}
-                  >
-                    💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
-                  </button>
+                  {/* Rest/warmup timer (ClockTimerModal) + Coach note toggle,
+                      side by side — timer is a standalone popup utility with
+                      no saved state, coach note is the existing composer
+                      below (hidden behind a toggle, no Send button of its
+                      own: whatever's typed here goes out together with
+                      "Save Workout Session", via the same saveCoachNote +
+                      coach_note push path, landing on the client's home
+                      screen like a push notification — CoachNoteBanner
+                      fallback. No new mechanism there). */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowClockTimer(true)}
+                      title="Timer / Stopwatch"
+                      style={{
+                        flex: '0 0 auto',
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '0 4px',
+                        fontSize: '1.7rem',
+                        lineHeight: 1,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⏱️
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary-sm btn-add-hevy-ex"
+                      onClick={() => setShowLiveCoachNote(v => !v)}
+                      style={{
+                        flex: 1,
+                        background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(255,255,255,0.05)',
+                        border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(255,255,255,0.12)',
+                        color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : '#fff'
+                      }}
+                    >
+                      💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
+                    </button>
+                  </div>
+
+                  {showClockTimer && (
+                    <ClockTimerModal onClose={() => setShowClockTimer(false)} />
+                  )}
 
                     {showLiveCoachNote && (
                       <div className="coach-note-card" style={{ margin: '10px 0 0' }}>

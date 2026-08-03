@@ -1,0 +1,220 @@
+/* iOS Clock-style Timer/Stopwatch popup used by the coach during a live
+   session (see ClockTimerModal.jsx). Dark, high-contrast, self-contained. */
+
+.clock-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(9, 14, 23, 0.55);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-end;
+  animation: clockModalFadeIn 0.2s ease forwards;
+}
+
+@keyframes clockModalFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Bottom sheet — slides up and covers roughly the lower half of the
+   screen, rest of the app stays visible (dimmed) above it, like the
+   reference Hevy Clock sheet. */
+.clock-modal {
+  width: 100%;
+  max-height: 62vh;
+  background: #14171f;
+  border-radius: 20px 20px 0 0;
+  padding: 10px 20px 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  animation: clockSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes clockSheetSlideUp {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+.clock-modal-draghandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 auto;
+  cursor: pointer;
+}
+
+.clock-modal-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.clock-modal-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.clock-modal-gear {
+  position: absolute;
+  right: 0;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.clock-modal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  min-height: 0;
+}
+
+.clock-tab-switch {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.clock-tab-btn {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.clock-tab-btn.active {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.clock-ring-wrap {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  margin: 0 auto;
+}
+
+.clock-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.clock-ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 8;
+}
+
+.clock-ring-fill {
+  fill: none;
+  stroke: #0a84ff;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s linear, stroke 0.2s ease;
+}
+
+.clock-ring-fill.is-done {
+  stroke: #ef4444;
+}
+
+.clock-ring-fill.clock-ring-static {
+  stroke: #0a84ff;
+}
+
+.clock-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-adjust-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+  margin-top: -8px;
+}
+
+.clock-adjust-btn {
+  background: transparent;
+  border: none;
+  color: #0a84ff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.clock-adjust-btn:disabled {
+  color: rgba(255, 255, 255, 0.2);
+  cursor: default;
+}
+
+.clock-action-row {
+  display: flex;
+  gap: 12px;
+}
+
+.clock-btn {
+  flex: 1;
+  padding: 13px 0;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-align: center;
+}
+
+.clock-btn-full {
+  width: 100%;
+}
+
+.clock-btn-primary {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.clock-btn-primary:disabled {
+  background: rgba(10, 132, 255, 0.35);
+  cursor: default;
+}
+
+.clock-btn-primary.clock-btn-pause {
+  background: #ef4444;
+}
+
+.clock-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

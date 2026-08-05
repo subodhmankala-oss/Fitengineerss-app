@@ -17,6 +17,7 @@ import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
+import { useWakeLock } from './hooks/useWakeLock';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -708,6 +709,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
+
+  // Keep the screen from auto-locking/dimming while the app is actually in
+  // use (past login/onboarding) — most noticeable during a live cardio set
+  // where the client's hands are on a treadmill/bike, not the phone.
+  useWakeLock(onboardingComplete);
 
   // ─── Real-Time Cloud Database Synchronizer ───
   useEffect(() => {

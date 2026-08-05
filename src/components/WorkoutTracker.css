@@ -2069,8 +2069,12 @@
 /* Cardio row — the TIME column needs room for a play/pause icon + the time
    itself + a live calorie badge all on one line (never a second wrapped
    line underneath, which is what made the calorie readout look detached
-   before), so this row borrows some width from SET/PREV/KM for TIME. */
-.hevy-set-row.hevy-set-row--cardio {
+   before), so this row borrows some width from SET/PREV/KM for TIME.
+   Applied to the header too (.hevy-table-header.hevy-set-row--cardio) so
+   its columns line up with the body rows instead of using the default
+   proportions — bare .hevy-set-row--cardio, not compounded with
+   .hevy-set-row, so it matches on whichever base class the element has. */
+.hevy-set-row--cardio {
   grid-template-columns: 0.5fr 1fr 1fr 2fr 0.8fr;
 }
 
@@ -2486,7 +2490,7 @@
 .exercise-presets-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -2515,7 +2519,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 10px;
+  padding: 10px 12px;
   background: rgba(9, 14, 23, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.02);
   border-radius: var(--radius-sm);
@@ -2528,26 +2532,44 @@
   border-color: rgba(255, 255, 255, 0.04);
 }
 
-.preset-icon-monogram {
+/* Clickable wrapper around the exercise picker's icon (muscle-diagram
+   thumbnail, or the letter-monogram fallback for an exercise with no
+   muscle-group match) — opens the "how to perform this" guide sheet. Plain
+   button reset (no border/background/padding of its own) so it doesn't
+   change the row's layout from before it was clickable. */
+.preset-icon-btn {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-right: 10px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.preset-icon-btn:hover {
+  transform: scale(1.08);
+}
+
+.preset-icon-monogram {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 800;
   color: #93c5fd;
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.18);
-  margin-right: 8px;
 }
 
 .preset-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
@@ -2560,18 +2582,18 @@
 }
 
 .preset-info strong {
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   color: var(--text-main);
 }
 
 .preset-info span {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
 }
 
 .btn-add-preset-action {
-  padding: 5px 10px;
-  font-size: 0.68rem;
+  padding: 7px 14px;
+  font-size: 0.78rem;
   font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -2998,7 +3020,10 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
-  z-index: 500;
+  /* Higher than .payment-gateway-backdrop's 10000 — the guide sheet can now
+     be opened from inside the exercise picker (its clickable thumbnail
+     icon), and needs to layer on top of that modal, not behind it. */
+  z-index: 10500;
   display: flex;
   align-items: flex-end;
   justify-content: center;

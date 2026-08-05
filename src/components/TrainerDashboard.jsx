@@ -13,7 +13,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise } from '../data/exerciseLibrary';
@@ -21,6 +21,7 @@ import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps } from '../utils/alarmSound';
+import ExerciseGuideModal from './ExerciseGuideModal';
 
 // Converts one AI-generated exercise (api/generate-workout-draft.js's
 // { name, type, setCount, reps, durationMinutes } shape) into this app's
@@ -387,6 +388,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   const [editorExercises, setEditorExercises] = useState([]);
   // Which surface opened the shared exercise picker: 'editor' | 'live' | null
   const [exercisePickerContext, setExercisePickerContext] = useState(null);
+  // "How to perform this exercise" sheet, opened from the picker's
+  // clickable thumbnail icon — see ExerciseGuideModal.
+  const [activeGuideExercise, setActiveGuideExercise] = useState(null);
 
   // ── AI Workout Draft Builder ──
   // "Create Workout Plan" now asks Build Manually vs Create Draft with AI
@@ -578,6 +582,17 @@ const TrainerDashboard = ({ handleLogout }) => {
     if (liveTimerStatus !== 'running') return;
     setLivePauseIntervals((prev) => [...prev, { pausedAt: Date.now(), resumedAt: null }]);
     setLiveTimerStatus('paused');
+    // Pausing the whole session should also freeze any cardio set actively
+    // running underneath it — otherwise that stopwatch (and its live
+    // calories) kept ticking on its own even though the session clock
+    // itself had stopped.
+    liveExercises.forEach((ex, exIdx) => {
+      if (!isCardioExercise(ex.name)) return;
+      ex.sets.forEach((set, setIdx) => {
+        const timer = liveSetTimers[getSetTimerKey(exIdx, setIdx)];
+        if (timer?.isRunning) handleLiveCardioStopwatchPause(exIdx, setIdx);
+      });
+    });
   };
 
   const handleResumeLiveTimer = () => {
@@ -621,13 +636,49 @@ const TrainerDashboard = ({ handleLogout }) => {
 
   // Cardio sets (Running, Jogging, Cycling, Cross Trainer, Incline Walk,
   // Treadmill Walk) reuse the same per-set stopwatch infra as timed
-  // exercises — the only difference is the TIME field stays live-editable
-  // throughout instead of freezing on Complete, so pausing writes the
-  // ticked value into set.time rather than waiting for a separate Complete
-  // action (see the client's WorkoutTracker.jsx for the matching version).
+  // exercises — two differences (see the client's WorkoutTracker.jsx for
+  // the matching version):
+  // 1. TIME stays live-editable throughout instead of freezing on Complete,
+  //    so pausing writes the ticked value into set.time.
+  // 2. No GPS/sensor exists to measure real distance, so while running, KM
+  //    auto-fills from an assumed average pace (estimateCardioDistanceKm) —
+  //    tracked via the timer's `autoKm` flag, true by default, flipped to
+  //    false the moment the coach types their own number.
+  const handleLiveCardioStopwatchStart = (exIdx, setIdx) => {
+    const key = getSetTimerKey(exIdx, setIdx);
+    // A normal pause leaves the timer entry in place with its pausedDuration
+    // — but ticking a set complete deletes the entry entirely (see
+    // handleLiveCardioSetComplete), so un-ticking and pressing Start again
+    // found no entry here and always restarted from 0, discarding the
+    // time/km that had already accumulated. Falling back to the set's own
+    // saved `time` field (which survives both complete and un-complete)
+    // instead of a bare 0 makes Start always resume from wherever it was
+    // actually left, not just within the same uninterrupted run.
+    const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
+    const pausedDuration = existingPausedDuration != null
+      ? existingPausedDuration
+      : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
+    setLiveSetTimers(prev => ({
+      ...prev,
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true }
+    }));
+  };
+
+  const handleLiveCardioKmEdit = (exIdx, setIdx, value) => {
+    handleLiveSetChange(exIdx, setIdx, 'distanceKm', value);
+    const key = getSetTimerKey(exIdx, setIdx);
+    setLiveSetTimers(prev => (prev[key] ? { ...prev, [key]: { ...prev[key], autoKm: false } } : prev));
+  };
+
   const handleLiveCardioStopwatchPause = (exIdx, setIdx) => {
     const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
     handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+    const key = getSetTimerKey(exIdx, setIdx);
+    const timer = liveSetTimers[key];
+    if (timer?.autoKm) {
+      const exName = liveExercises[exIdx]?.name;
+      handleLiveSetChange(exIdx, setIdx, 'distanceKm', String(estimateCardioDistanceKm(exName, elapsed)));
+    }
     handleLiveSetStopwatchPause(exIdx, setIdx);
   };
 
@@ -641,6 +692,31 @@ const TrainerDashboard = ({ handleLogout }) => {
       delete updated[key];
       return updated;
     });
+  };
+
+  // Ticking a cardio set's checkbox while its stopwatch is still running
+  // used to leave that timer ticking in the background — the row showed
+  // "completed" styling but the clock and live calories kept climbing
+  // underneath. This finalizes the timer first (freeze time, sync the KM
+  // estimate if it was still auto-driving) and clears it, THEN marks the
+  // set complete.
+  const handleLiveCardioSetComplete = (exIdx, setIdx) => {
+    const key = getSetTimerKey(exIdx, setIdx);
+    const timer = liveSetTimers[key];
+    if (timer?.isRunning) {
+      const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+      handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+      if (timer.autoKm) {
+        const exName = liveExercises[exIdx]?.name;
+        handleLiveSetChange(exIdx, setIdx, 'distanceKm', String(estimateCardioDistanceKm(exName, elapsed)));
+      }
+      setLiveSetTimers(prev => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+    }
+    handleLiveToggleSet(exIdx, setIdx);
   };
 
   const handleDiscardLiveSession = async () => {
@@ -664,7 +740,33 @@ const TrainerDashboard = ({ handleLogout }) => {
   const resolvedClientWeightKg = parseFloat(clientMeasurements[0]?.measurements?.weight) || parseFloat(selectedClient?.userWeight) || DEFAULT_BODY_WEIGHT_KG;
 
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
-  const liveCalories = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg);
+  // computeLiveCalories only counts COMPLETED sets, so an in-progress cardio
+  // set contributed nothing here — the per-row time/kcal and this top
+  // readout disagreed. This adds each not-yet-completed cardio set's own
+  // live estimate on top, driven by elapsed time regardless of
+  // running/paused:
+  // - RUNNING: elapsed climbs live off the timer, same as the per-row clock.
+  // - PAUSED (not completed): elapsed reads the frozen set.time value that
+  //   pausing already synced there, so the total holds steady instead of
+  //   dropping to 0 and then jumping back up on resume.
+  // - COMPLETED: excluded here on purpose — computeLiveCalories's own
+  //   completed-set branch already counts it from the same final
+  //   time/distanceKm, so nothing is double-counted or lost when a set gets
+  //   ticked or un-ticked.
+  const liveRunningCardioKcal = liveExercises.reduce((sum, ex, exIdx) => {
+    if (!isCardioExercise(ex.name)) return sum;
+    return sum + ex.sets.reduce((s, set, setIdx) => {
+      if (set.isCompleted) return s;
+      const timer = liveSetTimers[getSetTimerKey(exIdx, setIdx)];
+      const isRunning = timer?.isRunning || false;
+      const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
+      if (elapsed <= 0) return s;
+      const km = (isRunning && timer?.autoKm !== false) ? estimateCardioDistanceKm(ex.name, elapsed) : set.distanceKm;
+      return s + estimateCardioKcal(ex.name, km, elapsed, resolvedClientWeightKg);
+    }, 0);
+  }, 0);
+  const liveCaloriesBase = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg);
+  const liveCalories = { ...liveCaloriesBase, totalKcal: Math.round((liveCaloriesBase.totalKcal + liveRunningCardioKcal) * 10) / 10 };
 
   // Debounce-push the Live Log session to workout_drafts once there's
   // actually something worth resuming (a set ticked, or the timer running/
@@ -3932,9 +4034,9 @@ const TrainerDashboard = ({ handleLogout }) => {
                                 </div>
 
                                 <div className="hevy-sets-table">
-                                  <div className="hevy-table-header">
+                                  <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                                     <span className="col-set">SET</span>
-                                    <span className="col-prev">PREVIOUS</span>
+                                    <span className="col-prev">PREV</span>
                                     {exIsCardio ? (
                                       <>
                                         <span className="col-weight">KM</span>
@@ -4450,9 +4552,9 @@ const TrainerDashboard = ({ handleLogout }) => {
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
-                          <div className="hevy-table-header">
+                          <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                             <span className="col-set">SET</span>
-                            <span className="col-prev">PREVIOUS</span>
+                            <span className="col-prev">PREV</span>
                             {exIsCardio ? (
                               <>
                                 <span className="col-weight">KM</span>
@@ -4510,7 +4612,11 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   const cardioTimer = liveSetTimers[cardioTimerKey];
                                   const cardioRunning = cardioTimer?.isRunning || false;
                                   const liveSeconds = cardioRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
-                                  const liveKcal = estimateCardioKcal(ex.name, set.distanceKm, liveSeconds, resolvedClientWeightKg);
+                                  // No GPS/sensor behind this — while running (and until the coach
+                                  // types their own number), KM shows an estimate from a typical
+                                  // pace for this exercise, ticking up alongside the live time.
+                                  const cardioAutoKm = cardioRunning && cardioTimer?.autoKm !== false;
+                                  const displayKm = cardioAutoKm ? estimateCardioDistanceKm(ex.name, liveSeconds) : set.distanceKm;
                                   return (
                                     <>
                                       <div className="col-weight set-input-field">
@@ -4518,9 +4624,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                           type="text"
                                           inputMode="decimal"
                                           placeholder="0"
-                                          value={set.distanceKm}
-                                          onChange={e => handleLiveSetChange(exIdx, setIdx, 'distanceKm', e.target.value)}
-                                          disabled={cardioRunning}
+                                          value={displayKm}
+                                          onChange={e => handleLiveCardioKmEdit(exIdx, setIdx, e.target.value)}
                                         />
                                       </div>
                                       <div className="col-reps cardio-time-field">
@@ -4528,7 +4633,7 @@ const TrainerDashboard = ({ handleLogout }) => {
                                           type="button"
                                           className="btn-cardio-stopwatch"
                                           style={{ color: cardioRunning ? '#e5e7eb' : '#fb923c' }}
-                                          onClick={() => (cardioRunning ? handleLiveCardioStopwatchPause(exIdx, setIdx) : handleLiveSetStopwatchStart(exIdx, setIdx))}
+                                          onClick={() => (cardioRunning ? handleLiveCardioStopwatchPause(exIdx, setIdx) : handleLiveCardioStopwatchStart(exIdx, setIdx))}
                                           title={cardioRunning ? 'Pause' : 'Start'}
                                         >
                                           {cardioRunning ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
@@ -4544,9 +4649,6 @@ const TrainerDashboard = ({ handleLogout }) => {
                                             onChange={e => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
                                             className="cardio-time-input"
                                           />
-                                        )}
-                                        {liveKcal > 0 && (
-                                          <span className="cardio-live-kcal">🔥{liveKcal}</span>
                                         )}
                                       </div>
                                     </>
@@ -4627,8 +4729,8 @@ const TrainerDashboard = ({ handleLogout }) => {
                                   <button
                                     type="button"
                                     className={`btn-hevy-check ${set.isCompleted ? 'completed' : ''}`}
-                                    onClick={() => isTimedExercise(ex.name) && !set.isCompleted ? handleLiveSetStopwatchComplete(exIdx, setIdx) : handleLiveToggleSet(exIdx, setIdx)}
-                                    title={isTimedExercise(ex.name) && !set.isCompleted ? "Save time and complete" : (set.isCompleted ? 'Mark incomplete' : 'Mark complete')}
+                                    onClick={() => (isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx)) : handleLiveToggleSet(exIdx, setIdx)}
+                                    title={(isTimedExercise(ex.name) || exIsCardio) && !set.isCompleted ? "Save time and complete" : (set.isCompleted ? 'Mark incomplete' : 'Mark complete')}
                                   >
                                     {set.isCompleted ? '✓' : ''}
                                   </button>
@@ -4994,7 +5096,25 @@ const TrainerDashboard = ({ handleLogout }) => {
           if (exercisePickerContext === 'editor') setEditorExercises(prev => prev.filter(notName));
           else setLiveExercises(prev => prev.filter(notName));
         }}
+        onShowFormGuide={(name) => {
+          // No curated video/guide dataset on the coach side (that's a
+          // client-only asset list) — the generic setup/execution/tip
+          // fallback still gives a real "how to perform this" guide,
+          // matching what an unmatched custom exercise shows on the client.
+          setActiveGuideExercise({
+            name,
+            category: 'Exercise',
+            videoFile: '',
+            guide: {
+              target: 'Primary Muscle Group',
+              setup: 'Position yourself comfortably with stable support and check alignment.',
+              execution: 'Control the weights through a full range of motion. Keep core tight.',
+              tip: 'Focus on mind-muscle connection and avoid using momentum.'
+            }
+          });
+        }}
       />
+      <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
 
       {/* "Create Workout Plan" now asks which way to build it, before
           touching any editor state — Build Manually reproduces the button's

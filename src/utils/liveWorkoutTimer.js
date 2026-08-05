@@ -5,7 +5,7 @@
 // non-drifting approach a server-side timer would use, just running on the
 // coach's single device since there's no multi-viewer requirement here.
 
-import { isWarmupExercise } from '../data/exerciseLibrary';
+import { isWarmupExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 
 // Work calories: each completed set contributes reps x weight(kg) x this rate.
 // Calories reflect ONLY logged work — there is no background/idle burn, so the
@@ -68,12 +68,48 @@ function cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) {
   return (met * 3.5 * bodyWeightKg / 200) * minutes;
 }
 
+// Public wrapper around cardioKcal — lets the logger show a live "burning
+// now" estimate next to a cardio set's play/pause stopwatch (Running,
+// Jogging, Cycling, Cross Trainer, Incline Walk) as the client types a
+// distance and/or the timer ticks, using the same MET formula the final
+// saved-session total is computed from — never a separate, disconnected
+// number. Rounded to 1 decimal like every other calorie readout in the app.
+export function estimateCardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+  return Math.round(cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) * 10) / 10;
+}
+
 // Same MET formula as cardioKcal, but for a static hold (no distance/pace to
 // derive intensity from) — duration alone drives the estimate.
 function timedHoldKcal(durationSeconds, bodyWeightKg) {
   const minutes = (durationSeconds || 0) / 60;
   if (minutes <= 0) return 0;
   return (TIMED_HOLD_MET * 3.5 * bodyWeightKg / 200) * minutes;
+}
+
+// MET for vigorous bodyweight calisthenics (push-ups, mountain climbers,
+// jumping jacks) — Compendium of Physical Activities lists these around
+// 7.8-8.0 MET; one flat value matches this app's existing fixed-MET-bracket
+// approach (see cardioMET/TIMED_HOLD_MET) rather than per-exercise tuning.
+const BODYWEIGHT_MET = 8.0;
+// No duration is logged for a bodyweight set (reps only, no stopwatch) — this
+// estimates one at a typical brisk calisthenics pace so the MET formula (which
+// needs minutes, not reps) has something to work with.
+const BODYWEIGHT_SECONDS_PER_REP = 2.5;
+
+// Bodyweight exercises (push-ups, mountain climbers, jumping jacks) move the
+// client's whole body, not just whatever's typed in the weight field — which
+// the reps x weight x rate formula below has no way to represent: toggled to
+// "Bodyweight" mode, that field is a fixed '0', so the old formula silently
+// zeroed out every set's calories no matter how many reps were logged. This
+// uses the client's actual logged bodyweight (+ any added weight, e.g. a
+// weighted vest) as the effort mass instead, via the same MET formula the
+// timed/cardio exercises already use, with reps converted to an estimated
+// duration.
+function bodyweightKcal(reps, bodyWeightKg, addedWeightKg = 0) {
+  if (reps <= 0) return 0;
+  const minutes = (reps * BODYWEIGHT_SECONDS_PER_REP) / 60;
+  const effectiveMassKg = bodyWeightKg + Math.max(0, addedWeightKg);
+  return (BODYWEIGHT_MET * 3.5 * effectiveMassKg / 200) * minutes;
 }
 
 export function formatDuration(totalSeconds) {
@@ -133,12 +169,14 @@ export function computeElapsedSeconds(startedAt, pauseIntervals = [], now = Date
 }
 
 // Sums calories for every completed set only — reps x weight for strength,
+// MET-based (on bodyWeightKg + reps) for bodyweight moves like push-ups,
 // MET-based for cardio, MET-based on hold duration for timed sets like plank.
 // Sets not yet marked done, and empty timed sets, contribute nothing, and
 // there is NO background/idle burn: the total stays put while the session
-// clock runs and only moves when a real set is logged. bodyWeightKg only
-// affects cardio/timed sets (the strength formula doesn't use it) — defaults
-// to an average adult when the caller doesn't have the client's actual weight.
+// clock runs and only moves when a real set is logged. bodyWeightKg drives
+// cardio/timed/bodyweight sets (the plain strength formula doesn't use it,
+// since it already has a real logged weight to work with) — defaults to an
+// average adult when the caller doesn't have the client's actual weight.
 export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   let workKcal = 0;
 
@@ -154,6 +192,10 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
       } else if (set.time !== undefined) {
         // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
         workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg);
+      } else if (isBodyweightExercise(ex.name)) {
+        const reps = parseFloat(set.reps) || 0;
+        const addedWeight = parseFloat(set.weight) || 0;
+        workKcal += bodyweightKcal(reps, bodyWeightKg, addedWeight);
       } else {
         const reps = parseFloat(set.reps) || 0;
         const weight = parseFloat(set.weight) || 0;

@@ -5,16 +5,17 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from '../utils/videoUtils';
 import { notifyEvent } from '../utils/pushNotify';
 import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
-import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
+import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
+import { playAlarmBeeps } from '../utils/alarmSound';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -108,11 +109,19 @@ const getPlanCardMeta = (plan) => {
   });
   const category = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0] || 'Push';
 
+  // "Full body" gets the whole-body thumbnail instead of MuscleThumbnail's
+  // single-muscle zoomed crop, which otherwise misrepresented a plan as
+  // "just a chest day" — either the coach named it that outright (may still
+  // be light on exercises, like a plan still being built out) or its
+  // exercises genuinely span 3+ of the 4 Push/Pull/Legs/Core categories.
+  const isFullBody = /full\s*body/i.test(plan.planName || '') || Object.keys(categoryCounts).length >= 3;
+
   return {
     muscles,
     primaryMuscle: muscles[0] || 'Chest',
     category,
     color: PPLC_COLOR[category] || PPLC_COLOR.Push,
+    isFullBody,
     exerciseCount,
     totalSets,
     estMinutes: Math.max(15, Math.round((totalSets * 2.5) / 5) * 5)
@@ -189,7 +198,11 @@ const PlanCard = ({ plan, source, onStart, onDelete }) => {
         </div>
       ) : (
         <div className="wt-plan-thumb">
-          <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+          {meta.isFullBody ? (
+            <FullBodyThumbnail trainedMuscles={meta.muscles} size={64} />
+          ) : (
+            <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+          )}
         </div>
       )}
 
@@ -1191,6 +1204,7 @@ const WorkoutTracker = () => {
             // before it clears itself.
             setRestJustFinished(true);
             setRestPulseKey(k => k + 1);
+            playAlarmBeeps(1);
             setTimeout(() => {
               setRestTimerActive(false);
               setRestJustFinished(false);
@@ -1580,6 +1594,20 @@ const WorkoutTracker = () => {
       ...prev,
       [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
     }));
+  };
+
+  // Cardio sets (Running, Jogging, Cycling, Cross Trainer, Incline Walk,
+  // Treadmill Walk) reuse the exact same per-set stopwatch infrastructure as
+  // timed exercises (setTimers/getSetElapsedSeconds/handleSetStopwatchStart)
+  // — the only difference is what happens with the elapsed time: a timed
+  // exercise freezes it into set.time on Complete, but a cardio set's TIME
+  // field must stay live-editable throughout (the client can still correct
+  // it by hand), so pausing writes the ticked value into set.time instead,
+  // handleSetStopwatchStart is reused as-is.
+  const handleCardioStopwatchPause = (exIdx, sIdx) => {
+    const elapsed = getSetElapsedSeconds(exIdx, sIdx);
+    handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+    handleSetStopwatchPause(exIdx, sIdx);
   };
 
   const handleSetStopwatchComplete = (exIdx, sIdx) => {
@@ -3074,7 +3102,7 @@ const WorkoutTracker = () => {
                           return (
                             <div
                               key={sIdx}
-                              className={`hevy-set-row ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}
+                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}
                             >
                               <span className="col-set set-type-menu-wrapper">
                                 <span
@@ -3093,32 +3121,65 @@ const WorkoutTracker = () => {
                                 )}
                               </span>
                               <span className="col-prev set-prev-lbl">{prevStats}</span>
-                              {exIsCardio ? (
-                                <>
-                                  <div className="col-weight set-input-field">
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={set.distanceKm}
-                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'distanceKm', e.target.value)}
-                                      required
-                                      placeholder="0"
-                                      disabled={set.isCompleted}
-                                    />
-                                  </div>
-                                  <div className="col-reps set-input-field">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={set.time}
-                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
-                                      required
-                                      placeholder="mm:ss"
-                                      disabled={set.isCompleted}
-                                    />
-                                  </div>
-                                </>
-                              ) : isTimedExercise(ex.name) ? (
+                              {exIsCardio ? (() => {
+                                const cardioTimerKey = getSetTimerKey(exIdx, sIdx);
+                                const cardioTimer = setTimers[cardioTimerKey];
+                                const cardioRunning = cardioTimer?.isRunning || false;
+                                // While running, show the live-ticking value; once paused/stopped,
+                                // set.time is the source of truth again and stays freely editable
+                                // (e.g. to correct a time typed before the client hit play).
+                                const liveSeconds = cardioRunning ? getSetElapsedSeconds(exIdx, sIdx) : (parseTimeStringToSeconds(set.time) || 0);
+                                const liveKcal = estimateCardioKcal(ex.name, set.distanceKm, liveSeconds, parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG);
+                                return (
+                                  <>
+                                    <div className="col-weight set-input-field">
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={set.distanceKm}
+                                        onChange={(e) => handleSetChange(exIdx, sIdx, 'distanceKm', e.target.value)}
+                                        required
+                                        placeholder="0"
+                                        disabled={set.isCompleted || cardioRunning}
+                                      />
+                                    </div>
+                                    <div className="col-reps cardio-time-field">
+                                      <button
+                                        type="button"
+                                        className="btn-cardio-stopwatch"
+                                        style={{ color: cardioRunning ? '#e5e7eb' : '#fb923c' }}
+                                        onClick={() => (cardioRunning ? handleCardioStopwatchPause(exIdx, sIdx) : handleSetStopwatchStart(exIdx, sIdx))}
+                                        disabled={set.isCompleted}
+                                        title={cardioRunning ? 'Pause' : 'Start'}
+                                      >
+                                        {cardioRunning ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+                                      </button>
+                                      {cardioRunning ? (
+                                        // Same idea as the timed-exercise stopwatch: while running,
+                                        // swap the editable input for compact live text — that's
+                                        // what frees up room to show time + calories together on
+                                        // one line instead of the calorie readout getting pushed to
+                                        // a second line underneath.
+                                        <span className="cardio-live-time">{formatSecondsToTimeString(liveSeconds)}</span>
+                                      ) : (
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          value={set.time}
+                                          onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                          required
+                                          placeholder="mm:ss"
+                                          disabled={set.isCompleted}
+                                          className="cardio-time-input"
+                                        />
+                                      )}
+                                      {liveKcal > 0 && (
+                                        <span className="cardio-live-kcal">🔥{liveKcal}</span>
+                                      )}
+                                    </div>
+                                  </>
+                                );
+                              })() : isTimedExercise(ex.name) ? (
                                 <>
                                   <div className="col-weight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
                                     {(() => {
@@ -3556,43 +3617,44 @@ const WorkoutTracker = () => {
           key={restPulseKey}
           className={`rest-timer-floating-card ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
         >
-          <div className="rest-timer-content">
+          <div className="rest-timer-header-row">
             <span className="rest-icon">{restJustFinished ? '✅' : '⏱️'}</span>
-            <div className="rest-timer-info">
-              {restJustFinished ? (
-                <>
-                  <span>REST OVER</span>
-                  <strong style={{ fontSize: '0.9rem' }}>Time for your next set!</strong>
-                </>
-              ) : (
-                <>
-                  <span>REST TIMER</span>
-                  <strong>{restSecondsRemaining}s</strong>
-                </>
-              )}
-            </div>
+            <span className="rest-timer-label">{restJustFinished ? 'REST OVER' : 'REST TIMER'}</span>
           </div>
-          {!restJustFinished && (
-            <div className="rest-timer-actions">
-              <button
-                type="button"
-                className="btn-rest-adjust"
-                onClick={() => setRestSecondsRemaining(prev => prev + 30)}
-              >
-                +30s
-              </button>
-              <button
-                type="button"
-                className="btn-rest-skip"
-                onClick={() => {
-                  setRestTimerActive(false);
-                  setRestSecondsRemaining(0);
-                  setRestJustFinished(false);
-                }}
-              >
-                Skip
-              </button>
-            </div>
+
+          {restJustFinished ? (
+            <strong className="rest-timer-finished-msg">Time for your next set!</strong>
+          ) : (
+            <>
+              <div className="rest-timer-big-time">{formatSecondsToTimeString(restSecondsRemaining)}</div>
+              <div className="rest-timer-actions">
+                <button
+                  type="button"
+                  className="btn-rest-adjust"
+                  onClick={() => setRestSecondsRemaining(prev => Math.max(0, prev - 15))}
+                >
+                  -15
+                </button>
+                <button
+                  type="button"
+                  className="btn-rest-adjust"
+                  onClick={() => setRestSecondsRemaining(prev => prev + 15)}
+                >
+                  +15
+                </button>
+                <button
+                  type="button"
+                  className="btn-rest-skip"
+                  onClick={() => {
+                    setRestTimerActive(false);
+                    setRestSecondsRemaining(0);
+                    setRestJustFinished(false);
+                  }}
+                >
+                  Skip
+                </button>
+              </div>
+            </>
           )}
         </div>
       )}

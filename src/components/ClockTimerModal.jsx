@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { playAlarmBeeps } from '../utils/alarmSound';
 import './ClockTimerModal.css';
 
 const CIRCLE_R = 90;
@@ -38,6 +39,7 @@ export default function ClockTimerModal({ onClose }) {
           clearInterval(timerIntervalRef.current);
           setTimerRunning(false);
           setTimerDone(true);
+          playAlarmBeeps();
           return 0;
         }
         return prev - 1;

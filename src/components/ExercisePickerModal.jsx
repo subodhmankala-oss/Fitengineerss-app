@@ -13,6 +13,11 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
 
   useEffect(() => {
     if (open) {
+      // The modal never unmounts when closed (it just renders null below),
+      // so query/tag would otherwise carry over from the last time it was
+      // open — reset them fresh on every open instead.
+      setQuery('');
+      setTag('All');
       databaseService.getExerciseLibrary()
         .then(setExercises)
         .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
@@ -34,12 +39,15 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   return (
     <div className="payment-gateway-backdrop exercise-modal-backdrop">
       <div className="payment-gateway-modal exercise-modal-card animate-scale-in">
-        <div className="payment-modal-header">
-          <div className="modal-title-box">
-            <span className="secure-badge">🏋️‍♂️ EXERCISE PRESETS</span>
-            <h3>Add Exercise</h3>
-          </div>
+        <div className="exercise-modal-header">
           <button type="button" className="btn-close-modal" onClick={onClose}>✕</button>
+          <div className="exercise-modal-title-group">
+            <h3 className="exercise-modal-title">Add Exercise</h3>
+            <span className="exercise-modal-count">
+              {addedNames.length} exercise{addedNames.length !== 1 ? 's' : ''} added
+            </span>
+          </div>
+          <button type="button" className="btn-exercise-modal-done" onClick={onClose}>Done</button>
         </div>
 
         <div className="payment-input-group exercise-search-box">
@@ -118,15 +126,6 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
               );
             })
           )}
-        </div>
-
-        <div className="exercise-modal-footer">
-          <span className="exercise-modal-count">
-            {addedNames.length} exercise{addedNames.length !== 1 ? 's' : ''} added
-          </span>
-          <button type="button" className="btn-exercise-modal-done" onClick={onClose}>
-            Done
-          </button>
         </div>
       </div>
     </div>

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES } from '../data/exerciseLibrary';
+import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
 
 // Shared Hevy-style "Add Exercise" modal used by both the client (WorkoutTracker)
 // and the coach (TrainerDashboard). Stays open after each add so several
 // exercises can be added in a row; tapping an added item removes it. Styling
 // comes from WorkoutTracker.css, which both parents import.
-export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove }) {
+export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove, onShowFormGuide }) {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState('All');
   const [exercises, setExercises] = useState([]);
@@ -106,11 +108,24 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
           ) : (
             filtered.map(ex => {
               const already = addedSet.has(ex.name.toLowerCase());
+              const primaryMuscle = getMuscleGroupsForExercise(ex.name)[0];
               return (
                 <div key={ex.name} className="exercise-preset-item">
-                  <div className="preset-icon-monogram" aria-hidden="true">
-                    {ex.name.charAt(0).toUpperCase()}
-                  </div>
+                  <button
+                    type="button"
+                    className="preset-icon-btn"
+                    title={`How to perform ${ex.name}`}
+                    style={{ '--status-color': '#60a5fa' }}
+                    onClick={(e) => { e.stopPropagation(); onShowFormGuide?.(ex.name); }}
+                  >
+                    {primaryMuscle ? (
+                      <MuscleThumbnail muscle={primaryMuscle} color="#60a5fa" size={38} />
+                    ) : (
+                      <div className="preset-icon-monogram" aria-hidden="true">
+                        {ex.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
                   <div className="preset-info">
                     <strong>{ex.name}</strong>
                     <span>{ex.primary_muscle || ex.primary || ex.category}</span>

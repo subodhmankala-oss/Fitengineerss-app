@@ -78,6 +78,39 @@ export function estimateCardioKcal(exerciseName, distanceKm, durationSeconds, bo
   return Math.round(cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) * 10) / 10;
 }
 
+// Flat "typical pace" per exercise — there's no GPS/sensor in this app that
+// could measure a client's real distance as time passes, so while a cardio
+// set's stopwatch is running, KM auto-fills from one of these assumed
+// average speeds instead of sitting frozen at 0. It's explicitly an
+// ESTIMATE, not measured data — the client can always type over it (that
+// stops the auto-fill for that set — see cardio-time-field's onChange in
+// WorkoutTracker.jsx/TrainerDashboard.jsx), and it's only ever a
+// placeholder until they do, or until they pause and it's synced into the
+// real field. Same category buckets as cardioMET above, for consistency.
+const AVERAGE_CARDIO_SPEED_KMH = {
+  cycling: 18,
+  crossTrainer: 6,
+  inclineWalk: 4.5,
+  walk: 5,
+  runningDefault: 9,
+};
+
+function averageCardioSpeedKmh(exerciseName) {
+  const n = (exerciseName || '').toLowerCase();
+  if (/cycl|bik/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.cycling;
+  if (/cross trainer|elliptical/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.crossTrainer;
+  if (/incline walk/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.inclineWalk;
+  if (/\bwalk/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.walk;
+  return AVERAGE_CARDIO_SPEED_KMH.runningDefault; // running/jogging/custom
+}
+
+export function estimateCardioDistanceKm(exerciseName, durationSeconds) {
+  const minutes = (durationSeconds || 0) / 60;
+  if (minutes <= 0) return 0;
+  const speedKmh = averageCardioSpeedKmh(exerciseName);
+  return Math.round(speedKmh * (minutes / 60) * 100) / 100;
+}
+
 // Same MET formula as cardioKcal, but for a static hold (no distance/pace to
 // derive intensity from) — duration alone drives the estimate.
 function timedHoldKcal(durationSeconds, bodyWeightKg) {

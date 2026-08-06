@@ -28,7 +28,16 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
 
   if (!open) return null;
 
-  const activeLibrary = exercises.length > 0 ? exercises : EXERCISE_LIBRARY;
+  // Merge, don't choose one-or-the-other: the DB-backed `exercises` table
+  // used to fully replace EXERCISE_LIBRARY whenever it had any rows (which
+  // is effectively always), so any exercise added only to the static
+  // library — like a brand new one just shipped in code — silently never
+  // appeared here, even though it existed and the client could search for
+  // it by exact name and only get a "Create custom exercise" prompt. DB
+  // entries win on a name collision (richer video/guide data), but a
+  // static-only entry now always still shows up.
+  const dbNames = new Set(exercises.map(e => (e.name || '').toLowerCase()));
+  const activeLibrary = [...exercises, ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()))];
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();
   const filtered = activeLibrary.filter(ex => {

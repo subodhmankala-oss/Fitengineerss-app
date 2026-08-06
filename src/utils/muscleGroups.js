@@ -87,6 +87,10 @@ const RULES = [
   // (jump/squat phase) is the most representative 2-muscle credit available
   // in this taxonomy, rather than inventing a "full body" category.
   { test: n => /burpee/.test(n), muscles: ['Core', 'Quads'] },
+  // High Knees (and High Knees Walk): rapid knee-drive cardio move — hip
+  // flexors/Quads doing the actual driving, Core stabilizing the torso.
+  // Same 2-muscle-credit reasoning as Burpee above.
+  { test: n => /high knees/.test(n), muscles: ['Quads', 'Core'] },
 
   // ── Shoulders ──
   // "pull apart" (Band Pull Apart) added — a rear-delt isolation move,

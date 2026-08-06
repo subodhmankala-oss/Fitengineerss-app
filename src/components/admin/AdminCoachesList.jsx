@@ -1,5 +1,6 @@
 import React from 'react';
 import { isSuperAdmin } from '../../services/accessControl';
+import { getActivityStatus } from '../../utils/activityStatus';
 
 export default function AdminCoachesList({ coachesList = [], loadingAdmin, onToggleBlock, onViewClients }) {
   if (loadingAdmin) {
@@ -41,6 +42,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
         <tbody>
           {coachesList.map(coach => {
             const isSuper = coach.email && isSuperAdmin(coach.email);
+            const activity = getActivityStatus(coach.last_login);
             return (
               <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '64px' }}>
                 <td style={{ padding: '8px' }}>
@@ -77,6 +79,20 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                           {coach.experienceYears} yrs exp
                         </span>
                       )}
+                      <span
+                        title={coach.last_login ? new Date(coach.last_login).toLocaleString() : 'No login recorded yet'}
+                        style={{
+                          background: activity.bg,
+                          border: `1px solid ${activity.border}`,
+                          color: activity.color,
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          fontSize: '0.62rem',
+                          fontWeight: 700
+                        }}
+                      >
+                        ⏱ {activity.label}
+                      </span>
                     </div>
                   </div>
                 </td>

@@ -37,7 +37,7 @@ function SettingsRow({ icon, label, value, onTap, last }) {
   );
 }
 
-export default function ClientProfile({ handleLogout }) {
+export default function ClientProfile({ handleLogout, onReplayDemoTour }) {
   const [activeSection, setActiveSection] = useState(null);
 
   const readProfile = () => ({
@@ -673,6 +673,16 @@ export default function ClientProfile({ handleLogout }) {
         <SettingsRow icon="📏" label="Measurements" onTap={() => setActiveSection('measurements')} />
         <SettingsRow icon="📐" label="Units" value={weightUnit === 'kg' ? 'Metric' : 'Imperial'} onTap={() => setActiveSection('units')} last />
       </div>
+
+      {/* Help section */}
+      {onReplayDemoTour && (
+        <>
+          <div className="cp-section-label">Help</div>
+          <div className="cp-section-card">
+            <SettingsRow icon="🎬" label="App Tutorial" onTap={onReplayDemoTour} last />
+          </div>
+        </>
+      )}
 
       {/* Log out */}
       <button className="cp-logout-btn" onClick={handleLogout}>Log Out</button>

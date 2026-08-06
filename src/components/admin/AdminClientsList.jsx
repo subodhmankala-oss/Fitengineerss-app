@@ -1,4 +1,5 @@
 import React from 'react';
+import { getActivityStatus } from '../../utils/activityStatus';
 
 export default function AdminClientsList({
   clients = [],
@@ -19,6 +20,20 @@ export default function AdminClientsList({
 
   const filteredClients = clients.filter(c => goalFilter === 'All' || c.userGoal === goalFilter);
 
+  // Activity summary across ALL clients (not just the goal-filtered subset)
+  // so the counts don't shift when someone flips the filter pills.
+  const activityCounts = clients.reduce((acc, c) => {
+    const key = getActivityStatus(c.last_login).key;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const summaryTiles = [
+    { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.2)' },
+    { key: 'inactive-1-2', label: '1–2 days inactive', count: (activityCounts['inactive-1'] || 0) + (activityCounts['inactive-2'] || 0), color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
+    { key: 'inactive-3plus', label: '3+ days inactive', count: activityCounts['inactive-3plus'] || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' },
+    { key: 'never', label: 'Never logged in', count: activityCounts.never || 0, color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)' }
+  ];
+
   return (
     <div className="glass-panel" style={{
       background: 'var(--bg-card)',
@@ -30,6 +45,22 @@ export default function AdminClientsList({
       <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>
         All Clients ({clients.length})
       </h5>
+
+      {/* Activity summary — who's logged in today vs. gone quiet */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+        {summaryTiles.map(tile => (
+          <div key={tile.key} style={{
+            flex: '1 1 120px',
+            padding: '8px 10px',
+            borderRadius: '8px',
+            background: tile.bg,
+            border: `1px solid ${tile.border}`
+          }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: tile.color }}>{tile.count}</div>
+            <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600 }}>{tile.label}</div>
+          </div>
+        ))}
+      </div>
 
       {/* Goal filter pills */}
       <div className="filter-tags" style={{ marginBottom: '14px' }}>
@@ -60,12 +91,16 @@ export default function AdminClientsList({
             {filteredClients.map(client => {
               const coach = coachesList.find(c => c.id === client.coach_id);
               const coachName = coach ? coach.name : (client.coach_id ? 'Attached' : 'Self-Guided');
+              const activity = getActivityStatus(client.last_login);
               return (
                 <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '64px' }}>
                   <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{client.userName}</div>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{client.email}</div>
+                      {client.phone && (
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>📞 {client.phone}</div>
+                      )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                         {client.userGoal && (
                           <span style={{
@@ -94,6 +129,20 @@ export default function AdminClientsList({
                           }}
                         >
                           👤 {client.coach_id ? `Coach: ${coachName}` : 'Self-Guided'}
+                        </span>
+                        <span
+                          title={client.last_login ? new Date(client.last_login).toLocaleString() : 'No login recorded yet'}
+                          style={{
+                            background: activity.bg,
+                            border: `1px solid ${activity.border}`,
+                            color: activity.color,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            fontSize: '0.62rem',
+                            fontWeight: 700
+                          }}
+                        >
+                          ⏱ {activity.label}
                         </span>
                       </div>
                     </div>

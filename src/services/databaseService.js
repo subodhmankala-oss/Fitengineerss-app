@@ -741,6 +741,12 @@ const databaseService = {
     } catch (e) {
       console.warn('supabase.auth.setSession did not complete (continuing with raw session anyway):', e.message || e);
     }
+    // Stamp last_login for the Super Admin Dashboard's activity tracking.
+    // Fire-and-forget via SECURITY DEFINER RPC (see sql/last_login_tracking.sql)
+    // — never let this delay or fail the actual login.
+    restRpc('touch_last_login', { p_email: email }).catch((e) =>
+      console.warn('touch_last_login failed (non-fatal):', e.message || e)
+    );
     return { user: data.user, session: { access_token: data.access_token, refresh_token: data.refresh_token, user: data.user } };
   },
 
@@ -1190,9 +1196,24 @@ const databaseService = {
         } else {
           return [];
         }
-        const data = await restSelect(
-          `clients?select=*,users!clients_user_id_fkey(email)${coachFilter}`
-        );
+        // Falls back to the plain (no last_login) embed if the migration in
+        // sql/last_login_tracking.sql hasn't been run yet on this database —
+        // must never let a missing optional column take down the whole
+        // clients list.
+        let data;
+        try {
+          data = await restSelect(
+            `clients?select=*,users!clients_user_id_fkey(email,last_login)${coachFilter}`
+          );
+        } catch (e) {
+          if (String(e.message).includes('400')) {
+            data = await restSelect(
+              `clients?select=*,users!clients_user_id_fkey(email)${coachFilter}`
+            );
+          } else {
+            throw e;
+          }
+        }
 
         if (data) {
           return data.map(c => ({
@@ -1212,6 +1233,7 @@ const databaseService = {
             userFatsTarget: String(c.fats_target || ''),
             role: 'client',
             phone: c.phone_number,
+            last_login: c.users?.last_login || null,
             coach_id: c.coach_id,
             total_sessions: c.total_sessions ?? null
           }));
@@ -1256,6 +1278,7 @@ const databaseService = {
         userFatsTarget: String(c.fats_target || ''),
         role: 'client',
         phone: c.phone_number,
+        last_login: u?.last_login || null,
         coach_id: c.coach_id,
         total_sessions: c.total_sessions ?? null
       };
@@ -1271,10 +1294,18 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
+        // Same last_login-column-might-not-exist-yet fallback as getAllUsers.
+        let { data, error } = await supabase
           .from('clients')
-          .select('*, users!clients_user_id_fkey(email)')
+          .select('*, users!clients_user_id_fkey(email,last_login)')
           .eq('coach_id', coachId);
+
+        if (error && error.code === '42703') {
+          ({ data, error } = await supabase
+            .from('clients')
+            .select('*, users!clients_user_id_fkey(email)')
+            .eq('coach_id', coachId));
+        }
 
         if (error) throw error;
         if (data) {
@@ -1295,6 +1326,7 @@ const databaseService = {
             userFatsTarget: String(c.fats_target || ''),
             role: 'client',
             phone: c.phone_number,
+            last_login: c.users?.last_login || null,
             coach_id: c.coach_id,
             total_sessions: c.total_sessions ?? null
           }));
@@ -1325,6 +1357,7 @@ const databaseService = {
         userFatsTarget: String(c.fats_target || ''),
         role: 'client',
         phone: c.phone_number,
+        last_login: u?.last_login || null,
         coach_id: c.coach_id,
         total_sessions: c.total_sessions ?? null
       };
@@ -2433,11 +2466,20 @@ const databaseService = {
         // Source of truth for "is a coach" is the coaches table, not users.role —
         // the super-admin account has an approved coaches row but role='super-admin',
         // so filtering users by role='coach' was excluding them from this list entirely.
-        const { data, error } = await supabase
+        // Same last_login-column-might-not-exist-yet fallback as getAllUsers.
+        let { data, error } = await supabase
           .from('coaches')
-          .select('user_id, brand_name, status, experience_years, is_blocked, created_at, users(id, email, full_name, payment_status, created_at)')
+          .select('user_id, brand_name, status, experience_years, is_blocked, created_at, users(id, email, full_name, payment_status, created_at, last_login)')
           .eq('status', 'approved')
           .order('created_at', { ascending: true });
+
+        if (error && error.code === '42703') {
+          ({ data, error } = await supabase
+            .from('coaches')
+            .select('user_id, brand_name, status, experience_years, is_blocked, created_at, users(id, email, full_name, payment_status, created_at)')
+            .eq('status', 'approved')
+            .order('created_at', { ascending: true }));
+        }
 
         if (error) throw error;
         if (data) {
@@ -2461,7 +2503,8 @@ const databaseService = {
               experienceYears: coach.experience_years ?? null,
               isBlocked: coach.is_blocked === true,
               signup_date: coach.created_at || coach.users?.created_at || new Date().toISOString(),
-              clientsCount: clients.length
+              clientsCount: clients.length,
+              last_login: coach.users?.last_login || null
             };
           });
         }
@@ -3626,9 +3669,11 @@ const databaseService = {
               id: u.id,
               email: u.email,
               full_name: client?.full_name || coach?.brand_name || u.email.split('@')[0],
+              phone: client?.phone_number || coach?.phone_number || app?.phone_number || '',
               role,
               verified: role === 'coach' || role === 'super-admin',
-              created_at: u.created_at
+              created_at: u.created_at,
+              last_login: u.last_login || null
             };
           });
         }
@@ -3665,9 +3710,11 @@ const databaseService = {
           id: u.id,
           email: u.email,
           full_name: client?.full_name || coach?.brand_name || u.email.split('@')[0],
+          phone: client?.phone_number || coach?.phone_number || app?.phone_number || '',
           role,
           verified: role === 'coach' || role === 'super-admin',
-          created_at: u.created_at || new Date().toISOString()
+          created_at: u.created_at || new Date().toISOString(),
+          last_login: u.last_login || null
         });
       }
     });

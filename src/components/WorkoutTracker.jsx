@@ -13,6 +13,7 @@ import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroup
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
+import { useTour } from '../context/TourContext';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
@@ -632,6 +633,18 @@ const WorkoutTracker = () => {
 
   // Custom templates and plans state
   const [isLoggingWorkout, setIsLoggingWorkout] = useState(!!savedWorkoutDraft);
+
+  // First-login spotlight tour — advance the shared step whenever the real
+  // navigation state it's watching for actually changes. See TourOverlay.jsx
+  // for what each step highlights.
+  const tour = useTour();
+  useEffect(() => {
+    if (activeView === 'templates') tour.advanceIfStep(2, 3);
+    if (activeView === 'log') tour.advanceIfStep(4, 5);
+  }, [activeView, tour]);
+  useEffect(() => {
+    if (isLoggingWorkout) tour.advanceIfStep(5, 6);
+  }, [isLoggingWorkout, tour]);
   const [clientPlans, setClientPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState(savedWorkoutDraft?.saveAsTemplate ?? false);
@@ -2169,13 +2182,15 @@ const WorkoutTracker = () => {
         >
           📈 Charts & Progress
         </button>
-        <button 
+        <button
+          data-tour="wt-tab-templates"
           className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
           onClick={() => setActiveView('templates')}
         >
           🏋️ Workouts
         </button>
-        <button 
+        <button
+          data-tour="wt-tab-log"
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
           onClick={() => setActiveView('log')}
         >
@@ -2799,12 +2814,12 @@ const WorkoutTracker = () => {
               </div>
             </div>
 
-            <div className="wt-level-tabs">
+            <div className="wt-level-tabs" data-tour="wt-level-tabs">
               {['beginner', 'intermediate', 'advanced'].map(level => (
                 <button
                   key={level}
                   className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
-                  onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); }}
+                  onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); tour.advanceIfStep(3, 4); }}
                 >
                   {level === 'beginner' && '🌱 '}
                   {level === 'intermediate' && '⚡ '}
@@ -2927,6 +2942,7 @@ const WorkoutTracker = () => {
 
             <button
               type="button"
+              data-tour="wt-start-empty-card"
               className="wt-start-empty-card"
               onClick={() => {
                 setLogClient(selectedClient);
@@ -3095,7 +3111,7 @@ const WorkoutTracker = () => {
                 const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
-                  <div key={exIdx} className="form-exercise-card hevy-exercise-card">
+                  <div key={exIdx} className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
                     <div className="ex-card-header">
                       <div className="ex-card-title-group">
                         <span className="ex-indicator-dot"></span>
@@ -3420,6 +3436,7 @@ const WorkoutTracker = () => {
             <div className="live-add-ex-box">
               <button
                 type="button"
+                data-tour="wt-add-exercise-btn"
                 className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
                 onClick={() => setShowExerciseDbModal(true)}
               >
@@ -3443,7 +3460,7 @@ const WorkoutTracker = () => {
               >
                 <TrashIcon size={28} />
               </button>
-              <button type="submit" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
+              <button type="submit" data-tour="wt-save-workout-btn" className="btn-save-workout-session" style={{ width: 'auto', flex: 1 }}>
                 💾 Save Workout Session
               </button>
             </div>

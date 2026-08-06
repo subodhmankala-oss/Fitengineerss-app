@@ -64,7 +64,7 @@ const convertAiDayToEditorShape = (day) => ({
   exercises: (day.exercises || []).map(convertAiExerciseToEditorShape)
 });
 
-const TrainerDashboard = ({ handleLogout }) => {
+const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
@@ -2154,6 +2154,28 @@ const TrainerDashboard = ({ handleLogout }) => {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!superAdmin && onReplayDemoTour && (
+            <button
+              type="button"
+              onClick={onReplayDemoTour}
+              title="Watch the quick app tutorial again"
+              aria-label="Watch app tutorial"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: '#fff',
+                borderRadius: '50%', padding: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             onClick={toggleCoachNotifications}

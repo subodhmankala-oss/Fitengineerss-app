@@ -16,7 +16,7 @@ const CANVAS_W = 200, CANVAS_H = 369;
  * body into a few pixels. Read-only (no click handler) — the card itself is
  * the tap target.
  */
-const MuscleThumbnail = ({ muscle, color, size = 64 }) => {
+const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, size = 64 }) {
   const view = MUSCLE_BODY_VIEW[muscle];
   const crop = MUSCLE_CROP[muscle];
   if (!view || !crop) return null;
@@ -65,7 +65,7 @@ const MuscleThumbnail = ({ muscle, color, size = 64 }) => {
       </div>
     </div>
   );
-};
+});
 
 /**
  * Whole-body icon for a routine card that trains many different muscle

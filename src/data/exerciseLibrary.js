@@ -54,7 +54,7 @@ const COACH_NAMES = [
   'Seated Cable Row', 'Seated Calf Raise', 'Seated Dumbbell Curl', 'Seated Leg Curl', 'Seated Row (Machine)',
   'Shoulder Press (Barbell)', 'Shoulder Press (Dumbbell)', 'Shoulder Press (Machine)', 'Shrug',
   'Side Lateral Raise', 'Single Leg Deadlift', 'Single Leg Press', 'Skullcrusher',
-  'Smith Machine Squat', 'Split Squat', 'Squat', 'Step-up', 'Stiff Leg Deadlift', 'Straight Bar Curl',
+  'Smith Machine Squat', 'Split Squat', 'Squat', 'Step-up', 'Steppers', 'Stiff Leg Deadlift', 'Straight Bar Curl',
   'Sumo Deadlift', 'Superman', 'T-Bar Row', 'Triceps Dip', 'Triceps Extension (Cable)', 'Triceps Extension (Dumbbell)',
   'Triceps Kickback', 'Triceps Pushdown', 'Triceps Rope Pushdown', 'Upright Row (Barbell)', 'Upright Row (Cable)',
   'Upright Row (Dumbbell)', 'V Up', 'V-Bar Pulldown', 'Wide Grip Pull-up', 'Wrist Curl', 'Zercher Squat',
@@ -87,7 +87,7 @@ export function inferCategory(name) {
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk\b/.test(n) && !/farmer/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
-  if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer)/.test(n)) return 'Legs';
+  if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer)/.test(n)) return 'Legs';
   if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart)/.test(n)) return 'Shoulders';
   if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar)/.test(n)) return 'Back';
   if (/(bench|chest|fly|pec deck|push-?up|push up|dip|crossover|around the world|floor press|press)/.test(n)) return 'Chest';
@@ -104,7 +104,7 @@ export function inferPrimary(name) {
   if (/calf/.test(n)) return 'Calves';
   if (/(glute|hip thrust|glute bridge|kickback)/.test(n)) return 'Glutes';
   if (/(hamstring|romanian|stiff leg|leg curl|good morning|single leg deadlift)/.test(n)) return 'Hamstrings';
-  if (/(squat|lunge|leg press|leg extension|step-?up|wall sit|split squat|hack)/.test(n)) return 'Quadriceps';
+  if (/(squat|lunge|leg press|leg extension|step-?up|steppers?\b|wall sit|split squat|hack)/.test(n)) return 'Quadriceps';
   if (/deadlift/.test(n)) return 'Posterior Chain';
   if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug)/.test(n)) return 'Core / Abs';
   if (/(rear delt|reverse fly|face pull)/.test(n)) return 'Rear Delts';
@@ -171,7 +171,7 @@ export function isLoadedCarryExercise(name) {
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b/.test(n);
 }
 
 // Warm-up moves (Arm Circle, Leg Swing) are reps-only — no weight/KG field

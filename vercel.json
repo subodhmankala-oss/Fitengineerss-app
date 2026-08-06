@@ -1,6 +1,7 @@
 {
   "crons": [
-    { "path": "/api/send-nudges", "schedule": "0 8 * * *" }
+    { "path": "/api/send-nudges", "schedule": "0 8 * * *" },
+    { "path": "/api/send-inactivity-nudges", "schedule": "30 3 * * *" }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },

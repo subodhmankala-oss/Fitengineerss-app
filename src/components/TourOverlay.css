@@ -1,0 +1,95 @@
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+}
+
+.tour-mask {
+  position: fixed;
+  background: rgba(4, 8, 14, 0.72);
+  pointer-events: auto;
+}
+
+.tour-ring {
+  position: fixed;
+  border: 2px solid var(--primary-accent-light, #10b981);
+  border-radius: var(--radius-md, 16px);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25), 0 0 24px rgba(16, 185, 129, 0.45);
+  pointer-events: none;
+  animation: tour-blink 0.6s ease-in-out 3, tour-pulse 1.8s ease-in-out infinite 1.8s;
+}
+
+@keyframes tour-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes tour-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25), 0 0 24px rgba(16, 185, 129, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.15), 0 0 32px rgba(16, 185, 129, 0.6); }
+}
+
+.tour-skip {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  z-index: 100001;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-full, 9999px);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.tour-tooltip {
+  position: fixed;
+  z-index: 100001;
+  width: min(280px, calc(100vw - 24px));
+  background: linear-gradient(160deg, var(--bg-card, #151d2c) 0%, var(--bg-card-active, #0f172a) 100%);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-md, 16px);
+  padding: 14px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  animation: tour-tooltip-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes tour-tooltip-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tour-tooltip-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main, #f8fafc);
+}
+
+.tour-tooltip-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted, #94a3b8);
+}
+
+.tour-tooltip-cta {
+  margin-top: 10px;
+  background: var(--primary-accent, #059669);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tour-tooltip-cta:hover {
+  opacity: 0.88;
+}

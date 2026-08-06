@@ -5,6 +5,25 @@ import './AdminDashboard.css';
 
 console.log('AdminDashboard mounted - Supabase configured:', isSupabaseConfigured);
 
+// Days since last_login, rounded down. Null when the user has never logged
+// in (last_login is null) so callers can distinguish "never" from "0 days".
+function daysSinceLogin(lastLogin) {
+  if (!lastLogin) return null;
+  const diffMs = Date.now() - new Date(lastLogin).getTime();
+  return Math.floor(diffMs / (24 * 60 * 60 * 1000));
+}
+
+// Buckets a user into an activity status for the badge + summary counts.
+// Thresholds: active today (<1 day), then a badge per day out to 3+.
+function getActivityStatus(lastLogin) {
+  const days = daysSinceLogin(lastLogin);
+  if (days === null) return { key: 'never', label: 'Never logged in', className: 'activity-never' };
+  if (days <= 0) return { key: 'active', label: 'Active today', className: 'activity-active' };
+  if (days === 1) return { key: 'inactive-1', label: '1 day inactive', className: 'activity-warn' };
+  if (days === 2) return { key: 'inactive-2', label: '2 days inactive', className: 'activity-warn' };
+  return { key: 'inactive-3plus', label: `${days} days inactive`, className: 'activity-critical' };
+}
+
 const AdminDashboard = ({ user, onLogout }) => {
   const [tab, setTab] = useState('applications');
   const [pendingCoaches, setPendingCoaches] = useState([]);
@@ -330,6 +349,39 @@ const AdminDashboard = ({ user, onLogout }) => {
       {/* All Users Tab */}
       {tab === 'users' && !loading && (
         <div className="admin-content">
+          {/* Activity summary — coaches + clients combined; excludes the
+              super-admin row itself since it's not a coach/client account. */}
+          {(() => {
+            const trackable = allUsers.filter((u) => u.role !== 'super-admin');
+            const counts = trackable.reduce(
+              (acc, u) => {
+                acc[getActivityStatus(u.last_login).key] = (acc[getActivityStatus(u.last_login).key] || 0) + 1;
+                return acc;
+              },
+              {}
+            );
+            return (
+              <div className="activity-summary">
+                <div className="activity-stat activity-stat-active">
+                  <span className="activity-stat-num">{counts.active || 0}</span>
+                  <span className="activity-stat-lbl">Active today</span>
+                </div>
+                <div className="activity-stat activity-stat-warn">
+                  <span className="activity-stat-num">{(counts['inactive-1'] || 0) + (counts['inactive-2'] || 0)}</span>
+                  <span className="activity-stat-lbl">1–2 days inactive</span>
+                </div>
+                <div className="activity-stat activity-stat-critical">
+                  <span className="activity-stat-num">{counts['inactive-3plus'] || 0}</span>
+                  <span className="activity-stat-lbl">3+ days inactive</span>
+                </div>
+                <div className="activity-stat activity-stat-never">
+                  <span className="activity-stat-num">{counts.never || 0}</span>
+                  <span className="activity-stat-lbl">Never logged in</span>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="users-table-wrapper">
             <table className="users-table">
               <thead>
@@ -339,24 +391,40 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <th>Role</th>
                   <th>Verified</th>
                   <th>Joined</th>
+                  <th>Last Active</th>
                 </tr>
               </thead>
               <tbody>
-                {allUsers.map((u) => (
-                  <tr key={u.id}>
-                    <td>{u.email}</td>
-                    <td>{u.full_name || '-'}</td>
-                    <td>
-                      <span className={`role-badge role-${u.role}`}>{u.role}</span>
-                    </td>
-                    <td>{u.verified ? '✅' : '❌'}</td>
-                    <td>
-                      {u.created_at
-                        ? new Date(u.created_at).toLocaleDateString()
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
+                {allUsers.map((u) => {
+                  const activity = getActivityStatus(u.last_login);
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div>{u.email}</div>
+                        {u.phone && <div className="user-phone">{u.phone}</div>}
+                      </td>
+                      <td>{u.full_name || '-'}</td>
+                      <td>
+                        <span className={`role-badge role-${u.role}`}>{u.role}</span>
+                      </td>
+                      <td>{u.verified ? '✅' : '❌'}</td>
+                      <td>
+                        {u.created_at
+                          ? new Date(u.created_at).toLocaleDateString()
+                          : '-'}
+                      </td>
+                      <td>
+                        {u.role === 'super-admin' ? (
+                          '-'
+                        ) : (
+                          <span className={`activity-badge ${activity.className}`} title={u.last_login ? new Date(u.last_login).toLocaleString() : 'No login recorded yet'}>
+                            {activity.label}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

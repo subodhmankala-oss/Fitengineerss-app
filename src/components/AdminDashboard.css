@@ -309,8 +309,88 @@
   background: rgba(51, 65, 85, 0.2);
 }
 
+.user-phone {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
 .users-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* Activity Summary (Last Active tracking) */
+.activity-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.activity-stat {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.activity-stat-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.activity-stat-lbl {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.activity-stat-active { border-color: rgba(16, 185, 129, 0.4); }
+.activity-stat-active .activity-stat-num { color: #6ee7b7; }
+.activity-stat-warn { border-color: rgba(245, 158, 11, 0.4); }
+.activity-stat-warn .activity-stat-num { color: #fcd34d; }
+.activity-stat-critical { border-color: rgba(239, 68, 68, 0.4); }
+.activity-stat-critical .activity-stat-num { color: #fca5a5; }
+.activity-stat-never { border-color: rgba(148, 163, 184, 0.4); }
+.activity-stat-never .activity-stat-num { color: #cbd5e1; }
+
+/* Per-row "Last Active" badge */
+.activity-badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.activity-badge.activity-active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border: 1px solid #10b981;
+}
+
+.activity-badge.activity-warn {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid #f59e0b;
+}
+
+.activity-badge.activity-critical {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+}
+
+.activity-badge.activity-never {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid #64748b;
 }
 
 /* Role Badges */

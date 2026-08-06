@@ -15,6 +15,9 @@ import WorkoutTracker from './components/WorkoutTracker';
 import TrainerDashboard from './components/TrainerDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
+import DemoTour from './components/DemoTour';
+import TourOverlay from './components/TourOverlay';
+import { useTour } from './context/TourContext';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
@@ -345,6 +348,10 @@ function App() {
            (localStorage.getItem('userRole') === 'client' || !localStorage.getItem('userRole'));
   });
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
+  // Quick "how to use the app" walkthrough — shown once per role, replayable via a help button.
+  const [showDemoTour, setShowDemoTour] = useState(false);
+  const demoTourCheckedRef = useRef(false);
+  const clientTour = useTour();
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
@@ -371,6 +378,40 @@ function App() {
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
+
+  // First-login demo tour: show a short walkthrough once per role, after any
+  // required onboarding wizard is out of the way. Re-checks whenever the
+  // gating state changes (e.g. right after the client wizard completes) but
+  // only ever flips it on once via the ref guard, so replaying (see the help
+  // button) or dismissing it doesn't get immediately re-triggered.
+  useEffect(() => {
+    if (demoTourCheckedRef.current) return;
+    if (!userEmail || !onboardingComplete) return;
+    if (showClientWizard || pendingConfirmationEmail || showResetPasswordModal) return;
+
+    const admin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
+    const coach = isTrainer(userEmail) || userRole === 'coach';
+    if (admin) { demoTourCheckedRef.current = true; return; }
+
+    if (coach) {
+      if (localStorage.getItem('demoTourSeen_coach') !== 'true') {
+        setShowDemoTour(true);
+      }
+    } else {
+      // Clients get the interactive spotlight tour instead of the modal —
+      // it starts on the Home screen and follows real navigation into the
+      // Workout tab (see the bottom-nav effect below and WorkoutTracker.jsx).
+      clientTour.start();
+    }
+    demoTourCheckedRef.current = true;
+  }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, clientTour]);
+
+  // Spotlight step 1→2: the bottom-nav Workout button is highlighted from
+  // the Home screen; once the user actually navigates to the Workout tab
+  // (however they got there — bottom nav or a dashboard CTA), move on.
+  useEffect(() => {
+    if (activeTab === 'workouts') clientTour.advanceIfStep(1, 2);
+  }, [activeTab, clientTour]);
 
   // Resume-refresh: if the app was backgrounded (tab hidden, phone locked, or
   // the PWA suspended) for more than 15 minutes, force a full reload the moment
@@ -1144,7 +1185,7 @@ function App() {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
       case 'workouts': return <WorkoutTracker />;
-      case 'profile': return <ClientProfile handleLogout={handleLogout} />;
+      case 'profile': return <ClientProfile handleLogout={handleLogout} onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }} />;
       default: return renderHomeDashboard();
     }
   };
@@ -1278,6 +1319,11 @@ function App() {
   const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
   const isCoach = isTrainer(userEmail) || userRole === 'coach';
 
+  const closeDemoTour = (role) => {
+    localStorage.setItem(`demoTourSeen_${role}`, 'true');
+    setShowDemoTour(false);
+  };
+
   // A password-recovery link both opens the reset form AND establishes a session,
   // so without this guard the session routing (onboarding wizard / dashboard) wins
   // and the user never sees the reset form. Intercept it at the top level so the
@@ -1308,8 +1354,14 @@ function App() {
   if (isAdmin || isCoach) {
     return (
       <div className="app-container">
-        <TrainerDashboard handleLogout={handleLogout} />
+        <TrainerDashboard
+          handleLogout={handleLogout}
+          onReplayDemoTour={isAdmin ? undefined : () => setShowDemoTour(true)}
+        />
         {renderResetPasswordModal()}
+        {showDemoTour && !isAdmin && (
+          <DemoTour role="coach" onClose={() => closeDemoTour('coach')} />
+        )}
       </div>
     );
   }
@@ -1317,7 +1369,8 @@ function App() {
   return (
     <div className="app-container">
       <SmartNudges />
-      
+      <TourOverlay />
+
       <main className="main-content">
         {renderContent()}
       </main>
@@ -1333,7 +1386,7 @@ function App() {
             </span>
             <span>Home</span>
           </button>
-          <button className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
+          <button data-tour="nav-workout" className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`} onClick={() => setActiveTab('workouts')}>
             <span className="icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" />

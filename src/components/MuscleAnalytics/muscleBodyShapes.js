@@ -127,11 +127,31 @@ export const SOURCE_FILL_PLACEHOLDER = '#fc0000';
 // rather than parsing/rebuilding the SVG, so the original file's
 // structure/alignment is never touched. Shared by the full heat map
 // (MuscleHeatMap.jsx) and the small per-muscle icon (MuscleThumbnail.jsx).
+//
+// Pure function of (rawSvg, color, isActive), so the result is cached —
+// MuscleThumbnail is rendered dozens/hundreds of times per screen (the full
+// exercise picker list, muscle balance cards, etc.) and those screens sit
+// under components that re-render on a 1s/100ms timer tick (workout
+// stopwatch, rest timer), which used to re-run this string split/join over
+// every visible muscle SVG on every single tick — real main-thread work,
+// felt as UI/video stutter while a live session timer was running. Same
+// (rawSvg, color, isActive) triple always produces the same string, so a
+// tiny cache turns every repeat call into an O(1) lookup instead.
+const recolorCache = new Map();
 export function recolorSvg(rawSvg, color, isActive) {
+  const cacheKey = color + '|' + isActive;
+  let byColor = recolorCache.get(rawSvg);
+  if (!byColor) {
+    byColor = new Map();
+    recolorCache.set(rawSvg, byColor);
+  } else if (byColor.has(cacheKey)) {
+    return byColor.get(cacheKey);
+  }
   let svg = rawSvg.split(SOURCE_FILL_PLACEHOLDER).join(color);
   if (isActive) {
     svg = svg.split('stroke:none').join('stroke:#ffffff;stroke-width:2.5;stroke-opacity:0.95');
   }
+  byColor.set(cacheKey, svg);
   return svg;
 }
 

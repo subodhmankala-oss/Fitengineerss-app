@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { playAlarmBeeps } from '../utils/alarmSound';
+import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import './ClockTimerModal.css';
 
 const CIRCLE_R = 90;
@@ -72,6 +72,10 @@ export default function ClockTimerModal({ onClose }) {
   };
 
   const handleTimerStart = () => {
+    // Real click, right here — this is the one chance to unlock audio for
+    // the alarm that fires later from a setInterval tick (never itself a
+    // user gesture, which mobile browsers require to play sound).
+    unlockAudio();
     setTimerDone(false);
     setTimerRunning(true);
   };

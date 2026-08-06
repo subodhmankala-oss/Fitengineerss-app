@@ -6,7 +6,7 @@ import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
-import { normalizeExerciseForGuide } from '../utils/videoUtils';
+import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import { notifyEvent } from '../utils/pushNotify';
 import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroups';
@@ -361,7 +361,12 @@ const availablePrograms = [
   }
 ];
 
-const presetExercises = [
+// Exported so other screens (TrainerDashboard's Form Guide) can use this as
+// a local fallback when the DB-backed exercise fetch fails/times out —
+// without it, a network hiccup meant those exercises' real video/guide data
+// was completely unreachable, not just briefly delayed (see the matching
+// comment on TrainerDashboard's guideExercisesList fetch).
+export const presetExercises = [
   {
     name: 'Shoulders Press',
     category: 'Shoulders',
@@ -2267,8 +2272,8 @@ const WorkoutTracker = () => {
                 type="button"
                 className="video-guide-btn"
                 onClick={() => {
-                  const matched = exercisesList.find(ex => ex.name.toLowerCase() === selectedExercise.toLowerCase()) ||
-                                  presetExercises.find(ex => ex.name.toLowerCase() === selectedExercise.toLowerCase());
+                  const matched = findExerciseGuideMatch(exercisesList, selectedExercise) ||
+                                  findExerciseGuideMatch(presetExercises, selectedExercise);
                   if (matched) {
                     setActiveGuideExercise(normalizeExerciseForGuide(matched));
                   } else {
@@ -3084,8 +3089,8 @@ const WorkoutTracker = () => {
                           type="button"
                           className="btn-form-guide-sm"
                           onClick={() => {
-                            const matched = exercisesList.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase()) ||
-                                            allExerciseOptions.find(pe => pe.name.toLowerCase() === ex.name.toLowerCase());
+                            const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
+                                            findExerciseGuideMatch(allExerciseOptions, ex.name);
                             if (matched) {
                               setActiveGuideExercise(normalizeExerciseForGuide(matched));
                             } else {
@@ -3599,8 +3604,8 @@ const WorkoutTracker = () => {
           triggerToast(`Removed ${name}.`);
         }}
         onShowFormGuide={(name) => {
-          const matched = exercisesList.find(pe => pe.name.toLowerCase() === name.toLowerCase()) ||
-                          allExerciseOptions.find(pe => pe.name.toLowerCase() === name.toLowerCase());
+          const matched = findExerciseGuideMatch(exercisesList, name) ||
+                          findExerciseGuideMatch(allExerciseOptions, name);
           if (matched) {
             setActiveGuideExercise(normalizeExerciseForGuide(matched));
           } else {

@@ -351,7 +351,15 @@ const databaseService = {
               // stale 'coach-id-default' placeholder value leaking into the DB)
               coach_id: (profile.coach_id && profile.coach_id !== 'coach-id-default') ? profile.coach_id : null,
               full_name: profile.userName,
-              phone_number: profile.phone || '',
+              // Omit the key entirely (not '') when this caller didn't pass a
+              // phone — an upsert with phone_number:'' overwrites whatever
+              // was already saved. Every profile-edit save (ClientProfile.jsx
+              // etc.) doesn't carry a phone field, so `|| ''` here was
+              // silently erasing the number captured at signup the first
+              // time a client changed anything else on their profile.
+              // JSON.stringify drops undefined-valued keys, so PostgREST's
+              // upsert never touches this column when it's omitted.
+              phone_number: profile.phone || undefined,
               fitness_goal: profile.userGoal,
               weight_kg: parseFloat(profile.userWeight) || null,
               height_cm: parseFloat(profile.userHeight) || null,
@@ -435,7 +443,10 @@ const databaseService = {
         user_id: userId,
         coach_id: profile.coach_id || localStorage.getItem('userCoachId') || null,
         full_name: profile.userName,
-        phone_number: profile.phone || '',
+        // Same fix as the live-DB upsert above: fall back to whatever was
+        // already stored, not '', so a profile-edit save that doesn't carry
+        // a phone field can't erase the number captured at signup.
+        phone_number: profile.phone || mClient?.phone_number || '',
         fitness_goal: profile.userGoal,
         weight_kg: parseFloat(profile.userWeight) || null,
         height_cm: parseFloat(profile.userHeight) || null,

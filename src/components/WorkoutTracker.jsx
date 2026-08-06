@@ -996,21 +996,24 @@ const WorkoutTracker = () => {
         setSelectedSessionIndex(merged.length - 1);
       }
 
-      // Self-healing resync: a self-logged local session for THIS device's own
-      // account that never reached workout_logs (the exact silent failure
-      // mode saveWorkoutSession had before it could resolve a deterministic
+      // Self-healing resync: a local session for THIS device's own account
+      // that never reached workout_logs (the exact silent failure mode
+      // saveWorkoutSession had before it could resolve a deterministic
       // clientId — see newSession in handleConfirmSaveWorkout). Retried here,
       // quietly, with that same clientId now supplied, so it lands instead of
       // repeating whatever ambiguous lookup likely caused it to go missing.
       // Scoped tightly: only this user's own sessions (never a stray
-      // other-client entry from legacy local multi-client storage), never a
-      // coach-logged one, only dates truly absent from the DB, and only ones
-      // that actually have set data to save.
+      // other-client entry from legacy local multi-client storage), only
+      // dates truly absent from the DB, and only ones that actually have set
+      // data to save. Used to also exclude source==='coach' sessions —
+      // those needed this retry MOST (see the clientId fix above), so that
+      // exclusion just meant a client's finished coach-assigned workout
+      // could never self-heal into the DB even after the underlying bug was
+      // fixed for new sessions.
       if (ownKey) {
         allSessions
           .filter(s =>
             s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === loggedInKey &&
-            s.source !== 'coach' &&
             !dbDates.has(s.date) &&
             (s.exercises || []).some(ex => (ex.sets || []).length > 0)
           )
@@ -1853,18 +1856,27 @@ const WorkoutTracker = () => {
       caloriesBurned: finalCalories,
       planName: templateName.trim() || 'Custom Routine',
       source: workoutSource, // 'self' for client self-logged, 'coach' for coach-assigned plans
-      // Deterministic id for saveWorkoutSession's UUID fast path — self-logged
-      // only, since ownUserId is THIS device's own account (not necessarily
-      // whichever client name a coach might be manually logging under in
-      // trainer mode). Without this, saveWorkoutSession falls back to an
-      // ambiguous email/name lookup that can silently match nobody and write
-      // zero rows to workout_logs — even though the "workout finished" push
-      // to the coach still fires regardless, since that's a separate,
-      // DB-independent call. Confirmed 2026-07-24: a client's completed
-      // session never reached workout_logs, so it never showed up as a
-      // "finished a workout" card on the coach's home screen, despite the
-      // push notification arriving.
-      ...(workoutSource !== 'coach' && ownUserId ? { clientId: ownUserId } : {})
+      // Deterministic id for saveWorkoutSession's UUID fast path. This
+      // component only ever renders for the logged-in client's own account
+      // (App.jsx routes coaches to TrainerDashboard instead — see its
+      // renderContent()), so ownUserId is reliably THIS client's id whether
+      // the workout being logged is self-built ('self') or a coach-assigned
+      // plan ('coach') — workoutSource describes who *authored* the plan,
+      // not who's doing the logging. Without this, saveWorkoutSession falls
+      // back to an ambiguous email/name lookup that can silently match
+      // nobody and write zero rows to workout_logs — even though the
+      // "workout finished" push to the coach still fires regardless, since
+      // that's a separate, DB-independent call. Confirmed 2026-07-24: a
+      // client's completed session never reached workout_logs, so it never
+      // showed up as a "finished a workout" card on the coach's home
+      // screen, despite the push notification arriving. BUG FIX
+      // (2026-08-06): this used to exclude clientId specifically for
+      // workoutSource === 'coach' — i.e. omitted it for exactly the
+      // sessions most likely to need it (a coach's assigned plan), which is
+      // how a client's finished coach-plan workout could go completely
+      // missing from the coach's History/Muscles tabs with no error shown
+      // anywhere.
+      ...(ownUserId ? { clientId: ownUserId } : {})
     };
 
     const updated = [...sessions, newSession];

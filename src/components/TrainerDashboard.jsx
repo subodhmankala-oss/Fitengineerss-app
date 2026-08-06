@@ -1517,6 +1517,29 @@ const TrainerDashboard = ({ handleLogout }) => {
       setWorkoutLogs(grouped);
       setRawWorkoutLogs(allLogs);
 
+      // The Weekly History view hard-defaults to "This week" (handleSelectClient
+      // resets historyWeekOffset to 0) — if the client's most recent session
+      // falls outside it, the chart just looks empty with nothing on screen
+      // hinting that a ‹ click would reveal real, recently-logged history.
+      // Jump straight to the most recent session's week instead, so a
+      // client who genuinely finished a workout never appears to have
+      // logged nothing.
+      if (grouped.length > 0) {
+        const mondayStart = (d) => {
+          const copy = new Date(d);
+          const day = copy.getDay();
+          copy.setDate(copy.getDate() - day + (day === 0 ? -6 : 1));
+          copy.setHours(0, 0, 0, 0);
+          return copy;
+        };
+        const startOfThisWeek = mondayStart(new Date());
+        const startOfSessionWeek = mondayStart(parseLocalDateString(grouped[0].date));
+        if (startOfSessionWeek < startOfThisWeek) {
+          const weeksBack = Math.round((startOfThisWeek - startOfSessionWeek) / (7 * 86400000));
+          setHistoryWeekOffset(-weeksBack);
+        }
+      }
+
       // Load client plans
       fetchClientPlans(client.id);
     } catch (err) {

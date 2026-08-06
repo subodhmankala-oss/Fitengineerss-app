@@ -22,7 +22,8 @@ import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
-import { normalizeExerciseForGuide } from '../utils/videoUtils';
+import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
+import { presetExercises } from './WorkoutTracker';
 
 // Converts one AI-generated exercise (api/generate-workout-draft.js's
 // { name, type, setCount, reps, durationMinutes } shape) into this app's
@@ -402,7 +403,15 @@ const TrainerDashboard = ({ handleLogout }) => {
     databaseService.getExerciseLibrary().then(setGuideExercisesList).catch(err => console.error(err));
   }, []);
   const handleShowFormGuide = (name) => {
-    const matched = guideExercisesList.find(pe => pe.name.toLowerCase() === name.toLowerCase());
+    // presetExercises (imported from WorkoutTracker) is the same ~16-video
+    // dataset seeded into the DB, hardcoded client-side — a redundant local
+    // fallback so a transient fetch failure/timeout doesn't leave the guide
+    // stuck on the generic no-video text for exercises that really do have
+    // one (this was the reported "few clients not seeing the link" gap: the
+    // DB fetch was the *only* source, so any network hiccup meant total
+    // silent loss, not just a brief delay).
+    const matched = findExerciseGuideMatch(guideExercisesList, name) ||
+                    findExerciseGuideMatch(presetExercises, name);
     if (matched) {
       setActiveGuideExercise(normalizeExerciseForGuide(matched));
       return;

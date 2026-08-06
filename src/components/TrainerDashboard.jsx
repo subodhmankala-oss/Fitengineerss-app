@@ -22,6 +22,7 @@ import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
+import { normalizeExerciseForGuide } from '../utils/videoUtils';
 
 // Converts one AI-generated exercise (api/generate-workout-draft.js's
 // { name, type, setCount, reps, durationMinutes } shape) into this app's
@@ -389,8 +390,39 @@ const TrainerDashboard = ({ handleLogout }) => {
   // Which surface opened the shared exercise picker: 'editor' | 'live' | null
   const [exercisePickerContext, setExercisePickerContext] = useState(null);
   // "How to perform this exercise" sheet, opened from the picker's
-  // clickable thumbnail icon — see ExerciseGuideModal.
+  // clickable thumbnail icon and each exercise row's own "Form Guide"
+  // button — see ExerciseGuideModal.
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
+  // The exercises table has real video_url/setup/execution/tip data for the
+  // curated preset list (see databaseService.seedExerciseLibrary) — same
+  // source the client's Form Guide already uses. Fetched once here so the
+  // coach side gets real videos too instead of only the generic fallback.
+  const [guideExercisesList, setGuideExercisesList] = useState([]);
+  useEffect(() => {
+    databaseService.getExerciseLibrary().then(setGuideExercisesList).catch(err => console.error(err));
+  }, []);
+  const handleShowFormGuide = (name) => {
+    const matched = guideExercisesList.find(pe => pe.name.toLowerCase() === name.toLowerCase());
+    if (matched) {
+      setActiveGuideExercise(normalizeExerciseForGuide(matched));
+      return;
+    }
+    // No video/guide data for this one (custom exercise, or outside the
+    // curated preset list) — a generic setup/execution/tip fallback still
+    // gives a real "how to perform this" guide, matching what an unmatched
+    // custom exercise shows on the client.
+    setActiveGuideExercise({
+      name,
+      category: 'Exercise',
+      videoFile: '',
+      guide: {
+        target: 'Primary Muscle Group',
+        setup: 'Position yourself comfortably with stable support and check alignment.',
+        execution: 'Control the weights through a full range of motion. Keep core tight.',
+        tip: 'Focus on mind-muscle connection and avoid using momentum.'
+      }
+    });
+  };
 
   // ── AI Workout Draft Builder ──
   // "Create Workout Plan" now asks Build Manually vs Create Draft with AI
@@ -4025,7 +4057,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                             return (
                               <div key={exIdx} className="live-logger-exercise-card">
                                 <div className="live-logger-ex-header">
-                                  <span className="live-logger-ex-name">{ex.name}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                    <span className="live-logger-ex-name">{ex.name}</span>
+                                    <button
+                                      type="button"
+                                      className="btn-form-guide-sm"
+                                      onClick={() => handleShowFormGuide(ex.name)}
+                                    >
+                                      🎬 Form Guide
+                                    </button>
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveExerciseFromEditor(exIdx)}
@@ -4518,7 +4559,16 @@ const TrainerDashboard = ({ handleLogout }) => {
                       <div key={exIdx} className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
-                          <span className="live-logger-ex-name">{ex.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <span className="live-logger-ex-name">{ex.name}</span>
+                            <button
+                              type="button"
+                              className="btn-form-guide-sm"
+                              onClick={() => handleShowFormGuide(ex.name)}
+                            >
+                              🎬 Form Guide
+                            </button>
+                          </div>
                           <button
                             onClick={() => handleLiveRemoveExercise(exIdx)}
                             style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
@@ -5096,23 +5146,7 @@ const TrainerDashboard = ({ handleLogout }) => {
           if (exercisePickerContext === 'editor') setEditorExercises(prev => prev.filter(notName));
           else setLiveExercises(prev => prev.filter(notName));
         }}
-        onShowFormGuide={(name) => {
-          // No curated video/guide dataset on the coach side (that's a
-          // client-only asset list) — the generic setup/execution/tip
-          // fallback still gives a real "how to perform this" guide,
-          // matching what an unmatched custom exercise shows on the client.
-          setActiveGuideExercise({
-            name,
-            category: 'Exercise',
-            videoFile: '',
-            guide: {
-              target: 'Primary Muscle Group',
-              setup: 'Position yourself comfortably with stable support and check alignment.',
-              execution: 'Control the weights through a full range of motion. Keep core tight.',
-              tip: 'Focus on mind-muscle connection and avoid using momentum.'
-            }
-          });
-        }}
+        onShowFormGuide={handleShowFormGuide}
       />
       <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
 

@@ -13,7 +13,6 @@ import SmartNudges from './components/SmartNudges';
 import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
 import TrainerDashboard from './components/TrainerDashboard';
-import AdminDashboard from './components/AdminDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import DemoTour from './components/DemoTour';
 import TourOverlay from './components/TourOverlay';

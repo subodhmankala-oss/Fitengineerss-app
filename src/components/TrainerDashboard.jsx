@@ -20,7 +20,7 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
-import { playAlarmBeeps } from '../utils/alarmSound';
+import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import { presetExercises } from './WorkoutTracker';
@@ -938,6 +938,9 @@ const TrainerDashboard = ({ handleLogout }) => {
   };
 
   const handleLiveToggleSet = (exIdx, setIdx) => {
+    // Real click, right here — unlocks audio for the rest timer's alarm,
+    // which fires later from a setInterval tick (see alarmSound.js).
+    unlockAudio();
     const now = Date.now();
     const togglingSetOn = !liveExercises[exIdx]?.sets[setIdx]?.isCompleted;
     setLiveExercises(prev => prev.map((ex, idx) => {

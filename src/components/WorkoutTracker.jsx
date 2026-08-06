@@ -16,7 +16,7 @@ import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThum
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
-import { playAlarmBeeps } from '../utils/alarmSound';
+import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -1285,6 +1285,9 @@ const WorkoutTracker = () => {
   };
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
+    // Real click, right here — unlocks audio for the rest timer's alarm,
+    // which fires later from a setInterval tick (see alarmSound.js).
+    unlockAudio();
     const now = Date.now();
     // First completed set of an idle session = the client has started working
     // out. Notify their coach once, at that transition. Only for a client

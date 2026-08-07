@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
@@ -8,6 +9,7 @@ import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExerc
 import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
+import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { notifyEvent } from '../utils/pushNotify';
 import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
@@ -812,6 +814,7 @@ const WorkoutTracker = () => {
   const [showAllCoachPlans, setShowAllCoachPlans] = useState(false);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
+  const [historyModalExercise, setHistoryModalExercise] = useState(null);
   // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
   const [setTimers, setSetTimers] = useState({});
   const [, forceSetTimerTick] = useState(0);
@@ -1611,15 +1614,27 @@ const WorkoutTracker = () => {
 
   const handleSetStopwatchStart = (exIdx, sIdx) => {
     const key = getSetTimerKey(exIdx, sIdx);
+    // Same resume-from-typed-value fallback as handleCardioStopwatchStart:
+    // if there's no timer entry yet (fresh set, or one whose time the
+    // client typed in by hand instead of running the stopwatch), start from
+    // the set's own saved `time` instead of always restarting at 0.
+    const existingPausedDuration = setTimers[key]?.pausedDuration;
+    const pausedDuration = existingPausedDuration != null
+      ? existingPausedDuration
+      : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
     setSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration: prev[key]?.pausedDuration || 0 }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
     }));
   };
 
   const handleSetStopwatchPause = (exIdx, sIdx) => {
     const key = getSetTimerKey(exIdx, sIdx);
     const elapsed = getSetElapsedSeconds(exIdx, sIdx);
+    // Sync into set.time on pause (not just on Complete) — without this the
+    // time field had no manually-editable value to show while paused, since
+    // the live count only ever lived in setTimers, not on the set itself.
+    handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
@@ -3115,7 +3130,16 @@ const WorkoutTracker = () => {
                     <div className="ex-card-header">
                       <div className="ex-card-title-group">
                         <span className="ex-indicator-dot"></span>
-                        <h5>{ex.name}</h5>
+                        <h5
+                          className="ex-name-clickable"
+                          role="button"
+                          tabIndex={0}
+                          title="View exercise history"
+                          onClick={() => setHistoryModalExercise(ex.name)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalExercise(ex.name); } }}
+                        >
+                          {ex.name}
+                        </h5>
                         <button
                           type="button"
                           className="btn-form-guide-sm"
@@ -3350,9 +3374,25 @@ const WorkoutTracker = () => {
                                           >
                                             {isRunning ? '⏸' : '▶'}
                                           </button>
-                                          <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
-                                            {timeStr}
-                                          </span>
+                                          {isRunning ? (
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                              {timeStr}
+                                            </span>
+                                          ) : (
+                                            // Not running — editable directly, same as the cardio time
+                                            // field, instead of only settable by running the stopwatch
+                                            // live. Pressing Start again resumes from whatever's typed
+                                            // here (see handleSetStopwatchStart's fallback).
+                                            <input
+                                              type="text"
+                                              inputMode="numeric"
+                                              value={set.time || ''}
+                                              onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                              placeholder="mm:ss"
+                                              className="cardio-time-input"
+                                              style={{ minWidth: '50px' }}
+                                            />
+                                          )}
                                         </div>
                                       );
                                     })()}
@@ -3763,8 +3803,18 @@ const WorkoutTracker = () => {
           rest-finished moment used to interrupt with a toast; now the card
           itself blinks (key={restPulseKey} forces a remount so the CSS blink
           animation replays every time, since re-applying the same class
-          wouldn't restart an animation already in progress). */}
-      {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && (
+          wouldn't restart an animation already in progress).
+
+          Portaled to .app-container (not rendered in place) so it's a
+          sibling of .main-content instead of a descendant — sitting inside
+          .main-content, its position:absolute still scrolled away with
+          that container's own scroll even though its containing block
+          (.app-container) never moves; a scrollable ancestor between an
+          absolutely-positioned element and its containing block still
+          drags it along. Portaling out fixes it at the bottom of the
+          screen regardless of scroll position, matching Hevy's own
+          behavior. */}
+      {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
         <div
           key={restPulseKey}
           className={`rest-timer-floating-card ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
@@ -3808,12 +3858,22 @@ const WorkoutTracker = () => {
               </div>
             </>
           )}
-        </div>
+        </div>,
+        document.querySelector('.app-container') || document.body
       )}
 
       {/* Form Guide — Hevy-style bottom sheet, shared with the exercise
           picker's clickable thumbnail icon (and the coach side) */}
       <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
+
+      {/* Tap an exercise's name in the log card → full Daily/Weekly/Monthly/
+          Yearly history for that exercise, scoped to the active client. */}
+      <ExerciseHistoryModal
+        exerciseName={historyModalExercise}
+        sessions={sessions}
+        clientName={selectedClient}
+        onClose={() => setHistoryModalExercise(null)}
+      />
 
       {/* Unticked Finish Warning Dialog Modal */}
       {showUntickedFinishModal && (

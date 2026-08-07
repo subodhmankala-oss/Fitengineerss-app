@@ -14,9 +14,10 @@ import NutritionTracker from './components/NutritionTracker';
 import WorkoutTracker from './components/WorkoutTracker';
 import TrainerDashboard from './components/TrainerDashboard';
 import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
-import DemoTour from './components/DemoTour';
 import TourOverlay from './components/TourOverlay';
+import CoachTourOverlay from './components/CoachTourOverlay';
 import { useTour } from './context/TourContext';
+import { useCoachTour } from './context/CoachTourContext';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
@@ -347,10 +348,10 @@ function App() {
            (localStorage.getItem('userRole') === 'client' || !localStorage.getItem('userRole'));
   });
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
-  // Quick "how to use the app" walkthrough — shown once per role, replayable via a help button.
-  const [showDemoTour, setShowDemoTour] = useState(false);
+  // First-login spotlight walkthrough — shown once per role, replayable via a help button.
   const demoTourCheckedRef = useRef(false);
   const clientTour = useTour();
+  const coachTour = useCoachTour();
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
@@ -393,9 +394,10 @@ function App() {
     if (admin) { demoTourCheckedRef.current = true; return; }
 
     if (coach) {
-      if (localStorage.getItem('demoTourSeen_coach') !== 'true') {
-        setShowDemoTour(true);
-      }
+      // Coaches get the same interactive spotlight tour as clients — it
+      // opens a sample "Demo Client" row and walks through Manage → Send
+      // plan → Live Log → History (see CoachTourOverlay.jsx).
+      coachTour.start();
     } else {
       // Clients get the interactive spotlight tour instead of the modal —
       // it starts on the Home screen and follows real navigation into the
@@ -403,7 +405,7 @@ function App() {
       clientTour.start();
     }
     demoTourCheckedRef.current = true;
-  }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, clientTour]);
+  }, [userEmail, userRole, onboardingComplete, showClientWizard, pendingConfirmationEmail, showResetPasswordModal, clientTour, coachTour]);
 
   // Spotlight step 1→2: the bottom-nav Workout button is highlighted from
   // the Home screen; once the user actually navigates to the Workout tab
@@ -1327,11 +1329,6 @@ function App() {
   const isAdmin = isSuperAdmin(userEmail) || userRole === 'super-admin' || userRole === 'admin';
   const isCoach = isTrainer(userEmail) || userRole === 'coach';
 
-  const closeDemoTour = (role) => {
-    localStorage.setItem(`demoTourSeen_${role}`, 'true');
-    setShowDemoTour(false);
-  };
-
   // A password-recovery link both opens the reset form AND establishes a session,
   // so without this guard the session routing (onboarding wizard / dashboard) wins
   // and the user never sees the reset form. Intercept it at the top level so the
@@ -1364,12 +1361,10 @@ function App() {
       <div className="app-container">
         <TrainerDashboard
           handleLogout={handleLogout}
-          onReplayDemoTour={isAdmin ? undefined : () => setShowDemoTour(true)}
+          onReplayDemoTour={isAdmin ? undefined : () => coachTour.restart()}
         />
         {renderResetPasswordModal()}
-        {showDemoTour && !isAdmin && (
-          <DemoTour role="coach" onClose={() => closeDemoTour('coach')} />
-        )}
+        {!isAdmin && <CoachTourOverlay />}
       </div>
     );
   }

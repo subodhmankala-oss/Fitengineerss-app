@@ -1,7 +1,36 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      // We hand-write the service worker (src/sw.js) so it can keep the
+      // existing push-notification handlers; injectManifest just splices in
+      // the precache list at build time instead of generating a SW from
+      // scratch.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        // App shell only: precache the hashed JS/CSS bundle, index.html, the
+        // offline fallback, and small brand icons. Deliberately excludes
+        // public/videos, background/slide art, and the iOS splash set —
+        // those are large and non-critical, so they load on demand instead
+        // of bloating the precache / install size.
+        globPatterns: ['**/*.{js,css,html}', 'logo.png', 'favicon.svg', 'icons.svg', 'manifest.webmanifest', 'icons/icon-*.png'],
+        globIgnores: ['**/videos/**', '**/splash/**', '**/screenshots/**', '**/background-*.png', '**/slide-*.png', '**/gym_bg.png'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
+      // We already ship a hand-authored public/manifest.webmanifest linked
+      // directly from index.html; don't let the plugin generate its own.
+      manifest: false,
+      injectRegister: false, // we register the SW ourselves in main.jsx for full control over the update flow
+      devOptions: {
+        enabled: false, // avoid SW caching confusion during local dev / HMR
+      },
+    }),
+  ],
 })

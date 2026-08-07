@@ -1,102 +1,58 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useTour } from '../context/TourContext';
+import { useCoachTour } from '../context/CoachTourContext';
 import './TourOverlay.css';
 
-// The script for the client spotlight tour. Each entry's `selector` must
-// match a real element carrying that data-tour attribute (see App.jsx /
-// WorkoutTracker.jsx). Steps with no `cta` advance on their own once the
-// app's real state changes (handled by effects next to those elements) —
-// for those we show a pulsing "tap here" hint instead of a button. Every
-// step also gets a manual "Next" escape hatch so nobody can get stranded
-// if they don't spot the right tap target.
+// The coach-side counterpart to TourOverlay.jsx — same spotlight mechanics,
+// different script. Runs entirely against a sample "Demo Client" row (see
+// TrainerDashboard's DEMO_CLIENT / renders it only while this tour is
+// active) so a brand-new coach with zero real clients still has something
+// real to click into. Nothing here writes real data: opening the demo
+// client and switching tabs are local UI state plus read-only queries that
+// return empty for an id that doesn't exist in the database.
 const STEPS = {
   1: {
-    icon: '🏠',
-    selector: '[data-tour="nav-workout"]',
-    title: 'Log a Workout',
-    desc: 'Tap here to start tracking your training.',
-    // Pure navigation, nothing created or saved — safe to tap for the user
-    // if they're not doing it themselves.
+    icon: '👥',
+    selector: '[data-tour="tc-demo-manage-btn"]',
+    title: 'Meet Your Clients',
+    desc: "This is a sample client so you can see how everything works. Tap Manage to open their profile.",
+    // Purely local state (selects a sample row) — safe to tap for the coach.
     autoClick: true,
   },
   2: {
     icon: '📋',
-    selector: '[data-tour="wt-tab-templates"]',
-    title: 'Browse Workouts',
-    desc: 'Tap here to see workout programs.',
+    selector: '[data-tour="tc-tab-plans"]',
+    title: 'Assign a Plan',
+    desc: 'Build or AI-generate a workout plan and send it straight to your client from here.',
     autoClick: true,
   },
   3: {
     icon: '🎯',
-    selector: '[data-tour="wt-level-tabs"]',
-    title: 'Pick Your Level',
-    desc: 'These are ready-made generic templates — Beginner, Intermediate or Advanced.',
-    cta: { label: 'Next', action: 'next', to: 4 },
-    // The container isn't clickable — pick the first real level button inside it.
+    selector: '[data-tour="tc-tab-livelog"]',
+    title: 'Live Session Log',
+    desc: "Watch a client's workout update live, set by set, as they train.",
     autoClick: true,
-    autoClickSelector: '[data-tour="wt-level-tabs"] .wt-level-tab',
   },
   4: {
-    icon: '✍️',
-    selector: '[data-tour="wt-tab-log"]',
-    title: 'Log Sets',
-    desc: "Tap here when you're ready to log your sets.",
-    autoClick: true,
-  },
-  5: {
-    icon: '➕',
-    selector: '[data-tour="wt-start-empty-card"]',
-    title: 'Start a Workout',
-    desc: 'Tap here to start an empty workout from scratch.',
-    // Auto-clicked for idle users. This does start a real (empty) session,
-    // but it's the only way steps 6-8 can exist at all — their targets live
-    // inside the logging form. The session is a discardable draft, and step 8
-    // (Save) is still never auto-fired, so nothing is ever persisted to the
-    // user's history without a deliberate tap.
-    autoClick: true,
-  },
-  6: {
-    icon: '✅',
-    selector: '[data-tour="wt-log-exercise-card"]',
-    title: 'Log Your Sets',
-    desc: 'Enter reps & weight, then tick each set as you finish it.',
-    cta: { label: 'Next', action: 'next', to: 7 },
-  },
-  7: {
-    icon: '➕',
-    selector: '[data-tour="wt-add-exercise-btn"]',
-    title: 'Add More Exercises',
-    desc: 'Tap here anytime to add another exercise to this session.',
-    cta: { label: 'Next', action: 'next', to: 8 },
-    // No autoClick — adds a real (blank) exercise row to their session.
-  },
-  8: {
-    icon: '🎉',
-    selector: '[data-tour="wt-save-workout-btn"]',
-    title: "You're All Set!",
-    desc: "Save your session here once you're done logging.",
+    icon: '🏋️',
+    selector: '[data-tour="tc-tab-workout"]',
+    title: 'Workout History',
+    desc: 'Review past sessions, PRs and training status once your client starts logging.',
     cta: { label: 'Finish', action: 'finish' },
-    // No autoClick — this persists the workout. Must be a deliberate tap.
   },
 };
 
 const TOTAL_STEPS = Object.keys(STEPS).length;
 const PAD = 8;
-
 const VIEWPORT_MARGIN = 12;
 const AUTO_ADVANCE_MS = 5000;
 
-export default function TourOverlay() {
-  const { step, advanceIfStep, finish } = useTour();
+export default function CoachTourOverlay() {
+  const { step, advanceIfStep, finish } = useCoachTour();
   const [rect, setRect] = useState(null);
   const [tooltipSize, setTooltipSize] = useState(null);
   const tooltipRef = useRef(null);
   const config = STEPS[step];
 
-  // Whenever the step changes, drop the old spotlight immediately rather
-  // than letting a stale rect linger under the new step's copy — avoids a
-  // ring highlighting the wrong control while the tooltip already talks
-  // about the next one.
   useEffect(() => {
     setRect(null);
   }, [step]);
@@ -109,10 +65,6 @@ export default function TourOverlay() {
     const measure = () => {
       const el = document.querySelector(config.selector);
       if (el) {
-        // The target can be scrolled out of view (e.g. "Add Exercise" sits
-        // below whatever exercises are already logged) — bring it on-screen
-        // the first time we find it each step, so the ring is never pointing
-        // at something the user can't actually see.
         if (!scrolled) {
           scrolled = true;
           const r0 = el.getBoundingClientRect();
@@ -131,34 +83,6 @@ export default function TourOverlay() {
     return () => cancelAnimationFrame(raf);
   }, [step, config]);
 
-  // A user can land on a later screen than the tour expects — e.g. they
-  // already have a workout in progress, so the "browse workouts" / "pick a
-  // level" screens these steps want to point at were never visited. Rather
-  // than sit on a step whose target can never appear, jump forward to the
-  // nearest later step that's actually present on screen right now.
-  //
-  // Scoped to steps 1-4 only (getting the user into the log-workout screen).
-  // Steps 5-8 live *inside* an actual logging session — their targets are
-  // legitimately absent until the user starts one, and that's the point of
-  // showing them, not a reason to skip past them to "Finish" before they've
-  // done anything.
-  useEffect(() => {
-    if (!config || step >= 5) return undefined;
-    const timer = setTimeout(() => {
-      if (document.querySelector(config.selector)) return;
-      for (let n = step + 1; n <= 4; n++) {
-        if (document.querySelector(STEPS[n].selector)) {
-          advanceIfStep(step, n);
-          return;
-        }
-      }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [step, config, advanceIfStep]);
-
-  // Measure the actual rendered tooltip so we can keep it fully on-screen —
-  // its height varies (tap hint, CTA vs. ghost button), and the target can
-  // sit near the very top or bottom edge of the viewport.
   useLayoutEffect(() => {
     const el = tooltipRef.current;
     if (!el) return undefined;
@@ -169,26 +93,16 @@ export default function TourOverlay() {
     return () => ro.disconnect();
   }, [step, rect]);
 
-  // Auto-advance: nobody should ever be stuck reading a step with no visible
-  // way forward. Every step moves on by itself after AUTO_ADVANCE_MS unless
-  // the user has already moved on (clicking anything that changes `step`
-  // tears this effect down before it fires). The countdown is mirrored by
-  // the CSS-driven progress slider in the tooltip footer.
-  //
-  // For `autoClick` steps this doesn't just bump the step counter — it taps
-  // the real control for the user, so the screen actually follows along
-  // instead of the tour text getting ahead of what's on screen. Steps that
-  // create or save data are never autoClick (see STEPS above), so this can
-  // only ever switch a tab or pick a filter on the user's behalf, nothing
-  // that writes anything.
+  // Auto-advance after AUTO_ADVANCE_MS, same as the client tour. `autoClick`
+  // steps tap the real control (opening the demo client, switching tabs) so
+  // the screen actually follows along for an idle coach instead of the tour
+  // text getting ahead of what's on screen.
   useEffect(() => {
     if (!config) return undefined;
     const timer = setTimeout(() => {
       if (config.autoClick) {
         const target = document.querySelector(config.autoClickSelector || config.selector);
         if (target) { target.click(); return; }
-        // Target genuinely isn't on screen — fall through to a plain step
-        // bump below so the user isn't stuck forever.
       }
       if (config.cta?.action === 'finish') finish();
       else if (config.cta?.action === 'next') advanceIfStep(step, config.cta.to);
@@ -215,8 +129,6 @@ export default function TourOverlay() {
   const tooltipH = tooltipSize?.height ?? 220;
   const spaceBelow = hasTarget ? viewportH - (hole.top + hole.height) : 0;
   const spaceAbove = hasTarget ? hole.top : 0;
-  // Prefer whichever side actually fits the measured tooltip; fall back to
-  // "below" only if neither side has room (we'll clamp it into view either way).
   const tooltipBelow = hasTarget
     ? (spaceBelow >= tooltipH + 14 || spaceAbove < tooltipH + 14)
     : true;

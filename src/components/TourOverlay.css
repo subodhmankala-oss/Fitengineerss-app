@@ -7,8 +7,9 @@
 
 .tour-mask {
   position: fixed;
-  background: rgba(4, 8, 14, 0.72);
+  background: rgba(4, 8, 14, 0.78);
   pointer-events: auto;
+  transition: all 0.2s ease;
 }
 
 .tour-ring {
@@ -51,40 +52,155 @@
   z-index: 100001;
   width: min(280px, calc(100vw - 24px));
   background: linear-gradient(160deg, var(--bg-card, #151d2c) 0%, var(--bg-card-active, #0f172a) 100%);
-  border: 1px solid var(--border-color, #1e293b);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: var(--radius-md, 16px);
-  padding: 14px 16px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  padding: 16px 18px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(16, 185, 129, 0.08);
   pointer-events: auto;
   animation: tour-tooltip-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes tour-tooltip-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tour-tooltip-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 16px) var(--radius-md, 16px) 0 0;
+}
+
+.tour-tooltip-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--primary-accent-light, #10b981);
+  animation: tour-progress-fill 5s linear forwards;
+}
+
+@keyframes tour-progress-fill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.tour-tooltip-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tour-tooltip-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.tour-tooltip-headtext {
+  min-width: 0;
+  flex: 1;
+}
+
+.tour-tooltip-step {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary-accent-light, #10b981);
+  margin-bottom: 2px;
 }
 
 .tour-tooltip-title {
-  margin: 0 0 4px;
-  font-size: 0.95rem;
+  margin: 0;
+  font-size: 0.98rem;
   font-weight: 800;
   color: var(--text-main, #f8fafc);
+  line-height: 1.25;
 }
 
 .tour-tooltip-desc {
-  margin: 0;
+  margin: 0 0 10px;
   font-size: 0.8rem;
   line-height: 1.45;
   color: var(--text-muted, #94a3b8);
 }
 
+.tour-tooltip-tap-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary-accent-light, #10b981);
+}
+
+.tour-tooltip-tap-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary-accent-light, #10b981);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  animation: tour-tap-dot 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes tour-tap-dot {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.tour-tooltip-dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.tour-tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.tour-tooltip-dot.is-done {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+.tour-tooltip-dot.is-active {
+  background: var(--primary-accent-light, #10b981);
+  transform: scale(1.3);
+}
+
+.tour-tooltip-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .tour-tooltip-cta {
-  margin-top: 10px;
   background: var(--primary-accent, #059669);
   color: #fff;
   border: none;
   border-radius: var(--radius-sm, 8px);
-  padding: 7px 14px;
+  padding: 8px 16px;
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
@@ -92,4 +208,21 @@
 
 .tour-tooltip-cta:hover {
   opacity: 0.88;
+}
+
+.tour-tooltip-next-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 2px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  margin-right: auto;
+}
+
+.tour-tooltip-next-ghost:hover {
+  color: var(--text-main, #f8fafc);
 }

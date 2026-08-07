@@ -114,6 +114,9 @@ button {
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 40px rgba(16, 185, 129, 0.05); /* Subtle green glow around the app frame */
+  /* viewport-fit=cover lets content draw under the iPhone notch/Dynamic
+     Island; push it back down by the real inset so nothing sits behind it. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .main-content {

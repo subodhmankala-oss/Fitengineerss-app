@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
@@ -660,15 +661,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
 
   const handleLiveSetStopwatchStart = (exIdx, setIdx) => {
     const key = getSetTimerKey(exIdx, setIdx);
+    // Same resume-from-typed-value fallback as handleLiveCardioStopwatchStart:
+    // if there's no timer entry yet (fresh set, or one whose time the coach
+    // typed in by hand instead of running the stopwatch), start from the
+    // set's own saved `time` instead of always restarting at 0.
+    const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
+    const pausedDuration = existingPausedDuration != null
+      ? existingPausedDuration
+      : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
     setLiveSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration: prev[key]?.pausedDuration || 0 }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
     }));
   };
 
   const handleLiveSetStopwatchPause = (exIdx, setIdx) => {
     const key = getSetTimerKey(exIdx, setIdx);
     const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+    // Sync into set.time on pause (not just on Complete) — without this the
+    // time field had no manually-editable value to show while paused, since
+    // the live count only ever lived in liveSetTimers, not on the set itself.
+    handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
@@ -4799,9 +4812,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                                             >
                                               {isRunning ? '⏸' : '▶'}
                                             </button>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
-                                              {timeStr}
-                                            </span>
+                                            {isRunning ? (
+                                              <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                                {timeStr}
+                                              </span>
+                                            ) : (
+                                              // Not running — editable directly, same as the cardio
+                                              // time field, instead of only settable by running the
+                                              // stopwatch live. Pressing Start resumes from whatever's
+                                              // typed here (see handleLiveSetStopwatchStart's fallback).
+                                              <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={set.time || ''}
+                                                onChange={(e) => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                                placeholder="mm:ss"
+                                                className="cardio-time-input"
+                                                style={{ minWidth: '50px' }}
+                                              />
+                                            )}
                                           </div>
                                         );
                                       })()}
@@ -4903,8 +4932,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                   {/* Floating rest-between-sets timer — same behavior/UI as
                       the client's own logger; --coach sits closer to the
                       bottom edge since this side has no fixed bottom nav
-                      bar to clear. */}
-                  {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && (
+                      bar to clear. Portaled to .app-container for the same
+                      reason as the client's version (see WorkoutTracker.jsx)
+                      — otherwise it scrolls away with this panel's own
+                      internal scroll instead of staying pinned to the
+                      screen. */}
+                  {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
                     <div
                       key={restPulseKey}
                       className={`rest-timer-floating-card rest-timer-floating-card--coach ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
@@ -4948,7 +4981,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                           </div>
                         </>
                       )}
-                    </div>
+                    </div>,
+                    document.querySelector('.app-container') || document.body
                   )}
 
                     {showLiveCoachNote && (

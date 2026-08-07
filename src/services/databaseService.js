@@ -36,6 +36,19 @@ export const supabase = isSupabaseConfigured
 // exact queries return identical rows), and every filter is passed explicitly.
 const REST_BASE = isSupabaseConfigured ? `${supabaseUrl}/rest/v1` : '';
 
+// ─── EXERCISE LIBRARY CACHE ───
+// getExerciseLibrary() used to hit the network fresh (seed-emptiness-check +
+// full select — two sequential round-trips) every single time the "Add
+// Exercise" picker was opened, which is what made the modal feel like it
+// took ~3s to appear each time. The library barely ever changes within a
+// session, so cache it in memory: the first open pays the network cost,
+// every later open in the same tab session is instant. seededOnce guards
+// the emptiness-check round-trip specifically, since once we've confirmed
+// the table is non-empty this session there's no need to keep re-asking.
+let exerciseLibraryCache = null;
+let exerciseLibraryFetchPromise = null;
+let seededOnce = false;
+
 async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -3983,6 +3996,12 @@ const databaseService = {
       }
     });
 
+    if (seededOnce) {
+      // Already confirmed non-empty (or seeded) once this session — skip
+      // the emptiness-check round-trip entirely.
+      return;
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         // Emptiness check goes through restSelect (anon-key + timeout), not
@@ -3991,6 +4010,9 @@ const databaseService = {
         // above). The exercises table's read RLS is public, so the anon key
         // is sufficient here regardless of the caller's own session state.
         const existing = await restSelect('exercises?select=id&limit=1');
+        if (existing && existing.length > 0) {
+          seededOnce = true;
+        }
         if (!existing || existing.length === 0) {
           // Seed via the admin_seed_exercises SECURITY DEFINER RPC (see
           // sql/exercises_table.sql). The exercises table's write RLS denies
@@ -4002,6 +4024,7 @@ const databaseService = {
           console.log('[seeding] Seeding exercises table in Supabase...');
           try {
             await restRpc('admin_seed_exercises', { p_exercises: seedData, p_admin_email: adminEmail });
+            seededOnce = true;
           } catch (insertError) {
             console.error('[seeding] Supabase exercise seeding error:', insertError);
           }
@@ -4021,33 +4044,67 @@ const databaseService = {
         }));
         this.saveMockTable('exercises', mockedSeed);
       }
+      seededOnce = true;
     }
   },
 
-  async getExerciseLibrary() {
-    // Don't let a seed-check failure block reads — the table is very likely
-    // already populated, and getExerciseLibrary() runs on every page load.
-    await this.seedExerciseLibrary().catch(err =>
-      console.warn('[exercises] seed check failed, continuing to read:', err)
-    );
+  // Drops the in-memory exercise library cache so the next getExerciseLibrary()
+  // call fetches fresh instead of returning stale data. Called after any write
+  // (save/delete) so a newly-added exercise shows up without a full reload.
+  invalidateExerciseLibraryCache() {
+    exerciseLibraryCache = null;
+    exerciseLibraryFetchPromise = null;
+  },
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        // restSelect instead of supabase.from().select() — see restSelect's
-        // doc comment: the SDK client can hang forever waiting on an auth
-        // token refresh, which previously made this screen stick at "0
-        // exercises" with no error. restSelect has a hard timeout instead.
-        const data = await restSelect('exercises?select=*&order=name.asc');
-        return data || [];
-      } catch (err) {
-        console.warn('Error fetching exercises via REST, falling back to local mocks:', err);
+  async getExerciseLibrary({ forceRefresh = false } = {}) {
+    // Cached after the first successful fetch this session — the picker
+    // modal used to re-fetch (seed check + full select, two round-trips)
+    // on every open, which is what made "Add Exercise" feel like it took
+    // ~3s to appear each time. In-flight requests are also de-duped via
+    // exerciseLibraryFetchPromise so opening the modal twice quickly
+    // doesn't fire two parallel fetches.
+    if (!forceRefresh && exerciseLibraryCache) {
+      return exerciseLibraryCache;
+    }
+    if (!forceRefresh && exerciseLibraryFetchPromise) {
+      return exerciseLibraryFetchPromise;
+    }
+
+    const fetchPromise = (async () => {
+      // Don't let a seed-check failure block reads — the table is very likely
+      // already populated, and getExerciseLibrary() runs on every page load.
+      await this.seedExerciseLibrary().catch(err =>
+        console.warn('[exercises] seed check failed, continuing to read:', err)
+      );
+
+      let result;
+      if (isSupabaseConfigured && supabase) {
+        try {
+          // restSelect instead of supabase.from().select() — see restSelect's
+          // doc comment: the SDK client can hang forever waiting on an auth
+          // token refresh, which previously made this screen stick at "0
+          // exercises" with no error. restSelect has a hard timeout instead.
+          const data = await restSelect('exercises?select=*&order=name.asc');
+          result = data || [];
+        } catch (err) {
+          console.warn('Error fetching exercises via REST, falling back to local mocks:', err);
+          const mockEx = this.getMockTable('exercises');
+          result = mockEx.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      } else {
+        // Mock mode
         const mockEx = this.getMockTable('exercises');
-        return mockEx.sort((a, b) => a.name.localeCompare(b.name));
+        result = mockEx.sort((a, b) => a.name.localeCompare(b.name));
       }
-    } else {
-      // Mock mode
-      const mockEx = this.getMockTable('exercises');
-      return mockEx.sort((a, b) => a.name.localeCompare(b.name));
+      exerciseLibraryCache = result;
+      return result;
+    })();
+
+    exerciseLibraryFetchPromise = fetchPromise;
+    try {
+      return await fetchPromise;
+    } finally {
+      exerciseLibraryFetchPromise = null;
     }
   },
 
@@ -4076,6 +4133,7 @@ const databaseService = {
         };
 
         const data = await restRpc('save_exercise', { p_exercise: payload, p_admin_email: adminEmail });
+        this.invalidateExerciseLibraryCache();
         return Array.isArray(data) ? data[0] : data;
       } catch (err) {
         console.error('Error saving exercise to Supabase:', err);
@@ -4098,6 +4156,7 @@ const databaseService = {
             tip: exercise.tip || ''
           };
           this.saveMockTable('exercises', mockEx);
+          this.invalidateExerciseLibraryCache();
           return mockEx[idx];
         }
       } else {
@@ -4115,6 +4174,7 @@ const databaseService = {
         };
         mockEx.push(newEx);
         this.saveMockTable('exercises', mockEx);
+        this.invalidateExerciseLibraryCache();
         return newEx;
       }
     }
@@ -4129,6 +4189,7 @@ const databaseService = {
       try {
         const adminEmail = localStorage.getItem('userEmail') || '';
         await restRpc('delete_exercise', { p_id: id, p_admin_email: adminEmail });
+        this.invalidateExerciseLibraryCache();
         return { success: true };
       } catch (err) {
         console.error('Error deleting exercise from Supabase:', err);
@@ -4137,6 +4198,7 @@ const databaseService = {
     } else {
       const mockEx = this.getMockTable('exercises').filter(e => e.id !== id);
       this.saveMockTable('exercises', mockEx);
+      this.invalidateExerciseLibraryCache();
       return { success: true };
     }
   },

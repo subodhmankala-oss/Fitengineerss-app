@@ -1,32 +1,93 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES } from '../data/exerciseLibrary';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
 
+// MuscleThumbnail mounts a real anatomical body SVG (vendored, quite
+// detailed) plus a muscle-overlay SVG via dangerouslySetInnerHTML. That's
+// cheap for one icon, but the picker lists ~200 exercises, and rendering
+// ~200 of them synchronously on every modal open was the actual cause of
+// the multi-second freeze when "Add Exercise" opened (not the network
+// fetch — that's cached separately, see databaseService.getExerciseLibrary).
+// This wrapper defers the expensive SVG mount until the row has actually
+// scrolled near the visible area, so the initial paint only pays for the
+// dozen or so rows on screen instead of the whole list.
+function LazyMuscleIcon({ rootRef, muscle, color, size }) {
+  const wrapperRef = useRef(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    if (inView) return undefined;
+    const el = wrapperRef.current;
+    if (!el) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some(e => e.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { root: rootRef?.current || null, rootMargin: '300px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [inView, rootRef]);
+
+  return (
+    <div ref={wrapperRef} style={{ width: size, height: size }}>
+      {inView && <MuscleThumbnail muscle={muscle} color={color} size={size} />}
+    </div>
+  );
+}
+
 // Shared Hevy-style "Add Exercise" modal used by both the client (WorkoutTracker)
 // and the coach (TrainerDashboard). Stays open after each add so several
 // exercises can be added in a row; tapping an added item removes it. Styling
 // comes from WorkoutTracker.css, which both parents import.
+
+// How long the slide-down-out animation runs (must match
+// .exercise-modal-slide-out's animation-duration in WorkoutTracker.css) —
+// the modal stays mounted for this long after `open` goes false so the
+// close animation actually gets to play instead of the card just vanishing.
+const CLOSE_ANIM_MS = 240;
+
 export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove, onShowFormGuide }) {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState('All');
   const [exercises, setExercises] = useState([]);
+  // Mirrors `open` but lags behind on close, so the slide-down animation has
+  // something to animate before the modal actually leaves the DOM. `closing`
+  // drives which animation class is applied.
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+  const listRef = useRef(null);
+  const closeTimerRef = useRef(null);
 
   useEffect(() => {
     if (open) {
-      // The modal never unmounts when closed (it just renders null below),
-      // so query/tag would otherwise carry over from the last time it was
-      // open — reset them fresh on every open instead.
+      clearTimeout(closeTimerRef.current);
+      setClosing(false);
+      setMounted(true);
+      // The modal never fully unmounts between closes while `open` is
+      // false-but-still-animating, so query/tag would otherwise carry over
+      // from the last time it was open — reset them fresh on every open.
       setQuery('');
       setTag('All');
       databaseService.getExerciseLibrary()
         .then(setExercises)
         .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
+    } else {
+      setClosing(true);
+      closeTimerRef.current = setTimeout(() => {
+        setMounted(false);
+        setClosing(false);
+      }, CLOSE_ANIM_MS);
     }
+    return () => clearTimeout(closeTimerRef.current);
   }, [open]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   // Merge, don't choose one-or-the-other: the DB-backed `exercises` table
   // used to fully replace EXERCISE_LIBRARY whenever it had any rows (which
@@ -48,8 +109,8 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const exactExists = activeLibrary.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
 
   return (
-    <div className="payment-gateway-backdrop exercise-modal-backdrop">
-      <div className="payment-gateway-modal exercise-modal-card animate-scale-in">
+    <div className={`payment-gateway-backdrop exercise-modal-backdrop ${closing ? 'closing' : ''}`}>
+      <div className={`payment-gateway-modal exercise-modal-card ${closing ? 'exercise-modal-slide-out' : 'exercise-modal-slide-in'}`}>
         <div className="exercise-modal-header">
           <button type="button" className="btn-close-modal" onClick={onClose}>✕</button>
           <div className="exercise-modal-title-group">
@@ -84,7 +145,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
           ))}
         </div>
 
-        <div className="exercise-presets-list">
+        <div className="exercise-presets-list" ref={listRef}>
           {trimmed && !exactExists && (
             <div
               className="exercise-preset-item custom-exercise-add-row"
@@ -128,7 +189,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                     onClick={(e) => { e.stopPropagation(); onShowFormGuide?.(ex.name); }}
                   >
                     {primaryMuscle ? (
-                      <MuscleThumbnail muscle={primaryMuscle} color="#60a5fa" size={38} />
+                      <LazyMuscleIcon rootRef={listRef} muscle={primaryMuscle} color="#60a5fa" size={38} />
                     ) : (
                       <div className="preset-icon-monogram" aria-hidden="true">
                         {ex.name.charAt(0).toUpperCase()}

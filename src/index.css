@@ -51,6 +51,19 @@
 
 html, body {
   overflow-x: hidden;
+  /* This app is a self-contained "phone frame" — .app-container fills the
+     viewport and .main-content is the ONLY element meant to scroll. The
+     page itself was never meant to scroll, but nothing actually enforced
+     that before: with only overflow-x locked, a few stray pixels of extra
+     body height (rounding, a portaled element animating in, etc.) were
+     enough to trigger the browser's own page-level scrollbar. Since that
+     scrollbar belongs to the real window, not .app-container, it renders
+     on top of anything positioned inside .app-container regardless of
+     z-index — including the rest timer's floating card, which is why it
+     could appear to sit "in front of" the timer instead of the timer
+     comfortably clearing it. Locking vertical overflow here too closes
+     off that path entirely.  */
+  overflow-y: hidden;
   width: 100%;
   max-width: 100%;
 }

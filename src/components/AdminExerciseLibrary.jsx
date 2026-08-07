@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService, { isSupabaseConfigured } from '../services/databaseService';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
+import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 
 const CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
 
@@ -32,9 +33,33 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
     setLoading(true);
     try {
       const data = await databaseService.getExerciseLibrary();
-      setExercises(data);
+      // Merge, don't choose one-or-the-other — same reasoning as the
+      // client/coach ExercisePickerModal: a brand new exercise shipped in
+      // code (e.g. "Steppers") only gets INSERTed into the DB by the
+      // one-time seed, which only fires when the table is completely empty.
+      // On an already-seeded project that insert never runs again, so a
+      // static-only exercise silently never showed up here even though the
+      // picker (which does this same merge) already offered it to clients.
+      // These fallback rows have no `id` — editing one and saving creates
+      // it as a real DB row for the first time; deleting is disabled for
+      // them below since there's nothing in the DB yet to delete.
+      const dbNames = new Set(data.map(e => (e.name || '').toLowerCase()));
+      const merged = [
+        ...data,
+        ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase())).map(e => ({
+          name: e.name,
+          category: e.category,
+          primary_muscle: e.primary,
+          secondary_muscle: '',
+          video_url: '',
+          setup: '',
+          execution: '',
+          tip: ''
+        }))
+      ];
+      setExercises(merged);
       if (onExerciseCountChange) {
-        onExerciseCountChange(data.length);
+        onExerciseCountChange(merged.length);
       }
     } catch (e) {
       console.error('Error fetching exercise library:', e);
@@ -147,6 +172,10 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
   };
 
   const handleDelete = async (ex) => {
+    // Fallback rows merged in from the static EXERCISE_LIBRARY (see
+    // fetchExercises) have no `id` — there's nothing in the DB yet to
+    // delete. The button is disabled for these too; this is just a guard.
+    if (!ex.id) return;
     if (!window.confirm(`Delete "${ex.name}" from the exercise library? This can't be undone.`)) return;
     setDeletingId(ex.id);
     try {
@@ -373,18 +402,18 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                         </button>
                         <button
                           onClick={() => handleDelete(ex)}
-                          disabled={deletingId === ex.id}
-                          title="Delete this exercise"
+                          disabled={deletingId === ex.id || !ex.id}
+                          title={ex.id ? 'Delete this exercise' : "Not saved to the database yet — edit and save it first"}
                           style={{
                             background: 'rgba(239,68,68,0.1)',
                             border: '1px solid rgba(239,68,68,0.3)',
                             color: '#f87171',
                             padding: '6px 12px',
                             borderRadius: '6px',
-                            cursor: deletingId === ex.id ? 'default' : 'pointer',
+                            cursor: (deletingId === ex.id || !ex.id) ? 'default' : 'pointer',
                             fontSize: '0.75rem',
                             fontWeight: 700,
-                            opacity: deletingId === ex.id ? 0.5 : 1,
+                            opacity: (deletingId === ex.id || !ex.id) ? 0.5 : 1,
                             transition: 'all 0.15s ease'
                           }}
                         >

@@ -763,6 +763,25 @@ const databaseService = {
     return { user: data.user, session: { access_token: data.access_token, refresh_token: data.refresh_token, user: data.user } };
   },
 
+  // Stamp last_login for whatever counts as "this user is active right now" —
+  // not just the email/password form. signIn() above only fires on a fresh
+  // credential submit, so a client who stays logged in across days (the
+  // normal case with persisted Supabase sessions) never re-triggers it, and
+  // the Super-Admin dashboard's Active/Inactive/Never-logged-in buckets go
+  // stale — everyone who hasn't re-typed their password recently reads as
+  // "Never logged in" even if they used the app an hour ago. Called from
+  // App.jsx's onAuthStateChange session handler on every resolved session
+  // (fresh sign-in, restored session, OAuth), so it reflects real usage.
+  // Fire-and-forget: never let this delay or fail app startup.
+  async touchLastLogin(email) {
+    if (!email) return;
+    try {
+      await restRpc('touch_last_login', { p_email: email });
+    } catch (e) {
+      console.warn('touch_last_login failed (non-fatal):', e.message || e);
+    }
+  },
+
   async signInWithGoogle() {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");

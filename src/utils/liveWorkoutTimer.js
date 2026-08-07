@@ -7,10 +7,8 @@
 
 import { isWarmupExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 
-// Work calories: each completed set contributes reps x weight(kg) x this rate.
 // Calories reflect ONLY logged work — there is no background/idle burn, so the
 // number never moves on its own just because the session clock is running.
-export const WORK_KCAL_PER_KG_REP = 0.10;
 export const DEFAULT_BODY_WEIGHT_KG = 70;
 
 // MET for a static core hold (plank, side plank, wall sit) — Compendium of
@@ -129,20 +127,42 @@ const BODYWEIGHT_MET = 8.0;
 // needs minutes, not reps) has something to work with.
 const BODYWEIGHT_SECONDS_PER_REP = 2.5;
 
-// Bodyweight exercises (push-ups, mountain climbers, jumping jacks) move the
-// client's whole body, not just whatever's typed in the weight field — which
-// the reps x weight x rate formula below has no way to represent: toggled to
-// "Bodyweight" mode, that field is a fixed '0', so the old formula silently
-// zeroed out every set's calories no matter how many reps were logged. This
-// uses the client's actual logged bodyweight (+ any added weight, e.g. a
-// weighted vest) as the effort mass instead, via the same MET formula the
-// timed/cardio exercises already use, with reps converted to an estimated
-// duration.
-function bodyweightKcal(reps, bodyWeightKg, addedWeightKg = 0) {
+// MET for barbell/dumbbell/machine resistance training at a normal working
+// effort — Compendium of Physical Activities code 02054 ("resistance
+// (weight) training, multiple exercises, vigorous effort") lists 6.0 MET.
+const STRENGTH_MET = 6.0;
+// Loaded compound/isolation reps run slower than a brisk bodyweight
+// calisthenics rep (BODYWEIGHT_SECONDS_PER_REP above) — a controlled
+// eccentric under external load typically runs ~3s/rep tempo.
+const STRENGTH_SECONDS_PER_REP = 3.0;
+
+// Shared MET-based estimator for any reps-driven set that has no logged
+// duration of its own (bodyweight calisthenics AND regular weighted
+// strength sets) — reps are converted to an estimated duration, and the
+// "effective mass" being moved (bodyweight + whatever's loaded onto the
+// exercise) drives the same standard MET formula every other category in
+// this file already uses (cardioKcal/timedHoldKcal). This replaces an
+// earlier flat `reps x weight x rate` formula for weighted sets that had no
+// time basis at all — a heavy set with real inflated weight (e.g. a 150kg
+// leg press) scaled linearly with zero cap, producing 100-200+ kcal for a
+// single ~20-second set (600+ kcal/min, well past human physiological
+// limits) and made overall session totals read far higher than reality.
+function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep) {
   if (reps <= 0) return 0;
-  const minutes = (reps * BODYWEIGHT_SECONDS_PER_REP) / 60;
+  const minutes = (reps * secondsPerRep) / 60;
   const effectiveMassKg = bodyWeightKg + Math.max(0, addedWeightKg);
-  return (BODYWEIGHT_MET * 3.5 * effectiveMassKg / 200) * minutes;
+  return (met * 3.5 * effectiveMassKg / 200) * minutes;
+}
+
+function bodyweightKcal(reps, bodyWeightKg, addedWeightKg = 0) {
+  return loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, BODYWEIGHT_MET, BODYWEIGHT_SECONDS_PER_REP);
+}
+
+// Regular weighted strength set (bench press, squat, curls, ...) — same
+// effective-mass MET model as bodyweightKcal above, just at the resistance-
+// training MET bracket instead of the calisthenics one.
+function strengthKcal(reps, weightKg, bodyWeightKg) {
+  return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP);
 }
 
 export function formatDuration(totalSeconds) {
@@ -201,9 +221,13 @@ export function computeElapsedSeconds(startedAt, pauseIntervals = [], now = Date
   return Math.max(0, total - paused);
 }
 
-// Sums calories for every completed set only — reps x weight for strength,
-// MET-based (on bodyWeightKg + reps) for bodyweight moves like push-ups,
-// MET-based for cardio, MET-based on hold duration for timed sets like plank.
+// Sums calories for every completed set only — MET-based (on bodyWeightKg +
+// logged weight + reps) for regular strength sets, MET-based (on bodyWeightKg
+// + reps) for bodyweight moves like push-ups, MET-based for cardio, MET-based
+// on hold duration for timed sets like plank. All four categories share the
+// same underlying MET formula (see cardioKcal/timedHoldKcal/loadedRepsKcal)
+// so a client comparing a strength day to a cardio day is comparing apples
+// to apples, not two unrelated estimation methods.
 // Sets not yet marked done, and empty timed sets, contribute nothing, and
 // there is NO background/idle burn: the total stays put while the session
 // clock runs and only moves when a real set is logged. bodyWeightKg drives
@@ -232,7 +256,7 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
       } else {
         const reps = parseFloat(set.reps) || 0;
         const weight = parseFloat(set.weight) || 0;
-        workKcal += reps * weight * WORK_KCAL_PER_KG_REP;
+        workKcal += strengthKcal(reps, weight, bodyWeightKg);
       }
     });
   });

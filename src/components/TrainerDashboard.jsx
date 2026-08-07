@@ -723,9 +723,43 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   };
 
   const handleLiveCardioKmEdit = (exIdx, setIdx, value) => {
-    handleLiveSetChange(exIdx, setIdx, 'distanceKm', value);
+    // distanceKmAuto lives on the set itself (not just the ephemeral timer
+    // entry) so a manual KM edit sticks even when there's no active
+    // stopwatch — e.g. the coach typed a time by hand first (see
+    // handleLiveCardioTimeEdit) and then corrects the KM it auto-filled.
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => si === setIdx ? { ...s, distanceKm: value, distanceKmAuto: false } : s)
+      };
+    }));
     const key = getSetTimerKey(exIdx, setIdx);
     setLiveSetTimers(prev => (prev[key] ? { ...prev, [key]: { ...prev[key], autoKm: false } } : prev));
+  };
+
+  // Typing a time directly (stopwatch never started, or paused and being
+  // corrected) used to leave KM frozen at whatever it last was. This mirrors
+  // the running-stopwatch auto-fill (estimateCardioDistanceKm) for
+  // manually-typed time too, unless the coach has already typed their own
+  // KM for this set (distanceKmAuto === false).
+  const handleLiveCardioTimeEdit = (exIdx, setIdx, rawValue) => {
+    const masked = maskDigitsToTimeString(rawValue);
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => {
+          if (si !== setIdx) return s;
+          const next = { ...s, time: masked };
+          if (s.distanceKmAuto !== false) {
+            const seconds = parseTimeStringToSeconds(masked) || 0;
+            next.distanceKm = seconds > 0 ? String(estimateCardioDistanceKm(ex.name, seconds)) : '';
+          }
+          return next;
+        })
+      };
+    }));
   };
 
   const handleLiveCardioStopwatchPause = (exIdx, setIdx) => {
@@ -4787,7 +4821,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                                             inputMode="numeric"
                                             placeholder="mm:ss"
                                             value={set.time}
-                                            onChange={e => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                            onChange={e => handleLiveCardioTimeEdit(exIdx, setIdx, e.target.value)}
                                             className="cardio-time-input"
                                           />
                                         )}

@@ -112,10 +112,18 @@ function getRecommendedExercises(exerciseName) {
   return [...byPrimary, ...byCategory].slice(0, 4);
 }
 
-// `sessions` is the full sessions list (all clients); `clientName` scopes it
-// down to the active profile, same filtering convention used elsewhere in
-// WorkoutTracker (e.g. getPreviousSessionSet).
-export default function ExerciseHistoryModal({ exerciseName, sessions, clientName, onClose }) {
+// Two data sources feed this, one per side of the app:
+// - `sessions` (client's WorkoutTracker): session objects — { clientName,
+//   date, exercises: [{ name, sets: [...] }] }. `clientName` scopes the
+//   list down to the active profile, same filtering convention used
+//   elsewhere in WorkoutTracker (e.g. getPreviousSessionSet).
+// - `rawLogs` (coach's TrainerDashboard): flat per-set workout_logs rows —
+//   { log_date, exercise_name, reps, weight_kg, distance_km?,
+//   cardio_duration_seconds? } — already scoped to the selected client by
+//   the caller (see rawWorkoutLogs in TrainerDashboard), so no clientName
+//   filtering happens here for this shape.
+// Only one of the two is ever passed by a given caller.
+export default function ExerciseHistoryModal({ exerciseName, sessions, clientName, rawLogs, onClose }) {
   const [range, setRange] = useState('weekly');
 
   const exIsCardio = exerciseName ? isCardioExercise(exerciseName) : false;
@@ -123,6 +131,38 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
 
   const entries = useMemo(() => {
     if (!exerciseName) return [];
+
+    if (rawLogs) {
+      const rowsByDate = new Map();
+      rawLogs
+        .filter(r => (r.exercise_name || '').toLowerCase() === exerciseName.toLowerCase())
+        .forEach(r => {
+          const date = r.log_date;
+          if (!date) return;
+          if (!rowsByDate.has(date)) rowsByDate.set(date, []);
+          rowsByDate.get(date).push(r);
+        });
+      return Array.from(rowsByDate.entries())
+        .map(([date, rows]) => {
+          let volume = 0;
+          let best = 0;
+          let totalReps = 0;
+          if (exIsCardio) {
+            volume = rows.reduce((sum, r) => sum + (parseFloat(r.distance_km) || 0), 0);
+            best = volume;
+          } else if (exIsTimed) {
+            volume = rows.length;
+            best = rows.length;
+          } else {
+            volume = rows.reduce((sum, r) => sum + (parseFloat(r.weight_kg) || 0) * (parseInt(r.reps, 10) || 0), 0);
+            best = rows.reduce((max, r) => Math.max(max, parseFloat(r.weight_kg) || 0), 0);
+            totalReps = rows.reduce((sum, r) => sum + (parseInt(r.reps, 10) || 0), 0);
+          }
+          return { date, volume, best, setsCount: rows.length, totalReps };
+        })
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
     return (sessions || [])
       .filter(s => (s.clientName || '').toLowerCase() === (clientName || '').toLowerCase())
       .flatMap(s => {
@@ -146,7 +186,7 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
         return [{ date: s.date, volume, best, setsCount: sets.length, totalReps }];
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [sessions, clientName, exerciseName, exIsCardio, exIsTimed]);
+  }, [sessions, clientName, rawLogs, exerciseName, exIsCardio, exIsTimed]);
 
   const buckets = useMemo(() => {
     const map = new Map();

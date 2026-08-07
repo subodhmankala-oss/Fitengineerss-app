@@ -23,6 +23,7 @@ import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
+import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import { presetExercises } from './WorkoutTracker';
 
@@ -395,6 +396,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   // clickable thumbnail icon and each exercise row's own "Form Guide"
   // button — see ExerciseGuideModal.
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
+  // Exercise history sheet — opened by tapping an exercise's name in the
+  // Live Log; reads from rawWorkoutLogs (already scoped to selectedClient).
+  const [historyModalExercise, setHistoryModalExercise] = useState(null);
   // The exercises table has real video_url/setup/execution/tip data for the
   // curated preset list (see databaseService.seedExerciseLibrary) — same
   // source the client's Form Guide already uses. Fetched once here so the
@@ -737,10 +741,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   };
 
   const handleLiveSetStopwatchComplete = (exIdx, setIdx) => {
-    const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+    const key = getSetTimerKey(exIdx, setIdx);
+    // If the stopwatch was never started for this set (coach typed the
+    // time in by hand instead of running it), there's no liveSetTimers
+    // entry — getLiveSetElapsedSeconds would then read 0 and stomp the
+    // typed value the moment the set gets ticked. Only fall back to the
+    // live timer's elapsed time when a timer entry actually exists;
+    // otherwise keep whatever's already in set.time.
+    const elapsed = liveSetTimers[key]
+      ? getLiveSetElapsedSeconds(exIdx, setIdx)
+      : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
     handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
     handleLiveToggleSet(exIdx, setIdx);
-    const key = getSetTimerKey(exIdx, setIdx);
     setLiveSetTimers(prev => {
       const updated = { ...prev };
       delete updated[key];
@@ -4630,7 +4642,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                            <span className="live-logger-ex-name">{ex.name}</span>
+                            <span
+                              className="live-logger-ex-name ex-name-clickable"
+                              role="button"
+                              tabIndex={0}
+                              title="View exercise history"
+                              onClick={() => setHistoryModalExercise(ex.name)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalExercise(ex.name); } }}
+                            >
+                              {ex.name}
+                            </span>
                             <button
                               type="button"
                               className="btn-form-guide-sm"
@@ -5240,6 +5261,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
         onShowFormGuide={handleShowFormGuide}
       />
       <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
+
+      {/* Tap an exercise's name in the Live Log → full Daily/Weekly/Monthly/
+          Yearly history for that exercise. rawWorkoutLogs is already scoped
+          to selectedClient (fetched in handleSelectClient), so no extra
+          client-name filtering is needed here. */}
+      <ExerciseHistoryModal
+        exerciseName={historyModalExercise}
+        rawLogs={rawWorkoutLogs}
+        onClose={() => setHistoryModalExercise(null)}
+      />
 
       {/* "Create Workout Plan" now asks which way to build it, before
           touching any editor state — Build Manually reproduces the button's

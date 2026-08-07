@@ -3467,7 +3467,9 @@
 
 .ex-history-row-stats {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  column-gap: 14px;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
@@ -3475,6 +3477,177 @@
 .ex-history-row-stats strong {
   color: #10b981;
   font-weight: 700;
+}
+
+.ex-history-delta {
+  font-weight: 700;
+}
+
+.ex-history-delta--up {
+  color: #10b981;
+}
+
+.ex-history-delta--down {
+  color: #f87171;
+}
+
+/* ── Summary stats row (PR / last trained / sessions) ─────────────────────── */
+.ex-history-stats-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 0;
+  flex-shrink: 0;
+}
+
+.ex-history-stat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.ex-history-stat-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ex-history-stat-value {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Training status card ──────────────────────────────────────────────────
+   Same four-tier read Trainer/Client both see: Optimally Trained, Slightly
+   Undertrained, Undertrained, Neglected (or "Not Yet Trained" with no
+   history at all). Tone drives the accent color only — background stays
+   subtle so it doesn't compete with the chart below it. */
+.ex-history-status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 20px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.ex-history-status-icon {
+  font-size: 1.1rem;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.ex-history-status-label {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.ex-history-status-detail {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.ex-history-status-card--success {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.07);
+}
+.ex-history-status-card--success .ex-history-status-label { color: #10b981; }
+
+.ex-history-status-card--warning {
+  border-color: rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.07);
+}
+.ex-history-status-card--warning .ex-history-status-label { color: #eab308; }
+
+.ex-history-status-card--orange {
+  border-color: rgba(249, 115, 22, 0.35);
+  background: rgba(249, 115, 22, 0.07);
+}
+.ex-history-status-card--orange .ex-history-status-label { color: #f97316; }
+
+.ex-history-status-card--danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.07);
+}
+.ex-history-status-card--danger .ex-history-status-label { color: #ef4444; }
+
+.ex-history-status-card--neutral {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.ex-history-status-card--neutral .ex-history-status-label { color: var(--text-muted); }
+
+/* ── Recommended-exercises footer ──────────────────────────────────────── */
+.ex-history-recs {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ex-history-recs-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.ex-history-recs-sub {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.ex-history-recs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ex-history-rec-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.ex-history-rec-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ex-history-rec-cat {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--primary-accent-light);
+  background: rgba(16, 185, 129, 0.12);
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════

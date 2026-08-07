@@ -51,6 +51,16 @@
   text-overflow: ellipsis;
 }
 
+/* The iOS variant's instructions run longer than the Android/desktop copy
+   ("Tap Share, then Add to Home Screen…") — let it wrap instead of
+   truncating into an unreadable ellipsis. */
+.install-banner--ios .install-banner__text span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.3;
+}
+
 .install-banner__actions {
   display: flex;
   align-items: center;

@@ -1753,6 +1753,19 @@
   box-shadow: 0 0 8px var(--primary-accent-light);
 }
 
+.ex-name-clickable {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.ex-name-clickable:hover,
+.ex-name-clickable:focus-visible {
+  color: var(--primary-accent-light);
+  text-decoration: underline;
+  text-decoration-color: rgba(16, 185, 129, 0.4);
+  text-underline-offset: 3px;
+}
+
 .btn-delete-exercise-card {
   background: transparent;
   color: rgba(239, 68, 68, 0.65);
@@ -2235,6 +2248,18 @@
 /* Floating Rest Timer — icon+label header, a big centered mm:ss readout,
    then a -15/+15/Skip button row (same stacked layout on coach + client). */
 .rest-timer-floating-card {
+  /* Positioned relative to .app-container (position:relative — see
+     index.css), NOT .main-content. It's portaled there (see
+     WorkoutTracker.jsx/TrainerDashboard.jsx) specifically so it renders as
+     a sibling of .main-content instead of a descendant — a plain
+     position:absolute inside .main-content still scrolls away with that
+     container's content even though its containing block (.app-container)
+     never moves, because a scrollable ancestor sitting between an
+     absolutely-positioned element and its containing block still carries
+     it along. Portaling out of .main-content avoids that without resorting
+     to position:fixed, which would need to escape .app-container's bounds
+     entirely to reach the real viewport — wrong for this phone-frame
+     mockup on desktop. */
   position: absolute;
   bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   left: 0;
@@ -2396,6 +2421,40 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* No .animate-scale-in here (the fade+scale every other modal in the app
+     uses) — this card is already fullscreen/edge-to-edge, so it gets its
+     own bottom-sheet slide instead; see .exercise-modal-slide-in/-out. */
+  animation: none;
+}
+
+/* Opening: slides up from off-screen to its resting position. */
+.exercise-modal-card.exercise-modal-slide-in {
+  animation: exerciseModalSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Closing: kept mounted just long enough to play this before actually
+   unmounting — see ExercisePickerModal.jsx's closing state. */
+.exercise-modal-card.exercise-modal-slide-out {
+  animation: exerciseModalSlideDown 0.24s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.exercise-modal-backdrop.closing {
+  animation: modalFadeOut 0.24s ease forwards;
+}
+
+@keyframes exerciseModalSlideUp {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes exerciseModalSlideDown {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes modalFadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Close (left) / title (center) / Done (right) — replaces the old stacked
@@ -3259,6 +3318,163 @@
   font-size: 0.88rem;
   color: var(--text-main);
   line-height: 1.55;
+}
+
+/* ═══════════════════════════════════════════
+   EXERCISE HISTORY SHEET (Daily/Weekly/Monthly/Yearly)
+   Reuses .guide-sheet-* / .guide-tab-* — no image section, so header is
+   its own row instead of a close button floating over a video.
+   ═══════════════════════════════════════════ */
+.ex-history-sheet {
+  height: auto;
+  max-height: 85vh;
+}
+
+.ex-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 0;
+  flex-shrink: 0;
+}
+
+.ex-history-header .guide-ex-name {
+  margin: 0;
+}
+
+.ex-history-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ex-history-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.ex-history-content {
+  padding: 16px 20px 20px;
+}
+
+.ex-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ex-history-empty-icon {
+  font-size: 2rem;
+  opacity: 0.6;
+}
+
+.ex-history-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 130px;
+  padding: 8px 4px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ex-history-bar-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.ex-history-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 22px;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ex-history-bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #10b981, #059669);
+  border-radius: 4px 4px 0 0;
+  transition: height 0.2s ease;
+}
+
+.ex-history-bar-label {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ex-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ex-history-row {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.ex-history-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ex-history-row-date {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ex-history-row-sessions {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.ex-history-row-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ex-history-row-stats strong {
+  color: #10b981;
+  font-weight: 700;
 }
 
 /* ═══════════════════════════════════════════

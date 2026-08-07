@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import InstallBanner from './components/InstallBanner.jsx'
+import IOSInstallBanner from './components/IOSInstallBanner.jsx'
 import UpdateToast from './components/UpdateToast.jsx'
 import { TourProvider } from './context/TourContext.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')).render(
       </CoachTourProvider>
     </TourProvider>
     <InstallBanner />
+    <IOSInstallBanner />
     <UpdateToast />
   </StrictMode>,
 )

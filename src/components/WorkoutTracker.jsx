@@ -1718,10 +1718,18 @@ const WorkoutTracker = () => {
   };
 
   const handleSetStopwatchComplete = (exIdx, sIdx) => {
-    const elapsed = getSetElapsedSeconds(exIdx, sIdx);
+    const key = getSetTimerKey(exIdx, sIdx);
+    // If the stopwatch was never started for this set (client typed the
+    // time in by hand instead of running it), there's no setTimers entry —
+    // getSetElapsedSeconds would then read 0 and stomp the typed value the
+    // moment the set gets ticked. Only fall back to the live timer's
+    // elapsed time when a timer entry actually exists; otherwise keep
+    // whatever's already in set.time.
+    const elapsed = setTimers[key]
+      ? getSetElapsedSeconds(exIdx, sIdx)
+      : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
     handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
     handleToggleSetCompleted(exIdx, sIdx);
-    const key = getSetTimerKey(exIdx, sIdx);
     setSetTimers(prev => {
       const updated = { ...prev };
       delete updated[key];

@@ -26,6 +26,24 @@ import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import { presetExercises } from './WorkoutTracker';
+import { useCoachTour } from '../context/CoachTourContext';
+
+// Sample client shown only while the coach spotlight tour is running, so a
+// brand-new coach with zero real clients still has something to click into.
+// Never written to the database — selecting it and switching tabs are local
+// UI state plus read-only queries, which return empty for an id that
+// doesn't exist in the database rather than erroring (see
+// getWorkoutLogsForUser/getBodyMeasurements/getWorkoutDraft — all UUID-eq
+// filters that fail closed to []/null on no match).
+const DEMO_CLIENT = {
+  id: '00000000-0000-4000-8000-000000000001',
+  coach_id: null,
+  userName: 'Alex Demo',
+  email: 'demo.client@example.com',
+  userGoal: 'Muscle Building',
+  total_sessions: null,
+  isDemo: true,
+};
 
 // Converts one AI-generated exercise (api/generate-workout-draft.js's
 // { name, type, setCount, reps, durationMinutes } shape) into this app's
@@ -70,6 +88,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
+  // Only while the coach spotlight tour is actually running do we splice the
+  // sample client into the directory — real coaches with real clients never
+  // see it once the tour is dismissed.
+  const coachTour = useCoachTour();
+  const showDemoClientRow = coachTour.step > 0;
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
   // This coach's canonical public.users.id (== clients.coach_id for their
   // clients). Seeded from localStorage but re-resolved by email on mount because
@@ -2912,7 +2935,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                   <div className="trainer-spinner"></div>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading client directory...</p>
                 </div>
-              ) : filteredClients.length === 0 ? (
+              ) : filteredClients.length === 0 && !showDemoClientRow ? (
                 <div className="trainer-empty-state">
                   <div className="trainer-empty-icon">👥</div>
                   <h5>No Clients Found</h5>
@@ -2933,6 +2956,62 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                       </tr>
                     </thead>
                     <tbody>
+                      {showDemoClientRow && (
+                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '56px', background: 'rgba(16, 185, 129, 0.05)' }}>
+                          <td style={{ padding: '8px', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                              <div
+                                className="client-avatar"
+                                style={{
+                                  backgroundColor: getAvatarColor(DEMO_CLIENT.userName),
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold',
+                                  color: '#fff'
+                                }}
+                              >
+                                {getAvatarInitials(DEMO_CLIENT.userName)}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{DEMO_CLIENT.userName}</span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{DEMO_CLIENT.email}</span>
+                                <span style={{
+                                  display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
+                                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
+                                  background: 'rgba(16, 185, 129, 0.14)', color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.25)', marginTop: '2px'
+                                }}>
+                                  Sample · Tour
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <button
+                              data-tour="tc-demo-manage-btn"
+                              onClick={() => { handleSelectClient(DEMO_CLIENT); coachTour.advanceIfStep(1, 2); }}
+                              style={{
+                                background: 'var(--primary-accent-light)',
+                                border: 'none',
+                                color: '#fff',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
+                              }}
+                            >
+                              Manage
+                            </button>
+                          </td>
+                        </tr>
+                      )}
                       {filteredClients.map(client => (
                         <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '56px' }}>
                           <td style={{ padding: '8px', overflow: 'hidden' }}>
@@ -3240,6 +3319,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
               {/* Tab Navigation */}
               <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <button
+                  data-tour="tc-tab-plans"
                   className={`trainer-tab-btn ${detailTab === 'plans' ? 'active' : ''}`}
                   style={{
                     flex: 1,
@@ -3255,12 +3335,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                     borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
                     color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                   }}
-                  onClick={() => handleTabChange('plans')}
+                  onClick={() => { handleTabChange('plans'); coachTour.advanceIfStep(2, 3); }}
                 >
                   <span>📋</span>
                   <span>Send plan</span>
                 </button>
                 <button
+                  data-tour="tc-tab-livelog"
                   className={`trainer-tab-btn ${detailTab === 'livelog' ? 'active' : ''}`}
                   style={{
                     flex: 1,
@@ -3276,12 +3357,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                     borderBottom: detailTab === 'livelog' ? '2px solid #f59e0b' : 'none',
                     color: detailTab === 'livelog' ? '#f59e0b' : 'var(--text-muted)'
                   }}
-                  onClick={() => handleTabChange('livelog')}
+                  onClick={() => { handleTabChange('livelog'); coachTour.advanceIfStep(3, 4); }}
                 >
                   <span>🎯</span>
                   <span>Live Log</span>
                 </button>
                 <button
+                  data-tour="tc-tab-workout"
                   className={`trainer-tab-btn ${detailTab === 'workout' ? 'active' : ''}`}
                   style={{
                     flex: 1,

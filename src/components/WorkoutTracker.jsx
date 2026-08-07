@@ -1674,9 +1674,44 @@ const WorkoutTracker = () => {
   };
 
   const handleCardioKmEdit = (exIdx, sIdx, value) => {
-    handleSetChange(exIdx, sIdx, 'distanceKm', value);
+    // distanceKmAuto lives on the set itself (not just the ephemeral timer
+    // entry) so a manual KM edit sticks even when there's no active
+    // stopwatch — e.g. the client typed a time by hand first (see
+    // handleCardioTimeEdit) and then corrects the KM it auto-filled.
+    setLogExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => si === sIdx ? { ...s, distanceKm: value, distanceKmAuto: false } : s)
+      };
+    }));
     const key = getSetTimerKey(exIdx, sIdx);
     setSetTimers(prev => (prev[key] ? { ...prev, [key]: { ...prev[key], autoKm: false } } : prev));
+  };
+
+  // Typing a time directly (stopwatch never started, or paused and being
+  // corrected) used to leave KM frozen at whatever it last was — the client
+  // could type 25:00 and still see a stale 0.05km from an earlier accidental
+  // tick. This mirrors the running-stopwatch auto-fill (estimateCardioDistanceKm)
+  // for manually-typed time too, unless the client has already typed their
+  // own KM for this set (distanceKmAuto === false).
+  const handleCardioTimeEdit = (exIdx, sIdx, rawValue) => {
+    const masked = maskDigitsToTimeString(rawValue);
+    setLogExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, si) => {
+          if (si !== sIdx) return s;
+          const next = { ...s, time: masked };
+          if (s.distanceKmAuto !== false) {
+            const seconds = parseTimeStringToSeconds(masked) || 0;
+            next.distanceKm = seconds > 0 ? String(estimateCardioDistanceKm(ex.name, seconds)) : '';
+          }
+          return next;
+        })
+      };
+    }));
   };
 
   const handleCardioStopwatchPause = (exIdx, sIdx) => {
@@ -3333,7 +3368,7 @@ const WorkoutTracker = () => {
                                           type="text"
                                           inputMode="numeric"
                                           value={set.time}
-                                          onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                          onChange={(e) => handleCardioTimeEdit(exIdx, sIdx, e.target.value)}
                                           required
                                           placeholder="mm:ss"
                                           disabled={set.isCompleted}

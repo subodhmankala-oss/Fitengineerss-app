@@ -472,6 +472,15 @@ function App() {
         }
         setPendingConfirmationEmail('');
 
+        // Stamp last_login for the Super-Admin activity dashboard on every
+        // resolved session — not just a fresh credential submit (that path
+        // is databaseService.signIn's own stamp). Persisted/restored
+        // sessions and OAuth logins land here too, so this is what keeps
+        // "Active today" accurate for clients who stay logged in across
+        // days. Fire-and-forget, guarded above by lastProcessedEmailRef so
+        // it only fires once per app session per user.
+        databaseService.touchLastLogin(email);
+
         // When a coach-tab login is underway, handleCoachEmailLogin is the sole
         // authority for routing: it verifies a coaches row actually exists and either
         // enters the coach dashboard or signs out + shows "No coach account found".

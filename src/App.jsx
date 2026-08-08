@@ -18,7 +18,7 @@ import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
 import { useTour } from './context/TourContext';
 import { useCoachTour } from './context/CoachTourContext';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -724,6 +724,13 @@ function App() {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Keep databaseService's cached bearer token in sync with the real
+      // session on every event (sign-in, sign-out, token refresh) — this is
+      // how restSelect/restRpc identify the logged-in user without ever
+      // calling the SDK's getSession() themselves (see setCachedAuthToken
+      // comment in databaseService.js for why that matters).
+      setCachedAuthToken(session?.access_token || null);
+
       if (event === 'PASSWORD_RECOVERY') {
         setShowResetPasswordModal(true);
         return; // Don't run processSessionUser — just show the reset form

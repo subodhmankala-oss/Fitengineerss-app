@@ -25,6 +25,25 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+// ─── CACHED SESSION TOKEN (for restSelect/restRpc — never call getSession()
+// here) ───
+// restSelect/restRpc below hit PostgREST directly instead of going through
+// the SDK, specifically to dodge the SDK's token-refresh hang (see the
+// "RAW POSTGREST READ" comment further down). Calling supabase.auth.
+// getSession() from inside them would reintroduce that exact hang. Instead,
+// App.jsx's existing onAuthStateChange listener (event-driven — fires when a
+// session becomes available, never blocks waiting on a refresh) calls
+// setCachedAuthToken() below whenever the session changes, and restSelect/
+// restRpc just read the cached value synchronously. Falls back to the anon
+// key when logged out (e.g. public exercise-library reads), same as before.
+let cachedAccessToken = null;
+export function setCachedAuthToken(token) {
+  cachedAccessToken = token || null;
+}
+function currentBearerToken() {
+  return cachedAccessToken || supabaseAnonKey;
+}
+
 // ─── RAW POSTGREST READ (SDK-hang bypass) ───
 // The Supabase JS SDK stalls on this project when the auth token needs
 // refreshing: any .from().select() awaits the token, and the refresh hangs,
@@ -57,7 +76,7 @@ async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
       method: 'GET',
       headers: {
         apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        Authorization: `Bearer ${currentBearerToken()}`,
         Accept: 'application/json'
       },
       signal: controller.signal

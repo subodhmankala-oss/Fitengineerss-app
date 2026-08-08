@@ -26,9 +26,9 @@ const WARMUP_NAMES = ['Arm Circle', 'Leg Swing'];
 
 // Coach-side A-Z list (formerly LIVE_EXERCISE_LIST in TrainerDashboard).
 const COACH_NAMES = [
-  'Ab Wheel Rollout', 'Arnold Press', 'Around the World (Chest)', 'Assisted Pull-up', 'Assisted Dip',
+  'Ab Wheel Rollout', 'Alternate Leg Raise', 'Arnold Press', 'Around the World (Chest)', 'Assisted Pull-up', 'Assisted Dip',
   'Back Extension', 'Ball Slam', 'Band Pull Apart', 'Barbell Curl', 'Barbell Hip Thrust', 'Barbell Row',
-  'Barbell Shrug', 'Barbell Squat', 'Beast Walk', 'Behind Neck Press', 'Bench Press', 'Bent Over Dumbbell Row',
+  'Barbell Shrug', 'Barbell Squat', 'Battle Rope', 'Beast Walk', 'Behind Neck Press', 'Bench Press', 'Bent Over Dumbbell Row',
   'Bent Over Row (Barbell)', 'Bicep Curl (Cable)', 'Bicep Curl (Dumbbell)', 'Box Jump', 'Box Squat',
   'Bulgarian Split Squat', 'Burpee', 'Cable Crossover', 'Cable Crunch', 'Cable Curl', 'Cable Fly',
   'Cable Kickback', 'Cable Overhead Triceps Extension', 'Cable Pull Through',
@@ -45,7 +45,7 @@ const COACH_NAMES = [
   'Incline Push-up', 'Jump Squat', 'Jumping Jack', 'Kettlebell Swing', 'Kettlebell Goblet Squat',
   'Kneeling Cable Crunch', 'Lat Pulldown', 'Lat Pulldown (Close Grip)', 'Lat Pulldown (Wide Grip)',
   'Lateral Raise', 'Lateral Raise (Cable)', 'Lateral Raise (Machine)', 'Leg Curl (Lying)',
-  'Leg Press', 'Leg Press (Narrow Stance)', 'Low Cable Row', 'Lunge', 'Lying Triceps Extension',
+  'Leg Press', 'Leg Press (Narrow Stance)', 'Leg Raise', 'Low Cable Row', 'Lunge', 'Lying Triceps Extension',
   'Military Press', 'Mountain Climber', 'Neutral Grip Pull-up', 'Oblique Crunch', 'One Arm Cable Row',
   'One Arm Dumbbell Row', 'Overhead Press (Barbell)', 'Overhead Press (Dumbbell)', 'Overhead Triceps Extension',
   'Pec Deck Fly', 'Pendlay Row', 'Plank', 'Preacher Curl', 'Press (Smith Machine)',
@@ -85,7 +85,7 @@ export function inferCategory(name) {
   const n = name.toLowerCase();
   if (/(arm circle|leg swing)/.test(n)) return 'Warm Up';
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
-  if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk)/.test(n)) return 'Core';
+  if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer)/.test(n)) return 'Legs';
   if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart)/.test(n)) return 'Shoulders';
@@ -106,7 +106,7 @@ export function inferPrimary(name) {
   if (/(hamstring|romanian|stiff leg|leg curl|good morning|single leg deadlift)/.test(n)) return 'Hamstrings';
   if (/(squat|lunge|leg press|leg extension|step-?up|steppers?\b|wall sit|split squat|hack)/.test(n)) return 'Quadriceps';
   if (/deadlift/.test(n)) return 'Posterior Chain';
-  if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk)/.test(n)) return 'Core / Abs';
+  if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope)/.test(n)) return 'Core / Abs';
   if (/(rear delt|reverse fly|face pull)/.test(n)) return 'Rear Delts';
   if (/shrug/.test(n)) return 'Trapezius';
   if (/(lateral raise|side lateral)/.test(n)) return 'Side Delts';
@@ -148,10 +148,15 @@ export function isCardioExercise(name) {
 // Air Rowing (a rowing-machine erg session with no resistance/distance
 // tracked, unlike Rowing Machine's distance+time cardio shape above) is
 // logged the same way — minutes:seconds only, no weight/reps.
+//
+// Battle Rope is logged here too — it's a bodyweight, mm:ss-timed move
+// (no weight field, matching how it's actually trained: rounds of work by
+// duration, not by rep count), so it reuses this same duration-only shape
+// rather than the weight+reps Bodyweight/+Add Weight toggle below.
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing/.test(n);
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope/.test(n);
 }
 
 // Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
@@ -166,19 +171,30 @@ export function isLoadedCarryExercise(name) {
 }
 
 // Bodyweight exercises (push-ups, mountain climbers, jumping jacks, burpees,
-// high knees, beast walk/bear crawl) are usually logged with no added
-// weight, but a client can wear a weighted vest or hold a plate, so the
-// logger offers a Bodyweight/+Add Weight toggle instead of always requiring
-// a KG number. 'high knees' also matches inside 'High Knees Walk', but that
-// name is caught by isLoadedCarryExercise first in the render priority
-// order, so this overlap never actually shows the wrong UI for it. 'beast
-// walk' contains 'walk' too, but inferCategory/inferPrimary explicitly
-// exclude it from the Cardio walk match (see the 'beast' exclusion there),
-// so it never competes with the KM+TIME cardio shape.
+// high knees, beast walk/bear crawl, leg raises, sit-ups, bodyweight squats)
+// are usually logged with no added weight, but a client can wear a weighted
+// vest or hold a plate, so the logger offers a Bodyweight/+Add Weight toggle
+// instead of always requiring a KG number. 'high knees' also matches inside
+// 'High Knees Walk', but that name is caught by isLoadedCarryExercise first
+// in the render priority order, so this overlap never actually shows the
+// wrong UI for it. 'beast walk' contains 'walk' too, but
+// inferCategory/inferPrimary explicitly exclude it from the Cardio walk
+// match (see the 'beast' exclusion there), so it never competes with the
+// KM+TIME cardio shape.
+//
+// 'squat' is matched as an exact full-name check (^squat$), not a substring
+// like the others — a bare substring would also catch every loaded variant
+// (Barbell Squat, Goblet Squat, Front Squat, Smith Machine Squat, Box
+// Squat, Split Squat, Bulgarian Split Squat, Hack Squat, Dumbbell Squat,
+// Jump Squat, Kettlebell Goblet Squat, Zercher Squat...), all of which are
+// genuinely loaded exercises that should keep the normal weight+reps
+// fields. Only the plain "Squat" preset (bodyweight air squat) gets the
+// toggle.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk/.test(n);
+  if (n === 'squat') return true;
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk|leg raise|sit-?up|sit up/.test(n);
 }
 
 // Warm-up moves (Arm Circle, Leg Swing) are reps-only — no weight/KG field

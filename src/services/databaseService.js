@@ -40,24 +40,59 @@ let cachedAccessToken = null;
 export function setCachedAuthToken(token) {
   cachedAccessToken = token || null;
 }
-function currentBearerToken() {
-  if (!cachedAccessToken) {
-    // Cold start race: onAuthStateChange fires asynchronously, so on a fresh
-    // app launch (fully closed and reopened) a mount-time restSelect call
-    // (e.g. TrainerDashboard's client list) can run before it's had a chance
-    // to call setCachedAuthToken — falling back to the anon key and, under
-    // sql/lock_down_reads.sql's auth.uid()-based policies, silently getting
-    // zero rows back (a coach's "My Clients"/coaches list appearing empty
-    // until they log in again, 2026-08-08). supabase-js already persisted
-    // the last session to localStorage synchronously (persistSession: true),
-    // so warm the cache from that instead of racing ahead of it.
-    const stored = readStoredSupabaseSession();
-    const token = stored?.session?.access_token;
-    const expiresAt = stored?.session?.expires_at; // unix seconds
-    if (token && (!expiresAt || expiresAt * 1000 > Date.now())) {
-      cachedAccessToken = token;
-    }
+function isFreshToken(token, expiresAtUnixSeconds) {
+  // 60s safety buffer so a request doesn't start with a token that expires
+  // mid-flight.
+  return !!token && (!expiresAtUnixSeconds || expiresAtUnixSeconds * 1000 > Date.now() + 60000);
+}
+// Resolves the bearer token for restSelect, refreshing proactively rather
+// than trusting cachedAccessToken forever once set. Two failure modes this
+// covers, both discovered the same way — a coach/client's dashboard reads
+// (My Clients, Live Log, History, etc.) going silently empty rather than
+// erroring, because a stale/anon-key request against
+// sql/lock_down_reads.sql's auth.uid()-based policies comes back 200 with
+// zero rows, not 401 — so the *reactive* 401-retry below never even fires:
+//
+// 1. Cold start (2026-08-08): onAuthStateChange fires asynchronously, so a
+//    mount-time restSelect call can run before setCachedAuthToken has been
+//    called at all. Fixed by warming from the session supabase-js already
+//    persisted to localStorage (persistSession: true).
+// 2. Mid-session staleness (2026-08-08, reported ~10-15min after
+//    backgrounding the app): cachedAccessToken was set once and never
+//    rechecked — if it silently expires while backgrounded (mobile browsers
+//    throttle timers, so the SDK's own autoRefreshToken can miss its
+//    window), every restSelect after that point used a dead token. Fixed by
+//    always checking the persisted session's real expiry (not just
+//    whichever value happens to be cached in memory) and refreshing via the
+//    raw endpoint (refreshAccessTokenRaw, same SDK-hang bypass as the 401
+//    path) *before* the request, not only after it 401s.
+async function resolveBearerToken() {
+  let stored = readStoredSupabaseSession();
+  let token = stored?.session?.access_token;
+  let expiresAt = stored?.session?.expires_at; // unix seconds
+
+  if (isFreshToken(token, expiresAt)) {
+    cachedAccessToken = token;
+    return token;
   }
+
+  if (stored?.session?.refresh_token) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) return refreshed;
+  }
+
+  // Our refresh attempt may have lost a race with the SDK's own background
+  // autoRefreshToken (which can succeed even in cases where it later hangs
+  // elsewhere) — re-read localStorage once more before giving up, in case
+  // it already holds a fresher token than what we started with.
+  stored = readStoredSupabaseSession();
+  token = stored?.session?.access_token;
+  expiresAt = stored?.session?.expires_at;
+  if (isFreshToken(token, expiresAt)) {
+    cachedAccessToken = token;
+    return token;
+  }
+
   return cachedAccessToken || supabaseAnonKey;
 }
 
@@ -173,7 +208,7 @@ async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
     }
   };
 
-  let res = await doFetch(currentBearerToken());
+  let res = await doFetch(await resolveBearerToken());
   // 401 with a cached (non-anon) token almost certainly means that token
   // expired mid-session — refresh once via the raw token endpoint and retry
   // before giving up (see refreshAccessTokenRaw's comment above for why this

@@ -737,7 +737,24 @@ function App() {
       }
       if (session && session.user) {
         await processSessionUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
+      } else if (
+        event === 'SIGNED_OUT' ||
+        // No real session but localStorage still claims a logged-in client
+        // (userEmail/onboardingComplete set from a previous visit). This is
+        // the ghost-login state: supabase-js fires INITIAL_SESSION with
+        // session:null on mount whenever its persisted token is gone/expired
+        // (e.g. it was wiped, or refresh failed while the tab was closed) —
+        // neither branch here used to handle that event, so the app just sat
+        // on its stale cached flags forever with no real auth underneath.
+        // Every restSelect/restRpc call then ran on the bare anon key (no
+        // bearer token to set), which RLS silently returns zero rows for —
+        // seen as the client-side coach-status button stuck on "Checking…"
+        // forever, since resolveCanonicalUserId can never resolve a real
+        // user id without an authenticated read. Treat it exactly like
+        // SIGNED_OUT so the user lands back on a real login screen instead
+        // of a half-broken "logged in" dashboard that can never load data.
+        (!session && localStorage.getItem('userEmail'))
+      ) {
         const activeEmail = localStorage.getItem('userEmail') || userEmail;
         if (activeEmail) {
           localStorage.setItem('last_logged_in_email', activeEmail);

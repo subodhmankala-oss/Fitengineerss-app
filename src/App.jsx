@@ -162,6 +162,15 @@ const checkAndHandleDateRollover = () => {
   return false;
 };
 
+// Dev-only auto-login (testing convenience): true only for `vite dev` on
+// localhost, never in a production build (import.meta.env.DEV is statically
+// false there, so this whole branch is dead code in `vite build` output).
+// Never gate any real security behavior on this — it only decides whether to
+// silently replay a locally-remembered login.
+const isLocalDevAutoLogin =
+  import.meta.env.DEV &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 const clearLocalStoragePreservingChats = () => {
   const preserved = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -722,6 +731,29 @@ function App() {
         setOnboardingComplete(false);
       }
     };
+
+    // Dev-only auto-login (testing convenience, see isLocalDevAutoLogin
+    // above): whenever there's no real session on localhost, silently replay
+    // whatever credentials were remembered from the last successful manual
+    // login (Onboarding.jsx saves them to rememberedEmail/rememberedPassword
+    // on success, dev-only). This exists purely so the "ghost-login" state
+    // and any other local session loss (dev-server restart, cleared cookies,
+    // token expiry) don't force retyping a password on every reload while
+    // testing — it never runs in a production build and never invents
+    // credentials, it only replays ones already typed once on this machine.
+    if (isLocalDevAutoLogin) {
+      const remEmail = localStorage.getItem('rememberedEmail');
+      const remPassword = localStorage.getItem('rememberedPassword');
+      if (remEmail && remPassword) {
+        supabase.auth.getSession().then(({ data }) => {
+          if (!data?.session) {
+            databaseService.signIn(remEmail, remPassword).catch(e => {
+              console.warn('[dev auto-login] silent sign-in failed:', e.message);
+            });
+          }
+        });
+      }
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       // Keep databaseService's cached bearer token in sync with the real

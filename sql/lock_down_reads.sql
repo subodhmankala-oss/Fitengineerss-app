@@ -1,18 +1,27 @@
 -- ==========================================
 -- STEP 4: Restrict READS to the right person only
 --
--- !! DO NOT RUN THIS YET — IT WILL BREAK THE LIVE APP AS OF 2026-08-08 !!
+-- STATUS: APPLIED to production 2026-08-08 (after restSelect() was fixed to
+-- send the caller's session JWT instead of the anon key — see
+-- project-restselect-uses-anon-key memory). Verified via curl: anonymous
+-- reads on users/workout_logs/body_measurements now return [], exercises
+-- (public reference data) still returns rows, and the super-admin
+-- escalation block still rejects. Kept idempotent (drops legacy policy
+-- names up front) so it's safe to re-run, e.g. against a fresh environment.
 --
--- PREREQUISITE: restSelect() in src/services/databaseService.js sends the
--- ANON KEY as its bearer token, not the logged-in user's session JWT, on
--- ~30 read paths including login, client home, coach dashboards and
--- invite-code lookup. To Postgres those requests are anonymous
--- (auth.uid() IS NULL), so every policy below returns ZERO ROWS for real
--- users. This was applied to production on 2026-08-08, broke those screens,
--- and was reverted by rollback_lock_down_reads.sql.
---
--- Fix restSelect() to send the session token, verify every screen loads,
--- and only then run this file.
+-- HISTORY, for anyone re-reading this later: the first two attempts to
+-- apply this looked like they failed/were reverted, in order:
+--   1. Broke login/dashboards in production — restSelect() was still
+--      sending the anon key, so auth.uid() was NULL for ~30 read paths and
+--      every policy below returned zero rows. Reverted via
+--      rollback_lock_down_reads.sql. Fixed by making restSelect() cache
+--      and send the real session token (see App.jsx onAuthStateChange).
+--   2. Re-run left every table with BOTH the new scoped policy below AND
+--      the old permissive one under a different name
+--      (*_allow_all_restored, from the rollback), which — since permissive
+--      policies OR together — silently kept every table fully open despite
+--      the new rules being technically live. The DROP statements below now
+--      account for that name too.
 --
 -- Every table below currently has one blanket policy:
 --   FOR ALL USING (true) WITH CHECK (true)
@@ -116,6 +125,24 @@ begin
   return result;
 end;
 $$;
+
+-- Defensive cleanup: drop the rollback script's *_allow_all_restored name
+-- too, in case this is being re-run after a rollback (see HISTORY above —
+-- this exact gap silently kept every table open on 2026-08-08).
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'users', 'clients', 'body_measurements', 'workout_logs',
+    'progress_history', 'tracker_logs', 'workout_plans', 'workout_drafts',
+    'push_subscriptions', 'coach_notes', 'chat_messages', 'coaches',
+    'invitations'
+  ]
+  loop
+    execute format('drop policy if exists %I on public.%I', t || '_allow_all_restored', t);
+  end loop;
+end $$;
 
 -- ─── users ───
 drop policy if exists "Allow public read and write access" on public.users;

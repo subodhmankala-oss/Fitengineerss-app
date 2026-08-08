@@ -44,6 +44,75 @@ function currentBearerToken() {
   return cachedAccessToken || supabaseAnonKey;
 }
 
+// ─── RAW TOKEN REFRESH (SDK-hang bypass) ───
+// cachedAccessToken above is set once per onAuthStateChange event and never
+// updates itself in between — there's no timer refreshing it, and the SDK's
+// own background refresh is the exact thing that hangs on this project (see
+// signIn()'s comment). So once the ~1hr access token expires mid-session,
+// every restSelect() call below started 401'ing — and every current caller
+// (getWorkoutLogsForUser, getBodyMeasurements, fetchClientPlans, etc.) wraps
+// its restSelect in a try/catch that swallows ANY failure into "no rows",
+// identical in the UI to the client genuinely having nothing. That's how a
+// coach's Live Log/History/Measurements/Send Plan tabs can all go blank for
+// a real client with real data still sitting untouched in the DB — this
+// looked like "lost data" but was a silently-expired read, not a deleted
+// row (root-caused for a client with 76 workout_logs / 6 workout_plans that
+// disappeared from the coach's view with no error surfaced, 2026-08-08).
+// Fixed by refreshing via the raw token endpoint (same bypass signIn() uses)
+// instead of the hanging supabase.auth.refreshSession(), and retrying the
+// read once. Session storage key format is supabase-js v2's own
+// "sb-<project-ref>-auth-token" — read by prefix/suffix instead of computing
+// the ref, so this keeps working if the project ref ever changes.
+let refreshInFlight = null;
+function readStoredSupabaseSession() {
+  try {
+    const key = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    if (!key) return null;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    return { key, session: JSON.parse(raw) };
+  } catch {
+    return null;
+  }
+}
+async function refreshAccessTokenRaw() {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const stored = readStoredSupabaseSession();
+    const refreshToken = stored?.session?.refresh_token;
+    if (!refreshToken) return null;
+    try {
+      const resp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: supabaseAnonKey },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json().catch(() => null);
+      if (!data?.access_token) return null;
+      setCachedAuthToken(data.access_token);
+      // Keep the persisted session in sync too, so a page reload (or the SDK,
+      // if it ever does pick a request up) sees the same fresh token instead
+      // of immediately re-expiring back to the one that just failed.
+      try {
+        window.localStorage.setItem(stored.key, JSON.stringify({
+          ...stored.session,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token || refreshToken
+        }));
+      } catch { /* best-effort */ }
+      return data.access_token;
+    } catch {
+      return null;
+    }
+  })();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
 // ─── RAW POSTGREST READ (SDK-hang bypass) ───
 // The Supabase JS SDK stalls on this project when the auth token needs
 // refreshing: any .from().select() awaits the token, and the refresh hangs,
@@ -69,23 +138,35 @@ let exerciseLibraryFetchPromise = null;
 let seededOnce = false;
 
 async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${REST_BASE}/${pathAndQuery}`, {
-      method: 'GET',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${currentBearerToken()}`,
-        Accept: 'application/json'
-      },
-      signal: controller.signal
-    });
-    if (!res.ok) throw new Error(`PostgREST ${res.status} ${res.statusText}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
+  const doFetch = async (token) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${REST_BASE}/${pathAndQuery}`, {
+        method: 'GET',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json'
+        },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  let res = await doFetch(currentBearerToken());
+  // 401 with a cached (non-anon) token almost certainly means that token
+  // expired mid-session — refresh once via the raw token endpoint and retry
+  // before giving up (see refreshAccessTokenRaw's comment above for why this
+  // matters: callers treat any failure here as "zero rows").
+  if (res.status === 401 && cachedAccessToken) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) res = await doFetch(refreshed);
   }
+  if (!res.ok) throw new Error(`PostgREST ${res.status} ${res.statusText}`);
+  return await res.json();
 }
 
 // Same SDK-hang bypass as restSelect, for calling a Postgres RPC function

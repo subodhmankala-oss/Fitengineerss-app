@@ -85,6 +85,16 @@ async function getClientRow(clientUserId) {
   return row ? { coach_id: row.coach_id, full_name: row.full_name } : null;
 }
 
+// Display name for the coach side of a client relationship — used as the
+// notification header (title) for events sent TO the client, so it reads
+// as "Coach Name / Session started" the same way a phone shows a contact's
+// name as the notification header, not the app name.
+async function getCoachDisplayName(coachId) {
+  if (!coachId) return 'Your Coach';
+  const contact = await getUserContact(coachId);
+  return contact?.full_name || 'Your Coach';
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -105,18 +115,24 @@ export default async function handler(req, res) {
     let title = '';
     let body = '';
 
+    // Notification shape, app-wide: title is the PERSON the notification is
+    // about/from (like a phone showing a contact's name as the header), and
+    // body is a short one-line status — not a full sentence explaining
+    // itself. Mirrors how WhatsApp/iMessage push notifications read (name up
+    // top, "Sent a photo" / "Skipping today" below), rather than a generic
+    // "Fitengineers" app banner every time.
     if (event === 'workout_started') {
       // Notify the client's coach that a session has begun.
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
-      title = '🏋️ Session Started';
-      body = `${clientName} has just started a workout session. Great time to check in and cheer them on!`;
+      title = clientName;
+      body = 'Session started';
     } else if (event === 'measurements_saved') {
       // Notify the client's coach that new measurements are in.
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
-      title = '📏 New Measurements';
-      body = `${clientName} has just updated their body measurements. Take a look to track their progress.`;
+      title = clientName;
+      body = 'Updated body measurements';
     } else if (event === 'workout_finished') {
       // Notify the client's coach that a session was completed, with the real
       // duration and calories, so the coach can send a note back.
@@ -125,15 +141,14 @@ export default async function handler(req, res) {
       const mins = Number.isFinite(durationSeconds) ? Math.max(1, Math.round(durationSeconds / 60)) : null;
       const cals = Number.isFinite(caloriesBurned) ? Math.round(caloriesBurned) : null;
       const stats = [mins != null ? `${mins} min` : null, cals != null ? `${cals} kcal` : null].filter(Boolean).join(' · ');
-      const workoutLabel = workoutName ? `"${workoutName}"` : 'a workout';
-      title = '✅ Workout Completed';
-      body = `${clientName} finished ${workoutLabel}${stats ? ` — ${stats}` : ''}. Open the app to send them a note.`;
+      title = clientName;
+      body = `Workout completed${stats ? ` — ${stats}` : ''}`;
     } else if (event === 'coach_note') {
       // Notify the client that their coach sent them a note — the coach's
-      // actual words are the notification body.
+      // actual words are the notification body, their name is the header.
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for coach_note.' });
       targetUserId = clientUserId;
-      title = '💬 Note from your coach';
+      title = await getCoachDisplayName(client?.coach_id);
       body = message.trim();
     } else if (event === 'client_reply') {
       // Notify the coach that their client replied to a note — fires
@@ -141,18 +156,21 @@ export default async function handler(req, res) {
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for client_reply.' });
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
-      title = `💬 Reply from ${clientName}`;
+      title = clientName;
       body = message.trim();
     } else if (event === 'session_reminder') {
       // Coach-triggered nudge to the client that their session package is
       // running low — manual "Send renewal reminder" button on the coach
-      // dashboard, shown once sessions-left ≤ 4.
+      // dashboard, shown once sessions-left ≤ 4. No single "other person" to
+      // head this with (it's a system nudge about the client's own account),
+      // so it keeps the coach's name as the header since that's who they'd
+      // talk to about renewing.
       targetUserId = clientUserId;
       const left = Number.isFinite(sessionsLeft) ? sessionsLeft : null;
-      title = '⏳ Sessions Running Low';
+      title = await getCoachDisplayName(client?.coach_id);
       body = left != null
-        ? `You have ${left} session${left === 1 ? '' : 's'} left in your current package. Talk to your coach about renewing to keep your progress going!`
-        : `Your session package is running low. Talk to your coach about renewing to keep your progress going!`;
+        ? `${left} session${left === 1 ? '' : 's'} left — talk to your coach about renewing`
+        : 'Session package running low — talk to your coach about renewing';
     } else if (event === 'client_disconnected') {
       // Courtesy notice to the coach that a client's package ran out with no
       // renewal and they were auto-disconnected (moved to unattached
@@ -161,15 +179,13 @@ export default async function handler(req, res) {
       // the caller passes the old coach id directly instead.
       if (!oldCoachId) return res.status(200).json({ success: true, message: 'No coach to notify.' });
       targetUserId = oldCoachId;
-      title = '📦 Client Package Ended';
-      body = `${clientName} completed their full session package and was moved to unattached clients. Reconnect them anytime with a new invite code.`;
+      title = clientName;
+      body = 'Package ended — moved to unattached clients';
     } else if (event === 'plan_assigned') {
       // Notify the client that their coach sent a new plan.
       targetUserId = clientUserId;
-      title = '📋 New Workout Plan';
-      body = planName
-        ? `Your coach has sent you a new workout plan: "${planName}". Open the app when you're ready to begin.`
-        : `Your coach has sent you a new workout plan. Open the app when you're ready to begin.`;
+      title = await getCoachDisplayName(client?.coach_id);
+      body = planName ? `Sent you a new plan: "${planName}"` : 'Sent you a new workout plan';
     } else {
       return res.status(400).json({ error: `Unknown event "${event}".` });
     }

@@ -2413,7 +2413,12 @@
   border-radius: 0;
   background: rgba(13, 20, 35, 0.98);
   box-shadow: none;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  /* Top must reserve env(safe-area-inset-top) too, not just bottom — this
+     card is a full-height (height: 100%) sheet starting at the very top of
+     the viewport, so on an iPhone with a notch/Dynamic Island a flat 16px
+     put the close ✕ / Done buttons underneath the status bar: visible but
+     untappable, since iOS reserves that strip for its own UI. */
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
   /* Tighter than the base .payment-gateway-modal's 20px — that much air
      between every section (header/search/filters/list/footer) was most of
      why so few results fit on screen at once. */

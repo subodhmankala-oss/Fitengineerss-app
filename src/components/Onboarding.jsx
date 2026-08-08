@@ -3,6 +3,22 @@ import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from
 import { calculateTargetsGeneric } from '../utils/targets';
 import './Onboarding.css';
 
+// Dev-only auto-login convenience (see matching isLocalDevAutoLogin in
+// App.jsx, which replays these on future loads with no session): on
+// localhost only, remember the credentials of a successful manual login so
+// testing doesn't require retyping a password every time the session gets
+// reset (dev-server restart, ghost-login recovery, etc). Never runs against
+// a deployed build.
+const isLocalDevAutoLogin =
+  import.meta.env.DEV &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const rememberForDevAutoLogin = (email, password) => {
+  if (!isLocalDevAutoLogin || !email || !password) return;
+  localStorage.setItem('rememberedEmail', email);
+  localStorage.setItem('rememberedPassword', password);
+};
+
 const googleAccounts = [
   {
     name: 'Subodh Mankala',
@@ -368,6 +384,7 @@ const Onboarding = ({ onComplete }) => {
       }
 
       if (signInSuccess) {
+        rememberForDevAutoLogin(authEmail, authPassword);
         if (profile?.onboardingCompleted) {
           // Already finished the one-time wizard on a previous login — straight to the dashboard.
           await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
@@ -591,6 +608,7 @@ const Onboarding = ({ onComplete }) => {
         if (!authUserId) {
           throw new Error('Could not verify your account. Please try again.');
         }
+        rememberForDevAutoLogin(authEmail, authPassword);
         const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
         const mockCoaches = databaseService.getMockTable('coaches');
 

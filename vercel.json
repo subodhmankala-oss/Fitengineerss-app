@@ -1,6 +1,10 @@
 {
   "crons": [
-    { "path": "/api/send-nudges", "schedule": "0 8 * * *" },
+    { "path": "/api/send-nudges", "schedule": "30 2 * * *" },
+    { "path": "/api/send-nudges", "schedule": "30 5 * * *" },
+    { "path": "/api/send-nudges", "schedule": "30 7 * * *" },
+    { "path": "/api/send-nudges", "schedule": "30 13 * * *" },
+    { "path": "/api/send-nudges", "schedule": "30 15 * * *" },
     { "path": "/api/send-nudges?job=inactivity", "schedule": "30 3 * * *" }
   ],
   "rewrites": [

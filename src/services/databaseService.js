@@ -41,6 +41,23 @@ export function setCachedAuthToken(token) {
   cachedAccessToken = token || null;
 }
 function currentBearerToken() {
+  if (!cachedAccessToken) {
+    // Cold start race: onAuthStateChange fires asynchronously, so on a fresh
+    // app launch (fully closed and reopened) a mount-time restSelect call
+    // (e.g. TrainerDashboard's client list) can run before it's had a chance
+    // to call setCachedAuthToken — falling back to the anon key and, under
+    // sql/lock_down_reads.sql's auth.uid()-based policies, silently getting
+    // zero rows back (a coach's "My Clients"/coaches list appearing empty
+    // until they log in again, 2026-08-08). supabase-js already persisted
+    // the last session to localStorage synchronously (persistSession: true),
+    // so warm the cache from that instead of racing ahead of it.
+    const stored = readStoredSupabaseSession();
+    const token = stored?.session?.access_token;
+    const expiresAt = stored?.session?.expires_at; // unix seconds
+    if (token && (!expiresAt || expiresAt * 1000 > Date.now())) {
+      cachedAccessToken = token;
+    }
+  }
   return cachedAccessToken || supabaseAnonKey;
 }
 

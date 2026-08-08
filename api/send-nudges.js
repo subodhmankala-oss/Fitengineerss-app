@@ -10,6 +10,22 @@ webPush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
+// sql/lock_down_reads.sql gates SELECT on users/clients/coaches/tracker_logs/
+// push_subscriptions to auth.uid()-derived checks. This file runs server-side with
+// the anon key and no user session, so auth.uid() is NULL and direct .from().select()
+// reads on those tables silently return zero rows. The get_*_for_server RPCs
+// (sql/server_reads_rpc.sql, sql/push_subscriptions_broadcast_rpc.sql) are SECURITY
+// DEFINER, secret-gated escape hatches for exactly this case — writes
+// (insert/update/delete) are unaffected and still go through the normal client.
+const BROADCAST_SECRET = process.env.BROADCAST_SECRET;
+
+async function rpcAll(supabaseClient, fn) {
+  if (!BROADCAST_SECRET) throw new Error(`BROADCAST_SECRET is not set — required for ${fn}.`);
+  const { data, error } = await supabaseClient.rpc(fn, { secret: BROADCAST_SECRET });
+  if (error) throw error;
+  return data || [];
+}
+
 const morningQuotes = [
   "Good morning. Today is another chance to invest in yourself — one steady, intentional choice at a time. Let's make it count. ☀️",
   "Rise and shine. Progress is built on consistency, not perfection. Show up for yourself today and the results will follow. 💪",
@@ -74,7 +90,8 @@ function coachAboutInactiveClientMessage(clientName, days) {
 
 async function pushToUserId(supabase, userId, title, body) {
   if (!userId) return { sent: 0, failed: 0 };
-  const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('user_id', userId);
+  const allSubs = await rpcAll(supabase, 'get_push_subscriptions_for_broadcast');
+  const subs = allSubs.filter((s) => s.user_id === userId);
   if (!subs || subs.length === 0) return { sent: 0, failed: 0 };
   const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300] });
   let sent = 0, failed = 0;
@@ -94,13 +111,9 @@ async function pushToUserId(supabase, userId, title, body) {
 
 async function runInactivitySweep(supabase, res) {
   try {
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select('id, email, full_name, last_login');
-    if (usersError) throw usersError;
-
-    const { data: clientRows } = await supabase.from('clients').select('user_id, full_name, coach_id');
-    const { data: coachRows } = await supabase.from('coaches').select('user_id, brand_name, status');
+    const users = await rpcAll(supabase, 'get_users_for_server');
+    const clientRows = await rpcAll(supabase, 'get_clients_for_server');
+    const coachRows = await rpcAll(supabase, 'get_coaches_for_server');
 
     let clientNudges = 0, coachNudges = 0, coachAlerts = 0, skipped = 0;
 
@@ -165,16 +178,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Fetch all active push subscriptions
-    const { data: subscribers, error: subsError } = await supabase
-      .from('push_subscriptions')
-      .select('*');
-
-    if (subsError) {
-      if (subsError.message.includes('does not exist')) {
+    // 1. Fetch all active push subscriptions, plus the users/clients/tracker_logs
+    // tables needed per-subscriber below — fetched once up front via RPC (see
+    // BROADCAST_SECRET note above) rather than per-subscriber .eq() queries, both
+    // because those direct reads return nothing for this anon-key server client and
+    // because it's cheaper to filter these small tables in memory once.
+    let subscribers, allUsers, allClients, allTrackerLogs;
+    try {
+      [subscribers, allUsers, allClients, allTrackerLogs] = await Promise.all([
+        rpcAll(supabase, 'get_push_subscriptions_for_broadcast'),
+        rpcAll(supabase, 'get_users_for_server'),
+        rpcAll(supabase, 'get_clients_for_server'),
+        rpcAll(supabase, 'get_tracker_logs_for_server')
+      ]);
+    } catch (rpcError) {
+      if (rpcError.message?.includes('does not exist')) {
         return res.status(200).json({ message: 'No subscriptions found because push_subscriptions table does not exist.' });
       }
-      throw subsError;
+      throw rpcError;
     }
 
     if (!subscribers || subscribers.length === 0) {
@@ -210,11 +231,7 @@ export default async function handler(req, res) {
 
       try {
         // Fetch user targets
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .single();
+        const userProfile = allUsers.find((u) => u.email === email) || null;
 
         let calorieTarget = 1800;
         let proteinTarget = 100;
@@ -233,12 +250,7 @@ export default async function handler(req, res) {
         let loggedCalories = 0;
 
         if (userProfile) {
-          const { data: logToday } = await supabase
-            .from('tracker_logs')
-            .select('*')
-            .eq('user_id', userProfile.id)
-            .eq('log_date', dateStr)
-            .single();
+          const logToday = allTrackerLogs.find((l) => l.user_id === userProfile.id && l.log_date === dateStr) || null;
 
           if (logToday) {
             waterGlasses = logToday.water_glasses || 0;
@@ -266,11 +278,7 @@ export default async function handler(req, res) {
 
         // Only coach-connected clients receive the wellness schedule.
         if (userProfile) {
-          const { data: clientRow } = await supabase
-            .from('clients')
-            .select('coach_id')
-            .eq('user_id', userProfile.id)
-            .maybeSingle();
+          const clientRow = allClients.find((c) => c.user_id === userProfile.id) || null;
           if (!clientRow || !clientRow.coach_id) {
             continue; // no coach — skip this subscriber
           }

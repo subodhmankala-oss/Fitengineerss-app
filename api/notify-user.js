@@ -11,15 +11,28 @@ webPush.setVapidDetails(
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// sql/lock_down_reads.sql gates SELECT on users/clients/push_subscriptions to
+// auth.uid()-derived checks. This code runs server-side with the anon key and no
+// user session, so auth.uid() is NULL and those direct .from().select() reads
+// silently return zero rows. The get_*_for_server / get_push_subscriptions_for_broadcast
+// RPCs (sql/server_reads_rpc.sql, sql/push_subscriptions_broadcast_rpc.sql) are
+// SECURITY DEFINER, secret-gated escape hatches for exactly this case — writes
+// (insert/update/delete) are unaffected and still go through the normal client.
+const BROADCAST_SECRET = process.env.BROADCAST_SECRET;
+
+async function rpcAll(fn) {
+  if (!BROADCAST_SECRET) throw new Error(`BROADCAST_SECRET is not set — required for ${fn}.`);
+  const { data, error } = await supabase.rpc(fn, { secret: BROADCAST_SECRET });
+  if (error) throw error;
+  return data || [];
+}
+
 // Look up a target user's email + display name so we can match their push
 // subscriptions even when the row predates the user_id column.
 async function getUserContact(userId) {
-  const { data } = await supabase
-    .from('users')
-    .select('email, full_name')
-    .eq('id', userId)
-    .maybeSingle();
-  return data || null;
+  const users = await rpcAll('get_users_for_server');
+  const user = users.find((u) => u.id === userId);
+  return user ? { email: user.email, full_name: user.full_name } : null;
 }
 
 // Collect every push subscription belonging to a target user. Matches on
@@ -28,18 +41,13 @@ async function getUserContact(userId) {
 // user_id column existed) — so a coach/client who subscribed earlier still
 // receives targeted notifications without having to re-subscribe.
 async function findSubscriptions(targetUserId, email, name) {
+  const all = await rpcAll('get_push_subscriptions_for_broadcast');
   const byEndpoint = new Map();
-  const collect = (rows) => (rows || []).forEach((r) => byEndpoint.set(r.endpoint, r));
-
-  const q1 = await supabase.from('push_subscriptions').select('*').eq('user_id', targetUserId);
-  collect(q1.data);
-  if (email) {
-    const q2 = await supabase.from('push_subscriptions').select('*').eq('subscription->>userEmail', email);
-    collect(q2.data);
-  }
-  if (name) {
-    const q3 = await supabase.from('push_subscriptions').select('*').eq('user_name', name);
-    collect(q3.data);
+  for (const r of all) {
+    const matches = r.user_id === targetUserId
+      || (email && r.subscription?.userEmail === email)
+      || (name && r.user_name === name);
+    if (matches) byEndpoint.set(r.endpoint, r);
   }
   return Array.from(byEndpoint.values());
 }
@@ -72,12 +80,9 @@ async function pushToUser(targetUserId, title, body) {
 }
 
 async function getClientRow(clientUserId) {
-  const { data } = await supabase
-    .from('clients')
-    .select('coach_id, full_name')
-    .eq('user_id', clientUserId)
-    .maybeSingle();
-  return data || null;
+  const clients = await rpcAll('get_clients_for_server');
+  const row = clients.find((c) => c.user_id === clientUserId);
+  return row ? { coach_id: row.coach_id, full_name: row.full_name } : null;
 }
 
 export default async function handler(req, res) {

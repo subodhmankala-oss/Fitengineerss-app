@@ -2636,6 +2636,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                 </div>
               )}
 
+              {/* triggerLiveToast's own toast only renders inside the Live Log
+                  tab (selectedClient view), so success/failure from the
+                  home-screen "Send note" card below was previously always
+                  silent — a failed send just looked like the button did
+                  nothing (2026-08-09). Mirror it here so this screen gets its
+                  own visible feedback. */}
+              {liveToast && !selectedClient && (
+                <div style={{
+                  padding: '10px 14px', marginBottom: '16px',
+                  background: liveToast.startsWith('✅') ? 'rgba(16,185,129,0.15)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                  border: `1px solid ${liveToast.startsWith('✅') ? 'rgba(16,185,129,0.3)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                  borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', color: '#fff', fontWeight: 600
+                }}>{liveToast}</div>
+              )}
+
               {/* Client finished a workout, no coach note sent yet — fallback
                   for a missed "workout completed" push. Lives on the home
                   screen (not inside any client's detail tabs) with an inline

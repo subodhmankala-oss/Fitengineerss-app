@@ -298,7 +298,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   useEffect(() => {
     const loadActiveInviteCode = async () => {
       try {
-        const coachId = localStorage.getItem('userId') || loggedInEmail;
+        // resolvedCoachId (repaired by resolveCanonicalUserId at mount) over
+        // the raw localStorage 'userId' — that value can be poisoned with
+        // the Supabase auth UID instead of the real public.users.id, and
+        // resolveCoachUserId trusts anything already UUID-shaped without
+        // verifying it against the users table, so a poisoned id here would
+        // silently look up/deactivate/generate codes against a coach that
+        // doesn't exist — the DB query always comes back empty, so this
+        // effect kept clearing 'last_generated_invite_code' right back out
+        // (the reported "invite code not refreshed") (2026-08-09).
+        const coachId = resolvedCoachId || loggedInEmail;
         if (coachId) {
           const activeCodeObj = await databaseService.getActiveCoachInviteCode(coachId);
           if (activeCodeObj && activeCodeObj.code) {
@@ -313,11 +322,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
         console.error('Error fetching active invitation code:', err);
       }
     };
-    
+
     if (viewMode !== 'admin') {
       loadActiveInviteCode();
     }
-  }, [viewMode, loggedInEmail]);
+  }, [viewMode, loggedInEmail, resolvedCoachId]);
 
   useEffect(() => {
     // Listen for coaches updates (same-tab via CustomEvent) and cross-tab via storage event
@@ -2799,9 +2808,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                   <button
                     onClick={async () => {
                       if (generatingCode) return;
-                      
-                      const coachId = localStorage.getItem('userId') || loggedInEmail;
-                      
+
+                      // See loadActiveInviteCode's comment above — resolvedCoachId
+                      // over the raw localStorage 'userId'.
+                      const coachId = resolvedCoachId || loggedInEmail;
+
                       if (generatedInviteCode) {
                         const confirmRegen = window.confirm(
                           `You already have an active invitation code (${generatedInviteCode}).\n\n` +

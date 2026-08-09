@@ -1751,11 +1751,11 @@ const databaseService = {
       if (completedCount < conn.totalSessions) return { disconnected: false };
 
       const oldCoachId = conn.coachId;
-      const { error } = await supabase
-        .from('clients')
-        .update({ coach_id: null, total_sessions: null })
-        .eq('user_id', userId);
-      if (error) {
+      // Raw PostgREST (restUpdate) instead of supabase.from() — same
+      // SDK-hang bypass as everywhere else in this file.
+      try {
+        await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, { coach_id: null, total_sessions: null });
+      } catch (error) {
         console.error('Auto-disconnect (session package complete) failed:', error);
         return { disconnected: false };
       }
@@ -2016,18 +2016,15 @@ const databaseService = {
   async saveChatMessage(clientId, sender, message) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('chat_messages')
-          .insert({
-            client_id: clientId,
-            sender: sender,
-            message: message
-          })
-          .select();
-        
-        if (error) throw error;
-        if (data && data.length > 0) {
-          return data;
+        // Raw PostgREST (restInsert) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const data = await restInsert('chat_messages', {
+          client_id: clientId,
+          sender: sender,
+          message: message
+        });
+        if (data) {
+          return [data];
         }
       } catch (e) {
         console.error('Cloud DB Save Chat Error, falling back to local:', e);
@@ -2055,13 +2052,11 @@ const databaseService = {
   async getChatMessages(clientId) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('chat_messages')
-          .select('*')
-          .eq('client_id', clientId)
-          .order('created_at', { ascending: true });
-        
-        if (error) throw error;
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const data = await restSelect(
+          `chat_messages?select=*&client_id=eq.${encodeURIComponent(clientId)}&order=created_at.asc`
+        );
         if (data) {
           return data.map(msg => ({
             id: msg.id,
@@ -2285,14 +2280,11 @@ const databaseService = {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId);
         
         if (!isUuid) {
-          const { data: usersByName } = await supabase
-            .from('users')
-            .select('id')
-            .ilike('full_name', targetUserId)
-            .maybeSingle();
-          
-          if (usersByName) {
-            resolvedUserId = usersByName.id;
+          // Raw PostgREST (restSelect) instead of supabase.from() — same
+          // SDK-hang bypass as everywhere else in this file.
+          const usersByName = await restSelect(`users?full_name=ilike.${encodeURIComponent(targetUserId)}&select=id`);
+          if (usersByName[0]) {
+            resolvedUserId = usersByName[0].id;
           }
         }
 
@@ -2313,15 +2305,13 @@ const databaseService = {
         }
         planRecord.user_id = resolvedUserId;
 
-        const { data, error } = await supabase
-          .from('workout_plans')
-          .upsert(planRecord)
-          .select();
-
-        if (error) throw error;
-        if (data && data.length > 0) {
-          plan.id = data[0].id;
-          plan.userId = data[0].user_id;
+        // Raw PostgREST (restUpsert) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file. No onConflict
+        // passed — PostgREST resolves on the table's primary key by default.
+        const data = await restUpsert('workout_plans', planRecord);
+        if (data) {
+          plan.id = data.id;
+          plan.userId = data.user_id;
         }
       } catch (e) {
         console.error('Cloud DB Workout Plan Sync Error:', e);
@@ -2352,11 +2342,9 @@ const databaseService = {
       try {
         const isPlanUuid = planId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
         if (isPlanUuid) {
-          const { error } = await supabase
-            .from('workout_plans')
-            .delete()
-            .eq('id', planId);
-          if (error) throw error;
+          // Raw PostgREST (restDelete) instead of supabase.from() — same
+          // SDK-hang bypass as everywhere else in this file.
+          await restDelete(`workout_plans?id=eq.${encodeURIComponent(planId)}`);
         }
       } catch (e) {
         console.error('Cloud DB Workout Plan Delete Error:', e);
@@ -2399,10 +2387,9 @@ const databaseService = {
         pause_intervals: draft.pauseIntervals || [],
         updated_at: new Date().toISOString()
       };
-      const { error } = await supabase
-        .from('workout_drafts')
-        .upsert(record, { onConflict: 'user_id' });
-      if (error) throw error;
+      // Raw PostgREST (restUpsert) instead of supabase.from() — same
+      // SDK-hang bypass as everywhere else in this file.
+      await restUpsert('workout_drafts', record, 'user_id');
     } catch (e) {
       console.error('Cloud DB Save Workout Draft Error:', e);
     }
@@ -2463,11 +2450,9 @@ const databaseService = {
   async deleteWorkoutDraft(userId) {
     if (!isSupabaseConfigured || !supabase || !userId) return;
     try {
-      const { error } = await supabase
-        .from('workout_drafts')
-        .delete()
-        .eq('user_id', userId);
-      if (error) throw error;
+      // Raw PostgREST (restDelete) instead of supabase.from() — same
+      // SDK-hang bypass as everywhere else in this file.
+      await restDelete(`workout_drafts?user_id=eq.${encodeURIComponent(userId)}`);
     } catch (e) {
       console.error('Cloud DB Delete Workout Draft Error:', e);
     }
@@ -2494,11 +2479,13 @@ const databaseService = {
       // even though the top-level profile edit's weight field does.
       const weightVal = parseFloat(measurements?.weight);
       if (Number.isFinite(weightVal) && supabase) {
-        const { error: weightSyncError } = await supabase
-          .from('clients')
-          .update({ weight_kg: weightVal })
-          .eq('user_id', userId);
-        if (weightSyncError) console.warn('Could not sync weight_kg onto clients row:', weightSyncError);
+        // Raw PostgREST (restUpdate) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        try {
+          await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, { weight_kg: weightVal });
+        } catch (weightSyncError) {
+          console.warn('Could not sync weight_kg onto clients row:', weightSyncError);
+        }
       }
 
       return {

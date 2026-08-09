@@ -3338,18 +3338,18 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('invitations')
-          .select('*')
-          .eq('coach_id', resolvedCoachId)
-          .eq('used', false)
-          .gt('expires_at', now)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) throw error;
-        return data;
+        // Raw PostgREST (SDK-hang bypass, same as restSelect elsewhere in
+        // this file) instead of supabase.from('invitations').select() — that
+        // SDK call is the exact one documented to hang on this project, so
+        // the coach dashboard's "Active Code" mount-time fetch could simply
+        // never resolve, silently freezing the display on whatever stale
+        // value localStorage last held (never erroring, so no catch fired
+        // either) — the reported "invite code not refreshed" (2026-08-09).
+        const rows = await restSelect(
+          `invitations?select=*&coach_id=eq.${encodeURIComponent(resolvedCoachId)}` +
+          `&used=eq.false&expires_at=gt.${encodeURIComponent(now)}&order=created_at.desc&limit=1`
+        );
+        return (rows && rows[0]) || null;
       } catch (err) {
         console.error('[ERROR] Failed to fetch active invite code from Supabase:', err);
         return null;
@@ -3375,14 +3375,17 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase
-          .from('invitations')
-          .update({ expires_at: now })
-          .eq('coach_id', resolvedCoachId)
-          .eq('used', false)
-          .gt('expires_at', now);
-
-        if (error) throw error;
+        // Raw PostgREST (SDK-hang bypass, same as restUpdate elsewhere in
+        // this file) instead of supabase.from('invitations').update() — same
+        // hang risk as getActiveCoachInviteCode above. A hang here meant
+        // "Generate Code" could sit on this await forever, or (if it lost the
+        // race and got abandoned) leave the old code un-deactivated in the
+        // DB while the UI moved on to showing the new one.
+        await restUpdate(
+          `invitations?coach_id=eq.${encodeURIComponent(resolvedCoachId)}` +
+          `&used=eq.false&expires_at=gt.${encodeURIComponent(now)}`,
+          { expires_at: now }
+        );
       } catch (err) {
         console.error('[ERROR] Failed to deactivate old invite codes in Supabase:', err);
       }

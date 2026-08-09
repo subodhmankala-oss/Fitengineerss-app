@@ -295,38 +295,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     }
   }, [viewMode]);
 
-  useEffect(() => {
-    const loadActiveInviteCode = async () => {
-      try {
-        // resolvedCoachId (repaired by resolveCanonicalUserId at mount) over
-        // the raw localStorage 'userId' — that value can be poisoned with
-        // the Supabase auth UID instead of the real public.users.id, and
-        // resolveCoachUserId trusts anything already UUID-shaped without
-        // verifying it against the users table, so a poisoned id here would
-        // silently look up/deactivate/generate codes against a coach that
-        // doesn't exist — the DB query always comes back empty, so this
-        // effect kept clearing 'last_generated_invite_code' right back out
-        // (the reported "invite code not refreshed") (2026-08-09).
-        const coachId = resolvedCoachId || loggedInEmail;
-        if (coachId) {
-          const activeCodeObj = await databaseService.getActiveCoachInviteCode(coachId);
-          if (activeCodeObj && activeCodeObj.code) {
-            setGeneratedInviteCode(activeCodeObj.code);
-            localStorage.setItem('last_generated_invite_code', activeCodeObj.code);
-          } else {
-            setGeneratedInviteCode('');
-            localStorage.removeItem('last_generated_invite_code');
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching active invitation code:', err);
-      }
-    };
-
-    if (viewMode !== 'admin') {
-      loadActiveInviteCode();
-    }
-  }, [viewMode, loggedInEmail, resolvedCoachId]);
+  // Deliberately no mount-time fetch of the coach's still-active DB invite
+  // code here anymore — the coach asked for the "Active Code" panel to start
+  // empty on every fresh app open (see generatedInviteCode's comment above)
+  // rather than resurrecting whatever code is still technically valid in the
+  // DB from a previous session. "Generate Code" always deactivates any old
+  // code and mints a new one regardless, so nothing is lost by not showing it.
 
   useEffect(() => {
     // Listen for coaches updates (same-tab via CustomEvent) and cross-tab via storage event
@@ -358,7 +332,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   const [loadingClients, setLoadingClients] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState('All');
-  const [generatedInviteCode, setGeneratedInviteCode] = useState(() => localStorage.getItem('last_generated_invite_code') || '');
+  // Deliberately NOT restored from localStorage/DB on mount (see the removed
+  // loadActiveInviteCode effect above this state) — the coach asked for the
+  // "Active Code" panel to only ever show a code that was generated in the
+  // current app session, not whatever's still technically active in the DB
+  // from before the app was closed. Closing and reopening should show
+  // nothing here until "Generate Code" is pressed again (2026-08-09).
+  const [generatedInviteCode, setGeneratedInviteCode] = useState('');
   const [generatingCode, setGeneratingCode] = useState(false);
   
   // Selected client detail view states
@@ -2809,8 +2789,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                     onClick={async () => {
                       if (generatingCode) return;
 
-                      // See loadActiveInviteCode's comment above — resolvedCoachId
-                      // over the raw localStorage 'userId'.
+                      // resolvedCoachId (repaired by resolveCanonicalUserId at
+                      // mount) over the raw localStorage 'userId' — see its
+                      // definition above for why.
                       const coachId = resolvedCoachId || loggedInEmail;
 
                       if (generatedInviteCode) {
@@ -2825,16 +2806,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
 
                       setGeneratingCode(true);
                       try {
-                        // Deactivate old active invitation codes first
+                        // Deactivate old active invitation codes first — this
+                        // still runs even if this session never displayed one
+                        // (e.g. it was generated before the app was closed and
+                        // reopened), so an old, still-DB-active code can never
+                        // keep working after a new one is generated.
                         await databaseService.deactivateActiveCoachInviteCodes(coachId);
 
                         const code = await databaseService.generateCoachInviteCode(coachId);
                         setGeneratedInviteCode(code);
-                        localStorage.setItem('last_generated_invite_code', code);
                       } catch (err) {
                         console.error('Error generating code:', err);
                         setGeneratedInviteCode('');
-                        localStorage.removeItem('last_generated_invite_code');
                         alert(err.message || 'Could not generate an invitation code. Please try again.');
                       } finally {
                         setGeneratingCode(false);

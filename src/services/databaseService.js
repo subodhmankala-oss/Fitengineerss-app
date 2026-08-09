@@ -256,62 +256,103 @@ async function restRpc(fnName, params, { timeoutMs = 10000 } = {}) {
 
 // Same SDK-hang bypass, for a PostgREST PATCH (supabase.from().update()).
 // pathAndQuery includes the filter, e.g. "invitations?code=eq.ABC123".
+//
+// Sends the caller's real session token (resolveBearerToken(), same as
+// restSelect) rather than the anon key. With `Prefer: return=representation`,
+// PostgREST re-SELECTs the touched row through the table's SELECT RLS policy
+// before handing it back — and after lock_down_reads.sql (2026-08-08) that
+// policy is `client_id = current_app_user_id() OR coach_id = ...`, which
+// needs a real auth.uid() to ever match. Sent under the anon key, the PATCH
+// itself still succeeds (UPDATE policies are permissive), but the
+// representation comes back as an empty array — indistinguishable from "no
+// row matched the filter" to every caller here. Confirmed cause of
+// markCoachNoteRead / markClientReplySeen silently no-op'ing (row updated,
+// caller sees nothing and retries forever) (2026-08-09).
 async function restUpdate(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${REST_BASE}/${pathAndQuery}`, {
-      method: 'PATCH',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Prefer: 'return=representation'
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
-      throw new Error(msg);
+  const doFetch = async (token) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${REST_BASE}/${pathAndQuery}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Prefer: 'return=representation'
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
     }
-    return Array.isArray(data) ? data[0] : data;
-  } finally {
-    clearTimeout(timer);
+  };
+
+  let res = await doFetch(await resolveBearerToken());
+  if (res.status === 401 && cachedAccessToken) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) res = await doFetch(refreshed);
   }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
+    throw new Error(msg);
+  }
+  return Array.isArray(data) ? data[0] : data;
 }
 
 // Same SDK-hang bypass, for a PostgREST POST (supabase.from().insert()).
 // Confirmed cause of the client Measurements screen sticking on "Saving…"
 // forever with no error — .insert() awaits the same stuck auth-refresh as
 // .select() (see restSelect above).
+//
+// Sends the caller's real session token (resolveBearerToken()), not the anon
+// key — same reasoning as restUpdate above: `Prefer: return=representation`
+// re-SELECTs the just-inserted row through the table's SELECT RLS policy, and
+// under the anon key that policy never matches post-lock_down_reads.sql, so
+// the insert silently succeeds while the representation comes back empty.
+// This function then returned `undefined`, and every caller (saveCoachNote,
+// saveBodyMeasurements, generateInvitationCode) dereferences `data.id`/
+// `data.*` on that undefined value — throwing, which their own try/catch
+// reports as "the write failed" even though the row is sitting in the table.
+// Confirmed cause of "Send note" on the coach home screen doing nothing (no
+// toast even shows there — it only renders inside the Live Log tab — so it
+// just looked like the button silently did nothing) (2026-08-09).
 async function restInsert(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${REST_BASE}/${pathAndQuery}`, {
-      method: 'POST',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Prefer: 'return=representation'
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
-      throw new Error(msg);
+  const doFetch = async (token) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${REST_BASE}/${pathAndQuery}`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Prefer: 'return=representation'
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
     }
-    return Array.isArray(data) ? data[0] : data;
-  } finally {
-    clearTimeout(timer);
+  };
+
+  let res = await doFetch(await resolveBearerToken());
+  if (res.status === 401 && cachedAccessToken) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) res = await doFetch(refreshed);
   }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
+    throw new Error(msg);
+  }
+  return Array.isArray(data) ? data[0] : data;
 }
 
 // Same SDK-hang bypass, for a PostgREST DELETE (supabase.from().delete()).
@@ -1478,20 +1519,27 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // Same last_login-column-might-not-exist-yet fallback as getAllUsers.
-        let { data, error } = await supabase
-          .from('clients')
-          .select('*, users!clients_user_id_fkey(email,last_login)')
-          .eq('coach_id', coachId);
-
-        if (error && error.code === '42703') {
-          ({ data, error } = await supabase
-            .from('clients')
-            .select('*, users!clients_user_id_fkey(email)')
-            .eq('coach_id', coachId));
+        // Raw PostgREST (SDK-hang/RLS bypass, same as restSelect elsewhere in
+        // this file) instead of supabase.from('clients').select() — the SDK
+        // call runs under whatever session state the SDK client currently
+        // holds, which is the same stale/null-auth.uid() failure mode
+        // documented on restSelect above. Because this SELECT's RLS policy
+        // just filters rows rather than erroring, that failure mode was
+        // silent here: a real coach with real clients got back an empty
+        // array (200 OK, zero rows) instead of an error, so "My Clients"
+        // always showed 0 (2026-08-09). Same last_login-column-might-not-exist-yet
+        // fallback as getAllUsers.
+        let data;
+        try {
+          data = await restSelect(`clients?select=*,users!clients_user_id_fkey(email,last_login)&coach_id=eq.${encodeURIComponent(coachId)}`);
+        } catch (e) {
+          if (String(e.message || '').includes('42703')) {
+            data = await restSelect(`clients?select=*,users!clients_user_id_fkey(email)&coach_id=eq.${encodeURIComponent(coachId)}`);
+          } else {
+            throw e;
+          }
         }
 
-        if (error) throw error;
         if (data) {
           return data.map(c => ({
             id: c.user_id,
@@ -3189,21 +3237,32 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       const email = rawCoachId.toLowerCase();
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (error) {
-        throw new Error(error.message || 'Could not look up coach profile.');
+      // Raw PostgREST (SDK-hang/RLS bypass, same as restSelect elsewhere in
+      // this file) instead of supabase.from('users').select() — that SDK
+      // call runs with whatever session state the SDK client currently has,
+      // which on this project is the exact thing that goes stale/null (see
+      // restSelect's comment above), sending the request out under
+      // auth.uid() = NULL and getting rejected/emptied by the "Users can
+      // read their own data"-style RLS policy even for a coach reading their
+      // own row. restSelect instead resolves a real, freshly-checked bearer
+      // token before the request. Confirmed cause of "Generate Code"
+      // throwing "Coach profile is not synced yet" for a legitimately
+      // logged-in coach whose cached localStorage 'userId' was missing/stale
+      // (2026-08-09).
+      const rows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+      const userId = Array.isArray(rows) && rows[0]?.id ? rows[0].id : null;
+      if (userId) {
+        return userId;
       }
-      if (user?.id) {
-        return user.id;
-      }
 
-      const { data: authData } = await supabase.auth.getUser();
-      const authUser = authData?.user;
+      // Fall back to the auth UID from the locally persisted session instead
+      // of supabase.auth.getUser() — that call also goes through the SDK's
+      // own (occasionally hanging) session machinery. readStoredSupabaseSession
+      // just reads the same localStorage session supabase-js already
+      // persisted, so it can't hang and doesn't depend on cachedAccessToken
+      // being warm yet.
+      const stored = readStoredSupabaseSession();
+      const authUser = stored?.session?.user;
       if (authUser?.id && (!authUser.email || authUser.email.toLowerCase() === email)) {
         return authUser.id;
       }
@@ -3355,16 +3414,19 @@ const databaseService = {
 
       for (let attempt = 0; attempt < 5; attempt += 1) {
         const code = createInviteCode();
-        const { error } = await supabase
-          .from('invitations')
-          .insert({
+        try {
+          // Raw PostgREST insert (SDK-hang/RLS bypass, same as restInsert's
+          // other callers) instead of supabase.from('invitations').insert() —
+          // that SDK call carries whatever session the SDK client happens to
+          // have live, which is the same stale/null-auth.uid() failure mode
+          // documented on restSelect above, and surfaced here as a 42501 RLS
+          // violation on this insert (2026-08-09).
+          await restInsert('invitations', {
             code,
             coach_id: resolvedCoachId,
             expires_at: expiresAt,
             used: false
           });
-
-        if (!error) {
           console.log('[DEBUG] Cloud DB: Stored invitation code successfully.', {
             code,
             coach_id: resolvedCoachId,
@@ -3372,14 +3434,13 @@ const databaseService = {
             generated_at: new Date().toISOString()
           });
           return code;
+        } catch (err) {
+          if (String(err.message || '').includes('23505')) {
+            continue;
+          }
+          console.error('[ERROR] Failed to write coach invite code to Supabase:', err);
+          throw new Error(err.message || 'Could not store invitation code. Please try again.');
         }
-
-        if (error.code === '23505') {
-          continue;
-        }
-
-        console.error('[ERROR] Failed to write coach invite code to Supabase:', error);
-        throw new Error(error.message || 'Could not store invitation code. Please try again.');
       }
 
       throw new Error('Could not generate a unique invitation code. Please try again.');

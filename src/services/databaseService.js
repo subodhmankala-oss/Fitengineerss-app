@@ -3841,15 +3841,16 @@ const databaseService = {
     let users = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        // Query users
-        const { data: dbUsers, error: uErr } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const dbUsers = await restSelect(`users?select=*&order=created_at.desc`);
         if (dbUsers) {
           // Query coaches
-          const { data: dbCoaches } = await supabase.from('coaches').select('*');
+          const dbCoaches = await restSelect(`coaches?select=*`);
           // Query clients
-          const { data: dbClients } = await supabase.from('clients').select('*');
+          const dbClients = await restSelect(`clients?select=*`);
           // Query applications
-          const { data: dbApps } = await supabase.from('coach_applications').select('*');
+          const dbApps = await restSelect(`coach_applications?select=*`);
 
           users = dbUsers.map(u => {
             const isSuperAdminEmail = u.email.toLowerCase() === 'subodhmankala@gmail.com';
@@ -3979,12 +3980,11 @@ const databaseService = {
     const coaches = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('coaches')
-          .select('*, users(email, full_name)')
-          .eq('status', 'approved');
-        
-        if (!error && data) {
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const data = await restSelect(`coaches?select=*,users(email,full_name)&status=eq.approved`);
+
+        if (data) {
           data.forEach(c => {
             coaches.push({
               id: c.id,

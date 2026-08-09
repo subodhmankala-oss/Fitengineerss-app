@@ -298,7 +298,13 @@ async function restUpdate(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
-    throw new Error(msg);
+    // Attach PostgREST's own error code (e.g. 42703 for a missing column) so
+    // callers that need to distinguish "column not migrated yet" from other
+    // failures — see saveCoachProfile's fallback-retry — can still inspect
+    // it, same as the SDK's error.code did.
+    const err = new Error(msg);
+    if (data && data.code) err.code = data.code;
+    throw err;
   }
   return Array.isArray(data) ? data[0] : data;
 }
@@ -2702,29 +2708,31 @@ const databaseService = {
         // the super-admin account has an approved coaches row but role='super-admin',
         // so filtering users by role='coach' was excluding them from this list entirely.
         // Same last_login-column-might-not-exist-yet fallback as getAllUsers.
-        let { data, error } = await supabase
-          .from('coaches')
-          .select('user_id, brand_name, status, experience_years, is_blocked, created_at, users(id, email, full_name, payment_status, created_at, last_login)')
-          .eq('status', 'approved')
-          .order('created_at', { ascending: true });
-
-        if (error && error.code === '42703') {
-          ({ data, error } = await supabase
-            .from('coaches')
-            .select('user_id, brand_name, status, experience_years, is_blocked, created_at, users(id, email, full_name, payment_status, created_at)')
-            .eq('status', 'approved')
-            .order('created_at', { ascending: true }));
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        let data;
+        try {
+          data = await restSelect(
+            `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at,last_login)&status=eq.approved&order=created_at.asc`
+          );
+        } catch (e) {
+          // last_login might not be migrated in yet — retry without it rather
+          // than losing the whole coaches list (same fallback as getAllUsers).
+          if (String(e.message).includes('400')) {
+            data = await restSelect(
+              `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at)&status=eq.approved&order=created_at.asc`
+            );
+          } else {
+            throw e;
+          }
         }
 
-        if (error) throw error;
         if (data) {
           // Live count of clients currently linked to each coach — COUNT(*) FROM clients
           // WHERE coach_id = <coach id>. This is the same `clients` table Part 4's
           // "Connect to coach" flow updates on a successful connection, so a freshly
           // connected client is reflected here on the next load with no extra steps.
-          const { data: clientCounts } = await supabase
-            .from('clients')
-            .select('coach_id');
+          const clientCounts = await restSelect(`clients?select=coach_id`);
 
           return data.map(coach => {
             const coachUserId = coach.user_id;
@@ -2772,28 +2780,19 @@ const databaseService = {
   async getCoachesWithClientCounts() {
     if (isSupabaseConfigured && supabase) {
       try {
-        // 1. Get all approved coaches with their user info (name, email)
-        const { data: coachRows, error: coachErr } = await supabase
-          .from('coaches')
-          .select('id, user_id, brand_name, status, created_at, users(id, email, full_name)')
-          .eq('status', 'approved')
-          .order('created_at', { ascending: true });
-
-        if (coachErr) throw coachErr;
+        // 1. Get all approved coaches with their user info (name, email).
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const coachRows = await restSelect(
+          `coaches?select=id,user_id,brand_name,status,created_at,users(id,email,full_name)&status=eq.approved&order=created_at.asc`
+        );
 
         if (!coachRows || coachRows.length === 0) {
           // Fallback: try fetching from users table with role=coach
-          const { data: userCoaches, error: ucErr } = await supabase
-            .from('users')
-            .select('id, email, full_name, created_at')
-            .eq('role', 'coach');
-
-          if (ucErr) throw ucErr;
+          const userCoaches = await restSelect(`users?select=id,email,full_name,created_at&role=eq.coach`);
 
           // Count clients per coach using users.id (= clients.coach_id)
-          const { data: allClients } = await supabase
-            .from('clients')
-            .select('coach_id');
+          const allClients = await restSelect(`clients?select=coach_id`);
 
           return (userCoaches || []).map(coach => {
             const count = (allClients || []).filter(c => c.coach_id === coach.id).length;
@@ -2809,9 +2808,7 @@ const databaseService = {
         }
 
         // 2. Fetch all clients and their coach_id in one query (avoids N+1)
-        const { data: allClients } = await supabase
-          .from('clients')
-          .select('coach_id');
+        const allClients = await restSelect(`clients?select=coach_id`);
 
         // 3. Map each coach: count clients WHERE clients.coach_id = coach's users.id
         return coachRows.map(coach => {
@@ -2855,25 +2852,20 @@ const databaseService = {
   async saveCoachProfile(coach) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase
-          .from('users')
-          .update({
+        // Raw PostgREST (restUpdate) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        try {
+          await restUpdate(`users?id=eq.${encodeURIComponent(coach.id)}`, {
             brand: coach.brand,
             payment_status: coach.payment_status,
             isSubscriptionActive: coach.payment_status === 'active'
-          })
-          .eq('id', coach.id);
-        
-        if (error) {
+          });
+        } catch (error) {
           if (error.code === '42703') {
-            const { error: retryError } = await supabase
-              .from('users')
-              .update({
-                brand: coach.brand,
-                payment_status: coach.payment_status
-              })
-              .eq('id', coach.id);
-            if (retryError) throw retryError;
+            await restUpdate(`users?id=eq.${encodeURIComponent(coach.id)}`, {
+              brand: coach.brand,
+              payment_status: coach.payment_status
+            });
           } else {
             throw error;
           }
@@ -2915,21 +2907,17 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: clients } = await supabase
-          .from('users')
-          .select('id')
-          .eq('role', 'client');
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const clients = await restSelect(`users?select=id&role=eq.client`);
         if (clients) totalActiveClients = clients.length;
 
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         const startStr = startOfWeek.toISOString().split('T')[0];
 
-        const { data: workoutLogs } = await supabase
-          .from('workout_logs')
-          .select('log_date, user_id')
-          .gte('log_date', startStr);
-        
+        const workoutLogs = await restSelect(`workout_logs?select=log_date,user_id&log_date=gte.${startStr}`);
+
         if (workoutLogs) {
           const uniqueSessions = new Set(workoutLogs.map(l => `${l.user_id}_${l.log_date}`));
           totalWorkoutsLoggedThisWeek = uniqueSessions.size;

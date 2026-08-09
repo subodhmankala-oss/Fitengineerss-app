@@ -2978,19 +2978,20 @@ const databaseService = {
       // for this email under a different id (duplicate key on the email
       // unique constraint). See the identical fix + full explanation in
       // api/register-coach.js (the live coach-signup path).
-      const { data: userRow, error: userErr } = await supabase
-        .from('users')
-        .upsert({ email, full_name: name, role: 'coach' }, { onConflict: 'email' })
-        .select('id')
-        .single();
-      if (userErr) console.warn('Cloud DB: could not sync coach users row:', userErr);
+      // Raw PostgREST (restUpsert) instead of supabase.from() — same
+      // SDK-hang bypass as everywhere else in this file.
+      let userRow = null;
+      try {
+        userRow = await restUpsert('users', { email, full_name: name, role: 'coach' }, 'email');
+      } catch (userErr) {
+        console.warn('Cloud DB: could not sync coach users row:', userErr);
+      }
       const publicUserId = userRow?.id || userId;
 
       // Create the approved coaches row with all profile fields.
       const expYears = parseInt(experience, 10);
-      const { error: coachErr } = await supabase
-        .from('coaches')
-        .upsert({
+      try {
+        await restUpsert('coaches', {
           user_id: publicUserId,
           status: 'approved',
           brand_name: brand || `${name} Fitness`,
@@ -2999,8 +3000,10 @@ const databaseService = {
           certifications: certifications || null,
           social_media_handle: social || null,
           location_city: location || null
-        }, { onConflict: 'user_id' });
-      if (coachErr) throw new Error(coachErr.message || 'Could not save your coach profile.');
+        }, 'user_id');
+      } catch (coachErr) {
+        throw new Error(coachErr.message || 'Could not save your coach profile.');
+      }
 
       return { session: signUpResult?.session || null, userId: publicUserId };
     }
@@ -3035,11 +3038,13 @@ const databaseService = {
   // Super-admin: block or unblock a coach by their user_id. Enforced at login.
   async setCoachBlocked(coachUserId, blocked) {
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase
-        .from('coaches')
-        .update({ is_blocked: blocked })
-        .eq('user_id', coachUserId);
-      if (error) throw new Error(error.message || 'Could not update coach block status.');
+      // Raw PostgREST (restUpdate) instead of supabase.from() — same
+      // SDK-hang bypass as everywhere else in this file.
+      try {
+        await restUpdate(`coaches?user_id=eq.${encodeURIComponent(coachUserId)}`, { is_blocked: blocked });
+      } catch (error) {
+        throw new Error(error.message || 'Could not update coach block status.');
+      }
       return true;
     }
     const mockCoaches = this.getMockTable('coaches');
@@ -3052,11 +3057,10 @@ const databaseService = {
     let cloudPending = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('coach_applications')
-          .select('*, users(email)')
-          .eq('status', 'pending');
-        if (!error && data) {
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const data = await restSelect(`coach_applications?select=*,users(email)&status=eq.pending`);
+        if (data) {
           cloudPending = data.map(app => ({
             id: app.user_id, // keep mapped to user_id for approval handler compatibility
             application_id: app.id,
@@ -3101,46 +3105,32 @@ const databaseService = {
   async approveCoach(email) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: user, error: findError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-        
-        if (findError) throw findError;
-        
+        // Raw PostgREST (restSelect/restUpdate/restInsert) instead of
+        // supabase.from() — same SDK-hang bypass as everywhere else in this
+        // file.
+        const userRows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+        const user = userRows[0] || null;
+
         if (user) {
-          await supabase
-            .from('users')
-            .update({ role: 'coach' })
-            .eq('id', user.id);
+          await restUpdate(`users?id=eq.${encodeURIComponent(user.id)}`, { role: 'coach' });
 
           // Update coach applications
-          await supabase
-            .from('coach_applications')
-            .update({ status: 'approved', reviewed_at: new Date().toISOString() })
-            .eq('user_id', user.id);
+          await restUpdate(`coach_applications?user_id=eq.${encodeURIComponent(user.id)}`, {
+            status: 'approved',
+            reviewed_at: new Date().toISOString()
+          });
 
           // Create row in coaches table
-          const { data: existingCoach } = await supabase
-            .from('coaches')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
+          const existingCoachRows = await restSelect(`coaches?user_id=eq.${encodeURIComponent(user.id)}&select=id`);
 
-          if (!existingCoach) {
-            await supabase
-              .from('coaches')
-              .insert({
-                user_id: user.id,
-                status: 'approved',
-                brand_name: 'Fit Engineers Coach'
-              });
+          if (!existingCoachRows[0]) {
+            await restInsert('coaches', {
+              user_id: user.id,
+              status: 'approved',
+              brand_name: 'Fit Engineers Coach'
+            });
           } else {
-            await supabase
-              .from('coaches')
-              .update({ status: 'approved' })
-              .eq('user_id', user.id);
+            await restUpdate(`coaches?user_id=eq.${encodeURIComponent(user.id)}`, { status: 'approved' });
           }
         }
       } catch (e) {
@@ -3178,24 +3168,20 @@ const databaseService = {
   async rejectCoach(email) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: user } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-        
+        // Raw PostgREST (restSelect/restUpdate) instead of supabase.from() —
+        // same SDK-hang bypass as everywhere else in this file.
+        const userRows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+        const user = userRows[0] || null;
+
         if (user) {
           // Update coach applications
-          await supabase
-            .from('coach_applications')
-            .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
-            .eq('user_id', user.id);
+          await restUpdate(`coach_applications?user_id=eq.${encodeURIComponent(user.id)}`, {
+            status: 'rejected',
+            reviewed_at: new Date().toISOString()
+          });
 
           // Update coaches status if exists
-          await supabase
-            .from('coaches')
-            .update({ status: 'rejected' })
-            .eq('user_id', user.id);
+          await restUpdate(`coaches?user_id=eq.${encodeURIComponent(user.id)}`, { status: 'rejected' });
         }
       } catch (e) {
         console.error('Cloud DB Reject Coach Error:', e);

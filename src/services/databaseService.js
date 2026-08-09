@@ -350,6 +350,55 @@ async function restInsert(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
+    // Attach PostgREST's own error code (e.g. 42703/PGRST204 for a missing
+    // column) so callers that need to distinguish "column not migrated yet"
+    // from other failures — see saveWorkoutSession's fallback-retry — can
+    // still inspect it, same as the SDK's error.code did.
+    const err = new Error(msg);
+    if (data && data.code) err.code = data.code;
+    throw err;
+  }
+  return Array.isArray(data) ? data[0] : data;
+}
+
+// Same SDK-hang bypass, for a PostgREST upsert (supabase.from().upsert()).
+// onConflict is passed as the `on_conflict` query param and
+// `Prefer: resolution=merge-duplicates` makes PostgREST do an upsert instead
+// of a plain insert (which would 409 on a conflicting key). Same
+// return=representation caveat as restInsert/restUpdate above — sent under
+// the caller's real bearer token, or the RLS re-select comes back empty.
+async function restUpsert(pathAndQuery, body, onConflict, { timeoutMs = 8000 } = {}) {
+  const sep = pathAndQuery.includes('?') ? '&' : '?';
+  const fullPath = onConflict ? `${pathAndQuery}${sep}on_conflict=${encodeURIComponent(onConflict)}` : pathAndQuery;
+  const doFetch = async (token) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${REST_BASE}/${fullPath}`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  let res = await doFetch(await resolveBearerToken());
+  if (res.status === 401 && cachedAccessToken) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) res = await doFetch(refreshed);
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
     throw new Error(msg);
   }
   return Array.isArray(data) ? data[0] : data;
@@ -440,11 +489,8 @@ const getCleanClientKey = async (userId) => {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
   if (isUuid && isSupabaseConfigured && supabase) {
     try {
-      const { data: user } = await supabase
-        .from('users')
-        .select('full_name')
-        .eq('id', userId)
-        .maybeSingle();
+      const rows = await restSelect(`users?id=eq.${userId}&select=full_name`);
+      const user = rows[0] || null;
       if (user && user.full_name) {
         return user.full_name.toLowerCase().replace(/\s+/g, '');
       }
@@ -503,56 +549,45 @@ const databaseService = {
     if (isSupabaseConfigured && supabase) {
       try {
         // 1. Ensure user row exists in users
+        // Raw PostgREST (restSelect/restUpsert) instead of supabase.from() —
+        // same SDK-hang bypass as everywhere else in this file; saveUserProfile
+        // runs on every signup/profile-save, so a stuck token refresh here
+        // would freeze onboarding entirely.
         let user = null;
         if (userId) {
-          const { data: u } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
-          user = u;
+          const rows = await restSelect(`users?id=eq.${userId}&select=*`);
+          user = rows[0] || null;
         }
         if (!user) {
-          const { data: u } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
-          user = u;
+          const rows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=*`);
+          user = rows[0] || null;
         }
         if (!user) {
-          const { data: newUser, error: userError } = await supabase
-            .from('users')
-            .upsert({
-              email
-            }, { onConflict: 'email' })
-            .select()
-            .single();
-          if (userError) throw userError;
-          user = newUser;
+          user = await restUpsert('users', { email }, 'email');
         }
         userId = user.id;
 
         // 2. Write client/coach record
         if (profile.role === 'coach' || profile.role === 'super-admin' || profile.role === 'admin') {
           const storedRole = profile.role === 'admin' ? 'super-admin' : profile.role;
-          const { error: userRoleError } = await supabase
-            .from('users')
-            .update({
+          try {
+            await restUpdate(`users?id=eq.${userId}`, {
               full_name: profile.userName,
               role: storedRole
-            })
-            .eq('id', userId);
-          if (userRoleError) {
+            });
+          } catch (userRoleError) {
             console.warn('Cloud DB: Could not sync coach role onto users row:', userRoleError);
           }
 
-          const { error: coachError } = await supabase
-            .from('coaches')
-            .upsert({
-              user_id: userId,
-              status: 'approved',
-              brand_name: profile.brand || `${profile.userName} Fitness`
-            }, { onConflict: 'user_id' });
-          if (coachError) throw coachError;
+          await restUpsert('coaches', {
+            user_id: userId,
+            status: 'approved',
+            brand_name: profile.brand || `${profile.userName} Fitness`
+          }, 'user_id');
         } else {
           // It's a client
-          const { error: clientError } = await supabase
-            .from('clients')
-            .upsert({
-              user_id: userId,
+          await restUpsert('clients', {
+            user_id: userId,
               // null until the client redeems a coach's invite code (also guards against a
               // stale 'coach-id-default' placeholder value leaking into the DB)
               coach_id: (profile.coach_id && profile.coach_id !== 'coach-id-default') ? profile.coach_id : null,
@@ -577,8 +612,7 @@ const databaseService = {
               carbs_target: parseInt(profile.userCarbsTarget) || null,
               fats_target: parseInt(profile.userFatsTarget) || null,
               issue: profile.userIssue
-            }, { onConflict: 'user_id' });
-          if (clientError) throw clientError;
+            }, 'user_id');
         }
         console.log('Cloud DB: Saved user profile under new schema.');
       } catch (e) {
@@ -687,30 +721,24 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // First get user UUID from email
-        const { data: user, error: userErr } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .single();
-
-        if (userErr) throw userErr;
+        // First get user UUID from email. Raw PostgREST (restSelect/
+        // restUpsert) instead of supabase.from() — same SDK-hang bypass as
+        // everywhere else in this file.
+        const rows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+        const user = rows[0] || null;
 
         if (user) {
-          const { error } = await supabase
-            .from('tracker_logs')
-            .upsert({
-              user_id: user.id,
-              log_date: log.date || new Date().toISOString().split('T')[0],
-              water_glasses: parseInt(log.waterGlasses || '0'),
-              synced_steps: parseInt(log.syncedSteps || '0'),
-              logged_calories: parseInt(log.loggedCalories || '0'),
-              logged_protein: parseInt(log.loggedProtein || '0'),
-              logged_fats: parseInt(log.loggedFats || '0'),
-              walk_lunch_dinner: log.walkLunchDinner === 'true' || log.walkLunchDinner === true
-            }, { onConflict: 'user_id, log_date' });
+          await restUpsert('tracker_logs', {
+            user_id: user.id,
+            log_date: log.date || new Date().toISOString().split('T')[0],
+            water_glasses: parseInt(log.waterGlasses || '0'),
+            synced_steps: parseInt(log.syncedSteps || '0'),
+            logged_calories: parseInt(log.loggedCalories || '0'),
+            logged_protein: parseInt(log.loggedProtein || '0'),
+            logged_fats: parseInt(log.loggedFats || '0'),
+            walk_lunch_dinner: log.walkLunchDinner === 'true' || log.walkLunchDinner === true
+          }, 'user_id,log_date');
 
-          if (error) throw error;
           console.log('Cloud DB: Synced daily tracker logs.');
         }
       } catch (e) {
@@ -738,11 +766,8 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: user } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .single();
+        const rows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+        const user = rows[0] || null;
 
         if (user) {
           // Bulk upsert 30 days of data into progress_history
@@ -758,11 +783,7 @@ const databaseService = {
             });
           }
 
-          const { error } = await supabase
-            .from('progress_history')
-            .upsert(records, { onConflict: 'user_id, day_number' });
-
-          if (error) throw error;
+          await restUpsert('progress_history', records, 'user_id,day_number');
           console.log('Cloud DB: Progress history synchronized.');
         }
       } catch (e) {
@@ -800,24 +821,17 @@ const databaseService = {
         if (session.clientId && UUID_RE.test(session.clientId)) {
           user = { id: session.clientId };
         } else {
-          // 1. Try looking up user by email
-          const { data: userByEmail } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle();
-
-          if (userByEmail) {
-            user = userByEmail;
+          // 1. Try looking up user by email. Raw PostgREST (restSelect)
+          // instead of supabase.from() — same SDK-hang bypass as everywhere
+          // else in this file.
+          const byEmail = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=id`);
+          if (byEmail[0]) {
+            user = byEmail[0];
           } else {
             // 2. Try looking up user by full_name/sessionClientName (case-insensitive)
-            const { data: usersByName } = await supabase
-              .from('users')
-              .select('id')
-              .ilike('full_name', sessionClientName);
-
-            if (usersByName && usersByName.length > 0) {
-              user = usersByName[0];
+            const byName = await restSelect(`users?full_name=ilike.${encodeURIComponent(sessionClientName)}&select=id`);
+            if (byName.length > 0) {
+              user = byName[0];
             }
           }
         }
@@ -862,21 +876,23 @@ const databaseService = {
           });
 
           if (records.length > 0) {
-            let { error } = await supabase
-              .from('workout_logs')
-              .insert(records);
-
-            // Degrade gracefully if set_type/duration_seconds/calories_burned/
-            // distance_km/cardio_duration_seconds haven't been migrated in yet
-            // (PostgREST "column not found" — code 42703 / PGRST204): retry
-            // without them rather than losing the whole session save.
-            if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-              console.warn('workout_logs missing set_type/duration_seconds/calories_burned/distance_km/cardio_duration_seconds — retrying without them. Run sql/supabase_workout_logs_set_type.sql, sql/supabase_workout_logs_session_metrics.sql and sql/supabase_workout_logs_cardio_fields.sql to enable full tracking.');
-              const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, ...rest }) => rest);
-              ({ error } = await supabase.from('workout_logs').insert(fallbackRecords));
+            // Raw PostgREST (restInsert) instead of supabase.from() — same
+            // SDK-hang bypass as everywhere else in this file.
+            try {
+              await restInsert('workout_logs', records);
+            } catch (error) {
+              // Degrade gracefully if set_type/duration_seconds/calories_burned/
+              // distance_km/cardio_duration_seconds haven't been migrated in yet
+              // (PostgREST "column not found" — code 42703 / PGRST204): retry
+              // without them rather than losing the whole session save.
+              if (error && (error.code === '42703' || error.code === 'PGRST204')) {
+                console.warn('workout_logs missing set_type/duration_seconds/calories_burned/distance_km/cardio_duration_seconds — retrying without them. Run sql/supabase_workout_logs_set_type.sql, sql/supabase_workout_logs_session_metrics.sql and sql/supabase_workout_logs_cardio_fields.sql to enable full tracking.');
+                const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, ...rest }) => rest);
+                await restInsert('workout_logs', fallbackRecords);
+              } else {
+                throw error;
+              }
             }
-
-            if (error) throw error;
             console.log('Cloud DB: Saved workout session sets.');
           }
         }

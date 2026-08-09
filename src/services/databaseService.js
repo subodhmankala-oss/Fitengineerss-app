@@ -3256,19 +3256,13 @@ const databaseService = {
     if (!coachUserId) return false;
 
     if (isSupabaseConfigured && supabase) {
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('email, role')
-        .eq('id', coachUserId)
-        .maybeSingle();
-      if (userError) throw userError;
+      // Raw PostgREST (restSelect) instead of supabase.from() — same
+      // SDK-hang bypass as everywhere else in this file.
+      const userRows = await restSelect(`users?id=eq.${encodeURIComponent(coachUserId)}&select=email,role`);
+      const user = userRows[0] || null;
 
-      const { data: coach, error: coachError } = await supabase
-        .from('coaches')
-        .select('status')
-        .eq('user_id', coachUserId)
-        .maybeSingle();
-      if (coachError) throw coachError;
+      const coachRows = await restSelect(`coaches?user_id=eq.${encodeURIComponent(coachUserId)}&select=status`);
+      const coach = coachRows[0] || null;
 
       return !!user && (
         ['coach', 'super-admin', 'admin'].includes(user.role) ||
@@ -3458,14 +3452,12 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: invite, error } = await supabase
-          .from('invitations')
-          .select('*')
-          .eq('code', upperCode)
-          .eq('used', false)
-          .maybeSingle();
+        // Raw PostgREST (restSelect) instead of supabase.from() — same
+        // SDK-hang bypass as everywhere else in this file.
+        const rows = await restSelect(`invitations?code=eq.${encodeURIComponent(upperCode)}&used=eq.false&select=*`);
+        const invite = rows[0] || null;
 
-        if (error || !invite) {
+        if (!invite) {
           console.log('[DEBUG] Query Result: null');
           return null;
         }
@@ -3568,27 +3560,19 @@ const databaseService = {
     const storedName = (localStorage.getItem('userName') || '').trim();
     const realName = storedName && storedName.toLowerCase() !== 'warrior' ? storedName : null;
 
+    // Raw PostgREST (restUpsert/restUpdate/restSelect) instead of
+    // supabase.from() — same SDK-hang bypass as everywhere else in this file.
     const clientRow = { user_id: clientId, coach_id: invite.coach_id };
     if (realName) clientRow.full_name = realName;
-    const { error: clientError } = await supabase
-      .from('clients')
-      .upsert(clientRow, { onConflict: 'user_id' });
-    if (clientError) throw clientError;
+    await restUpsert('clients', clientRow, 'user_id');
 
     const userUpdate = { role: 'client', coach_id: invite.coach_id, verified: true };
     if (realName) userUpdate.full_name = realName;
-    const { error: userError } = await supabase
-      .from('users')
-      .update(userUpdate)
-      .eq('id', clientId);
-
-    if (userError) {
+    try {
+      await restUpdate(`users?id=eq.${encodeURIComponent(clientId)}`, userUpdate);
+    } catch (userError) {
       const { verified, ...userUpdateNoVerified } = userUpdate;
-      const { error: fallbackUserError } = await supabase
-        .from('users')
-        .update(userUpdateNoVerified)
-        .eq('id', clientId);
-      if (fallbackUserError) throw fallbackUserError;
+      await restUpdate(`users?id=eq.${encodeURIComponent(clientId)}`, userUpdateNoVerified);
     }
 
     const consumedInvite = await this.updateInvitationUsage(upperCode, true, clientId);
@@ -3596,16 +3580,10 @@ const databaseService = {
       throw new Error('Invitation code has already been used.');
     }
 
-    const { data: verifyClient } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', clientId)
-      .maybeSingle();
-    const { data: verifyUser } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', clientId)
-      .maybeSingle();
+    const verifyClientRows = await restSelect(`clients?user_id=eq.${encodeURIComponent(clientId)}&select=*`);
+    const verifyClient = verifyClientRows[0] || null;
+    const verifyUserRows = await restSelect(`users?id=eq.${encodeURIComponent(clientId)}&select=*`);
+    const verifyUser = verifyUserRows[0] || null;
 
     if (verifyClient?.coach_id !== invite.coach_id || verifyUser?.coach_id !== invite.coach_id) {
       await this.updateInvitationUsage(upperCode, false);

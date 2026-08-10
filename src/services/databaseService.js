@@ -412,26 +412,44 @@ async function restUpsert(pathAndQuery, body, onConflict, { timeoutMs = 8000 } =
 
 // Same SDK-hang bypass, for a PostgREST DELETE (supabase.from().delete()).
 // pathAndQuery includes the filter, e.g. "body_measurements?id=eq.<uuid>".
+//
+// Sends the caller's real session token (resolveBearerToken(), same as
+// restUpdate/restInsert/restUpsert) instead of the bare anon key. Every
+// DELETE policy on the tables this hits today (workout_drafts, workout_plans,
+// body_measurements) happens to be `using (true)`, so the anon key wasn't
+// actually silently no-op'ing any of them — but that's the exact shape of
+// bug this project keeps re-discovering every time a table's RLS gets
+// tightened (see restUpdate's comment above for the coach_notes instance of
+// it). Fixing this now rather than waiting for the next lockdown pass to hit
+// a DELETE call and reproduce the same "did nothing, no error" symptom.
 async function restDelete(pathAndQuery, { timeoutMs = 8000 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${REST_BASE}/${pathAndQuery}`, {
-      method: 'DELETE',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
-        Accept: 'application/json'
-      },
-      signal: controller.signal
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
-      throw new Error(msg);
+  const doFetch = async (token) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${REST_BASE}/${pathAndQuery}`, {
+        method: 'DELETE',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json'
+        },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
     }
-  } finally {
-    clearTimeout(timer);
+  };
+
+  let res = await doFetch(await resolveBearerToken());
+  if (res.status === 401 && cachedAccessToken) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) res = await doFetch(refreshed);
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
+    throw new Error(msg);
   }
 }
 

@@ -412,26 +412,44 @@ async function restUpsert(pathAndQuery, body, onConflict, { timeoutMs = 8000 } =
 
 // Same SDK-hang bypass, for a PostgREST DELETE (supabase.from().delete()).
 // pathAndQuery includes the filter, e.g. "body_measurements?id=eq.<uuid>".
+//
+// Sends the caller's real session token (resolveBearerToken(), same as
+// restUpdate/restInsert/restUpsert) instead of the bare anon key. Every
+// DELETE policy on the tables this hits today (workout_drafts, workout_plans,
+// body_measurements) happens to be `using (true)`, so the anon key wasn't
+// actually silently no-op'ing any of them — but that's the exact shape of
+// bug this project keeps re-discovering every time a table's RLS gets
+// tightened (see restUpdate's comment above for the coach_notes instance of
+// it). Fixing this now rather than waiting for the next lockdown pass to hit
+// a DELETE call and reproduce the same "did nothing, no error" symptom.
 async function restDelete(pathAndQuery, { timeoutMs = 8000 } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${REST_BASE}/${pathAndQuery}`, {
-      method: 'DELETE',
-      headers: {
-        apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
-        Accept: 'application/json'
-      },
-      signal: controller.signal
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
-      throw new Error(msg);
+  const doFetch = async (token) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${REST_BASE}/${pathAndQuery}`, {
+        method: 'DELETE',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json'
+        },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
     }
-  } finally {
-    clearTimeout(timer);
+  };
+
+  let res = await doFetch(await resolveBearerToken());
+  if (res.status === 401 && cachedAccessToken) {
+    const refreshed = await refreshAccessTokenRaw();
+    if (refreshed) res = await doFetch(refreshed);
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msg = (data && (data.message || data.error || data.hint)) || `PostgREST ${res.status} ${res.statusText}`;
+    throw new Error(msg);
   }
 }
 
@@ -3790,26 +3808,26 @@ const databaseService = {
       return { success: false, error: 'Your session could not be verified. Please log out and log back in.' };
     }
 
-    // Step 1: Validate the code before committing anything
-    if (isSupabaseConfigured && supabase) {
-      try {
-        // Same SDK-hang bypass as linkCoachAndEnterTransaction below (see
-        // restSelect's comment) — this call was missed when that function was
-        // fixed, so a client could still hang here, one step earlier, with
-        // the exact same "Connecting..." forever symptom. Confirmed 2026-07-09
-        // for a client whose code kept showing "no progress" even after that
-        // fix shipped.
-        const rows = await restSelect(`invitations?code=eq.${encodeURIComponent(code)}&limit=1`);
-        const invite = Array.isArray(rows) ? rows[0] : null;
-
-        if (!invite) return { success: false, error: 'Code not found.' };
-        if (invite.used === true) return { success: false, error: 'This code has already been used.' };
-        if (isPastTimestamp(invite.expires_at)) return { success: false, error: 'This code has expired.' };
-      } catch (e) {
-        console.error('[connectClientToCoach] Validation error:', e);
-        return { success: false, error: e.message || 'Could not validate code. Please try again.' };
-      }
-    } else {
+    // Step 1: Validate the code before committing anything.
+    //
+    // For Supabase, this used to pre-check the code with a plain restSelect
+    // on `invitations` sent under the CLIENT's own session token. That read
+    // is exactly what sql/lock_down_reads.sql's `invitations_select` policy
+    // (coach_id = me OR used_by = me) is designed to block for a brand-new
+    // client: they're neither the coach who owns the code nor (yet) the
+    // used_by client, so the SELECT always came back zero rows — reporting a
+    // perfectly valid, unused code as "Code not found." for every first-time
+    // connect. Root-caused 2026-08-10 (regression from the 2026-08-08 RLS
+    // lockdown, just never hit until then because dev auto-login/testing
+    // mostly reused already-connected accounts).
+    //
+    // link_coach_and_enter_transaction (Step 2) is SECURITY DEFINER, so it
+    // bypasses RLS and does this exact validation for real — it already
+    // raises 'Invalid invitation code.' / '...already been used.' /
+    // '...has expired.', which the catch block below already maps to the
+    // same user-facing messages. So for Supabase we skip straight to Step 2
+    // and let the RPC be the single source of truth; no separate read needed.
+    if (!isSupabaseConfigured || !supabase) {
       // Mock DB validation
       const invites = JSON.parse(localStorage.getItem('coach_invites') || '{}');
       const invite = invites[code];

@@ -147,11 +147,39 @@ const STRENGTH_SECONDS_PER_REP = 3.0;
 // leg press) scaled linearly with zero cap, producing 100-200+ kcal for a
 // single ~20-second set (600+ kcal/min, well past human physiological
 // limits) and made overall session totals read far higher than reality.
+// Sanity ceilings for a SINGLE set's inputs — not real-world limits (someone
+// could genuinely load more than 300kg), just a backstop against garbage
+// reaching this formula (a stray extra digit, a concatenated-instead-of-
+// replaced input value, a stale field from a different exercise type) and
+// scaling linearly with zero cap the exact way the old flat formula did (see
+// this function's comment above). One bad set should never be able to blow
+// up a whole session's calorie total.
+const MAX_PLAUSIBLE_REPS_PER_SET = 100;
+const MAX_PLAUSIBLE_ADDED_WEIGHT_KG = 400;
+// Absolute per-set output ceiling as a second, independent backstop — even
+// with both inputs clamped above, this catches any input combination or
+// future MET/tuning change that could still slip past a physiologically
+// implausible single-set kcal value (confirmed real-world case: a plain
+// bodyweight set read back as 265kcal instead of ~6kcal, 2026-08-10 — the
+// exact bad input was never pinned down, so this guards the *output* too,
+// not just the inputs).
+const MAX_PLAUSIBLE_KCAL_PER_SET = 60;
+
 function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep) {
   if (reps <= 0) return 0;
-  const minutes = (reps * secondsPerRep) / 60;
-  const effectiveMassKg = bodyWeightKg + Math.max(0, addedWeightKg);
-  return (met * 3.5 * effectiveMassKg / 200) * minutes;
+  const clampedReps = Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET);
+  const clampedAddedWeight = Math.min(Math.max(0, addedWeightKg), MAX_PLAUSIBLE_ADDED_WEIGHT_KG);
+  if (clampedReps !== reps || clampedAddedWeight !== Math.max(0, addedWeightKg)) {
+    console.warn('[liveWorkoutTimer] Clamped implausible set input before calorie calc:', { reps, addedWeightKg });
+  }
+  const minutes = (clampedReps * secondsPerRep) / 60;
+  const effectiveMassKg = bodyWeightKg + clampedAddedWeight;
+  const kcal = (met * 3.5 * effectiveMassKg / 200) * minutes;
+  if (kcal > MAX_PLAUSIBLE_KCAL_PER_SET) {
+    console.warn('[liveWorkoutTimer] Clamped implausible single-set kcal result:', { reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, kcal });
+    return MAX_PLAUSIBLE_KCAL_PER_SET;
+  }
+  return kcal;
 }
 
 function bodyweightKcal(reps, bodyWeightKg, addedWeightKg = 0) {

@@ -1950,6 +1950,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
 
     const cleanExercises = cleanEditorExercises(editorExercises);
     const trimmedPlanName = editorPlanName.trim();
+    // cleanEditorExercises drops every exercise whose sets array is empty, so
+    // a plan whose exercises all have zero sets reduces to [] here even though
+    // the editorExercises.length check above passed. Saving that produced a
+    // plan row that opened as a blank template (and "Duplicate" copied it) —
+    // caught explicitly rather than letting saveWorkoutPlan's own guard throw
+    // an unhandled rejection mid-loop.
+    if (cleanExercises.length === 0) {
+      alert('Each exercise needs at least one set before this plan can be assigned.');
+      return;
+    }
     for (const clientId of targetClientIds) {
       const plan = {
         id: clientId === selectedClient.id && editingPlan ? editingPlan.id : null,
@@ -1963,7 +1973,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
         // Live Log). That's how such a plan becomes visible to the client.
         isAssigned: true
       };
-      await databaseService.saveWorkoutPlan(plan);
+      try {
+        await databaseService.saveWorkoutPlan(plan);
+      } catch (err) {
+        console.error('Failed to save workout plan:', err);
+        alert(err.message || 'Could not save this plan. Please try again.');
+        return;
+      }
       // Notify each client their coach sent them a new workout plan.
       notifyEvent('plan_assigned', { clientUserId: clientId, planName: trimmedPlanName });
     }
@@ -4589,7 +4605,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                                             // copy starts in the same state as the original.
                                             isAssigned: plan.isAssigned !== false
                                           };
-                                          await databaseService.saveWorkoutPlan(duplicated);
+                                          try {
+                                            // Duplicating an already-empty plan used to mint
+                                            // another empty one; saveWorkoutPlan now rejects
+                                            // that, so surface why instead of failing silently.
+                                            await databaseService.saveWorkoutPlan(duplicated);
+                                          } catch (err) {
+                                            console.error('Failed to duplicate workout plan:', err);
+                                            alert(err.message || 'Could not duplicate this plan.');
+                                            return;
+                                          }
                                           fetchClientPlans(selectedClient.id);
                                         }}
                                         style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}

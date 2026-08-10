@@ -530,6 +530,30 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const normalizeInviteCode = (code) => String(code || '').trim().toUpperCase();
 
+// A workout plan's `exercises` is a JSONB column, but it does not always come
+// back as a usable array: legacy/partially-written rows can hold null, and
+// some rows hold the JSON as a *string* rather than parsed (the generic
+// workout-template loader already guards for exactly this — see
+// getGenericWorkoutsByLevel's `Array.isArray(t.exercises) ? ... : JSON.parse`).
+// Every consumer then does `plan.exercises.map(...)` directly, so a null row
+// throws a TypeError when the plan is opened and a string row maps over
+// characters — both surfacing as the reported "template opens empty" (some
+// plans open fine, others don't). Normalizing once here, at the single read
+// boundary, keeps every caller safe instead of scattering guards.
+// Exercises whose `sets` is missing/not an array are dropped rather than
+// carried through, since an exercise with no sets renders as a blank row.
+function normalizePlanExercises(raw) {
+  let list = raw;
+  if (typeof list === 'string') {
+    try { list = JSON.parse(list || '[]'); } catch { list = []; }
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(ex => ex && typeof ex.name === 'string' && ex.name.trim())
+    .map(ex => ({ ...ex, sets: Array.isArray(ex.sets) ? ex.sets : [] }))
+    .filter(ex => ex.sets.length > 0);
+}
+
 const createInviteCode = () => {
   let code = '';
   while (code.length < 6) {
@@ -2207,6 +2231,8 @@ const databaseService = {
   },
 
   // ─── WORKOUT ROUTINE TEMPLATES / PLANS ───
+  normalizePlanExercises,
+
   async getWorkoutPlansForUser(userId) {
     if (isSupabaseConfigured) {
       try {
@@ -2245,7 +2271,7 @@ const databaseService = {
               id: p.id,
               userId: p.user_id,
               planName: p.plan_name,
-              exercises: p.exercises,
+              exercises: normalizePlanExercises(p.exercises),
               createdBy: p.created_by,
               createdAt: p.created_at,
               // Legacy rows predate this column and read back as undefined —
@@ -2291,6 +2317,20 @@ const databaseService = {
     if (plan.createdBy !== 'coach' && plan.createdBy !== 'client') {
       throw new Error('saveWorkoutPlan requires an explicit createdBy of "coach" or "client".');
     }
+
+    // Never persist a plan with nothing in it. cleanEditorExercises() /
+    // formattedExercises drop any exercise whose sets array is empty, so a
+    // plan built entirely from setless exercises reduces to [] — and the
+    // manual coach save path had no emptiness check (unlike the AI-draft
+    // path right beside it, which skips `day.exercises.length === 0`). The
+    // resulting row saved fine and then opened as a blank template, which
+    // "Duplicate" would happily copy again. Normalizing here means the same
+    // shape guarantee as the read side (see normalizePlanExercises).
+    const cleanedExercises = normalizePlanExercises(plan.exercises);
+    if (cleanedExercises.length === 0) {
+      throw new Error('This plan has no exercises with sets — add at least one before saving.');
+    }
+    plan = { ...plan, exercises: cleanedExercises };
 
     // Set fallback local ID if not defined
     if (!plan.id) {

@@ -1973,6 +1973,12 @@ const WorkoutTracker = () => {
       };
       databaseService.saveWorkoutPlan(plan).then(() => {
         fetchPlans();
+      }).catch(err => {
+        // saveWorkoutPlan rejects a plan with no exercises/sets. The session
+        // itself is already saved by this point, so only the optional template
+        // copy is lost — say so rather than leaving an unhandled rejection.
+        console.error('Failed to save workout template:', err);
+        triggerToast('⚠️ Workout saved, but the template could not be created.');
       });
     }
 
@@ -2962,11 +2968,23 @@ const WorkoutTracker = () => {
 
       {activeView === 'log' && !isLoggingWorkout && (() => {
         const startPlan = (plan, source) => {
+          // Guard the malformed/empty case explicitly: `plan.exercises` used to
+          // be mapped directly, so a null one threw a TypeError and an empty
+          // one silently opened a session containing only the default warm-ups
+          // — both read to the user as "the template is empty". Reads are
+          // normalized now (see normalizePlanExercises), so reaching here with
+          // nothing means the stored plan genuinely has no exercises; say that
+          // instead of opening a blank logger.
+          const planExercises = Array.isArray(plan.exercises) ? plan.exercises : [];
+          if (planExercises.length === 0) {
+            triggerToast('⚠️ This plan has no exercises saved. Open it in the editor to rebuild it.');
+            return;
+          }
           setLogClient(selectedClient);
           setLogDate(getLocalDateString());
           setLogExercises([
             ...getDefaultWarmupExercises(),
-            ...plan.exercises.map(ex => ({
+            ...planExercises.map(ex => ({
               name: ex.name,
               sets: ex.sets.map(s => isCardioExercise(ex.name)
                 ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
@@ -3074,6 +3092,14 @@ const WorkoutTracker = () => {
                     defaultValue=""
                     onChange={(e) => {
                       const plan = clientPlans.find(p => p.id === e.target.value);
+                      // Same empty/malformed guard as startPlan above — loading
+                      // an empty plan here used to wipe the current exercise
+                      // list and replace it with nothing.
+                      if (plan && !(plan.exercises || []).length) {
+                        triggerToast('⚠️ This plan has no exercises saved.');
+                        e.target.value = '';
+                        return;
+                      }
                       if (plan) {
                         setTemplateName(plan.planName);
                         setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');

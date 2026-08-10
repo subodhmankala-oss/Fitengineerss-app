@@ -832,6 +832,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   };
 
   const handleDiscardLiveSession = async () => {
+    // Cancel any debounced background draft-save still armed from the last
+    // edit — otherwise it can fire after the delete below and silently
+    // recreate the row it just removed. See the matching comment in
+    // handleSaveLiveSession for the full race.
+    if (liveDraftSaveTimerRef.current) {
+      clearTimeout(liveDraftSaveTimerRef.current);
+      liveDraftSaveTimerRef.current = null;
+    }
     resetLiveTimer();
     setLiveExercises([]);
     setLivePlanName('');
@@ -1056,6 +1064,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     if (totalSets === 0) {
       triggerLiveToast('⚠️ Add at least one exercise set before saving.');
       return;
+    }
+    // Cancel any debounced background draft-save still armed from the coach's
+    // last edit (ticking a set, typing a rep) — the autosave effect below
+    // only re-cancels it on its OWN next re-render, which can lose the race
+    // against this function's deleteWorkoutDraft call a few lines down: tick
+    // a set, click Save Workout within the ~1200ms debounce window, and the
+    // still-pending saveWorkoutDraft can fire right after the delete and
+    // silently recreate the very row just removed — the exact "saved fine,
+    // but 'Live Log in progress' banner won't go away, and its delete button
+    // does nothing either because it keeps getting resurrected" symptom
+    // reported for a real client (Nagesh A., 2026-08-10).
+    if (liveDraftSaveTimerRef.current) {
+      clearTimeout(liveDraftSaveTimerRef.current);
+      liveDraftSaveTimerRef.current = null;
     }
     setLiveSaving(true);
     try {
@@ -1291,6 +1313,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   const handleDiscardDraftFromList = async () => {
     if (!discardDraftTarget) return;
     const { userId } = discardDraftTarget;
+    // Same debounce race as handleSaveLiveSession/handleDiscardLiveSession —
+    // only relevant when discarding the same client currently open in the
+    // Live Log tab, but cheap to guard unconditionally.
+    if (selectedClient?.id === userId && liveDraftSaveTimerRef.current) {
+      clearTimeout(liveDraftSaveTimerRef.current);
+      liveDraftSaveTimerRef.current = null;
+    }
     await databaseService.deleteWorkoutDraft(userId);
     if (selectedClient?.id === userId) {
       resetLiveTimer();

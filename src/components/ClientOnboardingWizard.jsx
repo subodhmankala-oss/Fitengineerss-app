@@ -59,35 +59,52 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const handleFinish = async () => {
     setIsSubmitting(true);
     setSaveError('');
+    const digitsOnly = phone.replace(/\D/g, '');
+    const payload = {
+      age: age || '30',
+      weight_kg: weight || '70',
+      height_cm: height || '175',
+      program: program || 'fat_loss',
+      activity_level: activityLevel || 'moderately_active',
+      primary_concern: primaryConcern || 'just_stay_fit',
+      full_name: name.trim(),
+      phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
+    };
+
+    // Hard ceiling on the save — the browser Supabase SDK is known to hang
+    // indefinitely (never resolving, never rejecting) right after a fresh
+    // auth session, which left a real client watching this button spin
+    // forever with no error and no way out (confirmed 2026-07-27). Better
+    // to surface a retryable error than to strand them on a dead spinner.
+    const attemptSave = () => Promise.race([
+      databaseService.saveClientOnboardingData(payload),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('This is taking longer than expected. Please check your connection and try again.')), 20000)
+      )
+    ]);
+
     try {
-      const digitsOnly = phone.replace(/\D/g, '');
-      // Hard ceiling on the save — the browser Supabase SDK is known to hang
-      // indefinitely (never resolving, never rejecting) right after a fresh
-      // auth session, which left a real client watching this button spin
-      // forever with no error and no way out (confirmed 2026-07-27). Better
-      // to surface a retryable error than to strand them on a dead spinner.
-      await Promise.race([
-        databaseService.saveClientOnboardingData({
-          age: age || '30',
-          weight_kg: weight || '70',
-          height_cm: height || '175',
-          program: program || 'fat_loss',
-          activity_level: activityLevel || 'moderately_active',
-          primary_concern: primaryConcern || 'just_stay_fit',
-          full_name: name.trim(),
-          phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('This is taking longer than expected. Please check your connection and try again.')), 20000)
-        )
-      ]);
+      try {
+        await attemptSave();
+      } catch (firstErr) {
+        // One silent retry before bothering the client with an error. Every
+        // confirmed report of "Failed to save onboarding data." on this step
+        // (2026-08-10) turned out to be a one-off — reopening the app and
+        // resubmitting the exact same data succeeded immediately, which
+        // points at a transient blip (network hiccup, serverless cold
+        // start/deploy-boundary race) rather than a real, repeatable failure.
+        // A single automatic retry absorbs that class of failure without
+        // making the client do the "close and reopen" dance themselves.
+        console.warn('Wizard save failed once, retrying automatically:', firstErr.message || firstErr);
+        await attemptSave();
+      }
       onComplete();
     } catch (err) {
       // Don't let onComplete() run on a failed save — that was the original bug:
       // the UI moved on to the dashboard while onboarding_completed silently stayed
       // false in the DB, so the client got sent right back through this wizard on
       // their next login. Now the client can retry instead of getting stuck.
-      console.error('Wizard save error:', err);
+      console.error('Wizard save error (after retry):', err);
       setSaveError(err.message || 'Could not save your info. Please try again.');
     } finally {
       setIsSubmitting(false);

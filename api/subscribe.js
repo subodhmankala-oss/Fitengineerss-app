@@ -48,26 +48,44 @@ export default async function handler(req, res) {
   try {
     const endpoint = subscription.endpoint;
 
-    // Upsert on `endpoint` (its UNIQUE column) instead of a separate
-    // check-then-insert-or-update — that older two-step version had a race:
-    // two registrations for the same endpoint landing close together (a
-    // retry racing the original call, multiple tabs, the PWA re-registering
-    // on every foreground) could both pass the "not found" SELECT before
-    // either INSERT committed, so the second INSERT hit the endpoint UNIQUE
-    // constraint and 500'd with Postgres code 23505. Confirmed in production
-    // logs (2026-08-10). A single upsert makes this atomic — Postgres
-    // resolves the conflict itself, no read-then-write window to lose.
-    const upsertFields = { user_name: userName, endpoint, subscription };
-    if (validUserId) upsertFields.user_id = validUserId;
+    // Insert first, and fall back to an UPDATE only when the endpoint's
+    // UNIQUE constraint says the row already exists. This replaces BOTH
+    // earlier versions, each of which was broken in its own way:
+    //
+    // 1. The original check-then-insert-or-update raced: two registrations
+    //    for the same endpoint landing close together (a retry racing the
+    //    original call, multiple tabs, the PWA re-registering on every
+    //    foreground) could both pass the "not found" SELECT before either
+    //    INSERT committed, so the loser hit the UNIQUE constraint and 500'd
+    //    with Postgres 23505 (seen in production logs, 2026-08-10).
+    //
+    // 2. Replacing that with a single `upsert(..., { onConflict })` looked
+    //    atomic but failed 100% of the time with a 42501 RLS violation:
+    //    PostgREST turns it into INSERT ... ON CONFLICT DO UPDATE, and
+    //    Postgres evaluates the table's SELECT policy for that form. After
+    //    sql/lock_down_reads.sql, push_subscriptions_select is
+    //    `user_id = current_app_user_id() OR is_my_client(user_id) OR
+    //    is_super_admin()` — which the anon key can never satisfy, so every
+    //    registration was rejected outright. Verified against the live DB:
+    //    a plain INSERT returns 201, the same row via ON CONFLICT returns
+    //    42501 (2026-08-10).
+    //
+    // Insert-then-update-on-23505 needs only the INSERT and UPDATE policies
+    // (both `true` here) and never the SELECT one, so it works under the
+    // locked-down policies while still closing the race: if two requests
+    // collide, exactly one INSERT wins and the loser updates instead of
+    // erroring.
+    const fields = { user_name: userName, endpoint, subscription };
+    if (validUserId) fields.user_id = validUserId;
 
-    const { error: upsertError } = await supabase
+    const { error: insertError } = await supabase
       .from('push_subscriptions')
-      .upsert(upsertFields, { onConflict: 'endpoint' });
+      .insert(fields);
 
-    if (upsertError) {
+    if (insertError) {
       // If the table doesn't exist, tell the user how to create it (same
       // guidance the old check-first path gave).
-      if (upsertError.message?.includes('does not exist')) {
+      if (insertError.message?.includes('does not exist')) {
         return res.status(500).json({
           error: 'Supabase push_subscriptions table does not exist. Please create the table in your Supabase SQL Editor.',
           sql: `
@@ -81,7 +99,20 @@ export default async function handler(req, res) {
           `
         });
       }
-      throw upsertError;
+
+      // 23505 = unique_violation on `endpoint`: this device is already
+      // registered, so refresh the existing row instead. No .select() here —
+      // reading the row back would re-introduce the SELECT-policy problem
+      // described above.
+      if (insertError.code === '23505') {
+        const { error: updateError } = await supabase
+          .from('push_subscriptions')
+          .update(fields)
+          .eq('endpoint', endpoint);
+        if (updateError) throw updateError;
+      } else {
+        throw insertError;
+      }
     }
 
     return res.status(200).json({ success: true, message: 'Push subscription registered successfully.' });

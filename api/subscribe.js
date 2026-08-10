@@ -46,19 +46,28 @@ export default async function handler(req, res) {
     : null;
 
   try {
-    // Save/Upsert the subscription in Supabase push_subscriptions table
-    // We check if the subscription endpoint already exists, if so we update it
     const endpoint = subscription.endpoint;
-    
-    // First, let's see if this subscription endpoint already exists
-    const { data: existing, error: checkError } = await supabase
-      .from('push_subscriptions')
-      .select('id')
-      .eq('endpoint', endpoint);
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      // If table doesn't exist, we notify the user to create it
-      if (checkError.message.includes('does not exist')) {
+    // Upsert on `endpoint` (its UNIQUE column) instead of a separate
+    // check-then-insert-or-update — that older two-step version had a race:
+    // two registrations for the same endpoint landing close together (a
+    // retry racing the original call, multiple tabs, the PWA re-registering
+    // on every foreground) could both pass the "not found" SELECT before
+    // either INSERT committed, so the second INSERT hit the endpoint UNIQUE
+    // constraint and 500'd with Postgres code 23505. Confirmed in production
+    // logs (2026-08-10). A single upsert makes this atomic — Postgres
+    // resolves the conflict itself, no read-then-write window to lose.
+    const upsertFields = { user_name: userName, endpoint, subscription };
+    if (validUserId) upsertFields.user_id = validUserId;
+
+    const { error: upsertError } = await supabase
+      .from('push_subscriptions')
+      .upsert(upsertFields, { onConflict: 'endpoint' });
+
+    if (upsertError) {
+      // If the table doesn't exist, tell the user how to create it (same
+      // guidance the old check-first path gave).
+      if (upsertError.message?.includes('does not exist')) {
         return res.status(500).json({
           error: 'Supabase push_subscriptions table does not exist. Please create the table in your Supabase SQL Editor.',
           sql: `
@@ -72,32 +81,7 @@ export default async function handler(req, res) {
           `
         });
       }
-      throw checkError;
-    }
-
-    if (existing && existing.length > 0) {
-      // Update userName (and user_id when known) for existing subscription
-      const updateFields = { user_name: userName, subscription };
-      if (validUserId) updateFields.user_id = validUserId;
-      const { error: updateError } = await supabase
-        .from('push_subscriptions')
-        .update(updateFields)
-        .eq('endpoint', endpoint);
-
-      if (updateError) throw updateError;
-    } else {
-      // Insert new subscription
-      const insertFields = {
-        user_name: userName,
-        endpoint: endpoint,
-        subscription: subscription
-      };
-      if (validUserId) insertFields.user_id = validUserId;
-      const { error: insertError } = await supabase
-        .from('push_subscriptions')
-        .insert(insertFields);
-
-      if (insertError) throw insertError;
+      throw upsertError;
     }
 
     return res.status(200).json({ success: true, message: 'Push subscription registered successfully.' });

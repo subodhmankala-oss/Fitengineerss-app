@@ -235,8 +235,18 @@ async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
 // its existing behaviour rather than breaking login outright.
 async function lookupProfileViaServer(email) {
   try {
-    const stored = readStoredSupabaseSession();
-    const token = stored?.session?.access_token || cachedAccessToken || null;
+    // Must go through resolveBearerToken() (checks expiry, refreshes if
+    // stale) rather than reading the stored/cached token raw — this fallback
+    // exists specifically for the "just reopened the app" moment, which is
+    // exactly when the stored access token is most likely to have expired.
+    // A raw expired token here gets silently 401'd by the server's
+    // resolveVerifiedEmail, so this whole fallback returned null instead of
+    // the real profile — the caller then had no `client` row to read
+    // onboarding_completed from, defaulted it to false, and sent an
+    // already-onboarded client back through the 4-step wizard on reopen.
+    // Confirmed 2026-08-11: a client with onboarding_completed=true in the
+    // DB was shown the wizard again after being idle/closed for a while.
+    const token = await resolveBearerToken();
     const headers = { 'Content-Type': 'application/json' };
     // Only a real user token is worth sending — the anon key proves nothing
     // and would just be rejected.
@@ -1833,16 +1843,31 @@ const databaseService = {
         let data;
         try {
           data = await restSelect(
-            `clients?select=*,users!clients_user_id_fkey(email,last_login)${coachFilter}`
+            `clients?select=*,users!clients_user_id_fkey(email,last_login,role)${coachFilter}`
           );
         } catch (e) {
           if (String(e.message).includes('400')) {
             data = await restSelect(
-              `clients?select=*,users!clients_user_id_fkey(email)${coachFilter}`
+              `clients?select=*,users!clients_user_id_fkey(email,role)${coachFilter}`
             );
           } else {
             throw e;
           }
+        }
+
+        // A clients row can outlive its owner's actual role — e.g. someone
+        // signed up as a client, was later approved as a coach (or promoted
+        // to admin), and the old clients row was never cleaned up. Without
+        // this filter, "My Clients"/"All Clients" silently counted coaches
+        // as clients, disagreeing with getPlatformStats' totalActiveClients
+        // (which correctly counts from users.role='client') by exactly the
+        // number of such stale rows. Confirmed 2026-08-12: 2 real coach
+        // accounts (role='coach' in users) still had a leftover clients row,
+        // making "My Clients (37)" and "Total Clients: 36" disagree.
+        // `c.users` can be null if the join genuinely found nothing (RLS/
+        // deleted user) — don't drop those, only drop a CONFIRMED non-client.
+        if (Array.isArray(data)) {
+          data = data.filter((c) => !c.users?.role || c.users.role === 'client');
         }
 
         // Zero rows is ambiguous — genuinely no clients, or the
@@ -2214,7 +2239,7 @@ const databaseService = {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const rows = await restSelect(
-            `clients?select=coach_id,total_sessions&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+            `clients?select=coach_id,total_sessions,program_started_on,program_est_completion&user_id=eq.${encodeURIComponent(userId)}&limit=1`
           );
           const data = Array.isArray(rows) ? rows[0] : null;
           if (data) {
@@ -2222,6 +2247,8 @@ const databaseService = {
               connected: !!data.coach_id,
               coachId: data.coach_id || null,
               totalSessions: data.total_sessions ?? null,
+              programStartedOn: data.program_started_on ?? null,
+              programEstCompletion: data.program_est_completion ?? null,
               resolved: true
             };
           }
@@ -2243,6 +2270,8 @@ const databaseService = {
                 connected: !!client?.coach_id,
                 coachId: client?.coach_id || null,
                 totalSessions: client?.total_sessions ?? null,
+                programStartedOn: client?.program_started_on ?? null,
+                programEstCompletion: client?.program_est_completion ?? null,
                 resolved: true
               };
             }
@@ -2285,6 +2314,8 @@ const databaseService = {
       connected: !!row?.coach_id,
       coachId: row?.coach_id || null,
       totalSessions: row?.total_sessions ?? null,
+      programStartedOn: row?.program_started_on ?? null,
+      programEstCompletion: row?.program_est_completion ?? null,
       resolved: true
     };
   },
@@ -3521,8 +3552,21 @@ const databaseService = {
       try {
         // Raw PostgREST (restSelect) instead of supabase.from() — same
         // SDK-hang bypass as everywhere else in this file.
-        const clients = await restSelect(`users?select=id&role=eq.client`);
-        if (clients) totalActiveClients = clients.length;
+        //
+        // Counts from the `clients` table (same source + same stale-row
+        // filter as getAllUsers, which is what actually powers "My Clients"/
+        // "All Clients") rather than independently counting users.role=
+        // 'client' — two different queries claiming to answer the same
+        // question drifted apart the moment a clients row outlived its
+        // owner's role (e.g. promoted to coach, old row never cleaned up):
+        // "My Clients (37)" vs "Total Clients: 36" for the exact same
+        // platform. Deriving both from one filtered query means they can't
+        // disagree again. See getAllUsers' matching comment for the full
+        // story (confirmed 2026-08-12).
+        const clients = await restSelect(`clients?select=id,users!clients_user_id_fkey(role)`);
+        if (clients) {
+          totalActiveClients = clients.filter((c) => !c.users?.role || c.users.role === 'client').length;
+        }
 
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());

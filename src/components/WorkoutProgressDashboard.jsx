@@ -52,6 +52,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
     return Number.isFinite(cachedLimit) && cachedLimit > 0 ? cachedLimit : null;
   });
   const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
+  // Coach-set renewal date (clients.program_started_on). Scopes "sessions
+  // completed" below to the CURRENT program period — see getTotalSessionsDone.
+  const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
+  const [programEstCompletion, setProgramEstCompletion] = useState(() => localStorage.getItem('userProgramEstCompletion') || null);
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
@@ -111,6 +115,20 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       } else {
         setSessionsTotal(null);
         localStorage.removeItem('userSessionsLimit');
+      }
+      if (conn.connected && conn.programStartedOn) {
+        setProgramStartedOn(conn.programStartedOn);
+        localStorage.setItem('userProgramStartedOn', conn.programStartedOn);
+      } else {
+        setProgramStartedOn(null);
+        localStorage.removeItem('userProgramStartedOn');
+      }
+      if (conn.connected && conn.programEstCompletion) {
+        setProgramEstCompletion(conn.programEstCompletion);
+        localStorage.setItem('userProgramEstCompletion', conn.programEstCompletion);
+      } else {
+        setProgramEstCompletion(null);
+        localStorage.removeItem('userProgramEstCompletion');
       }
       // Header shows the coach's name — resolve it if the cache is empty
       // (e.g. the localStorage flag was stale-false so the mount backfill
@@ -435,7 +453,17 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   // --- ADDITIONAL HOMEPAGE STATS ---
   // Total sessions done (all time)
   const getTotalSessionsDone = () => {
-    const uniqueDates = new Set(logs.map(l => l.log_date));
+    // Scoped to sessions logged on/after the coach's program_started_on —
+    // otherwise a renewed client's lifetime session count (which can already
+    // exceed the freshly-set total_sessions from a previous program period)
+    // makes "sessions remaining" read 0 forever right after renewing, no
+    // matter how fresh the renewal actually is. Same fix as the coach-side
+    // "Send renewal reminder"/Program Length cards in TrainerDashboard.jsx —
+    // see their matching comment. Confirmed 2026-08-11 (client: Giridhar).
+    const relevantLogs = programStartedOn
+      ? logs.filter(l => l.log_date >= programStartedOn)
+      : logs;
+    const uniqueDates = new Set(relevantLogs.map(l => l.log_date));
     return uniqueDates.size;
   };
 
@@ -864,6 +892,17 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                   );
                 }
                 const percentComplete = Math.min(100, Math.round((totalSessionsDone / sessionsTotal) * 100));
+                // Matches the coach-side "Started on / Est. completion" footer
+                // in TrainerDashboard.jsx's Program Length card 1:1 — same
+                // fields, same format, just styled for this card's theme.
+                const formatProgramDate = (iso) => {
+                  if (!iso) return null;
+                  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+                  if (Number.isNaN(d.getTime())) return null;
+                  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+                };
+                const startedOnLabel = formatProgramDate(programStartedOn);
+                const estCompletionLabel = formatProgramDate(programEstCompletion);
                 return (
                   <div className="sessions-progress-card glass-panel animate-scale-in" style={{
                     background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
@@ -871,9 +910,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                     borderRadius: 0,
                     padding: '24px',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '20px',
+                    flexDirection: 'column',
+                    gap: '16px',
                     boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
                     position: 'relative',
                     overflow: 'hidden'
@@ -891,6 +929,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                       pointerEvents: 'none'
                     }}></div>
 
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 1 }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
                       <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
@@ -940,6 +979,33 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                         {percentComplete}%
                       </div>
                     </div>
+                    </div>
+
+                    {/* Started on / Est. completion — mirrors the coach-side
+                        Program Length card footer so the renewal window the
+                        coach set is visible here too, not just to them. */}
+                    {(startedOnLabel || estCompletionLabel) && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap',
+                        paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)', zIndex: 1
+                      }}>
+                        {startedOnLabel && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '0.85rem' }}>🚩</span>
+                            <div>
+                              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
+                              <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{startedOnLabel}</div>
+                            </div>
+                          </div>
+                        )}
+                        {estCompletionLabel && (
+                          <div>
+                            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
+                            <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{estCompletionLabel}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}

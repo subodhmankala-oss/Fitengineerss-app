@@ -65,7 +65,10 @@ export function playAlarmBeeps(count = 3) {
       osc.type = 'sine';
       osc.frequency.value = 880; // A5 — clear, alarm-like tone
       gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.4, start + 0.01);
+      // 0.4 read as "very low" in practice — 0.75 is a solid medium-high
+      // level without clipping (stays comfortably under the 1.0 ceiling
+      // where a sine tone would start distorting).
+      gain.gain.linearRampToValueAtTime(0.75, start + 0.01);
       gain.gain.linearRampToValueAtTime(0, start + beepDuration);
       osc.connect(gain);
       gain.connect(ctx.destination);

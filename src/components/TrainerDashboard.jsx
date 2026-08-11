@@ -17,7 +17,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
@@ -226,7 +226,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
       setCoachesList(coaches || []);
       setPendingCoachesList(pendingCoaches || []);
       setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
-      setExerciseCount(exercises ? exercises.length : 0);
+      // Same merge AdminExerciseLibrary itself does (see that component's
+      // fetchExercises comment): a code-defined exercise not yet INSERTed
+      // into the DB (the one-time seed only fires on an empty table) still
+      // needs to count here, since the picker already offers it to clients
+      // and the library screen already lists it. Without this, the overview
+      // stat read raw-DB-only (218) while the tab you clicked into showed
+      // DB + fallback (244) — same number, two different answers. Confirmed
+      // 2026-08-12.
+      const dbExerciseNames = new Set((exercises || []).map(e => (e.name || '').toLowerCase()));
+      const mergedExerciseCount = (exercises || []).length
+        + EXERCISE_LIBRARY.filter(e => !dbExerciseNames.has(e.name.toLowerCase())).length;
+      setExerciseCount(mergedExerciseCount);
 
       // Fetch all users for platform directory
       setLoadingUsers(true);
@@ -1522,7 +1533,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   // push notification only; never sent automatically.
   const handleSendSessionReminder = async () => {
     if (!selectedClient || sendingSessionReminder) return;
-    const sessionsLeft = selectedClient.total_sessions != null ? selectedClient.total_sessions - workoutLogs.length : null;
+    // Same program-period scoping as the render below — see its comment for
+    // why lifetime workoutLogs.length is wrong here after a renewal.
+    const completedThisProgram = selectedClient.program_started_on
+      ? workoutLogs.filter(s => s.date >= selectedClient.program_started_on).length
+      : workoutLogs.length;
+    const sessionsLeft = selectedClient.total_sessions != null ? selectedClient.total_sessions - completedThisProgram : null;
     setSendingSessionReminder(true);
     setSessionReminderSentMsg('');
     try {
@@ -3322,7 +3338,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                   and an editable Started on / Est. completion footer). */}
               {selectedClient.coach_id === loggedInUserId && (() => {
                 const total = selectedClient.total_sessions;
-                const completed = workoutLogs.length;
+                // Scoped to the CURRENT program period (sessions logged on/
+                // after program_started_on), not workoutLogs.length's lifetime
+                // count — otherwise a renewed client whose all-time session
+                // count already exceeds the new total_sessions reads "0 left"
+                // forever, no matter how fresh the renewal actually is. This
+                // is exactly what "Started on" already exists to mark: a
+                // renewal resets it, so completed naturally resets to 0 from
+                // that date instead of continuing to subtract lifetime
+                // history. Confirmed 2026-08-11 (client: Giridhar).
+                const completed = selectedClient.program_started_on
+                  ? workoutLogs.filter(s => s.date >= selectedClient.program_started_on).length
+                  : workoutLogs.length;
                 const remaining = total != null ? Math.max(0, total - completed) : null;
                 const percent = total ? Math.min(100, Math.round((completed / total) * 100)) : 0;
                 const isSavedLocked = totalSessionsSavedValue !== null && totalSessionsSavedValue === totalSessionsInput;

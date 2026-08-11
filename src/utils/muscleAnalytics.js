@@ -14,9 +14,15 @@
 // status, push/pull/legs/core split) uses log_date, which is exactly right
 // for day-bucketed weekly volume.
 
-import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, getMuscleGroupsForExercise } from './muscleGroups';
-import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from './dateUtils';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
+// Explicit .js extensions — Vite/webpack resolve extensionless relative
+// imports fine, but this module is also imported directly by api/push.js
+// (a plain Node ESM serverless function, not bundled by Vite) for the weekly
+// muscle-balance nudge, and Node's own ESM resolver requires the extension.
+// Confirmed 2026-08-11: omitting it threw "Cannot find module './muscleGroups'"
+// under `vercel dev`.
+import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, getMuscleGroupsForExercise } from './muscleGroups.js';
+import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from './dateUtils.js';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary.js';
 
 // ── Configurable targets (Smart Calculations: large 12–20, small 8–15) ──
 // Exported so thresholds can be retuned later without touching the logic

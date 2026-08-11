@@ -1315,7 +1315,10 @@ const WorkoutTracker = () => {
     const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
     const clientId = ownUserId || localStorage.getItem('userId');
     if (workoutTimerStatus === 'idle' && togglingSetOn && clientId && workoutSource !== 'coach') {
-      notifyEvent('workout_started', { clientUserId: clientId });
+      // Same workoutName field the "completed" notification already sends
+      // (see handleConfirmSaveWorkout below) — the server just wasn't using
+      // it for either event until now (see api/push.js).
+      notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
     }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
@@ -2024,6 +2027,22 @@ const WorkoutTracker = () => {
     setTemplateName('');
     setCustomTemplateName('');
     setWorkoutSource('self'); // Reset to self-logged for next workout
+    // Cancel any debounced background draft-save still armed from the last
+    // edit (typing a weight/rep within the last ~1200ms) — the draft-mirror
+    // effect above only cancels it on its OWN next re-render (triggered by
+    // isLoggingWorkout flipping to false just above), which can lose the
+    // race against the deleteWorkoutDraft call a few lines down: edit a set,
+    // hit Finish/Save within that debounce window, and the still-pending
+    // saveWorkoutDraft fires right after the delete and silently recreates
+    // the very row just removed — the exact "saved fine, but 'Live Log in
+    // progress' banner won't go away" symptom already fixed once on the
+    // coach's own Live Log save (see handleSaveLiveSession in
+    // TrainerDashboard.jsx) but missed here on the client's self-log path.
+    // Confirmed 2026-08-11 for a real client (Mahalsa).
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
     // Session is finished and saved to workout_logs — the open draft is done.
     if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
 

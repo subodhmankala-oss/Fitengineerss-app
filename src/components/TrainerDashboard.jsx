@@ -2292,6 +2292,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
 
   // Filter clients list
   const loggedInUserId = resolvedCoachId;
+  // The "My Clients" tab BUTTON's own count — same coach_id ownership scope
+  // as filteredClients below, but without the search/goal filters (a badge
+  // that shrinks while you type a search query would be misleading). The
+  // button previously showed clients.length (every client platform-wide,
+  // unscoped), which for a super-admin is a totally different, much larger
+  // number than what clicking the tab actually shows — 35 vs. this coach's
+  // real 17 attached clients. Confirmed 2026-08-12.
+  const myClientsCount = loggedInUserId ? clients.filter(c => c.coach_id === loggedInUserId).length : 0;
+
   const filteredClients = clients.filter(c => {
     // SECURITY (data isolation): in coach view EVERY coach — including the
     // super-admin — sees ONLY their own attached clients. This must FAIL
@@ -2431,7 +2440,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
               letterSpacing: '0.01em',
             }}
           >
-            👥 My Clients ({clients.length})
+            👥 My Clients ({myClientsCount})
           </button>
           <button
             onClick={() => { setViewMode('admin'); setSelectedClient(null); }}

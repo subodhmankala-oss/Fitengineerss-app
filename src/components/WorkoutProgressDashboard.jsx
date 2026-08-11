@@ -117,9 +117,15 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       // below didn't run).
       if (conn.connected && conn.coachId && !localStorage.getItem('userCoachName')) {
         databaseService.getCoachNameById(conn.coachId).then(resolvedName => {
-          const displayName = resolvedName || conn.coachId;
-          localStorage.setItem('userCoachName', displayName);
-          setCoachName(displayName);
+          // Only ever cache a REAL name. This used to fall back to
+          // `conn.coachId` and persist that — so a failed name lookup wrote
+          // the raw UUID into userCoachName, the header rendered that UUID as
+          // the coach's name, and because the retry above is guarded on the
+          // key being empty, it never re-resolved on any later load either.
+          if (resolvedName) {
+            localStorage.setItem('userCoachName', resolvedName);
+            setCoachName(resolvedName);
+          }
         });
       }
     };
@@ -131,9 +137,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       const storedCoachId = localStorage.getItem('userCoachId');
       if (storedCoachId) {
         databaseService.getCoachNameById(storedCoachId).then(resolvedName => {
-          const displayName = resolvedName || storedCoachId;
-          localStorage.setItem('userCoachName', displayName);
-          setCoachName(displayName);
+          // Same rule as above: never persist the raw id as a display name.
+          if (resolvedName) {
+            localStorage.setItem('userCoachName', resolvedName);
+            setCoachName(resolvedName);
+          }
         });
       }
     }

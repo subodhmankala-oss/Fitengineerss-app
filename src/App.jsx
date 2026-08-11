@@ -1113,7 +1113,24 @@ function App() {
               'userActivity', 'userGoal', 'userIssue', 'userDiet',
               'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget',
               'userEmail', 'rememberedEmail', 'rememberedPassword', 'lastUserName',
-              'userRole', 'userPhone', 'userBrand', 'userPaymentStatus', 'userCoachId'
+              'userRole', 'userPhone', 'userBrand', 'userPaymentStatus', 'userCoachId',
+              // userId/userClientId were MISSING here, which is what made a
+              // freshly-logged-in client look like they had no data at all:
+              // login resolves and stores the real backend id, then this wipe
+              // ran moments later and dropped it. Every user-scoped read
+              // (workout history, coach-connection status, invite code)
+              // resolves via localStorage.userId, so with it gone they had
+              // nothing to key off — the dashboard sat on "Analyzing progress
+              // history…", the coach badge sat on "Checking…", and history
+              // showed empty despite the rows existing in the DB.
+              // Confirmed 2026-08-10 by reproducing the login end-to-end.
+              'userId', 'userClientId',
+              // Same class of loss, less severe: these are caches that make the
+              // next paint correct instead of flashing a wrong state.
+              'clientLinkedToCoach', 'userSessionsLimit', 'userCoachName',
+              // Tour "already seen" flag — otherwise the walkthrough restarts
+              // on every login.
+              'clientTourSeen', 'coachTourSeen'
             ];
             const tempStorage = {};
             keysToKeep.forEach(k => {
@@ -1189,6 +1206,13 @@ function App() {
   const handleLogout = async () => {
     const activeEmail = localStorage.getItem('userEmail') || userEmail;
     const activeRole = localStorage.getItem('userRole') || userRole;
+    // Tour-seen flags are meant to be "shown once per role, ever" — but they
+    // live only in localStorage, and this function used to wipe them along
+    // with everything else. That reset the spotlight tour to step 1 on every
+    // single login after any logout, forever, on this device. Preserve them
+    // the same way last_logged_in_email/lastAuthUserType already are below.
+    const clientTourSeen = localStorage.getItem('clientTourSeen');
+    const coachTourSeen = localStorage.getItem('coachTourSeen');
 
     // Sign out from Supabase Auth if active and wait for it to complete
     try {
@@ -1204,6 +1228,8 @@ function App() {
     if (activeEmail) {
       localStorage.setItem('last_logged_in_email', activeEmail);
     }
+    if (clientTourSeen) localStorage.setItem('clientTourSeen', clientTourSeen);
+    if (coachTourSeen) localStorage.setItem('coachTourSeen', coachTourSeen);
     // Remember which tab (coach vs client) they were using, so the login
     // screen defaults back to it instead of always landing on Client.
     if (activeRole === 'coach' || activeRole === 'super-admin') {

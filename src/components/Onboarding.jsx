@@ -74,6 +74,20 @@ const Onboarding = ({ onComplete }) => {
   const [step, setStep] = useState(() => {
     if (localStorage.getItem('pendingCoachApply') === 'true') return 0;
     if (localStorage.getItem('userEmail')) {
+      // Leftover userEmail/userName in localStorage does NOT mean this person
+      // is mid-onboarding — it's just cache from a previous visit, and it
+      // survives plenty of paths that end with no live session (an
+      // interrupted login, a reload, a partially-completed sign-in). The
+      // branches below used to jump straight to the wizard on that alone,
+      // never consulting onboardingCompleted, so an already-onboarded client
+      // landing on this screen was force-marched through all 4 steps again.
+      // Reproduced live 2026-08-10 for an account whose DB row had
+      // onboarding_completed = true the entire time. If onboarding is known
+      // to be done, fall through to the login screen instead — logging in is
+      // what should happen here, not re-onboarding.
+      if (localStorage.getItem('onboardingCompleted') === 'true') {
+        return isSupabaseConfigured ? 0 : 1;
+      }
       const storedName = localStorage.getItem('userName');
       // A returning client whose name we already know but who hasn't finished
       // the one-time onboarding wizard yet (onboardingCompleted gate handles
@@ -385,6 +399,20 @@ const Onboarding = ({ onComplete }) => {
 
       if (signInSuccess) {
         rememberForDevAutoLogin(authEmail, authPassword);
+        // The profile fetch at the top of this function ran BEFORE signIn()
+        // established a session — with no authenticated token yet, RLS on
+        // public.users/clients silently blocks the anon-key read (returns
+        // zero rows, not an error), so `profile` is null here even for a
+        // real, fully onboarded returning client whose browser had no
+        // lingering session (i.e. after any real logout). That sent every
+        // such login straight into the 4-step onboarding wizard regardless
+        // of onboarding_completed already being true in the DB. Re-fetch now
+        // that a real session/token exists, so RLS actually lets it through
+        // — mirrors the same fix already applied to the coach login path
+        // below (see handleCoachEmailLogin's `if (!profile) profile = ...`).
+        if (!profile) {
+          profile = await databaseService.getUserProfileByEmail(authEmail);
+        }
         if (profile?.onboardingCompleted) {
           // Already finished the one-time wizard on a previous login — straight to the dashboard.
           await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
@@ -844,6 +872,18 @@ const Onboarding = ({ onComplete }) => {
     let dbProfile = null;
     if (isSupabaseConfigured && databaseService.supabase) {
       dbProfile = await databaseService.getUserProfileByEmail(email);
+    }
+    // Cache the real backend userId the moment a real account is found —
+    // unconditionally, before any branch below. Every downstream read
+    // (workout history, coach-connection check, invite code) resolves the
+    // user via localStorage.userId; the "already onboarded" branch right
+    // below was the ONLY place this got set, so any account found here but
+    // routed to handleInstantLogin's demo-profile fallback further down
+    // (onboardingCompleted false/ambiguous) silently ran with no userId ever
+    // set at all — every one of those reads then had nothing to resolve
+    // against and hung/failed indefinitely instead of erroring visibly.
+    if (dbProfile?.id) {
+      localStorage.setItem('userId', dbProfile.id);
     }
     if (dbProfile?.onboardingCompleted) {
       // Already finished the one-time wizard on a previous login — straight to the dashboard.

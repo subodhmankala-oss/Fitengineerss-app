@@ -221,6 +221,147 @@ async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
   return await res.json();
 }
 
+// Authoritative, RLS-proof profile read via our own serverless function (see
+// api/lookup-profile.js), used ONLY as a fallback when the direct PostgREST
+// read above comes back empty. An empty result there can mean "no such
+// account" OR "RLS refused this read" — they're indistinguishable, and the
+// second one happens on every login that reads a profile before its auth
+// session is fully established. Believing it is what trapped returning
+// clients in the onboarding wizard forever.
+//
+// Sends the real session token when there is one (the server prefers it and
+// resolves the email from the token itself, so this can't read anyone else's
+// profile). Never throws: any failure returns null so the caller falls back to
+// its existing behaviour rather than breaking login outright.
+async function lookupProfileViaServer(email) {
+  try {
+    const stored = readStoredSupabaseSession();
+    const token = stored?.session?.access_token || cachedAccessToken || null;
+    const headers = { 'Content-Type': 'application/json' };
+    // Only a real user token is worth sending — the anon key proves nothing
+    // and would just be rejected.
+    if (token && token !== supabaseAnonKey) headers.Authorization = `Bearer ${token}`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch('/api/lookup-profile', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email }),
+        signal: controller.signal
+      });
+      if (!resp.ok) return null;
+      return await resp.json().catch(() => null);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('lookupProfileViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
+// RLS-proof coach roster read via api/get-coach-clients.js — see that file's
+// comment. Returns the raw clients array (same shape as the direct
+// PostgREST read, joined with users), or null on any failure; never throws.
+async function getCoachClientsViaServer(coachId) {
+  try {
+    const { headers, email } = serverFallbackAuth();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch('/api/get-coach-clients', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ coachId, email }),
+        signal: controller.signal
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json().catch(() => null);
+      return Array.isArray(data?.clients) ? data.clients : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('getCoachClientsViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
+// The logged-in client's coach display name, resolved server-side (immune to
+// the RLS blanking that makes the direct users/coaches reads come back empty).
+// Returns null when there's no coach or the lookup fails; never throws.
+async function getCoachNameViaServer() {
+  const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+  if (!email) return null;
+  const serverProfile = await lookupProfileViaServer(email);
+  return serverProfile?.coachName || null;
+}
+
+// Shared auth headers for the workout-log server fallbacks below — same
+// token/email resolution as lookupProfileViaServer.
+function serverFallbackAuth() {
+  const stored = readStoredSupabaseSession();
+  const token = stored?.session?.access_token || cachedAccessToken || null;
+  const headers = { 'Content-Type': 'application/json' };
+  if (token && token !== supabaseAnonKey) headers.Authorization = `Bearer ${token}`;
+  const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+  return { headers, email };
+}
+
+// RLS-proof workout_logs read via api/get-workout-logs.js — see that file's
+// comment. Returns the log array, or null if the fallback itself failed (the
+// caller decides what null means; never throws).
+async function getWorkoutLogsViaServer(userId) {
+  try {
+    const { headers, email } = serverFallbackAuth();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch('/api/get-workout-logs', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId, email }),
+        signal: controller.signal
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json().catch(() => null);
+      return Array.isArray(data?.logs) ? data.logs : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('getWorkoutLogsViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
+// RLS-proof workout_logs write via api/save-workout-session.js — see that
+// file's comment. Returns true on success, false on any failure (caller
+// decides how to surface that; never throws).
+async function saveWorkoutLogsViaServer(records) {
+  try {
+    const { headers, email } = serverFallbackAuth();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const resp = await fetch('/api/save-workout-session', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ records, email }),
+        signal: controller.signal
+      });
+      return resp.ok;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('saveWorkoutLogsViaServer failed (non-fatal):', e?.message || e);
+    return false;
+  }
+}
+
 // Same SDK-hang bypass as restSelect, for calling a Postgres RPC function
 // directly via PostgREST instead of supabase.rpc(...), which hangs on this
 // project the same way .from().select() does. Confirmed cause of clients
@@ -481,10 +622,32 @@ async function resolveCanonicalUserId() {
       console.warn('[resolveCanonicalUserId] repairing poisoned userId in localStorage', { cached, realId });
       localStorage.setItem('userId', realId);
     }
-    return realId || cached;
+    if (realId) return realId;
+    // Nothing came back AND nothing cached: the read was almost certainly
+    // RLS-blanked (returns [] rather than erroring, so the catch below never
+    // fires) at a moment when no valid token existed yet. Returning null here
+    // strands every user-scoped caller — they retry against nothing forever,
+    // which is what left the dashboard on "Analyzing progress history…" and
+    // the coach badge on "Checking…" indefinitely. Recover the id
+    // server-side, where the service-role key is immune to RLS, and re-cache
+    // it so this self-heals instead of needing a re-login.
+    if (!cached) {
+      const serverProfile = await lookupProfileViaServer(email);
+      const serverId = serverProfile?.found ? serverProfile.user?.id : null;
+      if (serverId) {
+        console.warn('[resolveCanonicalUserId] recovered missing userId server-side');
+        localStorage.setItem('userId', serverId);
+        return serverId;
+      }
+    }
+    return cached;
   } catch (e) {
     console.error('[resolveCanonicalUserId] lookup failed, using cached userId:', e);
-    return cached;
+    if (cached) return cached;
+    const serverProfile = await lookupProfileViaServer(email);
+    const serverId = serverProfile?.found ? serverProfile.user?.id : null;
+    if (serverId) localStorage.setItem('userId', serverId);
+    return serverId || null;
   }
 }
 
@@ -632,6 +795,24 @@ const databaseService = {
             status: 'approved',
             brand_name: profile.brand || `${profile.userName} Fitness`
           }, 'user_id');
+          // Cache userCoachId here so getClientsForCoach() below this
+          // function has something to query against. Without this, a fresh
+          // coach signup's userCoachId only ever got set by the mock
+          // fallback block at the bottom of this function — which used to
+          // run unconditionally even on a successful cloud write and always
+          // wrote a fake generated id (coach-id-<timestamp>). "My Clients"
+          // then queried real client rows against that fake id and always
+          // came back empty. Confirmed 2026-08-10 for the super-admin coach
+          // account, which had real attached clients the whole time.
+          //
+          // Deliberately userId here, NOT coaches.id from the upsert above:
+          // verified directly against the live DB (2026-08-10) that every
+          // clients.coach_id value in production matches coaches.user_id —
+          // zero rows match coaches.id. Several comments elsewhere in this
+          // file assert the opposite ("coach_id refers to coaches.id, not
+          // the user id") — that assumption does not hold for the actual
+          // data and must not be copied into new code without re-verifying.
+          localStorage.setItem('userCoachId', userId);
         } else {
           // It's a client
           await restUpsert('clients', {
@@ -694,7 +875,17 @@ const databaseService = {
       throw new Error('Could not resolve your account ID with the database. Please try again.');
     }
 
-    // Update local mock tables
+    // Update local mock tables — offline-only. This block used to run
+    // unconditionally, even right after a fully successful cloud write above,
+    // which meant it ALWAYS overwrote userCoachId with a freshly-generated
+    // fake id (`coach-id-<timestamp>`, matching nothing in the real `clients`
+    // table) regardless of whether the cloud coaches upsert just succeeded.
+    // That's what made "My Clients" show 0 for a real coach with real
+    // attached clients — confirmed 2026-08-10. The cloud branch above now
+    // caches the real coaches.id itself; this block must never run when the
+    // cloud path was actually taken.
+    if (isSupabaseConfigured && supabase) return;
+
     const mockUsers = this.getMockTable('users');
     let mUser = mockUsers.find(u => u.email === email || (userId && u.id === userId));
     if (!mUser) {
@@ -938,7 +1129,17 @@ const databaseService = {
                 const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, ...rest }) => rest);
                 await restInsert('workout_logs', fallbackRecords);
               } else {
-                throw error;
+                // Anything else — most commonly 42501 (RLS rejected the
+                // insert because the caller's session token wasn't ready/
+                // valid at the moment this fired) — falls back to the
+                // service-role-backed endpoint before giving up. This is the
+                // write-side twin of getUserProfileByEmail's read fallback:
+                // the client already updated its local session list by this
+                // point, so a swallowed failure here is a workout that LOOKS
+                // saved and never actually is.
+                console.warn('workout_logs client-side insert failed, falling back to server:', error?.message || error);
+                const saved = await saveWorkoutLogsViaServer(records);
+                if (!saved) throw error;
               }
             }
             console.log('Cloud DB: Saved workout session sets.');
@@ -999,6 +1200,19 @@ const databaseService = {
     if (!resp.ok) {
       throw new Error(data.msg || data.error_description || data.error || 'Invalid login credentials.');
     }
+    // Make this real access token available to restSelect/restInsert
+    // IMMEDIATELY, synchronously, not dependent on the flaky setSession()
+    // call below. Without this, any caller that re-reads the user's own
+    // profile right after signIn() resolves (e.g. Onboarding.jsx's client
+    // login, re-checking onboarding_completed once a session exists) was
+    // still using the anon key whenever setSession() hadn't finished hydrating
+    // the SDK yet — RLS silently blocks that anon read and returns zero rows,
+    // which looked exactly like "onboarding not done", sending a fully
+    // onboarded returning client into the 4-step wizard on every login.
+    // Confirmed 2026-08-10 for a real account. cachedAccessToken is what
+    // resolveBearerToken() falls back to when localStorage has no fresh
+    // session yet, so setting it here closes that window entirely.
+    setCachedAuthToken(data.access_token);
     // Hydrate the SDK client's session so downstream .from() calls and
     // onAuthStateChange listeners still see the logged-in user. Best-effort
     // with a timeout: setSession() also goes through the same browser SDK,
@@ -1159,15 +1373,64 @@ const databaseService = {
         // user_id), deleting their actual coach link. Confirmed 2026-07-26
         // via a client whose password-reset login hit exactly this path.
         const userRows = await restSelect(`users?email=eq.${encodeURIComponent(email)}&select=*`);
-        const user = Array.isArray(userRows) && userRows[0] ? userRows[0] : null;
+        let user = Array.isArray(userRows) && userRows[0] ? userRows[0] : null;
+        let coach = null;
+        let client = null;
+        let resolvedServerSide = false;
+        // The attached coach's display name, resolved server-side alongside
+        // the profile. Captured here so login persists it directly instead of
+        // depending on a separate getCoachNameById() lookup, whose own
+        // RLS-blanked reads left the header rendering the raw coach UUID (or
+        // the bare "Coach" placeholder) with no reliable retry.
+        let resolvedCoachName = null;
+
+        // Zero rows here is AMBIGUOUS: it means either "no such account" or
+        // "RLS refused this read". RLS does not error on an unauthorized
+        // read — it returns an empty array — and the read above goes out with
+        // the anon key whenever no authenticated token exists yet, which is
+        // exactly the state every fresh login passes through. Trusting the
+        // empty result is what kept sending fully-onboarded returning clients
+        // back through the 4-step wizard on every single login, no matter what
+        // onboarding_completed said in the database.
+        //
+        // So don't trust it: ask the server, which reads with the service-role
+        // key and is therefore immune to RLS, to the SDK's token-refresh hang,
+        // and to whichever of those races won this time. Only a `found: false`
+        // from there means the account genuinely doesn't exist.
+        if (!user) {
+          const serverProfile = await lookupProfileViaServer(email);
+          if (serverProfile?.found && serverProfile.user) {
+            user = serverProfile.user;
+            coach = serverProfile.coach || null;
+            client = serverProfile.client || null;
+            resolvedCoachName = serverProfile.coachName || null;
+            resolvedServerSide = true;
+          }
+        }
 
         if (user) {
-          const [coachRows, clientRows] = await Promise.all([
-            restSelect(`coaches?user_id=eq.${encodeURIComponent(user.id)}&select=*`),
-            restSelect(`clients?user_id=eq.${encodeURIComponent(user.id)}&select=*`)
-          ]);
-          const coach = Array.isArray(coachRows) && coachRows[0] ? coachRows[0] : null;
-          const client = Array.isArray(clientRows) && clientRows[0] ? clientRows[0] : null;
+          if (!resolvedServerSide) {
+            const [coachRows, clientRows] = await Promise.all([
+              restSelect(`coaches?user_id=eq.${encodeURIComponent(user.id)}&select=*`),
+              restSelect(`clients?user_id=eq.${encodeURIComponent(user.id)}&select=*`)
+            ]);
+            coach = Array.isArray(coachRows) && coachRows[0] ? coachRows[0] : null;
+            client = Array.isArray(clientRows) && clientRows[0] ? clientRows[0] : null;
+
+            // Same ambiguity one level down: the users row came back, but the
+            // clients row (which carries onboarding_completed) can still be
+            // RLS-blanked on its own. A user with no clients AND no coaches
+            // row is the exact shape that reads as "never onboarded", so
+            // re-resolve it server-side before believing that.
+            if (!coach && !client) {
+              const serverProfile = await lookupProfileViaServer(email);
+              if (serverProfile?.found) {
+                coach = serverProfile.coach || null;
+                client = serverProfile.client || null;
+                resolvedCoachName = serverProfile.coachName || null;
+              }
+            }
+          }
 
           // No more coach approval/pending: any coaches row = an active coach.
           let activeRole = 'client';
@@ -1189,8 +1452,18 @@ const databaseService = {
           }
           if (client) localStorage.setItem('userClientId', client.id);
 
+          // Client has a coach but the name wasn't resolved above (the
+          // client row came back from the direct read, so the server path
+          // that carries coachName never ran). Ask the server for just that.
+          if (!resolvedCoachName && client?.coach_id) {
+            const serverProfile = await lookupProfileViaServer(email);
+            resolvedCoachName = serverProfile?.coachName || null;
+          }
+          if (resolvedCoachName) localStorage.setItem('userCoachName', resolvedCoachName);
+
           return {
             id: user.id,
+            coachName: resolvedCoachName,
             // A coach has no client row, so this used to fall straight to
             // coach.brand_name (their business/specialization name) instead of
             // their own name — e.g. showing "Strength & Conditioning" where
@@ -1315,6 +1588,10 @@ const databaseService = {
     if (profile.brand) localStorage.setItem('userBrand', profile.brand);
     if (profile.payment_status) localStorage.setItem('userPaymentStatus', profile.payment_status);
     if (profile.coach_id) localStorage.setItem('userCoachId', profile.coach_id);
+    // Persist the coach's display name resolved during the profile lookup, so
+    // the dashboard header shows a real name immediately instead of falling
+    // back to the "Coach" placeholder (or, before this, the raw coach UUID).
+    if (profile.coachName) localStorage.setItem('userCoachName', profile.coachName);
     // Store onboarding wizard flags (support both camelCase and snake_case callers)
     const isOnboardingDone = profile.onboardingCompleted === true || profile.onboarding_completed === true;
     localStorage.setItem('onboardingWizardCompleted', isOnboardingDone ? 'true' : 'false');
@@ -1453,6 +1730,11 @@ const databaseService = {
     const loggedInRole = localStorage.getItem('userRole');
     const loggedInCoachId = localStorage.getItem('userCoachId');
 
+    // Declared outside the try block (not `let`/`const` inside it) so the
+    // RLS-fallback in the catch block below can still see which coach this
+    // read was actually scoped to.
+    let coachFilter;
+    let ownResolvedId;
     if (isSupabaseConfigured && supabase) {
       try {
         // Raw PostgREST read (bypasses the hanging SDK — see
@@ -1470,7 +1752,13 @@ const databaseService = {
         // coach_id filter; anything else (including "don't know yet")
         // returns nothing rather than guessing permissively.
         const isSuperAdminRole = loggedInRole === 'super-admin' || loggedInRole === 'admin';
-        let coachFilter;
+        // Captured regardless of branch — the super-admin IS also a coach
+        // with their own attached clients (TrainerDashboard's "My Clients"
+        // filters everyone, admin included, down to their own coach_id — see
+        // filteredClients), so the RLS-empty-read fallback below needs this
+        // id even on the unfiltered super-admin branch, not just the
+        // explicit coach one.
+        ownResolvedId = await resolveCanonicalUserId();
         if (isSuperAdminRole) {
           coachFilter = '';
         } else if (loggedInRole === 'coach') {
@@ -1479,9 +1767,8 @@ const databaseService = {
           // login (see resolveCanonicalUserId). A wrong or missing id here would
           // otherwise silently return the wrong client set. Fail CLOSED if it
           // still can't be determined.
-          const coachId = await resolveCanonicalUserId();
-          if (!coachId) return [];
-          coachFilter = `&coach_id=eq.${encodeURIComponent(coachId)}`;
+          if (!ownResolvedId) return [];
+          coachFilter = `&coach_id=eq.${encodeURIComponent(ownResolvedId)}`;
         } else {
           return [];
         }
@@ -1502,6 +1789,26 @@ const databaseService = {
           } else {
             throw e;
           }
+        }
+
+        // Zero rows is ambiguous — genuinely no clients, or the
+        // RLS-vs-anon-key gap this whole file works around elsewhere. This is
+        // the function that actually powers "My Clients" (TrainerDashboard
+        // has no separate call), and it had no fallback at all — confirmed
+        // 2026-08-10 for a real coach (the super-admin account itself) with
+        // real attached clients (verified directly against the DB) who still
+        // saw "No Clients Found". This must fire for BOTH branches: the
+        // explicit-coach branch (coachFilter set) AND the super-admin
+        // unfiltered branch (coachFilter === '' — the whole-platform read can
+        // hit the exact same RLS gap). Using ownResolvedId rather than
+        // re-parsing coachFilter covers both; TrainerDashboard's
+        // filteredClients narrows everyone, admin included, down to their own
+        // coach_id anyway (see its 'viewMode === coach' filter), so scoping
+        // this fallback to the caller's own id is correct for what "My
+        // Clients" actually renders in both cases.
+        if (Array.isArray(data) && data.length === 0 && ownResolvedId) {
+          const serverClients = await getCoachClientsViaServer(ownResolvedId);
+          if (serverClients && serverClients.length > 0) data = serverClients;
         }
 
         if (data) {
@@ -1529,6 +1836,37 @@ const databaseService = {
         }
       } catch (e) {
         console.error('Cloud DB Fetch all clients error:', e);
+        {
+          const filterCoachId = ownResolvedId || (coachFilter
+            ? decodeURIComponent((coachFilter.match(/coach_id=eq\.([^&]+)/) || [])[1] || '')
+            : null);
+          if (filterCoachId) {
+            const serverClients = await getCoachClientsViaServer(filterCoachId);
+            if (serverClients) {
+              return serverClients.map(c => ({
+                id: c.user_id,
+                client_id: c.id,
+                email: c.users?.email || '',
+                userName: c.full_name,
+                userAge: String(c.age || ''),
+                userHeight: String(c.height_cm || ''),
+                userWeight: String(c.weight_kg || ''),
+                userActivity: c.activity_level || '',
+                userGoal: c.fitness_goal || '',
+                userDiet: c.dietary_preference || '',
+                userCalorieTarget: String(c.calorie_target || ''),
+                userProteinTarget: String(c.protein_target || ''),
+                userCarbsTarget: String(c.carbs_target || ''),
+                userFatsTarget: String(c.fats_target || ''),
+                role: 'client',
+                phone: c.phone_number,
+                last_login: c.users?.last_login || null,
+                coach_id: c.coach_id,
+                total_sessions: c.total_sessions ?? null
+              }));
+            }
+          }
+        }
       }
     }
 
@@ -1604,6 +1942,16 @@ const databaseService = {
           }
         }
 
+        // Empty is ambiguous — genuinely no clients, or the RLS-vs-anon-key
+        // gap documented above. This exact case was already diagnosed in the
+        // comment above (2026-08-09: "My Clients always showed 0") but never
+        // got a fallback, only the retry-less direct read. Confirm with the
+        // service-role-backed endpoint before believing "zero clients".
+        if (Array.isArray(data) && data.length === 0) {
+          const serverClients = await getCoachClientsViaServer(coachId);
+          if (serverClients && serverClients.length > 0) data = serverClients;
+        }
+
         if (data) {
           return data.map(c => ({
             id: c.user_id,
@@ -1629,6 +1977,30 @@ const databaseService = {
         }
       } catch (e) {
         console.error('Cloud DB Fetch clients for coach error:', e);
+        const serverClients = await getCoachClientsViaServer(coachId);
+        if (serverClients) {
+          return serverClients.map(c => ({
+            id: c.user_id,
+            client_id: c.id,
+            email: c.users?.email || '',
+            userName: c.full_name,
+            userAge: String(c.age || ''),
+            userHeight: String(c.height_cm || ''),
+            userWeight: String(c.weight_kg || ''),
+            userActivity: c.activity_level || '',
+            userGoal: c.fitness_goal || '',
+            userDiet: c.dietary_preference || '',
+            userCalorieTarget: String(c.calorie_target || ''),
+            userProteinTarget: String(c.protein_target || ''),
+            userCarbsTarget: String(c.carbs_target || ''),
+            userFatsTarget: String(c.fats_target || ''),
+            role: 'client',
+            phone: c.phone_number,
+            last_login: c.users?.last_login || null,
+            coach_id: c.coach_id,
+            total_sessions: c.total_sessions ?? null
+          }));
+        }
       }
     }
 
@@ -1732,11 +2104,45 @@ const databaseService = {
             `clients?select=coach_id,total_sessions&user_id=eq.${encodeURIComponent(userId)}&limit=1`
           );
           const data = Array.isArray(rows) ? rows[0] : null;
+          if (data) {
+            return {
+              connected: !!data.coach_id,
+              coachId: data.coach_id || null,
+              totalSessions: data.total_sessions ?? null,
+              resolved: true
+            };
+          }
+          // Zero rows is ambiguous — genuinely no clients row, or RLS quietly
+          // blocked the read (returns 200/[] here, never throws, so this
+          // never even reached the catch block below and used to be trusted
+          // outright as "not connected" on the very first try, no retry, no
+          // fallback — unlike every other read in this file that has the
+          // same RLS-vs-anon-key gap). Confirmed 2026-08-10: a real, actively
+          // connected client (coach_id set in the DB) read back as
+          // disconnected purely from this gap. Ask the service-role-backed
+          // profile lookup, which is immune to RLS, before believing it.
+          const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+          if (email) {
+            const serverProfile = await lookupProfileViaServer(email);
+            if (serverProfile?.found) {
+              const client = serverProfile.client || null;
+              return {
+                connected: !!client?.coach_id,
+                coachId: client?.coach_id || null,
+                totalSessions: client?.total_sessions ?? null,
+                resolved: true
+              };
+            }
+          }
+          if (attempt < maxAttempts - 1) {
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+            continue;
+          }
           return {
-            connected: !!data?.coach_id,
-            coachId: data?.coach_id || null,
-            totalSessions: data?.total_sessions ?? null,
-            resolved: true
+            connected: localStorage.getItem('clientLinkedToCoach') === 'true',
+            coachId: localStorage.getItem('userCoachId') || null,
+            totalSessions: null,
+            resolved: false
           };
         } catch (e) {
           console.error('[getOwnCoachConnection] error:', e);
@@ -1841,9 +2247,17 @@ const databaseService = {
           `workout_logs?select=*&user_id=eq.${encodeURIComponent(userId)}` +
           `&order=log_date.desc,exercise_name.asc,set_number.asc`
         );
-        return Array.isArray(data) ? data : [];
+        if (Array.isArray(data) && data.length > 0) return data;
+        // Empty is ambiguous — genuinely zero logs, or the session token
+        // wasn't ready/valid when this fired (same RLS-vs-anon-key gap as
+        // getUserProfileByEmail, on this table). Confirm with the
+        // service-role-backed endpoint before believing "no history".
+        const serverLogs = await getWorkoutLogsViaServer(userId);
+        return serverLogs ?? [];
       } catch (e) {
         console.error('Cloud DB Fetch workout logs error:', e);
+        const serverLogs = await getWorkoutLogsViaServer(userId);
+        if (serverLogs) return serverLogs;
       }
     }
 
@@ -2752,10 +3166,15 @@ const databaseService = {
       if (fullName) return fullName;
       const coachRows = await restSelect(`coaches?select=brand_name&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
       const brandName = Array.isArray(coachRows) ? coachRows[0]?.brand_name : null;
-      return brandName || null;
+      if (brandName) return brandName;
+      // Both reads came back empty — same RLS blanking as everywhere else in
+      // this file (empty result, no error, so the catch never fires). Falling
+      // through to null makes the caller render the raw coach UUID in the
+      // header. The service-role lookup already resolves this name, so use it.
+      return await getCoachNameViaServer();
     } catch (e) {
       console.error('[getCoachNameById] error:', e);
-      return null;
+      return await getCoachNameViaServer();
     }
   },
 

@@ -60,23 +60,26 @@ const STEPS = {
     selector: '[data-tour="wt-log-exercise-card"]',
     title: 'Log Your Sets',
     desc: 'Enter reps & weight, then tick each set as you finish it.',
-    cta: { label: 'Next', action: 'next', to: 7 },
+    // No cta button — auto-advances to step 7 after AUTO_ADVANCE_MS, same as
+    // the tap-target-only steps above.
   },
   7: {
     icon: '➕',
     selector: '[data-tour="wt-add-exercise-btn"]',
     title: 'Add More Exercises',
     desc: 'Tap here anytime to add another exercise to this session.',
-    cta: { label: 'Next', action: 'next', to: 8 },
-    // No autoClick — adds a real (blank) exercise row to their session.
+    // No cta button, no autoClick — adds a real (blank) exercise row to
+    // their session, so this only advances via a deliberate tap or the
+    // auto-advance timer, never a fallback "Next" button.
   },
   8: {
     icon: '🎉',
     selector: '[data-tour="wt-save-workout-btn"]',
     title: "You're All Set!",
     desc: "Save your session here once you're done logging.",
-    cta: { label: 'Finish', action: 'finish' },
-    // No autoClick — this persists the workout. Must be a deliberate tap.
+    // No cta button, no autoClick — this persists the workout. Must be a
+    // deliberate tap on the real Save button; the tour itself just ends
+    // (auto-advance fallback below still calls finish() so nobody is stuck).
   },
 };
 
@@ -289,9 +292,11 @@ export default function TourOverlay() {
               I'll do it, skip ahead →
             </button>
           )}
-          <button type="button" className="tour-tooltip-cta" onClick={config.cta ? handleCta : handleManualNext}>
-            {config.cta?.label ?? (step < TOTAL_STEPS ? 'Next' : 'Finish')}
-          </button>
+          {config.cta && (
+            <button type="button" className="tour-tooltip-cta" onClick={handleCta}>
+              {config.cta.label}
+            </button>
+          )}
         </div>
       </div>
     </div>

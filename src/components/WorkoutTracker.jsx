@@ -1355,10 +1355,29 @@ const WorkoutTracker = () => {
     localStorage.setItem('workoutSessions', JSON.stringify(newSessions));
     setSessions(newSessions);
 
-    // Sync the completed workout session with the database
+    // Sync the completed workout session with the database. This used to be
+    // fire-and-forget with no .catch() at all — any failure here (RLS blip,
+    // expired token, network hiccup) became a silent unhandled rejection: the
+    // session already looked "saved" locally (state/localStorage updated
+    // above), so the client had no idea their workout never reached
+    // workout_logs. That's how a client could finish and "submit" a workout
+    // that then never showed up in their own summary or the coach's
+    // dashboard, with no calories/duration either (nothing to read them from
+    // — see line ~1030's self-heal retry, which only runs on the NEXT app
+    // load and only helps if the client reopens the app). One automatic
+    // retry, then a visible toast so the client knows to try again instead
+    // of assuming it's fine.
     if (newSessions.length > 0) {
       const latestSession = newSessions[newSessions.length - 1];
-      databaseService.saveWorkoutSession(latestSession);
+      databaseService.saveWorkoutSession(latestSession).catch(async (firstErr) => {
+        console.warn('Workout session save failed once, retrying automatically:', firstErr?.message || firstErr);
+        try {
+          await databaseService.saveWorkoutSession(latestSession);
+        } catch (err) {
+          console.error('Workout session save failed after retry:', err);
+          triggerToast("⚠️ Couldn't sync this workout to the server. Please check your connection — it's saved on this device and will sync when reopened.");
+        }
+      });
     }
   };
 
@@ -1798,14 +1817,22 @@ const WorkoutTracker = () => {
       return;
     }
 
-    // All sets ticked — now validate workout name
+    // All sets ticked — now validate workout name. Real id is
+    // 'workoutNameInputTop' (see the input further down); this used to look
+    // up the stale 'workoutNameInput' id, which never matched anything, so
+    // nameInput was always null and this whole block silently no-opped —
+    // the Save button looked completely unresponsive with zero feedback
+    // whenever the name was blank, instead of focusing/flagging the field.
     if (!templateName || !templateName.trim()) {
-      const nameInput = document.getElementById('workoutNameInput');
+      const nameInput = document.getElementById('workoutNameInputTop');
       if (nameInput) {
+        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         nameInput.focus();
         nameInput.setCustomValidity('Please enter a workout name before finishing.');
         nameInput.reportValidity();
         nameInput.setCustomValidity('');
+      } else {
+        alert('Please enter a workout name before finishing!');
       }
       return;
     }
@@ -2990,7 +3017,13 @@ const WorkoutTracker = () => {
                 ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
                 : isTimedExercise(ex.name)
                 ? { time: s.time ?? '', isCompleted: false }
-                : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
+                // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
+                // exercise like Farmer Walk saved from a source that didn't fill
+                // both fields) — String(undefined) renders as the literal text
+                // "undefined" in the input box instead of leaving it blank, same
+                // bug the cardio/timed branches above already guard against with
+                // `?? ''`. This branch never got that guard.
+                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
             })),
           ]);
           setTemplateName(plan.planName);
@@ -3109,7 +3142,13 @@ const WorkoutTracker = () => {
                             ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
                             : isTimedExercise(ex.name)
                             ? { time: s.time ?? '', isCompleted: false }
-                            : { reps: String(s.reps), weight: String(s.weight), isCompleted: false })
+                            // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
+                // exercise like Farmer Walk saved from a source that didn't fill
+                // both fields) — String(undefined) renders as the literal text
+                // "undefined" in the input box instead of leaving it blank, same
+                // bug the cardio/timed branches above already guard against with
+                // `?? ''`. This branch never got that guard.
+                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
                         })));
                         triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
                       }

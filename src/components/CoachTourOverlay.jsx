@@ -201,9 +201,11 @@ export default function CoachTourOverlay() {
               I'll do it, skip ahead →
             </button>
           )}
-          <button type="button" className="tour-tooltip-cta" onClick={config.cta ? handleCta : handleManualNext}>
-            {config.cta?.label ?? (step < TOTAL_STEPS ? 'Next' : 'Finish')}
-          </button>
+          {config.cta && (
+            <button type="button" className="tour-tooltip-cta" onClick={handleCta}>
+              {config.cta.label}
+            </button>
+          )}
         </div>
       </div>
     </div>

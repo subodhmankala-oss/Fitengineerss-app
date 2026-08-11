@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "fitengineers-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vercel", "dev", "--listen", "5173"],
       "port": 5173,
       "autoPort": true
     }

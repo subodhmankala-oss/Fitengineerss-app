@@ -5,8 +5,7 @@
       "name": "fitengineers-dev",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vercel", "dev", "--listen", "5173"],
-      "port": 5173,
-      "autoPort": true
+      "port": 5173
     }
   ]
 }

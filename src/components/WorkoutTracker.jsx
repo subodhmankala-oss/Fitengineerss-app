@@ -1369,10 +1369,20 @@ const WorkoutTracker = () => {
     // of assuming it's fine.
     if (newSessions.length > 0) {
       const latestSession = newSessions[newSessions.length - 1];
-      databaseService.saveWorkoutSession(latestSession).catch(async (firstErr) => {
+      databaseService.saveWorkoutSession(latestSession).then(() => {
+        // Tell any other already-mounted view (Home's WorkoutProgressDashboard,
+        // in particular — it only loads workout_logs on its own mount and
+        // otherwise has no way to know a session was just written) to refetch
+        // now that the row is actually in the DB. Without this, a client who
+        // saves a workout and immediately checks their Home tab's "This
+        // Week's Sessions" could still see it as empty/stale — the same event
+        // TrainerDashboard already fires after a coach's Live Log save.
+        window.dispatchEvent(new CustomEvent('workoutSessionsUpdated', { detail: { session: latestSession } }));
+      }).catch(async (firstErr) => {
         console.warn('Workout session save failed once, retrying automatically:', firstErr?.message || firstErr);
         try {
           await databaseService.saveWorkoutSession(latestSession);
+          window.dispatchEvent(new CustomEvent('workoutSessionsUpdated', { detail: { session: latestSession } }));
         } catch (err) {
           console.error('Workout session save failed after retry:', err);
           triggerToast("⚠️ Couldn't sync this workout to the server. Please check your connection — it's saved on this device and will sync when reopened.");
@@ -2271,7 +2281,7 @@ const WorkoutTracker = () => {
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveView('analytics')}
         >
-          📈 Charts & Progress
+          📈 Progress
         </button>
         <button
           data-tour="wt-tab-templates"
@@ -2315,9 +2325,7 @@ const WorkoutTracker = () => {
           {/* Header area */}
           <div className="tracker-top-summary glass-panel">
             <div className="profile-details-group">
-              <span className="avatar-tag">🏋️‍♂️</span>
               <div className="name-group">
-                <span>Client Profile</span>
                 {isTrainer(localStorage.getItem('userEmail')) ? (
                   <select 
                     className="client-select-dropdown"
@@ -2334,11 +2342,7 @@ const WorkoutTracker = () => {
                       </option>
                     ))}
                   </select>
-                ) : (
-                  <span className="client-display-name" style={{ fontSize: '0.9rem', fontWeight: '800', color: '#fff', marginLeft: '6px' }}>
-                    {selectedClient}
-                  </span>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -2513,11 +2517,15 @@ const WorkoutTracker = () => {
                         <g key={`${d.date}-${idx}`}>
                           <text
                             x={px}
-                            y={Math.max(py - 12, 12)}
+                            y={Math.max(py - 14, 14)}
                             textAnchor="middle"
-                            fontSize="9"
-                            fontWeight="700"
-                            fill={active ? '#fff' : 'rgba(255,255,255,0.55)'}
+                            fontSize={active ? "14" : "13"}
+                            fontWeight="800"
+                            stroke="#090e17"
+                            strokeWidth="3"
+                            strokeLinejoin="round"
+                            paintOrder="stroke"
+                            fill={active ? '#fff' : 'rgba(255,255,255,0.85)'}
                           >
                             {chartMetric === 'weight' ? `${val}${getExerciseUnit(selectedExercise)}` : val}
                           </text>

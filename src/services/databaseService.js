@@ -1075,6 +1075,11 @@ const databaseService = {
       }
     }
 
+    // Captured (not thrown immediately) so the localStorage mirror below always
+    // still runs even when the DB sync fails, and rethrown at the very end —
+    // see the two `syncError =` sites and the throw right before the return.
+    let syncError = null;
+
     if (isSupabaseConfigured && supabase) {
       try {
         let user = null;
@@ -1171,9 +1176,27 @@ const databaseService = {
             }
             console.log('Cloud DB: Saved workout session sets.');
           }
+        } else {
+          // Neither the passed clientId nor the email/name lookup resolved a
+          // real users.id — most often an RLS/timing gap reading `users` with
+          // the anon key before the auth token is ready (see restSelect
+          // above). This used to fall through silently: no insert, no error,
+          // nothing logged — the exact "client saved a workout, coach/home
+          // screen never shows it, no one gets told why" bug. Throwing here
+          // routes it through the same retry-then-toast path as every other
+          // failure below instead of vanishing.
+          throw new Error(`Could not resolve a user account for "${sessionClientName}" (${email}) — workout not saved to the server.`);
         }
       } catch (e) {
         console.error('Cloud DB Workout Sync Error:', e);
+        // Used to stop here, swallowed — saveWorkoutSession() then resolved
+        // normally even though nothing reached workout_logs. That silently
+        // defeated the retry-once-then-toast safety net every caller builds
+        // on top of this (WorkoutTracker's saveSessionsToLocal, the coach's
+        // handleSaveLiveSession) — they never saw a rejection to react to.
+        // Captured instead of thrown immediately so the localStorage mirror
+        // below still runs regardless, then rethrown at the end.
+        syncError = e;
       }
     }
 
@@ -1193,6 +1216,10 @@ const databaseService = {
         console.error('Error mirroring workout sessions per client:', e);
       }
     }
+
+    // Now that the local mirror is done regardless, surface the DB failure
+    // (if any) to the caller instead of the session silently "succeeding".
+    if (syncError) throw syncError;
   },
 
   // ─── AUTHENTICATION ───

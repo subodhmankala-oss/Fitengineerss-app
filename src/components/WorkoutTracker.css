@@ -54,13 +54,13 @@
 
 /* Tracker Top Summary Filters */
 .tracker-top-summary {
-  padding: 16px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
   background: rgba(21, 29, 44, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   margin-bottom: 4px;
 }
 
@@ -71,9 +71,9 @@
 }
 
 .avatar-tag {
-  font-size: 1.5rem;
-  width: 42px;
-  height: 42px;
+  font-size: 1.25rem;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: rgba(59, 130, 246, 0.12);
   border: 1px solid rgba(59, 130, 246, 0.25);
@@ -90,12 +90,12 @@
 }
 
 .name-group span {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.05em;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .client-select-dropdown {
@@ -933,32 +933,26 @@
 /* Session Accounting Breakdown */
 .sessions-accounting-split {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding: 12px 0;
-  margin: 4px 0;
+  padding: 8px 0;
+  margin: 0;
 }
 
 @media (max-width: 480px) {
   .sessions-accounting-split {
-    grid-template-columns: 1fr 1fr;
-    row-gap: 12px;
-  }
-  .sessions-accounting-split .acc-item:first-child {
-    grid-column: span 2;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    padding-bottom: 8px;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    gap: 2px;
   }
 }
 
 .acc-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 2px;
+  padding: 0 6px;
   border-right: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -967,15 +961,16 @@
 }
 
 .acc-lbl {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .acc-item strong {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;

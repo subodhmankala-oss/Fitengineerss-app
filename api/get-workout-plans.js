@@ -1,11 +1,13 @@
-// Authoritative, RLS-proof workout_logs read, same pattern and same reason as
-// lookup-profile.js and save-workout-session.js: a direct client-side
-// restSelect() can come back with zero rows either because there are
-// genuinely none, or because the caller's session token wasn't ready/valid
-// when the read fired — and those two cases are indistinguishable from an
-// empty array alone. Used as a fallback by
-// databaseService.getWorkoutLogsForUser() whenever the direct read returns
-// empty, so "no history" only shows when it's actually true.
+// Authoritative, RLS-proof workout_plans read. Same pattern, same reason, as
+// get-workout-logs.js: a direct client-side restSelect() can come back with
+// zero rows either because there are genuinely none, or because the caller's
+// session token wasn't ready/valid when the read fired, and those two cases
+// are indistinguishable from an empty array alone. Used as a fallback by
+// databaseService.getWorkoutPlansForUser() whenever the direct read returns
+// empty. Confirmed 2026-08-11: a real client (Aparna Krishna) had 6 real
+// coach-created plans in the DB, and her coach's "Assigned Workout Plans"
+// panel still showed "No Plans Assigned" — same RLS-empty-read gap, on the
+// one table in this family of bugs that had never been touched yet.
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,26 +59,22 @@ export default async function handler(req, res) {
   const svcHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
 
   try {
-    // userId must actually belong to verifiedEmail (reading your own logs),
+    // userId must actually belong to verifiedEmail (reading your own plans),
     // OR verifiedEmail must be the coach this client is attached to, OR the
-    // super admin. This endpoint is also the fallback getWorkoutLogsForUser()
-    // reaches for from a coach's Live Log/History tab reading a CLIENT's
-    // logs (TrainerDashboard.jsx calls the exact same client-facing
-    // function with the client's id) — the original owner-only check
-    // rejected every one of those with 403, so a coach whose client had a
-    // fully-empty direct read (the RLS gap this file exists to work around)
-    // saw "no history" with no way to recover it. Confirmed 2026-08-10.
+    // super admin — same three-way check as get-workout-logs.js, since this
+    // is read from both the client's own "My Templates" screen and the
+    // coach's "Assigned Workout Plans" panel for a specific client.
     const ownerResp = await fetch(
       `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&select=email`,
       { headers: svcHeaders }
     );
     const ownerRows = await ownerResp.json().catch(() => []);
     const ownerEmail = (Array.isArray(ownerRows) && ownerRows[0]?.email || '').trim().toLowerCase();
-    const isOwnLogs = !!ownerEmail && ownerEmail === verifiedEmail;
+    const isOwnPlans = !!ownerEmail && ownerEmail === verifiedEmail;
     const isSuperAdmin = verifiedEmail === 'subodhmankala@gmail.com';
 
     let isClientsOwnCoach = false;
-    if (!isOwnLogs && !isSuperAdmin) {
+    if (!isOwnPlans && !isSuperAdmin) {
       const clientRows = await fetch(
         `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(userId)}&select=coach_id`,
         { headers: svcHeaders }
@@ -92,23 +90,22 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!isOwnLogs && !isSuperAdmin && !isClientsOwnCoach) {
+    if (!isOwnPlans && !isSuperAdmin && !isClientsOwnCoach) {
       return res.status(403).json({ error: 'You are not authorized to read this data.' });
     }
 
     const resp = await fetch(
-      `${supabaseUrl}/rest/v1/workout_logs?select=*&user_id=eq.${encodeURIComponent(userId)}` +
-      `&order=log_date.desc,exercise_name.asc,set_number.asc`,
+      `${supabaseUrl}/rest/v1/workout_plans?select=*&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`,
       { headers: svcHeaders }
     );
     const data = await resp.json().catch(() => []);
     if (!resp.ok) {
-      console.error('get-workout-logs failed:', resp.status, data);
-      return res.status(502).json({ error: 'Failed to read workout history.' });
+      console.error('get-workout-plans failed:', resp.status, data);
+      return res.status(502).json({ error: 'Failed to read workout plans.' });
     }
-    return res.status(200).json({ logs: Array.isArray(data) ? data : [] });
+    return res.status(200).json({ plans: Array.isArray(data) ? data : [] });
   } catch (err) {
-    console.error('get-workout-logs error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to read workout history.' });
+    console.error('get-workout-plans error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to read workout plans.' });
   }
 }

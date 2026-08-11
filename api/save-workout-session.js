@@ -76,13 +76,44 @@ export default async function handler(req, res) {
   try {
     // Confirm targetUserId actually belongs to verifiedEmail — a token/email
     // proves identity, not which user_id the caller is allowed to write to.
+    // Also allow the target client's own attached coach, or the super admin
+    // — the coach's Live Log tab calls this exact function to save a session
+    // ON BEHALF OF a client (TrainerDashboard.jsx's handleFinishLiveLog),
+    // logged in as the COACH, so an owner-only check rejected every one of
+    // those saves with 403 whenever the direct client-side insert had
+    // already failed once. That 403 then re-threw as the original error, so
+    // it likely surfaced as the "Failed to save session" toast — but with no
+    // trace left anywhere (no draft, no log row), a coach who didn't notice
+    // that toast would see nothing at all. Confirmed 2026-08-11: a coach
+    // reported logging a client's session with zero record of it existing
+    // anywhere in the DB.
     const ownerResp = await fetch(
       `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(targetUserId)}&select=email`,
       { headers: svcHeaders }
     );
     const ownerRows = await ownerResp.json().catch(() => []);
     const ownerEmail = (Array.isArray(ownerRows) && ownerRows[0]?.email || '').trim().toLowerCase();
-    if (!ownerEmail || ownerEmail !== verifiedEmail) {
+    const isOwnLogs = !!ownerEmail && ownerEmail === verifiedEmail;
+    const isSuperAdmin = verifiedEmail === 'subodhmankala@gmail.com';
+
+    let isClientsOwnCoach = false;
+    if (!isOwnLogs && !isSuperAdmin) {
+      const clientRows = await fetch(
+        `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(targetUserId)}&select=coach_id`,
+        { headers: svcHeaders }
+      ).then(r => r.json()).catch(() => []);
+      const coachId = Array.isArray(clientRows) && clientRows[0]?.coach_id;
+      if (coachId) {
+        const coachUserRows = await fetch(
+          `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(coachId)}&select=email`,
+          { headers: svcHeaders }
+        ).then(r => r.json()).catch(() => []);
+        const coachEmail = (Array.isArray(coachUserRows) && coachUserRows[0]?.email || '').trim().toLowerCase();
+        isClientsOwnCoach = !!coachEmail && coachEmail === verifiedEmail;
+      }
+    }
+
+    if (!isOwnLogs && !isSuperAdmin && !isClientsOwnCoach) {
       return res.status(403).json({ error: 'You are not authorized to write this workout for this account.' });
     }
 

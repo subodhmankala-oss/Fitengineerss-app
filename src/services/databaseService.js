@@ -289,6 +289,33 @@ async function getCoachClientsViaServer(coachId) {
   }
 }
 
+// RLS-proof workout_plans read via api/get-workout-plans.js — see that
+// file's comment. Returns the raw plans array (same shape as the direct
+// PostgREST read), or null on any failure; never throws.
+async function getWorkoutPlansViaServer(userId) {
+  try {
+    const { headers, email } = serverFallbackAuth();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch('/api/get-workout-plans', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId, email }),
+        signal: controller.signal
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json().catch(() => null);
+      return Array.isArray(data?.plans) ? data.plans : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('getWorkoutPlansViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
 // The logged-in client's coach display name, resolved server-side (immune to
 // the RLS blanking that makes the direct users/coaches reads come back empty).
 // Returns null when there's no coach or the lookup fails; never throws.
@@ -2677,9 +2704,19 @@ const databaseService = {
 
         const isResolvedUuid = UUID_RE_LOCAL.test(resolvedUserId);
         if (isResolvedUuid) {
-          const data = await restSelect(
+          let data = await restSelect(
             `workout_plans?select=*&user_id=eq.${encodeURIComponent(resolvedUserId)}&order=created_at.desc`
           );
+          // Empty is ambiguous — genuinely no plans, or the RLS-vs-anon-key
+          // gap this whole file works around elsewhere. Confirmed
+          // 2026-08-11: a real client had 6 real coach-created plans and the
+          // coach's "Assigned Workout Plans" panel still showed "No Plans
+          // Assigned" — this table had never gotten the fallback the others
+          // in this family of bugs already have.
+          if (Array.isArray(data) && data.length === 0) {
+            const serverPlans = await getWorkoutPlansViaServer(resolvedUserId);
+            if (serverPlans && serverPlans.length > 0) data = serverPlans;
+          }
           if (data) {
             return data.map(p => ({
               id: p.id,
@@ -2697,6 +2734,18 @@ const databaseService = {
         }
       } catch (e) {
         console.error('Cloud DB Fetch workout plans error:', e);
+        const serverPlans = await getWorkoutPlansViaServer(userId);
+        if (serverPlans) {
+          return serverPlans.map(p => ({
+            id: p.id,
+            userId: p.user_id,
+            planName: p.plan_name,
+            exercises: normalizePlanExercises(p.exercises),
+            createdBy: p.created_by,
+            createdAt: p.created_at,
+            isAssigned: p.is_assigned !== false
+          }));
+        }
       }
     }
 

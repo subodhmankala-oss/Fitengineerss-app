@@ -1885,7 +1885,10 @@ const databaseService = {
             phone: c.phone_number,
             last_login: c.users?.last_login || null,
             coach_id: c.coach_id,
-            total_sessions: c.total_sessions ?? null
+            total_sessions: c.total_sessions ?? null,
+            total_sessions_updated_at: c.total_sessions_updated_at ?? null,
+            program_started_on: c.program_started_on ?? null,
+            program_est_completion: c.program_est_completion ?? null
           }));
         }
       } catch (e) {
@@ -1916,7 +1919,10 @@ const databaseService = {
                 phone: c.phone_number,
                 last_login: c.users?.last_login || null,
                 coach_id: c.coach_id,
-                total_sessions: c.total_sessions ?? null
+                total_sessions: c.total_sessions ?? null,
+            total_sessions_updated_at: c.total_sessions_updated_at ?? null,
+            program_started_on: c.program_started_on ?? null,
+            program_est_completion: c.program_est_completion ?? null
               }));
             }
           }
@@ -1961,7 +1967,10 @@ const databaseService = {
         phone: c.phone_number,
         last_login: u?.last_login || null,
         coach_id: c.coach_id,
-        total_sessions: c.total_sessions ?? null
+        total_sessions: c.total_sessions ?? null,
+        total_sessions_updated_at: c.total_sessions_updated_at ?? null,
+        program_started_on: c.program_started_on ?? null,
+        program_est_completion: c.program_est_completion ?? null
       };
     });
   },
@@ -2026,7 +2035,10 @@ const databaseService = {
             phone: c.phone_number,
             last_login: c.users?.last_login || null,
             coach_id: c.coach_id,
-            total_sessions: c.total_sessions ?? null
+            total_sessions: c.total_sessions ?? null,
+            total_sessions_updated_at: c.total_sessions_updated_at ?? null,
+            program_started_on: c.program_started_on ?? null,
+            program_est_completion: c.program_est_completion ?? null
           }));
         }
       } catch (e) {
@@ -2052,7 +2064,10 @@ const databaseService = {
             phone: c.phone_number,
             last_login: c.users?.last_login || null,
             coach_id: c.coach_id,
-            total_sessions: c.total_sessions ?? null
+            total_sessions: c.total_sessions ?? null,
+            total_sessions_updated_at: c.total_sessions_updated_at ?? null,
+            program_started_on: c.program_started_on ?? null,
+            program_est_completion: c.program_est_completion ?? null
           }));
         }
       }
@@ -2081,7 +2096,10 @@ const databaseService = {
         phone: c.phone_number,
         last_login: u?.last_login || null,
         coach_id: c.coach_id,
-        total_sessions: c.total_sessions ?? null
+        total_sessions: c.total_sessions ?? null,
+        total_sessions_updated_at: c.total_sessions_updated_at ?? null,
+        program_started_on: c.program_started_on ?? null,
+        program_est_completion: c.program_est_completion ?? null
       };
     });
   },
@@ -2113,7 +2131,7 @@ const databaseService = {
         if (data && data.success === false) {
           return { success: false, error: data.error || 'Update failed.' };
         }
-        return { success: true, total_sessions: parsed };
+        return { success: true, total_sessions: parsed, total_sessions_updated_at: data?.total_sessions_updated_at || new Date().toISOString() };
       } catch (e) {
         console.error('[setClientTotalSessions] error:', e);
         return { success: false, error: e.message || 'Update failed.' };
@@ -2124,9 +2142,50 @@ const databaseService = {
     const mockClients = this.getMockTable('clients');
     const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
     if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
+    const nowIso = new Date().toISOString();
     mockClients[idx].total_sessions = parsed;
+    mockClients[idx].total_sessions_updated_at = nowIso;
     this.saveMockTable('clients', mockClients);
-    return { success: true, total_sessions: parsed };
+    return { success: true, total_sessions: parsed, total_sessions_updated_at: nowIso };
+  },
+
+  // Coach sets/edits the program's start date and estimated-completion date
+  // for one attached client. Same SECURITY DEFINER RPC pattern as
+  // setClientTotalSessions above (see supabase_total_sessions.sql) — the
+  // coach↔client relationship is re-checked server-side on every write.
+  // Either date may be null to clear it.
+  async setClientProgramDates(clientUserId, startedOn, estCompletion) {
+    const coachUserId = localStorage.getItem('userId');
+    if (!coachUserId || !clientUserId) {
+      return { success: false, error: 'Missing coach or client id.' };
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const data = await restRpc('set_client_program_dates', {
+          p_coach_id: coachUserId,
+          p_client_id: clientUserId,
+          p_started_on: startedOn || null,
+          p_est_completion: estCompletion || null
+        });
+        if (data && data.success === false) {
+          return { success: false, error: data.error || 'Update failed.' };
+        }
+        return { success: true, program_started_on: startedOn || null, program_est_completion: estCompletion || null };
+      } catch (e) {
+        console.error('[setClientProgramDates] error:', e);
+        return { success: false, error: e.message || 'Update failed.' };
+      }
+    }
+
+    // Mock fallback — same coach↔client scoping as the RPC's WHERE clause
+    const mockClients = this.getMockTable('clients');
+    const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
+    if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
+    mockClients[idx].program_started_on = startedOn || null;
+    mockClients[idx].program_est_completion = estCompletion || null;
+    this.saveMockTable('clients', mockClients);
+    return { success: true, program_started_on: startedOn || null, program_est_completion: estCompletion || null };
   },
 
   // Client-side read of its own connection record: is a coach attached, and

@@ -175,7 +175,16 @@ const clearLocalStoragePreservingChats = () => {
   const preserved = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email')) {
+    // Tour-seen flags are "shown once per role, ever" — same reasoning as
+    // handleLogout's own preserve-list below. This function runs on the
+    // *automatic* sign-out path (session/token expiring while the app was
+    // closed, then rediscovered as SIGNED_OUT on reopen — see the
+    // onAuthStateChange handler above), which is a far more common trigger
+    // for a plain "close and reopen" than tapping Log Out. Missing these
+    // two keys here meant the spotlight tour replayed on every such reopen
+    // even though handleLogout's explicit-logout path had already been
+    // fixed to preserve them. Confirmed 2026-08-11.
+    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen')) {
       preserved[key] = localStorage.getItem(key);
     }
   }

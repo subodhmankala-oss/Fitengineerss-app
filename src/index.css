@@ -50,6 +50,17 @@
 }
 
 html, body {
+  /* Mobile browsers (Chrome/Safari on Android especially) run their own
+     "font boosting" heuristic that auto-scales rendered text based on the
+     surrounding container's width/layout — independent of whatever size
+     the CSS actually specifies. Nothing here opted out of that, so text
+     could render smaller (or larger) than its real rem/px value depending
+     on layout, and shift again whenever unrelated layout changes (column
+     widths, container heights) nudged the browser's heuristic. Pinning
+     this to 100% makes every font-size in the app mean exactly what it
+     says, everywhere, instead of being at the mercy of that heuristic. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   overflow-x: hidden;
   /* This app is a self-contained "phone frame" — .app-container fills the
      viewport and .main-content is the ONLY element meant to scroll. The
@@ -108,6 +119,20 @@ button {
   max-width: var(--app-max-width);
   height: 100vh;
   height: 100dvh;
+  /* Some mobile/PWA browsers (notably installed standalone PWAs on Android,
+     and Safari after the on-screen keyboard closes) don't reliably re-run
+     layout for `dvh` when the real visible viewport changes — the container
+     can stay measured taller than what's actually on screen, which silently
+     pushes the absolutely-positioned .bottom-nav (bottom:0 inside this
+     overflow:hidden box) below the visible fold until something forces a
+     fresh layout (e.g. force-closing and reopening the app). --app-vh is
+     kept in sync with the true viewport by main.jsx's resize/orientation/
+     visualViewport listeners and wins here when set; the dvh rule above is
+     just the pre-JS/no-JS fallback so first paint isn't unstyled.
+     -webkit-fill-available covers older iOS Safari, which never shipped
+     `dvh` on some versions.  */
+  height: -webkit-fill-available;
+  height: calc(var(--app-vh, 1vh) * 100);
   background-color: var(--bg-app);
   position: relative;
   overflow: hidden;

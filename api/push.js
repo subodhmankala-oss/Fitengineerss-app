@@ -19,6 +19,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
+// Reused verbatim from the in-app Muscle Analytics screen (see that file's
+// header) rather than re-implemented here, so the weekly muscle-balance
+// nudge (runMuscleBalanceSweep below) can never drift from what the client
+// actually sees when they open that screen themselves. Pure logic, no
+// browser globals (window/document/localStorage) — safe in this serverless
+// runtime, confirmed 2026-08-11.
+import { getWeeklyMuscleStats, RECOMMENDED_EXERCISES } from '../src/utils/muscleAnalytics.js';
+import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../src/utils/dateUtils.js';
 
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
@@ -44,6 +52,25 @@ async function rpcAll(supabaseClient, fn) {
   const { data, error } = await supabaseClient.rpc(fn, { secret: BROADCAST_SECRET });
   if (error) throw error;
   return data || [];
+}
+
+// One row per logical notification (per recipient per event) so "how many
+// push notifications are we sending per day" is a real query — see
+// sql/supabase_push_log.sql. Best-effort: a logging failure must never break
+// the actual notification send it's recording, so this only ever warns.
+async function logPushSend(supabaseClient, { event, targetUserId, title, body, sent, failed }) {
+  try {
+    await supabaseClient.from('push_log').insert({
+      event,
+      target_user_id: targetUserId || null,
+      title: title || null,
+      body: body || null,
+      sent_count: sent || 0,
+      failed_count: failed || 0
+    });
+  } catch (e) {
+    console.warn('[push_log] failed to record send (non-fatal):', e.message || e);
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -103,7 +130,7 @@ function coachAboutInactiveClientMessage(clientName, days) {
   };
 }
 
-async function pushToUserId(supabaseClient, userId, title, body) {
+async function pushToUserId(supabaseClient, userId, title, body, event = 'inactivity_nudge') {
   if (!userId) return { sent: 0, failed: 0 };
   const allSubs = await rpcAll(supabaseClient, 'get_push_subscriptions_for_broadcast');
   const subs = allSubs.filter((s) => s.user_id === userId);
@@ -121,6 +148,7 @@ async function pushToUserId(supabaseClient, userId, title, body) {
       }
     }
   }
+  await logPushSend(supabaseClient, { event, targetUserId: userId, title, body, sent, failed });
   return { sent, failed };
 }
 
@@ -142,19 +170,19 @@ async function runInactivitySweep(supabaseClient, res) {
       if (clientRow) {
         const name = clientRow.full_name || u.full_name || 'there';
         const msg = clientInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body);
+        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge');
         if (result.sent > 0) clientNudges++;
 
         // 2+ days quiet: also alert the assigned coach, once per cron run.
         if (days >= 2 && clientRow.coach_id) {
           const alert = coachAboutInactiveClientMessage(name, days);
-          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body);
+          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert');
           if (coachResult.sent > 0) coachAlerts++;
         }
       } else if (coachRow) {
         const name = coachRow.brand_name || u.full_name || 'there';
         const msg = coachSelfInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body);
+        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'coach_self_inactivity_nudge');
         if (result.sent > 0) coachNudges++;
       } else {
         skipped++;
@@ -171,6 +199,80 @@ async function runInactivitySweep(supabaseClient, res) {
   }
 }
 
+// Monday-Sunday week containing "now", anchored to IST regardless of this
+// function's actual server runtime timezone (Vercel runs UTC) — matches the
+// same week the client sees on their own Muscle Analytics screen, since
+// every other IST-hour check in this file (see the wellness cycle below)
+// already assumes IST is the app's reference timezone. Once anchored to the
+// correct IST calendar day, shiftLocalDateString's day-integer arithmetic is
+// timezone-agnostic, so no further timezone handling is needed past this.
+function getIstWeekBounds(now = new Date()) {
+  const todayIst = getLocalDateString(now, 'Asia/Kolkata');
+  const dayOfWeek = parseLocalDateString(todayIst).getDay(); // 0=Sun..6=Sat
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const weekStart = shiftLocalDateString(todayIst, diffToMonday);
+  const weekEnd = shiftLocalDateString(weekStart, 6);
+  return { weekStart, weekEnd };
+}
+
+async function rpcRecentWorkoutLogs(supabaseClient, sinceDateStr) {
+  if (!BROADCAST_SECRET) throw new Error('BROADCAST_SECRET is not set — required for get_recent_workout_logs_for_server.');
+  const { data, error } = await supabaseClient.rpc('get_recent_workout_logs_for_server', {
+    secret: BROADCAST_SECRET,
+    since_date: sinceDateStr
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+// Weekly "you still have time this week" nudge — reuses getWeeklyMuscleStats
+// (the exact function driving the in-app Muscle Analytics screen) to find
+// muscles with zero sets logged so far this week, and points at
+// RECOMMENDED_EXERCISES to fix it. Deliberately narrow triggering conditions:
+// only fires for a client who's ALREADY trained at least once this week (so
+// it never overlaps with/duplicates the separate inactivity nudge, which
+// already covers "you haven't worked out at all") but still has a genuinely
+// neglected muscle. See sql/get_recent_workout_logs_for_server.sql for the
+// RPC this depends on.
+async function runMuscleBalanceSweep(supabaseClient, res) {
+  try {
+    const { weekStart, weekEnd } = getIstWeekBounds();
+    const clientRows = await rpcAll(supabaseClient, 'get_clients_for_server');
+    const logs = await rpcRecentWorkoutLogs(supabaseClient, weekStart);
+
+    let notified = 0, skipped = 0;
+    for (const client of clientRows || []) {
+      const clientLogs = logs.filter((l) => l.user_id === client.user_id);
+      const stats = getWeeklyMuscleStats(clientLogs, weekStart, weekEnd);
+      const hasTrainedThisWeek = stats.some((m) => m.sets > 0);
+      const neglected = stats.filter((m) => m.status.key === 'neglected');
+
+      if (!hasTrainedThisWeek || neglected.length === 0) { skipped++; continue; }
+
+      const topMuscles = neglected.slice(0, 2).map((m) => m.muscle);
+      const muscleText = topMuscles.join(' and ');
+      const isPlural = topMuscles.length > 1;
+      const exercises = RECOMMENDED_EXERCISES[neglected[0].muscle] || [];
+
+      const title = '🎯 Muscle Balance Check';
+      const body = exercises.length > 0
+        ? `Your ${muscleText} ${isPlural ? 'are' : 'is'} trained less this week — let's cover it up. Try ${exercises.slice(0, 2).join(' or ')}.`
+        : `Your ${muscleText} ${isPlural ? 'are' : 'is'} trained less this week — let's cover it up before the week ends.`;
+
+      const result = await pushToUserId(supabaseClient, client.user_id, title, body, 'muscle_balance_nudge');
+      if (result.sent > 0) notified++;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Muscle balance sweep complete (week ${weekStart} to ${weekEnd}). Notified: ${notified}, skipped (idle or fully balanced): ${skipped}.`
+    });
+  } catch (error) {
+    console.error('Muscle balance sweep error:', error);
+    return res.status(500).json({ error: 'Muscle balance sweep failed.', details: error.message });
+  }
+}
+
 async function handleSendNudges(req, res) {
   // Optional: Add simple secret key security for trigger
   const triggerAuth = req.headers['authorization'] || req.query.secret;
@@ -181,6 +283,9 @@ async function handleSendNudges(req, res) {
 
   if (req.query.job === 'inactivity') {
     return runInactivitySweep(supabase, res);
+  }
+  if (req.query.job === 'muscle_balance') {
+    return runMuscleBalanceSweep(supabase, res);
   }
 
   try {
@@ -306,9 +411,11 @@ async function handleSendNudges(req, res) {
 
         await webPush.sendNotification(sub.subscription, payload);
         successCount++;
+        await logPushSend(supabase, { event: 'wellness_nudge', targetUserId: sub.user_id, title, body, sent: 1, failed: 0 });
       } catch (err) {
         console.error(`Failed to notify subscriber ${sub.id}:`, err);
         failureCount++;
+        await logPushSend(supabase, { event: 'wellness_nudge', targetUserId: sub.user_id, title, body, sent: 0, failed: 1 });
         if (err.statusCode === 410 || err.statusCode === 404) {
           console.log(`Subscription expired (status ${err.statusCode}). Cleaning up database.`);
           await supabase
@@ -353,7 +460,7 @@ async function findSubscriptions(targetUserId, email, name) {
   return Array.from(byEndpoint.values());
 }
 
-async function pushToUser(targetUserId, title, body) {
+async function pushToUser(targetUserId, title, body, event = 'notify_user') {
   const contact = await getUserContact(targetUserId);
   const subs = await findSubscriptions(targetUserId, contact?.email, contact?.full_name);
   if (!subs || subs.length === 0) return { sent: 0, failed: 0, matched: 0 };
@@ -374,6 +481,7 @@ async function pushToUser(targetUserId, title, body) {
       }
     }
   }
+  await logPushSend(supabase, { event, targetUserId, title, body, sent, failed });
   return { sent, failed, matched: subs.length };
 }
 
@@ -409,7 +517,10 @@ async function handleNotifyUser(req, res) {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
       title = clientName;
-      body = 'Session started';
+      // workoutName was already being sent by the "completed" event but
+      // never read here — this event never received it from the client at
+      // all until now (see WorkoutTracker.jsx's handleToggleSetCompleted).
+      body = workoutName ? `Started "${workoutName}" session` : 'Session started';
     } else if (event === 'measurements_saved') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
@@ -422,7 +533,12 @@ async function handleNotifyUser(req, res) {
       const cals = Number.isFinite(caloriesBurned) ? Math.round(caloriesBurned) : null;
       const stats = [mins != null ? `${mins} min` : null, cals != null ? `${cals} kcal` : null].filter(Boolean).join(' · ');
       title = clientName;
-      body = `Workout completed${stats ? ` — ${stats}` : ''}`;
+      // workoutName was already sent by the client (see WorkoutTracker.jsx's
+      // notifyEvent('workout_finished', ...)) but silently dropped here —
+      // req.body destructures it above but this branch never read it.
+      body = workoutName
+        ? `"${workoutName}" completed${stats ? ` — ${stats}` : ''}`
+        : `Workout completed${stats ? ` — ${stats}` : ''}`;
     } else if (event === 'coach_note') {
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for coach_note.' });
       targetUserId = clientUserId;
@@ -454,7 +570,7 @@ async function handleNotifyUser(req, res) {
       return res.status(400).json({ error: `Unknown event "${event}".` });
     }
 
-    const result = await pushToUser(targetUserId, title, body);
+    const result = await pushToUser(targetUserId, title, body, event);
     return res.status(200).json({ success: true, event, ...result });
   } catch (error) {
     console.error('notify-user error:', error);

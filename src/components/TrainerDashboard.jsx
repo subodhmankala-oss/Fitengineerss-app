@@ -379,6 +379,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   // Coaching program length (clients.total_sessions) editor for the selected client
   const [totalSessionsInput, setTotalSessionsInput] = useState('');
   const [savingTotalSessions, setSavingTotalSessions] = useState(false);
+  // "Edit Total Sessions" popup — triggered by the top-right Edit button on
+  // the Program Sessions panel instead of an always-visible stepper.
+  const [showTotalSessionsModal, setShowTotalSessionsModal] = useState(false);
   // Inline confirmation for the Program Total Sessions save — the panel sits
   // above the tab bar and is visible on every tab, but `liveToast` only
   // renders inside the Live Log tab, so a save on another tab looked like it
@@ -389,11 +392,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   // (not clickable, not highlighted); editing the input to any other value
   // clears this and the button goes back to its normal clickable "Save" state.
   const [totalSessionsSavedValue, setTotalSessionsSavedValue] = useState(null);
+  // True for a brief window right after a successful save — swaps the popup's
+  // input/buttons for a "✓ Saved" confirmation (with the save timestamp)
+  // before the popup auto-closes.
+  const [justSavedTotalSessions, setJustSavedTotalSessions] = useState(false);
 
   // "Send renewal reminder" button — shown once this client's sessions-left
   // drops to 4 or fewer, manually triggered by the coach (not automatic).
   const [sendingSessionReminder, setSendingSessionReminder] = useState(false);
   const [sessionReminderSentMsg, setSessionReminderSentMsg] = useState('');
+
+  // Program start / estimated-completion dates (clients.program_started_on,
+  // clients.program_est_completion) — the two date fields on the Program
+  // Total Sessions panel are directly editable in place; each one saves
+  // itself on change, no separate edit mode or popup.
+  const [programStartedOnInput, setProgramStartedOnInput] = useState('');
+  const [programEstCompletionInput, setProgramEstCompletionInput] = useState('');
+  const [savingProgramDates, setSavingProgramDates] = useState(false);
+  const [programDatesSaveMsg, setProgramDatesSaveMsg] = useState('');
 
   // Selected client workout plans state
   const [clientPlans, setClientPlans] = useState([]);
@@ -1440,10 +1456,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     try {
       const result = await databaseService.setClientTotalSessions(selectedClient.id, parsed);
       if (result.success) {
-        setSelectedClient(prev => prev ? { ...prev, total_sessions: parsed } : prev);
-        setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, total_sessions: parsed } : c));
-        setTotalSessionsSaveMsg(`✅ Saved — ${parsed} sessions`);
+        setSelectedClient(prev => prev ? { ...prev, total_sessions: parsed, total_sessions_updated_at: result.total_sessions_updated_at } : prev);
+        setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, total_sessions: parsed, total_sessions_updated_at: result.total_sessions_updated_at } : c));
         setTotalSessionsSavedValue(totalSessionsInput);
+
+        // The popup also edits Started on / Est. completion — save those in
+        // the same Save Changes click so one confirmation covers all three
+        // fields. Failure here doesn't roll back the total-sessions save
+        // above; it's reported separately via programDatesSaveMsg.
+        await handleSaveProgramDates();
+
+        setTotalSessionsSaveMsg(`✅ Saved — ${parsed} sessions`);
+        // Show the "✓ Saved" confirmation inside the popup. It now stays
+        // until the coach dismisses it (Done button or clicking outside)
+        // instead of auto-closing after a flash the coach could miss.
+        setJustSavedTotalSessions(true);
       } else {
         setTotalSessionsSaveMsg('❌ ' + (result.error || 'Could not save program length.'));
       }
@@ -1453,6 +1480,41 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     } finally {
       setSavingTotalSessions(false);
       setTimeout(() => setTotalSessionsSaveMsg(''), 3500);
+    }
+  };
+
+  // Save the program's start / estimated-completion dates for the selected
+  // client (clients.program_started_on / program_est_completion). Mirrors
+  // handleSaveTotalSessions's shape — same coach-scoped RPC pattern.
+  // The date fields are directly editable in place (no separate "Edit
+  // Dates" mode/popup) — each <input type="date"> calls this straight from
+  // its onChange, passing the just-picked value as an override so the save
+  // doesn't race the setState that updates the input's own display value.
+  const handleSaveProgramDates = async (overrides = {}) => {
+    if (!selectedClient) return;
+    const startedOn = 'startedOn' in overrides ? overrides.startedOn : programStartedOnInput;
+    const estCompletion = 'estCompletion' in overrides ? overrides.estCompletion : programEstCompletionInput;
+    setSavingProgramDates(true);
+    setProgramDatesSaveMsg('');
+    try {
+      const result = await databaseService.setClientProgramDates(
+        selectedClient.id,
+        startedOn || null,
+        estCompletion || null
+      );
+      if (result.success) {
+        setSelectedClient(prev => prev ? { ...prev, program_started_on: result.program_started_on, program_est_completion: result.program_est_completion } : prev);
+        setClients(prev => prev.map(c => c.id === selectedClient.id ? { ...c, program_started_on: result.program_started_on, program_est_completion: result.program_est_completion } : c));
+        setProgramDatesSaveMsg('✅ Dates saved');
+      } else {
+        setProgramDatesSaveMsg('❌ ' + (result.error || 'Could not save dates.'));
+      }
+    } catch (e) {
+      console.error('Error saving program dates:', e);
+      setProgramDatesSaveMsg('❌ Could not save dates. Please try again.');
+    } finally {
+      setSavingProgramDates(false);
+      setTimeout(() => setProgramDatesSaveMsg(''), 3500);
     }
   };
 
@@ -1504,6 +1566,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     // shows "✓ Saved" immediately, instead of always showing the highlighted
     // "Save" button until a new save happens in this browser session.
     setTotalSessionsSavedValue(client.total_sessions != null ? String(client.total_sessions) : null);
+    setShowTotalSessionsModal(false);
+    setProgramStartedOnInput(client.program_started_on || '');
+    setProgramEstCompletionInput(client.program_est_completion || '');
+    setProgramDatesSaveMsg('');
 
     // Resume this coach's own in-progress Live Log for this client, if any —
     // survives navigating away / backgrounding the app mid-session. Falls
@@ -2349,7 +2415,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
               letterSpacing: '0.01em',
             }}
           >
-            👥 My Clients
+            👥 My Clients ({clients.length})
           </button>
           <button
             onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
@@ -2980,10 +3046,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                 </div>
               </div>
 
-              <h4 className="client-directory-title">
-                Clients ({filteredClients.length})
-              </h4>
-
               {loadingClients ? (
                 <div className="trainer-loading-container">
                   <div className="trainer-spinner"></div>
@@ -3253,122 +3315,308 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
               {/* Coaching Program Length — coach-set total sessions that drives the
                   "Coaching Program Progress" card on this client's home screen.
                   Only shown for clients attached to the logged-in coach; the RPC
-                  re-checks that relationship server-side on save. */}
-              {selectedClient.coach_id === loggedInUserId && (
-                <div className="glass-panel" style={{
-                  padding: '14px 16px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  flexWrap: 'wrap',
-                  border: '1px solid rgba(139, 92, 246, 0.25)',
-                  borderRadius: '12px',
-                  background: 'rgba(139, 92, 246, 0.06)'
-                }}>
-                  <div style={{ flex: 1, minWidth: '180px' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                      🎯 Program Total Sessions
+                  re-checks that relationship server-side on save. Laid out to
+                  mirror the client-facing Program Sessions card 1:1 (header,
+                  total-sessions stepper, saved/last-updated indicator, the
+                  completed/progress/remaining stat row, a linear progress bar,
+                  and an editable Started on / Est. completion footer). */}
+              {selectedClient.coach_id === loggedInUserId && (() => {
+                const total = selectedClient.total_sessions;
+                const completed = workoutLogs.length;
+                const remaining = total != null ? Math.max(0, total - completed) : null;
+                const percent = total ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+                const isSavedLocked = totalSessionsSavedValue !== null && totalSessionsSavedValue === totalSessionsInput;
+                // Deliberately does NOT factor in isSavedLocked — the popup
+                // pre-fills the input with the already-saved value, so that
+                // lock would leave Save Changes disabled the instant the
+                // popup opens and clicking it would silently do nothing.
+                const isSaveDisabled = savingTotalSessions || !totalSessionsInput.trim();
+                const formatDate = (iso) => {
+                  if (!iso) return null;
+                  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+                  if (Number.isNaN(d.getTime())) return null;
+                  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+                };
+                const formatDateTime = (iso) => {
+                  if (!iso) return null;
+                  const d = new Date(iso);
+                  if (Number.isNaN(d.getTime())) return null;
+                  return d.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                };
+                return (
+                  <div className="glass-panel" style={{
+                    position: 'relative',
+                    padding: '18px',
+                    marginBottom: '20px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '16px',
+                    background: 'rgba(255,255,255,0.03)'
+                  }}>
+                    {/* "Edit Total Sessions" popup — kept top-right, opened by
+                        the Edit button below instead of an always-visible
+                        stepper. */}
+                    {showTotalSessionsModal && (
+                      <div
+                        onClick={() => { if (!savingTotalSessions) { setShowTotalSessionsModal(false); setJustSavedTotalSessions(false); setTotalSessionsInput(totalSessionsSavedValue ?? (selectedClient.total_sessions != null ? String(selectedClient.total_sessions) : '')); } }}
+                        style={{
+                          position: 'absolute', inset: 0, borderRadius: '16px', zIndex: 5,
+                          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px'
+                        }}
+                      >
+                        <div onClick={(e) => e.stopPropagation()} style={{
+                          width: '280px', padding: '16px', borderRadius: '14px',
+                          background: '#141a26', border: '1px solid rgba(52, 211, 153, 0.35)',
+                          boxShadow: '0 10px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '12px'
+                        }}>
+                          {justSavedTotalSessions ? (
+                            // Confirmation shown right after a successful save,
+                            // in place of the input/buttons. Stays up until the
+                            // coach dismisses it — no auto-close to miss.
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '8px 0' }}>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                ✓ Saved
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                {formatDateTime(selectedClient.total_sessions_updated_at) || formatDateTime(new Date().toISOString())}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => { setShowTotalSessionsModal(false); setJustSavedTotalSessions(false); }}
+                                style={{
+                                  marginTop: '10px', padding: '8px 24px', borderRadius: '9px',
+                                  background: '#34d399', border: 'none', color: '#0b1a12',
+                                  fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer'
+                                }}
+                              >
+                                Done
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff', textAlign: 'center' }}>
+                                Edit Total Sessions
+                              </div>
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                autoFocus
+                                placeholder="e.g. 24"
+                                value={totalSessionsInput}
+                                onChange={(e) => {
+                                  setTotalSessionsInput(e.target.value);
+                                  if (totalSessionsSavedValue !== null) setTotalSessionsSavedValue(null);
+                                }}
+                                disabled={savingTotalSessions}
+                                style={{
+                                  width: '100%', padding: '10px', textAlign: 'center',
+                                  background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(52, 211, 153, 0.45)',
+                                  borderRadius: '10px', color: '#fff',
+                                  // Must stay >= 16px: iOS Safari auto-zooms the whole page
+                                  // on focus for any input with a smaller font-size.
+                                  fontSize: '1.3rem', fontWeight: 800
+                                }}
+                              />
+                              {/* Started on / Est. completion — edited here in
+                                  the same popup and saved together with the
+                                  total-sessions count on Save Changes below;
+                                  the main panel only ever shows these read-only. */}
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  Started on
+                                  <input
+                                    type="date"
+                                    value={programStartedOnInput}
+                                    onChange={(e) => setProgramStartedOnInput(e.target.value)}
+                                    disabled={savingTotalSessions}
+                                    style={{
+                                      padding: '6px 6px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)',
+                                      border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.72rem'
+                                    }}
+                                  />
+                                </label>
+                                <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  Est. completion
+                                  <input
+                                    type="date"
+                                    value={programEstCompletionInput}
+                                    onChange={(e) => setProgramEstCompletionInput(e.target.value)}
+                                    disabled={savingTotalSessions}
+                                    style={{
+                                      padding: '6px 6px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)',
+                                      border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.72rem'
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  disabled={savingTotalSessions}
+                                  onClick={() => {
+                                    setShowTotalSessionsModal(false);
+                                    setTotalSessionsInput(totalSessionsSavedValue ?? (selectedClient.total_sessions != null ? String(selectedClient.total_sessions) : ''));
+                                    setProgramStartedOnInput(selectedClient.program_started_on || '');
+                                    setProgramEstCompletionInput(selectedClient.program_est_completion || '');
+                                  }}
+                                  style={{
+                                    flex: 1, padding: '9px', borderRadius: '9px', background: 'rgba(255,255,255,0.08)',
+                                    border: 'none', color: '#fff', fontWeight: 700, fontSize: '0.8rem',
+                                    cursor: savingTotalSessions ? 'default' : 'pointer'
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveTotalSessions}
+                                  disabled={isSaveDisabled}
+                                  style={{
+                                    flex: 1, padding: '9px', borderRadius: '9px',
+                                    background: isSaveDisabled ? 'rgba(52, 211, 153, 0.3)' : '#34d399',
+                                    border: 'none', color: '#0b1a12', fontWeight: 800, fontSize: '0.8rem',
+                                    cursor: isSaveDisabled ? 'default' : 'pointer'
+                                  }}
+                                >
+                                  {savingTotalSessions ? 'Saving…' : 'Save Changes'}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Header — icon badge + title/subtitle + Active pill, plus
+                        the Edit trigger for the popup above (kept top-right). */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                        <div style={{
+                          width: '38px', height: '38px', borderRadius: '10px',
+                          background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '1.1rem', flexShrink: 0
+                        }}>
+                          📅
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                            Program Sessions
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            Client <strong style={{ color: '#fff' }}>{selectedClient.userName}</strong>
+                            <span style={{
+                              padding: '1px 8px', borderRadius: '10px', fontSize: '0.62rem', fontWeight: 700,
+                              background: 'rgba(52, 211, 153, 0.14)', color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.3)'
+                            }}>
+                              Active
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        title="Set the total number of sessions for this program."
+                        onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0,
+                          padding: '6px 12px', borderRadius: '20px',
+                          background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.35)',
+                          fontSize: '0.72rem', fontWeight: 700, color: '#34d399', cursor: 'pointer'
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                      {selectedClient.total_sessions != null
-                        ? `Currently ${selectedClient.total_sessions} sessions — shown on ${selectedClient.userName}'s progress card.`
-                        : 'Not set yet — the client sees a "waiting on your coach" state until you set it.'}
+
+                    {isSavedLocked && selectedClient.total_sessions_updated_at && (
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '10px' }}>
+                        Last updated: {formatDateTime(selectedClient.total_sessions_updated_at)}
+                      </div>
+                    )}
+
+                    {/* Linear progress bar + captions. */}
+                    {total != null && (
+                      <div style={{ marginTop: '16px' }}>
+                        <div style={{ height: '8px', borderRadius: '5px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${percent}%`, borderRadius: '5px', background: '#34d399', transition: 'width 0.3s ease' }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{completed} of {total} completed</span>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{total} total sessions</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!total && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '14px' }}>
+                        Not set yet — the client sees a "waiting on your coach" state until you set it.
+                      </div>
+                    )}
+
+                    {/* Started on / Est. completion — read-only display.
+                        These are edited from the "Edit Total Sessions" popup
+                        above (Started on / Est. completion fields there),
+                        not here — this row just reflects whatever was saved. */}
+                    <div style={{
+                      marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)',
+                      display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.85rem' }}>🚩</span>
+                        <div>
+                          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
+                          <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{formatDate(selectedClient.program_started_on) || '--'}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
+                        <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{formatDate(selectedClient.program_est_completion) || '--'}</div>
+                      </div>
                     </div>
-                    {/* How many of those sessions the client has actually
-                        logged so far — same "unique session dates" count the
-                        client's own Coaching Program Progress card uses
-                        (getTotalSessionsDone in WorkoutProgressDashboard.jsx),
-                        so the two numbers always agree. */}
-                    <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: 700, marginTop: '5px' }}>
-                      ✅ {workoutLogs.length} completed
-                      {selectedClient.total_sessions != null && ` of ${selectedClient.total_sessions}`}
-                    </div>
+                    {programDatesSaveMsg && (
+                      <div style={{
+                        fontSize: '0.76rem', fontWeight: 700, marginTop: '8px',
+                        color: programDatesSaveMsg.startsWith('✅') ? '#34d399' : '#f87171'
+                      }}>
+                        {programDatesSaveMsg}
+                      </div>
+                    )}
+
                     {/* Manual renewal nudge — appears once 4 or fewer sessions
                         remain. Never sent automatically; the coach decides. */}
-                    {selectedClient.total_sessions != null && (selectedClient.total_sessions - workoutLogs.length) <= 4 && (
+                    {total != null && remaining <= 4 && (
                       <button
                         type="button"
                         onClick={handleSendSessionReminder}
                         disabled={sendingSessionReminder}
                         style={{
-                          marginTop: '8px', padding: '6px 12px', borderRadius: '20px',
+                          marginTop: '10px', padding: '6px 12px', borderRadius: '20px',
                           background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
                           color: '#fbbf24', fontSize: '0.72rem', fontWeight: 700,
                           cursor: sendingSessionReminder ? 'default' : 'pointer'
                         }}
                       >
-                        {sendingSessionReminder ? '⏳ Sending…' : `🔔 Send renewal reminder (${Math.max(0, selectedClient.total_sessions - workoutLogs.length)} left)`}
+                        {sendingSessionReminder ? '⏳ Sending…' : `🔔 Send renewal reminder (${remaining} left)`}
                       </button>
                     )}
                     {sessionReminderSentMsg && (
                       <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#34d399', marginTop: '5px' }}>{sessionReminderSentMsg}</div>
                     )}
+                    {totalSessionsSaveMsg && (
+                      <div style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        marginTop: '10px',
+                        color: totalSessionsSaveMsg.startsWith('✅') ? '#34d399' : totalSessionsSaveMsg.startsWith('⚠️') ? '#f59e0b' : '#f87171'
+                      }}>
+                        {totalSessionsSaveMsg}
+                      </div>
+                    )}
                   </div>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="e.g. 24"
-                    value={totalSessionsInput}
-                    onChange={(e) => {
-                      setTotalSessionsInput(e.target.value);
-                      // Editing after a save unlocks the button again.
-                      if (totalSessionsSavedValue !== null) setTotalSessionsSavedValue(null);
-                    }}
-                    disabled={savingTotalSessions}
-                    style={{
-                      width: '75px',
-                      padding: '8px 10px',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      // Must stay >= 16px: iOS Safari auto-zooms the whole page
-                      // on focus for any input with a smaller font-size.
-                      fontSize: '16px',
-                      fontWeight: 700
-                    }}
-                  />
-                  {(() => {
-                    const isSavedLocked = totalSessionsSavedValue !== null && totalSessionsSavedValue === totalSessionsInput;
-                    const isDisabled = savingTotalSessions || isSavedLocked || !totalSessionsInput.trim();
-                    const label = savingTotalSessions ? 'Saving…' : isSavedLocked ? '✓ Saved' : 'Save';
-                    return (
-                      <button
-                        onClick={handleSaveTotalSessions}
-                        disabled={isDisabled}
-                        style={{
-                          padding: '8px 16px',
-                          background: isSavedLocked
-                            ? 'rgba(255,255,255,0.05)'
-                            : savingTotalSessions
-                              ? 'rgba(139, 92, 246, 0.4)'
-                              : 'var(--primary-accent, #8b5cf6)',
-                          border: isSavedLocked ? '1px solid rgba(255,255,255,0.08)' : 'none',
-                          borderRadius: '8px',
-                          color: isSavedLocked ? 'var(--text-muted)' : '#fff',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          cursor: isDisabled ? 'default' : 'pointer'
-                        }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })()}
-                  {totalSessionsSaveMsg && (
-                    <div style={{
-                      width: '100%',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      color: totalSessionsSaveMsg.startsWith('✅') ? '#34d399' : totalSessionsSaveMsg.startsWith('⚠️') ? '#f59e0b' : '#f87171'
-                    }}>
-                      {totalSessionsSaveMsg}
-                    </div>
-                  )}
-                </div>
-              )}
+                );
+              })()}
 
               {/* Tab Navigation */}
               <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>

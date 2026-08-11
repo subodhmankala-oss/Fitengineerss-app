@@ -8,6 +8,23 @@
     { "path": "/api/send-nudges?job=inactivity", "schedule": "30 3 * * *" }
   ],
   "rewrites": [
+    { "source": "/api/get-coach-clients", "destination": "/api/data-read?resource=coach-clients" },
+    { "source": "/api/get-workout-logs", "destination": "/api/data-read?resource=workout-logs" },
+    { "source": "/api/get-workout-plans", "destination": "/api/data-read?resource=workout-plans" },
+    { "source": "/api/lookup-profile", "destination": "/api/data-read?resource=profile" },
+
+    { "source": "/api/send-nudges", "destination": "/api/push" },
+    { "source": "/api/notify-user", "destination": "/api/push?action=notify-user" },
+    { "source": "/api/subscribe", "destination": "/api/push?action=subscribe" },
+    { "source": "/api/test-nudge", "destination": "/api/push?action=test-nudge" },
+
+    { "source": "/api/register-coach", "destination": "/api/auth-register?method=email" },
+    { "source": "/api/register-coach-google", "destination": "/api/auth-register?method=google" },
+
+    { "source": "/api/request-password-reset", "destination": "/api/password?action=request-reset" },
+    { "source": "/api/reset-password", "destination": "/api/password?action=reset" },
+    { "source": "/api/verify-recovery-token", "destination": "/api/password?action=verify-token" },
+
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/reset-password", "destination": "/index.html" },
     { "source": "/auth/confirm", "destination": "/index.html" }

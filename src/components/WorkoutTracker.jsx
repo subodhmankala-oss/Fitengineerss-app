@@ -20,7 +20,10 @@ import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
-import { handleSetInputFocus, useAutoAdvance } from '../utils/setInputUtils';
+import { useSetNumberPad } from '../utils/setInputUtils';
+import { suggestNextWeight } from '../utils/progressiveOverload';
+import SetNumberPad from './SetNumberPad';
+import SetValueField from './SetValueField';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -620,11 +623,10 @@ const WorkoutTracker = () => {
   // what the Home tab's "Resume Workout" banner reads).
   const [ownUserId, setOwnUserId] = useState(null);
 
-  // Weight -> reps (and km -> time) auto-advance for the set-logging table's
-  // number inputs — see useAutoAdvance for the debounce/refocus behavior.
-  const { schedule: scheduleSetAutoAdvance } = useAutoAdvance();
-  const repsInputRefs = useRef({});
-  const cardioTimeInputRefs = useRef({});
+  // Custom on-screen number pad for the set-logging table's weight/reps/km/
+  // time fields — see utils/setInputUtils.js for why this replaced the
+  // native mobile keyboard entirely.
+  const { activeKey: activeSetKey, registerField: registerSetField, openField: openSetField, closeField: closeSetField, getActiveField: getActiveSetField } = useSetNumberPad();
 
   const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : 'analytics'); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
@@ -1558,13 +1560,18 @@ const WorkoutTracker = () => {
         const lastSet = ex.sets[ex.sets.length - 1];
         let newSet;
         if (isCardioExercise(ex.name)) {
-          newSet = { distanceKm: lastSet?.distanceKm || '', time: '', isCompleted: false, isWarmup };
+          // Suggest the previous set's distance and time as a starting point
+          // instead of leaving both blank.
+          newSet = { distanceKm: lastSet?.distanceKm || '', time: lastSet?.time || '', isCompleted: false, isWarmup };
         } else if (isTimedExercise(ex.name)) {
-          newSet = { time: '', isCompleted: false, isWarmup };
+          newSet = { time: lastSet?.time || '', isCompleted: false, isWarmup };
         } else if (isWarmupExercise(ex.name)) {
-          newSet = { reps: 10, weight: '0', isCompleted: false, isWarmup };
+          newSet = { reps: lastSet?.reps || 10, weight: '0', isCompleted: false, isWarmup };
         } else {
-          newSet = { reps: 10, weight: lastSet?.weight || '2.5', isCompleted: false, isWarmup };
+          // Reps stay fixed at the last set's target; weight steps up by one
+          // plate increment (2.5kg) — straight/pyramid-style progression
+          // instead of just repeating the last set verbatim.
+          newSet = { reps: lastSet?.reps || 10, weight: suggestNextWeight(lastSet?.weight), isCompleted: false, isWarmup };
         }
         return { ...ex, sets: [...ex.sets, newSet] };
       }
@@ -3431,22 +3438,31 @@ const WorkoutTracker = () => {
                                 // sitting frozen at whatever it was when they hit play.
                                 const cardioAutoKm = cardioRunning && cardioTimer?.autoKm !== false;
                                 const displayKm = cardioAutoKm ? estimateCardioDistanceKm(ex.name, liveSeconds) : set.distanceKm;
+                                const kmKey = `km-${exIdx}-${sIdx}`;
+                                const timeKey = `time-${exIdx}-${sIdx}`;
+                                registerSetField(kmKey, {
+                                  value: displayKm,
+                                  mode: 'decimal',
+                                  label: `${ex.name} · Km`,
+                                  onValue: (v) => handleCardioKmEdit(exIdx, sIdx, v),
+                                  onNext: () => openSetField(timeKey),
+                                });
+                                registerSetField(timeKey, {
+                                  value: set.time,
+                                  mode: 'time',
+                                  label: `${ex.name} · Time`,
+                                  onValue: (v) => handleCardioTimeEdit(exIdx, sIdx, v),
+                                  onPrev: () => openSetField(kmKey),
+                                });
                                 return (
                                   <>
                                     <div className="col-weight set-input-field">
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
+                                      <SetValueField
                                         value={displayKm}
-                                        onChange={(e) => {
-                                          handleCardioKmEdit(exIdx, sIdx, e.target.value);
-                                          const key = getSetTimerKey(exIdx, sIdx);
-                                          scheduleSetAutoAdvance(key, e.target, () => cardioTimeInputRefs.current[key]);
-                                        }}
-                                        onFocus={handleSetInputFocus}
-                                        required
                                         placeholder="0"
                                         disabled={set.isCompleted}
+                                        active={activeSetKey === kmKey}
+                                        onOpen={() => openSetField(kmKey)}
                                       />
                                     </div>
                                     <div className="col-reps cardio-time-field">
@@ -3468,16 +3484,12 @@ const WorkoutTracker = () => {
                                         // a second line underneath.
                                         <span className="cardio-live-time">{formatSecondsToTimeString(liveSeconds)}</span>
                                       ) : (
-                                        <input
-                                          type="text"
-                                          inputMode="numeric"
+                                        <SetValueField
                                           value={set.time}
-                                          onChange={(e) => handleCardioTimeEdit(exIdx, sIdx, e.target.value)}
-                                          onFocus={handleSetInputFocus}
-                                          ref={(el) => { cardioTimeInputRefs.current[getSetTimerKey(exIdx, sIdx)] = el; }}
-                                          required
                                           placeholder="mm:ss"
                                           disabled={set.isCompleted}
+                                          active={activeSetKey === timeKey}
+                                          onOpen={() => openSetField(timeKey)}
                                           className="cardio-time-input"
                                         />
                                       )}
@@ -3532,16 +3544,24 @@ const WorkoutTracker = () => {
                                             // field, instead of only settable by running the stopwatch
                                             // live. Pressing Start again resumes from whatever's typed
                                             // here (see handleSetStopwatchStart's fallback).
-                                            <input
-                                              type="text"
-                                              inputMode="numeric"
-                                              value={set.time || ''}
-                                              onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
-                                              onFocus={handleSetInputFocus}
-                                              placeholder="mm:ss"
-                                              className="cardio-time-input"
-                                              style={{ minWidth: '50px' }}
-                                            />
+                                            (() => {
+                                              const timedKey = `timed-${exIdx}-${sIdx}`;
+                                              registerSetField(timedKey, {
+                                                value: set.time || '',
+                                                mode: 'time',
+                                                label: `${ex.name} · Time`,
+                                                onValue: (v) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(v)),
+                                              });
+                                              return (
+                                                <SetValueField
+                                                  value={set.time || ''}
+                                                  placeholder="mm:ss"
+                                                  active={activeSetKey === timedKey}
+                                                  onOpen={() => openSetField(timedKey)}
+                                                  className="cardio-time-input"
+                                                />
+                                              );
+                                            })()
                                           )}
                                         </div>
                                       );
@@ -3549,45 +3569,52 @@ const WorkoutTracker = () => {
                                   </div>
                                   <div className="col-reps"></div>
                                 </>
-                              ) : (
-                                <>
-                                  {exIsWarmup ? (
-                                    <div className="col-weight" />
-                                  ) : exIsBodyweight && exBwMode ? (
-                                    <div className="col-weight bw-static-label">BW</div>
-                                  ) : (
-                                    <div className="col-weight set-input-field">
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={set.weight}
-                                        onChange={(e) => {
-                                          handleSetChange(exIdx, sIdx, 'weight', e.target.value);
-                                          const key = `${exIdx}-${sIdx}`;
-                                          scheduleSetAutoAdvance(key, e.target, () => repsInputRefs.current[key]);
-                                        }}
-                                        onFocus={handleSetInputFocus}
-                                        required
-                                        placeholder="0"
+                              ) : (() => {
+                                const weightKey = `w-${exIdx}-${sIdx}`;
+                                const repsKey = `r-${exIdx}-${sIdx}`;
+                                registerSetField(weightKey, {
+                                  value: set.weight,
+                                  mode: 'decimal',
+                                  label: `${ex.name} · Kg`,
+                                  onValue: (v) => handleSetChange(exIdx, sIdx, 'weight', v),
+                                  onNext: () => openSetField(repsKey),
+                                });
+                                registerSetField(repsKey, {
+                                  value: set.reps,
+                                  mode: 'integer',
+                                  label: `${ex.name} · Reps`,
+                                  onValue: (v) => handleSetChange(exIdx, sIdx, 'reps', v),
+                                  ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openSetField(weightKey) }),
+                                });
+                                return (
+                                  <>
+                                    {exIsWarmup ? (
+                                      <div className="col-weight" />
+                                    ) : exIsBodyweight && exBwMode ? (
+                                      <div className="col-weight bw-static-label">BW</div>
+                                    ) : (
+                                      <div className="col-weight set-input-field">
+                                        <SetValueField
+                                          value={set.weight}
+                                          placeholder="0"
+                                          disabled={set.isCompleted}
+                                          active={activeSetKey === weightKey}
+                                          onOpen={() => openSetField(weightKey)}
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="col-reps set-input-field">
+                                      <SetValueField
+                                        value={set.reps}
+                                        placeholder={set.targetReps || '0'}
                                         disabled={set.isCompleted}
+                                        active={activeSetKey === repsKey}
+                                        onOpen={() => openSetField(repsKey)}
                                       />
                                     </div>
-                                  )}
-                                  <div className="col-reps set-input-field">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={set.reps}
-                                      onChange={(e) => handleSetChange(exIdx, sIdx, 'reps', e.target.value)}
-                                      onFocus={handleSetInputFocus}
-                                      ref={(el) => { repsInputRefs.current[`${exIdx}-${sIdx}`] = el; }}
-                                      required
-                                      placeholder={set.targetReps || '0'}
-                                      disabled={set.isCompleted}
-                                    />
-                                  </div>
-                                </>
-                              )}
+                                  </>
+                                );
+                              })()}
                               <div className="col-check set-actions-field">
                                 <button
                                   type="button"
@@ -4102,6 +4129,7 @@ const WorkoutTracker = () => {
           </div>
         </div>
       )}
+      <SetNumberPad active={getActiveSetField()} activeKey={activeSetKey} onClose={closeSetField} />
     </>
   );
 };

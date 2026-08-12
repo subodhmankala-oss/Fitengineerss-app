@@ -1,0 +1,114 @@
+/* Custom on-screen number pad — see SetNumberPad.jsx. Always mounted while
+   the set-logging table is on screen; slides in/out purely via `transform`
+   under our own control (no OS keyboard involved), which is the whole point:
+   one consistent, ownable animation instead of whatever the phone does.
+   Kept deliberately compact — this sits on top of a third of the screen, so
+   every px here is a px the row above it doesn't get. */
+.set-number-pad {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  background: rgba(15, 20, 32, 0.98);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px 16px 0 0;
+  padding: 8px 8px calc(6px + var(--safe-bottom, 0px));
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.set-number-pad.open {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.set-number-pad-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 6px;
+}
+
+/* Field switcher (Kg <-> Reps, Km <-> Time) — two buttons side by side, not
+   stacked. ▲▼ glyphs to echo the phone's own prev/next affordance, but
+   drawn by us so it's ours to size/animate/theme. */
+.set-number-pad-fieldnav {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+}
+
+.set-number-pad-fieldnav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+  font-size: 0.7rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.set-number-pad-fieldnav-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.set-number-pad-label {
+  flex: 1;
+  text-align: center;
+  color: rgba(226, 232, 240, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.set-number-pad-done {
+  width: 34px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.set-number-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.set-number-pad-key {
+  padding: 10px 0;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.set-number-pad-key:active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.set-number-pad-key--disabled {
+  opacity: 0.25;
+  cursor: default;
+}

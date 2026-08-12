@@ -14,10 +14,14 @@ import './SetNumberPad.css';
 // identity-bearing `key` property.
 //
 // The ▲▼ on the left move between fields in the same row (Kg <-> Reps, Km
-// <-> Time) — deliberately manual (tap only, never auto-triggered by
-// typing) so a keystroke never lands in the wrong field. They do not touch
-// the value itself.
+// <-> Time) manually. Typing also auto-advances to the next field once you
+// pause — debounced so multi-digit numbers finish first, and safe against
+// the staleness bug an earlier version of this had: `active.value` here
+// always comes fresh from the registry on every render (see
+// utils/setInputUtils.js), never a snapshot frozen from when the field was
+// opened, so the value that lands in the next field is always correct.
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
+const AUTO_ADVANCE_DELAY = 550;
 
 function KeyboardHideIcon() {
   return (
@@ -36,16 +40,29 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
   // Keep rendering the last field's content while the panel slides shut, so
   // it doesn't blank out mid-animation.
   const [shown, setShown] = React.useState(active);
+  const autoAdvanceTimer = React.useRef(null);
 
   React.useEffect(() => {
     if (active) setShown(active);
+    // A new field opened (manually, or via the previous field's own auto-
+    // advance) — any pending auto-advance from the field we just left no
+    // longer applies.
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
   }, [activeKey]);
+
+  React.useEffect(() => () => {
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+  }, []);
 
   const press = (key) => {
     if (!active) return;
-    const { value, mode, onValue } = active;
+    const { value, mode, onValue, onNext } = active;
 
     if (key === 'back') {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
       if (mode === 'time') {
         onValue(String(value ?? '').replace(/\D/g, '').slice(0, -1));
       } else {
@@ -61,6 +78,14 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
       onValue(`${String(value ?? '').replace(/\D/g, '')}${key}`);
     } else {
       onValue(`${value ?? ''}${key}`);
+    }
+
+    if (onNext) {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = setTimeout(() => {
+        autoAdvanceTimer.current = null;
+        onNext();
+      }, AUTO_ADVANCE_DELAY);
     }
   };
 

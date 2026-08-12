@@ -1,5 +1,21 @@
 import React from 'react';
 
+// Walks up from `el` to find the nearest actually-scrollable ancestor —
+// generic (checks computed overflow + real scroll room) rather than
+// hardcoding a class name like '.main-content', since this field can end up
+// nested inside other scroll containers (modals, coach client-profile
+// panels, etc.) that aren't the top-level page scroller.
+function getScrollParent(el) {
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    const style = getComputedStyle(node);
+    const canScrollY = /(auto|scroll)/.test(style.overflowY);
+    if (canScrollY && node.scrollHeight > node.clientHeight) return node;
+    node = node.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
 // Stand-in for a native <input> in the set-logging tables (weight/reps/km/
 // time). Tapping it opens the shared SetNumberPad instead of the phone's own
 // keyboard — see SetNumberPad.jsx for why. Renders as a <button> styled
@@ -30,12 +46,7 @@ export default function SetValueField({ value, placeholder, disabled, active, on
         delta = rect.top - margin;
       }
       if (delta !== 0) {
-        const scrollContainer = el.closest('.main-content');
-        if (scrollContainer) {
-          scrollContainer.scrollBy({ top: delta, behavior: 'smooth' });
-        } else {
-          window.scrollBy({ top: delta, behavior: 'smooth' });
-        }
+        getScrollParent(el).scrollBy({ top: delta, behavior: 'smooth' });
       }
     });
   };

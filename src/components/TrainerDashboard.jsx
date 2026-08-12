@@ -2280,6 +2280,41 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   );
   const showCoachNoteCard = sessionNeedsResponse || coachNoteJustSent;
 
+  // The coach-note textarea (both the client-detail composer and the Live
+  // Log one) is a plain native <textarea> — it never got moved onto the
+  // custom SetNumberPad because it needs free text, not digits (see
+  // utils/setInputUtils.js for why the numeric fields did). That means it's
+  // still at the mercy of the phone's own "scroll the focused field into
+  // view" behavior, which races against main.jsx's --app-vh listener: the
+  // OS keyboard opens, the browser scrolls based on the OLD (pre-shrink)
+  // viewport, and .trainer-dashboard-container only resizes to fit above
+  // the keyboard once visualViewport actually reports the new height. When
+  // those land out of order, the field (and everything below the toggle
+  // button that opens it) ends up scrolled to an offset that no longer
+  // matches the now-shorter container — the toggle sits pinned near the
+  // top with a blank gap below it instead of the note card. Re-run our own
+  // scroll correction once the real, keyboard-adjusted viewport size
+  // settles instead of trusting the native auto-scroll alone.
+  const handleCoachNoteFocus = (e) => {
+    const el = e.currentTarget;
+    const reposition = () => {
+      const vh = window.visualViewport?.height || window.innerHeight;
+      const rect = el.getBoundingClientRect();
+      const margin = 16;
+      const visibleBottom = vh - margin;
+      if (rect.bottom > visibleBottom) {
+        const scrollParent = el.closest('.trainer-dashboard-container') || document.scrollingElement || document.documentElement;
+        scrollParent.scrollBy({ top: rect.bottom - visibleBottom, behavior: 'smooth' });
+      }
+    };
+    const settleTimer = setTimeout(reposition, 300);
+    window.visualViewport?.addEventListener('resize', reposition);
+    el.addEventListener('blur', () => {
+      clearTimeout(settleTimer);
+      window.visualViewport?.removeEventListener('resize', reposition);
+    }, { once: true });
+  };
+
   // Send a one-off coach note to the selected client: store it (so they can
   // see it later even if the push is missed) AND fire a push with the note's
   // text as the notification body. Works from any suggestion chip or the
@@ -3865,6 +3900,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   placeholder="Or write your own note…"
                   value={coachNoteText}
                   onChange={(e) => { setCoachNoteText(e.target.value); if (coachNoteSentMsg) setCoachNoteSentMsg(''); }}
+                  onFocus={handleCoachNoteFocus}
                   rows={2}
                   disabled={sendingCoachNote}
                 />
@@ -5636,6 +5672,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder="Write a note to send with this session…"
                           value={coachNoteText}
                           onChange={(e) => setCoachNoteText(e.target.value)}
+                          onFocus={handleCoachNoteFocus}
                           rows={2}
                           disabled={liveSaving}
                         />

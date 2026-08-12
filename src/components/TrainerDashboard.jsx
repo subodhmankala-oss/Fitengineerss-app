@@ -27,6 +27,7 @@ import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import { presetExercises } from './WorkoutTracker';
 import { useCoachTour } from '../context/CoachTourContext';
+import { handleSetInputFocus, useAutoAdvance } from '../utils/setInputUtils';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -94,6 +95,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const coachTour = useCoachTour();
   const showDemoClientRow = coachTour.step > 0;
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
+  // Weight -> reps (and km -> time) auto-advance for the Live Log set table's
+  // number inputs — see useAutoAdvance for the debounce/refocus behavior.
+  const { schedule: scheduleLiveSetAutoAdvance } = useAutoAdvance();
+  const liveRepsInputRefs = useRef({});
+  const liveCardioTimeInputRefs = useRef({});
   // This coach's canonical public.users.id (== clients.coach_id for their
   // clients). Seeded from localStorage but re-resolved by email on mount because
   // localStorage.userId can be null/poisoned right after login — and the "My
@@ -5316,7 +5322,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           inputMode="decimal"
                                           placeholder="0"
                                           value={displayKm}
-                                          onChange={e => handleLiveCardioKmEdit(exIdx, setIdx, e.target.value)}
+                                          onChange={e => {
+                                            handleLiveCardioKmEdit(exIdx, setIdx, e.target.value);
+                                            const key = cardioTimerKey;
+                                            scheduleLiveSetAutoAdvance(key, e.target, () => liveCardioTimeInputRefs.current[key]);
+                                          }}
+                                          onFocus={handleSetInputFocus}
                                         />
                                       </div>
                                       <div className="col-reps cardio-time-field">
@@ -5338,6 +5349,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             placeholder="mm:ss"
                                             value={set.time}
                                             onChange={e => handleLiveCardioTimeEdit(exIdx, setIdx, e.target.value)}
+                                            onFocus={handleSetInputFocus}
+                                            ref={(el) => { liveCardioTimeInputRefs.current[cardioTimerKey] = el; }}
                                             className="cardio-time-input"
                                           />
                                         )}
@@ -5397,6 +5410,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                 inputMode="numeric"
                                                 value={set.time || ''}
                                                 onChange={(e) => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                                onFocus={handleSetInputFocus}
                                                 placeholder="mm:ss"
                                                 className="cardio-time-input"
                                                 style={{ minWidth: '50px' }}
@@ -5418,7 +5432,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           type="text"
                                           inputMode="decimal"
                                           value={set.weight}
-                                          onChange={e => handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value)}
+                                          onChange={e => {
+                                            handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value);
+                                            const key = `${exIdx}-${setIdx}`;
+                                            scheduleLiveSetAutoAdvance(key, e.target, () => liveRepsInputRefs.current[key]);
+                                          }}
+                                          onFocus={handleSetInputFocus}
                                         />
                                       </div>
                                     )}
@@ -5428,6 +5447,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         inputMode="numeric"
                                         value={set.reps}
                                         onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
+                                        onFocus={handleSetInputFocus}
+                                        ref={(el) => { liveRepsInputRefs.current[`${exIdx}-${setIdx}`] = el; }}
                                       />
                                     </div>
                                   </>

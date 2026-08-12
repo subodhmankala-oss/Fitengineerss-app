@@ -2044,6 +2044,15 @@
   padding: 0 4px;
 }
 
+.hevy-set-row .set-input-field input,
+.hevy-set-row .cardio-time-input {
+  /* Leaves breathing room above/below when our own onFocus handler
+     (handleSetInputFocus in utils/setInputUtils.js) scrolls the field
+     into view above the on-screen keyboard, instead of it landing flush
+     against the top/bottom edge. */
+  scroll-margin-block: 110px;
+}
+
 .hevy-set-row .set-input-field input {
   width: 100%;
   max-width: 72px;

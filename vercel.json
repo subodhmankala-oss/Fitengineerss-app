@@ -6,7 +6,8 @@
     { "path": "/api/send-nudges", "schedule": "30 13 * * *" },
     { "path": "/api/send-nudges", "schedule": "30 15 * * *" },
     { "path": "/api/send-nudges?job=inactivity", "schedule": "30 3 * * *" },
-    { "path": "/api/send-nudges?job=muscle_balance", "schedule": "30 13 * * 3" }
+    { "path": "/api/send-nudges?job=muscle_balance", "schedule": "30 13 * * 3" },
+    { "path": "/api/send-nudges?job=measurement_reminder", "schedule": "0 15 * * *" }
   ],
   "rewrites": [
     { "source": "/api/get-coach-clients", "destination": "/api/data-read?resource=coach-clients" },

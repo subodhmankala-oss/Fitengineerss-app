@@ -273,6 +273,80 @@ async function runMuscleBalanceSweep(supabaseClient, res) {
   }
 }
 
+async function rpcBodyMeasurements(supabaseClient) {
+  if (!BROADCAST_SECRET) throw new Error('BROADCAST_SECRET is not set — required for get_body_measurements_for_server.');
+  const { data, error } = await supabaseClient.rpc('get_body_measurements_for_server', { secret: BROADCAST_SECRET });
+  if (error) throw error;
+  return data || [];
+}
+
+// Nudges a client to log fresh body measurements, and separately tells their
+// coach to follow up, once 15+ days have passed since the last one — the
+// same cadence the app's own Measurements form already enforces client-side
+// (see sql/supabase_body_measurements.sql's header). Runs daily; the
+// `daysSince % 15 === 0` check is what makes a daily cron self-dedupe into a
+// once-per-15-days reminder without needing a separate "already sent" log —
+// it only fires on the exact day the count crosses each 15-day multiple (15,
+// 30, 45, ...), and naturally repeats for as long as the client stays
+// non-compliant. A brand new client with zero measurements ever is anchored
+// to their account created_at, so day 15 after SIGNUP is their first nudge,
+// not an immediate one.
+async function runMeasurementReminderSweep(supabaseClient, res) {
+  try {
+    const clientRows = await rpcAll(supabaseClient, 'get_clients_for_server');
+    const usersRows = await rpcAll(supabaseClient, 'get_users_for_server');
+    const measurements = await rpcBodyMeasurements(supabaseClient);
+
+    const lastMeasuredByUser = new Map();
+    measurements.forEach((m) => {
+      const existing = lastMeasuredByUser.get(m.user_id);
+      const at = new Date(m.measured_at);
+      if (!existing || at > existing) lastMeasuredByUser.set(m.user_id, at);
+    });
+    const usersById = new Map(usersRows.map((u) => [u.id, u]));
+
+    const now = new Date();
+    let clientsNotified = 0, coachesNotified = 0, skipped = 0;
+
+    for (const client of clientRows || []) {
+      const anchor = lastMeasuredByUser.get(client.user_id) || new Date(usersById.get(client.user_id)?.created_at || now);
+      const daysSince = Math.floor((now.getTime() - anchor.getTime()) / 86_400_000);
+
+      if (daysSince < 15 || daysSince % 15 !== 0) { skipped++; continue; }
+
+      const clientName = client.full_name || 'there';
+
+      const clientResult = await pushToUserId(
+        supabaseClient,
+        client.user_id,
+        '📏 Time for a Measurement Update',
+        `It's been ${daysSince} days since your last measurement log — take a couple minutes to log fresh numbers and track your progress.`,
+        'measurement_reminder_client'
+      );
+      if (clientResult.sent > 0) clientsNotified++;
+
+      if (client.coach_id) {
+        const coachResult = await pushToUserId(
+          supabaseClient,
+          client.coach_id,
+          '📏 Measurement Check-in Needed',
+          `${clientName} hasn't logged measurements in ${daysSince} days — a quick nudge from you could help them stay on track.`,
+          'measurement_reminder_coach'
+        );
+        if (coachResult.sent > 0) coachesNotified++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Measurement reminder sweep complete. Clients notified: ${clientsNotified}, coaches notified: ${coachesNotified}, skipped (not yet due): ${skipped}.`
+    });
+  } catch (error) {
+    console.error('Measurement reminder sweep error:', error);
+    return res.status(500).json({ error: 'Measurement reminder sweep failed.', details: error.message });
+  }
+}
+
 async function handleSendNudges(req, res) {
   // Optional: Add simple secret key security for trigger
   const triggerAuth = req.headers['authorization'] || req.query.secret;
@@ -286,6 +360,9 @@ async function handleSendNudges(req, res) {
   }
   if (req.query.job === 'muscle_balance') {
     return runMuscleBalanceSweep(supabase, res);
+  }
+  if (req.query.job === 'measurement_reminder') {
+    return runMeasurementReminderSweep(supabase, res);
   }
 
   try {

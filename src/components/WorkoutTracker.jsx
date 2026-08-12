@@ -20,6 +20,7 @@ import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
+import { handleSetInputFocus, useAutoAdvance } from '../utils/setInputUtils';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -618,6 +619,12 @@ const WorkoutTracker = () => {
   // session, which is what survives being away from the app/device and is
   // what the Home tab's "Resume Workout" banner reads).
   const [ownUserId, setOwnUserId] = useState(null);
+
+  // Weight -> reps (and km -> time) auto-advance for the set-logging table's
+  // number inputs — see useAutoAdvance for the debounce/refocus behavior.
+  const { schedule: scheduleSetAutoAdvance } = useAutoAdvance();
+  const repsInputRefs = useRef({});
+  const cardioTimeInputRefs = useRef({});
 
   const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : 'analytics'); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
@@ -3431,7 +3438,12 @@ const WorkoutTracker = () => {
                                         type="text"
                                         inputMode="decimal"
                                         value={displayKm}
-                                        onChange={(e) => handleCardioKmEdit(exIdx, sIdx, e.target.value)}
+                                        onChange={(e) => {
+                                          handleCardioKmEdit(exIdx, sIdx, e.target.value);
+                                          const key = getSetTimerKey(exIdx, sIdx);
+                                          scheduleSetAutoAdvance(key, e.target, () => cardioTimeInputRefs.current[key]);
+                                        }}
+                                        onFocus={handleSetInputFocus}
                                         required
                                         placeholder="0"
                                         disabled={set.isCompleted}
@@ -3461,6 +3473,8 @@ const WorkoutTracker = () => {
                                           inputMode="numeric"
                                           value={set.time}
                                           onChange={(e) => handleCardioTimeEdit(exIdx, sIdx, e.target.value)}
+                                          onFocus={handleSetInputFocus}
+                                          ref={(el) => { cardioTimeInputRefs.current[getSetTimerKey(exIdx, sIdx)] = el; }}
                                           required
                                           placeholder="mm:ss"
                                           disabled={set.isCompleted}
@@ -3523,6 +3537,7 @@ const WorkoutTracker = () => {
                                               inputMode="numeric"
                                               value={set.time || ''}
                                               onChange={(e) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                              onFocus={handleSetInputFocus}
                                               placeholder="mm:ss"
                                               className="cardio-time-input"
                                               style={{ minWidth: '50px' }}
@@ -3546,7 +3561,12 @@ const WorkoutTracker = () => {
                                         type="text"
                                         inputMode="decimal"
                                         value={set.weight}
-                                        onChange={(e) => handleSetChange(exIdx, sIdx, 'weight', e.target.value)}
+                                        onChange={(e) => {
+                                          handleSetChange(exIdx, sIdx, 'weight', e.target.value);
+                                          const key = `${exIdx}-${sIdx}`;
+                                          scheduleSetAutoAdvance(key, e.target, () => repsInputRefs.current[key]);
+                                        }}
+                                        onFocus={handleSetInputFocus}
                                         required
                                         placeholder="0"
                                         disabled={set.isCompleted}
@@ -3559,6 +3579,8 @@ const WorkoutTracker = () => {
                                       inputMode="numeric"
                                       value={set.reps}
                                       onChange={(e) => handleSetChange(exIdx, sIdx, 'reps', e.target.value)}
+                                      onFocus={handleSetInputFocus}
+                                      ref={(el) => { repsInputRefs.current[`${exIdx}-${sIdx}`] = el; }}
                                       required
                                       placeholder={set.targetReps || '0'}
                                       disabled={set.isCompleted}

@@ -9,7 +9,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 500;
+  /* Must clear .bottom-nav's z-index: 1000 (src/index.css) — otherwise the
+     app's Home/Workout/Profile bar sits on top of the pad's own bottom row,
+     covering '.', '0', and backspace on the client side. */
+  z-index: 1100;
   background: rgba(15, 20, 32, 0.98);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -108,9 +111,8 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   gap: 8px;
 }
 
-/* Dialpad-style layout (digit + small ABC/DEF-style letter subtitle) but in
-   the app's own dark palette, not a light/white key — matches the rest of
-   the UI instead of standing out against it. */
+/* Numeric keys in the app's own dark palette, not a light/white key —
+   matches the rest of the UI instead of standing out against it. */
 .set-number-pad-key {
   padding: 12px 0 10px;
   border-radius: 14px;
@@ -120,23 +122,14 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   cursor: pointer;
   transition: background 0.15s;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
 }
 
 .set-number-pad-key-digit {
   font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.1;
-}
-
-.set-number-pad-key-sub {
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: rgba(226, 232, 240, 0.45);
 }
 
 .set-number-pad-key:active {

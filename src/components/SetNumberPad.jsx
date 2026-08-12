@@ -21,11 +21,6 @@ import './SetNumberPad.css';
 // utils/setInputUtils.js), never a snapshot frozen from when the field was
 // opened, so the value that lands in the next field is always correct.
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
-// Phone-dialpad-style letter subtitles under 2-9, purely cosmetic (this is
-// a numeric pad, nothing here is ever mapped to a letter) — matches the
-// familiar white/light dialpad look requested instead of our previous
-// all-dark keys.
-const KEY_SUBLABEL = { 2: 'ABC', 3: 'DEF', 4: 'GHI', 5: 'JKL', 6: 'MNO', 7: 'PQRS', 8: 'TUV', 9: 'WXYZ' };
 const AUTO_ADVANCE_DELAY = 550;
 
 function BackspaceIcon() {
@@ -138,7 +133,6 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
           const isDot = key === '.';
           const isPlain = isDot || key === 'back';
           const dotDisabled = isDot && field?.mode !== 'decimal';
-          const sublabel = KEY_SUBLABEL[key];
           return (
             <button
               type="button"
@@ -148,14 +142,7 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
               disabled={dotDisabled}
               aria-label={key === 'back' ? 'Backspace' : key === '.' ? 'Decimal point' : key}
             >
-              {key === 'back' ? (
-                <BackspaceIcon />
-              ) : (
-                <>
-                  <span className="set-number-pad-key-digit">{key}</span>
-                  {sublabel && <span className="set-number-pad-key-sub">{sublabel}</span>}
-                </>
-              )}
+              {key === 'back' ? <BackspaceIcon /> : <span className="set-number-pad-key-digit">{key}</span>}
             </button>
           );
         })}

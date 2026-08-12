@@ -21,7 +21,22 @@ import './SetNumberPad.css';
 // utils/setInputUtils.js), never a snapshot frozen from when the field was
 // opened, so the value that lands in the next field is always correct.
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
+// Phone-dialpad-style letter subtitles under 2-9, purely cosmetic (this is
+// a numeric pad, nothing here is ever mapped to a letter) — matches the
+// familiar white/light dialpad look requested instead of our previous
+// all-dark keys.
+const KEY_SUBLABEL = { 2: 'ABC', 3: 'DEF', 4: 'GHI', 5: 'JKL', 6: 'MNO', 7: 'PQRS', 8: 'TUV', 9: 'WXYZ' };
 const AUTO_ADVANCE_DELAY = 550;
+
+function BackspaceIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6.5-7L9 5z" />
+      <line x1="12.5" y1="9.5" x2="18" y2="14.5" />
+      <line x1="18" y1="9.5" x2="12.5" y2="14.5" />
+    </svg>
+  );
+}
 
 function KeyboardHideIcon() {
   return (
@@ -122,6 +137,7 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
         {PAD_KEYS.map((key) => {
           const isDot = key === '.';
           const dotDisabled = isDot && field?.mode !== 'decimal';
+          const sublabel = KEY_SUBLABEL[key];
           return (
             <button
               type="button"
@@ -129,8 +145,16 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
               className={`set-number-pad-key ${key === 'back' ? 'set-number-pad-key--back' : ''} ${dotDisabled ? 'set-number-pad-key--disabled' : ''}`}
               onClick={() => press(key)}
               disabled={dotDisabled}
+              aria-label={key === 'back' ? 'Backspace' : key === '.' ? 'Decimal point' : key}
             >
-              {key === 'back' ? '⌫' : key}
+              {key === 'back' ? (
+                <BackspaceIcon />
+              ) : (
+                <>
+                  <span className="set-number-pad-key-digit">{key}</span>
+                  {sublabel && <span className="set-number-pad-key-sub">{sublabel}</span>}
+                </>
+              )}
             </button>
           );
         })}

@@ -1109,7 +1109,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       liveDraftSaveTimerRef.current = null;
     }
     setLiveSaving(true);
-    try {
+    // Hard ceiling on the whole save flow — every individual network call
+    // inside it already has its own 8s timeout (restInsert/restSelect), but
+    // nothing bounded the CHAIN of them together, so a mid-save connectivity
+    // stall (confirmed 2026-08-12, a real coach's 32-minute session: the
+    // draft survived, workout_logs never got the rows, and the button sat on
+    // "Saving..." with zero feedback) could leave the coach staring at a
+    // spinner indefinitely with no error and no way to know it had failed.
+    // This doesn't abort the in-flight save itself (still runs in the
+    // background — if it lands late, that's a bonus, not a problem) — it
+    // just guarantees the UI always resolves to a clear success or failure
+    // within 10s instead of hanging forever.
+    const SAVE_TIMEOUT_MS = 10000;
+    let timedOut = false;
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => { timedOut = true; reject(new Error('Save timed out — check your connection and try again.')); }, SAVE_TIMEOUT_MS);
+    });
+    const doSave = async () => {
       // Build session object - only save completed sets, or all if none ticked
       const completedCount = liveExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
       const formattedExercises = liveExercises.map(ex => {
@@ -1214,6 +1230,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         setShowLiveCoachNote(false);
       }
 
+      // The critical writes (saveWorkoutSession, deleteWorkoutDraft) above
+      // already landed by this point regardless — this guard only skips the
+      // remaining COSMETIC steps (toast, resetting the logger back to a
+      // blank session) when the 10s ceiling already fired and showed the
+      // coach a failure. Without it, a save that actually succeeds just
+      // late would silently reset their screen and pop a stale "✅ saved"
+      // toast after they'd already seen "❌ failed" and possibly moved on.
+      if (timedOut) return;
+
       triggerLiveToast(liveNote
         ? '✅ Workout session + note saved for ' + selectedClient.userName + '!'
         : '✅ Workout session saved for ' + selectedClient.userName + '!');
@@ -1232,9 +1257,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       setLiveDate(getLocalDateString());
       resetLiveTimer();
       refreshCoachActiveDrafts();
-    } catch(e) {
+    };
+
+    try {
+      await Promise.race([doSave(), timeoutPromise]);
+    } catch (e) {
       console.error('Error saving live session:', e);
-      triggerLiveToast('❌ Failed to save session. Please try again.');
+      triggerLiveToast(timedOut
+        ? '⏱️ Save is taking too long — check your connection. It may still finish in the background; check the client\'s history before retrying.'
+        : '❌ Failed to save session. Please try again.');
     } finally {
       setLiveSaving(false);
     }

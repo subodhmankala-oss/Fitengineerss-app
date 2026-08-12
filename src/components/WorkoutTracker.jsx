@@ -2249,6 +2249,51 @@ const WorkoutTracker = () => {
     triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
   };
 
+  // Starts a logging session straight from a saved/assigned plan, preserving
+  // each set's real reps/weight (and cardio/timed fields) instead of
+  // collapsing them to defaults — see handleStartFromTemplate above, which
+  // was written for the older flat {sets: <count>, reps: '<string>'} shape
+  // and silently zeroes out weight when used on a real per-set plan. This is
+  // the one correct path; both the Coach Plans card (Templates view) and the
+  // Start Workout Session launcher (Log view) route through it.
+  const startPlan = (plan, source) => {
+    // Guard the malformed/empty case explicitly: `plan.exercises` used to
+    // be mapped directly, so a null one threw a TypeError and an empty
+    // one silently opened a session containing only the default warm-ups
+    // — both read to the user as "the template is empty". Reads are
+    // normalized now (see normalizePlanExercises), so reaching here with
+    // nothing means the stored plan genuinely has no exercises; say that
+    // instead of opening a blank logger.
+    const planExercises = Array.isArray(plan.exercises) ? plan.exercises : [];
+    if (planExercises.length === 0) {
+      triggerToast('⚠️ This plan has no exercises saved. Open it in the editor to rebuild it.');
+      return;
+    }
+    setLogClient(selectedClient);
+    setLogDate(getLocalDateString());
+    setLogExercises([
+      ...getDefaultWarmupExercises(),
+      ...planExercises.map(ex => ({
+        name: ex.name,
+        sets: ex.sets.map(s => isCardioExercise(ex.name)
+          ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+          : isTimedExercise(ex.name)
+          ? { time: s.time ?? '', isCompleted: false }
+          // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
+          // exercise like Farmer Walk saved from a source that didn't fill
+          // both fields) — String(undefined) renders as the literal text
+          // "undefined" in the input box instead of leaving it blank, same
+          // bug the cardio/timed branches above already guard against with
+          // `?? ''`. This branch never got that guard.
+          : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
+      })),
+    ]);
+    setTemplateName(plan.planName);
+    setWorkoutSource(source);
+    setIsLoggingWorkout(true);
+    resetWorkoutTimer();
+  };
+
   // Renew client sessions package
   const renewSessionPackage = () => {
     const updatedProfiles = clientProfiles.map(p => {
@@ -2922,14 +2967,13 @@ const WorkoutTracker = () => {
                       key={plan.id || plan.planName}
                       plan={plan}
                       source="coach"
-                      onStart={() => handleStartFromTemplate({
-                        name: plan.planName,
-                        exercises: (Array.isArray(plan.exercises) ? plan.exercises : []).map(ex => ({
-                          ...ex,
-                          sets: ex.sets ? (Array.isArray(ex.sets) ? ex.sets.length : ex.sets) : 3,
-                          reps: ex.reps || '10'
-                        }))
-                      })}
+                      // Was routed through handleStartFromTemplate, which was
+                      // built for the older flat {sets: <count>, reps: '<n>'}
+                      // shape — it discarded each set's real weight (always
+                      // reset to '0') and reps (always defaulted to 10),
+                      // wiping out whatever the coach entered when assigning
+                      // the plan. startPlan preserves the actual per-set data.
+                      onStart={() => { startPlan(plan, 'coach'); setActiveView('log'); }}
                     />
                   ))}
                 </div>
@@ -3035,44 +3079,8 @@ const WorkoutTracker = () => {
       )}
 
       {activeView === 'log' && !isLoggingWorkout && (() => {
-        const startPlan = (plan, source) => {
-          // Guard the malformed/empty case explicitly: `plan.exercises` used to
-          // be mapped directly, so a null one threw a TypeError and an empty
-          // one silently opened a session containing only the default warm-ups
-          // — both read to the user as "the template is empty". Reads are
-          // normalized now (see normalizePlanExercises), so reaching here with
-          // nothing means the stored plan genuinely has no exercises; say that
-          // instead of opening a blank logger.
-          const planExercises = Array.isArray(plan.exercises) ? plan.exercises : [];
-          if (planExercises.length === 0) {
-            triggerToast('⚠️ This plan has no exercises saved. Open it in the editor to rebuild it.');
-            return;
-          }
-          setLogClient(selectedClient);
-          setLogDate(getLocalDateString());
-          setLogExercises([
-            ...getDefaultWarmupExercises(),
-            ...planExercises.map(ex => ({
-              name: ex.name,
-              sets: ex.sets.map(s => isCardioExercise(ex.name)
-                ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
-                : isTimedExercise(ex.name)
-                ? { time: s.time ?? '', isCompleted: false }
-                // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
-                // exercise like Farmer Walk saved from a source that didn't fill
-                // both fields) — String(undefined) renders as the literal text
-                // "undefined" in the input box instead of leaving it blank, same
-                // bug the cardio/timed branches above already guard against with
-                // `?? ''`. This branch never got that guard.
-                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
-            })),
-          ]);
-          setTemplateName(plan.planName);
-          setWorkoutSource(source);
-          setIsLoggingWorkout(true);
-          resetWorkoutTimer();
-        };
-
+        // startPlan is defined at component scope (see above) — shared with
+        // the Coach Plans card in the Templates view.
         const templatePlans = clientPlans.filter(p => p.createdBy === 'client');
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
 

@@ -78,8 +78,13 @@ self.addEventListener('push', (e) => {
     icon: data.icon || '/logo.png',
     badge: '/logo.png',
     vibrate: data.vibrate || [300, 100, 300, 100, 300],
+    // Was hardcoded to '/' regardless of what the sender actually put in
+    // the payload — api/push.js has never sent a `url` field at all, so
+    // every notification (measurement reminder, session reminder, coach
+    // note, everything) opened the bare homepage on tap and did nothing
+    // else, no matter how specific the notification's own text was.
     data: {
-      url: '/',
+      url: data.url || '/',
     },
     tag: 'fitengineers-coach-nudge',
     renotify: true,

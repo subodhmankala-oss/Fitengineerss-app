@@ -37,8 +37,11 @@ function SettingsRow({ icon, label, value, onTap, last }) {
   );
 }
 
-export default function ClientProfile({ handleLogout, onReplayDemoTour }) {
-  const [activeSection, setActiveSection] = useState(null);
+export default function ClientProfile({ handleLogout, onReplayDemoTour, initialSection = null }) {
+  // Lets App.jsx jump straight to a sub-section (e.g. Measurements, from the
+  // measurement-reminder push notification's deep link) instead of landing
+  // on the plain settings list and leaving the user to find it themselves.
+  const [activeSection, setActiveSection] = useState(initialSection);
 
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',

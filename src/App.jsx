@@ -366,6 +366,34 @@ function App() {
            (localStorage.getItem('userRole') === 'client' || !localStorage.getItem('userRole'));
   });
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
+  // Deep links from push notifications (e.g. the measurement reminder — see
+  // api/push.js's runMeasurementReminderSweep/measurement_reminder_manual):
+  // sw.js's notificationclick handler navigates to whatever `url` the push
+  // payload set, landing here with these query params. Captured once via
+  // lazy useState init (before the URL gets cleaned below) rather than read
+  // fresh on every render, so the deep link fires exactly once per tap
+  // instead of re-triggering navigation on every re-render.
+  const [deepLinkOpenMeasurements, setDeepLinkOpenMeasurements] = useState(() => new URLSearchParams(window.location.search).get('openMeasurements') === '1');
+  const [deepLinkClientId] = useState(() => new URLSearchParams(window.location.search).get('viewClient') || null);
+  useEffect(() => {
+    if (deepLinkOpenMeasurements) setActiveTab('profile');
+    if (deepLinkOpenMeasurements || deepLinkClientId) {
+      // Strip the query params so a later refresh/share of this URL doesn't
+      // re-trigger the same deep link forever.
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Consume the measurements deep link exactly once — ClientProfile reads it
+  // on mount to pick its initial section, so leave it "true" just long
+  // enough for that first mount, then clear it. Without this, switching away
+  // from Profile and back later in the same session would keep jumping back
+  // to Measurements instead of behaving like a normal settings visit.
+  useEffect(() => {
+    if (!deepLinkOpenMeasurements) return undefined;
+    const t = setTimeout(() => setDeepLinkOpenMeasurements(false), 1000);
+    return () => clearTimeout(t);
+  }, [deepLinkOpenMeasurements]);
   // First-login spotlight walkthrough — shown once per role, replayable via a help button.
   const demoTourCheckedRef = useRef(false);
   const clientTour = useTour();
@@ -1286,7 +1314,7 @@ function App() {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
       case 'workouts': return <WorkoutTracker />;
-      case 'profile': return <ClientProfile handleLogout={handleLogout} onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }} />;
+      case 'profile': return <ClientProfile handleLogout={handleLogout} onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }} initialSection={deepLinkOpenMeasurements ? 'measurements' : null} />;
       default: return renderHomeDashboard();
     }
   };
@@ -1453,6 +1481,7 @@ function App() {
         <TrainerDashboard
           handleLogout={handleLogout}
           onReplayDemoTour={isAdmin ? undefined : () => coachTour.restart()}
+          deepLinkClientId={deepLinkClientId}
         />
         {renderResetPasswordModal()}
         {!isAdmin && <CoachTourOverlay />}

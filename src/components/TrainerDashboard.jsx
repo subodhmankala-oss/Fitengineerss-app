@@ -84,7 +84,7 @@ const convertAiDayToEditorShape = (day) => ({
   exercises: (day.exercises || []).map(convertAiExerciseToEditorShape)
 });
 
-const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
+const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
@@ -412,6 +412,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
   // drops to 4 or fewer, manually triggered by the coach (not automatic).
   const [sendingSessionReminder, setSendingSessionReminder] = useState(false);
   const [sessionReminderSentMsg, setSessionReminderSentMsg] = useState('');
+  const [sendingMeasurementReminder, setSendingMeasurementReminder] = useState(false);
+  const [measurementReminderSentMsg, setMeasurementReminderSentMsg] = useState('');
 
   // Program start / estimated-completion dates (clients.program_started_on,
   // clients.program_est_completion) — the two date fields on the Program
@@ -1452,6 +1454,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     };
   }, []);
 
+  // Deep link from a push notification (e.g. the measurement-reminder cron's
+  // coach push — see api/push.js's runMeasurementReminderSweep) — App.jsx
+  // parses ?viewClient=<id> and passes it down here. Waits for `clients` to
+  // actually be populated (this effect re-runs as that list loads) so the
+  // lookup doesn't just silently miss on the first render. Runs once — a
+  // coach navigating away from that client afterward shouldn't get yanked
+  // back to it if `clients` happens to refetch via the real-time listener.
+  const deepLinkConsumedRef = useRef(false);
+  useEffect(() => {
+    if (!deepLinkClientId || deepLinkConsumedRef.current || clients.length === 0) return;
+    const match = clients.find(c => c.id === deepLinkClientId);
+    if (match) {
+      deepLinkConsumedRef.current = true;
+      setViewMode('coach');
+      handleSelectClient(match);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkClientId, clients]);
+
   // Coach sets this client's coaching-program length. Persisted via the
   // coach↔client-scoped RPC; drives the client's home progress card.
   const handleSaveTotalSessions = async () => {
@@ -1547,6 +1568,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
     } finally {
       setSendingSessionReminder(false);
       setTimeout(() => setSessionReminderSentMsg(''), 3500);
+    }
+  };
+
+  // Manual, coach-triggered measurement nudge — the on-demand counterpart to
+  // the automated 15-day sweep (api/push.js's runMeasurementReminderSweep).
+  // Lets a coach send this anytime, not just when the automated threshold
+  // has actually been crossed.
+  const handleSendMeasurementReminder = async () => {
+    if (!selectedClient || sendingMeasurementReminder) return;
+    setSendingMeasurementReminder(true);
+    setMeasurementReminderSentMsg('');
+    try {
+      notifyEvent('measurement_reminder_manual', { clientUserId: selectedClient.id });
+      setMeasurementReminderSentMsg(`✅ Reminder sent to ${selectedClient.userName || 'the client'}.`);
+    } finally {
+      setSendingMeasurementReminder(false);
+      setTimeout(() => setMeasurementReminderSentMsg(''), 3500);
     }
   };
 
@@ -4391,7 +4429,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour }) => {
                 const previous = clientMeasurements[1] || null;
                 return (
                   <div className="measurements-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h4 className="history-section-title">📏 Body Measurements</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                      <h4 className="history-section-title" style={{ margin: 0 }}>📏 Body Measurements</h4>
+                      <button
+                        type="button"
+                        onClick={handleSendMeasurementReminder}
+                        disabled={sendingMeasurementReminder}
+                        style={{
+                          padding: '6px 12px', borderRadius: '20px',
+                          background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)',
+                          color: '#38bdf8', fontSize: '0.72rem', fontWeight: 700,
+                          cursor: sendingMeasurementReminder ? 'default' : 'pointer'
+                        }}
+                      >
+                        {sendingMeasurementReminder ? '⏳ Sending…' : '🔔 Send Measurement Reminder'}
+                      </button>
+                    </div>
+                    {measurementReminderSentMsg && (
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#34d399', marginTop: '-8px' }}>{measurementReminderSentMsg}</div>
+                    )}
                     {loadingMeasurements ? (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading measurements…</p>
                     ) : clientMeasurements.length === 0 ? (

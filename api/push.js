@@ -130,12 +130,15 @@ function coachAboutInactiveClientMessage(clientName, days) {
   };
 }
 
-async function pushToUserId(supabaseClient, userId, title, body, event = 'inactivity_nudge') {
+async function pushToUserId(supabaseClient, userId, title, body, event = 'inactivity_nudge', url = null) {
   if (!userId) return { sent: 0, failed: 0 };
   const allSubs = await rpcAll(supabaseClient, 'get_push_subscriptions_for_broadcast');
   const subs = allSubs.filter((s) => s.user_id === userId);
   if (!subs || subs.length === 0) return { sent: 0, failed: 0 };
-  const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300] });
+  // sw.js's push handler reads this and sets it as the notification's
+  // click-through target — without it, every notification opens the bare
+  // homepage no matter how specific its own text is (confirmed 2026-08-12).
+  const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300], url: url || undefined });
   let sent = 0, failed = 0;
   for (const sub of subs) {
     try {
@@ -321,7 +324,10 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
         client.user_id,
         '📏 Time for a Measurement Update',
         `It's been ${daysSince} days since your last measurement log — take a couple minutes to log fresh numbers and track your progress.`,
-        'measurement_reminder_client'
+        'measurement_reminder_client',
+        // Deep link: App.jsx reads this query param on load and jumps
+        // straight to Profile > Measurements instead of the bare homepage.
+        '/?openMeasurements=1'
       );
       if (clientResult.sent > 0) clientsNotified++;
 
@@ -331,7 +337,11 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
           client.coach_id,
           '📏 Measurement Check-in Needed',
           `${clientName} hasn't logged measurements in ${daysSince} days — a quick nudge from you could help them stay on track.`,
-          'measurement_reminder_coach'
+          'measurement_reminder_coach',
+          // Deep link: opens this exact client's profile in the coach
+          // dashboard, where the new "Send Measurement Reminder" button
+          // (TrainerDashboard.jsx) lets the coach act on it immediately.
+          `/?viewClient=${client.user_id}`
         );
         if (coachResult.sent > 0) coachesNotified++;
       }
@@ -537,12 +547,12 @@ async function findSubscriptions(targetUserId, email, name) {
   return Array.from(byEndpoint.values());
 }
 
-async function pushToUser(targetUserId, title, body, event = 'notify_user') {
+async function pushToUser(targetUserId, title, body, event = 'notify_user', url = null) {
   const contact = await getUserContact(targetUserId);
   const subs = await findSubscriptions(targetUserId, contact?.email, contact?.full_name);
   if (!subs || subs.length === 0) return { sent: 0, failed: 0, matched: 0 };
 
-  const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300] });
+  const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300], url: url || undefined });
   let sent = 0, failed = 0;
   for (const sub of subs) {
     try {
@@ -589,6 +599,7 @@ async function handleNotifyUser(req, res) {
     let targetUserId = null;
     let title = '';
     let body = '';
+    let url = null;
 
     if (event === 'workout_started') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
@@ -643,11 +654,20 @@ async function handleNotifyUser(req, res) {
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);
       body = planName ? `Sent you a new plan: "${planName}"` : 'Sent you a new workout plan';
+    } else if (event === 'measurement_reminder_manual') {
+      // Coach-triggered version of the automated 15-day sweep's client push
+      // (runMeasurementReminderSweep) — same message/deep-link, but fired on
+      // demand from the "Send Measurement Reminder" button on a client's
+      // profile (TrainerDashboard.jsx) instead of waiting for the cron.
+      targetUserId = clientUserId;
+      title = '📏 Time for a Measurement Update';
+      body = `${await getCoachDisplayName(client?.coach_id)} would like you to log fresh measurements — take a couple minutes to update your progress.`;
+      url = '/?openMeasurements=1';
     } else {
       return res.status(400).json({ error: `Unknown event "${event}".` });
     }
 
-    const result = await pushToUser(targetUserId, title, body, event);
+    const result = await pushToUser(targetUserId, title, body, event, url);
     return res.status(200).json({ success: true, event, ...result });
   } catch (error) {
     console.error('notify-user error:', error);

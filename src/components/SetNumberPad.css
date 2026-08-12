@@ -15,7 +15,11 @@
   -webkit-backdrop-filter: blur(10px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px 16px 0 0;
-  padding: 8px 8px calc(6px + var(--safe-bottom, 0px));
+  /* Was reusing the app's --safe-bottom (90px — reserved for the bottom nav
+     bar's own height), which padded a huge empty gap under the grid on top
+     of the pad's own bottom padding. This only needs the device's actual
+     safe-area inset (notch/home-indicator), not nav-bar clearance. */
+  padding: 8px 8px calc(6px + env(safe-area-inset-bottom, 0px));
   transform: translateY(100%);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
@@ -25,6 +29,18 @@
 .set-number-pad.open {
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* When a row near the bottom of the page is being edited, the scroll
+   container can already be at its max scrollTop with no room left to push
+   that row above the pad — SetValueField's scroll-into-view math is correct
+   but has nowhere to go. Reserve extra bottom space on whichever container
+   is actually scrolling (client's `.main-content`, coach's
+   `.trainer-dashboard-container`) whenever the pad is open, so there's
+   always enough scroll range regardless of where the row sits in the page. */
+body:has(.set-number-pad.open) .main-content,
+body:has(.set-number-pad.open) .trainer-dashboard-container {
+  padding-bottom: 340px;
 }
 
 .set-number-pad-nav {
@@ -92,15 +108,15 @@
   gap: 8px;
 }
 
-/* Light phone-dialpad look for the keys themselves (nav bar above stays
-   dark, matching the rest of the app) — light-gray squircles, dark text,
-   a small letter subtitle under 2-9 like a standard dialpad. */
+/* Dialpad-style layout (digit + small ABC/DEF-style letter subtitle) but in
+   the app's own dark palette, not a light/white key — matches the rest of
+   the UI instead of standing out against it. */
 .set-number-pad-key {
   padding: 12px 0 10px;
   border-radius: 14px;
   border: none;
-  background: #e4e4e7;
-  color: #1c1c1e;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
   cursor: pointer;
   transition: background 0.15s;
   display: flex;
@@ -120,14 +136,25 @@
   font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #6b6b70;
+  color: rgba(226, 232, 240, 0.45);
 }
 
 .set-number-pad-key:active {
-  background: #d1d1d6;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .set-number-pad-key--disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: default;
+}
+
+/* '.' and backspace are utility keys, not digits — no filled box, just the
+   glyph, so they read as secondary to the numeric keys. */
+.set-number-pad-key--plain {
+  background: transparent;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.set-number-pad-key--plain:active {
+  background: rgba(255, 255, 255, 0.08);
 }

@@ -136,13 +136,14 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
       <div className="set-number-pad-grid">
         {PAD_KEYS.map((key) => {
           const isDot = key === '.';
+          const isPlain = isDot || key === 'back';
           const dotDisabled = isDot && field?.mode !== 'decimal';
           const sublabel = KEY_SUBLABEL[key];
           return (
             <button
               type="button"
               key={key}
-              className={`set-number-pad-key ${key === 'back' ? 'set-number-pad-key--back' : ''} ${dotDisabled ? 'set-number-pad-key--disabled' : ''}`}
+              className={`set-number-pad-key ${isPlain ? 'set-number-pad-key--plain' : ''} ${dotDisabled ? 'set-number-pad-key--disabled' : ''}`}
               onClick={() => press(key)}
               disabled={dotDisabled}
               aria-label={key === 'back' ? 'Backspace' : key === '.' ? 'Decimal point' : key}

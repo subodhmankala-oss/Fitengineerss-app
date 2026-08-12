@@ -2044,16 +2044,35 @@
   padding: 0 4px;
 }
 
-.hevy-set-row .set-input-field input,
-.hevy-set-row .cardio-time-input {
-  /* Leaves breathing room above/below when our own onFocus handler
-     (handleSetInputFocus in utils/setInputUtils.js) scrolls the field
-     into view above the on-screen keyboard, instead of it landing flush
-     against the top/bottom edge. */
-  scroll-margin-block: 110px;
+/* Set-value fields (weight/reps/km/time) are now buttons that open the
+   custom SetNumberPad (see components/SetValueField.jsx + SetNumberPad.jsx)
+   instead of real text inputs — no native mobile keyboard, no OS keyboard
+   accessory bar, and one animation we fully control. `.set-value-btn` reuses
+   the same look the old <input> had; scroll-margin-block leaves it room to
+   breathe when scrolled into view above the pad instead of hugging the edge. */
+.set-value-btn {
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  scroll-margin-block: 190px;
+  /* It behaves like a text field (opens the pad to edit its value), so it
+     should look like one on hover too — a text I-beam, not a button's hand
+     pointer. */
+  cursor: text;
 }
 
-.hevy-set-row .set-input-field input {
+.set-value-btn:disabled {
+  cursor: default;
+}
+
+.hevy-set-row .set-input-field input,
+.hevy-set-row .set-input-field .set-value-btn,
+.hevy-set-row .cardio-time-input {
+  scroll-margin-block: 190px;
+}
+
+.hevy-set-row .set-input-field input,
+.hevy-set-row .set-input-field .set-value-btn {
   width: 100%;
   max-width: 72px;
   background: rgba(9, 14, 23, 0.5);
@@ -2071,16 +2090,37 @@
   transition: all 0.2s;
 }
 
-.hevy-set-row .set-input-field input:focus {
+.hevy-set-row .set-input-field input:focus,
+.hevy-set-row .set-input-field .set-value-btn.is-active {
   border-color: #3b82f6;
   box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
 }
 
-.hevy-set-row .set-input-field input:disabled {
+.hevy-set-row .set-input-field input:disabled,
+.hevy-set-row .set-input-field .set-value-btn:disabled {
   background: transparent;
   border-color: transparent;
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.set-value-placeholder {
+  color: var(--text-muted, rgba(148, 163, 184, 0.5));
+  font-weight: 600;
+}
+
+.set-value-caret {
+  display: inline-block;
+  width: 1px;
+  height: 0.95em;
+  background: #3b82f6;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  animation: setValueCaretBlink 1s steps(1) infinite;
+}
+
+@keyframes setValueCaretBlink {
+  50% { opacity: 0; }
 }
 
 /* Cardio row — the TIME column needs room for a play/pause icon + the time
@@ -2144,7 +2184,8 @@
   outline: none;
 }
 
-.cardio-time-input:focus {
+.cardio-time-input:focus,
+.cardio-time-input.is-active {
   border-color: #3b82f6;
   box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
 }

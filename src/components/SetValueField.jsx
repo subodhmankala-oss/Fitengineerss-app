@@ -36,8 +36,13 @@ export default function SetValueField({ value, placeholder, disabled, active, on
     requestAnimationFrame(() => {
       const pad = document.querySelector('.set-number-pad');
       const padHeight = pad ? pad.getBoundingClientRect().height : 320;
-      const margin = 16;
-      const rect = el.getBoundingClientRect();
+      const margin = 20;
+      // Bring the whole set row into view, not just the tapped cell — with
+      // several sets logged, clearing only the Kg/Reps box left the set
+      // number, PREV column, and DONE checkbox for that row cut off, making
+      // it hard to tell which set you were actually editing.
+      const row = el.closest('.hevy-set-row') || el;
+      const rect = row.getBoundingClientRect();
       const visibleBottom = window.innerHeight - padHeight - margin;
       let delta = 0;
       if (rect.bottom > visibleBottom) {

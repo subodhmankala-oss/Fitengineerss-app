@@ -27,7 +27,10 @@ import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import { presetExercises } from './WorkoutTracker';
 import { useCoachTour } from '../context/CoachTourContext';
-import { handleSetInputFocus, useAutoAdvance } from '../utils/setInputUtils';
+import { useSetNumberPad } from '../utils/setInputUtils';
+import { suggestNextWeight } from '../utils/progressiveOverload';
+import SetNumberPad from './SetNumberPad';
+import SetValueField from './SetValueField';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -95,11 +98,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const coachTour = useCoachTour();
   const showDemoClientRow = coachTour.step > 0;
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
-  // Weight -> reps (and km -> time) auto-advance for the Live Log set table's
-  // number inputs — see useAutoAdvance for the debounce/refocus behavior.
-  const { schedule: scheduleLiveSetAutoAdvance } = useAutoAdvance();
-  const liveRepsInputRefs = useRef({});
-  const liveCardioTimeInputRefs = useRef({});
+  // Custom on-screen number pad for the Live Log set table's weight/reps/km/
+  // time fields — see utils/setInputUtils.js for why this replaced the
+  // native mobile keyboard entirely.
+  const { activeKey: activeLiveSetKey, registerField: registerLiveSetField, openField: openLiveSetField, closeField: closeLiveSetField, getActiveField: getActiveLiveSetField } = useSetNumberPad();
   // This coach's canonical public.users.id (== clients.coach_id for their
   // clients). Seeded from localStorage but re-resolved by email on mount because
   // localStorage.userId can be null/poisoned right after login — and the "My
@@ -1005,13 +1007,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       if (idx !== exIdx) return ex;
       if (isCardioExercise(ex.name)) {
         const last = ex.sets[ex.sets.length - 1];
-        return { ...ex, sets: [...ex.sets, { distanceKm: last?.distanceKm || '', time: '', isCompleted: false }] };
+        // Suggest the previous set's distance and time as a starting point.
+        return { ...ex, sets: [...ex.sets, { distanceKm: last?.distanceKm || '', time: last?.time || '', isCompleted: false }] };
       }
       if (isTimedExercise(ex.name)) {
         return { ...ex, sets: [...ex.sets, { time: '', isCompleted: false }] };
       }
+      // Reps stay fixed at the last set's target; weight steps up by one
+      // plate increment (2.5kg) — straight/pyramid-style progression
+      // instead of just repeating the last set verbatim.
       const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
-      return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: last.weight, isCompleted: false }] };
+      return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: suggestNextWeight(last.weight, '20'), isCompleted: false }] };
     }));
   };
 
@@ -5314,20 +5320,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   // pace for this exercise, ticking up alongside the live time.
                                   const cardioAutoKm = cardioRunning && cardioTimer?.autoKm !== false;
                                   const displayKm = cardioAutoKm ? estimateCardioDistanceKm(ex.name, liveSeconds) : set.distanceKm;
+                                  const kmKey = `km-${exIdx}-${setIdx}`;
+                                  const timeKey = `time-${exIdx}-${setIdx}`;
+                                  registerLiveSetField(kmKey, {
+                                    value: displayKm,
+                                    mode: 'decimal',
+                                    label: `${ex.name} · Km`,
+                                    onValue: (v) => handleLiveCardioKmEdit(exIdx, setIdx, v),
+                                    onNext: () => openLiveSetField(timeKey),
+                                  });
+                                  registerLiveSetField(timeKey, {
+                                    value: set.time,
+                                    mode: 'time',
+                                    label: `${ex.name} · Time`,
+                                    onValue: (v) => handleLiveCardioTimeEdit(exIdx, setIdx, v),
+                                    onPrev: () => openLiveSetField(kmKey),
+                                  });
                                   return (
                                     <>
                                       <div className="col-weight set-input-field">
-                                        <input
-                                          type="text"
-                                          inputMode="decimal"
-                                          placeholder="0"
+                                        <SetValueField
                                           value={displayKm}
-                                          onChange={e => {
-                                            handleLiveCardioKmEdit(exIdx, setIdx, e.target.value);
-                                            const key = cardioTimerKey;
-                                            scheduleLiveSetAutoAdvance(key, e.target, () => liveCardioTimeInputRefs.current[key]);
-                                          }}
-                                          onFocus={handleSetInputFocus}
+                                          placeholder="0"
+                                          active={activeLiveSetKey === kmKey}
+                                          onOpen={() => openLiveSetField(kmKey)}
                                         />
                                       </div>
                                       <div className="col-reps cardio-time-field">
@@ -5343,14 +5359,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         {cardioRunning ? (
                                           <span className="cardio-live-time">{formatSecondsToTimeString(liveSeconds)}</span>
                                         ) : (
-                                          <input
-                                            type="text"
-                                            inputMode="numeric"
-                                            placeholder="mm:ss"
+                                          <SetValueField
                                             value={set.time}
-                                            onChange={e => handleLiveCardioTimeEdit(exIdx, setIdx, e.target.value)}
-                                            onFocus={handleSetInputFocus}
-                                            ref={(el) => { liveCardioTimeInputRefs.current[cardioTimerKey] = el; }}
+                                            placeholder="mm:ss"
+                                            active={activeLiveSetKey === timeKey}
+                                            onOpen={() => openLiveSetField(timeKey)}
                                             className="cardio-time-input"
                                           />
                                         )}
@@ -5405,16 +5418,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                               // time field, instead of only settable by running the
                                               // stopwatch live. Pressing Start resumes from whatever's
                                               // typed here (see handleLiveSetStopwatchStart's fallback).
-                                              <input
-                                                type="text"
-                                                inputMode="numeric"
-                                                value={set.time || ''}
-                                                onChange={(e) => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
-                                                onFocus={handleSetInputFocus}
-                                                placeholder="mm:ss"
-                                                className="cardio-time-input"
-                                                style={{ minWidth: '50px' }}
-                                              />
+                                              (() => {
+                                                const timedKey = `timed-${exIdx}-${setIdx}`;
+                                                registerLiveSetField(timedKey, {
+                                                  value: set.time || '',
+                                                  mode: 'time',
+                                                  label: `${ex.name} · Time`,
+                                                  onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(v)),
+                                                });
+                                                return (
+                                                  <SetValueField
+                                                    value={set.time || ''}
+                                                    placeholder="mm:ss"
+                                                    active={activeLiveSetKey === timedKey}
+                                                    onOpen={() => openLiveSetField(timedKey)}
+                                                    className="cardio-time-input"
+                                                  />
+                                                );
+                                              })()
                                             )}
                                           </div>
                                         );
@@ -5423,35 +5444,48 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     <div className="col-reps"></div>
                                   </>
                                 ) : (
-                                  <>
-                                    {exIsBodyweight && exBwMode ? (
-                                      <div className="col-weight bw-static-label">BW</div>
-                                    ) : (
-                                      <div className="col-weight set-input-field">
-                                        <input
-                                          type="text"
-                                          inputMode="decimal"
-                                          value={set.weight}
-                                          onChange={e => {
-                                            handleLiveSetChange(exIdx, setIdx, 'weight', e.target.value);
-                                            const key = `${exIdx}-${setIdx}`;
-                                            scheduleLiveSetAutoAdvance(key, e.target, () => liveRepsInputRefs.current[key]);
-                                          }}
-                                          onFocus={handleSetInputFocus}
-                                        />
-                                      </div>
-                                    )}
-                                    <div className="col-reps set-input-field">
-                                      <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={set.reps}
-                                        onChange={e => handleLiveSetChange(exIdx, setIdx, 'reps', e.target.value)}
-                                        onFocus={handleSetInputFocus}
-                                        ref={(el) => { liveRepsInputRefs.current[`${exIdx}-${setIdx}`] = el; }}
-                                      />
-                                    </div>
-                                  </>
+                                  (() => {
+                                    const weightKey = `w-${exIdx}-${setIdx}`;
+                                    const repsKey = `r-${exIdx}-${setIdx}`;
+                                    registerLiveSetField(weightKey, {
+                                      value: set.weight,
+                                      mode: 'decimal',
+                                      label: `${ex.name} · Kg`,
+                                      onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'weight', v),
+                                      onNext: () => openLiveSetField(repsKey),
+                                    });
+                                    registerLiveSetField(repsKey, {
+                                      value: set.reps,
+                                      mode: 'integer',
+                                      label: `${ex.name} · Reps`,
+                                      onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'reps', v),
+                                      ...(exIsBodyweight && exBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
+                                    });
+                                    return (
+                                      <>
+                                        {exIsBodyweight && exBwMode ? (
+                                          <div className="col-weight bw-static-label">BW</div>
+                                        ) : (
+                                          <div className="col-weight set-input-field">
+                                            <SetValueField
+                                              value={set.weight}
+                                              placeholder="0"
+                                              active={activeLiveSetKey === weightKey}
+                                              onOpen={() => openLiveSetField(weightKey)}
+                                            />
+                                          </div>
+                                        )}
+                                        <div className="col-reps set-input-field">
+                                          <SetValueField
+                                            value={set.reps}
+                                            placeholder="0"
+                                            active={activeLiveSetKey === repsKey}
+                                            onOpen={() => openLiveSetField(repsKey)}
+                                          />
+                                        </div>
+                                      </>
+                                    );
+                                  })()
                                 )}
                                 <div className="col-check set-actions-field">
                                   <button
@@ -5951,6 +5985,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           </div>
         </div>
       )}
+      <SetNumberPad active={getActiveLiveSetField()} activeKey={activeLiveSetKey} onClose={closeLiveSetField} />
     </div>
   );
 };

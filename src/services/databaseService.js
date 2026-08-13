@@ -277,7 +277,7 @@ async function lookupProfileViaServer(email) {
 // PostgREST read, joined with users), or null on any failure; never throws.
 async function getCoachClientsViaServer(coachId) {
   try {
-    const { headers, email } = serverFallbackAuth();
+    const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
@@ -304,7 +304,7 @@ async function getCoachClientsViaServer(coachId) {
 // PostgREST read), or null on any failure; never throws.
 async function getWorkoutPlansViaServer(userId) {
   try {
-    const { headers, email } = serverFallbackAuth();
+    const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
@@ -338,9 +338,33 @@ async function getCoachNameViaServer() {
 
 // Shared auth headers for the workout-log server fallbacks below — same
 // token/email resolution as lookupProfileViaServer.
-function serverFallbackAuth() {
-  const stored = readStoredSupabaseSession();
-  const token = stored?.session?.access_token || cachedAccessToken || null;
+// MUST go through resolveBearerToken(), not read the stored access_token
+// raw. This used to do the latter — no expiry check, no refresh — which
+// quietly broke every server fallback the moment the ~1hr access token
+// expired:
+//
+//   coach saves a client's session -> direct workout_logs insert is rejected
+//   42501 by design (RLS is auth.uid()-based and the coach is not the client,
+//   which is the entire reason this fallback exists) -> fallback posts to
+//   /api/save-workout-session carrying an EXPIRED bearer -> the endpoint's
+//   /auth/v1/user check fails -> verifiedEmail is null -> its body-email
+//   escape hatch is localhost-only, so in production it 401s -> resp.ok is
+//   false -> saveWorkoutLogsViaServer returns false -> saveWorkoutSession
+//   rethrows the original error -> "❌ Failed to save session."
+//
+// That makes the failure a pure function of session length, which is exactly
+// how it presented: a coach running a real 5-hour in-person session (timers
+// in the reports read 04:59:24 and 05:53:12 — the token had been dead for
+// four hours) could not save ANY of that day's workouts, while short test
+// sessions saved fine. Reported 2026-08-13.
+//
+// resolveBearerToken() already solves this correctly for restSelect/
+// restInsert (checks the persisted expiry, refreshes via the raw endpoint,
+// re-reads in case the SDK won the race). Reusing it here means the fallback
+// is authenticated with a live token instead of whatever happens to be
+// sitting in localStorage.
+async function serverFallbackAuth() {
+  const token = await resolveBearerToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token && token !== supabaseAnonKey) headers.Authorization = `Bearer ${token}`;
   const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
@@ -352,7 +376,7 @@ function serverFallbackAuth() {
 // caller decides what null means; never throws).
 async function getWorkoutLogsViaServer(userId) {
   try {
-    const { headers, email } = serverFallbackAuth();
+    const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
@@ -379,9 +403,13 @@ async function getWorkoutLogsViaServer(userId) {
 // decides how to surface that; never throws).
 async function saveWorkoutLogsViaServer(records) {
   try {
-    const { headers, email } = serverFallbackAuth();
+    const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
+    // 20s, not 10s: this is the LAST chance to persist a session the coach
+    // just spent an hour logging, and the caller's own ceiling now allows 25s
+    // (see handleSaveLiveSession). Aborting a save that would have landed is
+    // strictly worse here than waiting a few more seconds.
+    const timer = setTimeout(() => controller.abort(), 20000);
     try {
       const resp = await fetch('/api/save-workout-session', {
         method: 'POST',
@@ -389,14 +417,70 @@ async function saveWorkoutLogsViaServer(records) {
         body: JSON.stringify({ records, email }),
         signal: controller.signal
       });
-      return resp.ok;
+      if (!resp.ok) {
+        // Used to `return resp.ok` and discard the reason entirely, which is
+        // why a production 401 from an expired bearer looked identical to any
+        // other failure and took days to pin down. Always say what happened.
+        const body = await resp.text().catch(() => '');
+        console.error('saveWorkoutLogsViaServer: /api/save-workout-session',
+          resp.status, body.slice(0, 300), '| sent auth:', !!headers.Authorization);
+        return false;
+      }
+      return true;
     } finally {
       clearTimeout(timer);
     }
   } catch (e) {
-    console.warn('saveWorkoutLogsViaServer failed (non-fatal):', e?.message || e);
+    console.error('saveWorkoutLogsViaServer failed:', e?.name === 'AbortError' ? 'timed out after 20s' : (e?.message || e));
     return false;
   }
+}
+
+// ─── PENDING-SAVE QUEUE (last-resort durability) ───
+// If a workout cannot be written right now — offline, expired session that
+// even the refresh could not rescue, server down — the rows are parked in
+// localStorage instead of evaporating with the error toast, and replayed on
+// the next app start and whenever the device comes back online. The coach's
+// draft is separately preserved (deleteWorkoutDraft only runs after a
+// successful write), so this is belt-and-braces: even if someone discards the
+// draft, the completed session still lands.
+const PENDING_LOGS_KEY = 'pendingWorkoutLogs';
+
+function queuePendingWorkoutLogs(records) {
+  try {
+    const queue = JSON.parse(localStorage.getItem(PENDING_LOGS_KEY) || '[]');
+    queue.push({ records, queuedAt: new Date().toISOString() });
+    // Keep the queue bounded so a permanently-failing save can't grow without
+    // limit and blow the localStorage quota.
+    localStorage.setItem(PENDING_LOGS_KEY, JSON.stringify(queue.slice(-20)));
+    console.warn(`Workout save deferred: ${records.length} set rows queued for automatic retry.`);
+  } catch (e) {
+    console.error('Could not queue workout for retry:', e?.message || e);
+  }
+}
+
+export async function flushPendingWorkoutLogs() {
+  let queue;
+  try {
+    queue = JSON.parse(localStorage.getItem(PENDING_LOGS_KEY) || '[]');
+  } catch {
+    return { attempted: 0, saved: 0 };
+  }
+  if (!Array.isArray(queue) || queue.length === 0) return { attempted: 0, saved: 0 };
+
+  const stillPending = [];
+  let saved = 0;
+  for (const entry of queue) {
+    if (!entry?.records?.length) continue;
+    const ok = await saveWorkoutLogsViaServer(entry.records);
+    if (ok) saved++; else stillPending.push(entry);
+  }
+  try {
+    if (stillPending.length) localStorage.setItem(PENDING_LOGS_KEY, JSON.stringify(stillPending));
+    else localStorage.removeItem(PENDING_LOGS_KEY);
+  } catch { /* non-fatal */ }
+  if (saved) console.log(`Replayed ${saved} previously-failed workout save(s).`);
+  return { attempted: queue.length, saved };
 }
 
 // Same SDK-hang bypass as restSelect, for calling a Postgres RPC function
@@ -1181,7 +1265,15 @@ const databaseService = {
                 // saved and never actually is.
                 console.warn('workout_logs client-side insert failed, falling back to server:', error?.message || error);
                 const saved = await saveWorkoutLogsViaServer(records);
-                if (!saved) throw error;
+                if (!saved) {
+                  // Both paths failed. Park the rows so they are replayed
+                  // automatically on the next launch / when connectivity
+                  // returns, instead of existing only in the error toast the
+                  // coach is about to see. Still rethrow: the UI must report
+                  // honestly that it did not save right now.
+                  queuePendingWorkoutLogs(records);
+                  throw error;
+                }
               }
             }
             console.log('Cloud DB: Saved workout session sets.');

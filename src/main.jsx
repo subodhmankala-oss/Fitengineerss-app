@@ -38,6 +38,16 @@ initPWA();
 // real pixel-derived value forces the browser to actually reflow every time
 // the viewport genuinely changes, instead of trusting a unit that some
 // engines silently fail to update.
+// Connectivity came back — replay any workout save that failed while the
+// device was offline or the session was stale. See flushPendingWorkoutLogs.
+// Registered here (not in a component) so it survives every route/role change
+// and fires even if the coach never re-opens the Live Log tab.
+window.addEventListener('online', () => {
+  import('./services/databaseService')
+    .then(({ flushPendingWorkoutLogs }) => flushPendingWorkoutLogs())
+    .catch(() => {});
+});
+
 function setAppViewportHeight() {
   const h = window.visualViewport?.height || window.innerHeight;
   document.documentElement.style.setProperty('--app-vh', `${h / 100}px`);

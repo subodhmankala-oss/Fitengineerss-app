@@ -103,6 +103,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // time fields — see utils/setInputUtils.js for why this replaced the
   // native mobile keyboard entirely.
   const { activeKey: activeLiveSetKey, registerField: registerLiveSetField, openField: openLiveSetField, closeField: closeLiveSetField, getActiveField: getActiveLiveSetField } = useSetNumberPad();
+  // How far to lift the Save/Discard action bar so it docks ABOVE the open
+  // pad instead of z-index alone just drawing it on top of the pad's digit
+  // grid. The bar sits in normal document flow right after the exercise
+  // list, so with a short list its resting Y position can land inside the
+  // pad's own on-screen rectangle (bottom ~40% of the viewport) — raising
+  // its z-index (see SetNumberPad.css) made it win the tap, like intended,
+  // but also drew it visibly overlapping the pad's keys, which read as a
+  // broken overlay rather than a docked bar. Reported 2026-08-13.
+  // Measured (not a fixed guess) because the pad's real height varies with
+  // the device's safe-area inset.
+  const [livePadLift, setLivePadLift] = useState(0);
+  useEffect(() => {
+    if (!activeLiveSetKey) { setLivePadLift(0); return; }
+    const raf = requestAnimationFrame(() => {
+      const pad = document.querySelector('.set-number-pad');
+      setLivePadLift(pad ? pad.getBoundingClientRect().height : 0);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [activeLiveSetKey]);
   // This coach's canonical public.users.id (== clients.coach_id for their
   // clients). Seeded from localStorage but re-resolved by email on mount because
   // localStorage.userId can be null/poisoned right after login — and the "My
@@ -5902,7 +5921,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       SetNumberPad.css) pins this bar above the pad with a
                       higher z-index so it's always reachable regardless of pad
                       state. Confirmed 2026-08-13 for a real coach. */}
-                  <div className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
+                  <div
+                    className="live-log-action-bar"
+                    style={{
+                      display: 'flex',
+                      gap: '10px',
+                      transform: livePadLift ? `translateY(-${livePadLift}px)` : 'none',
+                      transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => setShowDiscardLiveModal(true)}

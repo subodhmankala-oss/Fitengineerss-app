@@ -1569,6 +1569,14 @@ const WorkoutTracker = () => {
           newSet = { time: lastSet?.time || '', isCompleted: false, isWarmup };
         } else if (isWarmupExercise(ex.name)) {
           newSet = { reps: lastSet?.reps || 10, weight: '0', isCompleted: false, isWarmup };
+        } else if (isBodyweightExercise(ex.name) && getLogExBwMode(ex)) {
+          // Bodyweight mode means exactly that — a new set shouldn't invent a
+          // weight the client never chose. suggestNextWeight below is a
+          // straight/pyramid-style plate-increment suggestion meant for
+          // loaded exercises; applying it here silently turned "BW" (set 1)
+          // into "2.5 kg" (set 2), "5 kg" (set 3), etc. for an exercise
+          // logged with no weight at all. Reported 2026-08-14 for Steppers.
+          newSet = { reps: lastSet?.reps || 10, weight: '0', isCompleted: false, isWarmup };
         } else {
           // Reps stay fixed at the last set's target; weight steps up by one
           // plate increment (2.5kg) — straight/pyramid-style progression

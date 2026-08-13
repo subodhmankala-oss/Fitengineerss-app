@@ -8,7 +8,7 @@
   padding: 24px;
   padding-top: clamp(16px, 4vh, 40px);
   padding-bottom: 24px;
-  background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.96)), url('/gym_bg.png');
+  background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.96)), url('/gym_bg.webp');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

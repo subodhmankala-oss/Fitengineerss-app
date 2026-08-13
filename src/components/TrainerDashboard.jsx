@@ -742,6 +742,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     }));
   };
 
+  // Editing the time field by hand while paused is meant to be the new
+  // authoritative value — but handleLiveSetStopwatchStart's resume logic
+  // reads liveSetTimers[key].pausedDuration FIRST and only falls back to
+  // the set's own `time` field when no timer entry exists at all. Once the
+  // stopwatch had been started and paused even once this session, a timer
+  // entry with a stale pausedDuration already existed, so a manual edit
+  // afterward (e.g. typing "0" to reset it) updated the displayed text but
+  // never touched that stale pausedDuration — pressing Start again resumed
+  // from the OLD number instead of the freshly typed one. Reported
+  // 2026-08-14. Same fix applied to handleLiveCardioTimeEdit below.
+  const handleLiveTimedSetTimeEdit = (exIdx, setIdx, rawValue) => {
+    const masked = maskDigitsToTimeString(rawValue);
+    handleLiveSetChange(exIdx, setIdx, 'time', masked);
+    const key = getSetTimerKey(exIdx, setIdx);
+    setLiveSetTimers(prev => (prev[key]
+      ? { ...prev, [key]: { ...prev[key], pausedDuration: parseTimeStringToSeconds(masked) || 0 } }
+      : prev));
+  };
+
   // Cardio sets (Running, Jogging, Cycling, Cross Trainer, Incline Walk,
   // Treadmill Walk) reuse the same per-set stopwatch infra as timed
   // exercises — two differences (see the client's WorkoutTracker.jsx for
@@ -810,6 +829,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         })
       };
     }));
+    // Same fix as handleLiveTimedSetTimeEdit above — keep any existing
+    // paused timer entry's pausedDuration in sync with a manual edit, or
+    // Start resumes from the stale pre-edit number instead of what was
+    // just typed.
+    const key = getSetTimerKey(exIdx, setIdx);
+    setLiveSetTimers(prev => (prev[key]
+      ? { ...prev, [key]: { ...prev[key], pausedDuration: parseTimeStringToSeconds(masked) || 0 } }
+      : prev));
   };
 
   const handleLiveCardioStopwatchPause = (exIdx, setIdx) => {
@@ -5693,7 +5720,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                   value: set.time || '',
                                                   mode: 'time',
                                                   label: `${ex.name} · Time`,
-                                                  onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'time', maskDigitsToTimeString(v)),
+                                                  onValue: (v) => handleLiveTimedSetTimeEdit(exIdx, setIdx, v),
                                                 });
                                                 return (
                                                   <SetValueField

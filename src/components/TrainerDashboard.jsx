@@ -1132,11 +1132,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // background — if it lands late, that's a bonus, not a problem) — it
     // just guarantees the UI always resolves to a clear success or failure
     // within 10s instead of hanging forever.
-    const SAVE_TIMEOUT_MS = 10000;
+    // The ceiling now guards ONLY the two writes that decide whether the
+    // workout exists (saveWorkoutSession + deleteWorkoutDraft), not the
+    // follow-up refetches — so it can be generous enough for a phone on a
+    // weak connection without ever leaving the button stuck. 10s used to
+    // cover the whole chain including ~4s of post-save refetching, which is
+    // why a perfectly good save reported failure.
+    const SAVE_TIMEOUT_MS = 25000;
     let timedOut = false;
+    let timeoutHandle = null;
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => { timedOut = true; reject(new Error('Save timed out — check your connection and try again.')); }, SAVE_TIMEOUT_MS);
+      timeoutHandle = setTimeout(() => { timedOut = true; reject(new Error('Save timed out — check your connection and try again.')); }, SAVE_TIMEOUT_MS);
     });
+    // Resolves the instant the real writes land; rejects if they fail, so a
+    // genuine error still surfaces as an error instead of waiting out the
+    // ceiling and reporting a misleading "taking too long".
+    let markCriticalDone;
+    let failCritical;
+    const criticalDone = new Promise((resolve, reject) => { markCriticalDone = resolve; failCritical = reject; });
     const doSave = async () => {
       // Build session object - only save completed sets, or all if none ticked
       const completedCount = liveExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
@@ -1180,6 +1193,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       await databaseService.saveWorkoutSession(session);
       // Session is finished and saved to workout_logs — the open draft is done.
       await databaseService.deleteWorkoutDraft(selectedClient.id);
+      // ── Everything above this line is the actual save. Everything below is
+      // follow-up work, and none of it decides whether the workout exists.
+      // criticalDone resolves here so the button can stop saying "Saving…"
+      // the moment the workout is genuinely stored, instead of waiting on the
+      // slow refetches further down (measured on a FAST desktop connection:
+      // /api/save-workout-session 2.3s, then getWorkoutLogsForUser 2.0s and
+      // fetchClientPlans 1.9s — ~6.3s total, of which only the first ~2.5s
+      // was the save). On a coach's phone that overran the old 10s ceiling,
+      // which then reported failure for a workout that had already been
+      // written — and, because the ceiling aborted the UI mid-chain, left the
+      // "Live Log in progress" draft in place, so it looked like nothing had
+      // saved at all. Reported repeatedly 2026-08-13.
+      markCriticalDone();
+      // Confirm success here, at the moment it's true, rather than after the
+      // refetches below — the coach should not be left watching a spinner
+      // (or worse, told it failed) while the workout is already stored.
+      if (!timedOut) {
+        triggerLiveToast(coachNoteText.trim()
+          ? '✅ Workout session + note saved for ' + selectedClient.userName + '!'
+          : '✅ Workout session saved for ' + selectedClient.userName + '!');
+      }
 
       // Also save what was just logged as a reusable plan in the coach's own
       // "Workout Plan" tab, so a real in-person session doesn't have to be
@@ -1251,9 +1285,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       // toast after they'd already seen "❌ failed" and possibly moved on.
       if (timedOut) return;
 
-      triggerLiveToast(liveNote
-        ? '✅ Workout session + note saved for ' + selectedClient.userName + '!'
-        : '✅ Workout session saved for ' + selectedClient.userName + '!');
       // Refresh workout history
       const logs = await databaseService.getWorkoutLogsForUser(selectedClient.id);
       setWorkoutLogs(groupLogs(logs || []));
@@ -1272,13 +1303,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     };
 
     try {
-      await Promise.race([doSave(), timeoutPromise]);
+      // Kick off the whole chain, but only WAIT on the critical writes. The
+      // follow-up work (plan copy, coach note, history/plan refetches, logger
+      // reset) keeps running in the background after the button is released.
+      const savePromise = doSave().catch((err) => { failCritical(err); throw err; });
+      savePromise.catch(() => {}); // chain settled above; don't warn as unhandled
+      await Promise.race([criticalDone, timeoutPromise]);
     } catch (e) {
       console.error('Error saving live session:', e);
       triggerLiveToast(timedOut
         ? '⏱️ Save is taking too long — check your connection. It may still finish in the background; check the client\'s history before retrying.'
         : '❌ Failed to save session. Please try again.');
     } finally {
+      clearTimeout(timeoutHandle);
       setLiveSaving(false);
     }
   };

@@ -1,21 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Onboarding from './components/Onboarding';
-import ClientOnboardingWizard from './components/ClientOnboardingWizard';
-import HomeTracker from './components/HomeTracker';
-import FatLossDashboard from './components/FatLossDashboard';
-import MuscleDashboard from './components/MuscleDashboard';
-import MealCheck from './components/MealCheck';
-import BloatingTracker from './components/BloatingTracker';
-import SmartMealPlans from './components/SmartMealPlans';
-import ProgressDashboard from './components/ProgressDashboard';
-import ClientProfile from './components/ClientProfile';
 import SmartNudges from './components/SmartNudges';
-import NutritionTracker from './components/NutritionTracker';
-import WorkoutTracker from './components/WorkoutTracker';
-import TrainerDashboard from './components/TrainerDashboard';
-import WorkoutProgressDashboard from './components/WorkoutProgressDashboard';
 import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
+// Lazy-loaded: each of these is only ever needed for ONE role/route at a
+// time (a client never runs TrainerDashboard's code, a returning user never
+// runs ClientOnboardingWizard's, etc.), but a plain static import ships all
+// of them in the SAME bundle every single visitor downloads before first
+// paint — TrainerDashboard alone is ~335KB of source. Splitting them into
+// their own chunks means a client on a slow connection only ever pays for
+// the ~3 screens they can actually reach. Loaded on demand via <Suspense>
+// at each render site below. Part of the low-bandwidth push (see also the
+// onboarding image WebP conversion).
+const ClientOnboardingWizard = lazy(() => import('./components/ClientOnboardingWizard'));
+const ClientProfile = lazy(() => import('./components/ClientProfile'));
+const WorkoutTracker = lazy(() => import('./components/WorkoutTracker'));
+const TrainerDashboard = lazy(() => import('./components/TrainerDashboard'));
+const WorkoutProgressDashboard = lazy(() => import('./components/WorkoutProgressDashboard'));
+const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
+const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
 import { useTour } from './context/TourContext';
 import { useCoachTour } from './context/CoachTourContext';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken } from './services/databaseService';
@@ -34,11 +37,17 @@ const getRecoveryTokenFromHash = () => {
   }
   return '';
 };
-import ResetPasswordPage from './components/ResetPasswordPage';
-import AuthConfirm from './components/AuthConfirm';
 import { isSuperAdmin } from './services/accessControl';
-import './index.css'; 
+import './index.css';
 
+// Fallback while a lazy-loaded screen's chunk downloads (see the lazy()
+// imports above) — only ever visible on a slow connection or the very
+// first time a given chunk is needed, since the browser caches it after.
+const LazyScreenFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', width: '100%' }}>
+    <div style={{ width: '34px', height: '34px', border: '3px solid rgba(255,255,255,0.12)', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+  </div>
+);
 
 const getDynamicTargets = () => {
   const calorieTarget = parseInt(localStorage.getItem('userCalorieTarget') || '1800');
@@ -1026,7 +1035,7 @@ function App() {
   // survives Gmail's link scanner (it does a plain GET and never runs this JS,
   // so the one-time token isn't consumed before the human clicks).
   if (window.location.pathname === '/auth/confirm') {
-    return <AuthConfirm />;
+    return <Suspense fallback={<LazyScreenFallback />}><AuthConfirm /></Suspense>;
   }
 
   // Expired / already-used auth link (Supabase puts the failure in the URL hash,
@@ -1062,7 +1071,7 @@ function App() {
   if (window.location.pathname === '/reset-password') {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'radial-gradient(circle at top right, rgba(139, 92, 246, 0.15), transparent 40%), radial-gradient(circle at bottom left, rgba(109, 40, 217, 0.15), transparent 40%), #030712' }}>
-        <ResetPasswordPage />
+        <Suspense fallback={<LazyScreenFallback />}><ResetPasswordPage /></Suspense>
       </div>
     );
   }
@@ -1464,13 +1473,15 @@ function App() {
   if (showClientWizard && !isAdmin && !isCoach) {
     return (
       <div className="app-container">
-        <ClientOnboardingWizard
-          onComplete={() => {
-            setShowClientWizard(false);
-            localStorage.setItem('onboardingCompleted', 'true');
-          }}
-          onBackToLogin={handleLogout}
-        />
+        <Suspense fallback={<LazyScreenFallback />}>
+          <ClientOnboardingWizard
+            onComplete={() => {
+              setShowClientWizard(false);
+              localStorage.setItem('onboardingCompleted', 'true');
+            }}
+            onBackToLogin={handleLogout}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -1478,11 +1489,13 @@ function App() {
   if (isAdmin || isCoach) {
     return (
       <div className="app-container">
-        <TrainerDashboard
-          handleLogout={handleLogout}
-          onReplayDemoTour={isAdmin ? undefined : () => coachTour.restart()}
-          deepLinkClientId={deepLinkClientId}
-        />
+        <Suspense fallback={<LazyScreenFallback />}>
+          <TrainerDashboard
+            handleLogout={handleLogout}
+            onReplayDemoTour={isAdmin ? undefined : () => coachTour.restart()}
+            deepLinkClientId={deepLinkClientId}
+          />
+        </Suspense>
         {renderResetPasswordModal()}
         {!isAdmin && <CoachTourOverlay />}
       </div>
@@ -1495,7 +1508,7 @@ function App() {
       <TourOverlay />
 
       <main className="main-content">
-        {renderContent()}
+        <Suspense fallback={<LazyScreenFallback />}>{renderContent()}</Suspense>
       </main>
       
       {isNavVisible && (

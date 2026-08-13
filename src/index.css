@@ -236,12 +236,28 @@ button {
   100% { opacity: 1; transform: none; }
 }
 
+/* NO `forwards` on either of these — deliberately. Both keyframe sets end at
+   the element's own natural state (opacity: 1, transform: none), so the fill
+   mode was never holding anything visually. What it DID do is poison every
+   `position: fixed` descendant: a filled `transform: none` keyframe computes
+   to the identity matrix `matrix(1, 0, 0, 1, 0, 0)`, not to `none`, and any
+   computed transform other than `none` makes the element a containing block
+   for fixed-position descendants. So `.trainer-dashboard-container
+   .animate-scale-in` permanently anchored every fixed overlay inside the
+   coach dashboard to ITSELF (a scrolling box) instead of the viewport — the
+   number pad, the exercise picker tray, and anything else fixed rendered
+   stranded mid-page and scrolled with the content. Measured on the live coach
+   dashboard 2026-08-13: computed transform stayed matrix(1,0,0,1,0,0) long
+   after the animation had finished.
+   Dropping `forwards` lets the computed transform fall back to `none` once
+   the animation ends, which is both visually identical and what every fixed
+   overlay needs. */
 .animate-slide-up {
-  animation: slideUpFadeIn var(--transition-smooth) forwards;
+  animation: slideUpFadeIn var(--transition-smooth);
 }
 
 .animate-scale-in {
-  animation: scaleIn var(--transition-spring) forwards;
+  animation: scaleIn var(--transition-spring);
 }
 
 /* Common UI Elements */

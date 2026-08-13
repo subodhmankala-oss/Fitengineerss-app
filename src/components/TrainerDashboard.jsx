@@ -570,12 +570,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // Explicit "not now" dismissal for the coach-note card — the coach may
   // not want to send anything for this session at all, and previously had
   // no way to close the card short of actually sending a note. Plain React
-  // state (not persisted) is deliberate: it's a "hide for now" affordance,
-  // not "never ask again" — reset whenever a different client is opened so
-  // it doesn't leak across clients, and whenever a new session starts
-  // needing a response so a stale dismissal from days ago can't silently
-  // suppress a fresh one.
-  const [coachNoteDismissed, setCoachNoteDismissed] = useState(false);
+  // state (not persisted across a real reload — deliberate, this is a
+  // "hide for now" affordance, not "never ask again").
+  //
+  // REGRESSION FIX 2026-08-14: this used to be a single boolean, reset via
+  // a useEffect keyed on selectedClient?.id, on the theory that a client
+  // change was the only time it needed clearing. But the client detail
+  // view's own back button does `setSelectedClient(null)` (not a real
+  // unmount) — so tapping Close, going back to the dashboard, then
+  // reopening the SAME client made selectedClient?.id go id -> undefined
+  // -> id, which the effect saw as "a different client" and reset the
+  // dismissal right back to false. The card came back on every single
+  // return trip, exactly what was reported.
+  //
+  // Keyed by {clientId: sessionKey} instead — a dismissal only counts as
+  // "still valid" if it's for the SAME client AND the SAME session that
+  // was showing when it was dismissed. Revisiting the same client/session
+  // (however many times, however they navigated there) keeps it
+  // dismissed; a genuinely new session needing a response won't match the
+  // stored key and shows the card again, same as before.
+  const [dismissedCoachNoteFor, setDismissedCoachNoteFor] = useState({});
   // Live Log: the coach-note composer is hidden behind a "Coach note" toggle
   // and has no Send button of its own — whatever's typed here is sent (via the
   // same saveCoachNote + coach_note push path) as part of "Save Workout
@@ -2392,16 +2406,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const sessionNeedsResponse = latestClientSession && (
     !lastCoachNoteSentAt || new Date(lastCoachNoteSentAt) < new Date(latestClientSession.createdAt || `${latestClientSession.date}T00:00:00`)
   );
+  // The session this dismissal-tracking keys off — same fields
+  // sessionNeedsResponse itself compares against, so "same session" here
+  // means exactly what it means there.
+  const latestSessionKey = latestClientSession
+    ? (latestClientSession.createdAt || `${latestClientSession.date}T00:00:00`)
+    : null;
+  const coachNoteDismissed = !!(selectedClient && latestSessionKey &&
+    dismissedCoachNoteFor[selectedClient.id] === latestSessionKey);
   const showCoachNoteCard = (sessionNeedsResponse && !coachNoteDismissed) || coachNoteJustSent;
-  // Clear a dismissal the instant it's no longer covering the same session
-  // it was dismissed for — otherwise it's a one-time "not now" that
-  // silently turns into "never ask again" for every session after it too.
-  useEffect(() => {
-    if (coachNoteDismissed && !sessionNeedsResponse) setCoachNoteDismissed(false);
-  }, [sessionNeedsResponse]);
-  useEffect(() => {
-    setCoachNoteDismissed(false);
-  }, [selectedClient?.id]);
 
   // The coach-note textarea (both the client-detail composer and the Live
   // Log one) is a plain native <textarea> — it never got moved onto the
@@ -4108,7 +4121,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   <button
                     type="button"
                     className="coach-note-close"
-                    onClick={() => setCoachNoteDismissed(true)}
+                    onClick={() => setDismissedCoachNoteFor(prev => ({ ...prev, [selectedClient.id]: latestSessionKey }))}
                     title="Not now"
                     aria-label="Dismiss"
                   >

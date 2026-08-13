@@ -4459,7 +4459,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 </p>
                               ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                  {weekDays.filter(day => groupedByDate[day]).map(day => renderSessionCard(day, groupedByDate[day], { highlightToday: true }))}
+                                  {/* weekDays is built Mon->Sun (for the bar chart's weekday
+                                      order) — reverse just for this list so the most recent
+                                      session (e.g. today) shows first instead of last.
+                                      YYYY-MM-DD strings sort/reverse chronologically as-is. */}
+                                  {[...weekDays].reverse().filter(day => groupedByDate[day]).map(day => renderSessionCard(day, groupedByDate[day], { highlightToday: true }))}
                                 </div>
                               )}
                             </div>

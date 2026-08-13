@@ -4,6 +4,8 @@
 import { registerSW } from 'virtual:pwa-register';
 
 let applyUpdateFn = null;
+let swRegistration = null;
+let updatePending = false;
 // True until the first onNeedRefresh has been handled. registerSW's default
 // update check only fires on page load/navigation — a client who opens the
 // app once and leaves it running for days (the normal case for a PWA
@@ -21,6 +23,7 @@ export function initPWA() {
   applyUpdateFn = registerSW({
     onRegisteredSW(swUrl, registration) {
       if (!registration) return;
+      swRegistration = registration;
       // Check for a newer deploy periodically while the app stays open, not
       // just on the initial page load — closes the exact gap above for a
       // long-running session. Errors here are non-fatal; the next interval
@@ -30,6 +33,7 @@ export function initPWA() {
       }, 5 * 60 * 1000);
     },
     onNeedRefresh() {
+      updatePending = true;
       // A new SW finished installing and is waiting. If this fires within
       // the first few seconds of launch, there's nothing "mid-log" to
       // protect yet — the client hasn't touched anything — so apply it
@@ -56,4 +60,26 @@ export function initPWA() {
 // it takes control. Safe to call any time after initPWA().
 export function applyPWAUpdate() {
   applyUpdateFn?.(true);
+}
+
+// A stale tab silently running pre-fix JS reproduces whatever bug that fix
+// addressed, forever, no matter how many times "try again" is tapped — the
+// broken code is already loaded into memory and a background SW update
+// doesn't touch it. Reported repeatedly 2026-08-13: a coach's Live Log save
+// kept failing with "Failed to save session" hours after the actual fix had
+// already shipped and gone live, because their tab had been open since
+// before the deploy. This lets a genuine failure (not a timeout — see
+// handleFinishLiveLog) check, on the spot, whether a newer build is already
+// sitting there waiting, so the recovery path can be "you're on an old
+// version — updating now" instead of a dead-end retry loop.
+export async function checkForPendingPWAUpdate() {
+  if (updatePending) return true;
+  if (!swRegistration) return false;
+  try {
+    await swRegistration.update();
+  } catch { /* offline or registration gone — treat as "no update found" */ }
+  // onNeedRefresh fires synchronously off the update() call when a new SW is
+  // found, but give the event loop a tick to actually run it.
+  await new Promise((r) => setTimeout(r, 300));
+  return updatePending;
 }

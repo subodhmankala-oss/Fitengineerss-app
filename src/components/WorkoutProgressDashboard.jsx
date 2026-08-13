@@ -1330,7 +1330,12 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                   <strong className="card-value text-amber">{monthlyStats.workoutsCount} <span className="value-unit">workouts</span></strong>
                   <p className="card-sub">Last 30 days</p>
                 </div>
-                <div className="stat-card glass-panel">
+                {/* 3-column grid + 4 cards leaves this one orphaned alone in a
+                    mostly-empty second row, with its own left edge matching the
+                    "Monthly Volume" card above but everything to its right just
+                    blank — read as a padding/alignment bug. Span the full row
+                    instead so its width actually matches the row above. */}
+                <div className="stat-card glass-panel" style={{ gridColumn: '1 / -1' }}>
                   <span className="card-label">🔥 Calories</span>
                   <strong className="card-value" style={{ color: '#fbbf24' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} <span className="value-unit">kcal</span></strong>
                   <p className="card-sub">Last 30 days</p>

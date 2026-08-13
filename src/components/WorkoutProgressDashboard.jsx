@@ -5,8 +5,9 @@ import CoachNoteBanner from './CoachNoteBanner';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
+import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
 import './WorkoutProgressDashboard.css';
@@ -344,6 +345,13 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       grouped[date].exercises[log.exercise_name].push({
         reps,
         weight,
+        // Timed holds (plank, wall sit, ...) and cardio rows don't use
+        // weight/reps at all — they're stored in cardio_duration_seconds
+        // (+ distance_km for real cardio). Without these, the table below
+        // fell back to weight/reps defaulting to 0 and showed a bogus
+        // "0 kg / 0 reps" row for every timed exercise.
+        time: formatSecondsToTimeString(log.cardio_duration_seconds),
+        distanceKm: log.distance_km,
         setType: log.set_type || null,
         isWarmup: log.set_type === 'warmup'
       });
@@ -1201,16 +1209,42 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                   <div className="daily-exercises-list mt-3">
                     <h4 className="section-subtitle">Exercise Sets Logged</h4>
                     <div className="ex-list-wrapper mt-2">
-                      {dailyStats.exercises.map((ex, exIdx) => (
+                      {dailyStats.exercises.map((ex, exIdx) => {
+                        // Timed holds (plank, wall sit, ...) and cardio rows
+                        // don't have a weight/reps/vol shape at all — showing
+                        // those columns for them just rendered "0 kg / 0 reps"
+                        // for every set. Match the column set to what the
+                        // exercise actually logs, same as the logger's own
+                        // history view.
+                        const exIsTimed = isTimedExercise(ex.name);
+                        const exIsCardio = isCardioExercise(ex.name);
+                        const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
+                        return (
                         <div key={exIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
                           <div className="ex-title" style={{ marginBottom: '6px' }}>{ex.name}</div>
                           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                 <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Set</th>
-                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Weight</th>
-                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Reps</th>
-                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Vol</th>
+                                {exIsTimed ? (
+                                  <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Time</th>
+                                ) : exIsCardio ? (
+                                  <>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Km</th>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Time</th>
+                                  </>
+                                ) : exIsLoadedCarry ? (
+                                  <>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Weight</th>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Meters</th>
+                                  </>
+                                ) : (
+                                  <>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Weight</th>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Reps</th>
+                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Vol</th>
+                                  </>
+                                )}
                               </tr>
                             </thead>
                             <tbody>
@@ -1230,16 +1264,33 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                                         color: visual.color || '#fff'
                                       }}>{visual.label}</span>
                                     </td>
-                                    <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
-                                    <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
-                                    <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
+                                    {exIsTimed ? (
+                                      <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.time || '00:00'}</td>
+                                    ) : exIsCardio ? (
+                                      <>
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.distanceKm ?? 0} km</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.time || '00:00'}</td>
+                                      </>
+                                    ) : exIsLoadedCarry ? (
+                                      <>
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} m</td>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
+                                      </>
+                                    )}
                                   </tr>
                                 );
                               })}
                             </tbody>
                           </table>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (

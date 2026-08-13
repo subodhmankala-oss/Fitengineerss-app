@@ -1058,7 +1058,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                   </p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {weekDays.filter(day => groupedLogs[day]).map(day => {
+                    {/* weekDays is built Mon->Sun (for the bar chart's weekday
+                        order) — reverse just for this list so the most recent
+                        session (e.g. today) shows first instead of last.
+                        YYYY-MM-DD strings sort/reverse chronologically as-is. */}
+                    {[...weekDays].reverse().filter(day => groupedLogs[day]).map(day => {
                       const session = groupedLogs[day];
                       const exercises = Object.entries(session.exercises);
                       const dateLabel = new Date(day + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

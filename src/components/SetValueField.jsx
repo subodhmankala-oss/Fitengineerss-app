@@ -42,8 +42,27 @@ export function restoreScrollAfterPad() {
   // Only undo OUR adjustment. If the coach scrolled by hand while the pad was
   // open, their position is the one that matters — snapping it away would be
   // its own bug.
-  if (Math.abs(node.scrollTop - scrolledTo) > 8) return;
-  node.scrollTo({ top, behavior: 'smooth' });
+  //
+  // REGRESSION FIX 2026-08-13: `scrolledTo` was recorded while the pad's
+  // own CSS reserved 340px of extra bottom padding on this container (see
+  // `body:has(.set-number-pad.open)` in SetNumberPad.css). That padding
+  // disappears the INSTANT the pad's `.open` class is removed — no
+  // transition — which happens in the very same tick as this function
+  // running (both driven by the pad's `active` state going null). By the
+  // time we read `node.scrollTop` here, the browser has often already
+  // auto-clamped it down to the container's new, shorter max-scroll —
+  // which no longer matches the stale, pre-removal `scrolledTo`. The guard
+  // then saw a large diff and bailed out, leaving the coach wherever the
+  // browser's own clamp had landed instead of restoring anywhere sane —
+  // e.g. with the "Save Workout Session" bar overlapping whatever exercise
+  // card happened to end up in that spot. Clamp both sides of the
+  // comparison (and the restore target) to the CURRENT max scroll so the
+  // guard compares like-for-like instead of a stale unclamped value
+  // against an already-clamped one.
+  const maxScroll = Math.max(0, node.scrollHeight - node.clientHeight);
+  const clampedScrolledTo = Math.min(scrolledTo, maxScroll);
+  if (Math.abs(node.scrollTop - clampedScrolledTo) > 8) return;
+  node.scrollTo({ top: Math.min(top, maxScroll), behavior: 'smooth' });
 }
 
 export default function SetValueField({ value, placeholder, disabled, active, onOpen, className = '' }) {

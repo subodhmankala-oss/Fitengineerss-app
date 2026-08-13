@@ -342,7 +342,21 @@ const Onboarding = ({ onComplete }) => {
     setAuthError('');
     setAuthLoading(true);
     try {
-      let profile = await databaseService.getUserProfileByEmail(authEmail);
+      // PERF FIX 2026-08-14: this used to fetch the profile BEFORE signIn()
+      // established a session — but with no token yet, RLS on public.users/
+      // clients always silently blocks that read (returns zero rows, not an
+      // error). It's not just a wasted quick request either: an empty
+      // PostgREST result is indistinguishable from "no such account", so
+      // getUserProfileByEmail always fell through to its server-side
+      // lookupProfileViaServer fallback too (api/lookup-profile.js, an
+      // 8-second abort timeout) — meaning every single login paid for one
+      // guaranteed-to-fail direct read PLUS a full serverless round trip
+      // (cold start + DB query) for a result that was thrown away the
+      // moment the real, authenticated re-fetch ran a few lines below. That
+      // was a large, unnecessary chunk of the "5-10s to reach the
+      // dashboard" coaches/clients were seeing on every login. profile is
+      // fetched exactly once now, after signIn() below, with a real token.
+      let profile = null;
       let signInSuccess = false;
       // A client who self-signed-up has a Supabase Auth account but no
       // public.users/clients row yet (that's created when they finish the
@@ -350,7 +364,7 @@ const Onboarding = ({ onComplete }) => {
       // row exists, then resolve the real auth user id from the sign-in
       // result — never reject just because profile is null (that was the old
       // behaviour, which locked every freshly-signed-up client out).
-      let authUserId = profile?.id || null;
+      let authUserId = null;
 
       if (isSupabaseConfigured && databaseService.supabase) {
         try {
@@ -377,12 +391,18 @@ const Onboarding = ({ onComplete }) => {
           if (mUser && mUser.password_hash === authPassword) {
             signInSuccess = true;
             if (!authUserId) authUserId = mUser.id;
-          } else if (!profile) {
-            // No auth account and no profile — a brand-new person who hasn't
-            // signed up. Point them at the new Sign up button.
-            throw new Error('No account found with this email. New here? Tap "Sign up" to create your account.');
           } else {
-            throw new Error('Invalid email or password.');
+            // Only worth the (slow, RLS-doomed-without-a-token) profile
+            // lookup here on this already-failed path, purely to pick the
+            // right error message — not on every login up front.
+            const existsCheck = await databaseService.getUserProfileByEmail(authEmail);
+            if (!existsCheck) {
+              // No auth account and no profile — a brand-new person who hasn't
+              // signed up. Point them at the new Sign up button.
+              throw new Error('No account found with this email. New here? Tap "Sign up" to create your account.');
+            } else {
+              throw new Error('Invalid email or password.');
+            }
           }
         }
       } else {
@@ -399,17 +419,10 @@ const Onboarding = ({ onComplete }) => {
 
       if (signInSuccess) {
         rememberForDevAutoLogin(authEmail, authPassword);
-        // The profile fetch at the top of this function ran BEFORE signIn()
-        // established a session — with no authenticated token yet, RLS on
-        // public.users/clients silently blocks the anon-key read (returns
-        // zero rows, not an error), so `profile` is null here even for a
-        // real, fully onboarded returning client whose browser had no
-        // lingering session (i.e. after any real logout). That sent every
-        // such login straight into the 4-step onboarding wizard regardless
-        // of onboarding_completed already being true in the DB. Re-fetch now
-        // that a real session/token exists, so RLS actually lets it through
-        // — mirrors the same fix already applied to the coach login path
-        // below (see handleCoachEmailLogin's `if (!profile) profile = ...`).
+        // First (and, on the success path, only) profile fetch — now that a
+        // real session/token exists, so RLS actually lets it through instead
+        // of silently returning zero rows. See the PERF FIX comment above
+        // for why this used to also run (uselessly) before signIn().
         if (!profile) {
           profile = await databaseService.getUserProfileByEmail(authEmail);
         }
@@ -578,17 +591,24 @@ const Onboarding = ({ onComplete }) => {
     // Cleared in the finally block once we've resolved coach vs. error.
     localStorage.setItem('coachLoginInProgress', 'true');
     try {
-      let profile = await databaseService.getUserProfileByEmail(authEmail);
+      // PERF FIX 2026-08-14: don't fetch the profile before signIn() — with
+      // no token yet, RLS on public.users always silently blocks that read
+      // (empty result, not an error), so it was thrown away every time
+      // anyway. Worse, an empty PostgREST result also triggers
+      // getUserProfileByEmail's server-side lookupProfileViaServer fallback
+      // (api/lookup-profile.js — an 8s abort timeout), meaning every login
+      // paid for a guaranteed-to-fail read PLUS a full serverless round
+      // trip before ever reaching the real, authenticated re-fetch further
+      // below. A large chunk of the "5-10s to reach the dashboard" coaches
+      // were seeing. profile.id was only ever a fallback for authUserId
+      // anyway (signInResult below always provides it once auth succeeds).
+      let profile = null;
       let signInSuccess = false;
-      // profile.id is the users.id we need for the coaches lookup below, but a
-      // coach's Supabase Auth account can exist (e.g. one they just claimed
-      // via "Forgot password?") with no public.users row yet — profile is null
-      // in that case. Verify credentials first regardless, then resolve the
-      // real auth user id from the sign-in result itself. Previously this
-      // rejected with a generic "no account found" message the instant
-      // profile was null, before ever checking whether the typed password was
-      // actually correct.
-      let authUserId = profile?.id || null;
+      // A coach's Supabase Auth account can exist (e.g. one they just
+      // claimed via "Forgot password?") with no public.users row yet —
+      // profile is null in that case. Verify credentials first regardless,
+      // then resolve the real auth user id from the sign-in result itself.
+      let authUserId = null;
 
       // Check credentials
       if (isSupabaseConfigured && databaseService.supabase) {

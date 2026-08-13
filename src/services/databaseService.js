@@ -1215,6 +1215,29 @@ const databaseService = {
               // cardio_duration_seconds instead.
               const isCardioSet = set.distanceKm !== undefined;
               const isTimedSet = !isCardioSet && set.time !== undefined;
+              // Every record in this array goes into ONE PostgREST bulk
+              // insert (see saveWorkoutLogsViaServer / restInsert), which
+              // requires every object in the batch to have IDENTICAL keys —
+              // a row with an extra/missing key fails the whole batch with
+              // PGRST102 "All object keys must match", not just that row.
+              // This used to build each row's keys conditionally (spreading
+              // distance_km/cardio_duration_seconds/set_type/duration_seconds/
+              // calories_burned only when that particular set had them), so
+              // any session mixing a cardio or timed set with a normal one —
+              // or a warmup/dropset tag on only SOME sets, which is the
+              // ordinary way a coach logs a real session — silently failed
+              // to save entirely. All-uniform test payloads (used while
+              // verifying the earlier auth-token fix) never exercise this,
+              // which is exactly why it went unnoticed until real mixed
+              // sessions hit it in production. Reported 2026-08-13: three
+              // in-progress coach sessions (Nagesh A, Mahalsa,
+              // gk.goginenikiran) all failing to save.
+              // Fix: every row now carries the SAME key set, with `null`
+              // standing in for "not applicable" instead of omitting the
+              // key. Every read site already checks `!= null` before using
+              // these fields (see WorkoutTracker.jsx/TrainerDashboard.jsx),
+              // so this is a no-op for anything that reads the data back —
+              // only the shape sent to PostgREST changes.
               records.push({
                 user_id: user.id,
                 log_date: session.date,
@@ -1223,19 +1246,15 @@ const databaseService = {
                 reps: (isCardioSet || isTimedSet) ? 0 : parseInt(set.reps || '0'),
                 weight_kg: (isCardioSet || isTimedSet) ? 0 : parseFloat(set.weight || '0.0'),
                 plan_name: session.planName || 'Custom Routine',
-                ...(isCardioSet ? {
-                  distance_km: parseFloat(set.distanceKm || '0') || 0,
-                  cardio_duration_seconds: parseTimeStringToSeconds(set.time)
-                } : isTimedSet ? {
-                  cardio_duration_seconds: parseTimeStringToSeconds(set.time)
-                } : {}),
+                distance_km: isCardioSet ? (parseFloat(set.distanceKm || '0') || 0) : null,
+                cardio_duration_seconds: (isCardioSet || isTimedSet) ? parseTimeStringToSeconds(set.time) : null,
                 // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
-                ...(set.setType ? { set_type: set.setType } : {}),
+                set_type: set.setType || null,
                 // Live Log session timer's final duration/calories snapshot —
                 // duplicated onto every row of this session (workout_logs has
                 // no session-level row) and read back from any one of them.
-                ...(session.durationSeconds != null ? { duration_seconds: session.durationSeconds } : {}),
-                ...(session.caloriesBurned != null ? { calories_burned: session.caloriesBurned } : {})
+                duration_seconds: session.durationSeconds != null ? session.durationSeconds : null,
+                calories_burned: session.caloriesBurned != null ? session.caloriesBurned : null
               });
             });
           });

@@ -1367,12 +1367,12 @@ const Onboarding = ({ onComplete }) => {
             <div className="portal-slider">
               {/* Slide 1 */}
               <div className={`portal-slide-wrapper ${activeSlide === 0 ? 'slide-active' : ''}`}>
-                <img src="/background-1.png" alt="" className="portal-slide-bg" draggable="false" />
+                <img src="/background-1.webp" alt="" className="portal-slide-bg" draggable="false" />
                 <div className="phone-mockup-centered">
                   <div className="phone-mockup">
                     <div className="phone-speaker"></div>
                     <div className="phone-screen">
-                      <img src="/slide-1.png" alt="Coach dashboard" className="phone-slide-content" draggable="false" />
+                      <img src="/slide-1.webp" alt="Coach dashboard" className="phone-slide-content" draggable="false" />
                     </div>
                   </div>
                 </div>
@@ -1380,12 +1380,12 @@ const Onboarding = ({ onComplete }) => {
 
               {/* Slide 2 */}
               <div className={`portal-slide-wrapper ${activeSlide === 1 ? 'slide-active' : ''}`}>
-                <img src="/background-2.png" alt="" className="portal-slide-bg" draggable="false" />
+                <img src="/background-2.webp" alt="" className="portal-slide-bg" draggable="false" />
                 <div className="phone-mockup-centered">
                   <div className="phone-mockup">
                     <div className="phone-speaker"></div>
                     <div className="phone-screen">
-                      <img src="/slide-2.png" alt="Client home" className="phone-slide-content" draggable="false" />
+                      <img src="/slide-2.webp" alt="Client home" className="phone-slide-content" draggable="false" />
                     </div>
                   </div>
                 </div>
@@ -1393,12 +1393,12 @@ const Onboarding = ({ onComplete }) => {
 
               {/* Slide 3 */}
               <div className={`portal-slide-wrapper ${activeSlide === 2 ? 'slide-active' : ''}`}>
-                <img src="/background-3.png" alt="" className="portal-slide-bg" draggable="false" />
+                <img src="/background-3.webp" alt="" className="portal-slide-bg" draggable="false" />
                 <div className="phone-mockup-centered">
                   <div className="phone-mockup">
                     <div className="phone-speaker"></div>
                     <div className="phone-screen">
-                      <img src="/slide-3.png" alt="Workout log" className="phone-slide-content" draggable="false" />
+                      <img src="/slide-3.webp" alt="Workout log" className="phone-slide-content" draggable="false" />
                     </div>
                   </div>
                 </div>

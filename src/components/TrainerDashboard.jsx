@@ -1065,10 +1065,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       if (isTimedExercise(ex.name)) {
         return { ...ex, sets: [...ex.sets, { time: '', isCompleted: false }] };
       }
+      const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
+      if (isBodyweightExercise(ex.name) && getLiveExBwMode(ex)) {
+        // Bodyweight mode means exactly that — a new set shouldn't invent a
+        // weight the coach never chose. The plate-increment suggestion
+        // below is meant for loaded exercises; applying it here silently
+        // turned "BW" (set 1) into "2.5 kg" (set 2), "5 kg" (set 3), etc.
+        // for an exercise logged with no weight at all.
+        return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: '0', isCompleted: false }] };
+      }
       // Reps stay fixed at the last set's target; weight steps up by one
       // plate increment (2.5kg) — straight/pyramid-style progression
       // instead of just repeating the last set verbatim.
-      const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
       return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: suggestNextWeight(last.weight, '20'), isCompleted: false }] };
     }));
   };

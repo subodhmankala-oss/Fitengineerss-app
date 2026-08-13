@@ -1230,24 +1230,24 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Set</th>
+                                <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Set</th>
                                 {exIsTimed ? (
-                                  <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Time</th>
+                                  <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Time</th>
                                 ) : exIsCardio ? (
                                   <>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Km</th>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Time</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Km</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Time</th>
                                   </>
                                 ) : exIsLoadedCarry ? (
                                   <>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Weight</th>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Meters</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Weight</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Meters</th>
                                   </>
                                 ) : (
                                   <>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Weight</th>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Reps</th>
-                                    <th style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left' }}>Vol</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Weight</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Reps</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Vol</th>
                                   </>
                                 )}
                               </tr>
@@ -1261,34 +1261,34 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                                 const visual = getSetTypeVisual(set, workingNum);
                                 return (
                                   <tr key={sIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                    <td style={{ padding: '5px 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                    <td style={{ padding: '5px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                                       <span style={{
                                         display:'inline-flex', alignItems:'center', justifyContent:'center', width:'20px', height:'20px', borderRadius:'50%',
                                         background: visual.color ? `${visual.color}22` : 'rgba(255,255,255,0.06)',
-                                        fontSize:'0.68rem', fontWeight:800,
+                                        fontSize:'0.72rem', fontWeight:800,
                                         color: visual.color || '#fff'
                                       }}>{visual.label}</span>
                                     </td>
                                     {exIsTimed ? (
-                                      <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.time || '00:00'}</td>
+                                      <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.time || '00:00'}</td>
                                     ) : exIsCardio ? (
                                       <>
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.distanceKm ?? 0} km</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.time || '00:00'}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.distanceKm ?? 0} km</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.time || '00:00'}</td>
                                       </>
                                     ) : exIsLoadedCarry ? (
                                       <>
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} m</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.weight} kg</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.reps} m</td>
                                       </>
                                     ) : (
                                       <>
                                         {/* Bodyweight exercises log weight: 0 when no plate/vest was
                                             added — show "BW" like the logger itself does, instead of
                                             the raw "0 kg" which reads as a logging error. */}
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{exIsBodyweight && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{exIsBodyweight && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.reps} reps</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
                                       </>
                                     )}
                                   </tr>

@@ -445,7 +445,7 @@
 
 .sets-table th {
   text-align: left;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -455,7 +455,7 @@
 
 .sets-table td {
   padding: 6px 0;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   color: var(--text-main);
   border-bottom: 1px solid rgba(255, 255, 255, 0.02);
 }
@@ -472,7 +472,7 @@
   height: 20px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-full);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
 }
 

@@ -2863,6 +2863,7 @@ const WorkoutTracker = () => {
                               const exIsTimed = isTimedExercise(ex.name);
                               const exIsCardioHist = isCardioExercise(ex.name);
                               const exIsLoadedCarryHist = isLoadedCarryExercise(ex.name);
+                              const exIsBodyweightHist = isBodyweightExercise(ex.name);
                               return (
                               <div key={exIdx} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'8px', padding:'10px 12px' }}>
                                 <div style={{ fontWeight:700, fontSize:'0.82rem', color:'#fff', marginBottom:'8px' }}>{ex.name}</div>
@@ -2915,7 +2916,10 @@ const WorkoutTracker = () => {
                                             </>
                                           ) : (
                                             <>
-                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.weight} kg</td>
+                                              {/* Bodyweight exercises log weight: 0 when no plate/vest was
+                                                  added — show "BW" like the live logger does, instead of
+                                                  the raw "0 kg" which reads as a logging error. */}
+                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{exIsBodyweightHist && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
                                               <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
                                               <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
                                             </>

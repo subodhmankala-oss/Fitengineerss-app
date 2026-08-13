@@ -2214,10 +2214,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
   const handleAddExerciseToEditor = (name) => {
     let newSet;
+    // Same set-shape rules as the live logger's own exercise picker (see
+    // WorkoutTracker's ExercisePickerModal onAdd) — this editor previously
+    // always fell to { reps: 10, weight: 20 } for anything that wasn't
+    // cardio/timed, which defaulted bodyweight moves (jumping jack, push-up,
+    // ...) to a bogus 20kg instead of bodyweight.
     if (isCardioExercise(name)) {
       newSet = { distanceKm: '', time: '' };
     } else if (isTimedExercise(name)) {
       newSet = { time: '' };
+    } else if (isBodyweightExercise(name)) {
+      newSet = { reps: 10, weight: 0 };
     } else {
       newSet = { reps: 10, weight: 20 };
     }
@@ -2240,7 +2247,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         if (isTimedExercise(ex.name)) {
           return { ...ex, sets: [...ex.sets, { time: '' }] };
         }
-        const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: 20 };
+        const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: isBodyweightExercise(ex.name) ? 0 : 20 };
         return {
           ...ex,
           sets: [...ex.sets, { reps: lastSet.reps, weight: lastSet.weight }]
@@ -4496,6 +4503,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       const exIsTimedHist = isTimedExercise(exercise.name);
                                       const exIsCardioHist = isCardioExercise(exercise.name);
                                       const exIsLoadedCarryHist = isLoadedCarryExercise(exercise.name);
+                                      const exIsBodyweightHist = isBodyweightExercise(exercise.name);
                                       return (
                                         <div key={eIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
                                           <div className="ex-title" style={{ marginBottom: '6px' }}>{exercise.name}</div>
@@ -4547,7 +4555,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                       </>
                                                     ) : (
                                                       <>
-                                                        <td>{set.weight} kg</td>
+                                                        {/* Bodyweight exercises (jumping jack, push-up, ...) log
+                                                            weight: 0 when no plate/vest was added — the logger
+                                                            itself shows "BW" for that case (see bw-static-label
+                                                            in WorkoutTracker), but this history view showed the
+                                                            raw "0 kg" instead, reading as a logging error. */}
+                                                        <td>{exIsBodyweightHist && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
                                                         <td>{set.reps} reps</td>
                                                       </>
                                                     )}
@@ -4879,6 +4892,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           <div className="live-logger-exercise-list">
                             {editorExercises.map((ex, exIdx) => {
                             const exIsCardio = isCardioExercise(ex.name);
+                            // The header below already special-cased cardio and
+                            // loaded-carry, but never timed holds (plank, wall
+                            // sit, ...) — they fell through to the plain KG/REPS
+                            // branch and rendered set.weight/set.reps, which
+                            // don't exist on a timed set's { time } shape. That's
+                            // what showed "kg" and "reps" boxes (reading as
+                            // blank/undefined) instead of a Time field for every
+                            // timed and, by extension, every other non-cardio
+                            // special-cased exercise in the plan builder.
+                            const exIsTimed = isTimedExercise(ex.name);
+                            const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
                             return (
                               <div key={exIdx} className="live-logger-exercise-card">
                                 <div className="live-logger-ex-header">
@@ -4908,7 +4932,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         <span className="col-weight">KM</span>
                                         <span className="col-reps">TIME</span>
                                       </>
-                                    ) : isLoadedCarryExercise(ex.name) ? (
+                                    ) : exIsTimed ? (
+                                      <>
+                                        <span className="col-weight">TIME</span>
+                                        <span className="col-reps"></span>
+                                      </>
+                                    ) : exIsLoadedCarry ? (
                                       <>
                                         <span className="col-weight">🏋️ KG</span>
                                         <span className="col-reps">METERS</span>
@@ -4966,6 +4995,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                               />
                                             </div>
                                           </>
+                                        ) : exIsTimed ? (
+                                          <div className="col-weight set-input-field" style={{ gridColumn: 'span 2' }}>
+                                            <input
+                                              type="text"
+                                              inputMode="numeric"
+                                              placeholder="mm:ss"
+                                              value={set.time}
+                                              onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                            />
+                                          </div>
                                         ) : (
                                           <>
                                             <div className="col-weight set-input-field">

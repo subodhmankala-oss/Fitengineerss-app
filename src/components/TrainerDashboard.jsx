@@ -2297,21 +2297,69 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // settles instead of trusting the native auto-scroll alone.
   const handleCoachNoteFocus = (e) => {
     const el = e.currentTarget;
+    let debounce = null;
+    const scrollParent = el.closest('.trainer-dashboard-container') || document.scrollingElement || document.documentElement;
+    const scrollBeforeFocus = scrollParent.scrollTop;
+    // Reserve scroll room equal to the on-screen keyboard's height while this
+    // field is focused. The coach-note composer is the LAST thing in the Live
+    // Log, so without extra room there is simply nowhere to scroll it to: the
+    // correction below hits the container's maximum scroll, which parks the
+    // Save bar at the top of the visible strip and fills everything under it
+    // with empty container background (--bg-app, #090e17 — reads as a solid
+    // black screen). Reported 2026-08-13 with the composer unusable behind
+    // the keyboard. Same technique SetNumberPad.css already uses for the
+    // custom pad, applied here for the OS keyboard, whose height we can only
+    // know at runtime (innerHeight - visualViewport.height).
+    const applyKeyboardInset = () => {
+      const vv = window.visualViewport;
+      const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
+      scrollParent.style.paddingBottom = inset > 0 ? `${inset + 24}px` : '';
+    };
+    // Absolute, clamped target — NOT a relative scrollBy. The OS keyboard
+    // fires `visualViewport.resize` many times while it animates open, and
+    // the previous version did a relative `scrollBy(rect.bottom - visibleBottom)`
+    // with smooth behavior on every one of them. The smooth scroll hadn't
+    // landed by the time the next resize fired, so each call re-measured the
+    // same not-yet-moved rect and scrolled by that delta AGAIN — the offsets
+    // stacked instead of converging and ran the container far past its own
+    // content, leaving the coach staring at a blank black screen with only
+    // the Save bar clipped at the top edge. Reported 2026-08-13.
+    // Computing an absolute scrollTop and clamping it to the real scroll
+    // range makes repeated calls idempotent: every one of them resolves to
+    // the same destination, however many times the keyboard resizes.
     const reposition = () => {
       const vh = window.visualViewport?.height || window.innerHeight;
       const rect = el.getBoundingClientRect();
       const margin = 16;
       const visibleBottom = vh - margin;
-      if (rect.bottom > visibleBottom) {
-        const scrollParent = el.closest('.trainer-dashboard-container') || document.scrollingElement || document.documentElement;
-        scrollParent.scrollBy({ top: rect.bottom - visibleBottom, behavior: 'smooth' });
-      }
+      if (rect.bottom <= visibleBottom) return;
+      const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
+      const target = Math.min(maxScroll, Math.max(0, scrollParent.scrollTop + (rect.bottom - visibleBottom)));
+      if (Math.abs(target - scrollParent.scrollTop) < 2) return;
+      scrollParent.scrollTo({ top: target, behavior: 'smooth' });
     };
-    const settleTimer = setTimeout(reposition, 300);
-    window.visualViewport?.addEventListener('resize', reposition);
+    // Coalesce the burst of resize events into one correction once the
+    // keyboard has actually stopped moving.
+    const onViewportResize = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => { applyKeyboardInset(); reposition(); }, 120);
+    };
+    const settleTimer = setTimeout(() => { applyKeyboardInset(); reposition(); }, 300);
+    window.visualViewport?.addEventListener('resize', onViewportResize);
     el.addEventListener('blur', () => {
       clearTimeout(settleTimer);
-      window.visualViewport?.removeEventListener('resize', reposition);
+      clearTimeout(debounce);
+      window.visualViewport?.removeEventListener('resize', onViewportResize);
+      // Drop the reserved room and put the view back where the coach was
+      // before the keyboard pushed it. Removing the padding shrinks the
+      // scrollable range, so without this the browser clamps scrollTop to the
+      // new maximum and strands the page at the bottom — the same trap the
+      // number pad hit (see restoreScrollAfterPad in SetValueField.jsx).
+      scrollParent.style.paddingBottom = '';
+      requestAnimationFrame(() => {
+        const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
+        scrollParent.scrollTo({ top: Math.min(scrollBeforeFocus, maxScroll), behavior: 'smooth' });
+      });
     }, { once: true });
   };
 

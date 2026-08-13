@@ -4275,27 +4275,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: today ? 'var(--primary-accent-light)' : '#fff' }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: today ? 'var(--primary-accent-light)' : '#fff' }}>
                                 📅 {dateLabel}{today ? ' · Today' : ''}
                               </div>
-                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
                                 📋 {session.planName || 'Custom Routine'}
                               </span>
                             </div>
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                              <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.sets} sets
                               </span>
-                              <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.volume.toLocaleString('en-IN')} kg
                               </span>
                               {session.caloriesBurned != null && (
-                                <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                   🔥 {session.caloriesBurned} kcal
                                 </span>
                               )}
                               {session.durationSeconds != null && (
-                                <span style={{ fontSize: '0.68rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                <span style={{ fontSize: '0.74rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                   ⏱ {formatDuration(session.durationSeconds)}
                                 </span>
                               )}
@@ -4303,7 +4303,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                             {session.exercises.map((ex, exIdx) => (
-                              <span key={exIdx} style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
+                              <span key={exIdx} style={{ fontSize: '0.76rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
                                 {ex.name} · {ex.sets.length}s
                               </span>
                             ))}
@@ -4334,9 +4334,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 )}
                                 <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill={val > 0 ? 'url(#coachEmeraldGradient)' : 'rgba(255,255,255,0.03)'} className="chart-bar" />
                                 {val > 0 && (
-                                  <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="var(--primary-accent-light)" fontSize="9" fontWeight="800">{val}</text>
+                                  <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="var(--primary-accent-light)" fontSize="10.5" fontWeight="800">{val}</text>
                                 )}
-                                <text x={x + barWidth / 2} y="115" textAnchor="middle" fill={val > 0 ? '#fff' : 'var(--text-muted)'} fontSize="9" fontWeight="600">{day}</text>
+                                <text x={x + barWidth / 2} y="115" textAnchor="middle" fill={val > 0 ? '#fff' : 'var(--text-muted)'} fontSize="10.5" fontWeight="600">{day}</text>
                               </g>
                             );
                           })}

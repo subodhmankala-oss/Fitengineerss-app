@@ -136,7 +136,7 @@
 }
 
 .card-label {
-  font-size: 0.68rem;
+  font-size: 0.73rem;
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
@@ -145,19 +145,19 @@
 }
 
 .card-value {
-  font-size: 1.15rem;
+  font-size: 1.22rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .card-value .value-unit {
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-muted);
 }
 
 .card-sub {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-subtle);
   margin-top: 2px;
   font-weight: 500;
@@ -185,13 +185,13 @@
 }
 
 .widget-header h4 {
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: #fff;
 }
 
 .trend-badge {
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--primary-accent-light);
   background: rgba(16, 185, 129, 0.08);

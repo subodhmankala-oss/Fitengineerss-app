@@ -103,25 +103,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // time fields — see utils/setInputUtils.js for why this replaced the
   // native mobile keyboard entirely.
   const { activeKey: activeLiveSetKey, registerField: registerLiveSetField, openField: openLiveSetField, closeField: closeLiveSetField, getActiveField: getActiveLiveSetField } = useSetNumberPad();
-  // How far to lift the Save/Discard action bar so it docks ABOVE the open
-  // pad instead of z-index alone just drawing it on top of the pad's digit
-  // grid. The bar sits in normal document flow right after the exercise
-  // list, so with a short list its resting Y position can land inside the
-  // pad's own on-screen rectangle (bottom ~40% of the viewport) — raising
-  // its z-index (see SetNumberPad.css) made it win the tap, like intended,
-  // but also drew it visibly overlapping the pad's keys, which read as a
-  // broken overlay rather than a docked bar. Reported 2026-08-13.
-  // Measured (not a fixed guess) because the pad's real height varies with
-  // the device's safe-area inset.
-  const [livePadLift, setLivePadLift] = useState(0);
-  useEffect(() => {
-    if (!activeLiveSetKey) { setLivePadLift(0); return; }
-    const raf = requestAnimationFrame(() => {
-      const pad = document.querySelector('.set-number-pad');
-      setLivePadLift(pad ? pad.getBoundingClientRect().height : 0);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [activeLiveSetKey]);
   // This coach's canonical public.users.id (== clients.coach_id for their
   // clients). Seeded from localStorage but re-resolved by email on mount because
   // localStorage.userId can be null/poisoned right after login — and the "My
@@ -5908,28 +5889,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </div>
                     )}
 
-                  {/* Discard (left) + Save (right). This is the very last thing
-                      in the scrollable Live Log content — exactly the screen
-                      region SetNumberPad (position: fixed, bottom: 0, z-index:
-                      1100) occupies once open, and the pad only ever closes via
-                      its own tiny hide-keyboard icon, never automatically. A
-                      coach almost always taps Save right after typing the last
-                      set's weight/reps — pad still open — so the tap landed on
-                      the pad's blank background (no handler there) instead of
-                      this button: no toast, no spinner, no error, literally
-                      nothing, over and over. `live-log-action-bar` (see
-                      SetNumberPad.css) pins this bar above the pad with a
-                      higher z-index so it's always reachable regardless of pad
-                      state. Confirmed 2026-08-13 for a real coach. */}
-                  <div
-                    className="live-log-action-bar"
-                    style={{
-                      display: 'flex',
-                      gap: '10px',
-                      transform: livePadLift ? `translateY(-${livePadLift}px)` : 'none',
-                      transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)'
-                    }}
-                  >
+                  {/* Discard (left) + Save (right) — plain, un-elevated flow,
+                      matching the client's own WorkoutTracker save button
+                      exactly (see btn-save-workout-session there). This used
+                      to raise its own z-index above the pad (see git history
+                      on SetNumberPad.css's `.live-log-action-bar` rule) so a
+                      tap here would win even while the pad covered it, but
+                      that only changed stacking order, not position — with a
+                      short exercise list this bar's resting spot can land
+                      inside the pad's own on-screen rectangle, so the
+                      z-index just drew it floating on top of the pad's keys
+                      instead of docking cleanly. The client never had this
+                      problem because it never elevates this button either —
+                      the pad's own opaque background simply covers it like
+                      any other content, no dueling stacking. Matched that
+                      here instead of chasing more positioning fixes. */}
+                  <div className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
                       onClick={() => setShowDiscardLiveModal(true)}

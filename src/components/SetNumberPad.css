@@ -48,9 +48,7 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 
 /* Coach Live Log's Discard/Save bar (TrainerDashboard.jsx) — sits at the
    very end of the scrollable content, i.e. exactly where the pad opens on
-   top of it, so a coach who taps Save right after typing the last set's
-   numbers (pad still open) had the tap swallowed by the pad's blank
-   background instead of reaching the button underneath.
+   top of it.
    FIRST FIX (reverted): made this bar `position: sticky` + a z-index above
    the pad's 1100. That combination — a sticky element sharing the pad's
    own scrolling ancestor (.trainer-dashboard-container), with the OS
@@ -58,17 +56,19 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
    `position: fixed` loose from the viewport on real mobile browsers: it
    started rendering mid-page wherever it happened to lay out instead of
    staying anchored to the bottom. Confirmed regression 2026-08-13.
-   REAL FIX: leave the bar exactly where it always sat in normal document
-   flow (no sticky, no fixed) — just give it `position: relative` (a
-   no-op for layout/scrolling, but required for z-index to apply at all)
-   and a z-index above the pad's 1100. Whenever the bar and the open pad
-   occupy the same screen region, the bar now wins the tap instead of the
-   pad's background swallowing it — without touching how either element is
-   positioned relative to the viewport. */
-.live-log-action-bar {
-  position: relative;
-  z-index: 1200;
-}
+   SECOND FIX (reverted): kept it in normal flow but raised z-index above
+   the pad's 1100, so a tap here would win instead of the pad's blank
+   background swallowing it. That fixed reachability but not appearance —
+   with a short exercise list this bar's resting position can land inside
+   the pad's own on-screen rectangle, so the raised z-index just drew it
+   floating on top of the pad's digit keys instead of docking cleanly.
+   Reported 2026-08-13 as an overlay bug.
+   FINAL FIX: no special positioning or z-index at all — matches the
+   client's own WorkoutTracker save button exactly, which never elevated
+   this button either. When the pad and this bar's resting position
+   coincide, the pad's own opaque background simply covers it like any
+   other content underneath, same as it always did for the client, with no
+   dueling stacking context to cause a visible overlap. */
 
 .set-number-pad-nav {
   display: flex;

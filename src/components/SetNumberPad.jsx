@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { restoreScrollAfterPad } from './SetValueField';
 import './SetNumberPad.css';
 
 // Custom on-screen numeric pad for the set-logging tables' Kg/Reps/Km/Time
@@ -67,6 +68,17 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
   React.useEffect(() => () => {
     if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
   }, []);
+
+  // Pad just went from open to closed — put the scroll container back where it
+  // was before we pushed it up to clear the pad. See restoreScrollAfterPad:
+  // without this the page is left clamped at the very bottom once the pad's
+  // reserved padding disappears. Keyed on activeKey (a string/null) rather
+  // than `active`, which is a fresh object on every render.
+  const wasOpen = React.useRef(false);
+  React.useEffect(() => {
+    if (wasOpen.current && !activeKey) restoreScrollAfterPad();
+    wasOpen.current = !!activeKey;
+  }, [activeKey]);
 
   const press = (key) => {
     if (!active) return;

@@ -21,6 +21,31 @@ function getScrollParent(el) {
 // keyboard — see SetNumberPad.jsx for why. Renders as a <button> styled
 // identically to the old text input (see the shared ".set-value-btn" rules
 // in WorkoutTracker.css) so it drops into the existing table layout as-is.
+// Where the scroll container sat BEFORE the pad pushed it, so closing the pad
+// can put it back. Without this the page is left stranded at the very bottom:
+// opening the pad adds ~340px of bottom padding (SetNumberPad.css) purely to
+// create scroll room, we scroll into that room to lift the row above the pad,
+// and closing the pad removes the padding again — so the browser clamps
+// scrollTop down to the now-smaller maximum, which is the bottom of the page.
+// The coach's header/client card end up scrolled off the top with no way back
+// except manually scrolling up. Confirmed 2026-08-13 on the coach Live Log.
+// Module-level (not React state) because the restore is triggered from
+// SetNumberPad, which has no reference to whichever field caused the scroll.
+let pendingScrollRestore = null;
+
+export function restoreScrollAfterPad() {
+  const pending = pendingScrollRestore;
+  pendingScrollRestore = null;
+  if (!pending) return;
+  const { node, top, scrolledTo } = pending;
+  if (!node || !document.contains(node)) return;
+  // Only undo OUR adjustment. If the coach scrolled by hand while the pad was
+  // open, their position is the one that matters — snapping it away would be
+  // its own bug.
+  if (Math.abs(node.scrollTop - scrolledTo) > 8) return;
+  node.scrollTo({ top, behavior: 'smooth' });
+}
+
 export default function SetValueField({ value, placeholder, disabled, active, onOpen, className = '' }) {
   const handleClick = (e) => {
     onOpen();
@@ -51,7 +76,20 @@ export default function SetValueField({ value, placeholder, disabled, active, on
         delta = rect.top - margin;
       }
       if (delta !== 0) {
-        getScrollParent(el).scrollBy({ top: delta, behavior: 'smooth' });
+        const scrollParent = getScrollParent(el);
+        // Remember where we started ONLY for the first field opened in this
+        // pad session — hopping Kg -> Reps -> next row shouldn't overwrite the
+        // original position with an already-adjusted one, or closing the pad
+        // would restore to a spot that's itself mid-adjustment.
+        if (!pendingScrollRestore || pendingScrollRestore.node !== scrollParent) {
+          pendingScrollRestore = { node: scrollParent, top: scrollParent.scrollTop, scrolledTo: 0 };
+        }
+        scrollParent.scrollBy({ top: delta, behavior: 'smooth' });
+        // The smooth scroll lands a frame or more later; record where it
+        // actually ended up so restoreScrollAfterPad can tell "still where we
+        // put it" from "the coach scrolled somewhere else".
+        const settle = () => { if (pendingScrollRestore) pendingScrollRestore.scrolledTo = scrollParent.scrollTop; };
+        setTimeout(settle, 400);
       }
     });
   };

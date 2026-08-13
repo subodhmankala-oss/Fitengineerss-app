@@ -6,16 +6,6 @@ import { registerSW } from 'virtual:pwa-register';
 let applyUpdateFn = null;
 let swRegistration = null;
 let updatePending = false;
-// True until the first onNeedRefresh has been handled. registerSW's default
-// update check only fires on page load/navigation — a client who opens the
-// app once and leaves it running for days (the normal case for a PWA
-// someone doesn't consciously "quit") never re-checks, so a shipped fix
-// could sit undelivered on their device indefinitely with only a toast they
-// may never notice as the sole path to actually getting it. Confirmed
-// 2026-08-11: a real client's workout logging bug was already fixed and
-// deployed, but their device was still silently running the pre-fix build.
-let appJustLaunched = true;
-setTimeout(() => { appJustLaunched = false; }, 5000);
 
 export function initPWA() {
   if (!('serviceWorker' in navigator)) return;
@@ -34,17 +24,20 @@ export function initPWA() {
     },
     onNeedRefresh() {
       updatePending = true;
-      // A new SW finished installing and is waiting. If this fires within
-      // the first few seconds of launch, there's nothing "mid-log" to
-      // protect yet — the client hasn't touched anything — so apply it
-      // immediately and silently instead of gambling on them noticing a
-      // toast. Once the app has been open a while, fall back to the
-      // original opt-in toast so an update mid-workout-log still can't yank
-      // the page out from under someone actively typing.
-      if (appJustLaunched) {
-        applyPWAUpdate();
-        return;
-      }
+      // REGRESSION FIX 2026-08-13: this used to auto-apply (skip-waiting +
+      // reload) silently instead of showing the toast whenever a pending
+      // update was found within the first 5s of the app opening, on the
+      // theory that a just-launched session has nothing "mid-log" to
+      // protect. In practice, coaches mostly reopen the app fresh rather
+      // than leaving one tab running for days, so with deploys landing
+      // several times a day, nearly every reopen fell inside that 5s
+      // window — the silent path became the common case and the "Update
+      // available: Refresh" toast effectively stopped appearing at all.
+      // The long-idle-tab problem this was guarding against is handled
+      // separately by checkForUpdateOnForeground() below (visibilitychange/
+      // pageshow), which already dispatches this same toast event on its
+      // own and never went through this silent branch — so removing it
+      // here doesn't reopen that gap. Always surface the toast instead.
       window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
     },
     onOfflineReady() {

@@ -2394,9 +2394,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       const rect = el.getBoundingClientRect();
       const margin = 16;
       const visibleBottom = vh - margin;
-      if (rect.bottom <= visibleBottom) return;
+      // Snap the field's bottom edge to sit right above the keyboard in
+      // BOTH directions, not just "scroll down more if it's covered". The
+      // browser's own native scroll-into-view fires first (before this
+      // settles) and on some engines overshoots — it scrolls further than
+      // needed, leaving the field's bottom well above visibleBottom. The
+      // old guard (`if rect.bottom <= visibleBottom return`) treated that
+      // as "already fine" and left the overshoot in place: the field (and
+      // everything after it) ends up scrolled past, so the strip between
+      // the last field and the keyboard is just blank container background
+      // (#090e17, reads as solid black) instead of real content. Always
+      // correcting toward the same target — however the field got
+      // misaligned — makes the two directions equally self-healing.
+      const delta = rect.bottom - visibleBottom;
+      if (Math.abs(delta) < 2) return;
       const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
-      const target = Math.min(maxScroll, Math.max(0, scrollParent.scrollTop + (rect.bottom - visibleBottom)));
+      const target = Math.min(maxScroll, Math.max(0, scrollParent.scrollTop + delta));
       if (Math.abs(target - scrollParent.scrollTop) < 2) return;
       scrollParent.scrollTo({ top: target, behavior: 'smooth' });
     };

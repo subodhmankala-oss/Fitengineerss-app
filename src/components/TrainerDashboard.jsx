@@ -21,6 +21,7 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
+import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -1311,9 +1312,29 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       await Promise.race([criticalDone, timeoutPromise]);
     } catch (e) {
       console.error('Error saving live session:', e);
-      triggerLiveToast(timedOut
-        ? '⏱️ Save is taking too long — check your connection. It may still finish in the background; check the client\'s history before retrying.'
-        : '❌ Failed to save session. Please try again.');
+      if (timedOut) {
+        triggerLiveToast('⏱️ Save is taking too long — check your connection. It may still finish in the background; check the client\'s history before retrying.');
+      } else {
+        // A genuine (non-timeout) failure here is most often an already-open
+        // tab still running JS from BEFORE today's fix landed — the service
+        // worker downloads new code in the background, but a page that's
+        // already loaded keeps executing what it started with until it
+        // reloads, so "try again" on a stale tab reproduces the exact bug
+        // that was already fixed, forever. Reported repeatedly 2026-08-13:
+        // this fired on an 8h43m-old Live Log session, ~11 minutes after the
+        // underlying auth-refresh bug had already shipped and gone live.
+        // The Live Log draft is autosaved continuously as sets are logged
+        // (independent of this save), so it's safe to reload right now —
+        // reopening the app lands back on this same client's in-progress
+        // session with every set still there, on the fixed build.
+        const staleTab = await checkForPendingPWAUpdate();
+        if (staleTab) {
+          triggerLiveToast('⚠️ Your app was out of date — updating now. Your sets are safe; tap Save again once it reloads.');
+          setTimeout(applyPWAUpdate, 1500);
+        } else {
+          triggerLiveToast('❌ Failed to save session. Please try again.');
+        }
+      }
     } finally {
       clearTimeout(timeoutHandle);
       setLiveSaving(false);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import './SetNumberPad.css';
 
 // Custom on-screen numeric pad for the set-logging tables' Kg/Reps/Km/Time
@@ -101,7 +102,24 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
 
   const field = active || shown;
 
-  return (
+  // Portaled out to .app-container rather than rendered in place. The pad is
+  // `position: fixed; bottom: 0` (SetNumberPad.css), which only anchors to the
+  // VIEWPORT while no ancestor establishes a containing block for fixed
+  // descendants — and any ancestor with a transform does exactly that. The
+  // coach's whole dashboard sits inside
+  // `.trainer-dashboard-container.animate-scale-in`, whose `animation: scaleIn`
+  // (index.css) animates `transform`, so rendering the pad inside that subtree
+  // made it position against that scrolling container instead of the screen:
+  // it appeared stranded mid-page, between unrelated sections, and scrolled
+  // with the content instead of staying docked at the bottom. The client's
+  // WorkoutTracker renders it under `.main-content`, which has no transform,
+  // which is why this only ever broke for coaches.
+  // The rest-timer floating card in TrainerDashboard.jsx already hit this exact
+  // problem and was fixed the same way; the pad was simply never portaled.
+  // Confirmed 2026-08-13 after two failed CSS-only attempts (z-index, then
+  // sticky) that couldn't work — the element was never being positioned
+  // against the viewport in the first place.
+  const pad = (
     <div className={`set-number-pad ${active ? 'open' : ''}`} role="group" aria-label={field?.label || 'Number pad'}>
       <div className="set-number-pad-nav">
         <div className="set-number-pad-fieldnav">
@@ -149,4 +167,8 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
       </div>
     </div>
   );
+
+  // document.body fallback keeps this safe if .app-container ever isn't
+  // mounted yet — same pattern as the rest-timer portal.
+  return createPortal(pad, document.querySelector('.app-container') || document.body);
 }

@@ -880,6 +880,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     }
     resetLiveTimer();
     setLiveExercises([]);
+    setLiveSetTimers({});
     setLivePlanName('');
     setShowDiscardLiveModal(false);
     // Also clear the persisted draft — otherwise the "Live Log in progress"
@@ -1297,6 +1298,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       setLiveExercises([
         { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
       ]);
+      setLiveSetTimers({});
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
       resetLiveTimer();
@@ -1454,6 +1456,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (selectedClient?.id === userId) {
       resetLiveTimer();
       setLiveExercises([]);
+      setLiveSetTimers({});
       setLivePlanName('');
     }
     setDiscardDraftTarget(null);
@@ -1731,6 +1734,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // back to a clean single-exercise starter when there's nothing to
     // resume, since liveExercises otherwise carries over from whichever
     // client was open before this one.
+    // liveSetTimers is keyed purely by "exIdx,setIdx" (getSetTimerKey), not
+    // by client or exercise identity — switching to a different client
+    // without clearing it left whichever timer state the PREVIOUS client's
+    // exercise had at that same index still attached. A coach mid-Plank-
+    // stopwatch for Client A who then opened Client B's Live Log could see
+    // Client B's timed set inherit Client A's stale elapsed time or even a
+    // still-"running" stopwatch, on a set that was never touched in this
+    // client's session — reported as "not loading fresh". Clear it every
+    // time this fires, both on resume and on the fresh-default path.
+    setLiveSetTimers({});
     databaseService.getWorkoutDraft(client.id).then(dbDraft => {
       const canResume = dbDraft && dbDraft.source === 'coach' && dbDraft.coachId === resolvedCoachId
         && dbDraft.exercises && dbDraft.exercises.length > 0;
@@ -5414,6 +5427,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     ? { time: s.time ?? '', isCompleted: false }
                                     : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
                                 })));
+                                // liveSetTimers is keyed purely by "exIdx,setIdx" (see
+                                // getSetTimerKey), not by exercise identity — loading a
+                                // different plan into the same session left whatever
+                                // stopwatch state a PREVIOUS plan's exercise had at that
+                                // same index still sitting there. For a timed/cardio
+                                // exercise (Plank, etc.) that showed up as a stale
+                                // elapsed time or even a still-"running" stopwatch on a
+                                // set that was never started in this plan — reported as
+                                // "not loading fresh". Clear it on every fresh plan load.
+                                setLiveSetTimers({});
                                 triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
                               }
                               e.target.value = '';

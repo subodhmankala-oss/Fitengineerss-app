@@ -4327,33 +4327,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             cursor: 'pointer'
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: today ? 'var(--primary-accent-light)' : '#fff' }}>
-                                📅 {dateLabel}{today ? ' · Today' : ''}
-                              </div>
-                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2.5px' }}>
-                                📋 {session.planName || 'Custom Routine'}
+                          {/* Sets/Volume/Calories/Time first, then workout name +
+                              day/date below it, exercise chips last — reordered per
+                              request 2026-08-14 (was date+name on top, stats on the
+                              right of that same row). */}
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              {session.sets} sets
+                            </span>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              {session.volume.toLocaleString('en-IN')} kg
+                            </span>
+                            {session.caloriesBurned != null && (
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                🔥 {session.caloriesBurned} kcal
                               </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
-                                {session.sets} sets
+                            )}
+                            {session.durationSeconds != null && (
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                ⏱ {formatDuration(session.durationSeconds)}
                               </span>
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
-                                {session.volume.toLocaleString('en-IN')} kg
-                              </span>
-                              {session.caloriesBurned != null && (
-                                <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
-                                  🔥 {session.caloriesBurned} kcal
-                                </span>
-                              )}
-                              {session.durationSeconds != null && (
-                                <span style={{ fontSize: '0.74rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
-                                  ⏱ {formatDuration(session.durationSeconds)}
-                                </span>
-                              )}
-                            </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              📋 {session.planName || 'Custom Routine'}
+                            </span>
+                            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: today ? 'var(--primary-accent-light)' : '#fff', whiteSpace: 'nowrap' }}>
+                              📅 {dateLabel}{today ? ' · Today' : ''}
+                            </span>
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                             {session.exercises.map((ex, exIdx) => (

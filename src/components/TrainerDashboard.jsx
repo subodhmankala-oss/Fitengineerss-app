@@ -2977,6 +2977,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
                           value={coachNoteDrafts[session.clientId] || ''}
                           onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
+                          onFocus={handleCoachNoteFocus}
                           rows={2}
                           disabled={isSending}
                         />

@@ -1689,6 +1689,28 @@ const WorkoutTracker = () => {
     }));
   };
 
+  // Editing the time field by hand while paused (the field this feeds is
+  // only ever shown when !isRunning) is meant to be the new authoritative
+  // value — the field's own comment says "Pressing Start again resumes
+  // from whatever's typed here". But handleSetStopwatchStart's resume logic
+  // reads setTimers[key].pausedDuration FIRST and only falls back to the
+  // set's own `time` field when no timer entry exists at all — once the
+  // stopwatch had been started and paused even once this session, a timer
+  // entry with a stale pausedDuration already existed, so a manual edit
+  // afterward (e.g. typing "0" to reset it) updated the displayed text but
+  // never touched that stale pausedDuration — so pressing Start again
+  // resumed from the OLD number instead of the freshly typed one. Reported
+  // 2026-08-14. Keep the two in sync on every manual edit, same fix applied
+  // to handleCardioTimeEdit below for cardio's identical shape.
+  const handleTimedSetTimeEdit = (exIdx, sIdx, rawValue) => {
+    const masked = maskDigitsToTimeString(rawValue);
+    handleSetChange(exIdx, sIdx, 'time', masked);
+    const key = getSetTimerKey(exIdx, sIdx);
+    setSetTimers(prev => (prev[key]
+      ? { ...prev, [key]: { ...prev[key], pausedDuration: parseTimeStringToSeconds(masked) || 0 } }
+      : prev));
+  };
+
   // Cardio sets (Running, Jogging, Cycling, Cross Trainer, Incline Walk,
   // Treadmill Walk) reuse the same per-set stopwatch infrastructure as timed
   // exercises (setTimers/getSetElapsedSeconds) — two differences from that
@@ -1760,6 +1782,13 @@ const WorkoutTracker = () => {
         })
       };
     }));
+    // Same fix as handleTimedSetTimeEdit above — keep any existing paused
+    // timer entry's pausedDuration in sync with a manual edit, or Start
+    // resumes from the stale pre-edit number instead of what was just typed.
+    const key = getSetTimerKey(exIdx, sIdx);
+    setSetTimers(prev => (prev[key]
+      ? { ...prev, [key]: { ...prev[key], pausedDuration: parseTimeStringToSeconds(masked) || 0 } }
+      : prev));
   };
 
   const handleCardioStopwatchPause = (exIdx, sIdx) => {
@@ -3580,7 +3609,7 @@ const WorkoutTracker = () => {
                                                 value: set.time || '',
                                                 mode: 'time',
                                                 label: `${ex.name} · Time`,
-                                                onValue: (v) => handleSetChange(exIdx, sIdx, 'time', maskDigitsToTimeString(v)),
+                                                onValue: (v) => handleTimedSetTimeEdit(exIdx, sIdx, v),
                                               });
                                               return (
                                                 <SetValueField

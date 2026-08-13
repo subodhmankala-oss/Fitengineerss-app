@@ -1108,6 +1108,7 @@ const WorkoutTracker = () => {
       { name: 'One Arm Row', sets: [{ reps: 12, weight: '2.5', isCompleted: false }, { reps: 12, weight: '2.6', isCompleted: false }] },
       { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
     ]);
+    setSetTimers({});
     setActiveView('analytics');
     triggerToast('🗑️ Workout session discarded.');
   };
@@ -1133,6 +1134,7 @@ const WorkoutTracker = () => {
         const localTime = savedWorkoutDraft?.savedAt || 0;
         if (!savedWorkoutDraft || dbTime > localTime) {
           if (dbDraft.exercises && dbDraft.exercises.length > 0) setLogExercises(dbDraft.exercises);
+          setSetTimers({});
           if (dbDraft.logDate) setLogDate(dbDraft.logDate);
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
@@ -2154,6 +2156,7 @@ const WorkoutTracker = () => {
       { name: 'One Arm Row', sets: [{ reps: 12, weight: '2.5', isCompleted: false }, { reps: 12, weight: '2.6', isCompleted: false }] },
       { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
     ]);
+    setSetTimers({});
 
     setActiveView('analytics');
   };
@@ -2239,6 +2242,7 @@ const WorkoutTracker = () => {
       }))
     }));
     setLogExercises(exercises);
+    setSetTimers({});
     setTemplateName(template.name);
     setActiveTemplateName(template.name);
     setLogClient(loggedInUser);
@@ -2288,6 +2292,14 @@ const WorkoutTracker = () => {
           : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
       })),
     ]);
+    // setTimers is keyed purely by "exIdx,sIdx" (getSetTimerKey), not by
+    // exercise identity — starting a plan without clearing it left whatever
+    // stopwatch state a PREVIOUS session's exercise had at that same index
+    // still attached. For a timed/cardio exercise (Plank, etc.) landing at
+    // that index that showed up as a stale elapsed time, or even a still-
+    // "running" stopwatch, on a set that was never touched in THIS plan —
+    // reported as "not loading fresh". Clear it on every fresh plan start.
+    setSetTimers({});
     setTemplateName(plan.planName);
     setWorkoutSource(source);
     setIsLoggingWorkout(true);
@@ -3203,6 +3215,12 @@ const WorkoutTracker = () => {
                 // `?? ''`. This branch never got that guard.
                 : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
                         })));
+                        // See startPlan's comment above — setTimers is keyed
+                        // positionally, not by exercise identity, so switching
+                        // plans mid-session leaves a previous plan's timed-set
+                        // stopwatch state attached to whatever lands at the
+                        // same index in the new one.
+                        setSetTimers({});
                         triggerToast(`📋 Loaded exercises from "${plan.planName}"!`);
                       }
                       e.target.value = '';

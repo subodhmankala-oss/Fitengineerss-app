@@ -4350,10 +4350,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             )}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            <span style={{ fontSize: '0.92rem', color: '#fff', fontWeight: 700 }}>
                               📋 {session.planName || 'Custom Routine'}
                             </span>
-                            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: today ? 'var(--primary-accent-light)' : '#fff', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: today ? 'var(--primary-accent-light)' : '#60a5fa', whiteSpace: 'nowrap' }}>
                               📅 {dateLabel}{today ? ' · Today' : ''}
                             </span>
                           </div>

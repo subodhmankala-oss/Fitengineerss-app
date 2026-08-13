@@ -7,7 +7,7 @@ import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
 import './WorkoutProgressDashboard.css';
@@ -1104,10 +1104,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                             )}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            <span style={{ fontSize: '0.92rem', color: '#fff', fontWeight: 700 }}>
                               📋 {session.planName || 'Custom Routine'}
                             </span>
-                            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: isToday(day) ? 'var(--primary-accent-light)' : '#fff', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: isToday(day) ? 'var(--primary-accent-light)' : '#60a5fa', whiteSpace: 'nowrap' }}>
                               📅 {dateLabel}{isToday(day) ? ' · Today' : ''}
                             </span>
                           </div>
@@ -1401,10 +1401,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                               )}
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              <span style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 700 }}>
                                 📋 {session.planName || 'Custom Routine'}
                               </span>
-                              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#60a5fa', whiteSpace: 'nowrap' }}>
                                 📅 {parseLocalDateString(date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                             </div>

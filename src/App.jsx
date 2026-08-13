@@ -21,7 +21,7 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
 import { useTour } from './context/TourContext';
 import { useCoachTour } from './context/CoachTourContext';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -537,6 +537,11 @@ function App() {
         // days. Fire-and-forget, guarded above by lastProcessedEmailRef so
         // it only fires once per app session per user.
         databaseService.touchLastLogin(email);
+
+        // Replay any workout whose save failed earlier (expired session, no
+        // connectivity, server down). Runs once a real session exists, so the
+        // retry is authenticated. Fire-and-forget — never delays startup.
+        flushPendingWorkoutLogs().catch(() => {});
 
         // When a coach-tab login is underway, handleCoachEmailLogin is the sole
         // authority for routing: it verifies a coaches row actually exists and either

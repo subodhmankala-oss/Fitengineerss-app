@@ -2413,13 +2413,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       if (Math.abs(target - scrollParent.scrollTop) < 2) return;
       scrollParent.scrollTo({ top: target, behavior: 'smooth' });
     };
-    // Coalesce the burst of resize events into one correction once the
-    // keyboard has actually stopped moving.
+    // Coalesce the burst of resize events into ONE correction, fired only
+    // once the keyboard has actually stopped moving. This used to also run
+    // off a fixed 300ms settleTimer IN PARALLEL with this debounce — two
+    // independent timers both calling reposition(). The keyboard's open
+    // animation doesn't finish in a fixed 300ms (it varies by device/OS and
+    // fires several resize events as it does), so that timer routinely fired
+    // an early, incomplete correction, and then the debounce below fired a
+    // SECOND, separate one once the keyboard actually settled — visible as
+    // "scroll, pause, scroll again" instead of one continuous motion. The
+    // debounce here is now the only trigger, so however many resize events
+    // the keyboard fires, they collapse into exactly one smooth scroll.
     const onViewportResize = () => {
       clearTimeout(debounce);
-      debounce = setTimeout(reposition, 120);
+      debounce = setTimeout(reposition, 150);
     };
-    const settleTimer = setTimeout(reposition, 300);
+    onViewportResize();
     window.visualViewport?.addEventListener('resize', onViewportResize);
 
     // THE ACTUAL SOURCE OF THE BLACK GAP: everything above only manages
@@ -2447,7 +2456,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     window.visualViewport?.addEventListener('resize', lockPageScroll);
 
     el.addEventListener('blur', () => {
-      clearTimeout(settleTimer);
       clearTimeout(debounce);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
       window.removeEventListener('scroll', lockPageScroll);

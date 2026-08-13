@@ -1392,10 +1392,25 @@ const databaseService = {
     // onAuthStateChange listeners still see the logged-in user. Best-effort
     // with a timeout: setSession() also goes through the same browser SDK,
     // so it must never be allowed to re-introduce the hang we just avoided.
+    //
+    // PERF FIX 2026-08-14: this timeout was 5000ms — meaning every login
+    // that happened to hit the known SDK hang (see the extensive comments
+    // throughout this file on signInWithPassword/verifyOtp/updateUser all
+    // sharing the same issue) sat on "Logging In..." for the FULL 5
+    // seconds before this caught it and moved on, on top of whatever the
+    // rest of the login flow took — a large, avoidable chunk of the
+    // "5-10s to reach the dashboard" coaches/clients were reporting. The
+    // success path is unaffected by shortening this: Promise.race resolves
+    // the instant the real setSession() call finishes (typically well
+    // under a second), so this ceiling only ever matters in the hang case
+    // — it's purely how long the worst case waits before giving up and
+    // continuing with the raw session (which restSelect/restRpc/etc.
+    // already work correctly with via cachedAccessToken, set synchronously
+    // above).
     try {
       await Promise.race([
         supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('setSession timed out')), 5000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('setSession timed out')), 1500))
       ]);
     } catch (e) {
       console.warn('supabase.auth.setSession did not complete (continuing with raw session anyway):', e.message || e);

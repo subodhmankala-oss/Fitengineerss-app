@@ -340,6 +340,20 @@
   padding: 0 var(--screen-gutter); /* align label with full-bleed cards */
 }
 
+/* The subtitle above has always assumed this section bleeds edge-to-edge
+   (see its own comment), but nothing ever actually cancelled
+   .day-stats-overview's 16px padding here — so every exercise card
+   underneath sat at 16px (card) + 12px (card's own inner padding) = 28px
+   from the true screen edge instead of the single 12px the rest of the
+   app's full-bleed sections use (see .live-logger-exercise-list's matching
+   `margin: 0 -16px` elsewhere for the same pattern). Read as a wasted
+   strip of empty space down the left side of every exercise's set table.
+   Cancelling the parent's padding here only (not the header/stats above,
+   which still want their own inset) removes that double indent. */
+.daily-exercises-list {
+  margin: 0 calc(-1 * var(--screen-gutter));
+}
+
 .ex-list-wrapper {
   display: flex;
   flex-direction: column;

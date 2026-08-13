@@ -46,31 +46,28 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   padding-bottom: 340px;
 }
 
-/* Coach Live Log's Discard/Save bar (TrainerDashboard.jsx) — sits at the very
-   end of the scrollable content, i.e. exactly where the pad opens on top of
-   it. Sticky + a z-index above the pad's 1100 keeps it reachable while
-   scrolling instead of only appearing once you reach the bottom of the list;
-   the extra `bottom` offset while the pad is open shifts it to sit just
-   above the pad's own grid instead of overlapping it (a z-index fix alone
-   would leave this thin bar stacked ON TOP of the pad's field-switcher/hide
-   icons, blocking THOSE taps instead). The offset is an estimate of the
-   pad's rendered height (nav row + 4 key rows + padding) — close enough that
-   the bar never overlaps the keys even though it doesn't track the exact
-   safe-area inset. */
+/* Coach Live Log's Discard/Save bar (TrainerDashboard.jsx) — sits at the
+   very end of the scrollable content, i.e. exactly where the pad opens on
+   top of it, so a coach who taps Save right after typing the last set's
+   numbers (pad still open) had the tap swallowed by the pad's blank
+   background instead of reaching the button underneath.
+   FIRST FIX (reverted): made this bar `position: sticky` + a z-index above
+   the pad's 1100. That combination — a sticky element sharing the pad's
+   own scrolling ancestor (.trainer-dashboard-container), with the OS
+   keyboard opening/closing forcing repeated reflows — knocked the pad's
+   `position: fixed` loose from the viewport on real mobile browsers: it
+   started rendering mid-page wherever it happened to lay out instead of
+   staying anchored to the bottom. Confirmed regression 2026-08-13.
+   REAL FIX: leave the bar exactly where it always sat in normal document
+   flow (no sticky, no fixed) — just give it `position: relative` (a
+   no-op for layout/scrolling, but required for z-index to apply at all)
+   and a z-index above the pad's 1100. Whenever the bar and the open pad
+   occupy the same screen region, the bar now wins the tap instead of the
+   pad's background swallowing it — without touching how either element is
+   positioned relative to the viewport. */
 .live-log-action-bar {
-  position: sticky;
-  bottom: 0;
+  position: relative;
   z-index: 1200;
-  padding: 10px 4px 4px;
-  margin: 0 -4px;
-  background: rgba(10, 14, 22, 0.98);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-body:has(.set-number-pad.open) .live-log-action-bar {
-  bottom: 250px;
 }
 
 .set-number-pad-nav {

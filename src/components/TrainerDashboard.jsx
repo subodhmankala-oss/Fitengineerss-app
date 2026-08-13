@@ -2421,10 +2421,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     };
     const settleTimer = setTimeout(reposition, 300);
     window.visualViewport?.addEventListener('resize', onViewportResize);
+
+    // THE ACTUAL SOURCE OF THE BLACK GAP: everything above only manages
+    // scroll INSIDE `.trainer-dashboard-container`. But iOS/Android's own
+    // "scroll focused input into view" doesn't stop at that inner
+    // container — it also scrolls the outer PAGE (window.scrollY /
+    // document.body's own scroll position), even though html/body are set
+    // to `overflow-y: hidden` above (mobile Safari in particular is known
+    // to force this scroll anyway when a focused field needs to clear the
+    // keyboard). `.app-container` is sized to exactly `visualViewport.height`
+    // and sits at the top of the page's layout box — so the instant the
+    // outer page scrolls down by any amount, the app-container's box no
+    // longer covers the bottom of the visible screen, and what's left
+    // showing there is `body`'s own background (#000, i.e. solid black),
+    // not app-container's real content. No amount of scrolling the INNER
+    // container fixes that outer gap. Actively fight the outer scroll back
+    // to 0 for as long as this field is focused.
+    const lockPageScroll = () => {
+      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+    lockPageScroll();
+    window.addEventListener('scroll', lockPageScroll, { passive: true });
+    window.visualViewport?.addEventListener('resize', lockPageScroll);
+
     el.addEventListener('blur', () => {
       clearTimeout(settleTimer);
       clearTimeout(debounce);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
+      window.removeEventListener('scroll', lockPageScroll);
+      window.visualViewport?.removeEventListener('resize', lockPageScroll);
       // Put the view back where the coach was before the keyboard pushed it.
       requestAnimationFrame(() => {
         const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);

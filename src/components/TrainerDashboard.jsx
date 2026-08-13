@@ -2358,33 +2358,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     let debounce = null;
     const scrollParent = el.closest('.trainer-dashboard-container') || document.scrollingElement || document.documentElement;
     const scrollBeforeFocus = scrollParent.scrollTop;
-    // Reserve scroll room equal to the on-screen keyboard's height while this
-    // field is focused. The coach-note composer is the LAST thing in the Live
-    // Log, so without extra room there is simply nowhere to scroll it to: the
-    // correction below hits the container's maximum scroll, which parks the
-    // Save bar at the top of the visible strip and fills everything under it
-    // with empty container background (--bg-app, #090e17 — reads as a solid
-    // black screen). Reported 2026-08-13 with the composer unusable behind
-    // the keyboard. Same technique SetNumberPad.css already uses for the
-    // custom pad, applied here for the OS keyboard, whose height we can only
-    // know at runtime (innerHeight - visualViewport.height).
-    const applyKeyboardInset = () => {
-      const vv = window.visualViewport;
-      const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
-      scrollParent.style.paddingBottom = inset > 0 ? `${inset + 24}px` : '';
-    };
+    // REGRESSION FIX 2026-08-13: a previous version of this handler also
+    // manually reserved extra bottom padding on scrollParent sized to the
+    // keyboard's own height (window.innerHeight - visualViewport.height).
+    // That was redundant: `.trainer-dashboard-container` is `height: 100%`
+    // inside `.app-container`, whose height is already kept in sync with the
+    // real visible viewport by main.jsx's --app-vh listener (fires on the
+    // exact same visualViewport 'resize' event) — so the container ALREADY
+    // shrinks to fit above the keyboard on its own, with no help needed here.
+    // Adding manual padding on top double-reserved the same space, which
+    // made the scroll-into-view math below overshoot into that now-doubled
+    // empty region — scrolling past all real content into blank container
+    // background (#090e17, reads as solid black) with nothing left to see
+    // except the keyboard. Because the padding was left as an inline style
+    // on the shared container, it also silently carried over to the NEXT
+    // field focused afterward (e.g. Plan/Routine Name, which has no keyboard
+    // logic of its own at all) until blur cleaned it up — so one broken
+    // coach-note focus could black out an unrelated field's keyboard too.
+    // Removed entirely; the scroll-into-view correction below is unaffected
+    // and needs no padding to work correctly against the already-shrunk
+    // container.
+    //
     // Absolute, clamped target — NOT a relative scrollBy. The OS keyboard
     // fires `visualViewport.resize` many times while it animates open, and
-    // the previous version did a relative `scrollBy(rect.bottom - visibleBottom)`
+    // an earlier version of this did a relative `scrollBy(rect.bottom - visibleBottom)`
     // with smooth behavior on every one of them. The smooth scroll hadn't
     // landed by the time the next resize fired, so each call re-measured the
     // same not-yet-moved rect and scrolled by that delta AGAIN — the offsets
-    // stacked instead of converging and ran the container far past its own
-    // content, leaving the coach staring at a blank black screen with only
-    // the Save bar clipped at the top edge. Reported 2026-08-13.
-    // Computing an absolute scrollTop and clamping it to the real scroll
-    // range makes repeated calls idempotent: every one of them resolves to
-    // the same destination, however many times the keyboard resizes.
+    // stacked instead of converging. Computing an absolute scrollTop and
+    // clamping it to the real scroll range makes repeated calls idempotent:
+    // every one of them resolves to the same destination, however many times
+    // the keyboard resizes.
     const reposition = () => {
       const vh = window.visualViewport?.height || window.innerHeight;
       const rect = el.getBoundingClientRect();
@@ -2400,20 +2404,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // keyboard has actually stopped moving.
     const onViewportResize = () => {
       clearTimeout(debounce);
-      debounce = setTimeout(() => { applyKeyboardInset(); reposition(); }, 120);
+      debounce = setTimeout(reposition, 120);
     };
-    const settleTimer = setTimeout(() => { applyKeyboardInset(); reposition(); }, 300);
+    const settleTimer = setTimeout(reposition, 300);
     window.visualViewport?.addEventListener('resize', onViewportResize);
     el.addEventListener('blur', () => {
       clearTimeout(settleTimer);
       clearTimeout(debounce);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
-      // Drop the reserved room and put the view back where the coach was
-      // before the keyboard pushed it. Removing the padding shrinks the
-      // scrollable range, so without this the browser clamps scrollTop to the
-      // new maximum and strands the page at the bottom — the same trap the
-      // number pad hit (see restoreScrollAfterPad in SetValueField.jsx).
-      scrollParent.style.paddingBottom = '';
+      // Put the view back where the coach was before the keyboard pushed it.
       requestAnimationFrame(() => {
         const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
         scrollParent.scrollTo({ top: Math.min(scrollBeforeFocus, maxScroll), behavior: 'smooth' });

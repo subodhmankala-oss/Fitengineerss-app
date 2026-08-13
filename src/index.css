@@ -264,3 +264,11 @@ button {
   color: var(--text-muted);
   font-size: clamp(0.9rem, 3.8vw, 1.1rem);
 }
+
+/* Global — used by App.jsx's LazyScreenFallback (the spinner shown while a
+   lazy-loaded screen's own chunk/CSS is still downloading). Defined here
+   rather than in a component stylesheet since the whole point is that it
+   must be available BEFORE any lazy chunk has loaded. */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -47,6 +47,17 @@ export default async function handler(req, res) {
   const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const bodyEmail = ((req.body || {}).email || '').trim().toLowerCase();
 
+  const svcHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+
+  // Kick the client-row lookup off NOW, in parallel with token verification
+  // below: it only needs targetUserId (already read off the body), not the
+  // caller's identity, so there is no reason to wait for the auth round trip
+  // first. Never rejects, so an early 401/403 return can't strand it.
+  const clientRowPromise = fetch(
+    `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(targetUserId)}&select=coach_id`,
+    { headers: svcHeaders }
+  ).then(r => r.json()).catch(() => []);
+
   let verifiedEmail = null;
   if (accessToken && accessToken !== anonKey) {
     try {
@@ -71,63 +82,63 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Could not verify your session.' });
   }
 
-  const svcHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-
   try {
-    // Confirm targetUserId actually belongs to verifiedEmail — a token/email
-    // proves identity, not which user_id the caller is allowed to write to.
-    // Also allow the target client's own attached coach, or the super admin
-    // — the coach's Live Log tab calls this exact function to save a session
-    // ON BEHALF OF a client (TrainerDashboard.jsx's handleFinishLiveLog),
-    // logged in as the COACH, so an owner-only check rejected every one of
-    // those saves with 403 whenever the direct client-side insert had
-    // already failed once. That 403 then re-threw as the original error, so
-    // it likely surfaced as the "Failed to save session" toast — but with no
-    // trace left anywhere (no draft, no log row), a coach who didn't notice
-    // that toast would see nothing at all. Confirmed 2026-08-11: a coach
-    // reported logging a client's session with zero record of it existing
-    // anywhere in the DB.
-    const ownerResp = await fetch(
-      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(targetUserId)}&select=email`,
+    // Authorization: the caller may write these logs if they ARE the target
+    // user, are the target client's attached coach, or are the super admin.
+    // A token/email proves identity, not which user_id it may write to — the
+    // coach's Live Log calls this endpoint to save a session ON BEHALF OF a
+    // client while logged in as the COACH, so an owner-only check would 403
+    // every one of those. (Confirmed 2026-08-11: a coach logged a client's
+    // session and no row existed anywhere, because that 403 re-threw as the
+    // original error behind a toast that was easy to miss.)
+    //
+    // This used to take up to four sequential round trips for a non-admin
+    // coach: verify token -> look up the TARGET's email -> look up the
+    // client row -> look up the COACH's email, then finally insert.
+    // Resolving the CALLER's id once instead lets both comparisons be plain
+    // id equality, dropping two lookups entirely; the client row is already
+    // in flight from above, and it no longer needs to wait for the owner
+    // check to fail before starting. So the chain is now (token verify ||
+    // client row) -> caller id -> insert, with the two DB reads parallel
+    // instead of chained three deep. superAdmin still short-circuits on the
+    // email string alone, same as before, with zero lookups.
+    //
+    // ilike (not eq) for the email match: case-insensitive exact match, no
+    // wildcards — same comparison the old code did by lower-casing both
+    // sides, just pushed into the query instead of done in JS.
+    const callerRowsPromise = fetch(
+      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(verifiedEmail)}&select=id`,
       { headers: svcHeaders }
-    );
-    const ownerRows = await ownerResp.json().catch(() => []);
-    const ownerEmail = (Array.isArray(ownerRows) && ownerRows[0]?.email || '').trim().toLowerCase();
-    const isOwnLogs = !!ownerEmail && ownerEmail === verifiedEmail;
-    const isSuperAdmin = verifiedEmail === 'subodhmankala@gmail.com';
+    ).then(r => r.json()).catch(() => []);
 
-    let isClientsOwnCoach = false;
-    if (!isOwnLogs && !isSuperAdmin) {
-      const clientRows = await fetch(
-        `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(targetUserId)}&select=coach_id`,
-        { headers: svcHeaders }
-      ).then(r => r.json()).catch(() => []);
-      const coachId = Array.isArray(clientRows) && clientRows[0]?.coach_id;
-      if (coachId) {
-        const coachUserRows = await fetch(
-          `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(coachId)}&select=email`,
-          { headers: svcHeaders }
-        ).then(r => r.json()).catch(() => []);
-        const coachEmail = (Array.isArray(coachUserRows) && coachUserRows[0]?.email || '').trim().toLowerCase();
-        isClientsOwnCoach = !!coachEmail && coachEmail === verifiedEmail;
-      }
-    }
+    const [callerRows, clientRows] = await Promise.all([callerRowsPromise, clientRowPromise]);
+    const callerId = (Array.isArray(callerRows) && callerRows[0]?.id) || null;
+    const coachId = (Array.isArray(clientRows) && clientRows[0]?.coach_id) || null;
+
+    const isSuperAdmin = verifiedEmail === 'subodhmankala@gmail.com';
+    const isOwnLogs = !!callerId && callerId === targetUserId;
+    const isClientsOwnCoach = !!callerId && !!coachId && coachId === callerId;
 
     if (!isOwnLogs && !isSuperAdmin && !isClientsOwnCoach) {
       return res.status(403).json({ error: 'You are not authorized to write this workout for this account.' });
     }
 
+    // return=minimal: the inserted rows were never used beyond counting them,
+    // and echoing every set back costs payload and time on exactly the slow
+    // connections this endpoint exists to rescue. (Safe here specifically
+    // because this runs with the service role — the anon-key path still needs
+    // representation, see restInsert.)
     const insertResp = await fetch(`${supabaseUrl}/rest/v1/workout_logs`, {
       method: 'POST',
-      headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
       body: JSON.stringify(records)
     });
-    const data = await insertResp.json().catch(() => null);
     if (!insertResp.ok) {
-      console.error('save-workout-session insert failed:', insertResp.status, data);
-      return res.status(502).json({ error: (data && (data.message || data.error)) || 'Failed to save workout.' });
+      const errBody = await insertResp.json().catch(() => null);
+      console.error('save-workout-session insert failed:', insertResp.status, errBody);
+      return res.status(502).json({ error: (errBody && (errBody.message || errBody.error)) || 'Failed to save workout.' });
     }
-    return res.status(200).json({ success: true, count: Array.isArray(data) ? data.length : records.length });
+    return res.status(200).json({ success: true, count: records.length });
   } catch (err) {
     console.error('save-workout-session error:', err);
     return res.status(500).json({ error: err.message || 'Failed to save workout.' });

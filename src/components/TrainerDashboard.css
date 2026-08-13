@@ -873,6 +873,27 @@
   color: var(--text-muted);
 }
 
+.coach-note-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.coach-note-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
 .coach-note-suggestions {
   display: flex;
   flex-direction: column;

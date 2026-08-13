@@ -567,6 +567,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // (after the session) the instant a send succeeds, so without this the
   // card would vanish mid-confirmation instead of fading out gracefully.
   const [coachNoteJustSent, setCoachNoteJustSent] = useState(false);
+  // Explicit "not now" dismissal for the coach-note card — the coach may
+  // not want to send anything for this session at all, and previously had
+  // no way to close the card short of actually sending a note. Plain React
+  // state (not persisted) is deliberate: it's a "hide for now" affordance,
+  // not "never ask again" — reset whenever a different client is opened so
+  // it doesn't leak across clients, and whenever a new session starts
+  // needing a response so a stale dismissal from days ago can't silently
+  // suppress a fresh one.
+  const [coachNoteDismissed, setCoachNoteDismissed] = useState(false);
   // Live Log: the coach-note composer is hidden behind a "Coach note" toggle
   // and has no Send button of its own — whatever's typed here is sent (via the
   // same saveCoachNote + coach_note push path) as part of "Save Workout
@@ -2383,7 +2392,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const sessionNeedsResponse = latestClientSession && (
     !lastCoachNoteSentAt || new Date(lastCoachNoteSentAt) < new Date(latestClientSession.createdAt || `${latestClientSession.date}T00:00:00`)
   );
-  const showCoachNoteCard = sessionNeedsResponse || coachNoteJustSent;
+  const showCoachNoteCard = (sessionNeedsResponse && !coachNoteDismissed) || coachNoteJustSent;
+  // Clear a dismissal the instant it's no longer covering the same session
+  // it was dismissed for — otherwise it's a one-time "not now" that
+  // silently turns into "never ask again" for every session after it too.
+  useEffect(() => {
+    if (coachNoteDismissed && !sessionNeedsResponse) setCoachNoteDismissed(false);
+  }, [sessionNeedsResponse]);
+  useEffect(() => {
+    setCoachNoteDismissed(false);
+  }, [selectedClient?.id]);
 
   // The coach-note textarea (both the client-detail composer and the Live
   // Log one) is a plain native <textarea> — it never got moved onto the
@@ -4072,15 +4090,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {showCoachNoteCard && (
               <div className="coach-note-card">
                 <div className="coach-note-head">
-                  <span className="coach-note-title">💬 Send {(selectedClient.userName || 'client').split(/\s+/)[0]} a note</span>
-                  {latestClientSession && (latestClientSession.durationSeconds != null || latestClientSession.caloriesBurned != null) && (
-                    <span className="coach-note-lastsession">
-                      Last session:
-                      {latestClientSession.durationSeconds != null && ` ⏱ ${formatDuration(latestClientSession.durationSeconds)}`}
-                      {latestClientSession.durationSeconds != null && latestClientSession.caloriesBurned != null && ' ·'}
-                      {latestClientSession.caloriesBurned != null && ` 🔥 ${latestClientSession.caloriesBurned} kcal`}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 10px' }}>
+                    <span className="coach-note-title">💬 Send {(selectedClient.userName || 'client').split(/\s+/)[0]} a note</span>
+                    {latestClientSession && (latestClientSession.durationSeconds != null || latestClientSession.caloriesBurned != null) && (
+                      <span className="coach-note-lastsession">
+                        Last session:
+                        {latestClientSession.durationSeconds != null && ` ⏱ ${formatDuration(latestClientSession.durationSeconds)}`}
+                        {latestClientSession.durationSeconds != null && latestClientSession.caloriesBurned != null && ' ·'}
+                        {latestClientSession.caloriesBurned != null && ` 🔥 ${latestClientSession.caloriesBurned} kcal`}
+                      </span>
+                    )}
+                  </div>
+                  {/* "Not now" — the coach may just not want to send anything
+                      for this session. Dismiss-only, not a real Send/Discard
+                      pair: it never touches lastCoachNoteSentAt, so the card
+                      still comes back for a genuinely new session later. */}
+                  <button
+                    type="button"
+                    className="coach-note-close"
+                    onClick={() => setCoachNoteDismissed(true)}
+                    title="Not now"
+                    aria-label="Dismiss"
+                  >
+                    ✕
+                  </button>
                 </div>
                 <div className="coach-note-suggestions">
                   {coachNoteSuggestions.map((sug, i) => (

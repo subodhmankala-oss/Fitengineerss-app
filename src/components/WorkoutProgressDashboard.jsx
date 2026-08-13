@@ -1219,6 +1219,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                         const exIsTimed = isTimedExercise(ex.name);
                         const exIsCardio = isCardioExercise(ex.name);
                         const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
+                        const exIsBodyweight = isBodyweightExercise(ex.name);
                         return (
                         <div key={exIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
                           <div className="ex-title" style={{ marginBottom: '6px' }}>{ex.name}</div>
@@ -1278,7 +1279,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                                       </>
                                     ) : (
                                       <>
-                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{set.weight} kg</td>
+                                        {/* Bodyweight exercises log weight: 0 when no plate/vest was
+                                            added — show "BW" like the logger itself does, instead of
+                                            the raw "0 kg" which reads as a logging error. */}
+                                        <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>{exIsBodyweight && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
                                         <td style={{ padding: '5px 0', fontSize: '0.82rem', color: '#fff' }}>{set.reps} reps</td>
                                         <td style={{ padding: '5px 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
                                       </>

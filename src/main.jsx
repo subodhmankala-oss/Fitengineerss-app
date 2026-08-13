@@ -7,7 +7,7 @@ import IOSInstallBanner from './components/IOSInstallBanner.jsx'
 import UpdateToast from './components/UpdateToast.jsx'
 import { TourProvider } from './context/TourContext.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
-import { initPWA } from './pwa/registerPWA.js'
+import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -61,6 +61,16 @@ window.visualViewport?.addEventListener('resize', setAppViewportHeight);
 // seen to go stale — re-measure on regaining visibility/focus too, not just
 // on an explicit resize event.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') setAppViewportHeight();
+  if (document.visibilityState === 'visible') {
+    setAppViewportHeight();
+    // See checkForUpdateOnForeground's comment: this is the reliable place
+    // to catch an update on a tab that's been backgrounded/suspended for
+    // hours, since the 5-minute background timer can't be trusted to have
+    // kept running the whole time.
+    checkForUpdateOnForeground();
+  }
 });
-window.addEventListener('pageshow', setAppViewportHeight);
+window.addEventListener('pageshow', () => {
+  setAppViewportHeight();
+  checkForUpdateOnForeground();
+});

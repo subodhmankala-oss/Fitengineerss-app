@@ -62,6 +62,29 @@ export function applyPWAUpdate() {
   applyUpdateFn?.(true);
 }
 
+// The 5-minute setInterval above is NOT a reliable way to catch updates on a
+// long-open mobile session: mobile browsers throttle or fully suspend JS
+// timers for backgrounded/inactive tabs to save battery, so an installed PWA
+// left open for hours (screen off, app backgrounded most of that time) can
+// have that interval simply never fire. Confirmed 2026-08-13: a coach's tab
+// open 8h43m+ never showed the "Update available" toast at all, for two
+// deploys in a row, despite the interval supposedly running the whole time.
+//
+// `visibilitychange`->visible and `pageshow` are far more reliable: they
+// fire when the OS actually hands the tab execution time again, which is a
+// real event even for a process that was fully suspended in between — unlike
+// a timer, which needs to have kept ticking through the suspension to ever
+// go off. main.jsx calls this from both.
+export async function checkForUpdateOnForeground() {
+  if (!swRegistration) return;
+  try {
+    await swRegistration.update();
+  } catch { /* offline — next foreground event tries again */ }
+  if (updatePending) {
+    window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
+  }
+}
+
 // A stale tab silently running pre-fix JS reproduces whatever bug that fix
 // addressed, forever, no matter how many times "try again" is tapped — the
 // broken code is already loaded into memory and a background SW update

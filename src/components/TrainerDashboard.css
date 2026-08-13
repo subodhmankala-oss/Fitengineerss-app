@@ -9,12 +9,30 @@
 .dashboard-breadcrumb,
 .client-detail-header,
 .trainer-tabs,
-.workout-history-content,
 .measurements-content,
 .workout-plans-content,
 .live-logger-container {
   padding-left: var(--screen-gutter);
   padding-right: var(--screen-gutter);
+}
+
+/* .workout-history-content used to carry the same blanket gutter as the
+   siblings above — but nearly everything inside it (chart-widget-card,
+   day-stats-overview, the session cards) is a reusable card component that
+   ALREADY re-applies its own padding, on the assumption of sitting in a
+   zero-padding parent (see .workout-progress-container in
+   WorkoutProgressDashboard.css, where these same components are used
+   correctly). Nesting them inside this container's own 16px gutter
+   stacked BOTH: 16px (this container) + 16px (the card's own padding) +
+   a session/exercise card's own inner padding on top of that = up to
+   44px of empty space before any real content — reported as "not edge to
+   edge" even after the first fix, which only removed one of the layers.
+   No horizontal padding here now; the two plain (non-card) children —
+   the title and the timeframe tab pills — get their own gutter below so
+   they keep the same inset they always had. */
+.history-section-title {
+  margin-left: var(--screen-gutter);
+  margin-right: var(--screen-gutter);
 }
 
 .client-directory-view {
@@ -793,7 +811,10 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 4px;
-  margin: 12px 0 16px;
+  /* Left/right match --screen-gutter now that .workout-history-content
+     (its parent) no longer carries its own horizontal padding — see the
+     comment on that rule further up this file. */
+  margin: 12px var(--screen-gutter) 16px;
 }
 
 .wsum-timeframe-btn {

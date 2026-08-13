@@ -811,10 +811,19 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 4px;
-  /* Left/right match --screen-gutter now that .workout-history-content
-     (its parent) no longer carries its own horizontal padding — see the
-     comment on that rule further up this file. */
-  margin: 12px var(--screen-gutter) 16px;
+  /* REGRESSION FIX 2026-08-14: this was given its own --screen-gutter
+     left/right margin when .workout-history-content (its parent) lost its
+     blanket padding, on the assumption it should read like the plain
+     title text above it. But it's a bordered/backgrounded pill control —
+     visually a "card" like the stat tiles and exercise cards below it,
+     which all bleed to the true edge with just their own internal
+     padding — so giving THIS one an outer inset instead left it starting
+     16px to the right of everything under it, sticking out of alignment
+     the same way the stat tiles used to stick out from .day-stats-overview
+     before that was fixed. Match the cards: no outer margin, full width,
+     its own padding (4px, then each button's own 8px/12px) is what gives
+     "Weekly"/"Daily"/etc. their breathing room. */
+  margin: 12px 0 16px;
 }
 
 .wsum-timeframe-btn {

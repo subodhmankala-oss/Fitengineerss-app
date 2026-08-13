@@ -5281,6 +5281,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder="e.g. Upper Body, Leg Day"
                           value={livePlanName}
                           onChange={e => setLivePlanName(e.target.value)}
+                          // Same keyboard-reposition fix as the coach-note
+                          // textarea below (handleCoachNoteFocus is generic —
+                          // it only ever reads e.currentTarget, nothing
+                          // coach-note-specific). Without it, this field has
+                          // NO correction of its own and depends entirely on
+                          // the browser's native "scroll focused input into
+                          // view" — confirmed unreliable here: simulating a
+                          // real keyboard open against the live app left this
+                          // exact field's rect below the visible strip
+                          // (scrollTop moved the WRONG way, further from the
+                          // field, not toward it), leaving nothing on screen
+                          // but blank container background behind the
+                          // keyboard. Reported 2026-08-13 — the coach saw the
+                          // identical black screen on Plan/Routine Name as on
+                          // the note composer, despite this field never
+                          // having any custom scroll logic to begin with.
+                          onFocus={handleCoachNoteFocus}
                           style={{
                             padding: '8px 12px',
                             background: 'rgba(255,255,255,0.04)',

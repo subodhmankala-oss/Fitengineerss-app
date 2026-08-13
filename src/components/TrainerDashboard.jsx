@@ -2977,6 +2977,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
                           value={coachNoteDrafts[session.clientId] || ''}
                           onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
+                          onFocus={handleCoachNoteFocus}
                           rows={2}
                           disabled={isSending}
                         />
@@ -5679,8 +5680,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </div>
                     )}
 
-                  {/* Discard (left) + Save (right) */}
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  {/* Discard (left) + Save (right). This is the very last thing
+                      in the scrollable Live Log content — exactly the screen
+                      region SetNumberPad (position: fixed, bottom: 0, z-index:
+                      1100) occupies once open, and the pad only ever closes via
+                      its own tiny hide-keyboard icon, never automatically. A
+                      coach almost always taps Save right after typing the last
+                      set's weight/reps — pad still open — so the tap landed on
+                      the pad's blank background (no handler there) instead of
+                      this button: no toast, no spinner, no error, literally
+                      nothing, over and over. `live-log-action-bar` (see
+                      SetNumberPad.css) pins this bar above the pad with a
+                      higher z-index so it's always reachable regardless of pad
+                      state. Confirmed 2026-08-13 for a real coach. */}
+                  <div className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
                       onClick={() => setShowDiscardLiveModal(true)}

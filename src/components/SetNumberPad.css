@@ -46,6 +46,33 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   padding-bottom: 340px;
 }
 
+/* Coach Live Log's Discard/Save bar (TrainerDashboard.jsx) — sits at the very
+   end of the scrollable content, i.e. exactly where the pad opens on top of
+   it. Sticky + a z-index above the pad's 1100 keeps it reachable while
+   scrolling instead of only appearing once you reach the bottom of the list;
+   the extra `bottom` offset while the pad is open shifts it to sit just
+   above the pad's own grid instead of overlapping it (a z-index fix alone
+   would leave this thin bar stacked ON TOP of the pad's field-switcher/hide
+   icons, blocking THOSE taps instead). The offset is an estimate of the
+   pad's rendered height (nav row + 4 key rows + padding) — close enough that
+   the bar never overlaps the keys even though it doesn't track the exact
+   safe-area inset. */
+.live-log-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1200;
+  padding: 10px 4px 4px;
+  margin: 0 -4px;
+  background: rgba(10, 14, 22, 0.98);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body:has(.set-number-pad.open) .live-log-action-bar {
+  bottom: 250px;
+}
+
 .set-number-pad-nav {
   display: flex;
   align-items: center;

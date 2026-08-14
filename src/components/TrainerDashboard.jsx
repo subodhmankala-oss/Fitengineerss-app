@@ -5085,62 +5085,107 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           )}
                                         </span>
                                         <span className="col-prev set-prev-lbl">{prevStats}</span>
-                                        {exIsCardio ? (
-                                          <>
-                                            <div className="col-weight set-input-field">
-                                              <input
-                                                type="text"
-                                                inputMode="decimal"
-                                                placeholder="0"
-                                                value={set.distanceKm}
-                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'distanceKm', e.target.value)}
-                                                onFocus={handleCoachNoteFocus}
-                                              />
-                                            </div>
-                                            <div className="col-reps set-input-field">
-                                              <input
-                                                type="text"
-                                                inputMode="numeric"
-                                                placeholder="mm:ss"
+                                        {/* Same custom SetNumberPad the Live Log uses (registerLiveSetField/
+                                            openLiveSetField/activeLiveSetKey — a single shared registry,
+                                            rendered once at the bottom of this component) instead of plain
+                                            <input>s. These used to open the phone's own native keyboard,
+                                            which doesn't match the app's design — reported 2026-08-14.
+                                            "ped-" key prefix just keeps these visually distinct from Live
+                                            Log's own field keys; only one of the two views is ever mounted
+                                            at a time so an actual collision isn't possible either way. */}
+                                        {exIsCardio ? (() => {
+                                          const kmKey = `ped-km-${exIdx}-${setIdx}`;
+                                          const timeKey = `ped-time-${exIdx}-${setIdx}`;
+                                          registerLiveSetField(kmKey, {
+                                            value: set.distanceKm,
+                                            mode: 'decimal',
+                                            label: `${ex.name} · Km`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'distanceKm', v),
+                                            onNext: () => openLiveSetField(timeKey),
+                                          });
+                                          registerLiveSetField(timeKey, {
+                                            value: set.time,
+                                            mode: 'time',
+                                            label: `${ex.name} · Time`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(v)),
+                                            onPrev: () => openLiveSetField(kmKey),
+                                          });
+                                          return (
+                                            <>
+                                              <div className="col-weight set-input-field">
+                                                <SetValueField
+                                                  value={set.distanceKm}
+                                                  placeholder="0"
+                                                  active={activeLiveSetKey === kmKey}
+                                                  onOpen={() => openLiveSetField(kmKey)}
+                                                />
+                                              </div>
+                                              <div className="col-reps set-input-field">
+                                                <SetValueField
+                                                  value={set.time}
+                                                  placeholder="mm:ss"
+                                                  active={activeLiveSetKey === timeKey}
+                                                  onOpen={() => openLiveSetField(timeKey)}
+                                                />
+                                              </div>
+                                            </>
+                                          );
+                                        })() : exIsTimed ? (() => {
+                                          const timedKey = `ped-timed-${exIdx}-${setIdx}`;
+                                          registerLiveSetField(timedKey, {
+                                            value: set.time,
+                                            mode: 'time',
+                                            label: `${ex.name} · Time`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(v)),
+                                          });
+                                          return (
+                                            <div className="col-weight set-input-field" style={{ gridColumn: 'span 2' }}>
+                                              <SetValueField
                                                 value={set.time}
-                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
-                                                onFocus={handleCoachNoteFocus}
+                                                placeholder="mm:ss"
+                                                active={activeLiveSetKey === timedKey}
+                                                onOpen={() => openLiveSetField(timedKey)}
                                               />
                                             </div>
-                                          </>
-                                        ) : exIsTimed ? (
-                                          <div className="col-weight set-input-field" style={{ gridColumn: 'span 2' }}>
-                                            <input
-                                              type="text"
-                                              inputMode="numeric"
-                                              placeholder="mm:ss"
-                                              value={set.time}
-                                              onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
-                                              onFocus={handleCoachNoteFocus}
-                                            />
-                                          </div>
-                                        ) : (
-                                          <>
-                                            <div className="col-weight set-input-field">
-                                              <input
-                                                type="text"
-                                                inputMode="decimal"
-                                                value={set.weight}
-                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
-                                                onFocus={handleCoachNoteFocus}
-                                              />
-                                            </div>
-                                            <div className="col-reps set-input-field">
-                                              <input
-                                                type="text"
-                                                inputMode="numeric"
-                                                value={set.reps}
-                                                onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
-                                                onFocus={handleCoachNoteFocus}
-                                              />
-                                            </div>
-                                          </>
-                                        )}
+                                          );
+                                        })() : (() => {
+                                          const weightKey = `ped-w-${exIdx}-${setIdx}`;
+                                          const repsKey = `ped-r-${exIdx}-${setIdx}`;
+                                          registerLiveSetField(weightKey, {
+                                            value: set.weight,
+                                            mode: 'decimal',
+                                            label: `${ex.name} · Kg`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', v),
+                                            onNext: () => openLiveSetField(repsKey),
+                                          });
+                                          registerLiveSetField(repsKey, {
+                                            value: set.reps,
+                                            mode: 'integer',
+                                            label: `${ex.name} · Reps`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', v),
+                                            onPrev: () => openLiveSetField(weightKey),
+                                          });
+                                          return (
+                                            <>
+                                              <div className="col-weight set-input-field">
+                                                <SetValueField
+                                                  value={set.weight}
+                                                  placeholder="0"
+                                                  active={activeLiveSetKey === weightKey}
+                                                  onOpen={() => openLiveSetField(weightKey)}
+                                                />
+                                              </div>
+                                              <div className="col-reps set-input-field">
+                                                <SetValueField
+                                                  value={set.reps}
+                                                  placeholder="0"
+                                                  active={activeLiveSetKey === repsKey}
+                                                  onOpen={() => openLiveSetField(repsKey)}
+                                                />
+                                              </div>
+                                            </>
+                                          );
+                                        })()}
                                         <div className="col-check set-actions-field">
                                           {ex.sets.length > 1 && (
                                             <button

@@ -4926,10 +4926,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
                       <div className="input-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Plan Name (e.g. Week 1 - Day 1: Upper Body)</label>
-                        <input 
+                        <input
                           type="text"
                           value={editorPlanName}
                           onChange={(e) => setEditorPlanName(e.target.value)}
+                          // Same keyboard-reposition fix as the coach-note textarea
+                          // and Live Log's Plan/Routine Name field — this field had
+                          // no scroll correction of its own, leaving a black gap of
+                          // blank container background between the field and the
+                          // keyboard when it opened here in the plan editor.
+                          onFocus={handleCoachNoteFocus}
                           placeholder="e.g. Week 1 - Day 1: Push Day"
                           style={{
                             padding: '10px 14px',
@@ -5088,6 +5094,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                 placeholder="0"
                                                 value={set.distanceKm}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'distanceKm', e.target.value)}
+                                                onFocus={handleCoachNoteFocus}
                                               />
                                             </div>
                                             <div className="col-reps set-input-field">
@@ -5097,6 +5104,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                 placeholder="mm:ss"
                                                 value={set.time}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                                onFocus={handleCoachNoteFocus}
                                               />
                                             </div>
                                           </>
@@ -5108,6 +5116,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                               placeholder="mm:ss"
                                               value={set.time}
                                               onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(e.target.value))}
+                                              onFocus={handleCoachNoteFocus}
                                             />
                                           </div>
                                         ) : (
@@ -5118,6 +5127,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                 inputMode="decimal"
                                                 value={set.weight}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', e.target.value)}
+                                                onFocus={handleCoachNoteFocus}
                                               />
                                             </div>
                                             <div className="col-reps set-input-field">
@@ -5126,6 +5136,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                 inputMode="numeric"
                                                 value={set.reps}
                                                 onChange={(e) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', e.target.value)}
+                                                onFocus={handleCoachNoteFocus}
                                               />
                                             </div>
                                           </>

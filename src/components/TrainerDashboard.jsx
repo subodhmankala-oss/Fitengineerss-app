@@ -14,7 +14,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
@@ -737,6 +737,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   };
 
   const handleLiveSetStopwatchStart = (exIdx, setIdx) => {
+    // Pressing Play on a timed exercise (Plank, Side Hops, ...) is real work
+    // starting, same as ticking a set — the top bar's clock + live kcal
+    // should already be climbing while the hold is in progress.
+    startLiveSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, setIdx);
     // Same resume-from-typed-value fallback as handleLiveCardioStopwatchStart:
     // if there's no timer entry yet (fresh set, or one whose time the coach
@@ -795,6 +799,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   //    tracked via the timer's `autoKm` flag, true by default, flipped to
   //    false the moment the coach types their own number.
   const handleLiveCardioStopwatchStart = (exIdx, setIdx) => {
+    // Same as the timed-exercise Play button — starting a cardio set is real
+    // work starting, so the top bar's clock + live kcal should start ticking
+    // right away instead of waiting for a tick/complete.
+    startLiveSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, setIdx);
     // A normal pause leaves the timer entry in place with its pausedDuration
     // — but ticking a set complete deletes the entry entirely (see
@@ -950,11 +958,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
   // computeLiveCalories only counts COMPLETED sets, so an in-progress cardio
-  // set contributed nothing here — the per-row time/kcal and this top
-  // readout disagreed. This adds each not-yet-completed cardio set's own
-  // live estimate on top, driven by elapsed time regardless of
-  // running/paused:
-  // - RUNNING: elapsed climbs live off the timer, same as the per-row clock.
+  // or timed-hold (Plank, Side Hops, ...) set contributed nothing here — the
+  // per-row time/kcal and this top readout disagreed. This adds each
+  // not-yet-completed cardio/timed set's own live estimate on top, driven by
+  // elapsed time regardless of running/paused:
+  // - RUNNING: elapsed climbs live off the timer, same as the per-row clock
+  //   (and, since Play now also starts the session clock — see
+  //   startLiveSessionClockIfIdle — this top bar switches out of idle at the
+  //   same moment this starts counting).
   // - PAUSED (not completed): elapsed reads the frozen set.time value that
   //   pausing already synced there, so the total holds steady instead of
   //   dropping to 0 and then jumping back up on resume.
@@ -963,6 +974,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   //   time/distanceKm, so nothing is double-counted or lost when a set gets
   //   ticked or un-ticked.
   const liveRunningCardioKcal = liveExercises.reduce((sum, ex, exIdx) => {
+    if (isTimedExercise(ex.name)) {
+      return sum + ex.sets.reduce((s, set, setIdx) => {
+        if (set.isCompleted) return s;
+        const timer = liveSetTimers[getSetTimerKey(exIdx, setIdx)];
+        const isRunning = timer?.isRunning || false;
+        const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
+        if (elapsed <= 0) return s;
+        return s + estimateTimedHoldKcal(elapsed, resolvedClientWeightKg);
+      }, 0);
+    }
     if (!isCardioExercise(ex.name)) return sum;
     return sum + ex.sets.reduce((s, set, setIdx) => {
       if (set.isCompleted) return s;
@@ -1117,6 +1138,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     }));
   };
 
+  // Shared by every action that represents "real work has started" in the
+  // Live Log — ticking a set complete, but also pressing Play on a
+  // cardio/timed exercise's stopwatch (see handleLiveCardioStopwatchStart /
+  // handleLiveSetStopwatchStart below). Only transitions idle→running, so
+  // calling it again later (Play, then tick) is a harmless no-op.
+  const startLiveSessionClockIfIdle = () => {
+    const now = Date.now();
+    setLiveTimerStatus(prevStatus => {
+      if (prevStatus === 'idle') {
+        setLiveTimerStartedAt(now);
+        return 'running';
+      }
+      return prevStatus;
+    });
+  };
+
   const handleLiveToggleSet = (exIdx, setIdx) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
     // which fires later from a setInterval tick (see alarmSound.js).
@@ -1138,13 +1175,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       };
     }));
     // Logging real work is what starts the session clock — not opening the tab.
-    setLiveTimerStatus(prevStatus => {
-      if (prevStatus === 'idle') {
-        setLiveTimerStartedAt(now);
-        return 'running';
-      }
-      return prevStatus;
-    });
+    startLiveSessionClockIfIdle();
     // Marking a set complete (not un-completing one) auto-starts the rest
     // timer, same as the client's own logger.
     if (togglingSetOn) {

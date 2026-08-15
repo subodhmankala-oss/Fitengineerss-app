@@ -1254,7 +1254,14 @@ const databaseService = {
                 // duplicated onto every row of this session (workout_logs has
                 // no session-level row) and read back from any one of them.
                 duration_seconds: session.durationSeconds != null ? session.durationSeconds : null,
-                calories_burned: session.caloriesBurned != null ? session.caloriesBurned : null
+                calories_burned: session.caloriesBurned != null ? session.caloriesBurned : null,
+                // Session-level avg/max BPM from a paired Bluetooth heart
+                // rate monitor (see useHeartRateMonitor) — same "duplicated
+                // onto every row, read back from any one" pattern as
+                // duration_seconds/calories_burned above. NULL when no
+                // monitor was connected.
+                avg_heart_rate_bpm: session.avgHeartRate != null ? session.avgHeartRate : null,
+                max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null
               });
             });
           });
@@ -1270,8 +1277,8 @@ const databaseService = {
               // (PostgREST "column not found" — code 42703 / PGRST204): retry
               // without them rather than losing the whole session save.
               if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-                console.warn('workout_logs missing set_type/duration_seconds/calories_burned/distance_km/cardio_duration_seconds — retrying without them. Run sql/supabase_workout_logs_set_type.sql, sql/supabase_workout_logs_session_metrics.sql and sql/supabase_workout_logs_cardio_fields.sql to enable full tracking.');
-                const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, ...rest }) => rest);
+                console.warn('workout_logs missing set_type/duration_seconds/calories_burned/distance_km/cardio_duration_seconds/avg_heart_rate_bpm/max_heart_rate_bpm — retrying without them. Run sql/supabase_workout_logs_set_type.sql, sql/supabase_workout_logs_session_metrics.sql, sql/supabase_workout_logs_cardio_fields.sql and sql/supabase_workout_logs_heart_rate.sql to enable full tracking.');
+                const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, avg_heart_rate_bpm, max_heart_rate_bpm, ...rest }) => rest);
                 await restInsert('workout_logs', fallbackRecords);
               } else {
                 // Anything else — most commonly 42501 (RLS rejected the
@@ -2471,7 +2478,19 @@ const databaseService = {
       }
 
       const logs = await this.getWorkoutLogsForUser(userId);
-      const completedCount = new Set((logs || []).map(l => l.log_date)).size;
+      // Scope to the CURRENT program period, same as TrainerDashboard's
+      // sessions-left math (handleSendSessionReminder) — without this, a
+      // client's full lifetime log count was compared against a
+      // freshly-edited total_sessions. For any client with enough history
+      // (e.g. a long-time client whose coach just adjusted their total),
+      // that lifetime count could already meet/exceed the new total on the
+      // very next dashboard load, firing an immediate, unwanted
+      // auto-disconnect that nulled out coach_id AND the total_sessions the
+      // coach had just set — looking exactly like the edit "didn't save".
+      const datesThisProgram = conn.programStartedOn
+        ? (logs || []).filter(l => l.log_date >= conn.programStartedOn)
+        : (logs || []);
+      const completedCount = new Set(datesThisProgram.map(l => l.log_date)).size;
       if (completedCount < conn.totalSessions) return { disconnected: false };
 
       const oldCoachId = conn.coachId;

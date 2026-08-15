@@ -29,7 +29,6 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from './WorkoutTracker';
 import { useCoachTour } from '../context/CoachTourContext';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { suggestNextWeight } from '../utils/progressiveOverload';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 
@@ -1095,10 +1094,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         // for an exercise logged with no weight at all.
         return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: '0', isCompleted: false }] };
       }
-      // Reps stay fixed at the last set's target; weight steps up by one
-      // plate increment (2.5kg) — straight/pyramid-style progression
-      // instead of just repeating the last set verbatim.
-      return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: suggestNextWeight(last.weight, '20'), isCompleted: false }] };
+      // Reps stay fixed at the last set's target; weight carries over the
+      // last set's weight as-is (previously auto-incremented by one plate
+      // via suggestNextWeight — removed per coach feedback: the guessed next
+      // weight was routinely wrong and had to be backspaced out every time
+      // anyway, so just repeat the last set's actual weight).
+      return { ...ex, sets: [...ex.sets, { reps: last.reps, weight: last.weight || '', isCompleted: false }] };
     }));
   };
 

@@ -39,13 +39,43 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [slideDir, setSlideDir] = useState('forward');
   const [saveError, setSaveError] = useState('');
   const [step1Error, setStep1Error] = useState('');
+  // Which step-1 field(s) specifically are empty/invalid — drives the red
+  // border on that exact input, not just the shared error banner text below it.
+  const [step1FieldErrors, setStep1FieldErrors] = useState({ name: false, phone: false });
+  // Steps 2-4 are option picks, not text fields, so "which field" is really
+  // "did they pick anything yet" — one flag per step is enough to redden the
+  // whole card/row group. All four steps are mandatory: nothing here is
+  // silently defaulted anymore (see handleFinish — it used to fall back to
+  // 'fat_loss' / 'moderately_active' / 'just_stay_fit' for a step the client
+  // skipped straight through).
+  const [step2Error, setStep2Error] = useState('');
+  const [step3Error, setStep3Error] = useState('');
+  const [step4Error, setStep4Error] = useState('');
 
   const goNext = () => {
     if (step === 1) {
-      if (!name.trim()) { setStep1Error('Please enter your name.'); return; }
       const digitsOnly = phone.replace(/\D/g, '');
-      if (digitsOnly.length !== 10) { setStep1Error('Please enter a valid 10-digit phone number.'); return; }
+      const nameMissing = !name.trim();
+      const phoneMissing = digitsOnly.length !== 10;
+      if (nameMissing || phoneMissing) {
+        setStep1FieldErrors({ name: nameMissing, phone: phoneMissing });
+        setStep1Error(
+          nameMissing && phoneMissing
+            ? 'Please enter your name and a valid 10-digit phone number.'
+            : nameMissing
+              ? 'Please enter your name.'
+              : 'Please enter a valid 10-digit phone number.'
+        );
+        return;
+      }
+      setStep1FieldErrors({ name: false, phone: false });
       setStep1Error('');
+    } else if (step === 2) {
+      if (!program) { setStep2Error('Please select a program to continue.'); return; }
+      setStep2Error('');
+    } else if (step === 3) {
+      if (!activityLevel) { setStep3Error('Please select your activity level to continue.'); return; }
+      setStep3Error('');
     }
     setSlideDir('forward');
     setStep(s => Math.min(s + 1, TOTAL_STEPS));
@@ -57,16 +87,27 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   };
 
   const handleFinish = async () => {
+    // Last mandatory pick, guarded here rather than in goNext since step 4
+    // ends the wizard via this button instead of Next →. Name/phone (step 1),
+    // program (step 2) and activity level (step 3) were already enforced on
+    // their own steps, so reaching this point guarantees they're set too.
+    if (!primaryConcern) { setStep4Error('Please select your primary concern to continue.'); return; }
+    setStep4Error('');
+
     setIsSubmitting(true);
     setSaveError('');
     const digitsOnly = phone.replace(/\D/g, '');
+    // No more silent defaults for a step the client skipped through — all
+    // four steps are validated before this ever runs, so every one of these
+    // reflects a real choice the client made, not a placeholder standing in
+    // for one they never got asked to make.
     const payload = {
       age: age || '30',
       weight_kg: weight || '70',
       height_cm: height || '175',
-      program: program || 'fat_loss',
-      activity_level: activityLevel || 'moderately_active',
-      primary_concern: primaryConcern || 'just_stay_fit',
+      program,
+      activity_level: activityLevel,
+      primary_concern: primaryConcern,
       full_name: name.trim(),
       phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
     };
@@ -199,10 +240,10 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           <label className="cow-label">Your name</label>
           <input
             type="text"
-            className="cow-input"
+            className={`cow-input ${step1FieldErrors.name ? 'error' : ''}`}
             placeholder="e.g. Priya Sharma"
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={e => { setName(e.target.value); if (step1FieldErrors.name) setStep1FieldErrors(prev => ({ ...prev, name: false })); }}
             autoComplete="name"
             maxLength="60"
           />
@@ -216,10 +257,10 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
             }}>🇮🇳 +91</span>
             <input
               type="tel"
-              className="cow-input"
+              className={`cow-input ${step1FieldErrors.phone ? 'error' : ''}`}
               placeholder="10-digit mobile number"
               value={phone}
-              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); if (step1FieldErrors.phone) setStep1FieldErrors(prev => ({ ...prev, phone: false })); }}
               style={{ flex: 1 }}
             />
           </div>
@@ -282,12 +323,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       <h2 className="cow-step-title">Select Your Program</h2>
       <p className="cow-step-subtitle">What's your main goal?</p>
 
-      <div className="cow-option-grid">
+      <div className={`cow-option-grid ${step2Error ? 'error' : ''}`}>
         {programOptions.map(opt => (
           <button
             key={opt.id}
             className={`cow-option-card ${program === opt.id ? 'selected' : ''}`}
-            onClick={() => setProgram(opt.id)}
+            onClick={() => { setProgram(opt.id); setStep2Error(''); }}
           >
             <span className="cow-option-emoji">{opt.emoji}</span>
             <span className="cow-option-label">{opt.label}</span>
@@ -295,6 +336,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           </button>
         ))}
       </div>
+
+      {step2Error && (
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+          {step2Error}
+        </div>
+      )}
 
       <div className="cow-nav-row">
         <button className="cow-back-btn" onClick={goBack}>← Back</button>
@@ -309,12 +356,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       <h2 className="cow-step-title">Activity Level</h2>
       <p className="cow-step-subtitle">How active are you currently?</p>
 
-      <div className="cow-option-list">
+      <div className={`cow-option-list ${step3Error ? 'error' : ''}`}>
         {activityOptions.map(opt => (
           <button
             key={opt.id}
             className={`cow-option-row ${activityLevel === opt.id ? 'selected' : ''}`}
-            onClick={() => setActivityLevel(opt.id)}
+            onClick={() => { setActivityLevel(opt.id); setStep3Error(''); }}
           >
             <span className="cow-row-emoji">{opt.emoji}</span>
             <div className="cow-row-text">
@@ -325,6 +372,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           </button>
         ))}
       </div>
+
+      {step3Error && (
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+          {step3Error}
+        </div>
+      )}
 
       <div className="cow-nav-row">
         <button className="cow-back-btn" onClick={goBack}>← Back</button>
@@ -339,12 +392,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       <h2 className="cow-step-title">Primary Concern</h2>
       <p className="cow-step-subtitle">What matters most to you right now?</p>
 
-      <div className="cow-option-list">
+      <div className={`cow-option-list ${step4Error ? 'error' : ''}`}>
         {concernOptions.map(opt => (
           <button
             key={opt.id}
             className={`cow-option-row ${primaryConcern === opt.id ? 'selected' : ''}`}
-            onClick={() => setPrimaryConcern(opt.id)}
+            onClick={() => { setPrimaryConcern(opt.id); setStep4Error(''); }}
           >
             <span className="cow-row-emoji">{opt.emoji}</span>
             <div className="cow-row-text">
@@ -355,6 +408,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           </button>
         ))}
       </div>
+
+      {step4Error && (
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+          {step4Error}
+        </div>
+      )}
 
       {saveError && (
         <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>

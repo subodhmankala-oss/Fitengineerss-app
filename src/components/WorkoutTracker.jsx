@@ -6,7 +6,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -1314,23 +1314,41 @@ const WorkoutTracker = () => {
     return '—';
   };
 
+  // Shared by every action that represents "the client has started doing
+  // real work" — ticking a set complete, but also now pressing Play on a
+  // cardio/timed exercise's stopwatch (see handleCardioStopwatchStart /
+  // handleSetStopwatchStart below). Notifies the coach once and starts the
+  // session clock, but only on the idle→running transition — calling this
+  // again later (e.g. Play, then tick) is a harmless no-op since
+  // workoutTimerStatus is already 'running' by then.
+  const startSessionClockIfIdle = () => {
+    const now = Date.now();
+    const clientId = ownUserId || localStorage.getItem('userId');
+    if (workoutTimerStatus === 'idle' && clientId && workoutSource !== 'coach') {
+      // Same workoutName field the "completed" notification already sends
+      // (see handleConfirmSaveWorkout below) — the server just wasn't using
+      // it for either event until now (see api/push.js).
+      notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
+    }
+    setWorkoutTimerStatus(prevStatus => {
+      if (prevStatus === 'idle') {
+        setWorkoutTimerStartedAt(now);
+        return 'running';
+      }
+      return prevStatus;
+    });
+  };
+
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
     // which fires later from a setInterval tick (see alarmSound.js).
     unlockAudio();
     const now = Date.now();
     // First completed set of an idle session = the client has started working
-    // out. Notify their coach once, at that transition. Only for a client
-    // logging their own session (not the coach's own Live Log path). Fall back
-    // to the cached userId so a not-yet-resolved ownUserId doesn't drop it.
+    // out — same signal startSessionClockIfIdle already checks for, so this
+    // call also covers the "notify coach once" side effect.
     const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
-    const clientId = ownUserId || localStorage.getItem('userId');
-    if (workoutTimerStatus === 'idle' && togglingSetOn && clientId && workoutSource !== 'coach') {
-      // Same workoutName field the "completed" notification already sends
-      // (see handleConfirmSaveWorkout below) — the server just wasn't using
-      // it for either event until now (see api/push.js).
-      notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
-    }
+    if (togglingSetOn) startSessionClockIfIdle();
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         return {
@@ -1355,14 +1373,6 @@ const WorkoutTracker = () => {
       }
       return ex;
     }));
-    // Logging real work is what starts the session clock — matches the coach.
-    setWorkoutTimerStatus(prevStatus => {
-      if (prevStatus === 'idle') {
-        setWorkoutTimerStartedAt(now);
-        return 'running';
-      }
-      return prevStatus;
-    });
   };
 
   const saveSessionsToLocal = (newSessions) => {
@@ -1669,6 +1679,11 @@ const WorkoutTracker = () => {
   };
 
   const handleSetStopwatchStart = (exIdx, sIdx) => {
+    // Pressing Play on a timed exercise (Plank, Side Hops, ...) is real work
+    // starting, same as ticking a set — the top banner's clock + live kcal
+    // should already be climbing while the hold is in progress, not wait
+    // until it's ticked complete.
+    startSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, sIdx);
     // Same resume-from-typed-value fallback as handleCardioStopwatchStart:
     // if there's no timer entry yet (fresh set, or one whose time the
@@ -1732,6 +1747,10 @@ const WorkoutTracker = () => {
   //    false the moment the client types their own value (handleCardioKmEdit),
   //    so a real number they're entering never gets overwritten by the estimate.
   const handleCardioStopwatchStart = (exIdx, sIdx) => {
+    // Same as the timed-exercise Play button — starting a cardio set is real
+    // work starting, so the top banner's clock + live kcal should start
+    // ticking right away instead of waiting for a tick/complete.
+    startSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, sIdx);
     // A normal pause leaves the timer entry in place with its pausedDuration
     // — but ticking a set complete deletes the entry entirely (see
@@ -2364,10 +2383,14 @@ const WorkoutTracker = () => {
   // fresh every render so it climbs live as sets get checked off.
   //
   // computeLiveCalories only counts COMPLETED sets, so an in-progress cardio
-  // set contributed nothing here — the per-row time/kcal and the top banner
-  // disagreed. This adds each not-yet-completed cardio set's own live
-  // estimate on top, driven by elapsed time regardless of running/paused:
-  // - RUNNING: elapsed climbs live off the timer, same as the per-row clock.
+  // or timed-hold (Plank, Side Hops, ...) set contributed nothing here — the
+  // per-row time/kcal and the top banner disagreed. This adds each
+  // not-yet-completed cardio/timed set's own live estimate on top, driven by
+  // elapsed time regardless of running/paused:
+  // - RUNNING: elapsed climbs live off the timer, same as the per-row clock
+  //   (and, since Play now also starts the session clock — see
+  //   startSessionClockIfIdle — the top banner switches out of idle at the
+  //   same moment this starts counting).
   // - PAUSED (not completed): elapsed reads the frozen set.time value that
   //   pausing already synced there, so the total holds steady instead of
   //   dropping to 0 and then jumping back up on resume.
@@ -2377,6 +2400,20 @@ const WorkoutTracker = () => {
   //   ticked or un-ticked.
   const bodyWeightKgForLiveKcal = parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG;
   const liveRunningCardioKcal = logExercises.reduce((sum, ex, exIdx) => {
+    // Same "not yet completed but the stopwatch has time on it" live
+    // estimate as the cardio branch below, just for timed holds (Plank,
+    // Side Hops, Wall Sit, ...) — no distance/pace, duration alone drives
+    // estimateTimedHoldKcal.
+    if (isTimedExercise(ex.name)) {
+      return sum + ex.sets.reduce((s, set, sIdx) => {
+        if (set.isCompleted) return s;
+        const timer = setTimers[getSetTimerKey(exIdx, sIdx)];
+        const isRunning = timer?.isRunning || false;
+        const elapsed = isRunning ? getSetElapsedSeconds(exIdx, sIdx) : (parseTimeStringToSeconds(set.time) || 0);
+        if (elapsed <= 0) return s;
+        return s + estimateTimedHoldKcal(elapsed, bodyWeightKgForLiveKcal);
+      }, 0);
+    }
     if (!isCardioExercise(ex.name)) return sum;
     return sum + ex.sets.reduce((s, set, sIdx) => {
       if (set.isCompleted) return s;

@@ -101,6 +101,11 @@ export default function AdminClientsList({
                       {client.phone && (
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>📞 {client.phone}</div>
                       )}
+                      {client.joined_at && (
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          🗓️ Joined {new Date(client.joined_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                         {client.userGoal && (
                           <span style={{

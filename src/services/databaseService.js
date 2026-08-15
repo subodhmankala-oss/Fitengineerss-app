@@ -2039,7 +2039,7 @@ const databaseService = {
             total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
           }));
         }
       } catch (e) {
@@ -2073,7 +2073,7 @@ const databaseService = {
                 total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
               }));
             }
           }
@@ -2121,7 +2121,7 @@ const databaseService = {
         total_sessions: c.total_sessions ?? null,
         total_sessions_updated_at: c.total_sessions_updated_at ?? null,
         program_started_on: c.program_started_on ?? null,
-        program_est_completion: c.program_est_completion ?? null
+        program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
       };
     });
   },
@@ -2189,7 +2189,7 @@ const databaseService = {
             total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
           }));
         }
       } catch (e) {
@@ -2218,7 +2218,7 @@ const databaseService = {
             total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
           }));
         }
       }
@@ -2250,7 +2250,7 @@ const databaseService = {
         total_sessions: c.total_sessions ?? null,
         total_sessions_updated_at: c.total_sessions_updated_at ?? null,
         program_started_on: c.program_started_on ?? null,
-        program_est_completion: c.program_est_completion ?? null
+        program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
       };
     });
   },
@@ -3369,6 +3369,41 @@ const databaseService = {
     } catch (e) {
       console.error('Cloud DB Get Latest Coach Note Error:', e);
       return null;
+    }
+  },
+
+  // Whether the client still has the one-time "Welcome to Fitengineers"
+  // banner (WelcomeBanner.jsx) to see. See sql/supabase_welcome_message.sql.
+  async getWelcomeSeen(userId) {
+    if (!isSupabaseConfigured || !userId) return true;
+    try {
+      const rows = await restSelect(`clients?user_id=eq.${encodeURIComponent(userId)}&select=welcome_seen`);
+      // Zero rows is ambiguous, same RLS-vs-anon-key gap documented all over
+      // this file (e.g. getUserProfileByEmail): it means either "no such
+      // client" or "read went out before the auth token was ready" (exactly
+      // the fresh-session window right after login) — NOT "row exists with
+      // welcome_seen unset". Treating that ambiguity as "show the banner"
+      // would risk resurfacing it for an already-onboarded existing client on
+      // that race. Fail closed (never show) whenever we can't positively
+      // confirm welcome_seen === false from a real row.
+      if (!Array.isArray(rows) || rows.length === 0) return true;
+      return rows[0]?.welcome_seen !== false;
+    } catch (e) {
+      console.error('Cloud DB Get Welcome Seen Error:', e);
+      return true; // fail closed — never show a stray banner on a read error
+    }
+  },
+
+  // Dismissing the welcome banner marks it seen server-side so it stops
+  // resurfacing across devices/logins, same reasoning as markCoachNoteRead.
+  async markWelcomeSeen(userId) {
+    if (!isSupabaseConfigured || !userId) return { success: false };
+    try {
+      await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, { welcome_seen: true });
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Mark Welcome Seen Error:', e);
+      return { success: false, error: e.message || 'Update failed' };
     }
   },
 

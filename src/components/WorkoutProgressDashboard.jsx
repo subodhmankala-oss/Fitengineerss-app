@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachNoteBanner from './CoachNoteBanner';
+import WelcomeBanner from './WelcomeBanner';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
@@ -745,6 +746,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           </button>
         </div>
       </div>
+
+      {/* One-time welcome card for a brand-new client — shown in-app instead
+          of as a push (a push can be missed/denied/arrive before they've
+          even opened the dashboard). Stays until dismissed. */}
+      <WelcomeBanner userId={userId} userName={userName} />
 
       {/* Unread notes from the coach — the fallback if the client missed the
           push notification when the coach sent it. */}

@@ -529,10 +529,22 @@ async function handleSendNudges(req, res) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Same hardcoded super-admin identity App.jsx's processSessionUser uses to
+// grant the super-admin role — kept in sync deliberately rather than reading
+// a role column, since that's the one account this alert must always reach
+// regardless of DB role drift.
+const SUPER_ADMIN_EMAIL = 'subodhmankala@gmail.com';
+
 async function getUserContact(userId) {
   const users = await rpcAll(supabase, 'get_users_for_server');
   const user = users.find((u) => u.id === userId);
   return user ? { email: user.email, full_name: user.full_name } : null;
+}
+
+async function getSuperAdminUserId() {
+  const users = await rpcAll(supabase, 'get_users_for_server');
+  const admin = users.find((u) => (u.email || '').toLowerCase() === SUPER_ADMIN_EMAIL);
+  return admin?.id || null;
 }
 
 async function findSubscriptions(targetUserId, email, name) {
@@ -663,6 +675,17 @@ async function handleNotifyUser(req, res) {
       title = '📏 Time for a Measurement Update';
       body = `${await getCoachDisplayName(client?.coach_id)} would like you to log fresh measurements — take a couple minutes to update your progress.`;
       url = '/?openMeasurements=1';
+    } else if (event === 'new_client_signup') {
+      // Fired once per account from api/complete-onboarding.js (that endpoint
+      // only ever runs for a client who hasn't finished the one-time wizard
+      // yet, so every call here really is a brand-new client) — lets the
+      // super-admin see growth happen live instead of checking the dashboard.
+      const adminId = await getSuperAdminUserId();
+      if (!adminId) return res.status(200).json({ success: true, message: 'Super-admin has no account; nothing to send.' });
+      targetUserId = adminId;
+      title = '🎉 New client joined';
+      body = `${clientName} just signed up on Fitengineers.`;
+      url = `/?viewClient=${clientUserId}`;
     } else {
       return res.status(400).json({ error: `Unknown event "${event}".` });
     }

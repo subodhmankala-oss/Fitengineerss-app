@@ -117,6 +117,14 @@ function timedHoldKcal(durationSeconds, bodyWeightKg) {
   return (TIMED_HOLD_MET * 3.5 * bodyWeightKg / 200) * minutes;
 }
 
+// Public wrapper around timedHoldKcal — mirrors estimateCardioKcal above but
+// for isTimedExercise sets (Plank, Side Hops, Wall Sit, ...), so the logger
+// can show the same "burning now" live estimate while their stopwatch is
+// running, before the set is ticked complete.
+export function estimateTimedHoldKcal(durationSeconds, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+  return Math.round(timedHoldKcal(durationSeconds, bodyWeightKg) * 10) / 10;
+}
+
 // MET for vigorous bodyweight calisthenics (push-ups, mountain climbers,
 // jumping jacks) — Compendium of Physical Activities lists these around
 // 7.8-8.0 MET; one flat value matches this app's existing fixed-MET-bracket

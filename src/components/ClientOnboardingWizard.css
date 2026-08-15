@@ -224,6 +224,20 @@
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
 }
 
+/* Mandatory field left empty — surfaced on top of .cow-input so it wins
+   over the plain resting border regardless of source order. */
+.cow-input.error {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.06);
+  animation: cow-shake 0.3s ease;
+}
+
+@keyframes cow-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 /* ── Option grid (Step 2 — 3 cards) ── */
 .cow-option-grid {
   display: grid;
@@ -257,6 +271,13 @@
   border-color: rgba(139, 92, 246, 0.7);
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
   transform: translateY(-3px);
+}
+
+/* This step is mandatory and nothing's picked yet — highlight every card so
+   it's obvious a selection (any one) is what's blocking Next, not a form typo. */
+.cow-option-grid.error .cow-option-card {
+  border-color: rgba(239, 68, 68, 0.45);
+  animation: cow-shake 0.3s ease;
 }
 
 .cow-option-emoji {
@@ -309,6 +330,13 @@
   background: rgba(139, 92, 246, 0.14);
   border-color: rgba(139, 92, 246, 0.6);
   box-shadow: 0 0 16px rgba(139, 92, 246, 0.18);
+}
+
+/* Same mandatory-step highlight as .cow-option-grid.error, for the row
+   layout used on steps 3 & 4. */
+.cow-option-list.error .cow-option-row {
+  border-color: rgba(239, 68, 68, 0.45);
+  animation: cow-shake 0.3s ease;
 }
 
 .cow-row-emoji {

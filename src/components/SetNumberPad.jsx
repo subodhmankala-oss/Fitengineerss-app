@@ -23,7 +23,7 @@ import './SetNumberPad.css';
 // utils/setInputUtils.js), never a snapshot frozen from when the field was
 // opened, so the value that lands in the next field is always correct.
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
-const AUTO_ADVANCE_DELAY = 900;
+const AUTO_ADVANCE_DELAY = 1300;
 
 function BackspaceIcon() {
   return (

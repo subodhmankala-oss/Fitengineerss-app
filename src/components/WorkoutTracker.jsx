@@ -21,7 +21,6 @@ import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { suggestNextWeight } from '../utils/progressiveOverload';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 
@@ -990,12 +989,15 @@ const WorkoutTracker = () => {
         const byDate = {};
         rows.forEach(l => {
           const d = l.log_date;
-          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, exMap: {} };
-          // Session duration/calories are duplicated onto every row of the
-          // session (workout_logs has no session-level row) — take the first
-          // non-null value seen for this date so the history card can show them.
+          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {} };
+          // Session duration/calories/heart-rate are duplicated onto every
+          // row of the session (workout_logs has no session-level row) —
+          // take the first non-null value seen for this date so the history
+          // card can show them.
           if (l.duration_seconds != null && byDate[d].durationSeconds == null) byDate[d].durationSeconds = l.duration_seconds;
           if (l.calories_burned != null && byDate[d].caloriesBurned == null) byDate[d].caloriesBurned = l.calories_burned;
+          if (l.avg_heart_rate_bpm != null && byDate[d].avgHeartRate == null) byDate[d].avgHeartRate = l.avg_heart_rate_bpm;
+          if (l.max_heart_rate_bpm != null && byDate[d].maxHeartRate == null) byDate[d].maxHeartRate = l.max_heart_rate_bpm;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
           // distance_km present = real cardio; cardio_duration_seconds present
@@ -1012,6 +1014,7 @@ const WorkoutTracker = () => {
         const dbSessions = Object.values(byDate).map(s => ({
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
           durationSeconds: s.durationSeconds, caloriesBurned: s.caloriesBurned,
+          avgHeartRate: s.avgHeartRate, maxHeartRate: s.maxHeartRate,
           exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
         }));
         // DB is authoritative per date; keep any local-only (unsynced) dates too.
@@ -1588,10 +1591,12 @@ const WorkoutTracker = () => {
           // logged with no weight at all. Reported 2026-08-14 for Steppers.
           newSet = { reps: lastSet?.reps || 10, weight: '0', isCompleted: false, isWarmup };
         } else {
-          // Reps stay fixed at the last set's target; weight steps up by one
-          // plate increment (2.5kg) — straight/pyramid-style progression
-          // instead of just repeating the last set verbatim.
-          newSet = { reps: lastSet?.reps || 10, weight: suggestNextWeight(lastSet?.weight), isCompleted: false, isWarmup };
+          // Reps stay fixed at the last set's target; weight carries over the
+          // last set's weight as-is (previously auto-incremented by one plate
+          // via suggestNextWeight — removed per coach feedback: the guessed
+          // next weight was routinely wrong and had to be backspaced out
+          // every time anyway, so just repeat the last set's actual weight).
+          newSet = { reps: lastSet?.reps || 10, weight: lastSet?.weight || '', isCompleted: false, isWarmup };
         }
         return { ...ex, sets: [...ex.sets, newSet] };
       }
@@ -2885,6 +2890,8 @@ const WorkoutTracker = () => {
                   // support whichever this session actually has.
                   const displayDuration = sess.duration || (sess.durationSeconds != null ? formatDuration(sess.durationSeconds) : null);
                   const displayCalories = sess.caloriesBurned != null ? sess.caloriesBurned : null;
+                  const displayAvgHr = sess.avgHeartRate != null ? sess.avgHeartRate : null;
+                  const displayMaxHr = sess.maxHeartRate != null ? sess.maxHeartRate : null;
 
                   return (
                     <div key={sessKey} style={{
@@ -2916,6 +2923,9 @@ const WorkoutTracker = () => {
                             {displayCalories != null && (
                               <span style={{ fontSize: '0.6rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>🔥 {displayCalories} kcal</span>
                             )}
+                            {displayAvgHr != null && (
+                              <span style={{ fontSize: '0.6rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>❤️ {displayAvgHr} bpm avg</span>
+                            )}
                           </div>
                         </div>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 800, marginLeft: '8px', paddingTop: '2px' }}>{isExpanded ? '▲' : '▼'}</span>
@@ -2941,6 +2951,12 @@ const WorkoutTracker = () => {
                               <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
                                 <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>🔥 Calories</div>
                                 <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fbbf24', marginTop:'2px' }}>{displayCalories} kcal</div>
+                              </div>
+                            )}
+                            {displayAvgHr != null && (
+                              <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
+                                <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>❤️ Heart Rate</div>
+                                <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#f87171', marginTop:'2px' }}>{displayAvgHr}{displayMaxHr != null ? ` / ${displayMaxHr}` : ''} bpm</div>
                               </div>
                             )}
                           </div>

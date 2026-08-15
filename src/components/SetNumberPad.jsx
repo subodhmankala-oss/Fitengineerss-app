@@ -23,7 +23,7 @@ import './SetNumberPad.css';
 // utils/setInputUtils.js), never a snapshot frozen from when the field was
 // opened, so the value that lands in the next field is always correct.
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
-const AUTO_ADVANCE_DELAY = 550;
+const AUTO_ADVANCE_DELAY = 900;
 
 function BackspaceIcon() {
   return (
@@ -53,16 +53,23 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
   // it doesn't blank out mid-animation.
   const [shown, setShown] = React.useState(active);
   const autoAdvanceTimer = React.useRef(null);
+  // Whether this field has been typed into since it became active. A new set's
+  // Kg field opens pre-filled with the previous set's weight (see
+  // WorkoutTracker's handleAddSet) — the first Backspace on it should clear it
+  // completely rather than trim one digit, so the coach/client isn't stuck
+  // pressing back repeatedly to get a blank field to type a fresh weight into.
+  const touchedSinceOpen = React.useRef(false);
 
   React.useEffect(() => {
     if (active) setShown(active);
     // A new field opened (manually, or via the previous field's own auto-
     // advance) — any pending auto-advance from the field we just left no
-    // longer applies.
+    // longer applies, and the "clear on first backspace" behavior resets.
     if (autoAdvanceTimer.current) {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
+    touchedSinceOpen.current = false;
   }, [activeKey]);
 
   React.useEffect(() => () => {
@@ -86,6 +93,16 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
 
     if (key === 'back') {
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      // First Backspace on a freshly-opened, pre-filled field (e.g. a new
+      // set's Kg field carrying over the previous set's weight) wipes it
+      // completely instead of trimming one digit — same as the "clear on
+      // first edit" default fields with a suggested value get elsewhere.
+      // Once the field has been typed into, back behaves normally again.
+      if (!touchedSinceOpen.current) {
+        touchedSinceOpen.current = true;
+        onValue('');
+        return;
+      }
       if (mode === 'time') {
         onValue(String(value ?? '').replace(/\D/g, '').slice(0, -1));
       } else {
@@ -93,6 +110,7 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
       }
       return;
     }
+    touchedSinceOpen.current = true;
 
     if (key === '.') {
       if (mode !== 'decimal' || String(value ?? '').includes('.')) return;

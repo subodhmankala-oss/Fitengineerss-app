@@ -84,7 +84,7 @@ const CLIENT_NAMES = [
 export function inferCategory(name) {
   const n = name.toLowerCase();
   if (/(arm circle|leg swing)/.test(n)) return 'Warm Up';
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?)/.test(n)) return 'Legs';
@@ -97,7 +97,7 @@ export function inferCategory(name) {
 // Short primary-muscle label for the row subtitle.
 export function inferPrimary(name) {
   const n = name.toLowerCase();
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$/.test(n)) return 'Triceps';
   if (/(curl|preacher|concentration)/.test(n)) return 'Biceps';
   if (/wrist/.test(n)) return 'Forearms';

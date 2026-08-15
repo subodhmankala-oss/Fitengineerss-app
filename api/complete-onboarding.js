@@ -40,16 +40,41 @@ export default async function handler(req, res) {
   try {
     let userId = bodyUserId || null;
 
-    // No id up front (a brand-new signup, or the browser's own id-resolution
-    // came up empty) — resolve/create the users row here instead, server-side
-    // with the service-role key, so this never depends on the browser
-    // Supabase SDK, which is known to hang right after a fresh auth session
-    // (exactly the state a client is in moments after signing up or
-    // resetting their password — see feedback-supabase-sdk-hang memory).
-    // Confirmed 2026-07-27: routing this same creation through the client-
-    // side saveUserProfile() (which still uses the raw SDK) just moved the
-    // failure from an immediate error to an indefinite hang for a real
-    // client (Nikhil) whose account had never gotten a users/clients row.
+    // A client-supplied userId is NOT trustworthy on its own: for an email/
+    // password signup, the browser stores the raw Supabase AUTH uid into
+    // localStorage.userId the moment signUp() returns (see Onboarding.jsx),
+    // but public.users.id is a separately-generated UUID (DEFAULT
+    // gen_random_uuid(), never set equal to the auth uid on that path) —
+    // it only exists once App.jsx's onAuthStateChange handler finishes its
+    // own background users/clients auto-create (which has a deliberate
+    // 600ms retry baked in). A fresh client who fills the wizard quickly can
+    // submit before that race resolves, sending an auth uid that matches no
+    // public.users row — the clients upsert below then fails its user_id FK
+    // and every save comes back "Failed to save onboarding data." (confirmed
+    // 2026-08-15 for a brand-new client, Gurpreet, on first login). Verify
+    // the id actually resolves before trusting it; otherwise fall through to
+    // the email-based lookup/create path exactly as if no id had been sent.
+    if (userId) {
+      const verifyResp = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&select=id`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
+      const verifyData = await verifyResp.json().catch(() => []);
+      if (!Array.isArray(verifyData) || !verifyData[0]?.id) {
+        userId = null;
+      }
+    }
+
+    // No id up front (a brand-new signup, the browser's own id-resolution
+    // came up empty, or the id above didn't verify) — resolve/create the
+    // users row here instead, server-side with the service-role key, so this
+    // never depends on the browser Supabase SDK, which is known to hang
+    // right after a fresh auth session (exactly the state a client is in
+    // moments after signing up or resetting their password — see
+    // feedback-supabase-sdk-hang memory). Confirmed 2026-07-27: routing this
+    // same creation through the client-side saveUserProfile() (which still
+    // uses the raw SDK) just moved the failure from an immediate error to an
+    // indefinite hang for a real client (Nikhil) whose account had never
+    // gotten a users/clients row.
     if (!userId && email) {
       const normEmail = String(email).trim().toLowerCase();
       const lookupResp = await fetch(`${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(normEmail)}&select=id`, {

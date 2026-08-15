@@ -17,7 +17,7 @@ export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders',
 // shape below — 'High Knees' is bodyweight/reps (isBodyweightExercise) and
 // 'High Knees Walk' is weight+meters (isLoadedCarryExercise), each excluded
 // from isCardioExercise explicitly so their own classifiers win instead.
-const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk', 'High Knees', 'High Knees Walk'];
+const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk', 'Walking', 'High Knees', 'High Knees Walk'];
 
 // Dynamic warm-up moves — reps only, no weight, no calorie contribution (see
 // isWarmupExercise below). Arm Circle + Leg Swing are auto-added to a fresh
@@ -75,9 +75,9 @@ const CLIENT_NAMES = [
   'Jump Squat', 'Kettlebell Swing', 'Leg Curl (Machine)', 'Leg Press',
   'Mountain Climber', 'Overhead Press (Barbell)', 'Pec Deck Fly', 'Pendlay Row', 'Preacher Curl', 'Push Press',
   'Rear Delt Fly', 'Reverse Curl', 'Russian Twist', 'Seated Cable Row', 'Seated Leg Curl',
-  'Shoulder Press (Machine)', 'Side Plank', 'Single-Leg Romanian Deadlift', 'Sit Up', 'Skullcrusher',
+  'Shoulder Press (Machine)', 'Side Hops', 'Side Plank', 'Single-Leg Romanian Deadlift', 'Sit Up', 'Skullcrusher',
   'Smith Machine Squat', 'Sumo Deadlift', 'T-Bar Row', 'Triceps Dip',
-  'Triceps Pushdown', 'Upright Row', 'Wall Sit', 'Wrist Curl', 'Zercher Squat',
+  'Triceps Pushdown', 'Upright Row', 'Wall Sit', 'Wrist Curl', 'Zercher Squat', 'One Leg Step-Ups',
 ];
 
 // Keyword classifier → one filter category. Order matters (specific first).
@@ -87,7 +87,7 @@ export function inferCategory(name) {
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
-  if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer)/.test(n)) return 'Legs';
+  if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?)/.test(n)) return 'Legs';
   if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart)/.test(n)) return 'Shoulders';
   if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar)/.test(n)) return 'Back';
   if (/(bench|chest|fly|pec deck|push-?up|push up|dip|crossover|around the world|floor press|press)/.test(n)) return 'Chest';
@@ -105,6 +105,7 @@ export function inferPrimary(name) {
   if (/(glute|hip thrust|glute bridge|kickback)/.test(n)) return 'Glutes';
   if (/(hamstring|romanian|stiff leg|leg curl|good morning|single leg deadlift)/.test(n)) return 'Hamstrings';
   if (/(squat|lunge|leg press|leg extension|step-?up|steppers?\b|wall sit|split squat|hack)/.test(n)) return 'Quadriceps';
+  if (/side hops?/.test(n)) return 'Calves';
   if (/deadlift/.test(n)) return 'Posterior Chain';
   if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope)/.test(n)) return 'Core / Abs';
   if (/(rear delt|reverse fly|face pull)/.test(n)) return 'Rear Delts';
@@ -153,10 +154,13 @@ export function isCardioExercise(name) {
 // (no weight field, matching how it's actually trained: rounds of work by
 // duration, not by rep count), so it reuses this same duration-only shape
 // rather than the weight+reps Bodyweight/+Add Weight toggle below.
+//
+// Side Hops is logged the same duration-only way (mm:ss, no weight/reps) —
+// it's trained as rounds of continuous hopping, not a rep count.
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope/.test(n);
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope|side hops?/.test(n);
 }
 
 // Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
@@ -193,7 +197,7 @@ export function isLoadedCarryExercise(name) {
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  if (n === 'squat') return true;
+  if (n === 'squat' || n === 'squats') return true;
   return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk|leg raise|sit-?up|sit up/.test(n);
 }
 

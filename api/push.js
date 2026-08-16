@@ -673,6 +673,21 @@ async function handleNotifyUser(req, res) {
       targetUserId = oldCoachId;
       title = clientName;
       body = 'Package ended — moved to unattached clients';
+    } else if (event === 'client_connected') {
+      // Fired right after connectClientToCoach's link transaction commits
+      // (WorkoutProgressDashboard.jsx's ConnectCoachModal onSuccess) — covers
+      // both a brand-new client attaching via invite code AND an existing
+      // client reattaching/renewing with the same coach on a fresh code; the
+      // coach just sees "you have this client now" either way. getClientRow
+      // reads the `clients` table, which the link transaction has already
+      // committed to by the time this fires, so client.coach_id here is
+      // already the NEW coach. Previously nothing notified the coach at all
+      // for this event — confirmed missing 2026-08-16.
+      if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
+      targetUserId = client.coach_id;
+      title = '🔗 New client connected';
+      body = `${clientName} just connected to you as their coach.`;
+      url = `/?viewClient=${clientUserId}`;
     } else if (event === 'plan_assigned') {
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);

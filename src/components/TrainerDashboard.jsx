@@ -594,6 +594,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // same saveCoachNote + coach_note push path) as part of "Save Workout
   // Session". This flag just controls whether that composer is revealed.
   const [showLiveCoachNote, setShowLiveCoachNote] = useState(false);
+  // Measured-height accordion for the coach-note reveal (see the
+  // showLiveCoachNote effect below + .coach-note-slide in
+  // TrainerDashboard.css). CSS-only height tricks either need a guessed
+  // max-height (visibly out of sync with real content) or the grid
+  // 0fr/1fr track-sizing trick, which several browsers still don't
+  // interpolate — it just snaps with no animation at all. Measuring
+  // scrollHeight in JS and transitioning max-height to that exact pixel
+  // value works everywhere.
+  const coachNoteSlideRef = useRef(null);
+  const [coachNoteSlideMaxHeight, setCoachNoteSlideMaxHeight] = useState('0px');
+  useEffect(() => {
+    const el = coachNoteSlideRef.current;
+    if (!el) return;
+    if (showLiveCoachNote) {
+      setCoachNoteSlideMaxHeight(`${el.scrollHeight}px`);
+    } else {
+      // Collapse from whatever height it's currently at (in case content
+      // grew while open) rather than a stale earlier measurement.
+      setCoachNoteSlideMaxHeight(`${el.scrollHeight}px`);
+      requestAnimationFrame(() => setCoachNoteSlideMaxHeight('0px'));
+    }
+  }, [showLiveCoachNote]);
   // Rest/warmup timer popup (ClockTimerModal) — purely a stopwatch/timer
   // utility, no data saved, so a single open/closed flag is all it needs.
   const [showClockTimer, setShowClockTimer] = useState(false);
@@ -6060,7 +6082,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     document.querySelector('.app-container') || document.body
                   )}
 
-                    {showLiveCoachNote && (
+                    {/* Always mounted (not `showLiveCoachNote &&`) so the
+                        toggle can transition smoothly in both directions
+                        instead of popping in/out on mount+unmount. Height is
+                        measured in JS (coachNoteSlideMaxHeight effect above)
+                        rather than animated via CSS grid tracks, which some
+                        browsers don't interpolate at all. See
+                        .coach-note-slide in TrainerDashboard.css. */}
+                    <div
+                      ref={coachNoteSlideRef}
+                      className={`coach-note-slide ${showLiveCoachNote ? 'coach-note-slide--open' : ''}`}
+                      style={{ maxHeight: coachNoteSlideMaxHeight }}
+                      aria-hidden={!showLiveCoachNote}
+                    >
                       <div className="coach-note-card" style={{ margin: '10px 0 0' }}>
                         <div className="coach-note-head">
                           <span className="coach-note-title">💬 Note for {(selectedClient.userName || 'client').split(/\s+/)[0]}</span>
@@ -6072,7 +6106,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               key={i}
                               type="button"
                               className="coach-note-chip"
-                              disabled={liveSaving}
+                              disabled={liveSaving || !showLiveCoachNote}
+                              tabIndex={showLiveCoachNote ? 0 : -1}
                               onClick={() => setCoachNoteText(sug)}
                               title="Tap to use — you can still edit before sending"
                             >
@@ -6088,9 +6123,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           onFocus={handleCoachNoteFocus}
                           rows={2}
                           disabled={liveSaving}
+                          tabIndex={showLiveCoachNote ? 0 : -1}
                         />
                       </div>
-                    )}
+                    </div>
 
                   {/* Discard (left) + Save (right) — plain, un-elevated flow,
                       matching the client's own WorkoutTracker save button

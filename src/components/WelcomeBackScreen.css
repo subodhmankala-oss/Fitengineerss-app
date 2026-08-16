@@ -1,0 +1,324 @@
+/* Welcome Back / Re-engagement screen — mirrors the existing card language
+   used throughout WorkoutProgressDashboard (glass-panel, --radius-md,
+   --primary-accent-light) so it reads as a native part of the app, not a
+   bolted-on screen. Mobile-first; grid collapses to a single column below
+   560px, matching the rest of the dashboard's breakpoints. */
+
+.wb-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 8px;
+}
+
+.wb-hero {
+  text-align: center;
+  padding: 8px 4px 4px;
+}
+
+.wb-hero-eyebrow {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary-accent-light);
+  margin-bottom: 6px;
+}
+
+.wb-hero-title {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.wb-hero-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.wb-card {
+  background: rgba(21, 29, 44, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  padding: 20px;
+}
+
+.wb-journey-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05));
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.wb-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.wb-journey-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.wb-journey-fraction {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.wb-journey-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.wb-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.wb-progress-fill {
+  height: 100%;
+  border-radius: 20px;
+  background: linear-gradient(90deg, var(--primary-accent-light), #10b981);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wb-progress-pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-accent-light);
+}
+
+.wb-journey-copy {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-subtle);
+  line-height: 1.4;
+}
+
+.wb-plan-prompt {
+  text-align: center;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.wb-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.wb-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.wb-card-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.wb-card-head h3 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.wb-card-sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Check-in card */
+.wb-mood-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wb-mood-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 10px 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wb-mood-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.wb-mood-btn.active {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.wb-mood-emoji {
+  font-size: 1.3rem;
+}
+
+.wb-mood-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.wb-mood-btn.active .wb-mood-label {
+  color: var(--primary-accent-light);
+}
+
+.wb-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.wb-note-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.wb-btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, var(--primary-accent-light), #059669);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.wb-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.wb-btn-primary:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+.wb-checkin-done {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 0.82rem;
+  color: #e5e7eb;
+}
+
+.wb-checkin-done-emoji {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.wb-checkin-done-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.wb-checkin-note-preview {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.wb-link-btn {
+  background: none;
+  border: none;
+  color: var(--primary-accent-light);
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* Show my progress card — rendered as a <button> for full-card tap target */
+.wb-progress-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.wb-progress-card:hover {
+  background: rgba(21, 29, 44, 0.75);
+}
+
+.wb-progress-card:active {
+  transform: scale(0.99);
+}
+
+.wb-progress-teaser {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wb-progress-cta {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--primary-accent-light);
+}
+
+@media (min-width: 640px) {
+  .wb-hero-title {
+    font-size: 1.8rem;
+  }
+
+  .wb-actions {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}

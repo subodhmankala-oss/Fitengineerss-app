@@ -14,6 +14,20 @@ export function initPWA() {
     onRegisteredSW(swUrl, registration) {
       if (!registration) return;
       swRegistration = registration;
+      // BUG FIX 2026-08-16: main.jsx's `pageshow` listener calls
+      // checkForUpdateOnForeground() as the "catch an update on cold
+      // launch" path — but pageshow fires right after the page's `load`
+      // event, while registerSW()'s own registration handshake (this
+      // callback) is async and lands later. checkForUpdateOnForeground()
+      // no-ops via its `if (!swRegistration) return` guard until
+      // swRegistration is set here, so on a literal close-and-reopen —
+      // the exact repro a coach reported — the cold-launch check was lost
+      // to this race on EVERY launch, leaving only the 5-minute interval
+      // (unreliable: mobile browsers throttle/suspend timers on
+      // backgrounded tabs) to ever find a pending update. Check the
+      // instant the registration itself is ready instead of waiting on an
+      // event that may have already fired before this ran.
+      registration.update().catch(() => {});
       // Check for a newer deploy periodically while the app stays open, not
       // just on the initial page load — closes the exact gap above for a
       // long-running session. Errors here are non-fatal; the next interval

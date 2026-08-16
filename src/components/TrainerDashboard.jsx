@@ -2547,77 +2547,49 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // and needs no padding to work correctly against the already-shrunk
     // container.
     //
-    // Absolute, clamped target — NOT a relative scrollBy. The OS keyboard
-    // fires `visualViewport.resize` many times while it animates open, and
-    // an earlier version of this did a relative `scrollBy(rect.bottom - visibleBottom)`
-    // with smooth behavior on every one of them. The smooth scroll hadn't
-    // landed by the time the next resize fired, so each call re-measured the
-    // same not-yet-moved rect and scrolled by that delta AGAIN — the offsets
-    // stacked instead of converging. Computing an absolute scrollTop and
-    // clamping it to the real scroll range makes repeated calls idempotent:
-    // every one of them resolves to the same destination, however many times
-    // the keyboard resizes.
-    // BUG FIX 2026-08-16: this used to also fight the OUTER page scroll —
-    // instantly (no smooth) snapping window.scrollY back to 0 every single
-    // time a native 'scroll' event fired, on TOP of the debounced inner
-    // reposition() below. The native "scroll focused input into view"
-    // behavior animates the outer page scroll over many frames, firing a
-    // 'scroll' event on nearly every one of them; each of those triggered
-    // our own instant, non-smooth snap-back. The net visible result on
-    // fields like Plan/Routine Name was three distinct motions — native
-    // scroll up, our instant snap down, then the debounced reposition()
-    // scrolling up again once the keyboard settled — reported as
-    // "slides up, down, then up". Folding the outer-scroll correction into
-    // the SAME single debounced reposition() below (rather than a separate
-    // reactive listener that fires continuously) makes it happen exactly
-    // once, together with the inner correction, instead of racing it.
+    // BUG FIX 2026-08-16 (round 2): the hand-rolled delta/vh math this used
+    // to do here (compute `visibleBottom` from visualViewport.height, diff
+    // it against el.getBoundingClientRect(), clamp to scrollHeight -
+    // clientHeight...) needed the rect AND the viewport height to both
+    // reflect the same, fully-settled keyboard-open layout at the exact
+    // instant it ran. That didn't hold reliably enough across devices — a
+    // rect measured a beat before the container had actually resized, diffed
+    // against an already-shrunk vh, could compute a badly inflated
+    // correction that scrolled straight past all real content into blank
+    // container background (the black screen, which kept recurring even
+    // after the previous fix to this same function). el.scrollIntoView()
+    // delegates that "how far, in which scrollable ancestor" geometry to the
+    // browser itself, which always measures against current layout — no
+    // manual bookkeeping left to fall out of sync.
     const reposition = () => {
-      // Correct the outer page first — see note above on the black-gap
-      // reason this is needed — as part of this single settled pass, not
-      // as a continuous reactive fight.
+      // The outer page shouldn't scroll at all — see the multi-paragraph
+      // note above on why a stray outer scroll is what actually produces
+      // the black gap (app-container no longer covering the bottom of the
+      // screen). Reset it before letting scrollIntoView do its work.
       if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
         window.scrollTo(0, 0);
       }
-      const vh = window.visualViewport?.height || window.innerHeight;
-      const rect = el.getBoundingClientRect();
-      const margin = 16;
-      const visibleBottom = vh - margin;
-      // Snap the field's bottom edge to sit right above the keyboard in
-      // BOTH directions, not just "scroll down more if it's covered". The
-      // browser's own native scroll-into-view fires first (before this
-      // settles) and on some engines overshoots — it scrolls further than
-      // needed, leaving the field's bottom well above visibleBottom. The
-      // old guard (`if rect.bottom <= visibleBottom return`) treated that
-      // as "already fine" and left the overshoot in place: the field (and
-      // everything after it) ends up scrolled past, so the strip between
-      // the last field and the keyboard is just blank container background
-      // (#090e17, reads as solid black) instead of real content. Always
-      // correcting toward the same target — however the field got
-      // misaligned — makes the two directions equally self-healing.
-      const delta = rect.bottom - visibleBottom;
-      if (Math.abs(delta) < 2) return;
-      const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
-      const target = Math.min(maxScroll, Math.max(0, scrollParent.scrollTop + delta));
-      if (Math.abs(target - scrollParent.scrollTop) < 2) return;
-      scrollParent.scrollTo({ top: target, behavior: 'smooth' });
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
-    // Coalesce the burst of resize events into ONE correction, fired only
-    // once the keyboard has actually stopped moving. This used to also run
-    // off a fixed 300ms settleTimer IN PARALLEL with this debounce — two
-    // independent timers both calling reposition(). The keyboard's open
-    // animation doesn't finish in a fixed 300ms (it varies by device/OS and
-    // fires several resize events as it does), so that timer routinely fired
-    // an early, incomplete correction, and then the debounce below fired a
-    // SECOND, separate one once the keyboard actually settled — visible as
-    // "scroll, pause, scroll again" instead of one continuous motion. The
-    // debounce here is now the only trigger, so however many resize events
-    // the keyboard fires, they collapse into exactly one smooth scroll.
+    // Only ever fire off a REAL keyboard resize event, debounced to collapse
+    // however many the keyboard's open animation dispatches into exactly one
+    // correction. A previous version also called reposition() once
+    // immediately on focus — before the keyboard (or visualViewport) had
+    // moved at all — as a fallback for browsers with no visualViewport
+    // support. On fast devices that landed as a redundant, independently-
+    // timed correction a beat before the real (debounced) one: reported as
+    // "slides up, pause, slides up again". Keep that immediate fallback
+    // ONLY for the no-visualViewport case, where there's no resize event to
+    // ever react to otherwise.
     const onViewportResize = () => {
       clearTimeout(debounce);
       debounce = setTimeout(reposition, 150);
     };
-    onViewportResize();
-    window.visualViewport?.addEventListener('resize', onViewportResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onViewportResize);
+    } else {
+      debounce = setTimeout(reposition, 150);
+    }
 
     el.addEventListener('blur', () => {
       clearTimeout(debounce);

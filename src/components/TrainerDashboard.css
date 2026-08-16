@@ -861,6 +861,33 @@
   border-radius: 12px;
 }
 
+/* ── Coach note slide (Live Log toggle) ──────────────────────────────────
+   Wraps .coach-note-card when it's revealed by the "Coach note ▼/▲"
+   button so the reveal/hide is an actual animation instead of a mount/
+   unmount pop. Stays in the DOM at all times.
+
+   max-height here is driven from JS (coachNoteSlideMaxHeight in
+   TrainerDashboard.jsx), measured via scrollHeight on every toggle —
+   not a guessed fixed value and not the CSS grid 0fr/1fr track-sizing
+   trick. A guessed max-height either overshoots the card's real height
+   (the Save/Discard bar below jumps into its final spot early, before
+   the transition visually finishes) or undershoots it (clips the
+   textarea); grid-template-rows isn't reliably animatable across
+   browsers and can just snap with no transition at all. Measuring the
+   real pixel height and transitioning max-height to it works everywhere
+   and keeps everything below in exact sync with the reveal. */
+.coach-note-slide {
+  max-height: 0px;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.22s ease;
+}
+
+.coach-note-slide--open {
+  opacity: 1;
+}
+
 .coach-note-head {
   display: flex;
   align-items: baseline;

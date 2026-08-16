@@ -2557,7 +2557,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // clamping it to the real scroll range makes repeated calls idempotent:
     // every one of them resolves to the same destination, however many times
     // the keyboard resizes.
+    // BUG FIX 2026-08-16: this used to also fight the OUTER page scroll —
+    // instantly (no smooth) snapping window.scrollY back to 0 every single
+    // time a native 'scroll' event fired, on TOP of the debounced inner
+    // reposition() below. The native "scroll focused input into view"
+    // behavior animates the outer page scroll over many frames, firing a
+    // 'scroll' event on nearly every one of them; each of those triggered
+    // our own instant, non-smooth snap-back. The net visible result on
+    // fields like Plan/Routine Name was three distinct motions — native
+    // scroll up, our instant snap down, then the debounced reposition()
+    // scrolling up again once the keyboard settled — reported as
+    // "slides up, down, then up". Folding the outer-scroll correction into
+    // the SAME single debounced reposition() below (rather than a separate
+    // reactive listener that fires continuously) makes it happen exactly
+    // once, together with the inner correction, instead of racing it.
     const reposition = () => {
+      // Correct the outer page first — see note above on the black-gap
+      // reason this is needed — as part of this single settled pass, not
+      // as a continuous reactive fight.
+      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
+        window.scrollTo(0, 0);
+      }
       const vh = window.visualViewport?.height || window.innerHeight;
       const rect = el.getBoundingClientRect();
       const margin = 16;
@@ -2599,35 +2619,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     onViewportResize();
     window.visualViewport?.addEventListener('resize', onViewportResize);
 
-    // THE ACTUAL SOURCE OF THE BLACK GAP: everything above only manages
-    // scroll INSIDE `.trainer-dashboard-container`. But iOS/Android's own
-    // "scroll focused input into view" doesn't stop at that inner
-    // container — it also scrolls the outer PAGE (window.scrollY /
-    // document.body's own scroll position), even though html/body are set
-    // to `overflow-y: hidden` above (mobile Safari in particular is known
-    // to force this scroll anyway when a focused field needs to clear the
-    // keyboard). `.app-container` is sized to exactly `visualViewport.height`
-    // and sits at the top of the page's layout box — so the instant the
-    // outer page scrolls down by any amount, the app-container's box no
-    // longer covers the bottom of the visible screen, and what's left
-    // showing there is `body`'s own background (#000, i.e. solid black),
-    // not app-container's real content. No amount of scrolling the INNER
-    // container fixes that outer gap. Actively fight the outer scroll back
-    // to 0 for as long as this field is focused.
-    const lockPageScroll = () => {
-      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
-        window.scrollTo(0, 0);
-      }
-    };
-    lockPageScroll();
-    window.addEventListener('scroll', lockPageScroll, { passive: true });
-    window.visualViewport?.addEventListener('resize', lockPageScroll);
-
     el.addEventListener('blur', () => {
       clearTimeout(debounce);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
-      window.removeEventListener('scroll', lockPageScroll);
-      window.visualViewport?.removeEventListener('resize', lockPageScroll);
       // Put the view back where the coach was before the keyboard pushed it.
       requestAnimationFrame(() => {
         const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);

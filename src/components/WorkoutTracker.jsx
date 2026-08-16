@@ -2997,7 +2997,7 @@ const WorkoutTracker = () => {
                                       // Sequential number among normal working sets only —
                                       // matches the logger's own Warmup/Dropset/Failure badges.
                                       const workingNum = ex.sets.slice(0, sIdx + 1)
-                                        .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                        .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                                       const visual = getSetTypeVisual(set, workingNum);
                                       return (
                                         <tr key={sIdx} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
@@ -3519,17 +3519,17 @@ const WorkoutTracker = () => {
                       <div className="hevy-table-body">
                         {ex.sets.map((set, sIdx) => {
                           const prevStats = getPreviousSessionSet(ex.name, sIdx);
-                          // Warm-up sets show "W"; failure = "F"; drop = "D"; others get a working-set number.
-                          const workingSetNumber = ex.sets.slice(0, sIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
-                          const setDisplayLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : workingSetNumber;
+                          // Warm-up sets show "W"; failure = "F"; drop = "D"; superset = "S"; others get a working-set number.
+                          const workingSetNumber = ex.sets.slice(0, sIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
+                          const setDisplayLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : workingSetNumber;
                           return (
                             <div
                               key={sIdx}
-                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}
+                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`}
                             >
                               <span className="col-set set-type-menu-wrapper">
                                 <span
-                                  className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
+                                  className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''} ${set.setType === 'superset' ? 'superset' : ''}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSetTypeMenu(prev => (prev?.exIdx === exIdx && prev?.sIdx === sIdx) ? null : { exIdx, sIdx });

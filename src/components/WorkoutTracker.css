@@ -1879,6 +1879,10 @@
   color: #8b5cf6;
 }
 
+.hevy-set-row .set-num-lbl.superset {
+  color: #3b82f6;
+}
+
 .hevy-set-row.set-row-warmup {
   background: rgba(245, 158, 11, 0.04);
   border-color: rgba(245, 158, 11, 0.15);
@@ -1892,6 +1896,11 @@
 .hevy-set-row.set-row-drop {
   background: rgba(139, 92, 246, 0.04);
   border-color: rgba(139, 92, 246, 0.15);
+}
+
+.hevy-set-row.set-row-superset {
+  background: rgba(59, 130, 246, 0.04);
+  border-color: rgba(59, 130, 246, 0.15);
 }
 
 /* ── Set type popup menu ─────────────────────────────────────────────────── */

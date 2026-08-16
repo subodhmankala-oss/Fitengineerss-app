@@ -1265,7 +1265,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                                 // Sequential number among normal working sets only —
                                 // matches the logger's own Warmup/Dropset/Failure badges.
                                 const workingNum = ex.sets.slice(0, sIdx + 1)
-                                  .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                  .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                                 const visual = getSetTypeVisual(set, workingNum);
                                 return (
                                   <tr key={sIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>

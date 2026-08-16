@@ -603,12 +603,40 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // scrollHeight in JS and transitioning max-height to that exact pixel
   // value works everywhere.
   const coachNoteSlideRef = useRef(null);
+  // The Save/Discard bar directly below the note card — see the ref on
+  // .live-log-action-bar further down. Scrolling to the *card's* own
+  // bottom (what this used to target) pushed Save Workout Session off
+  // the bottom of the screen, forcing an extra manual scroll to save.
+  // Scrolling to the action bar's bottom instead keeps Save reachable
+  // the moment the note opens, at the cost of trimming the top of a
+  // very tall note (e.g. long custom text) off-screen — reachable by
+  // scrolling up, which is the better trade-off since Save is the
+  // action the coach actually needs next.
+  const liveLogActionBarRef = useRef(null);
   const [coachNoteSlideMaxHeight, setCoachNoteSlideMaxHeight] = useState('0px');
   useEffect(() => {
     const el = coachNoteSlideRef.current;
     if (!el) return;
     if (showLiveCoachNote) {
       setCoachNoteSlideMaxHeight(`${el.scrollHeight}px`);
+      // On a short screen the card can expand mostly (or entirely) below
+      // the fold, so opening it doesn't actually show anything without a
+      // manual scroll. Scroll once the expand finishes so it reads as
+      // "slides up into visibility" rather than a toggle that silently
+      // opens off-screen. Waiting for `transitionend` (rather than a
+      // requestAnimationFrame guess) matters here: right after the
+      // max-height style above is set, the box is still at its
+      // pre-expansion size for at least a frame or two, so
+      // scrollIntoView would measure a ~0px-tall element and scroll to
+      // the wrong spot (it did — this replaced an earlier rAF-timed
+      // version that scrolled the wrong way).
+      const handleExpandEnd = (e) => {
+        if (e.target === el && e.propertyName === 'max-height') {
+          (liveLogActionBarRef.current || el).scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      };
+      el.addEventListener('transitionend', handleExpandEnd);
+      return () => el.removeEventListener('transitionend', handleExpandEnd);
     } else {
       // Collapse from whatever height it's currently at (in case content
       // grew while open) rather than a stale earlier measurement.
@@ -6143,7 +6171,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       the pad's own opaque background simply covers it like
                       any other content, no dueling stacking. Matched that
                       here instead of chasing more positioning fixes. */}
-                  <div className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
+                  <div ref={liveLogActionBarRef} className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
                       onClick={() => setShowDiscardLiveModal(true)}

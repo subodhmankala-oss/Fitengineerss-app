@@ -91,22 +91,24 @@ function daysSinceLogin(lastLogin) {
   return Math.floor((Date.now() - new Date(lastLogin).getTime()) / (24 * 60 * 60 * 1000));
 }
 
+// Only fires at 3+ days quiet (see runInactivitySweep's own `days < 3` skip
+// below) — days 1-2 no longer get a client-facing nudge at all. Deliberately
+// drops the old "X days and counting"/"let's restart" framing: that's exactly
+// the guilt-driven language the Welcome Back screen (WelcomeBackScreen.jsx)
+// was built to avoid ("you missed X days", "you're falling behind", "get
+// back on track"). Same warm/low-pressure tone here — the notification's job
+// is just to get them to open the app; the actual re-engagement moment lives
+// in the Welcome Back screen itself.
 function clientInactivityMessage(name, days) {
-  if (days === 1) {
+  if (days < 7) {
     return {
-      title: `We missed you yesterday, ${name} 👋`,
-      body: "You haven't logged in since yesterday. Let's get today's workout in — even a short one keeps the streak alive! 💪"
-    };
-  }
-  if (days === 2) {
-    return {
-      title: `2 days quiet, ${name} 🧩`,
-      body: "It's been 2 days — your muscle balance analysis is starting to fall behind. Jump back in today and let's catch it up."
+      title: `👀 Look who we're thinking about, ${name}`,
+      body: "Your progress didn't go anywhere — it's exactly where you left it. Got a few minutes today? We'd love to see you back. 😄"
     };
   }
   return {
-    title: `${days} days and counting, ${name} ⏳`,
-    body: `It's been ${days} days since your last session. Consistency is what gets results — let's restart today, one workout at a time.`
+    title: `We saved your spot, ${name} 🙌`,
+    body: "No pressure, no countdown — just a friendly nudge that Fitengineers (and your progress) is still here whenever you're ready."
   };
 }
 
@@ -171,13 +173,22 @@ async function runInactivitySweep(supabaseClient, res) {
       const coachRow = (coachRows || []).find((c) => c.user_id === u.id && c.status === 'approved');
 
       if (clientRow) {
+        // Client-facing nudge only starts at 3+ days quiet — see
+        // clientInactivityMessage's own comment for why days 1-2 no longer
+        // get a push at all. Coach-self and coach-about-client nudges below
+        // are a separate concern and keep their own existing thresholds.
+        if (days < 3) { skipped++; continue; }
+
         const name = clientRow.full_name || u.full_name || 'there';
         const msg = clientInactivityMessage(name, days);
         const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge');
         if (result.sent > 0) clientNudges++;
 
-        // 2+ days quiet: also alert the assigned coach, once per cron run.
-        if (days >= 2 && clientRow.coach_id) {
+        // Same 3+ day threshold as the client's own nudge above (was 2+) —
+        // keeps the coach alert from firing a day before the client ever
+        // gets nudged themselves, since both read the same "client gone
+        // quiet" signal.
+        if (clientRow.coach_id) {
           const alert = coachAboutInactiveClientMessage(name, days);
           const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert');
           if (coachResult.sent > 0) coachAlerts++;

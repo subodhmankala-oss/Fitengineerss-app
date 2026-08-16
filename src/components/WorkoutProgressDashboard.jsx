@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import WelcomeBanner from './WelcomeBanner';
+import WelcomeBackScreen from './WelcomeBackScreen';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
@@ -12,6 +13,18 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
 import './WorkoutProgressDashboard.css';
+
+// One flag per client, set permanently the moment they take any action on
+// the Welcome Back screen (check in, or tap "Show my progress"). Read on
+// mount so re-opening the app afterward — same day or any later day — goes
+// straight to the usual dashboard instead of showing Welcome Back again,
+// even if the no-plan condition is still true. Purely a localStorage UX
+// nicety on top of the real trigger condition (never re-derives it) — by
+// design this does NOT bring the screen back on its own; re-surfacing it
+// after a stretch of inactivity is a separate, explicitly out-of-scope
+// feature (needs inactivity detection + a push notification, neither of
+// which exist yet — see conversation).
+const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
 const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   const [userId, setUserId] = useState(null);
@@ -58,6 +71,18 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   // completed" below to the CURRENT program period — see getTotalSessionsDone.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
   const [programEstCompletion, setProgramEstCompletion] = useState(() => localStorage.getItem('userProgramEstCompletion') || null);
+  // Existing workout-availability signal (same query WorkoutTracker uses to
+  // list "My Plans"/"Coach's Plan") — reused here only to detect the
+  // Welcome Back trigger (no plans at all), never to add new plan logic.
+  const [clientPlans, setClientPlans] = useState([]);
+  const [plansLoaded, setPlansLoaded] = useState(false);
+  // Lets "Show my progress" on the Welcome Back screen reveal the normal
+  // tabbed dashboard underneath even while the no-plans condition still
+  // holds. Seeded from the permanent "already engaged" flag below once
+  // userId resolves, so a client who has ever interacted with the screen
+  // doesn't see it again on a later open/reload — even if the no-plan
+  // condition is still true.
+  const [bypassWelcomeBack, setBypassWelcomeBack] = useState(false);
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
@@ -188,6 +213,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           return;
         }
         if (!cancelled) setUserId(resolvedUserId);
+        if (!cancelled && localStorage.getItem(welcomeBackEngagedKey(resolvedUserId)) === 'true') {
+          setBypassWelcomeBack(true);
+        }
 
         // Safety-net check for the auto-disconnect-on-package-complete flow
         // (the primary trigger is right after a workout save in
@@ -205,6 +233,19 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
 
         const userLogs = await databaseService.getWorkoutLogsForUser(resolvedUserId);
         if (!cancelled) { setLogs(userLogs || []); setLoading(false); }
+
+        // Same plans query WorkoutTracker already uses (coach-assigned +
+        // self-built templates) — read-only here, purely to know whether the
+        // Welcome Back screen's "no available workout" condition applies.
+        databaseService.getWorkoutPlansForUser(resolvedUserId).then(plans => {
+          if (!cancelled) { setClientPlans(plans || []); setPlansLoaded(true); }
+        }).catch(err => {
+          // Fail closed: an unresolved/errored read is NOT proof of "no
+          // plans" — leaving plansLoaded false just keeps the normal
+          // dashboard showing (its existing default), same as never having
+          // asked, rather than risking a wrong Welcome Back screen.
+          console.error('Error loading workout plans for Welcome Back check:', err);
+        });
       } catch (err) {
         console.error('Error loading workout progress logs:', err);
         if (!cancelled) setLoading(false);
@@ -700,6 +741,16 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
     );
   };
 
+  // Welcome Back trigger: real prior progress (logs.length > 0 — a true
+  // first-timer keeps the existing "Start Your Fitness Journey" empty state
+  // below instead) AND no available workout plan (existing
+  // getWorkoutPlansForUser signal, fetched above) to start right now. There's
+  // no separate "upcoming session"/scheduling concept anywhere in this app —
+  // an empty plans list is the only existing availability signal, so it
+  // stands in for both halves of the brief's trigger condition, and applies
+  // the same way to coach-connected and generic (unconnected) clients alike.
+  const showWelcomeBack = !loading && logs.length > 0 && plansLoaded && clientPlans.length === 0 && !bypassWelcomeBack;
+
   return (
     <div className="workout-progress-container animate-slide-up">
       {/* Top Header Panel */}
@@ -835,33 +886,36 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
         </div>
       )}
 
-      {/* Segment Timeframe Tab Switches */}
-      <div className="timeframe-navigation">
-        <button 
-          className={`timeframe-btn ${timeframe === 'weekly' ? 'active' : ''}`} 
-          onClick={() => setTimeframe('weekly')}
-        >
-          Weekly
-        </button>
-        <button 
-          className={`timeframe-btn ${timeframe === 'daily' ? 'active' : ''}`} 
-          onClick={() => setTimeframe('daily')}
-        >
-          Daily
-        </button>
-        <button
-          className={`timeframe-btn ${timeframe === 'monthly' ? 'active' : ''}`}
-          onClick={() => setTimeframe('monthly')}
-        >
-          Monthly
-        </button>
-        <button
-          className={`timeframe-btn ${timeframe === 'muscles' ? 'active' : ''}`}
-          onClick={() => setTimeframe('muscles')}
-        >
-          Muscles
-        </button>
-      </div>
+      {/* Segment Timeframe Tab Switches — hidden behind the Welcome Back
+          screen (it has its own "Show my progress" entry point back in). */}
+      {!showWelcomeBack && (
+        <div className="timeframe-navigation">
+          <button
+            className={`timeframe-btn ${timeframe === 'weekly' ? 'active' : ''}`}
+            onClick={() => setTimeframe('weekly')}
+          >
+            Weekly
+          </button>
+          <button
+            className={`timeframe-btn ${timeframe === 'daily' ? 'active' : ''}`}
+            onClick={() => setTimeframe('daily')}
+          >
+            Daily
+          </button>
+          <button
+            className={`timeframe-btn ${timeframe === 'monthly' ? 'active' : ''}`}
+            onClick={() => setTimeframe('monthly')}
+          >
+            Monthly
+          </button>
+          <button
+            className={`timeframe-btn ${timeframe === 'muscles' ? 'active' : ''}`}
+            onClick={() => setTimeframe('muscles')}
+          >
+            Muscles
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="dashboard-loading-box">
@@ -874,6 +928,21 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           <h3>Start Your Fitness Journey</h3>
           <p>No workout sessions logged yet. Head over to the Workout tab to log your first session!</p>
         </div>
+      ) : showWelcomeBack ? (
+        <WelcomeBackScreen
+          userId={userId}
+          userName={userName}
+          logs={logs}
+          weekDays={weekDays}
+          isLinkedToCoach={isLinkedToCoach}
+          sessionsTotal={sessionsTotal}
+          totalSessionsDone={totalSessionsDone}
+          onCheckIn={() => { if (userId) localStorage.setItem(welcomeBackEngagedKey(userId), 'true'); }}
+          onShowProgress={() => {
+            if (userId) localStorage.setItem(welcomeBackEngagedKey(userId), 'true');
+            setBypassWelcomeBack(true);
+          }}
+        />
       ) : (
         <div className="dashboard-content-scroll flex-col gap-4">
           {/* ─── WEEKLY VIEW CONTENT ─── */}

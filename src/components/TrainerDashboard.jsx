@@ -4666,7 +4666,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             <tbody>
                                               {exercise.sets.map((set, setIdx) => {
                                                 const workingNum = exercise.sets.slice(0, setIdx + 1)
-                                                  .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
+                                                  .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                                                 const visual = getSetTypeVisual(set, workingNum);
                                                 return (
                                                   <tr key={setIdx}>
@@ -5095,14 +5095,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   </div>
                                   <div className="hevy-table-body">
                                     {ex.sets.map((set, setIdx) => {
-                                      const workingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
-                                      const label = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : workingNum;
+                                      const workingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
+                                      const label = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : workingNum;
                                       const prevStats = getPreviousSessionSet(ex.name, setIdx);
                                       return (
-                                      <div key={setIdx} className={`hevy-set-row ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
+                                      <div key={setIdx} className={`hevy-set-row ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`}>
                                         <span className="col-set set-type-menu-wrapper">
                                           <span
-                                            className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
+                                            className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''} ${set.setType === 'superset' ? 'superset' : ''}`}
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setEditorSetTypeMenu(prev => (prev?.exIdx === exIdx && prev?.setIdx === setIdx) ? null : { exIdx, setIdx });
@@ -5737,14 +5737,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </div>
                           <div className="hevy-table-body">
                             {ex.sets.map((set, setIdx) => {
-                              const liveWorkingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop').length;
-                              const liveLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.isWarmup ? 'W' : liveWorkingNum;
+                              const liveWorkingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
+                              const liveLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : liveWorkingNum;
                               const prevStats = getPreviousSessionSet(ex.name, setIdx);
                               return (
-                              <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''}`}>
+                              <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`}>
                                 <span className="col-set set-type-menu-wrapper">
                                   <span
-                                    className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''}`}
+                                    className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''} ${set.setType === 'superset' ? 'superset' : ''}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setLiveSetTypeMenu(prev => (prev?.exIdx === exIdx && prev?.setIdx === setIdx) ? null : { exIdx, setIdx });

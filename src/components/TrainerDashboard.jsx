@@ -2569,7 +2569,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
         window.scrollTo(0, 0);
       }
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // BUG FIX 2026-08-17: `block: 'center'` was the actual source of the
+      // recurring "black gap under the field" report — centering the field
+      // in the now-keyboard-shrunk container guarantees roughly HALF the
+      // container's remaining height is left as blank space below it,
+      // between the field and the keyboard. On a short container (keyboard
+      // eating close to half the screen) that's a large, obvious dead zone
+      // of raw container background. `block: 'nearest'` only scrolls the
+      // minimum needed to bring the field on screen, landing it right at
+      // the bottom edge above the keyboard instead of dead center.
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
     // Only ever fire off a REAL keyboard resize event, debounced to collapse
     // however many the keyboard's open animation dispatches into exactly one

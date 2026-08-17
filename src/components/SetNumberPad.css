@@ -40,7 +40,16 @@
    but has nowhere to go. Reserve extra bottom space on whichever container
    is actually scrolling (client's `.main-content`, coach's
    `.trainer-dashboard-container`) whenever the pad is open, so there's
-   always enough scroll range regardless of where the row sits in the page. */
+   always enough scroll range regardless of where the row sits in the page.
+   Transitioned on the base rule (not just the :has() one) so this grows and
+   shrinks in step with the pad's own 0.28s slide instead of snapping to 0
+   the instant `.open` is removed — the same padding-bottom transitioning
+   underneath a still-animating pad is what made closing it look abrupt. */
+.main-content,
+.trainer-dashboard-container {
+  transition: padding-bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 body:has(.set-number-pad.open) .main-content,
 body:has(.set-number-pad.open) .trainer-dashboard-container {
   padding-bottom: 340px;

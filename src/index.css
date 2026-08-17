@@ -133,6 +133,19 @@ button {
      `dvh` on some versions.  */
   height: -webkit-fill-available;
   height: calc(var(--app-vh, 1vh) * 100);
+  /* --app-vh snaps to a new value the instant main.jsx's visualViewport
+     listener fires — but the thing that actually CAUSED that resize (the
+     OS on-screen keyboard sliding open/closed, or our own SetNumberPad's
+     reserved bottom padding appearing/disappearing) animates smoothly over
+     ~250-280ms. Without this transition the container's height jumped in
+     one frame while the keyboard/pad was still mid-slide, exposing a flash
+     of raw --bg-app (#090e17, reads as solid black) in the gap between
+     "container already shrunk" and "keyboard actually finished closing" —
+     reported as an abrupt hide and, on the Plan/Routine Name and Plan Name
+     fields (no custom pad, just the native keyboard), a stray black
+     div/padding on focus. Roughly matches the OS keyboard's own timing so
+     the container now tracks it instead of jumping ahead of or behind it. */
+  transition: height 0.25s ease;
   background-color: var(--bg-app);
   position: relative;
   overflow: hidden;

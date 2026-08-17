@@ -3197,7 +3197,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {sessionsAwaitingNote.length > 0 && (() => {
                 const activeIndex = Math.min(awaitingSlide, sessionsAwaitingNote.length - 1);
                 const session = sessionsAwaitingNote[activeIndex];
+                const sessionDateLabel = session.date
+                  ? (isLocalToday(session.date) ? 'Today' : parseLocalDateString(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+                  : null;
                 const statBits = [
+                  sessionDateLabel ? `📅 ${sessionDateLabel}` : null,
                   session.durationSeconds != null ? `⏱ ${formatDuration(session.durationSeconds)}` : null,
                   session.caloriesBurned != null ? `🔥 ${session.caloriesBurned} kcal` : null
                 ].filter(Boolean).join('  •  ');

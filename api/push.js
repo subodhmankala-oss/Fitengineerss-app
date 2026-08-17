@@ -190,7 +190,11 @@ async function runInactivitySweep(supabaseClient, res) {
         // quiet" signal.
         if (clientRow.coach_id) {
           const alert = coachAboutInactiveClientMessage(name, days);
-          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert');
+          // Deep-link straight to this client's profile (same ?viewClient=
+          // pattern as the other coach-facing pushes below) so tapping the
+          // notification lands the coach right where they'd send the nudge,
+          // instead of the bare homepage.
+          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert', `/?viewClient=${u.id}`);
           if (coachResult.sent > 0) coachAlerts++;
         }
       } else if (coachRow) {

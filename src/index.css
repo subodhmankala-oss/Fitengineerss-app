@@ -81,12 +81,33 @@ html, body {
 
 body {
   font-family: 'Outfit', sans-serif;
-  background-color: #000; /* Outer background for desktop */
+  /* Was #000 ("outer background for desktop"). That pure black IS the
+     recurring "black box/gap under the focused field" on mobile — not a
+     stray div, and not (only) a scroll-math bug. Proven 2026-08-17 by
+     measuring a keyboard-open layout: .app-container correctly shrinks to
+     the visible viewport (e.g. 350px), but body/#root stayed pinned to
+     `min-height: 100vh` (812px), leaving ~462px of extra document BELOW
+     the app painted in this color. iOS then offsets the visual viewport
+     downward to reveal the focused input and that black region slides into
+     view as a band between the card and the keyboard.
+     Matching --bg-app (the .app-container background) means that even if a
+     gap is ever exposed again — by a different field, a mid-transition
+     frame, or an OS behavior we don't control — it is seamless with the app
+     instead of a stark black box. The desktop side gutters stay dark, just
+     #090e17 rather than #000. */
+  background-color: var(--bg-app);
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
+  /* `100vh` is the LARGE viewport on mobile — it deliberately does NOT
+     shrink when the on-screen keyboard opens, which is what created the
+     extra scrollable/paintable region described above. Track the same
+     real-viewport variable .app-container uses so body is never taller
+     than the app itself and there is simply nothing below it to reveal. */
+  height: calc(var(--app-vh, 1vh) * 100);
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   justify-content: center;
 }
@@ -96,7 +117,10 @@ body {
   max-width: 100%;
   display: flex;
   justify-content: center;
-  min-height: 100vh;
+  /* Same reasoning as body above — was `min-height: 100vh`. */
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {

@@ -229,11 +229,6 @@ export default function TourOverlay() {
     else if (config.cta?.action === 'next') advanceIfStep(step, config.cta.to);
   };
 
-  const handleManualNext = () => {
-    if (step < TOTAL_STEPS) advanceIfStep(step, step + 1);
-    else finish();
-  };
-
   const maxTop = Math.max(VIEWPORT_MARGIN, viewportH - tooltipH - VIEWPORT_MARGIN);
   const tooltipStyle = hasTarget
     ? (() => {
@@ -287,11 +282,6 @@ export default function TourOverlay() {
           ))}
         </div>
         <div className="tour-tooltip-actions">
-          {step < TOTAL_STEPS && (
-            <button type="button" className="tour-tooltip-next-ghost" onClick={handleManualNext}>
-              I'll do it, skip ahead →
-            </button>
-          )}
           {config.cta && (
             <button type="button" className="tour-tooltip-cta" onClick={handleCta}>
               {config.cta.label}

@@ -74,3 +74,28 @@ window.addEventListener('pageshow', () => {
   setAppViewportHeight();
   checkForUpdateOnForeground();
 });
+
+// Tap-outside-to-dismiss for native text inputs/textareas (Plan Name,
+// Routine Name, coach note, etc.) — mirrors SetNumberPad's own outside-tap
+// close for the custom numeric pad, but for the OS's native keyboard.
+// Tapping a non-focusable area (blank page background, a card, a label)
+// doesn't reliably blur the currently focused field on every mobile browser
+// on its own — reported as the keyboard staying open with nowhere obvious
+// to tap to close it. Runs in the capture phase, before the tap's own
+// handlers, and skips other inputs/textareas/selects so tapping a DIFFERENT
+// field just moves focus there as normal instead of fighting it.
+// Listens on multiple event types (not just `pointerdown`) because some
+// mobile WebViews this app runs in don't reliably dispatch Pointer Events —
+// `touchstart`/`mousedown` are the same handler and simply no-op a second
+// time once the field is already blurred.
+function dismissKeyboardOnOutsideTap(e) {
+  const active = document.activeElement;
+  if (!active || !(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return;
+  if (active.contains(e.target)) return;
+  const tag = e.target?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  active.blur();
+}
+document.addEventListener('pointerdown', dismissKeyboardOnOutsideTap, true);
+document.addEventListener('touchstart', dismissKeyboardOnOutsideTap, true);
+document.addEventListener('mousedown', dismissKeyboardOnOutsideTap, true);

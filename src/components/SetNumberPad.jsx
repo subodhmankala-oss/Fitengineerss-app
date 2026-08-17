@@ -87,6 +87,29 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
     wasOpen.current = !!activeKey;
   }, [activeKey]);
 
+  // Tapping anywhere outside the pad closes it — including a Kg/Reps field
+  // in a DIFFERENT row/exercise, the Workout Name input, or just blank space
+  // on the page. Skips two cases deliberately:
+  //  - inside the pad itself (its own buttons handle their own clicks)
+  //  - a `.set-value-btn` (SetValueField's Kg/Reps/Km/Time cells) — tapping
+  //    one of those while the pad is already open should just SWITCH the
+  //    pad to that field via the button's own onClick/onOpen, not close it
+  //    out from under the coach/client first.
+  // Listens on pointerdown (fires before click/focus) so the native keyboard
+  // never gets a chance to flash open behind the pad when the tap lands on
+  // a real <input> like Workout Name.
+  React.useEffect(() => {
+    if (!activeKey) return undefined;
+    const handlePointerDown = (e) => {
+      const padEl = document.querySelector('.set-number-pad');
+      if (padEl && padEl.contains(e.target)) return;
+      if (e.target.closest && e.target.closest('.set-value-btn')) return;
+      onClose();
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [activeKey, onClose]);
+
   const press = (key) => {
     if (!active) return;
     const { value, mode, onValue, onNext } = active;

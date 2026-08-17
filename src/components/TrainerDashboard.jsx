@@ -3197,7 +3197,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {sessionsAwaitingNote.length > 0 && (() => {
                 const activeIndex = Math.min(awaitingSlide, sessionsAwaitingNote.length - 1);
                 const session = sessionsAwaitingNote[activeIndex];
+                const sessionDateLabel = session.date
+                  ? (isLocalToday(session.date) ? 'Today' : parseLocalDateString(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+                  : null;
                 const statBits = [
+                  sessionDateLabel ? `📅 ${sessionDateLabel}` : null,
                   session.durationSeconds != null ? `⏱ ${formatDuration(session.durationSeconds)}` : null,
                   session.caloriesBurned != null ? `🔥 ${session.caloriesBurned} kcal` : null
                 ].filter(Boolean).join('  •  ');
@@ -3206,25 +3210,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 return (
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ position: 'relative' }}>
-                      {hasMultiple && (
-                        <button
-                          type="button"
-                          title="Previous"
-                          onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
-                          style={{
-                            position: 'absolute', top: '50%', left: '6px', transform: 'translateY(-50%)', zIndex: 2,
-                            background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
-                            color: '#fff', borderRadius: '50%', width: '30px', height: '30px', flexShrink: 0,
-                            fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                          ‹
-                        </button>
-                      )}
                       <div
                         key={`${session.clientId}|${session.date}`}
                         className={`coach-note-card awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
-                        style={{ width: '100%', margin: 0, boxSizing: 'border-box', ...(hasMultiple ? { paddingLeft: '38px', paddingRight: '38px' } : {}) }}
+                        style={{ width: '100%', margin: 0, boxSizing: 'border-box' }}
                       >
                         <div className="coach-note-head">
                           <span className="coach-note-title">
@@ -3287,37 +3276,51 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           {isSending ? '⏳ Sending…' : '💬 Send note'}
                         </button>
                       </div>
-                      {hasMultiple && (
+                    </div>
+                    {/* Prev/next arrows moved down here to flank the dots
+                        instead of floating over the card's left/right edges —
+                        same slide functionality, just relocated. */}
+                    {hasMultiple && (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          title="Previous"
+                          onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                          style={{
+                            background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
+                            color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
+                            fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                          {sessionsAwaitingNote.map((s, i) => (
+                            <button
+                              key={`${s.clientId}|${s.date}`}
+                              type="button"
+                              title={s.clientName}
+                              onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                              style={{
+                                width: i === activeIndex ? '20px' : '7px', height: '7px', borderRadius: '4px',
+                                border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                                background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                              }}
+                            />
+                          ))}
+                        </div>
                         <button
                           type="button"
                           title="Next"
                           onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
                           style={{
-                            position: 'absolute', top: '50%', right: '6px', transform: 'translateY(-50%)', zIndex: 2,
                             background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
-                            color: '#fff', borderRadius: '50%', width: '30px', height: '30px', flexShrink: 0,
-                            fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
+                            fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                           }}
                         >
                           ›
                         </button>
-                      )}
-                    </div>
-                    {hasMultiple && (
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '10px' }}>
-                        {sessionsAwaitingNote.map((s, i) => (
-                          <button
-                            key={`${s.clientId}|${s.date}`}
-                            type="button"
-                            title={s.clientName}
-                            onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
-                            style={{
-                              width: i === activeIndex ? '20px' : '7px', height: '7px', borderRadius: '4px',
-                              border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                              background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
-                            }}
-                          />
-                        ))}
                       </div>
                     )}
                   </div>

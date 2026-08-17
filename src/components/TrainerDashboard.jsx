@@ -1295,6 +1295,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     const doSave = async () => {
       // Build session object - only save completed sets, or all if none ticked
       const completedCount = liveExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
+
+      // Duration/calories below read liveTimerStartedAt, which only ever gets
+      // set by startLiveSessionClockIfIdle() — called when a set is checked
+      // off or a cardio/timed stopwatch is started. A coach who fills in
+      // every set's reps/weight and hits Save Workout WITHOUT ticking any
+      // checkbox never triggers that, so despite the safeguard below saving
+      // every set as-is, the session landed in workout_logs with
+      // durationSeconds/caloriesBurned: null — confirmed 2026-08-17 for a
+      // real coach session ("Upper Body (Week-3)"). Same root cause already
+      // fixed on the client's own logger; this is the coach Live Log's
+      // equivalent. setLiveTimerStartedAt is React state and won't be
+      // readable in this same synchronous pass, so track the effective start
+      // locally instead. There's no real "started at" to recover here, so
+      // "now" is the best available estimate — same tradeoff the client-side
+      // fix makes.
+      let effectiveLiveTimerStartedAt = liveTimerStartedAt;
+      // completedAt is what computeLiveCalories reads per set — sets saved
+      // via the completedCount === 0 safeguard never got one either, so
+      // calories would compute to 0 even with a duration. Stamp it locally,
+      // same "now" estimate as the duration fallback.
+      let exercisesForCalc = liveExercises;
+      if (completedCount === 0) {
+        const now = Date.now();
+        startLiveSessionClockIfIdle();
+        if (!effectiveLiveTimerStartedAt) effectiveLiveTimerStartedAt = now;
+        exercisesForCalc = liveExercises.map(ex => ({
+          ...ex,
+          sets: ex.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now }))
+        }));
+      }
+
       const formattedExercises = liveExercises.map(ex => {
         const exIsCardio = isCardioExercise(ex.name);
         return {
@@ -1328,8 +1359,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         // Final timer/calorie snapshot at the moment of save — same formula
         // the live bar above was already showing the coach. Cardio calories
         // scale with the CLIENT's bodyweight, not the coach's own.
-        durationSeconds: liveTimerStartedAt ? computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals) : null,
-        caloriesBurned: liveTimerStartedAt ? computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg).totalKcal : null
+        durationSeconds: effectiveLiveTimerStartedAt ? computeElapsedSeconds(effectiveLiveTimerStartedAt, livePauseIntervals) : null,
+        caloriesBurned: effectiveLiveTimerStartedAt ? computeLiveCalories(exercisesForCalc, effectiveLiveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg).totalKcal : null
       };
 
       await databaseService.saveWorkoutSession(session);

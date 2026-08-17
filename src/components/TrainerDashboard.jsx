@@ -17,7 +17,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
@@ -1090,7 +1090,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       newSet = { distanceKm: '', time: '', isCompleted: false };
     } else if (isTimedExercise(name)) {
       newSet = { time: '', isCompleted: false };
-    } else if (bodyweight) {
+    } else if (bodyweight || isWarmupExercise(name)) {
       newSet = { reps: '10', weight: '0', isCompleted: false };
     } else {
       newSet = { reps: '10', weight: '20', isCompleted: false };
@@ -2376,7 +2376,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       newSet = { distanceKm: '', time: '' };
     } else if (isTimedExercise(name)) {
       newSet = { time: '' };
-    } else if (isBodyweightExercise(name)) {
+    } else if (isBodyweightExercise(name) || isWarmupExercise(name)) {
       newSet = { reps: 10, weight: 0 };
     } else {
       newSet = { reps: 10, weight: 20 };
@@ -2400,7 +2400,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         if (isTimedExercise(ex.name)) {
           return { ...ex, sets: [...ex.sets, { time: '' }] };
         }
-        const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: isBodyweightExercise(ex.name) ? 0 : 20 };
+        const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: (isBodyweightExercise(ex.name) || isWarmupExercise(ex.name)) ? 0 : 20 };
         return {
           ...ex,
           sets: [...ex.sets, { reps: lastSet.reps, weight: lastSet.weight }]
@@ -5673,6 +5673,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
+                    const exIsWarmup = isWarmupExercise(ex.name);
                     return (
                       <div key={exIdx} className="live-logger-exercise-card">
                         {/* Exercise Header */}
@@ -5746,6 +5747,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               <>
                                 <span className="col-weight">🏋️ KG</span>
                                 <span className="col-reps">METERS</span>
+                              </>
+                            ) : exIsWarmup ? (
+                              <>
+                                <span className="col-weight"></span>
+                                <span className="col-reps">REPS</span>
                               </>
                             ) : exIsBodyweight ? (
                               <>
@@ -5933,11 +5939,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       mode: 'integer',
                                       label: `${ex.name} · Reps`,
                                       onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'reps', v),
-                                      ...(exIsBodyweight && exBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
+                                      ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                     });
                                     return (
                                       <>
-                                        {exIsBodyweight && exBwMode ? (
+                                        {exIsWarmup ? (
+                                          <div className="col-weight" />
+                                        ) : exIsBodyweight && exBwMode ? (
                                           <div className="col-weight bw-static-label">BW</div>
                                         ) : (
                                           <div className="col-weight set-input-field">

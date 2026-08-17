@@ -9,7 +9,7 @@ import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
-import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
 import './WorkoutProgressDashboard.css';
@@ -1301,6 +1301,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                         const exIsCardio = isCardioExercise(ex.name);
                         const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
                         const exIsBodyweight = isBodyweightExercise(ex.name);
+                        const exIsWarmup = isWarmupExercise(ex.name);
                         return (
                         <div key={exIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
                           <div className="ex-title" style={{ marginBottom: '6px' }}>{ex.name}</div>
@@ -1320,6 +1321,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                                     <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Weight</th>
                                     <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Meters</th>
                                   </>
+                                ) : exIsWarmup ? (
+                                  <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Reps</th>
                                 ) : (
                                   <>
                                     <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Weight</th>
@@ -1358,6 +1361,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                                         <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.weight} kg</td>
                                         <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.reps} m</td>
                                       </>
+                                    ) : exIsWarmup ? (
+                                      <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.reps} reps</td>
                                     ) : (
                                       <>
                                         {/* Bodyweight exercises log weight: 0 when no plate/vest was

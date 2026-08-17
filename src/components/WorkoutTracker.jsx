@@ -1990,9 +1990,23 @@ const WorkoutTracker = () => {
       0
     );
 
+    // Duration is read from workoutTimerStartedAt further below, but that's
+    // React state — calling startSessionClockIfIdle() in this same
+    // synchronous handler won't update it in time for that read (state
+    // updates apply on the next render). Track the effective start time
+    // locally so a session finished entirely through the safeguard below
+    // still gets a real duration/calories instead of null.
+    let effectiveTimerStartedAt = workoutTimerStartedAt;
+
     // Safeguard: if no sets are marked completed in state yet (due to async updates), auto-complete them
     if (totalCompleted === 0) {
       const now = Date.now();
+      // Same as the per-set toggle and the "✓ all" bulk button — without
+      // this, a session finished entirely through this safeguard path never
+      // starts the session clock, so it saves with durationSeconds/
+      // caloriesBurned: null despite every set being marked done below.
+      startSessionClockIfIdle();
+      if (!effectiveTimerStartedAt) effectiveTimerStartedAt = now;
       activeExercises = logExercises.map(ex => ({
         ...ex,
         sets: ex.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now }))
@@ -2030,9 +2044,9 @@ const WorkoutTracker = () => {
     // and calories from each set's actual completion timestamp (work +
     // rest-interval gaps), not an approximation. activeExercises (not the
     // stripped formattedExercises) still carries completedAt on each set.
-    const finalDurationSeconds = workoutTimerStartedAt ? computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals) : null;
+    const finalDurationSeconds = effectiveTimerStartedAt ? computeElapsedSeconds(effectiveTimerStartedAt, workoutPauseIntervals) : null;
     const clientBodyWeightKg = parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG;
-    const finalCalories = workoutTimerStartedAt ? computeLiveCalories(activeExercises, workoutTimerStartedAt, workoutPauseIntervals, clientBodyWeightKg).totalKcal : null;
+    const finalCalories = effectiveTimerStartedAt ? computeLiveCalories(activeExercises, effectiveTimerStartedAt, workoutPauseIntervals, clientBodyWeightKg).totalKcal : null;
 
     const newSession = {
       id: `session-${Date.now()}`,
@@ -3504,10 +3518,20 @@ const WorkoutTracker = () => {
                           <button
                             type="button"
                             title="Mark all sets done"
-                            onClick={() => setLogExercises(prev => prev.map((e, i) => i === exIdx
-                              ? { ...e, sets: e.sets.map(s => ({ ...s, isCompleted: true })) }
-                              : e
-                            ))}
+                            onClick={() => {
+                              // Same "session has real work in it" signal the
+                              // per-set toggle sends (see handleToggleSetCompleted)
+                              // — without this, bulk-completing an exercise here
+                              // never starts the session clock, so the saved
+                              // session gets durationSeconds/caloriesBurned: null
+                              // even though every set is checked off.
+                              startSessionClockIfIdle();
+                              const now = Date.now();
+                              setLogExercises(prev => prev.map((e, i) => i === exIdx
+                                ? { ...e, sets: e.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now })) }
+                                : e
+                              ));
+                            }}
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
                               color: ex.sets.every(s => s.isCompleted) ? '#10b981' : 'rgba(148,163,184,0.5)',

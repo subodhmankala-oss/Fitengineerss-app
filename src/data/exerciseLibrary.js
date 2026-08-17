@@ -21,8 +21,10 @@ const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline
 
 // Dynamic warm-up moves — reps only, no weight, no calorie contribution (see
 // isWarmupExercise below). Arm Circle + Leg Swing are auto-added to a fresh
-// client workout log so a warm-up block is there by default.
-const WARMUP_NAMES = ['Arm Circle', 'Leg Swing'];
+// client workout log so a warm-up block is there by default. Bird Dog and
+// Cat Camel are mobility drills logged the same reps-only way — no kg field
+// at all, since they're never loaded with weight.
+const WARMUP_NAMES = ['Arm Circle', 'Leg Swing', 'Bird Dog', 'Cat Camel'];
 
 // Coach-side A-Z list (formerly LIVE_EXERCISE_LIST in TrainerDashboard).
 const COACH_NAMES = [
@@ -30,7 +32,7 @@ const COACH_NAMES = [
   'Back Extension', 'Ball Slam', 'Band Pull Apart', 'Barbell Curl', 'Barbell Hip Thrust', 'Barbell Row',
   'Barbell Shrug', 'Barbell Squat', 'Battle Rope', 'Beast Walk', 'Behind Neck Press', 'Bench Press', 'Bent Over Dumbbell Row',
   'Bent Over Row (Barbell)', 'Bicep Curl (Cable)', 'Bicep Curl (Dumbbell)', 'Box Jump', 'Box Squat',
-  'Bulgarian Split Squat', 'Burpee', 'Cable Crossover', 'Cable Crunch', 'Cable Curl', 'Cable Fly',
+  'Bulgarian Split Squat', 'Burpee', 'Cable Crossover', 'Cable Crunch', 'Cable Curl', 'Cable Fly', 'Chair Squat',
   'Cable Kickback', 'Cable Overhead Triceps Extension', 'Cable Pull Through',
   'Calf Raise (Machine)', 'Calf Raise (Standing)', 'Chest Dip', 'Chest Fly (Dumbbell)',
   'Chest Press (Machine)', 'Chin-up', 'Clean and Press', 'Close Grip Bench Press', 'Concentration Curl',
@@ -83,7 +85,7 @@ const CLIENT_NAMES = [
 // Keyword classifier → one filter category. Order matters (specific first).
 export function inferCategory(name) {
   const n = name.toLowerCase();
-  if (/(arm circle|leg swing)/.test(n)) return 'Warm Up';
+  if (/(arm circle|leg swing|bird dog|cat camel)/.test(n)) return 'Warm Up';
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
@@ -192,12 +194,13 @@ export function isLoadedCarryExercise(name) {
 // Squat, Split Squat, Bulgarian Split Squat, Hack Squat, Dumbbell Squat,
 // Jump Squat, Kettlebell Goblet Squat, Zercher Squat...), all of which are
 // genuinely loaded exercises that should keep the normal weight+reps
-// fields. Only the plain "Squat" preset (bodyweight air squat) gets the
-// toggle.
+// fields. Only the plain "Squat" preset (bodyweight air squat) and "Chair
+// Squat" (a bodyweight sit-to-stand off a chair, occasionally loaded with a
+// held plate/dumbbell) get the toggle.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  if (n === 'squat' || n === 'squats') return true;
+  if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
   return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk|leg raise|sit-?up|sit up/.test(n);
 }
 

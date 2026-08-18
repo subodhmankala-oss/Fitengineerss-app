@@ -1287,10 +1287,27 @@
   box-sizing: border-box;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  /* Pushing the card flush to the bottom (see justify-content below) means
+     this panel's own bottom edge is now what has to clear the home
+     indicator — previously the (much larger, unwanted) centering gap did
+     that job by accident. 16px matches this panel's own horizontal
+     padding-equivalent spacing elsewhere on the card for a consistent
+     margin on devices with no inset at all. */
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
   transition: flex-basis 0.35s ease, height 0.35s ease;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* Was `center`. The card doesn't fill this panel's full 40%-of-screen
+     allocation, so centering split the leftover space into two dead zones
+     — one above the card, one below. The one above blends into the hero
+     photo/carousel dots trailing off; the one below sits flush against the
+     true bottom of the screen with nothing else there, which is exactly
+     the "gap at the true bottom" reported repeatedly against this login
+     screen. `flex-end` moves the card down to sit flush against the
+     bottom of the panel instead, so the leftover space collects in the
+     one place it already reads fine — above the card, against the hero
+     image — instead of at the bare bottom edge. */
+  justify-content: flex-end;
 }
 
 .portal-right-panel::-webkit-scrollbar {

@@ -55,16 +55,7 @@
      into an independent x-scroll container, which would fight the
      `scroll-behavior: smooth` / sticky-header behavior on the y axis. */
   overflow-x: clip;
-  /* Bottom padding was a flat 24px, with no allowance for the iPhone home
-     indicator / gesture bar. This is the trainer/coach view's OWN scroll
-     container (unlike the client-side `.main-content`, it renders straight
-     inside `.app-container` with no `.bottom-nav` sibling reserving space
-     below it — see App.jsx), so nothing else was accounting for that inset.
-     Result: the last row of any scrolled list (e.g. the client directory
-     table) sat right up against, or under, the home indicator instead of
-     clearing it. `env(..., 0px)`'s fallback keeps the original flat 24px
-     on devices that report no inset at all. */
-  padding: 24px 0 calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 24px 0;
   background-color: var(--bg-app);
   scroll-behavior: smooth;
 }

@@ -181,34 +181,23 @@ button {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* iOS "Add to Home Screen" standalone apps have no address bar to collapse
-   at all, so the scroll-triggered --app-vh recalculation above (added for
-   Android Chrome's address-bar-hide-on-scroll) never applied here in the
-   first place — it fixed a different platform's version of a similar-
-   looking symptom. Reported 2026-08-18: a large persistent gap below the
-   end of a scrolled list specifically in iOS standalone mode, unaffected
-   by that fix. `--app-vh` was deliberately kept authoritative over `dvh`
-   for .app-container (see the comment above) because `dvh` was found
-   unreliable for installed standalone PWAs on ANDROID and for Safari right
-   after the on-screen keyboard closes — neither of which is this case.
-   `-webkit-touch-callout: none` is a standard, reliable way to target
-   WebKit/iOS specifically (Android Chrome doesn't implement it) — scoped
-   this narrowly, letting `dvh` (WebKit's own purpose-built, natively
-   correct answer for standalone viewport sizing) win ONLY on iOS.
-   body/#root are switched to dvh here too, not just .app-container: #45
-   fixed the "black gap under focused fields" bug by making body/#root
-   track the exact same height source as .app-container, specifically so
-   one is never taller than the other. Flipping .app-container to dvh
-   alone would reopen that same mismatch in the opposite direction the
-   moment dvh and --app-vh disagree during a keyboard transition — keeping
-   all three on the same source preserves that invariant on iOS too. */
-@supports (-webkit-touch-callout: none) {
-  body,
-  #root,
-  .app-container {
-    height: 100dvh;
-  }
-}
+/* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)
+   block that lived here switched body/#root/.app-container to native `dvh`
+   on iOS, meant to fix a gap below a scrolled list in iOS standalone mode.
+   Instead it caused a WORSE, more general gap: a band of nothing (not even
+   --bg-app) below the entire app frame, reproducible on completely static,
+   non-scrolling screens (the plain login screen, the client workout
+   tracker) — because `dvh` itself is unreliable for installed iOS
+   standalone PWAs and was undersizing the frame relative to the real
+   visible screen. Confirmed by timing: every "gap" report today started
+   only after this block was deployed; screens using the -- app-vh (JS
+   -measured, via main.jsx's visualViewport/resize/scroll listeners)
+   authoritative height, exactly as before this block existed, did not
+   have the problem. main.jsx's scroll-triggered recalculation (added the
+   same day, still in place) already covers the "gap after scrolling a
+   long list" case this block was trying to fix, on every platform,
+   without dvh's iOS-standalone unreliability. Back to --app-vh
+   authoritative everywhere, as it was before today. */
 
 .main-content {
   flex: 1;

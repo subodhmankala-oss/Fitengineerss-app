@@ -3279,31 +3279,92 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {sessionsAwaitingNote.length > 0 && (() => {
                 const activeIndex = Math.min(awaitingSlide, sessionsAwaitingNote.length - 1);
                 const session = sessionsAwaitingNote[activeIndex];
-                const sessionDateLabel = session.date
-                  ? (isLocalToday(session.date) ? 'Today' : parseLocalDateString(session.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
-                  : null;
-                const statBits = [
-                  sessionDateLabel ? `📅 ${sessionDateLabel}` : null,
-                  session.durationSeconds != null ? `⏱ ${formatDuration(session.durationSeconds)}` : null,
-                  session.caloriesBurned != null ? `🔥 ${session.caloriesBurned} kcal` : null
-                ].filter(Boolean).join('  •  ');
+                // Shared with the peek card below (see buildAwaitingStatBits)
+                // so the sliver of the next/previous client visible mid-drag
+                // shows real stats, not blank space.
+                const buildAwaitingStatBits = (s) => {
+                  const dateLabel = s.date
+                    ? (isLocalToday(s.date) ? 'Today' : parseLocalDateString(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+                    : null;
+                  return [
+                    dateLabel ? `📅 ${dateLabel}` : null,
+                    s.durationSeconds != null ? `⏱ ${formatDuration(s.durationSeconds)}` : null,
+                    s.caloriesBurned != null ? `🔥 ${s.caloriesBurned} kcal` : null
+                  ].filter(Boolean).join('  •  ');
+                };
+                const statBits = buildAwaitingStatBits(session);
                 const isSending = sendingNoteFor === session.clientId;
                 const hasMultiple = sessionsAwaitingNote.length > 1;
+                // Which neighbor is peeking in from the side, based on which
+                // way the finger is currently dragging — per request
+                // 2026-08-18 ("leaving the sides empty... should show other
+                // card next to it"). Only one is ever rendered at a time.
+                const peekSession = hasMultiple && isAwaitingDragging && awaitingDragX !== 0
+                  ? sessionsAwaitingNote[
+                      awaitingDragX < 0
+                        ? (activeIndex + 1) % sessionsAwaitingNote.length
+                        : (activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length
+                    ]
+                  : null;
+                const peekSide = awaitingDragX < 0 ? 'next' : 'prev'; // which edge it slides in from
                 return (
                   <div style={{ marginBottom: '16px' }}>
-                    <div style={{ position: 'relative' }}>
+                    {/* overflow:hidden viewport — the peek card below is
+                        absolutely positioned one full width off to whichever
+                        side it's sliding in from, so it never shows until
+                        the drag actually reveals it. */}
+                    <div style={{ position: 'relative', overflow: 'hidden' }}>
+                      {peekSession && (
+                        <div
+                          key={`peek-${peekSession.clientId}|${peekSession.date}`}
+                          className="coach-note-card"
+                          aria-hidden="true"
+                          style={{
+                            position: 'absolute', top: 0, [peekSide === 'next' ? 'left' : 'right']: '100%',
+                            width: '100%', margin: 0, boxSizing: 'border-box',
+                            transform: `translateX(${awaitingDragX}px)`,
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          <div className="coach-note-head">
+                            <span className="coach-note-title">
+                              ✅ {(peekSession.clientName || 'Client').split(/\s+/)[0]} finished a workout
+                            </span>
+                          </div>
+                          {(peekSession.workoutName || buildAwaitingStatBits(peekSession)) && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                              {peekSession.workoutName && (
+                                <div style={{ fontSize: '0.95rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
+                                  {peekSession.workoutName}
+                                </div>
+                              )}
+                              {buildAwaitingStatBits(peekSession) && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
+                                  {buildAwaitingStatBits(peekSession)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div
                         key={`${session.clientId}|${session.date}`}
                         className={`coach-note-card awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
                         style={{
-                          width: '100%', margin: 0, boxSizing: 'border-box',
+                          width: '100%', margin: 0, boxSizing: 'border-box', position: 'relative',
                           // Follows the finger 1:1 while dragging (no
                           // transition — direct control), then eases back to
                           // 0 on release, whether that's a snap-back (swipe
                           // too short) or the moment right before the next
                           // card's own mount-in animation takes over.
                           transform: isAwaitingDragging ? `translateX(${awaitingDragX}px)` : 'translateX(0)',
-                          transition: isAwaitingDragging ? 'none' : 'transform 0.2s ease'
+                          transition: isAwaitingDragging ? 'none' : 'transform 0.2s ease',
+                          // pan-y (not the default `auto`) tells the browser
+                          // only vertical page scrolling is its business —
+                          // horizontal drags are left entirely to this touch
+                          // handler instead of also fighting the page's own
+                          // touch scrolling, which was the reported "jerk".
+                          touchAction: 'pan-y'
                         }}
                         onTouchStart={hasMultiple ? handleAwaitingSlideTouchStart : undefined}
                         onTouchMove={hasMultiple ? handleAwaitingSlideTouchMove : undefined}

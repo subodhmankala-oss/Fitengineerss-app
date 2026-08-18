@@ -11,7 +11,21 @@
   background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.96)), url('/gym_bg.webp');
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
+  /* Was `fixed`. That's well-documented as broken on iOS Safari when the
+     element carrying it isn't the document body itself, but a scrolling
+     div (which this is, and always has been): instead of pinning the
+     image, iOS renders the background as blank there, falling through to
+     whatever's behind (the app shell's near-black background). The login
+     screen centers its card in a box taller than the card, leaving open
+     background around it -- open background that's supposed to show this
+     gym photo, but on iOS rendered solid black instead. That's the "gap"
+     reported repeatedly, on the plain login screen, present even after
+     .app-container's own height was already confirmed correct (#52) --
+     it was never a sizing bug, this image just wasn't painting.
+     `scroll` behaves identically here anyway: login-portal-mode sets
+     `overflow: hidden` on this element, so there's no scrolling for
+     `fixed` vs `scroll` to visibly differ on in the first place. */
+  background-attachment: scroll;
   color: white;
   text-align: center;
   overflow-y: auto;

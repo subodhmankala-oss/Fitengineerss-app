@@ -3329,12 +3329,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         </div>
                         {/* Workout name + date/duration/calories, sitting
                             under the client's name. Arrows are back at the
-                            bottom-right (next to Send note). Both font sizes
-                            bumped up again, and marginBottom added below the
-                            stats line so it doesn't crowd the AI-note chips
-                            right under it — per request 2026-08-18. */}
+                            bottom-right (next to Send note). marginBottom
+                            widened further (14px -> 24px) — still not
+                            enough breathing room before the AI-note chips
+                            right under it, per follow-up request 2026-08-18. */}
                         {(session.workoutName || statBits) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', marginBottom: '24px' }}>
                             {session.workoutName && (
                               <div style={{ fontSize: '0.95rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
                                 {session.workoutName}

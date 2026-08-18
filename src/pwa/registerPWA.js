@@ -38,21 +38,34 @@ export function initPWA() {
     },
     onNeedRefresh() {
       updatePending = true;
-      // REGRESSION FIX 2026-08-13: this used to auto-apply (skip-waiting +
-      // reload) silently instead of showing the toast whenever a pending
-      // update was found within the first 5s of the app opening, on the
-      // theory that a just-launched session has nothing "mid-log" to
-      // protect. In practice, coaches mostly reopen the app fresh rather
-      // than leaving one tab running for days, so with deploys landing
-      // several times a day, nearly every reopen fell inside that 5s
-      // window — the silent path became the common case and the "Update
-      // available: Refresh" toast effectively stopped appearing at all.
-      // The long-idle-tab problem this was guarding against is handled
-      // separately by checkForUpdateOnForeground() below (visibilitychange/
-      // pageshow), which already dispatches this same toast event on its
-      // own and never went through this silent branch — so removing it
-      // here doesn't reopen that gap. Always surface the toast instead.
+      // POLICY CHANGE 2026-08-18: previously this only ever surfaced a
+      // dismissible toast and left applying the update entirely up to the
+      // user tapping "Refresh" (see the 2026-08-13 regression fix this
+      // replaces). That made every fix's rollout depend on someone noticing
+      // and tapping a toast — and in practice they often didn't: a coach's
+      // Live Log and a client's own logger both kept silently computing
+      // durationSeconds/caloriesBurned as null for a bug that had already
+      // been fixed and deployed, hours/days earlier, because their tab was
+      // still running the old JS and nothing forced it to update. Reported
+      // repeatedly (2026-08-13 for a save failure, 2026-08-18 for silently
+      // wrong saved data) — different symptoms, same root cause: an
+      // update that's ready and waiting but never gets applied.
+      //
+      // This is NOT the same as the 2026-08-13 regression: that one only
+      // auto-applied within a narrow "first 5s of app open" window, which
+      // (with deploys landing several times a day) ended up swallowing the
+      // toast almost every single reopen. This applies unconditionally,
+      // whenever a new build is found — on the initial registration check,
+      // the 5-minute interval, or a foreground/pageshow check — so it isn't
+      // gated to a window that eats the common case.
+      //
+      // Still surfaces the toast (so an update isn't invisible — the coach
+      // sees why the screen just reloaded) but no longer waits on a tap to
+      // apply it: every in-progress session is already continuously
+      // autosaved to a draft (client and coach Live Log both), so a reload
+      // here loses at most the last few keystrokes, not the session.
       window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
+      applyUpdateFn?.(true);
     },
     onOfflineReady() {
       window.dispatchEvent(new CustomEvent('pwa:offline-ready'));

@@ -7,6 +7,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // 'autoUpdate' documents the actual policy (see registerPWA.js's
+      // onNeedRefresh 2026-08-18 change: updates now apply themselves the
+      // instant they're found, not on a user tap) — but note the real
+      // trigger for that is hand-rolled in registerPWA.js, not this option,
+      // since injectRegister is false below and we own registration
+      // ourselves. Kept in sync here so the config doesn't read as 'prompt'
+      // (the default) when the app no longer behaves that way.
+      registerType: 'autoUpdate',
       // We hand-write the service worker (src/sw.js) so it can keep the
       // existing push-notification handlers; injectManifest just splices in
       // the precache list at build time instead of generating a SW from

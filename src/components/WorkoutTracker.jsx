@@ -20,6 +20,7 @@ import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
+import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
@@ -1983,7 +1984,23 @@ const WorkoutTracker = () => {
     setShowFinishSummary(true);
   };
 
-  const handleConfirmSaveWorkout = () => {
+  const handleConfirmSaveWorkout = async () => {
+    // A stale tab doesn't fail this save — it SUCCEEDS, but with wrong data:
+    // the pre-fix duration/calories logic reads workoutTimerStartedAt raw (no
+    // "totalCompleted === 0" fallback), so a client whose session finished
+    // through the check-all button or the zero-ticked safeguard silently
+    // gets durationSeconds/caloriesBurned: null again, with nothing to throw
+    // and no error path to catch it. Same gap closed on the coach's Live Log
+    // save — see its handleSaveLiveSession for the fuller writeup. The draft
+    // is autosaved continuously, so it's safe to reload right now — reopening
+    // lands back on this same in-progress session with every set still there,
+    // on the fixed build.
+    const staleTab = await checkForPendingPWAUpdate();
+    if (staleTab) {
+      triggerToast('⚠️ Your app was out of date — updating now. Your sets are safe; tap Save again once it reloads.');
+      setTimeout(applyPWAUpdate, 1500);
+      return;
+    }
     let activeExercises = [...logExercises];
     const totalCompleted = activeExercises.reduce(
       (sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length,

@@ -74,6 +74,30 @@ window.addEventListener('pageshow', () => {
   setAppViewportHeight();
   checkForUpdateOnForeground();
 });
+// Scrolling a long list (e.g. the coach's client directory) is the other
+// common trigger for the mobile browser chrome (address bar) to auto-hide,
+// growing the real visible viewport — but .app-container's height is a
+// fixed px value snapped from --app-vh at the last resize/visibilitychange,
+// so it doesn't grow with it. The gap between the two showed up as a large
+// empty band below the app's actual content, worst right at the end of a
+// long scrolled list where there's nothing below to visually mask it.
+// Reported 2026-08-18 for the "My Clients" list on a real device; not
+// reproducible in a desktop browser tool, where resize/visualViewport
+// already cover every size change. `scroll` doesn't bubble, but a
+// capturing listener on `document` still receives it from any descendant
+// scroll container (the coach dashboard's internal .trainer-dashboard-
+// container included) without needing to know which element is scrolling.
+// rAF-throttled since scroll fires far more often than the height actually
+// changes.
+let scrollRafPending = false;
+document.addEventListener('scroll', () => {
+  if (scrollRafPending) return;
+  scrollRafPending = true;
+  requestAnimationFrame(() => {
+    scrollRafPending = false;
+    setAppViewportHeight();
+  });
+}, { capture: true, passive: true });
 
 // Tap-outside-to-dismiss for native text inputs/textareas (Plan Name,
 // Routine Name, coach note, etc.) — mirrors SetNumberPad's own outside-tap

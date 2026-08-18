@@ -2644,25 +2644,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // browser itself, which always measures against current layout — no
     // manual bookkeeping left to fall out of sync.
     const reposition = () => {
-      // BUG FIX 2026-08-18 (round 3): this used to force window.scrollTo(0, 0)
-      // here, synchronously, BEFORE the scrollIntoView call below — while the
-      // field still had focus and the keyboard was open. Screen recordings
-      // showed the actual native keyboard fully closing and reopening on
-      // every focus (not just an animated scroll): snapping the outer window
-      // back to (0, 0) instantly moves the still-focused field off-screen for
-      // a frame, and mobile browsers auto-dismiss the software keyboard the
-      // moment the focused element isn't visible. The very next line then
-      // scrolls the field back into view, and since it never actually lost
-      // DOM focus, the keyboard pops back up — read as the field "typing not
-      // working" / the screen jerking, because the two corrections fought
-      // each other on every keystroke-triggered resize. The outer window is
-      // not this field's real scroll ancestor (`.trainer-dashboard-container`
-      // is, via scrollParent below) — el.scrollIntoView() already targets
-      // that container correctly, so there's no need to also fight the
-      // window's own scroll position while a field is actively focused. Any
-      // stray outer scroll gets cleaned up in the blur handler instead, where
-      // there's no focused field left to knock off-screen.
+      // BUG FIX 2026-08-18 (round 3, REVERTED): tried removing the
+      // window.scrollTo(0, 0) snap below on the theory that it was forcing
+      // the still-focused field off-screen and causing the keyboard to
+      // dismiss/reopen. Confirmed on-device that theory was wrong — without
+      // it, the outer page's own stray scroll was left uncorrected while the
+      // field was mid-focus, reproducing exactly the "black gap" background
+      // (#090e17) covering the whole field this snap was originally added to
+      // prevent, this time bad enough that the field couldn't be typed into
+      // at all. Restored to the round-2 behavior: reset any stray outer
+      // scroll BEFORE scrollIntoView runs, same as before round 3.
       //
+      // The outer page shouldn't scroll at all — see the multi-paragraph
+      // note above on why a stray outer scroll is what actually produces
+      // the black gap (app-container no longer covering the bottom of the
+      // screen). Reset it before letting scrollIntoView do its work.
+      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
+        window.scrollTo(0, 0);
+      }
       // BUG FIX 2026-08-17: `block: 'center'` was the actual source of the
       // recurring "black gap under the field" report — centering the field
       // in the now-keyboard-shrunk container guarantees roughly HALF the
@@ -2712,14 +2711,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     el.addEventListener('blur', () => {
       clearTimeout(debounce);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
-      // Now that the field's blurred, it's safe to clean up any stray outer
-      // window scroll (the thing round 3's fix above stopped doing mid-focus,
-      // since there's no keyboard/focused field left here to knock off-screen
-      // by moving it) — keeps the original "black gap" case that guarded
-      // against covered without recreating the flicker.
-      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
-        window.scrollTo(0, 0);
-      }
       // Put the view back where the coach was before the keyboard pushed it.
       requestAnimationFrame(() => {
         const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);

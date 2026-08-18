@@ -181,6 +181,35 @@ button {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* iOS "Add to Home Screen" standalone apps have no address bar to collapse
+   at all, so the scroll-triggered --app-vh recalculation above (added for
+   Android Chrome's address-bar-hide-on-scroll) never applied here in the
+   first place — it fixed a different platform's version of a similar-
+   looking symptom. Reported 2026-08-18: a large persistent gap below the
+   end of a scrolled list specifically in iOS standalone mode, unaffected
+   by that fix. `--app-vh` was deliberately kept authoritative over `dvh`
+   for .app-container (see the comment above) because `dvh` was found
+   unreliable for installed standalone PWAs on ANDROID and for Safari right
+   after the on-screen keyboard closes — neither of which is this case.
+   `-webkit-touch-callout: none` is a standard, reliable way to target
+   WebKit/iOS specifically (Android Chrome doesn't implement it) — scoped
+   this narrowly, letting `dvh` (WebKit's own purpose-built, natively
+   correct answer for standalone viewport sizing) win ONLY on iOS.
+   body/#root are switched to dvh here too, not just .app-container: #45
+   fixed the "black gap under focused fields" bug by making body/#root
+   track the exact same height source as .app-container, specifically so
+   one is never taller than the other. Flipping .app-container to dvh
+   alone would reopen that same mismatch in the opposite direction the
+   moment dvh and --app-vh disagree during a keyboard transition — keeping
+   all three on the same source preserves that invariant on iOS too. */
+@supports (-webkit-touch-callout: none) {
+  body,
+  #root,
+  .app-container {
+    height: 100dvh;
+  }
+}
+
 .main-content {
   flex: 1;
   width: 100%;

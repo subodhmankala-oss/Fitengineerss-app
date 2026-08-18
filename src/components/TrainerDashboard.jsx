@@ -2672,9 +2672,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // "slides up, pause, slides up again". Keep that immediate fallback
     // ONLY for the no-visualViewport case, where there's no resize event to
     // ever react to otherwise.
+    //
+    // BUG FIX 2026-08-18: the listener used to stay attached for the entire
+    // time the field was focused, not just for the keyboard's opening
+    // animation. Android keyboards fire additional visualViewport 'resize'
+    // events WHILE the coach is typing — e.g. the predictive-text/suggestion
+    // strip growing or shrinking by a few px per keystroke — and each one
+    // restarted the debounce and replayed the animated scrollIntoView. That
+    // read as the screen repeatedly jerking mid-type, and on some devices the
+    // animated scroll fought the keyboard's own focus handling badly enough
+    // that keystrokes stopped registering entirely. The correction is only
+    // ever needed once, to settle the layout after the keyboard's initial
+    // open — so stop listening as soon as that first correction has run.
     const onViewportResize = () => {
       clearTimeout(debounce);
-      debounce = setTimeout(reposition, 150);
+      debounce = setTimeout(() => {
+        reposition();
+        window.visualViewport?.removeEventListener('resize', onViewportResize);
+      }, 150);
     };
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', onViewportResize);

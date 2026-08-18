@@ -1545,7 +1545,7 @@ const Onboarding = ({ onComplete }) => {
                     Continue with email
                   </button>
 
-                  <p style={{ margin: '4px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
+                  <p style={{ margin: '-6px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
                     New to Fitengineers?{' '}
                     <button
                       type="button"
@@ -1727,7 +1727,7 @@ const Onboarding = ({ onComplete }) => {
                     Continue with email
                   </button>
 
-                  <p style={{ margin: '4px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
+                  <p style={{ margin: '-6px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
                     Not a coach yet?{' '}
                     <button
                       type="button"

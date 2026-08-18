@@ -394,6 +394,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setAwaitingSlideDir(nextIndex > awaitingSlide || (awaitingSlide === count - 1 && nextIndex === 0) ? 1 : -1);
     setAwaitingSlide(nextIndex);
   };
+  // Swipe support for the "finished a workout" card, per request 2026-08-18
+  // — previously only the arrow buttons/dots could move between clients.
+  // Tracks the touch start X in a ref (not state) since it's write-once-
+  // read-once per gesture and doesn't need to trigger a re-render itself.
+  const awaitingSlideTouchStartX = useRef(null);
+  const handleAwaitingSlideTouchStart = (e) => {
+    awaitingSlideTouchStartX.current = e.touches[0].clientX;
+  };
+  const handleAwaitingSlideTouchEnd = (e, count) => {
+    if (awaitingSlideTouchStartX.current == null) return;
+    const deltaX = e.changedTouches[0].clientX - awaitingSlideTouchStartX.current;
+    awaitingSlideTouchStartX.current = null;
+    // 40px threshold so an ordinary tap (or a small accidental drag while
+    // typing in the note textarea) doesn't get misread as a swipe.
+    if (Math.abs(deltaX) < 40 || count < 2) return;
+    const nextIndex = deltaX < 0
+      ? (awaitingSlide + 1) % count
+      : (awaitingSlide - 1 + count) % count;
+    goToAwaitingSlide(nextIndex, count);
+  };
 
   // Coaching program length (clients.total_sessions) editor for the selected client
   const [totalSessionsInput, setTotalSessionsInput] = useState('');
@@ -3264,6 +3284,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         key={`${session.clientId}|${session.date}`}
                         className={`coach-note-card awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
                         style={{ width: '100%', margin: 0, boxSizing: 'border-box' }}
+                        onTouchStart={hasMultiple ? handleAwaitingSlideTouchStart : undefined}
+                        onTouchEnd={hasMultiple ? (e) => handleAwaitingSlideTouchEnd(e, sessionsAwaitingNote.length) : undefined}
                       >
                         <div className="coach-note-head">
                           <span className="coach-note-title">
@@ -3284,20 +3306,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </button>
                         </div>
                         {/* Workout name + date/duration/calories, sitting
-                            under the client's name. The arrows moved back
-                            down to the bottom-right (next to Send note) per
-                            request 2026-08-18; name got a bigger font and
-                            more breathing room above the stats line below
-                            it, both per the same request. */}
+                            under the client's name. Arrows are back at the
+                            bottom-right (next to Send note). Both font sizes
+                            bumped up again, and marginBottom added below the
+                            stats line so it doesn't crowd the AI-note chips
+                            right under it — per request 2026-08-18. */}
                         {(session.workoutName || statBits) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', marginBottom: '14px' }}>
                             {session.workoutName && (
-                              <div style={{ fontSize: '0.88rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
+                              <div style={{ fontSize: '0.95rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
                                 {session.workoutName}
                               </div>
                             )}
                             {statBits && (
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
                                 {statBits}
                               </div>
                             )}

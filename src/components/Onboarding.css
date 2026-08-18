@@ -653,8 +653,18 @@
    keep their normal scrolling layout. */
 .onboarding-container.login-portal-mode {
   padding: 0;
-  height: 100dvh;
-  min-height: 100dvh;
+  /* Was `100dvh` — a SECOND, independent read of the real viewport, on top
+     of `.app-container`'s own (which is already kept correct across
+     platforms by index.css/main.jsx: JS-computed --app-vh with a native-dvh
+     override on iOS — see the @supports block there). `.onboarding-container`
+     is a direct child of `.app-container` with nothing else constraining its
+     height, so `100%` just inherits that already-correct height instead of
+     re-deriving it — the two reads drifting apart (e.g. wherever native dvh
+     and --app-vh disagree) is what left a band of .app-container's own dark
+     background exposed below the login card, reported as a persistent gap
+     at the true bottom, present even on the plain login screen. */
+  height: 100%;
+  min-height: 100%;
   overflow: hidden;
   justify-content: stretch;
 }
@@ -666,8 +676,10 @@
   align-items: stretch;
   width: 100%;
   max-width: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
+  /* Same reasoning as .login-portal-mode above — inherit the parent's
+     already-correct height instead of re-measuring the viewport. */
+  height: 100%;
+  max-height: 100%;
   margin: 0 auto;
   gap: 0;
   box-sizing: border-box;
@@ -685,9 +697,11 @@
   pointer-events: none;
 }
 .auth-form-active .portal-right-panel {
-  height: 100dvh;
+  /* Was `100dvh` — same independent-viewport-read issue as above; `100%`
+     of the now-reliable `.onboarding-portal-wrapper` instead. */
+  height: 100%;
   flex: 1 1 auto;
-  max-height: 100dvh;
+  max-height: 100%;
 }
 
 /* TOP: full-bleed screenshot hero (Hevy-style) — the screenshot fills this
@@ -697,8 +711,14 @@
   position: relative;
   width: 100%;
   max-width: 100%;
-  height: 60dvh;
-  flex: 0 0 60dvh;
+  /* Was `60dvh` — a fraction of an independently re-measured viewport rather
+     than of this panel's own parent (see .login-portal-mode above for why
+     that's the actual source of the reported gap). `.onboarding-portal-
+     wrapper` is a definite-height flex column now that IT is a reliable
+     `100%`, so `60%` here means exactly "60% of that", with no second
+     viewport read to drift out of sync. */
+  height: 60%;
+  flex: 0 0 60%;
   min-height: 0;
   overflow: hidden;
   padding: 0;
@@ -1244,8 +1264,10 @@
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
-  height: 40dvh;
-  flex: 0 0 40dvh;
+  /* Was `40dvh` — same independent-viewport-read issue as .portal-left-panel
+     above; `40%` of the now-reliable `.onboarding-portal-wrapper` instead. */
+  height: 40%;
+  flex: 0 0 40%;
   min-height: 0;
   overflow-y: auto;
   box-sizing: border-box;

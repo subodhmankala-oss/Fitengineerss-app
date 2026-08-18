@@ -117,11 +117,13 @@ document.addEventListener('visibilitychange', () => {
     // to catch an update on a tab that's been backgrounded/suspended for
     // hours, since the 5-minute background timer can't be trusted to have
     // kept running the whole time.
+    console.log('[Main] App visible, checking for updates...');
     checkForUpdateOnForeground();
   }
 });
 window.addEventListener('pageshow', () => {
   setAppViewportHeight();
+  console.log('[Main] Page shown (pageshow event), checking for updates...');
   checkForUpdateOnForeground();
 });
 // Scrolling a long list (e.g. the coach's client directory) is the other

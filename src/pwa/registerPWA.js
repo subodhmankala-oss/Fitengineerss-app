@@ -14,6 +14,7 @@ export function initPWA() {
     onRegisteredSW(swUrl, registration) {
       if (!registration) return;
       swRegistration = registration;
+      console.log('[PWA] Service worker registered:', swUrl);
       // BUG FIX 2026-08-16: main.jsx's `pageshow` listener calls
       // checkForUpdateOnForeground() as the "catch an update on cold
       // launch" path — but pageshow fires right after the page's `load`
@@ -27,17 +28,24 @@ export function initPWA() {
       // backgrounded tabs) to ever find a pending update. Check the
       // instant the registration itself is ready instead of waiting on an
       // event that may have already fired before this ran.
-      registration.update().catch(() => {});
+      console.log('[PWA] Checking for updates immediately on registration...');
+      registration.update().catch((err) => {
+        console.error('[PWA] Initial update check failed:', err);
+      });
       // Check for a newer deploy periodically while the app stays open, not
       // just on the initial page load — closes the exact gap above for a
       // long-running session. Errors here are non-fatal; the next interval
       // just tries again.
       setInterval(() => {
-        registration.update().catch(() => {});
+        console.log('[PWA] Checking for updates (5-minute interval)...');
+        registration.update().catch((err) => {
+          console.error('[PWA] Periodic update check failed:', err);
+        });
       }, 5 * 60 * 1000);
     },
     onNeedRefresh() {
       updatePending = true;
+      console.log('[PWA] Update available! Dispatching pwa:need-refresh event...');
       // POLICY CHANGE 2026-08-18: previously this only ever surfaced a
       // dismissible toast and left applying the update entirely up to the
       // user tapping "Refresh" (see the 2026-08-13 regression fix this
@@ -65,13 +73,15 @@ export function initPWA() {
       // autosaved to a draft (client and coach Live Log both), so a reload
       // here loses at most the last few keystrokes, not the session.
       window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
+      console.log('[PWA] Applying update automatically...');
       applyUpdateFn?.(true);
     },
     onOfflineReady() {
+      console.log('[PWA] App is ready for offline use');
       window.dispatchEvent(new CustomEvent('pwa:offline-ready'));
     },
     onRegisterError(error) {
-      console.error('Service worker registration failed:', error);
+      console.error('[PWA] Service worker registration failed:', error);
     },
   });
 }
@@ -117,12 +127,19 @@ export async function checkForUpdateOnForeground() {
 // version — updating now" instead of a dead-end retry loop.
 export async function checkForPendingPWAUpdate() {
   if (updatePending) return true;
-  if (!swRegistration) return false;
+  if (!swRegistration) {
+    console.log('[PWA] checkForPendingPWAUpdate: SW registration not ready yet');
+    return false;
+  }
+  console.log('[PWA] Checking for pending updates...');
   try {
     await swRegistration.update();
-  } catch { /* offline or registration gone — treat as "no update found" */ }
+  } catch (err) {
+    console.error('[PWA] Error checking for updates:', err);
+  }
   // onNeedRefresh fires synchronously off the update() call when a new SW is
   // found, but give the event loop a tick to actually run it.
   await new Promise((r) => setTimeout(r, 300));
+  console.log('[PWA] Update pending status:', updatePending);
   return updatePending;
 }

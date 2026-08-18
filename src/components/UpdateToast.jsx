@@ -17,7 +17,12 @@ export default function UpdateToast() {
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
-    const onNeedRefresh = () => { setVisible(true); setApplying(true); };
+    console.log('[UpdateToast] Component mounted, listening for pwa:need-refresh event');
+    const onNeedRefresh = () => {
+      console.log('[UpdateToast] Received pwa:need-refresh event, showing toast');
+      setVisible(true);
+      setApplying(true);
+    };
     window.addEventListener('pwa:need-refresh', onNeedRefresh);
     return () => window.removeEventListener('pwa:need-refresh', onNeedRefresh);
   }, []);
@@ -25,6 +30,7 @@ export default function UpdateToast() {
   if (!visible) return null;
 
   const handleRefresh = () => {
+    console.log('[UpdateToast] User clicked refresh button');
     setApplying(true);
     applyPWAUpdate();
   };

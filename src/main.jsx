@@ -53,6 +53,39 @@ function setAppViewportHeight() {
   document.documentElement.style.setProperty('--app-vh', `${h / 100}px`);
 }
 setAppViewportHeight();
+
+// BUG FIX 2026-08-18: .app-container's top padding used the LIVE
+// env(safe-area-inset-top) directly in CSS. On an installed iOS standalone
+// PWA, WebKit recomputes that value against the current visual viewport —
+// and while the on-screen keyboard (or, worse, the emoji picker, which
+// shrinks the viewport the same way a keyboard does) is showing, it can
+// momentarily report the top inset as 0 instead of the notch/Dynamic
+// Island's real height. Losing that padding for a frame pulls
+// .app-container's content up flush with the physical top of the screen,
+// overlapping/garbling with the OS status bar — reported as message
+// bubbles rendering on top of the clock/battery icons the instant the
+// emoji picker opened, snapping back the moment it closed. Capture the
+// inset ONCE into a real px value via an offscreen probe element and drive
+// the padding from that instead (see index.css) — a snapshot taken before/
+// independent of any keyboard interaction, immune to WebKit re-zeroing it
+// while an input method panel is up. Re-measured only on orientationchange
+// (a genuine, keyboard-unrelated safe-area change), never on
+// resize/visualViewport-resize, which is exactly what a keyboard/emoji
+// picker opening fires.
+function setAppSafeAreaInsets() {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;height:0;width:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);pointer-events:none;visibility:hidden;';
+  document.body.appendChild(probe);
+  const computed = getComputedStyle(probe);
+  const top = computed.paddingTop;
+  const bottom = computed.paddingBottom;
+  document.body.removeChild(probe);
+  if (top) document.documentElement.style.setProperty('--app-safe-top', top);
+  if (bottom) document.documentElement.style.setProperty('--app-safe-bottom', bottom);
+}
+setAppSafeAreaInsets();
+requestAnimationFrame(() => requestAnimationFrame(setAppSafeAreaInsets));
+window.addEventListener('orientationchange', setAppSafeAreaInsets);
 // BUG FIX 2026-08-18: the call above runs synchronously the instant this
 // script parses -- but on a cold launch of an installed iOS standalone PWA
 // specifically, window.visualViewport.height/innerHeight can report a

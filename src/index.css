@@ -177,8 +177,16 @@ button {
   flex-direction: column;
   box-shadow: 0 0 40px rgba(16, 185, 129, 0.05); /* Subtle green glow around the app frame */
   /* viewport-fit=cover lets content draw under the iPhone notch/Dynamic
-     Island; push it back down by the real inset so nothing sits behind it. */
-  padding-top: env(safe-area-inset-top, 0px);
+     Island; push it back down by the real inset so nothing sits behind it.
+     BUG FIX 2026-08-18: was `env(safe-area-inset-top, 0px)` directly — a
+     LIVE value WebKit can momentarily re-zero while the on-screen keyboard
+     or emoji picker is showing (installed iOS standalone PWA), which pulls
+     content up to overlap the real OS status bar for as long as an input
+     method panel is open. --app-safe-top is a JS-captured snapshot (see
+     main.jsx's setAppSafeAreaInsets) taken independent of keyboard state,
+     so it can't be zeroed out mid-type; falls back to the live value only
+     for the instant before that JS has run on first paint. */
+  padding-top: var(--app-safe-top, env(safe-area-inset-top, 0px));
 }
 
 /* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)

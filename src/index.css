@@ -196,8 +196,21 @@ button {
      method panel is open. --app-safe-top is a JS-captured snapshot (see
      main.jsx's setAppSafeAreaInsets) taken independent of keyboard state,
      so it can't be zeroed out mid-type; falls back to the live value only
-     for the instant before that JS has run on first paint. */
-  padding-top: var(--app-safe-top, env(safe-area-inset-top, 0px));
+     for the instant before that JS has run on first paint.
+     BUG FIX 2026-08-19: the fix above only re-snapshots whatever env()
+     reports — it never helps a device where env(safe-area-inset-top) is 0
+     from the start (not momentarily zeroed, genuinely unreported). Several
+     Android browsers/installed-PWA hosts never populate this at all even
+     while still drawing the page edge-to-edge under the status bar (this
+     app opts into edge-to-edge everywhere via viewport-fit=cover in
+     index.html). Reported again 2026-08-19 on a real Android device, still
+     reproducing after the WebKit-focused fix above: the coach header's
+     title/notification/logout buttons rendered flush against — and partly
+     behind — the phone's status bar, some of them untappable, on first
+     load, no keyboard involved. max() adds a floor so there's always real
+     clearance under a status bar even when the browser reports none, while
+     a genuinely larger real inset (notches) still wins. */
+  padding-top: max(20px, var(--app-safe-top, env(safe-area-inset-top, 20px)));
 }
 
 /* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)

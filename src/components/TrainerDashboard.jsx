@@ -396,16 +396,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   };
   // Swipe support for the "finished a workout" card, per request 2026-08-18
   // — previously only the arrow buttons/dots could move between clients.
-  // Tracks the touch start X in a ref (not state) since it's write-once-
-  // read-once per gesture and doesn't need to trigger a re-render itself.
+  // awaitingSlideTouchStartX is a ref (write-once-read-once per gesture,
+  // no re-render needed to track it); awaitingDragX IS state because it
+  // has to re-render on every touchmove — per follow-up request the same
+  // day, the card should visibly track the finger while dragging instead
+  // of only reacting once the finger lifts.
   const awaitingSlideTouchStartX = useRef(null);
+  const [awaitingDragX, setAwaitingDragX] = useState(0);
+  const [isAwaitingDragging, setIsAwaitingDragging] = useState(false);
   const handleAwaitingSlideTouchStart = (e) => {
     awaitingSlideTouchStartX.current = e.touches[0].clientX;
+    setIsAwaitingDragging(true);
+  };
+  const handleAwaitingSlideTouchMove = (e) => {
+    if (awaitingSlideTouchStartX.current == null) return;
+    setAwaitingDragX(e.touches[0].clientX - awaitingSlideTouchStartX.current);
   };
   const handleAwaitingSlideTouchEnd = (e, count) => {
     if (awaitingSlideTouchStartX.current == null) return;
     const deltaX = e.changedTouches[0].clientX - awaitingSlideTouchStartX.current;
     awaitingSlideTouchStartX.current = null;
+    setIsAwaitingDragging(false);
+    setAwaitingDragX(0);
     // 40px threshold so an ordinary tap (or a small accidental drag while
     // typing in the note textarea) doesn't get misread as a swipe.
     if (Math.abs(deltaX) < 40 || count < 2) return;
@@ -3283,8 +3295,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       <div
                         key={`${session.clientId}|${session.date}`}
                         className={`coach-note-card awaiting-slide-${awaitingSlideDir > 0 ? 'next' : 'prev'}`}
-                        style={{ width: '100%', margin: 0, boxSizing: 'border-box' }}
+                        style={{
+                          width: '100%', margin: 0, boxSizing: 'border-box',
+                          // Follows the finger 1:1 while dragging (no
+                          // transition — direct control), then eases back to
+                          // 0 on release, whether that's a snap-back (swipe
+                          // too short) or the moment right before the next
+                          // card's own mount-in animation takes over.
+                          transform: isAwaitingDragging ? `translateX(${awaitingDragX}px)` : 'translateX(0)',
+                          transition: isAwaitingDragging ? 'none' : 'transform 0.2s ease'
+                        }}
                         onTouchStart={hasMultiple ? handleAwaitingSlideTouchStart : undefined}
+                        onTouchMove={hasMultiple ? handleAwaitingSlideTouchMove : undefined}
                         onTouchEnd={hasMultiple ? (e) => handleAwaitingSlideTouchEnd(e, sessionsAwaitingNote.length) : undefined}
                       >
                         <div className="coach-note-head">

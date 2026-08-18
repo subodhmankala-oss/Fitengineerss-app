@@ -149,6 +149,43 @@ document.addEventListener('scroll', () => {
   });
 }, { capture: true, passive: true });
 
+// BUG FIX 2026-08-18 (round 6) — the actual root cause of the recurring
+// "keyboard opens, content overlaps the status bar / a large blank area
+// appears" reports (five prior rounds all targeted the WRONG mechanism —
+// see the removed handleCoachNoteFocus in TrainerDashboard.jsx). Every
+// previous fix tracked window.visualViewport.height (--app-vh, above) to
+// keep .app-container correctly SIZED for the keyboard. None of them
+// tracked window.visualViewport.offsetTop/offsetLeft — the OTHER half of
+// the visualViewport API, which reports how far iOS Safari has PANNED the
+// visible region within the (unchanged) layout viewport to keep a focused
+// input's caret in view. This pan is a native WebKit behavior that moves
+// what's on screen independently of any CSS `overflow`, `position`, or
+// scrollTop — html/body already lock overflow-y: hidden (see index.css)
+// specifically to make the page itself unscrollable, but that has no
+// effect on this pan; it isn't a scroll. Once iOS pans the visible region
+// down to reveal a focused field lower on the page, .app-container's own
+// content (including the safe-area top padding — see --app-safe-top) slides
+// up out of the pan with it, landing flush against — or past — the real,
+// physically fixed status bar, which is exactly the overlap/blank-area
+// symptom in every report so far, and explains why it kept recurring no
+// matter which scroll-correction logic was tried on individual fields: the
+// pan happens above the level any per-field handler could reach.
+// Countered here, once, for the whole app: translate the ENTIRE rendered
+// page by the exact negative of the pan on every visualViewport resize/
+// scroll event, canceling it out so the app's content stays visually
+// anchored to the real screen — including the status bar — regardless of
+// which input iOS decided to scroll toward. See index.css's `body` rule for
+// where --vv-offset-top/left are consumed.
+function setViewportOffset() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  document.documentElement.style.setProperty('--vv-offset-top', `${vv.offsetTop}px`);
+  document.documentElement.style.setProperty('--vv-offset-left', `${vv.offsetLeft}px`);
+}
+setViewportOffset();
+window.visualViewport?.addEventListener('resize', setViewportOffset);
+window.visualViewport?.addEventListener('scroll', setViewportOffset);
+
 // Tap-outside-to-dismiss for native text inputs/textareas (Plan Name,
 // Routine Name, coach note, etc.) — mirrors SetNumberPad's own outside-tap
 // close for the custom numeric pad, but for the OS's native keyboard.

@@ -110,6 +110,21 @@ body {
   overflow: hidden;
   display: flex;
   justify-content: center;
+  /* BUG FIX 2026-08-18 (round 6): shrinking body's height (above) stops
+     iOS's keyboard-focus pan from revealing extra unstyled space BELOW the
+     app, but does nothing about the pan itself — the comment above already
+     names it ("iOS then offsets the visual viewport downward") without
+     actually countering it. That same pan is what was sliding the app's
+     content up past the real status bar at the TOP on every focus (see
+     main.jsx's setViewportOffset for the full mechanism). --vv-offset-top/
+     left are written by that function from window.visualViewport.offsetTop/
+     offsetLeft on every visualViewport resize/scroll — translating body by
+     their exact negative cancels the pan so the whole app stays visually
+     pinned to the real screen (status bar included) no matter which input
+     iOS decided to scroll toward. A no-op (translate(0px, 0px)) whenever
+     there's no pan, i.e. desktop and Android, where visualViewport offsets
+     stay 0. */
+  transform: translate3d(calc(-1 * var(--vv-offset-left, 0px)), calc(-1 * var(--vv-offset-top, 0px)), 0);
 }
 
 #root {

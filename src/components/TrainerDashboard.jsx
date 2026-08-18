@@ -1248,6 +1248,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       triggerLiveToast('⚠️ Add at least one exercise set before saving.');
       return;
     }
+    // A stale tab doesn't fail this save — it SUCCEEDS, just with wrong data:
+    // the pre-fix duration/calories logic below reads liveTimerStartedAt raw
+    // (no fallback), so a coach who never ticked a checkbox silently gets
+    // durationSeconds/caloriesBurned: null again, with no error to trigger
+    // the existing catch-block staleness check further down (that one only
+    // fires when the save itself throws). Confirmed 2026-08-18: a coach's
+    // Live Log session landed in workout_logs with both null, sets and all,
+    // hours after this exact bug had already been fixed (#44) — the fix
+    // can't produce that result, so the tab was still running the old build.
+    // Checking here, before the save runs, catches it before bad data ever
+    // gets written instead of after. The draft is autosaved continuously, so
+    // it's safe to reload right now — reopening lands back on this same
+    // in-progress session with every set still there, on the fixed build.
+    const staleTab = await checkForPendingPWAUpdate();
+    if (staleTab) {
+      triggerLiveToast('⚠️ Your app was out of date — updating now. Your sets are safe; tap Save again once it reloads.');
+      setTimeout(applyPWAUpdate, 1500);
+      return;
+    }
     // Cancel any debounced background draft-save still armed from the coach's
     // last edit (ticking a set, typing a rep) — the autosave effect below
     // only re-cancels it on its OWN next re-render, which can lose the race

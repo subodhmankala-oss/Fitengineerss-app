@@ -110,21 +110,15 @@ body {
   overflow: hidden;
   display: flex;
   justify-content: center;
-  /* BUG FIX 2026-08-18 (round 6): shrinking body's height (above) stops
-     iOS's keyboard-focus pan from revealing extra unstyled space BELOW the
-     app, but does nothing about the pan itself — the comment above already
-     names it ("iOS then offsets the visual viewport downward") without
-     actually countering it. That same pan is what was sliding the app's
-     content up past the real status bar at the TOP on every focus (see
-     main.jsx's setViewportOffset for the full mechanism). --vv-offset-top/
-     left are written by that function from window.visualViewport.offsetTop/
-     offsetLeft on every visualViewport resize/scroll — translating body by
-     their exact negative cancels the pan so the whole app stays visually
-     pinned to the real screen (status bar included) no matter which input
-     iOS decided to scroll toward. A no-op (translate(0px, 0px)) whenever
-     there's no pan, i.e. desktop and Android, where visualViewport offsets
-     stay 0. */
-  transform: translate3d(calc(-1 * var(--vv-offset-left, 0px)), calc(-1 * var(--vv-offset-top, 0px)), 0);
+  /* REVERTED 2026-08-18 (round 7): a `transform` lived here, set from
+     visualViewport.offsetTop/Left to try to cancel iOS's keyboard pan. It
+     had to go: ANY non-none transform on an ancestor makes that element the
+     containing block for every `position: fixed` descendant. On `body` that
+     is the whole app — SetNumberPad, every modal, the tour overlays, the
+     update toast (19 stylesheets use position: fixed). This file already
+     documents that exact hazard for `.animate-scale-in` further down; the
+     transform re-introduced it app-wide. The real cause of the keyboard
+     jump was never the pan — see main.jsx's keyboard manager. */
 }
 
 #root {
@@ -172,19 +166,21 @@ button {
      `dvh` on some versions.  */
   height: -webkit-fill-available;
   height: calc(var(--app-vh, 1vh) * 100);
-  /* --app-vh snaps to a new value the instant main.jsx's visualViewport
-     listener fires — but the thing that actually CAUSED that resize (the
-     OS on-screen keyboard sliding open/closed, or our own SetNumberPad's
-     reserved bottom padding appearing/disappearing) animates smoothly over
-     ~250-280ms. Without this transition the container's height jumped in
-     one frame while the keyboard/pad was still mid-slide, exposing a flash
-     of raw --bg-app (#090e17, reads as solid black) in the gap between
-     "container already shrunk" and "keyboard actually finished closing" —
-     reported as an abrupt hide and, on the Plan/Routine Name and Plan Name
-     fields (no custom pad, just the native keyboard), a stray black
-     div/padding on focus. Roughly matches the OS keyboard's own timing so
-     the container now tracks it instead of jumping ahead of or behind it. */
-  transition: height 0.25s ease;
+  /* NO `transition` on this height — deliberately (round 7, 2026-08-18).
+     An earlier version animated it over 0.25s to smooth the keyboard
+     open/close. That animation was a primary cause of the keyboard jump:
+     WebKit computes "scroll the focused field into view" ONCE, at focus
+     time, against the geometry it sees then. Animating this height means
+     the scroll container's clientHeight (and therefore its max scrollTop)
+     keeps changing for 250ms AFTER that decision was made, so the scroll
+     the browser chose is applied against geometry that no longer exists —
+     landing the container at an arbitrary offset, sometimes clamped past
+     all content (the blank screen). Native iOS apps snap their layout to
+     the keyboard frame in one step; so do we now. The flash of raw
+     --bg-app the transition was originally added to hide is a non-issue
+     today: `body` is itself sized to --app-vh and painted --bg-app (see
+     above), and with no background on `html` that color propagates to the
+     canvas — any transient gap is seamless rather than black. */
   background-color: var(--bg-app);
   position: relative;
   overflow: hidden;
@@ -236,6 +232,22 @@ button {
 
 .main-content::-webkit-scrollbar {
   display: none;
+}
+
+/* While the on-screen keyboard is open, the scroll containers must scroll
+   INSTANTLY (round 7, 2026-08-18). Both scroll owners default to
+   `scroll-behavior: smooth` (.main-content above, .trainer-dashboard-container
+   in TrainerDashboard.css), which turns the browser's own focus
+   scroll-into-view into a ~300ms animation. That animation ran concurrently
+   with the shell resizing to the keyboard and with main.jsx's scroll-driven
+   height recalculation, so each fed the other: animate -> scroll event ->
+   height rewrite -> relayout -> new max scrollTop -> animation retargets.
+   That loop is the visible jerk. `auto` here ends it; smooth scrolling is
+   untouched everywhere else (tab changes, in-app anchors), since the class
+   is only present while a text field is focused. */
+html.keyboard-open .main-content,
+html.keyboard-open .trainer-dashboard-container {
+  scroll-behavior: auto;
 }
 
 /* Premium Bottom Navigation */

@@ -141,6 +141,20 @@ window.addEventListener('pageshow', () => {
 // changes.
 let scrollRafPending = false;
 document.addEventListener('scroll', () => {
+  // ROUND 7 (2026-08-18) — the loop that produced the keyboard jerk.
+  // This listener exists for a real reason (browser chrome auto-hides while
+  // scrolling a long list, growing the viewport), but while the on-screen
+  // keyboard is open it is actively harmful: WebKit's focus scroll-into-view
+  // animates the container, every animation frame fires `scroll`, each one
+  // rewrote --app-vh, which resized the shell, which changed the container's
+  // clientHeight and max scrollTop mid-animation, which perturbed the scroll
+  // and fired more scroll events. Self-sustaining, and entirely independent
+  // of whichever input was focused -- which is why five rounds of per-field
+  // handlers never touched it. The chrome-autohide case this serves cannot
+  // happen while the keyboard is up (the chrome is already hidden), so
+  // skipping it then costs nothing. --app-vh still tracks the keyboard
+  // correctly via the visualViewport 'resize' listener above.
+  if (document.documentElement.classList.contains('keyboard-open')) return;
   if (scrollRafPending) return;
   scrollRafPending = true;
   requestAnimationFrame(() => {
@@ -149,42 +163,99 @@ document.addEventListener('scroll', () => {
   });
 }, { capture: true, passive: true });
 
-// BUG FIX 2026-08-18 (round 6) — the actual root cause of the recurring
-// "keyboard opens, content overlaps the status bar / a large blank area
-// appears" reports (five prior rounds all targeted the WRONG mechanism —
-// see the removed handleCoachNoteFocus in TrainerDashboard.jsx). Every
-// previous fix tracked window.visualViewport.height (--app-vh, above) to
-// keep .app-container correctly SIZED for the keyboard. None of them
-// tracked window.visualViewport.offsetTop/offsetLeft — the OTHER half of
-// the visualViewport API, which reports how far iOS Safari has PANNED the
-// visible region within the (unchanged) layout viewport to keep a focused
-// input's caret in view. This pan is a native WebKit behavior that moves
-// what's on screen independently of any CSS `overflow`, `position`, or
-// scrollTop — html/body already lock overflow-y: hidden (see index.css)
-// specifically to make the page itself unscrollable, but that has no
-// effect on this pan; it isn't a scroll. Once iOS pans the visible region
-// down to reveal a focused field lower on the page, .app-container's own
-// content (including the safe-area top padding — see --app-safe-top) slides
-// up out of the pan with it, landing flush against — or past — the real,
-// physically fixed status bar, which is exactly the overlap/blank-area
-// symptom in every report so far, and explains why it kept recurring no
-// matter which scroll-correction logic was tried on individual fields: the
-// pan happens above the level any per-field handler could reach.
-// Countered here, once, for the whole app: translate the ENTIRE rendered
-// page by the exact negative of the pan on every visualViewport resize/
-// scroll event, canceling it out so the app's content stays visually
-// anchored to the real screen — including the status bar — regardless of
-// which input iOS decided to scroll toward. See index.css's `body` rule for
-// where --vv-offset-top/left are consumed.
-function setViewportOffset() {
-  const vv = window.visualViewport;
-  if (!vv) return;
-  document.documentElement.style.setProperty('--vv-offset-top', `${vv.offsetTop}px`);
-  document.documentElement.style.setProperty('--vv-offset-left', `${vv.offsetLeft}px`);
+// ---------------------------------------------------------------------------
+// iOS keyboard manager (round 7, 2026-08-18)
+// ---------------------------------------------------------------------------
+// Marks the document while a text field is focused, and re-anchors the
+// scroll container after the keyboard closes.
+//
+// The `keyboard-open` class is what lets the scroll listener above bail out
+// and what switches both scroll owners to instant scrolling (see index.css).
+// Note this deliberately does NOT scroll the focused field into view itself:
+// with the shell no longer animating its height and the feedback loop gone,
+// WebKit's own scroll-into-view lands correctly on the first try. Five
+// previous rounds failed precisely by fighting it; the job here is to make
+// the geometry it measures stable, then stay out of the way.
+//
+// What it DOES own is the other half of the reported bug: the container
+// shrinks when the keyboard opens, so its max scrollTop drops and the browser
+// clamps scrollTop to fit. When the keyboard closes the container grows back
+// but that clamped value stays -- so the coach is left somewhere else on the
+// page with no way back but scrolling by hand. Recording the offset at focus
+// and restoring it once the viewport has grown back fixes exactly that.
+const isTextField = (el) =>
+  !!el && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement);
+
+// Nearest ancestor that genuinely scrolls. Coach screens scroll on
+// .trainer-dashboard-container, client screens on .main-content -- resolved
+// by measurement rather than hardcoded, so this stays correct if either
+// layout changes.
+function scrollOwnerOf(el) {
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    const oy = getComputedStyle(node).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) return node;
+    node = node.parentElement;
+  }
+  return null;
 }
-setViewportOffset();
-window.visualViewport?.addEventListener('resize', setViewportOffset);
-window.visualViewport?.addEventListener('scroll', setViewportOffset);
+
+let kbScrollOwner = null;
+let kbScrollTop = 0;
+let kbUserScrolled = false;
+let kbReanchorCancelled = false;
+
+document.addEventListener('focusin', (e) => {
+  if (!isTextField(e.target)) return;
+  kbScrollOwner = scrollOwnerOf(e.target);
+  kbScrollTop = kbScrollOwner ? kbScrollOwner.scrollTop : 0;
+  kbUserScrolled = false;
+  document.documentElement.classList.add('keyboard-open');
+});
+
+// If the coach deliberately scrolls while typing, that new position is the
+// one they want kept -- don't yank them back to where they started.
+const markUserScroll = () => {
+  if (document.documentElement.classList.contains('keyboard-open')) kbUserScrolled = true;
+};
+document.addEventListener('touchmove', markUserScroll, { capture: true, passive: true });
+document.addEventListener('wheel', markUserScroll, { capture: true, passive: true });
+// Any touch after dismissal means they're driving again -- stop re-anchoring.
+document.addEventListener('touchstart', () => { kbReanchorCancelled = true; }, { capture: true, passive: true });
+
+document.addEventListener('focusout', (e) => {
+  if (!isTextField(e.target)) return;
+  // Tapping straight from one field to another never closes the keyboard;
+  // one frame is enough for activeElement to settle on the new target.
+  requestAnimationFrame(() => {
+    if (isTextField(document.activeElement)) return;
+    document.documentElement.classList.remove('keyboard-open');
+
+    const owner = kbScrollOwner;
+    const target = kbScrollTop;
+    const userMoved = kbUserScrolled;
+    kbScrollOwner = null;
+    if (!owner || userMoved) return;
+
+    // Re-assert across the dismiss animation rather than once. This is an
+    // iOS timing requirement, not a guess: the visible viewport grows back
+    // over the ~300ms the keyboard slides out, and the container's max
+    // scrollTop grows with it. A single assignment made before that finishes
+    // is silently clamped to the still-small maximum, which is the very
+    // clamp this is undoing. Frame-driven (not a fixed setTimeout) and
+    // abandoned the moment the coach touches the screen.
+    kbReanchorCancelled = false;
+    let frames = 0;
+    const reanchor = () => {
+      if (kbReanchorCancelled) return;
+      const max = Math.max(0, owner.scrollHeight - owner.clientHeight);
+      owner.scrollTop = Math.min(target, max);
+      if (++frames < 24) requestAnimationFrame(reanchor);
+    };
+    requestAnimationFrame(reanchor);
+  });
+});
+
 
 // Tap-outside-to-dismiss for native text inputs/textareas (Plan Name,
 // Routine Name, coach note, etc.) — mirrors SetNumberPad's own outside-tap

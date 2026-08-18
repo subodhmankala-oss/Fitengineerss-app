@@ -1016,14 +1016,23 @@
 
 /* Finished-workout slider on the coach home screen: each slide change
    remounts the card (keyed by clientId|date), so these just animate that
-   mount — sliding in from the side matching the arrow/dot that was pressed. */
+   mount — sliding in from the side matching the arrow/dot that was pressed
+   (tap) or the direction just swiped (drag).
+   The start offset is a % of the card's OWN width (not a fixed px) so it
+   roughly matches where the live drag peek card was actually sitting when
+   the finger lifted — mid-swipe releases were reported as "not smooth"
+   because a fixed 28px start was nowhere near a real drag's resting point,
+   so the remounted card visibly snapped backward before playing its
+   (unrelated) short slide-in. ease-out (not ease) puts the whole motion in
+   the first half of the timing instead of gently accelerating into a
+   sudden stop, which reads as smoother for this "catch up and settle" case. */
 @keyframes awaitingSlideInNext {
-  from { opacity: 0; transform: translateX(28px); }
+  from { opacity: 0; transform: translateX(45%); }
   to { opacity: 1; transform: translateX(0); }
 }
 @keyframes awaitingSlideInPrev {
-  from { opacity: 0; transform: translateX(-28px); }
+  from { opacity: 0; transform: translateX(-45%); }
   to { opacity: 1; transform: translateX(0); }
 }
-.awaiting-slide-next { animation: awaitingSlideInNext 0.25s ease; }
-.awaiting-slide-prev { animation: awaitingSlideInPrev 0.25s ease; }
+.awaiting-slide-next { animation: awaitingSlideInNext 0.3s ease-out; }
+.awaiting-slide-prev { animation: awaitingSlideInPrev 0.3s ease-out; }

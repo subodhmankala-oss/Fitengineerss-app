@@ -3320,7 +3320,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           className="coach-note-card"
                           aria-hidden="true"
                           style={{
-                            position: 'absolute', top: 0, [peekSide === 'next' ? 'left' : 'right']: '100%',
+                            // top+bottom (not just top) makes this box span
+                            // the same full height as the active card next
+                            // to it — the peek only ever renders header +
+                            // stats (no note composer), and without an
+                            // explicit bottom it shrank to fit just that
+                            // short content, leaving the rest of the
+                            // container's height bare (no card background at
+                            // all) instead of looking like a real card.
+                            position: 'absolute', top: 0, bottom: 0, [peekSide === 'next' ? 'left' : 'right']: '100%',
                             width: '100%', margin: 0, boxSizing: 'border-box',
                             transform: `translateX(${awaitingDragX}px)`,
                             pointerEvents: 'none'

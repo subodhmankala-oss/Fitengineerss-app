@@ -53,6 +53,23 @@ function setAppViewportHeight() {
   document.documentElement.style.setProperty('--app-vh', `${h / 100}px`);
 }
 setAppViewportHeight();
+// BUG FIX 2026-08-18: the call above runs synchronously the instant this
+// script parses -- but on a cold launch of an installed iOS standalone PWA
+// specifically, window.visualViewport.height/innerHeight can report a
+// transitional, shorter-than-final value at that exact instant: WebKit
+// hasn't finished settling into true full-screen chrome-less presentation
+// yet. Every subsequent measurement in this file is event-driven (resize,
+// orientationchange, visualViewport resize, visibilitychange, pageshow) --
+// if none of those fire during the session (entirely plausible: open the
+// app, use it, never background/rotate it), --app-vh stays wrong for the
+// WHOLE session on EVERY screen, which is exactly "persistent, present
+// immediately, not scoped to one screen" as reported. Re-measure a couple
+// frames later (layout has had a chance to settle) and again after a short
+// delay as a belt-and-suspenders catch for slower devices, so a bad
+// first-instant reading gets corrected even when no real resize ever
+// happens to trigger the existing listeners.
+requestAnimationFrame(() => requestAnimationFrame(setAppViewportHeight));
+setTimeout(setAppViewportHeight, 500);
 window.addEventListener('resize', setAppViewportHeight);
 window.addEventListener('orientationchange', setAppViewportHeight);
 window.visualViewport?.addEventListener('resize', setAppViewportHeight);

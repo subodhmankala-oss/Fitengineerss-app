@@ -2594,136 +2594,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     dismissedCoachNoteFor[selectedClient.id] === latestSessionKey);
   const showCoachNoteCard = (sessionNeedsResponse && !coachNoteDismissed) || coachNoteJustSent;
 
-  // The coach-note textarea (both the client-detail composer and the Live
-  // Log one) is a plain native <textarea> — it never got moved onto the
-  // custom SetNumberPad because it needs free text, not digits (see
-  // utils/setInputUtils.js for why the numeric fields did). That means it's
-  // still at the mercy of the phone's own "scroll the focused field into
-  // view" behavior, which races against main.jsx's --app-vh listener: the
-  // OS keyboard opens, the browser scrolls based on the OLD (pre-shrink)
-  // viewport, and .trainer-dashboard-container only resizes to fit above
-  // the keyboard once visualViewport actually reports the new height. When
-  // those land out of order, the field (and everything below the toggle
-  // button that opens it) ends up scrolled to an offset that no longer
-  // matches the now-shorter container — the toggle sits pinned near the
-  // top with a blank gap below it instead of the note card. Re-run our own
-  // scroll correction once the real, keyboard-adjusted viewport size
-  // settles instead of trusting the native auto-scroll alone.
-  const handleCoachNoteFocus = (e) => {
-    const el = e.currentTarget;
-    let debounce = null;
-    const scrollParent = el.closest('.trainer-dashboard-container') || document.scrollingElement || document.documentElement;
-    const scrollBeforeFocus = scrollParent.scrollTop;
-    // REGRESSION FIX 2026-08-13: a previous version of this handler also
-    // manually reserved extra bottom padding on scrollParent sized to the
-    // keyboard's own height (window.innerHeight - visualViewport.height).
-    // That was redundant: `.trainer-dashboard-container` is `height: 100%`
-    // inside `.app-container`, whose height is already kept in sync with the
-    // real visible viewport by main.jsx's --app-vh listener (fires on the
-    // exact same visualViewport 'resize' event) — so the container ALREADY
-    // shrinks to fit above the keyboard on its own, with no help needed here.
-    // Adding manual padding on top double-reserved the same space, which
-    // made the scroll-into-view math below overshoot into that now-doubled
-    // empty region — scrolling past all real content into blank container
-    // background (#090e17, reads as solid black) with nothing left to see
-    // except the keyboard. Because the padding was left as an inline style
-    // on the shared container, it also silently carried over to the NEXT
-    // field focused afterward (e.g. Plan/Routine Name, which has no keyboard
-    // logic of its own at all) until blur cleaned it up — so one broken
-    // coach-note focus could black out an unrelated field's keyboard too.
-    // Removed entirely; the scroll-into-view correction below is unaffected
-    // and needs no padding to work correctly against the already-shrunk
-    // container.
-    //
-    // BUG FIX 2026-08-16 (round 2): the hand-rolled delta/vh math this used
-    // to do here (compute `visibleBottom` from visualViewport.height, diff
-    // it against el.getBoundingClientRect(), clamp to scrollHeight -
-    // clientHeight...) needed the rect AND the viewport height to both
-    // reflect the same, fully-settled keyboard-open layout at the exact
-    // instant it ran. That didn't hold reliably enough across devices — a
-    // rect measured a beat before the container had actually resized, diffed
-    // against an already-shrunk vh, could compute a badly inflated
-    // correction that scrolled straight past all real content into blank
-    // container background (the black screen, which kept recurring even
-    // after the previous fix to this same function). el.scrollIntoView()
-    // delegates that "how far, in which scrollable ancestor" geometry to the
-    // browser itself, which always measures against current layout — no
-    // manual bookkeeping left to fall out of sync.
-    const reposition = () => {
-      // BUG FIX 2026-08-18 (round 3, REVERTED): tried removing the
-      // window.scrollTo(0, 0) snap below on the theory that it was forcing
-      // the still-focused field off-screen and causing the keyboard to
-      // dismiss/reopen. Confirmed on-device that theory was wrong — without
-      // it, the outer page's own stray scroll was left uncorrected while the
-      // field was mid-focus, reproducing exactly the "black gap" background
-      // (#090e17) covering the whole field this snap was originally added to
-      // prevent, this time bad enough that the field couldn't be typed into
-      // at all. Restored to the round-2 behavior: reset any stray outer
-      // scroll BEFORE scrollIntoView runs, same as before round 3.
-      //
-      // The outer page shouldn't scroll at all — see the multi-paragraph
-      // note above on why a stray outer scroll is what actually produces
-      // the black gap (app-container no longer covering the bottom of the
-      // screen). Reset it before letting scrollIntoView do its work.
-      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0) {
-        window.scrollTo(0, 0);
-      }
-      // BUG FIX 2026-08-17: `block: 'center'` was the actual source of the
-      // recurring "black gap under the field" report — centering the field
-      // in the now-keyboard-shrunk container guarantees roughly HALF the
-      // container's remaining height is left as blank space below it,
-      // between the field and the keyboard. On a short container (keyboard
-      // eating close to half the screen) that's a large, obvious dead zone
-      // of raw container background. `block: 'nearest'` only scrolls the
-      // minimum needed to bring the field on screen, landing it right at
-      // the bottom edge above the keyboard instead of dead center.
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    };
-    // Only ever fire off a REAL keyboard resize event, debounced to collapse
-    // however many the keyboard's open animation dispatches into exactly one
-    // correction. A previous version also called reposition() once
-    // immediately on focus — before the keyboard (or visualViewport) had
-    // moved at all — as a fallback for browsers with no visualViewport
-    // support. On fast devices that landed as a redundant, independently-
-    // timed correction a beat before the real (debounced) one: reported as
-    // "slides up, pause, slides up again". Keep that immediate fallback
-    // ONLY for the no-visualViewport case, where there's no resize event to
-    // ever react to otherwise.
-    //
-    // BUG FIX 2026-08-18: the listener used to stay attached for the entire
-    // time the field was focused, not just for the keyboard's opening
-    // animation. Android keyboards fire additional visualViewport 'resize'
-    // events WHILE the coach is typing — e.g. the predictive-text/suggestion
-    // strip growing or shrinking by a few px per keystroke — and each one
-    // restarted the debounce and replayed the animated scrollIntoView. That
-    // read as the screen repeatedly jerking mid-type, and on some devices the
-    // animated scroll fought the keyboard's own focus handling badly enough
-    // that keystrokes stopped registering entirely. The correction is only
-    // ever needed once, to settle the layout after the keyboard's initial
-    // open — so stop listening as soon as that first correction has run.
-    const onViewportResize = () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(() => {
-        reposition();
-        window.visualViewport?.removeEventListener('resize', onViewportResize);
-      }, 150);
-    };
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', onViewportResize);
-    } else {
-      debounce = setTimeout(reposition, 150);
-    }
-
-    el.addEventListener('blur', () => {
-      clearTimeout(debounce);
-      window.visualViewport?.removeEventListener('resize', onViewportResize);
-      // Put the view back where the coach was before the keyboard pushed it.
-      requestAnimationFrame(() => {
-        const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
-        scrollParent.scrollTo({ top: Math.min(scrollBeforeFocus, maxScroll), behavior: 'smooth' });
-      });
-    }, { once: true });
-  };
+  // BUG FIX 2026-08-18 (round 5): this used to be handleCoachNoteFocus, a
+  // hand-rolled onFocus handler (five prior "BUG FIX"/"REGRESSION FIX"
+  // rounds in this file's history, all on this same function) that tried to
+  // manually correct scroll position whenever a coach-note/plan-name field
+  // was focused: window.scrollTo(0, 0) + el.scrollIntoView(), redone on a
+  // debounced visualViewport resize listener. Every round fixed one visible
+  // symptom (a black gap, a keyboard flicker, a dismiss/reopen loop) by
+  // introducing a different one, because the JS was fighting the OS
+  // keyboard's own scroll handling instead of getting out of its way. Direct
+  // side-by-side proof: the AI Draft Builder modal's inputs (see
+  // AIWorkoutBuilderModal.jsx) have NO onFocus handler at all and were
+  // confirmed smooth and glitch-free by the coach in the same recording
+  // session that showed this handler's fields glitching. Now that
+  // .app-container's height (--app-vh, main.jsx) and top safe-area inset
+  // (--app-safe-top, main.jsx) are both correctly, stably tracked at the CSS
+  // level — the actual problem this handler originally existed to work
+  // around — the browser's native "scroll focused element into view"
+  // behavior needs no help. Removed the handler and every onFocus={...}
+  // reference to it; these fields behave exactly like the AI modal's now.
 
   // Send a one-off coach note to the selected client: store it (so they can
   // see it later even if the push is missed) AND fire a push with the note's
@@ -3467,7 +3356,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
                           value={coachNoteDrafts[session.clientId] || ''}
                           onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
-                          onFocus={handleCoachNoteFocus}
                           rows={2}
                           disabled={isSending}
                         />
@@ -4428,7 +4316,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   placeholder="Or write your own note…"
                   value={coachNoteText}
                   onChange={(e) => { setCoachNoteText(e.target.value); if (coachNoteSentMsg) setCoachNoteSentMsg(''); }}
-                  onFocus={handleCoachNoteFocus}
                   rows={2}
                   disabled={sendingCoachNote}
                 />
@@ -5203,12 +5090,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           type="text"
                           value={editorPlanName}
                           onChange={(e) => setEditorPlanName(e.target.value)}
-                          // Same keyboard-reposition fix as the coach-note textarea
-                          // and Live Log's Plan/Routine Name field — this field had
-                          // no scroll correction of its own, leaving a black gap of
-                          // blank container background between the field and the
-                          // keyboard when it opened here in the plan editor.
-                          onFocus={handleCoachNoteFocus}
+                          // BUG FIX 2026-08-18: removed the custom
+                          // handleCoachNoteFocus scroll-correction handler that
+                          // used to sit here — see the comment on that function's
+                          // definition for why. This field now behaves like the
+                          // AI Draft Builder modal's plain inputs (no onFocus
+                          // logic at all), which is the smooth, glitch-free
+                          // reference behavior the coach explicitly compared this
+                          // against.
                           placeholder="e.g. Week 1 - Day 1: Push Day"
                           style={{
                             padding: '10px 14px',
@@ -5802,23 +5691,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder="e.g. Upper Body, Leg Day"
                           value={livePlanName}
                           onChange={e => setLivePlanName(e.target.value)}
-                          // Same keyboard-reposition fix as the coach-note
-                          // textarea below (handleCoachNoteFocus is generic —
-                          // it only ever reads e.currentTarget, nothing
-                          // coach-note-specific). Without it, this field has
-                          // NO correction of its own and depends entirely on
-                          // the browser's native "scroll focused input into
-                          // view" — confirmed unreliable here: simulating a
-                          // real keyboard open against the live app left this
-                          // exact field's rect below the visible strip
-                          // (scrollTop moved the WRONG way, further from the
-                          // field, not toward it), leaving nothing on screen
-                          // but blank container background behind the
-                          // keyboard. Reported 2026-08-13 — the coach saw the
-                          // identical black screen on Plan/Routine Name as on
-                          // the note composer, despite this field never
-                          // having any custom scroll logic to begin with.
-                          onFocus={handleCoachNoteFocus}
+                          // BUG FIX 2026-08-18: removed the custom
+                          // handleCoachNoteFocus scroll-correction handler that
+                          // used to sit here — see the comment on that function's
+                          // definition for why. This field now behaves like the
+                          // AI Draft Builder modal's plain inputs (no onFocus
+                          // logic at all), which is the smooth, glitch-free
+                          // reference behavior the coach explicitly compared this
+                          // against.
                           style={{
                             padding: '8px 12px',
                             background: 'rgba(255,255,255,0.04)',
@@ -6347,7 +6227,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder="Write a note to send with this session…"
                           value={coachNoteText}
                           onChange={(e) => setCoachNoteText(e.target.value)}
-                          onFocus={handleCoachNoteFocus}
                           rows={2}
                           disabled={liveSaving}
                           tabIndex={showLiveCoachNote ? 0 : -1}

@@ -3283,54 +3283,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             ✕
                           </button>
                         </div>
-                        {/* Workout name + date/duration/calories, and the
-                            prev/"2/3"/next arrows, moved up to sit right
-                            under the client's name instead of the bottom of
-                            the card — per request 2026-08-18. The dots stay
-                            below "Send note" at the bottom (unchanged). */}
-                        {(session.workoutName || statBits || hasMultiple) && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                              {session.workoutName && (
-                                <div style={{ fontSize: '0.72rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
-                                  {session.workoutName}
-                                </div>
-                              )}
-                              {statBits && (
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
-                                  {statBits}
-                                </div>
-                              )}
-                            </div>
-                            {hasMultiple && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                                <button
-                                  type="button"
-                                  title="Previous"
-                                  onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
-                                  style={{
-                                    background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
-                                    color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
-                                    fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                  }}
-                                >
-                                  ‹
-                                </button>
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                                  {activeIndex + 1}/{sessionsAwaitingNote.length}
-                                </span>
-                                <button
-                                  type="button"
-                                  title="Next"
-                                  onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
-                                  style={{
-                                    background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
-                                    color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
-                                    fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                  }}
-                                >
-                                  ›
-                                </button>
+                        {/* Workout name + date/duration/calories, sitting
+                            under the client's name. The arrows moved back
+                            down to the bottom-right (next to Send note) per
+                            request 2026-08-18; name got a bigger font and
+                            more breathing room above the stats line below
+                            it, both per the same request. */}
+                        {(session.workoutName || statBits) && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                            {session.workoutName && (
+                              <div style={{ fontSize: '0.88rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
+                                {session.workoutName}
+                              </div>
+                            )}
+                            {statBits && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
+                                {statBits}
                               </div>
                             )}
                           </div>
@@ -3358,34 +3326,66 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           rows={2}
                           disabled={isSending}
                         />
-                        {/* Send note + the slide dots below it — the workout
-                            name/stats and the arrows moved up under the
-                            client's name (see above), so this bottom row is
-                            now just the send action and the slide dots. */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', marginTop: '8px' }}>
-                          <button
-                            type="button"
-                            className="coach-note-send"
-                            disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
-                            onClick={() => handleSendSessionNote(session)}
-                          >
-                            {isSending ? '⏳ Sending…' : '💬 Send note'}
-                          </button>
+                        {/* Send note + the slide dots on the left; the
+                            prev/"2/3"/next arrows back at the bottom-right,
+                            level with Send note — per request 2026-08-18. */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="coach-note-send"
+                              disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
+                              onClick={() => handleSendSessionNote(session)}
+                            >
+                              {isSending ? '⏳ Sending…' : '💬 Send note'}
+                            </button>
+                            {hasMultiple && (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                {sessionsAwaitingNote.map((s, i) => (
+                                  <button
+                                    key={`${s.clientId}|${s.date}`}
+                                    type="button"
+                                    title={s.clientName}
+                                    onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                                    style={{
+                                      width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
+                                      border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                                      background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           {hasMultiple && (
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              {sessionsAwaitingNote.map((s, i) => (
-                                <button
-                                  key={`${s.clientId}|${s.date}`}
-                                  type="button"
-                                  title={s.clientName}
-                                  onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
-                                  style={{
-                                    width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
-                                    border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                                    background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
-                                  }}
-                                />
-                              ))}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                title="Previous"
+                                onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                                style={{
+                                  background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
+                                  color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
+                                  fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}
+                              >
+                                ‹
+                              </button>
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                {activeIndex + 1}/{sessionsAwaitingNote.length}
+                              </span>
+                              <button
+                                type="button"
+                                title="Next"
+                                onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                                style={{
+                                  background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
+                                  color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
+                                  fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}
+                              >
+                                ›
+                              </button>
                             </div>
                           )}
                         </div>

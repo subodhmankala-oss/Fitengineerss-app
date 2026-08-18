@@ -3306,30 +3306,54 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           rows={2}
                           disabled={isSending}
                         />
-                        {/* Send note on the left; the finished-session stats
-                            (date/duration/calories) plus the "2/3" counter,
-                            prev/next arrows and dots — everything that used
-                            to float above or below the card — now live
-                            together in this bottom-right box instead, per
-                            request 2026-08-18 (was a separate line under the
-                            title and a centered row below the whole card). */}
+                        {/* Send note + the slide dots stacked on the left;
+                            the workout name with its date/duration/calories
+                            below it, plus the prev/"2/3"/next arrows, stacked
+                            in the bottom-right box — split apart per request
+                            2026-08-18 (previously the name and stats shared
+                            one line, and the dots sat with the arrows here
+                            instead of under Send note). */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '10px', marginTop: '8px' }}>
-                          <button
-                            type="button"
-                            className="coach-note-send"
-                            disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
-                            onClick={() => handleSendSessionNote(session)}
-                          >
-                            {isSending ? '⏳ Sending…' : '💬 Send note'}
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="coach-note-send"
+                              disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
+                              onClick={() => handleSendSessionNote(session)}
+                            >
+                              {isSending ? '⏳ Sending…' : '💬 Send note'}
+                            </button>
+                            {hasMultiple && (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                {sessionsAwaitingNote.map((s, i) => (
+                                  <button
+                                    key={`${s.clientId}|${s.date}`}
+                                    type="button"
+                                    title={s.clientName}
+                                    onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                                    style={{
+                                      width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
+                                      border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                                      background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <div style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px',
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px',
                             padding: '6px 10px', borderRadius: 'var(--radius-sm)',
                             background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)'
                           }}>
+                            {session.workoutName && (
+                              <div style={{ fontSize: '0.72rem', color: '#fff', fontWeight: 700, textAlign: 'right', lineHeight: 1.3 }}>
+                                {session.workoutName}
+                              </div>
+                            )}
                             {statBits && (
                               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right', lineHeight: 1.3 }}>
-                                {session.workoutName} — {statBits}
+                                {statBits}
                               </div>
                             )}
                             {hasMultiple && (
@@ -3349,21 +3373,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)' }}>
                                   {activeIndex + 1}/{sessionsAwaitingNote.length}
                                 </span>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  {sessionsAwaitingNote.map((s, i) => (
-                                    <button
-                                      key={`${s.clientId}|${s.date}`}
-                                      type="button"
-                                      title={s.clientName}
-                                      onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
-                                      style={{
-                                        width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
-                                        border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                                        background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
-                                      }}
-                                    />
-                                  ))}
-                                </div>
                                 <button
                                   type="button"
                                   title="Next"

@@ -128,17 +128,36 @@ export default async function handler(req, res) {
     // connections this endpoint exists to rescue. (Safe here specifically
     // because this runs with the service role — the anon-key path still needs
     // representation, see restInsert.)
-    const insertResp = await fetch(`${supabaseUrl}/rest/v1/workout_logs`, {
-      method: 'POST',
-      headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify(records)
-    });
+    //
+    // Same one-column-at-a-time degrade as the client's own restInsert path
+    // in databaseService.js (see its 2026-08-18 writeup) — this is the LAST
+    // chance to persist a session, so a genuinely-missing optional column
+    // (e.g. avg_heart_rate_bpm before its migration was run) must not lose
+    // duration_seconds/calories_burned/etc. that DO exist just because they
+    // happened to be insertable via the client but this fallback never got
+    // the same fix. Bounded the same way: one retry per optional column.
+    let recordsToInsert = records;
+    let insertResp, errBody;
+    for (let attempt = 0; attempt < 7; attempt++) {
+      insertResp = await fetch(`${supabaseUrl}/rest/v1/workout_logs`, {
+        method: 'POST',
+        headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(recordsToInsert)
+      });
+      if (insertResp.ok) { errBody = null; break; }
+      errBody = await insertResp.json().catch(() => null);
+      const missingCol = errBody && (errBody.code === '42703' || errBody.code === 'PGRST204')
+        ? errBody.message?.match(/'([a-z_]+)' column/)?.[1]
+        : null;
+      if (!missingCol) break;
+      console.warn(`save-workout-session: workout_logs missing column '${missingCol}' — retrying without just that field.`);
+      recordsToInsert = recordsToInsert.map(({ [missingCol]: _drop, ...rest }) => rest);
+    }
     if (!insertResp.ok) {
-      const errBody = await insertResp.json().catch(() => null);
       console.error('save-workout-session insert failed:', insertResp.status, errBody);
       return res.status(502).json({ error: (errBody && (errBody.message || errBody.error)) || 'Failed to save workout.' });
     }
-    return res.status(200).json({ success: true, count: records.length });
+    return res.status(200).json({ success: true, count: recordsToInsert.length });
   } catch (err) {
     console.error('save-workout-session error:', err);
     return res.status(500).json({ error: err.message || 'Failed to save workout.' });

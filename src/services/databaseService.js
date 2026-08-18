@@ -1270,36 +1270,70 @@ const databaseService = {
             // Raw PostgREST (restInsert) instead of supabase.from() — same
             // SDK-hang bypass as everywhere else in this file.
             try {
-              await restInsert('workout_logs', records);
-            } catch (error) {
-              // Degrade gracefully if set_type/duration_seconds/calories_burned/
-              // distance_km/cardio_duration_seconds haven't been migrated in yet
-              // (PostgREST "column not found" — code 42703 / PGRST204): retry
-              // without them rather than losing the whole session save.
-              if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-                console.warn('workout_logs missing set_type/duration_seconds/calories_burned/distance_km/cardio_duration_seconds/avg_heart_rate_bpm/max_heart_rate_bpm — retrying without them. Run sql/supabase_workout_logs_set_type.sql, sql/supabase_workout_logs_session_metrics.sql, sql/supabase_workout_logs_cardio_fields.sql and sql/supabase_workout_logs_heart_rate.sql to enable full tracking.');
-                const fallbackRecords = records.map(({ set_type, duration_seconds, calories_burned, distance_km, cardio_duration_seconds, avg_heart_rate_bpm, max_heart_rate_bpm, ...rest }) => rest);
-                await restInsert('workout_logs', fallbackRecords);
-              } else {
-                // Anything else — most commonly 42501 (RLS rejected the
-                // insert because the caller's session token wasn't ready/
-                // valid at the moment this fired) — falls back to the
-                // service-role-backed endpoint before giving up. This is the
-                // write-side twin of getUserProfileByEmail's read fallback:
-                // the client already updated its local session list by this
-                // point, so a swallowed failure here is a workout that LOOKS
-                // saved and never actually is.
-                console.warn('workout_logs client-side insert failed, falling back to server:', error?.message || error);
-                const saved = await saveWorkoutLogsViaServer(records);
-                if (!saved) {
-                  // Both paths failed. Park the rows so they are replayed
-                  // automatically on the next launch / when connectivity
-                  // returns, instead of existing only in the error toast the
-                  // coach is about to see. Still rethrow: the UI must report
-                  // honestly that it did not save right now.
-                  queuePendingWorkoutLogs(records);
-                  throw error;
+              // Degrade gracefully, one column at a time, if some optional
+              // workout_logs column hasn't been migrated in yet (PostgREST
+              // "column not found" — code 42703 / PGRST204). This used to
+              // strip ALL SIX optional columns — set_type, duration_seconds,
+              // calories_burned, distance_km, cardio_duration_seconds,
+              // avg_heart_rate_bpm, max_heart_rate_bpm — the instant ANY ONE
+              // of them was missing, discarding perfectly good data on
+              // columns that DO exist. Confirmed 2026-08-18: avg_heart_rate_
+              // bpm/max_heart_rate_bpm were added to this file's INSERT
+              // payload by commit c249f44 (2026-08-15) but their migration
+              // (sql/supabase_workout_logs_heart_rate.sql) was never actually
+              // run — so EVERY save since then hit this fallback and threw
+              // away real, already-computed duration_seconds/calories_burned
+              // along with the genuinely-missing heart-rate columns, even
+              // though duration_seconds/calories_burned had existed and
+              // worked fine since supabase_workout_logs_session_metrics.sql.
+              // This is why coach and client both kept seeing null time/
+              // calories in the UI for days after #42/#44 fixed the actual
+              // computation — the correct numbers were computed every time,
+              // then silently discarded right here before ever reaching the
+              // database. Now retries by removing only the column PostgREST
+              // actually named as missing, so unrelated real values survive.
+              let recordsToSend = records;
+              // Bounded by the number of optional columns that can ever be
+              // missing — each retry removes exactly one, so this can never
+              // loop more times than there are columns to lose. If every
+              // attempt is exhausted without success, lastError carries the
+              // final failure out to the outer catch below.
+              let lastError = null;
+              for (let attempt = 0; attempt < 7; attempt++) {
+                try {
+                  await restInsert('workout_logs', recordsToSend);
+                  lastError = null;
+                  break;
+                } catch (error) {
+                  lastError = error;
+                  const missingCol = error && (error.code === '42703' || error.code === 'PGRST204')
+                    ? error.message?.match(/'([a-z_]+)' column/)?.[1]
+                    : null;
+                  if (!missingCol) break;
+                  console.warn(`workout_logs missing column '${missingCol}' — retrying without just that field. Run the matching sql/supabase_workout_logs_*.sql migration in the Supabase SQL Editor to enable it.`);
+                  recordsToSend = recordsToSend.map(({ [missingCol]: _drop, ...rest }) => rest);
                 }
+              }
+              if (lastError) throw lastError;
+            } catch (error) {
+              // Anything else — most commonly 42501 (RLS rejected the
+              // insert because the caller's session token wasn't ready/
+              // valid at the moment this fired) — falls back to the
+              // service-role-backed endpoint before giving up. This is the
+              // write-side twin of getUserProfileByEmail's read fallback:
+              // the client already updated its local session list by this
+              // point, so a swallowed failure here is a workout that LOOKS
+              // saved and never actually is.
+              console.warn('workout_logs client-side insert failed, falling back to server:', error?.message || error);
+              const saved = await saveWorkoutLogsViaServer(records);
+              if (!saved) {
+                // Both paths failed. Park the rows so they are replayed
+                // automatically on the next launch / when connectivity
+                // returns, instead of existing only in the error toast the
+                // coach is about to see. Still rethrow: the UI must report
+                // honestly that it did not save right now.
+                queuePendingWorkoutLogs(records);
+                throw error;
               }
             }
             console.log('Cloud DB: Saved workout session sets.');

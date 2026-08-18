@@ -3268,11 +3268,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         <div className="coach-note-head">
                           <span className="coach-note-title">
                             ✅ {(session.clientName || 'Client').split(/\s+/)[0]} finished a workout
-                            {hasMultiple && (
-                              <span style={{ marginLeft: '8px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                                {activeIndex + 1}/{sessionsAwaitingNote.length}
-                              </span>
-                            )}
                           </span>
                           <button
                             type="button"
@@ -3288,11 +3283,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             ✕
                           </button>
                         </div>
-                        {statBits && (
-                          <div className="coach-note-lastsession" style={{ marginBottom: '8px' }}>
-                            {session.workoutName} — {statBits}
-                          </div>
-                        )}
                         <div className="coach-note-suggestions">
                           {buildSessionNoteSuggestions(session).map((sug, i) => (
                             <button
@@ -3316,63 +3306,82 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           rows={2}
                           disabled={isSending}
                         />
-                        <button
-                          type="button"
-                          className="coach-note-send"
-                          disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
-                          onClick={() => handleSendSessionNote(session)}
-                          style={{ marginTop: '8px' }}
-                        >
-                          {isSending ? '⏳ Sending…' : '💬 Send note'}
-                        </button>
+                        {/* Send note on the left; the finished-session stats
+                            (date/duration/calories) plus the "2/3" counter,
+                            prev/next arrows and dots — everything that used
+                            to float above or below the card — now live
+                            together in this bottom-right box instead, per
+                            request 2026-08-18 (was a separate line under the
+                            title and a centered row below the whole card). */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                          <button
+                            type="button"
+                            className="coach-note-send"
+                            disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
+                            onClick={() => handleSendSessionNote(session)}
+                          >
+                            {isSending ? '⏳ Sending…' : '💬 Send note'}
+                          </button>
+                          <div style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px',
+                            padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)'
+                          }}>
+                            {statBits && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right', lineHeight: 1.3 }}>
+                                {session.workoutName} — {statBits}
+                              </div>
+                            )}
+                            {hasMultiple && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  title="Previous"
+                                  onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                                  style={{
+                                    background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
+                                    color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
+                                    fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                >
+                                  ‹
+                                </button>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                  {activeIndex + 1}/{sessionsAwaitingNote.length}
+                                </span>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  {sessionsAwaitingNote.map((s, i) => (
+                                    <button
+                                      key={`${s.clientId}|${s.date}`}
+                                      type="button"
+                                      title={s.clientName}
+                                      onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                                      style={{
+                                        width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
+                                        border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                                        background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  title="Next"
+                                  onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
+                                  style={{
+                                    background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
+                                    color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
+                                    fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                >
+                                  ›
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    {/* Prev/next arrows moved down here to flank the dots
-                        instead of floating over the card's left/right edges —
-                        same slide functionality, just relocated. */}
-                    {hasMultiple && (
-                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                        <button
-                          type="button"
-                          title="Previous"
-                          onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
-                          style={{
-                            background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
-                            color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
-                            fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                          ‹
-                        </button>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                          {sessionsAwaitingNote.map((s, i) => (
-                            <button
-                              key={`${s.clientId}|${s.date}`}
-                              type="button"
-                              title={s.clientName}
-                              onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
-                              style={{
-                                width: i === activeIndex ? '20px' : '7px', height: '7px', borderRadius: '4px',
-                                border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                                background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          title="Next"
-                          onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
-                          style={{
-                            background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(4px)', border: '1px solid var(--border-color)',
-                            color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
-                            fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                          ›
-                        </button>
-                      </div>
-                    )}
                   </div>
                 );
               })()}

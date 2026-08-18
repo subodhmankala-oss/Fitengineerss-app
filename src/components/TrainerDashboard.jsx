@@ -1604,6 +1604,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const refreshSessionsAwaitingNote = async () => {
     if (!resolvedCoachId) return;
     const sessions = await databaseService.getSessionsAwaitingCoachNote(resolvedCoachId);
+    // BUG FIX 2026-08-18: null means the fetch itself failed (see the
+    // matching comment in databaseService), not "nothing pending" — skip the
+    // update so a dropped request on a weak connection doesn't blank out the
+    // home-screen note composer (and whatever the coach was mid-typing into
+    // it) by replacing real data with an empty list.
+    if (!sessions) return;
     const dismissed = getDismissedSessions();
     setSessionsAwaitingNote(sessions.filter(s => !dismissed.includes(`${s.clientId}|${s.date}`)));
   };

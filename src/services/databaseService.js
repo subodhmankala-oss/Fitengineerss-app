@@ -2793,8 +2793,23 @@ const databaseService = {
         return new Date(lastNote) < new Date(s.sessionAt || `${s.date}T00:00:00`);
       });
     } catch (e) {
+      // BUG FIX 2026-08-18: this used to return [] on any failure (a slow/
+      // dropped request on a weak connection included — restSelect above
+      // makes three sequential network calls, any one of which can fail).
+      // The home screen's "finished a workout" note composer is gated
+      // entirely on this list being non-empty (sessionsAwaitingNote.length >
+      // 0 in TrainerDashboard), so an empty [] here doesn't just mean "no
+      // toast update" — it unmounts the whole card, textarea included, out
+      // from under the coach mid-type. That's what a flaky-connection retry
+      // (fired by refreshSessionsAwaitingNote on window focus/visibility,
+      // which some mobile webviews trigger when the on-screen keyboard
+      // opens) looked like: the composer, and whatever the coach was
+      // already typing into it, vanishing to blank container background
+      // with the keyboard still up. Returning null instead lets the caller
+      // tell "fetch failed" apart from "genuinely nothing pending" and keep
+      // showing whatever was already on screen.
       console.error('Cloud DB getSessionsAwaitingCoachNote error:', e);
-      return [];
+      return null;
     }
   },
 

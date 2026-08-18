@@ -3283,81 +3283,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             ✕
                           </button>
                         </div>
-                        <div className="coach-note-suggestions">
-                          {buildSessionNoteSuggestions(session).map((sug, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              className="coach-note-chip"
-                              disabled={isSending}
-                              onClick={() => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: sug }))}
-                              title="Tap to use — you can still edit before sending"
-                            >
-                              {sug}
-                            </button>
-                          ))}
-                        </div>
-                        <textarea
-                          className="coach-note-textarea"
-                          placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
-                          value={coachNoteDrafts[session.clientId] || ''}
-                          onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
-                          onFocus={handleCoachNoteFocus}
-                          rows={2}
-                          disabled={isSending}
-                        />
-                        {/* Send note + the slide dots stacked on the left;
-                            the workout name with its date/duration/calories
-                            below it, plus the prev/"2/3"/next arrows, stacked
-                            in the bottom-right box — split apart per request
-                            2026-08-18 (previously the name and stats shared
-                            one line, and the dots sat with the arrows here
-                            instead of under Send note). */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '10px', marginTop: '8px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                            <button
-                              type="button"
-                              className="coach-note-send"
-                              disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
-                              onClick={() => handleSendSessionNote(session)}
-                            >
-                              {isSending ? '⏳ Sending…' : '💬 Send note'}
-                            </button>
+                        {/* Workout name + date/duration/calories, and the
+                            prev/"2/3"/next arrows, moved up to sit right
+                            under the client's name instead of the bottom of
+                            the card — per request 2026-08-18. The dots stay
+                            below "Send note" at the bottom (unchanged). */}
+                        {(session.workoutName || statBits || hasMultiple) && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                              {session.workoutName && (
+                                <div style={{ fontSize: '0.72rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
+                                  {session.workoutName}
+                                </div>
+                              )}
+                              {statBits && (
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.3 }}>
+                                  {statBits}
+                                </div>
+                              )}
+                            </div>
                             {hasMultiple && (
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                {sessionsAwaitingNote.map((s, i) => (
-                                  <button
-                                    key={`${s.clientId}|${s.date}`}
-                                    type="button"
-                                    title={s.clientName}
-                                    onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
-                                    style={{
-                                      width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
-                                      border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                                      background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px',
-                            padding: '6px 10px', borderRadius: 'var(--radius-sm)',
-                            background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)'
-                          }}>
-                            {session.workoutName && (
-                              <div style={{ fontSize: '0.72rem', color: '#fff', fontWeight: 700, textAlign: 'right', lineHeight: 1.3 }}>
-                                {session.workoutName}
-                              </div>
-                            )}
-                            {statBits && (
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right', lineHeight: 1.3 }}>
-                                {statBits}
-                              </div>
-                            )}
-                            {hasMultiple && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                 <button
                                   type="button"
                                   title="Previous"
@@ -3388,6 +3334,60 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               </div>
                             )}
                           </div>
+                        )}
+                        <div className="coach-note-suggestions">
+                          {buildSessionNoteSuggestions(session).map((sug, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="coach-note-chip"
+                              disabled={isSending}
+                              onClick={() => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: sug }))}
+                              title="Tap to use — you can still edit before sending"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          className="coach-note-textarea"
+                          placeholder={`Write a note to ${(session.clientName || 'client').split(/\s+/)[0]}…`}
+                          value={coachNoteDrafts[session.clientId] || ''}
+                          onChange={(e) => setCoachNoteDrafts(prev => ({ ...prev, [session.clientId]: e.target.value }))}
+                          onFocus={handleCoachNoteFocus}
+                          rows={2}
+                          disabled={isSending}
+                        />
+                        {/* Send note + the slide dots below it — the workout
+                            name/stats and the arrows moved up under the
+                            client's name (see above), so this bottom row is
+                            now just the send action and the slide dots. */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', marginTop: '8px' }}>
+                          <button
+                            type="button"
+                            className="coach-note-send"
+                            disabled={isSending || !(coachNoteDrafts[session.clientId] || '').trim()}
+                            onClick={() => handleSendSessionNote(session)}
+                          >
+                            {isSending ? '⏳ Sending…' : '💬 Send note'}
+                          </button>
+                          {hasMultiple && (
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {sessionsAwaitingNote.map((s, i) => (
+                                <button
+                                  key={`${s.clientId}|${s.date}`}
+                                  type="button"
+                                  title={s.clientName}
+                                  onClick={() => goToAwaitingSlide(i, sessionsAwaitingNote.length)}
+                                  style={{
+                                    width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
+                                    border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
+                                    background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

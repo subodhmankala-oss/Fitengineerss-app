@@ -703,18 +703,33 @@
 
 /* When a credentials input form is shown, collapse the slider smoothly
    instead of snapping via display:none — that instant show/hide was the
-   "jerk" when tapping Sign up / Continue with email. flex-basis + opacity
-   are both animatable, so the panel eases out rather than popping away. */
+   "jerk" when tapping Sign up / Continue with email.
+   This animated flex-basis 60% -> 0 while the panel had a fixed
+   `flex: 0 0 60%`. Once the panel became content-flexible (`flex: 1 1 auto`,
+   so the login panel could size to its own content — see .portal-left-panel)
+   its basis is `auto`, and `auto` is not an interpolatable length: the
+   transition silently stopped running and the hero snapped away again.
+   Animate flex-grow instead. It is a plain <number> in both states, so it
+   interpolates cleanly, and driving grow 1 -> 0 collapses the panel for the
+   same reason the old rule did: the hero's own content height is 0 (its
+   slider is position:absolute), so all of its height comes from grow. */
 .auth-form-active .portal-left-panel {
-  flex-basis: 0;
+  flex-grow: 0;
   opacity: 0;
   pointer-events: none;
 }
 .auth-form-active .portal-right-panel {
-  /* Was `100dvh` — same independent-viewport-read issue as above; `100%`
-     of the now-reliable `.onboarding-portal-wrapper` instead. */
-  height: 100%;
-  flex: 1 1 auto;
+  /* Was `height: 100%` (and `100dvh` before that). A definite full-column
+     height here takes effect on the first frame, so the hero above had no
+     room left to shrink THROUGH — it jumped to zero while its own
+     flex-grow was still mid-transition, which is the snap that reappeared
+     after the panels were made content-flexible.
+     Growing into the space instead keeps the two panels' transitions
+     complementary: the hero's flex-grow eases 1 -> 0 while this panel's
+     eases 0 -> 1, so the free space is handed over continuously and the
+     end state is identical (this panel filling the column, card centred). */
+  flex-grow: 1;
+  height: auto;
   max-height: 100%;
 }
 
@@ -740,7 +755,8 @@
   overflow: hidden;
   padding: 0;
   box-sizing: border-box;
-  transition: flex-basis 0.35s ease, opacity 0.3s ease;
+  /* flex-grow, not flex-basis — see .auth-form-active .portal-left-panel. */
+  transition: flex-grow 0.35s ease, opacity 0.3s ease;
 }
 
 /* Slider fills the entire top section and contains each slide */
@@ -1306,7 +1322,9 @@
      padding-equivalent spacing elsewhere on the card for a consistent
      margin on devices with no inset at all. */
   padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
-  transition: flex-basis 0.35s ease, height 0.35s ease;
+  /* flex-grow, not flex-basis — this panel's basis is now `auto` (content
+     sized), and `auto` cannot be interpolated. See .auth-form-active. */
+  transition: flex-grow 0.35s ease, height 0.35s ease;
   display: flex;
   flex-direction: column;
   /* Back to `center` (2026-08-19). This was switched to `flex-end` to fight

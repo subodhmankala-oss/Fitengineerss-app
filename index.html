@@ -9,15 +9,41 @@
          leaving the Coach/Client dashboard stuck "zoomed in" after login —
          capping the scale here is the permanent fix, independent of any
          individual input's font-size.
-         viewport-fit=cover lets the app draw under the notch/home-indicator
-         area so env(safe-area-inset-*) has real values to work with. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+         ARCHITECTURE 2026-08-19: `viewport-fit=cover` was removed here.
+         It opts the page into drawing under the notch/status bar/home
+         indicator, which hands responsibility for avoiding system UI from
+         the OS to us — to be discharged via env(safe-area-inset-*). That
+         contract is not reliably honoured in practice: WebKit re-zeroes the
+         insets while an input-method panel (keyboard, emoji picker) is
+         open, and some Android browser/PWA hosts never populate them at
+         all while still rendering edge-to-edge. Twelve commits in this
+         repo fought the resulting overlap, including two add-then-revert
+         pairs, each ultimately guessing at a value the OS already knows.
+         Without `cover`, the browser insets the viewport itself on every
+         platform, so content cannot land under system UI on ANY device and
+         no measurement, probe, or hardcoded fallback is needed. The app is
+         portrait-locked (see manifest.webmanifest) with a solid header, so
+         it gains nothing from edge-to-edge in the first place. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0B1220" />
 
     <!-- iOS "Add to Home Screen" behavior -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Must stay consistent with the viewport tag above. `black-translucent`
+         makes the iOS standalone web view full-screen with the status bar
+         floating over it — the iOS half of the same edge-to-edge opt-in, and
+         it does that regardless of `viewport-fit`. Removing `cover` while
+         leaving this set would be a contradictory configuration (one half
+         saying "inset me", the other "don't"); it was tried on its own
+         earlier today and regressed the layout, which is why the two move
+         together.
+         `black` (not `default`): both reserve the status bar region so
+         content starts below it, but `default` renders a light bar, which
+         reads as a white band above this app's dark #0B1220 header.
+         `black` gives an opaque dark bar with light glyphs, matching the
+         theme. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Fitengineers" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 

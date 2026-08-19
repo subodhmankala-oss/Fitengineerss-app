@@ -187,52 +187,20 @@ button {
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 40px rgba(16, 185, 129, 0.05); /* Subtle green glow around the app frame */
-  /* viewport-fit=cover lets content draw under the iPhone notch/Dynamic
-     Island; push it back down by the real inset so nothing sits behind it.
-     BUG FIX 2026-08-18: was `env(safe-area-inset-top, 0px)` directly — a
-     LIVE value WebKit can momentarily re-zero while the on-screen keyboard
-     or emoji picker is showing (installed iOS standalone PWA), which pulls
-     content up to overlap the real OS status bar for as long as an input
-     method panel is open. --app-safe-top is a JS-captured snapshot (see
-     main.jsx's setAppSafeAreaInsets) taken independent of keyboard state,
-     so it can't be zeroed out mid-type; falls back to the live value only
-     for the instant before that JS has run on first paint.
-     BUG FIX 2026-08-19: the fix above only re-snapshots whatever env()
-     reports — it never helps a device where env(safe-area-inset-top) is 0
-     from the start (not momentarily zeroed, genuinely unreported). Several
-     Android browsers/installed-PWA hosts never populate this at all even
-     while still drawing the page edge-to-edge under the status bar (this
-     app opts into edge-to-edge everywhere via viewport-fit=cover in
-     index.html). Reported again 2026-08-19 on a real Android device, still
-     reproducing after the WebKit-focused fix above: the coach header's
-     title/notification/logout buttons rendered flush against — and partly
-     behind — the phone's status bar, some of them untappable, on first
-     load, no keyboard involved. max() adds a floor so there's always real
-     clearance under a status bar even when the browser reports none, while
-     a genuinely larger real inset (notches) still wins.
-     The floor here is deliberately SMALL: in a normal browser tab the
-     browser's own chrome already covers the status bar, so no clearance is
-     needed and a large value would just be dead space at the top. The real
-     status-bar-sized floor lives in the display-mode media query below. */
-  padding-top: max(12px, var(--app-safe-top, env(safe-area-inset-top, 12px)));
-}
-
-/* BUG FIX 2026-08-19 (round 2): the 20px floor shipped earlier today was
-   simply too small to clear a real status bar — reported still overlapping,
-   with the coach header's title sitting right under the clock. A phone
-   status bar is ~24-30px on Android and ~44-47px on notched iPhones, so
-   20px never had a chance.
-   It only needs to be that large when the app is genuinely drawing
-   edge-to-edge under the OS status bar — i.e. launched from the home
-   screen in standalone/fullscreen display mode. In a browser tab the
-   chrome covers that area already, which is why this is scoped here rather
-   than raising the floor globally and leaving a dead band at the top of
-   every desktop/tab session. A real reported inset larger than the floor
-   (Dynamic Island, landscape notch) still wins via max(). */
-@media all and (display-mode: standalone), all and (display-mode: fullscreen) {
-  .app-container {
-    padding-top: max(44px, var(--app-safe-top, env(safe-area-inset-top, 44px)));
-  }
+  /* No top padding, and deliberately no safe-area compensation of any kind.
+     With `viewport-fit=cover` removed from index.html the browser insets the
+     viewport itself, so the top of this element is already below the status
+     bar / notch on every platform — adding padding here would push content
+     down by a status bar height a SECOND time.
+     Everything this line used to hold has been deleted rather than tuned:
+     a live env(safe-area-inset-top); then a JS-snapshot custom property
+     (--app-safe-top) to survive WebKit zeroing it mid-keyboard; then a 20px
+     floor; then a 44px floor scoped to display-mode. Each was an attempt to
+     reconstruct, in the app, a measurement the OS refuses to report
+     reliably — and each was wrong on some device, because a hardcoded
+     status bar height cannot be right everywhere. Not opting into
+     edge-to-edge removes the need to know the number at all. */
+  padding-top: 0;
 }
 
 /* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)

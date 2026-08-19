@@ -209,8 +209,30 @@ button {
      behind — the phone's status bar, some of them untappable, on first
      load, no keyboard involved. max() adds a floor so there's always real
      clearance under a status bar even when the browser reports none, while
-     a genuinely larger real inset (notches) still wins. */
-  padding-top: max(20px, var(--app-safe-top, env(safe-area-inset-top, 20px)));
+     a genuinely larger real inset (notches) still wins.
+     The floor here is deliberately SMALL: in a normal browser tab the
+     browser's own chrome already covers the status bar, so no clearance is
+     needed and a large value would just be dead space at the top. The real
+     status-bar-sized floor lives in the display-mode media query below. */
+  padding-top: max(12px, var(--app-safe-top, env(safe-area-inset-top, 12px)));
+}
+
+/* BUG FIX 2026-08-19 (round 2): the 20px floor shipped earlier today was
+   simply too small to clear a real status bar — reported still overlapping,
+   with the coach header's title sitting right under the clock. A phone
+   status bar is ~24-30px on Android and ~44-47px on notched iPhones, so
+   20px never had a chance.
+   It only needs to be that large when the app is genuinely drawing
+   edge-to-edge under the OS status bar — i.e. launched from the home
+   screen in standalone/fullscreen display mode. In a browser tab the
+   chrome covers that area already, which is why this is scoped here rather
+   than raising the floor globally and leaving a dead band at the top of
+   every desktop/tab session. A real reported inset larger than the floor
+   (Dynamic Island, landscape notch) still wins via max(). */
+@media all and (display-mode: standalone), all and (display-mode: fullscreen) {
+  .app-container {
+    padding-top: max(44px, var(--app-safe-top, env(safe-area-inset-top, 44px)));
+  }
 }
 
 /* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)

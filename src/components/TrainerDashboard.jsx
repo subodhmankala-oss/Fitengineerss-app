@@ -5105,7 +5105,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             border: '1px solid var(--border-color)',
                             borderRadius: 'var(--radius-sm)',
                             color: '#fff',
-                            fontSize: '0.85rem',
+                            // Must stay >= 16px -- see the Plan / Routine Name
+                            // input in the Live Log tab. 0.85rem resolved to
+                            // 13.6px here, which triggered iOS Safari's
+                            // auto-zoom every time the coach tapped in to type
+                            // a plan name.
+                            fontSize: '16px',
                             outline: 'none'
                           }}
                         />
@@ -5705,7 +5710,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             border: '1px solid var(--border-color)',
                             borderRadius: 'var(--radius-sm)',
                             color: '#fff',
-                            fontSize: '14px',
+                            // Must stay >= 16px: iOS Safari auto-zooms the whole
+                            // page on focus for any input with a smaller
+                            // font-size, and does not zoom back out on blur --
+                            // so tapping this field to type a routine name left
+                            // the coach zoomed into a shifted layout. Same rule
+                            // already applied to the Edit Total Sessions input.
+                            fontSize: '16px',
                             outline: 'none'
                           }}
                         />

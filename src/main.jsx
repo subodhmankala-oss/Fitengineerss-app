@@ -8,6 +8,7 @@ import UpdateToast from './components/UpdateToast.jsx'
 import { TourProvider } from './context/TourContext.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
 import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
+import { stripFreshParam } from './pwa/hardRefresh.js'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -26,6 +27,11 @@ createRoot(document.getElementById('root')).render(
 // safe update flow: new versions download in the background and only take
 // over once the user taps "Refresh" on the UpdateToast (see registerPWA.js).
 initPWA();
+
+// hardRefresh() reloads with a one-shot cache-busting query param; once the
+// fresh document is up, take it back out of the address bar so it can't end
+// up in a bookmark or a shared link.
+stripFreshParam();
 
 // Viewport/safe-area diagnostic overlay, off unless explicitly switched on
 // with ?diag=1 (sticky thereafter — see the module for why an installed PWA

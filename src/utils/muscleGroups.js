@@ -81,7 +81,7 @@ const RULES = [
   // "ball slam" and "jumping jack" added — both full-body/conditioning moves
   // with no other clear muscle-group home in this taxonomy; classified as
   // Core, the most defensible single bucket for them.
-  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack)/.test(n), muscles: ['Core'] },
+  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?)/.test(n), muscles: ['Core'] },
   { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Core', 'Back'] },
   // Burpee: full-body conditioning move: Core (plank/crunch phase) + Quads
   // (jump/squat phase) is the most representative 2-muscle credit available

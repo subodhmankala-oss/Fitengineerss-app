@@ -77,7 +77,10 @@ export default function SetValueField({ value, placeholder, disabled, active, on
     // the pad's real on-screen height and scroll just enough to clear it
     // (plus a margin), the same way you'd account for a fixed footer.
     const el = e.currentTarget;
-    requestAnimationFrame(() => {
+
+    // How far this row still needs to move to sit clear of the pad. Positive
+    // = row is below the pad's top edge (covered) and must scroll up.
+    const measureDelta = () => {
       const pad = document.querySelector('.set-number-pad');
       const padHeight = pad ? pad.getBoundingClientRect().height : 320;
       const margin = 20;
@@ -88,28 +91,48 @@ export default function SetValueField({ value, placeholder, disabled, active, on
       const row = el.closest('.hevy-set-row') || el;
       const rect = row.getBoundingClientRect();
       const visibleBottom = window.innerHeight - padHeight - margin;
-      let delta = 0;
-      if (rect.bottom > visibleBottom) {
-        delta = rect.bottom - visibleBottom;
-      } else if (rect.top < margin) {
-        delta = rect.top - margin;
+      if (rect.bottom > visibleBottom) return rect.bottom - visibleBottom;
+      if (rect.top < margin) return rect.top - margin;
+      return 0;
+    };
+
+    requestAnimationFrame(() => {
+      const delta = measureDelta();
+      const scrollParent = getScrollParent(el);
+      // Remember where we started ONLY for the first field opened in this
+      // pad session — hopping Kg -> Reps -> next row shouldn't overwrite the
+      // original position with an already-adjusted one, or closing the pad
+      // would restore to a spot that's itself mid-adjustment.
+      if (!pendingScrollRestore || pendingScrollRestore.node !== scrollParent) {
+        pendingScrollRestore = { node: scrollParent, top: scrollParent.scrollTop, scrolledTo: 0 };
       }
-      if (delta !== 0) {
-        const scrollParent = getScrollParent(el);
-        // Remember where we started ONLY for the first field opened in this
-        // pad session — hopping Kg -> Reps -> next row shouldn't overwrite the
-        // original position with an already-adjusted one, or closing the pad
-        // would restore to a spot that's itself mid-adjustment.
-        if (!pendingScrollRestore || pendingScrollRestore.node !== scrollParent) {
-          pendingScrollRestore = { node: scrollParent, top: scrollParent.scrollTop, scrolledTo: 0 };
+      // The smooth scroll lands a frame or more later; record where it
+      // actually ended up so restoreScrollAfterPad can tell "still where we
+      // put it" from "the coach scrolled somewhere else".
+      const settle = () => {
+        if (pendingScrollRestore && pendingScrollRestore.node === scrollParent) {
+          pendingScrollRestore.scrolledTo = scrollParent.scrollTop;
         }
-        scrollParent.scrollBy({ top: delta, behavior: 'smooth' });
-        // The smooth scroll lands a frame or more later; record where it
-        // actually ended up so restoreScrollAfterPad can tell "still where we
-        // put it" from "the coach scrolled somewhere else".
-        const settle = () => { if (pendingScrollRestore) pendingScrollRestore.scrolledTo = scrollParent.scrollTop; };
+      };
+
+      if (delta !== 0) scrollParent.scrollBy({ top: delta, behavior: 'smooth' });
+
+      // TOP-UP PASS. The scroll room this move needs is largely supplied by
+      // the pad's own reserved bottom padding (`body:has(.set-number-pad.open)`
+      // in SetNumberPad.css) — but that padding only exists once React has
+      // added `.open` and its 0.28s transition has run, which is AFTER the
+      // scroll above is issued. Until it lands, the container's max scrollTop
+      // is ~340px shorter, so the browser silently CLAMPS the scroll and the
+      // row stops short — still underneath the pad. Measured 2026-08-19 on
+      // Send plan with a short exercise list: asked to scroll to 1097, max was
+      // 1028 without the padding, so the row ended 25px behind the pad.
+      // Re-measure once the room really exists and top up only if the row is
+      // still covered (positive delta) — never yank a row that's already clear.
+      setTimeout(() => {
+        const remaining = measureDelta();
+        if (remaining > 0) scrollParent.scrollBy({ top: remaining, behavior: 'smooth' });
         setTimeout(settle, 400);
-      }
+      }, 380);
     });
   };
 

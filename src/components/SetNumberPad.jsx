@@ -95,9 +95,19 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
   //    one of those while the pad is already open should just SWITCH the
   //    pad to that field via the button's own onClick/onOpen, not close it
   //    out from under the coach/client first.
-  // Listens on pointerdown (fires before click/focus) so the native keyboard
+  // Listens on the DOWN event (fires before click/focus) so the native keyboard
   // never gets a chance to flash open behind the pad when the tap lands on
   // a real <input> like Workout Name.
+  // Bound to touchstart and mousedown as well as pointerdown for the same
+  // reason main.jsx's own outside-tap dismissal is (see the note there): some
+  // mobile WebViews this app runs in don't reliably dispatch Pointer Events.
+  // On those, a pointerdown-only listener never fires, so the pad simply never
+  // closed on an outside tap — it stayed up until the coach found the
+  // hide-keyboard icon, which is both halves of the long-running report: it
+  // kept covering the Save bar ("tap does nothing"), and tapping a real text
+  // field left the OS keyboard open alongside the still-open pad. The handler
+  // is idempotent, so the duplicate events a normal browser delivers just
+  // no-op once the field is already closed.
   React.useEffect(() => {
     if (!activeKey) return undefined;
     const handlePointerDown = (e) => {
@@ -106,8 +116,9 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
       if (e.target.closest && e.target.closest('.set-value-btn')) return;
       onClose();
     };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+    const events = ['pointerdown', 'touchstart', 'mousedown'];
+    events.forEach((n) => document.addEventListener(n, handlePointerDown, true));
+    return () => events.forEach((n) => document.removeEventListener(n, handlePointerDown, true));
   }, [activeKey, onClose]);
 
   const press = (key) => {

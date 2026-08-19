@@ -17,7 +17,21 @@
     <!-- iOS "Add to Home Screen" behavior -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- ROOT CAUSE FIX 2026-08-19: this was `black-translucent`, which is an
+         explicit opt-in to rendering web content FULL SCREEN, underneath the
+         iOS status bar. That single line is the origin of the whole
+         status-bar-overlap class of bugs: the app drew beneath the clock and
+         then had to manually re-pad itself back out via
+         env(safe-area-inset-top) — a value iOS is documented to report as 0
+         under black-translucent, and which WebKit additionally re-zeroes
+         while an input-method panel (keyboard, emoji picker) is open.
+         Every prior fix here fought that symptom (a JS snapshot probe, then
+         hardcoded px floors) instead of the cause, and each one broke on the
+         next device whose status bar was a different height.
+         `default` makes iOS reserve the status bar region itself, so content
+         physically cannot render under it — correct at every device size,
+         with no measurement and no magic numbers. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Fitengineers" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 

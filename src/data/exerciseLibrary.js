@@ -19,11 +19,14 @@ export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders',
 // from isCardioExercise explicitly so their own classifiers win instead.
 const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk', 'Walking', 'High Knees', 'High Knees Walk'];
 
-// Dynamic warm-up moves — reps only, no weight, no calorie contribution (see
-// isWarmupExercise below). Arm Circle + Leg Swing are auto-added to a fresh
-// client workout log so a warm-up block is there by default. Bird Dog and
-// Cat Camel are mobility drills logged the same reps-only way — no kg field
-// at all, since they're never loaded with weight.
+// Names that show under the picker's "Warm Up" filter chip (inferCategory
+// below). Arm Circle + Leg Swing are auto-added to a fresh client workout
+// log so a warm-up block is there by default, and contribute no weight/
+// calories at all (see isWarmupExercise's own, narrower name list further
+// down — NOT the same list as this one). Bird Dog and Cat Camel are real
+// bodyweight core/mobility drills a client can log actual working sets of
+// — findable under this same filter, but classified as Bodyweight (see
+// isBodyweightExercise) rather than zero-contribution warm-up filler.
 const WARMUP_NAMES = ['Arm Circle', 'Leg Swing', 'Bird Dog', 'Cat Camel'];
 
 // Coach-side A-Z list (formerly LIVE_EXERCISE_LIST in TrainerDashboard).
@@ -77,7 +80,7 @@ const CLIENT_NAMES = [
   'Jump Squat', 'Kettlebell Swing', 'Leg Curl (Machine)', 'Leg Press',
   'Mountain Climber', 'Overhead Press (Barbell)', 'Pec Deck Fly', 'Pendlay Row', 'Preacher Curl', 'Push Press',
   'Rear Delt Fly', 'Reverse Curl', 'Russian Twist', 'Seated Cable Row', 'Seated Leg Curl',
-  'Shoulder Press (Machine)', 'Side Hops', 'Side Plank', 'Single-Leg Romanian Deadlift', 'Sit Up', 'Skullcrusher',
+  'Shoulder Press (Machine)', 'Shoulder Taps', 'Side Hops', 'Side Plank', 'Single-Leg Romanian Deadlift', 'Sit Up', 'Skullcrusher',
   'Smith Machine Squat', 'Sumo Deadlift', 'T-Bar Row', 'Triceps Dip',
   'Triceps Pushdown', 'Upright Row', 'Wall Sit', 'Wrist Curl', 'Zercher Squat', 'One Leg Step-Ups',
 ];
@@ -87,7 +90,7 @@ export function inferCategory(name) {
   const n = name.toLowerCase();
   if (/(arm circle|leg swing|bird dog|cat camel)/.test(n)) return 'Warm Up';
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
-  if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope)/.test(n)) return 'Core';
+  if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope|shoulder taps?)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?)/.test(n)) return 'Legs';
   if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart)/.test(n)) return 'Shoulders';
@@ -109,7 +112,7 @@ export function inferPrimary(name) {
   if (/(squat|lunge|leg press|leg extension|step-?up|steppers?\b|wall sit|split squat|hack)/.test(n)) return 'Quadriceps';
   if (/side hops?/.test(n)) return 'Calves';
   if (/deadlift/.test(n)) return 'Posterior Chain';
-  if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope)/.test(n)) return 'Core / Abs';
+  if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope|shoulder taps?)/.test(n)) return 'Core / Abs';
   if (/(rear delt|reverse fly|face pull)/.test(n)) return 'Rear Delts';
   if (/shrug/.test(n)) return 'Trapezius';
   if (/(lateral raise|side lateral)/.test(n)) return 'Side Delts';
@@ -197,18 +200,47 @@ export function isLoadedCarryExercise(name) {
 // fields. Only the plain "Squat" preset (bodyweight air squat) and "Chair
 // Squat" (a bodyweight sit-to-stand off a chair, occasionally loaded with a
 // held plate/dumbbell) get the toggle.
+//
+// Bird Dog, Cat Camel and Shoulder Taps (added 2026-08-19) round out the
+// bodyweight core/mobility set: they were previously either stuck under
+// isWarmupExercise (Bird Dog/Cat Camel — zero weight field, zero calorie
+// contribution, no matter how many real working reps were logged) or not
+// recognized by any classifier at all (Shoulder Taps — fell through to a
+// plain loaded exercise asking for a barbell-style KG number, which makes
+// no sense for a plank-position bodyweight move). All three now default to
+// Bodyweight like push-ups/mountain climbers, with the same +Add Weight
+// escape hatch for a held plate/weighted vest.
+//
+// Glute Bridge (added 2026-08-19) is matched by its full two-word name only
+// — not a bare 'glute' substring, which would also catch Glute Kickback —
+// so its loaded cousins (Barbell Hip Thrust, Hip Thrust) are unaffected and
+// stay always-loaded. A plain glute bridge is usually bodyweight but often
+// loaded with a barbell across the hips, exactly the push-up/mountain-
+// climber pattern this toggle exists for.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk|leg raise|sit-?up|sit up/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge/.test(n);
 }
 
-// Warm-up moves (Arm Circle, Leg Swing) are reps-only — no weight/KG field
-// at all (not even the Bodyweight/+Add Weight toggle other bodyweight moves
-// get), and no calorie contribution (see computeLiveCalories). These are the
-// exercises auto-added to a fresh client workout log by default.
+// True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG
+// field at all (not even the Bodyweight/+Add Weight toggle other bodyweight
+// moves get), and no calorie contribution (see computeLiveCalories). These
+// are the exercises auto-added to a fresh client workout log by default.
+//
+// Deliberately an explicit name list, NOT inferCategory(name) === 'Warm Up'
+// as this used to read — Bird Dog and Cat Camel share that same picker
+// filter category (real mobility drills worth finding under "Warm Up") but
+// are actual bodyweight core work a client logs real sets of, not filler
+// that's always worth exactly 0 calories. Deriving this from the category
+// meant every rep of Bird Dog/Cat Camel was silently discarded from every
+// calorie total no matter how it was logged. See isBodyweightExercise above
+// for where they're classified now.
+const ZERO_CONTRIBUTION_WARMUP_NAMES = ['Arm Circle', 'Leg Swing'];
+
 export function isWarmupExercise(name) {
   if (!name) return false;
-  return inferCategory(name) === 'Warm Up';
+  const n = name.toLowerCase();
+  return ZERO_CONTRIBUTION_WARMUP_NAMES.some((w) => w.toLowerCase() === n);
 }

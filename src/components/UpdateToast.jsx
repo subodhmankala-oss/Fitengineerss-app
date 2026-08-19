@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { applyPWAUpdate } from '../pwa/registerPWA';
-import { hardRefresh } from '../pwa/hardRefresh';
 import './UpdateToast.css';
 
 // Floating toast that appears the moment a new deployment's service worker
@@ -25,24 +24,9 @@ export default function UpdateToast() {
 
   if (!visible) return null;
 
-  // Escalated 2026-08-19 from applyPWAUpdate() alone. That activates the
-  // waiting worker and reloads, which correctly swaps the JS/CSS bundles —
-  // but the reload is still served by the service worker, so a precached
-  // index.html can survive it. Anything living in the document head
-  // (viewport / viewport-fit, iOS status bar style, theme-color) therefore
-  // stayed on the old build's values no matter how many times this was
-  // tapped, and the only known escape was deleting and re-adding the app
-  // from the home screen. hardRefresh() drops the caches and unregisters
-  // the workers first, so the document itself comes from the network.
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setApplying(true);
-    const result = await hardRefresh();
-    if (!result.ok) {
-      // Offline: the waiting worker is still a strictly newer build than
-      // what's running, so fall back to the plain swap rather than leaving
-      // the user on a stale version with a dead button.
-      applyPWAUpdate();
-    }
+    applyPWAUpdate();
   };
 
   return (

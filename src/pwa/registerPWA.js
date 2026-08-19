@@ -2,7 +2,6 @@
 // the update/offline signals are easy to reuse from any component via plain
 // DOM CustomEvents (no extra state library needed for two booleans).
 import { registerSW } from 'virtual:pwa-register';
-import { hardRefresh } from './hardRefresh';
 
 let applyUpdateFn = null;
 let swRegistration = null;
@@ -65,25 +64,8 @@ export function initPWA() {
       // apply it: every in-progress session is already continuously
       // autosaved to a draft (client and coach Live Log both), so a reload
       // here loses at most the last few keystrokes, not the session.
-      //
-      // ESCALATED 2026-08-19: this used to call applyUpdateFn(true) alone,
-      // which activates the waiting worker and reloads. That correctly
-      // swaps the JS/CSS bundles — but the reload it triggers is still
-      // served BY a service worker, and index.html is precached. So the
-      // document itself, and everything in its <head> (viewport /
-      // viewport-fit, the iOS status bar style, theme-color), could stay on
-      // the previous build indefinitely. That is why fixes touching those
-      // tags appeared not to ship, and why deleting and re-adding the app
-      // from the home screen was the only thing that reliably worked —
-      // reinstalling was just the manual way to clear the precache.
-      // hardRefresh() deletes the caches and unregisters the workers before
-      // reloading, so the new HTML actually arrives. It falls back to the
-      // plain worker swap when offline, where clearing the precache would
-      // leave nothing to boot from.
       window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
-      hardRefresh().then((result) => {
-        if (!result.ok) applyUpdateFn?.(true);
-      });
+      applyUpdateFn?.(true);
     },
     onOfflineReady() {
       window.dispatchEvent(new CustomEvent('pwa:offline-ready'));

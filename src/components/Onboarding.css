@@ -725,14 +725,17 @@
   position: relative;
   width: 100%;
   max-width: 100%;
-  /* Was `60dvh` — a fraction of an independently re-measured viewport rather
-     than of this panel's own parent (see .login-portal-mode above for why
-     that's the actual source of the reported gap). `.onboarding-portal-
-     wrapper` is a definite-height flex column now that IT is a reliable
-     `100%`, so `60%` here means exactly "60% of that", with no second
-     viewport read to drift out of sync. */
-  height: 60%;
-  flex: 0 0 60%;
+  /* Was `60dvh`, then a fixed `60%` of the wrapper. Both allocated this
+     panel a share of the screen decided in advance, which forced the login
+     panel below it to a fixed 40% share whether or not the form was
+     actually that tall — see .portal-right-panel for why that guaranteed
+     leftover space. This panel is now the flexible one: it takes whatever
+     height is left after the form has taken exactly what it needs, so the
+     leftover can never land at the bottom of the screen. min-height:0 is
+     required for a flex child to be allowed to shrink below its content
+     size (the hero image is happy to be cropped; the form is not). */
+  height: auto;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
   padding: 0;
@@ -1278,10 +1281,19 @@
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
-  /* Was `40dvh` — same independent-viewport-read issue as .portal-left-panel
-     above; `40%` of the now-reliable `.onboarding-portal-wrapper` instead. */
-  height: 40%;
-  flex: 0 0 40%;
+  /* Was `40dvh`, then a fixed `40%` of the wrapper. That fixed share is the
+     actual root cause of the "gap at the true bottom" on this screen: the
+     login card has a natural height (~230px) that has nothing to do with
+     40% of whatever device it lands on, so on anything but one exact screen
+     size the panel was taller than its own content and the remainder showed
+     as bare background. Sizing to content instead means there is no
+     remainder here at all — .portal-left-panel (flex: 1 1 auto) absorbs the
+     slack into the hero image, where it is invisible by design.
+     max-height keeps a very tall form (or a very short screen) scrolling
+     inside the panel rather than pushing the hero off the top. */
+  height: auto;
+  flex: 0 0 auto;
+  max-height: 100%;
   min-height: 0;
   overflow-y: auto;
   box-sizing: border-box;
@@ -1297,17 +1309,19 @@
   transition: flex-basis 0.35s ease, height 0.35s ease;
   display: flex;
   flex-direction: column;
-  /* Was `center`. The card doesn't fill this panel's full 40%-of-screen
-     allocation, so centering split the leftover space into two dead zones
-     — one above the card, one below. The one above blends into the hero
-     photo/carousel dots trailing off; the one below sits flush against the
-     true bottom of the screen with nothing else there, which is exactly
-     the "gap at the true bottom" reported repeatedly against this login
-     screen. `flex-end` moves the card down to sit flush against the
-     bottom of the panel instead, so the leftover space collects in the
-     one place it already reads fine — above the card, against the hero
-     image — instead of at the bare bottom edge. */
-  justify-content: flex-end;
+  /* Back to `center` (2026-08-19). This was switched to `flex-end` to fight
+     the bottom gap: the panel's fixed 40% height left dead space, and
+     centering split it above AND below the card, the below half reading as
+     the reported gap. flex-end only relocated that space — it did not
+     remove it — and it visibly broke the login card's centering, which is
+     what "the login screen used to go to the centre" refers to.
+     With the panel now sized to its content (flex: 0 0 auto above) there is
+     no leftover space inside it left to distribute, so centering is once
+     again a no-op for layout and simply keeps the card centred in the
+     states where the panel IS given extra room — notably
+     .auth-form-active, where the hero collapses and this panel expands to
+     fill the screen. */
+  justify-content: center;
 }
 
 .portal-right-panel::-webkit-scrollbar {

@@ -27,6 +27,15 @@ createRoot(document.getElementById('root')).render(
 // over once the user taps "Refresh" on the UpdateToast (see registerPWA.js).
 initPWA();
 
+// Viewport/safe-area diagnostic overlay, off unless explicitly switched on
+// with ?diag=1 (sticky thereafter — see the module for why an installed PWA
+// needs that). Dynamically imported so it costs nothing in a normal load.
+import('./diagnostics/viewportDiag.js')
+  .then(({ isDiagEnabled, mountViewportDiag }) => {
+    if (isDiagEnabled()) mountViewportDiag();
+  })
+  .catch(() => {});
+
 // Keep --app-vh (see .app-container in index.css) pinned to the real visible
 // viewport. CSS `dvh` alone isn't enough here: several mobile/PWA browsers
 // (installed standalone PWAs on Android in particular, plus Safari after the

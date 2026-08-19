@@ -38,6 +38,18 @@ function cardioMET(exerciseName, speedKmh) {
   }
   if (/cross trainer|elliptical/.test(n)) return 5.0;
   if (/incline walk/.test(n)) return 6.0;
+  // "Treadmill" has no case of its own before this point, so a treadmill
+  // set fell all the way through to the generic running ladder below
+  // (floor 6.0 MET) no matter how slow it actually was — a treadmill WALK
+  // logged at 6 km/h priced at running intensity instead of the walk
+  // bracket's 3.5 MET. Confirmed 2026-08-19: 3km/30min read 220.5 kcal on
+  // "Treadmill" vs the correct 128.6 kcal "Walking" gives for the identical
+  // pace -- 71% overcounted. Only short-circuits at walking speed; a faster
+  // treadmill RUN still falls through to the running ladder below exactly
+  // as before, so this doesn't touch that case.
+  if (/treadmill/.test(n) && speedKmh < 6.4) {
+    return speedKmh < 4.8 ? 2.8 : 3.5;
+  }
   if (/\bwalk/.test(n)) {
     if (speedKmh < 4.8) return 2.8;
     if (speedKmh < 6.4) return 3.5;

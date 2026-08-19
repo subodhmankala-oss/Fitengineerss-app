@@ -211,6 +211,17 @@ document.addEventListener('wheel', markUserScroll, { capture: true, passive: tru
 // Any touch after dismissal means they're driving again -- stop re-anchoring.
 document.addEventListener('touchstart', () => { kbReanchorCancelled = true; }, { capture: true, passive: true });
 
+// The element the current tap landed on, recorded in the CAPTURE phase so it
+// is already known by the time that same tap's blur reaches focusout below.
+// kbReanchorCancelled cannot serve this purpose: focusout resets it to false,
+// and that reset runs after the touchstart which set it, so it is always
+// cleared again by the time the re-anchor loop actually starts.
+let kbLastPointerTarget = null;
+const recordPointerTarget = (e) => { kbLastPointerTarget = e.target; };
+document.addEventListener('pointerdown', recordPointerTarget, { capture: true, passive: true });
+document.addEventListener('touchstart', recordPointerTarget, { capture: true, passive: true });
+document.addEventListener('mousedown', recordPointerTarget, { capture: true, passive: true });
+
 document.addEventListener('focusout', (e) => {
   if (!isTextField(e.target)) return;
   // Tapping straight from one field to another never closes the keyboard;
@@ -222,8 +233,22 @@ document.addEventListener('focusout', (e) => {
     const owner = kbScrollOwner;
     const target = kbScrollTop;
     const userMoved = kbUserScrolled;
+    const tapTarget = kbLastPointerTarget;
+    kbLastPointerTarget = null;
     kbScrollOwner = null;
     if (!owner || userMoved) return;
+
+    // The blur came from tapping a set-logging cell (Kg/Reps/Km/Time), which
+    // opens the custom number pad -- and SetValueField's own handler is
+    // already scrolling that row clear of the pad. Re-anchoring would fight
+    // it and win: the loop below assigns scrollTop every frame for 24 frames,
+    // and each assignment cancels an in-flight smooth scroll outright, so the
+    // row is left buried underneath the pad with the coach typing into a
+    // field they cannot see. Measured 2026-08-19 on the coach Live Log: 24
+    // writes pinning scrollTop to its pre-keyboard value while the pad sat on
+    // top of the row being edited. Whoever opens the pad owns the scroll
+    // position from here.
+    if (tapTarget && tapTarget.closest && tapTarget.closest('.set-value-btn')) return;
 
     // Re-assert across the dismiss animation rather than once. This is an
     // iOS timing requirement, not a guess: the visible viewport grows back

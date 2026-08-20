@@ -1312,7 +1312,13 @@ const WorkoutTracker = () => {
           if (isTimedExercise(exName)) {
             return set.time || '—';
           }
-          return `${set.weight}${getExerciseUnit(exName)} x ${set.reps}`;
+          // Bodyweight exercises log weight: 0 when no plate/vest was added —
+          // show "BW" like the live logger's own column does, instead of the
+          // raw "0kg" which reads as a logging error.
+          const weightLabel = isBodyweightExercise(exName) && !(Number(set.weight) > 0)
+            ? 'BW'
+            : `${set.weight}${getExerciseUnit(exName)}`;
+          return `${weightLabel} x ${set.reps}`;
         }
       }
     }

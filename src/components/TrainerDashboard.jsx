@@ -2218,7 +2218,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         if (isTimedExercise(exName)) {
           return set.time || '—';
         }
-        return `${set.weight}kg x ${set.reps}`;
+        // Bodyweight exercises log weight: 0 when no plate/vest was added —
+        // show "BW" like the live logger's own column does, instead of the
+        // raw "0kg" which reads as a logging error.
+        const weightLabel = isBodyweightExercise(exName) && !(Number(set.weight) > 0)
+          ? 'BW'
+          : `${set.weight}kg`;
+        return `${weightLabel} x ${set.reps}`;
       }
     }
     return '—';

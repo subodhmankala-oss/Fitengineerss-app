@@ -50,6 +50,79 @@ function getViewportBounds(container) {
   return { top: rect.top, bottom: rect.bottom };
 }
 
+// Stable per-item React keys, without touching the exercise data shape.
+// Exercises are plain { name, sets } objects with no id field, and adding
+// one everywhere they're constructed (templates, drafts, the plan editor,
+// coach Live Log, AI-drafted plans, …) would be exactly the kind of
+// data-structure change this fix is explicitly not supposed to make.
+//
+// A reorder only ever permutes existing object references (see
+// orderIdsRef.current.map(id => itemsRef.current[id]) in endDrag) — it
+// never clones or recreates the exercise objects — so identity-keying off
+// the object reference itself is both sufficient and free of any data
+// migration. Rows were previously keyed by array index (`key={exIdx}`),
+// which is exactly wrong for a reorder: React reads "index 2 is still
+// index 2" and patches that slot's *content* in place instead of moving
+// the DOM node, which is what turned an otherwise-correct settle
+// transition into a snap the instant the underlying array (and therefore
+// what content lives at each index) changed on commit.
+const keyRegistry = new WeakMap();
+let nextKeyId = 0;
+function stableKeyFor(item) {
+  if (item === null || typeof item !== 'object') return String(item);
+  let key = keyRegistry.get(item);
+  if (key === undefined) {
+    key = `ex-${nextKeyId++}`;
+    keyRegistry.set(item, key);
+  }
+  return key;
+}
+
+// How long to keep correcting scroll drift after a drag settles/cancels.
+// Needs to comfortably outlast both animations that can move content above
+// the viewport once reorder mode ends: the row's own 280ms settle glide
+// (endDrag) and the compact-card morph-back (.ex-reorder-morph's max-height
+// transition, 240ms — see WorkoutTracker.css). A CSS transition's target
+// value is committed to the DOM instantly but the actual *rendered* size
+// animates over the following frames, so a single before/after measurement
+// right after commit isn't enough — this has to keep re-measuring for the
+// duration, which is exactly what the rAF loop below does.
+const SCROLL_ANCHOR_WINDOW_MS = 360;
+
+function now() {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+// Reads where `anchorEl` currently sits in the viewport, to be handed to
+// startAnchorCorrection AFTER the state changes that are about to move it —
+// has to run before those changes (a plain synchronous read, not tied to
+// React's render), since anchorEl's own position is exactly what we're
+// trying to hold fixed across them.
+function captureAnchorTop(anchorEl) {
+  return anchorEl ? anchorEl.getBoundingClientRect().top : null;
+}
+
+// Keeps `anchorEl` pinned at `targetTop` (in viewport coordinates) for
+// SCROLL_ANCHOR_WINDOW_MS by nudging `container.scrollTop` every frame —
+// the same "capture where something is, then keep correcting for it" idea
+// the auto-scroll loop above already uses, applied to the opposite
+// problem: instead of moving the viewport on purpose, this cancels out
+// movement caused by *other* rows animating open/closed elsewhere in the
+// list while the user's eyes are still on the row they just dropped.
+function startAnchorCorrection(container, anchorEl, targetTop) {
+  if (!container || !anchorEl || targetTop == null) return;
+  const start = now();
+  const step = () => {
+    if (!anchorEl.isConnected) return; // row's DOM node is gone — nothing left to anchor to
+    const drift = anchorEl.getBoundingClientRect().top - targetTop;
+    if (drift !== 0) container.scrollTop += drift;
+    if (now() - start < SCROLL_ANCHOR_WINDOW_MS) {
+      requestAnimationFrame(step);
+    }
+  };
+  requestAnimationFrame(step);
+}
+
 // Press-and-drag "reorder mode" for an exercise list (client logger, coach
 // Live Log, plan editor). Pressing a row's drag handle:
 //   1. flips the whole list into compact name-only rows (see the
@@ -109,6 +182,13 @@ export function useReorderableList(items, onReorder) {
   const scrollContainerRef = useRef(null);
   const lastClientYRef = useRef(0);
   const autoScrollFrameRef = useRef(null);
+  // The dragged row's own DOM node (the .ex-reorder-row wrapper, not the
+  // handle button) — captured once at drag start and used purely as a
+  // fixed point for anchorScrollTo when the drag ends. Stable identity here
+  // depends on the row being keyed by stableKeyFor (see above) rather than
+  // index, so this node is still the same one, still showing the exercise
+  // the user was actually dragging, after the array reorders.
+  const draggedRowElRef = useRef(null);
 
   // Attach to the compact row's DOM node to learn its real rendered height
   // (font size / padding vary slightly by device), used to convert pointer
@@ -242,7 +322,17 @@ export function useReorderableList(items, onReorder) {
 
     const canCommit = commit && dragIndexRef.current != null && orderIdsRef.current.length === itemsRef.current.length;
     if (!canCommit) {
+      // Cancelling still flips isReordering off, which morphs every row's
+      // card back open at once (see WorkoutTracker.css's .ex-reorder-morph)
+      // — that alone can drift the viewport if rows above it are expanding,
+      // exactly like a real commit would. Anchor here too. The position
+      // read has to happen before resetDragState's setState calls, not
+      // after — it's what "unchanged" means for the correction below.
+      const container = scrollContainerRef.current;
+      const anchorEl = draggedRowElRef.current;
+      const targetTop = captureAnchorTop(anchorEl);
       resetDragState();
+      startAnchorCorrection(container, anchorEl, targetTop);
       return;
     }
 
@@ -262,8 +352,18 @@ export function useReorderableList(items, onReorder) {
     // enough to actually read as a glide rather than a snap, short enough
     // to still feel immediate.
     settleTimeoutRef.current = window.setTimeout(() => {
+      // Captured before onReorder/resetDragState fire: resetDragState nulls
+      // scrollContainerRef, and draggedRowElRef's target row is about to
+      // both change array position (onReorder) and morph back to a full
+      // card (isReordering flipping off) in the same commit — its viewport
+      // position has to be read before either of those lands, or "where it
+      // was" is already "where it just moved to".
+      const container = scrollContainerRef.current;
+      const anchorEl = draggedRowElRef.current;
+      const targetTop = captureAnchorTop(anchorEl);
       onReorder(newOrder);
       resetDragState();
+      startAnchorCorrection(container, anchorEl, targetTop);
     }, 280);
   }, [onReorder, resetDragState, stopAutoScroll]);
 
@@ -294,6 +394,10 @@ export function useReorderableList(items, onReorder) {
       scrollContainerCacheRef.current = findScrollContainer(e.currentTarget);
     }
     scrollContainerRef.current = scrollContainerCacheRef.current;
+    // For the scroll-anchor correction in endDrag — the wrapper, not the
+    // handle button itself, since that's the node whose position on screen
+    // is "where the workout the user just moved" visually is.
+    draggedRowElRef.current = e.currentTarget.closest('.ex-reorder-row');
 
     setDragIndex(index);
     setOrderIds(initialOrder);
@@ -333,6 +437,10 @@ export function useReorderableList(items, onReorder) {
     next.splice(targetIdx, 0, moved);
     onReorder(next);
   }, [onReorder]);
+
+  // Stable React key for the row at `index` in the *current* items array —
+  // see stableKeyFor above for why this exists instead of `key={index}`.
+  const getItemKey = useCallback((index) => stableKeyFor(itemsRef.current[index]), []);
 
   // Per-row inline style: the dragged row follows the pointer 1:1 with no
   // transition while actively held (feels attached to the finger/cursor)
@@ -378,5 +486,5 @@ export function useReorderableList(items, onReorder) {
     document.body.style.userSelect = '';
   }, []);
 
-  return { isReordering, dragIndex, getRowStyle, startReorderDrag, measureRowHeight, moveByKeyboard };
+  return { isReordering, dragIndex, getRowStyle, startReorderDrag, measureRowHeight, moveByKeyboard, getItemKey };
 }

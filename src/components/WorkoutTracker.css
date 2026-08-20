@@ -1807,38 +1807,38 @@
 
 /* Reorder mode — useReorderableList (src/hooks/useReorderableList.js).
    Each exercise row renders both its full detail card and a compact
-   name-only row in the same CSS grid stack; toggling which track gets 1fr
-   vs 0fr smoothly morphs the row's height (grid-template-rows animates
-   natively, no JS height measurement needed) while the two tracks
-   crossfade via opacity. */
+   name-only row stacked in normal block flow; toggling which one is
+   collapsed morphs the row's height while the two tracks crossfade via
+   opacity.
+
+   This used to be a CSS-grid `grid-template-rows: 1fr 0fr` swap (animating
+   the grid track sizes). That's a real cause of the "gap": animating `fr`
+   tracks only has a well-defined interpolation when the grid container's
+   own size is fixed — ours is intentionally `auto` height (it has to fit
+   however many sets an exercise has), and auto-sized `fr` track animation
+   is exactly the case browsers disagree on. In practice the full-card
+   track never actually reached true 0 on-device, so the collapsed compact
+   row still had the full uncollapsed card's height sitting invisibly
+   beneath it — a card-sized gap, permanently (not just mid-transition).
+
+   `max-height` transitions don't have that ambiguity (no `fr` unit, no
+   auto-sized-container edge case) and are supported everywhere. The
+   tradeoff is the usual one for this technique: the collapsed cap has to
+   be a fixed value bigger than any real card, so a card much shorter than
+   the cap appears to sit still for the first part of the transition before
+   collapsing — acceptable here since the crossfade below is what the eye
+   actually tracks, not the outer height. */
 .ex-reorder-row {
   will-change: transform;
 }
 
 .ex-reorder-morph {
-  display: grid;
-  /* minmax(0, …) on both tracks, not just 1fr/0fr — a bare `0fr` track
-     still falls back to its content's intrinsic min-content size unless
-     the track itself is bounded to 0. Child min-height:0 alone isn't
-     enough once the full card has its own nested flex/grid descendants
-     (inputs, set rows) that resist shrinking — that's what left a
-     card-sized gap behind the collapsed row on WebKit/iOS. */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0fr);
-  /* Smoother deceleration than the material-standard curve used elsewhere
-     on these buttons — reads as one row settling into place rather than a
-     mechanical swap. Slightly longer than before (240ms vs 220ms) so it
-     never outpaces the content crossfade below. */
-  transition: grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.ex-reorder-morph.is-reordering {
-  grid-template-rows: minmax(0, 0fr) minmax(0, 1fr);
+  position: relative;
 }
 
 .ex-reorder-full,
 .ex-reorder-compact {
   overflow: hidden;
-  min-height: 0;
 }
 
 /* Each of the four states below (full/compact × entering/leaving) declares
@@ -1855,30 +1855,50 @@
    things swapping. A 3px translateY on both keeps the resolve feeling like
    a settle rather than a flat fade. */
 .ex-reorder-full {
+  /* Sized to comfortably outlast any realistic set count (~25+ sets at
+     .hevy-set-row's ~48px each, plus header/actions/padding) — this must
+     stay well above what a card can actually reach, or it clips sets
+     instead of just animating imperfectly. TrainerDashboard.css's
+     .coach-note-slide solves the equivalent problem by measuring
+     scrollHeight in JS and transitioning to that exact value instead of a
+     guessed cap, which is the more precise fix if this one ever needs
+     tightening — not done here to keep this change to the collapse
+     mechanism only, not a rewrite of every reorder call site. */
+  max-height: 1400px;
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
+  transition: max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
               transform 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
 }
 .ex-reorder-morph.is-reordering .ex-reorder-full {
+  max-height: 0;
   opacity: 0;
   transform: translateY(-3px);
-  transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms,
+  transition: max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms,
               transform 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms;
   pointer-events: none;
 }
 
 .ex-reorder-compact {
+  /* Generous single-row cap — plenty above the ~44-52px a compact row
+     actually renders at, never enough to reproduce the full-card tail
+     above. */
+  max-height: 0;
   opacity: 0;
   transform: translateY(3px);
-  transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms,
+  transition: max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms,
               transform 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms;
   pointer-events: none;
 }
 .ex-reorder-morph.is-reordering .ex-reorder-compact {
+  max-height: 80px;
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
+  transition: max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
               transform 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
   pointer-events: auto;
 }

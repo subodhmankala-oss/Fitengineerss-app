@@ -1817,7 +1817,13 @@
 
 .ex-reorder-morph {
   display: grid;
-  grid-template-rows: 1fr 0fr;
+  /* minmax(0, …) on both tracks, not just 1fr/0fr — a bare `0fr` track
+     still falls back to its content's intrinsic min-content size unless
+     the track itself is bounded to 0. Child min-height:0 alone isn't
+     enough once the full card has its own nested flex/grid descendants
+     (inputs, set rows) that resist shrinking — that's what left a
+     card-sized gap behind the collapsed row on WebKit/iOS. */
+  grid-template-rows: minmax(0, 1fr) minmax(0, 0fr);
   /* Smoother deceleration than the material-standard curve used elsewhere
      on these buttons — reads as one row settling into place rather than a
      mechanical swap. Slightly longer than before (240ms vs 220ms) so it
@@ -1826,7 +1832,7 @@
 }
 
 .ex-reorder-morph.is-reordering {
-  grid-template-rows: 0fr 1fr;
+  grid-template-rows: minmax(0, 0fr) minmax(0, 1fr);
 }
 
 .ex-reorder-full,
@@ -1913,6 +1919,15 @@
   transition: box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
               background-color 280ms cubic-bezier(0.16, 1, 0.3, 1),
               border-color 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Belt-and-suspenders against the JS-toggled `document.body.style.
+     userSelect` (useReorderableList): on iOS Safari a long-press near the
+     drag handle can start the native text-selection gesture before that
+     body-level toggle lands, highlighting the exercise name instead of
+     dragging it. Setting it directly on the row — plus -webkit-touch-callout
+     to suppress the iOS copy/select callout — closes that race. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .ex-reorder-compact-name {

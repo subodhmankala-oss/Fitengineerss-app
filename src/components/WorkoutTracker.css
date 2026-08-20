@@ -1778,6 +1778,157 @@
   color: rgba(239, 68, 68, 1);
 }
 
+.btn-drag-handle {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  display: flex;
+  align-items: center;
+  cursor: grab;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+  /* Pointer Events drive the drag ourselves — touch-action: none (set
+     inline on each handle too) keeps the browser from starting a page
+     scroll on the first touch move, so vertical drags stay smooth. */
+  touch-action: none;
+}
+
+.btn-drag-handle:hover {
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--primary-accent-light);
+}
+
+.btn-drag-handle:active {
+  cursor: grabbing;
+  color: var(--primary-accent-light);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+/* Reorder mode — useReorderableList (src/hooks/useReorderableList.js).
+   Each exercise row renders both its full detail card and a compact
+   name-only row in the same CSS grid stack; toggling which track gets 1fr
+   vs 0fr smoothly morphs the row's height (grid-template-rows animates
+   natively, no JS height measurement needed) while the two tracks
+   crossfade via opacity. */
+.ex-reorder-row {
+  will-change: transform;
+}
+
+.ex-reorder-morph {
+  display: grid;
+  grid-template-rows: 1fr 0fr;
+  /* Smoother deceleration than the material-standard curve used elsewhere
+     on these buttons — reads as one row settling into place rather than a
+     mechanical swap. Slightly longer than before (240ms vs 220ms) so it
+     never outpaces the content crossfade below. */
+  transition: grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ex-reorder-morph.is-reordering {
+  grid-template-rows: 0fr 1fr;
+}
+
+.ex-reorder-full,
+.ex-reorder-compact {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Each of the four states below (full/compact × entering/leaving) declares
+   its own complete `transition` shorthand rather than relying on a shared
+   base rule — with only one of {opacity, transform} actually changing per
+   direction, letting the cascade merge delay/duration from two different
+   rules made the "arriving track waits, leaving track doesn't" timing
+   collapse to whichever rule happened to win the specificity tie. Explicit
+   per-state shorthands avoid that.
+
+   The leaving track fades/settles fast with no delay; the arriving track
+   waits ~60ms so it never cross-dissolves with what's leaving — that gap
+   is what makes this read as one thing settling into another, not two
+   things swapping. A 3px translateY on both keeps the resolve feeling like
+   a settle rather than a flat fade. */
+.ex-reorder-full {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
+              transform 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+}
+.ex-reorder-morph.is-reordering .ex-reorder-full {
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms,
+              transform 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms;
+  pointer-events: none;
+}
+
+.ex-reorder-compact {
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms,
+              transform 150ms cubic-bezier(0.22, 1, 0.36, 1) 0ms;
+  pointer-events: none;
+}
+.ex-reorder-morph.is-reordering .ex-reorder-compact {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
+              transform 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+  pointer-events: auto;
+}
+
+/* Very subtle per-row stagger on entry only (capped at a handful of rows
+   so a long list never drags the whole transition out) — the rows below
+   the one you tapped settle a beat after it, reinforcing that this is one
+   list reflowing rather than two lists swapping. Exit stays uniform so
+   leaving reorder mode feels snappy. */
+.ex-reorder-row:nth-child(2) .ex-reorder-morph.is-reordering .ex-reorder-compact {
+  transition-delay: 75ms, 75ms;
+}
+.ex-reorder-row:nth-child(3) .ex-reorder-morph.is-reordering .ex-reorder-compact {
+  transition-delay: 90ms, 90ms;
+}
+.ex-reorder-row:nth-child(4) .ex-reorder-morph.is-reordering .ex-reorder-compact {
+  transition-delay: 105ms, 105ms;
+}
+.ex-reorder-row:nth-child(n+5) .ex-reorder-morph.is-reordering .ex-reorder-compact {
+  transition-delay: 120ms, 120ms;
+}
+
+.ex-reorder-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  /* So the lifted "dragging" look (below) eases in on grab and, more
+     importantly, eases back out on drop instead of cutting off the instant
+     the row finishes settling into place. */
+  transition: box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ex-reorder-compact-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The row currently being dragged — subtle lift, not a redesign. */
+.ex-reorder-compact-row.ex-reorder-dragging {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.45);
+  position: relative;
+}
+
 /* Bodyweight / +Add Weight toggle (push-ups, mountain climbers, jumping
    jacks etc.) — see isBodyweightExercise in src/data/exerciseLibrary.js. */
 .bw-toggle-row {

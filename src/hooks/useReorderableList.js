@@ -16,6 +16,14 @@ const AUTO_SCROLL_MAX_SPEED = 16;
 // computed style instead of querying that class by name keeps this working
 // if reorder is ever used somewhere with its own scroll box (a modal, a
 // panel), without needing to know about it here.
+//
+// Reading `.scrollHeight`/`.clientHeight` here forces a synchronous layout
+// (not just a style recalc) on every ancestor it checks — cheap once, but
+// this used to run on *every single pointerdown*, i.e. inside the
+// touch-critical path that decides whether iOS recognizes the gesture as a
+// drag at all. That synchronous layout cost sitting in the drag's opening
+// milliseconds was the actual regression (see startReorderDrag below for
+// where this is now cached instead of re-walked per drag).
 function findScrollContainer(el) {
   let node = el?.parentElement;
   while (node && node !== document.body) {
@@ -79,19 +87,26 @@ export function useReorderableList(items, onReorder) {
   itemsRef.current = items;
   const orderIdsRef = useRef([]);
   const dragIndexRef = useRef(null);
+  // The pointer position that maps to dragOffset 0. Pure pointer movement
+  // (onMove) is the only thing that ever *reads* this; auto-scroll's only
+  // interaction with it is nudging it backward by however many pixels the
+  // container just scrolled (see tickAutoScroll), which makes the exact
+  // same "clientY - startYRef" formula below automatically account for the
+  // scroll with no separate scroll-delta term anywhere in the hot path.
   const startYRef = useRef(0);
   const startPositionRef = useRef(0);
   const rowHeightRef = useRef(44);
   const listenersRef = useRef(null);
   const settleTimeoutRef = useRef(null);
-  // Auto-scroll bookkeeping. scrollContainerRef/startScrollTopRef are set
-  // once, at drag start; lastClientYRef tracks the pointer so the rAF loop
-  // keeps scrolling even while the finger/cursor is completely still near
-  // the edge (a real pointermove won't keep firing on its own, but native
-  // drag-and-drop still keeps scrolling in that case — the loop has to
-  // drive itself rather than wait for events).
+  // Auto-scroll bookkeeping. scrollContainerCacheRef is resolved once (see
+  // startReorderDrag) and reused for every drag rather than re-walked each
+  // time. lastClientYRef tracks the pointer so the rAF loop keeps scrolling
+  // even while the finger/cursor is completely still near the edge (a real
+  // pointermove won't keep firing on its own, but native drag-and-drop
+  // still keeps scrolling in that case — the loop has to drive itself
+  // rather than wait for events).
+  const scrollContainerCacheRef = useRef(null);
   const scrollContainerRef = useRef(null);
-  const startScrollTopRef = useRef(0);
   const lastClientYRef = useRef(0);
   const autoScrollFrameRef = useRef(null);
 
@@ -112,20 +127,14 @@ export function useReorderableList(items, onReorder) {
     }
   }, []);
 
-  // Shared by pointermove and the auto-scroll loop: recomputes the dragged
-  // row's visual offset and its target slot from the pointer's current
-  // viewport position. Scroll-aware — deltaY is "how far the pointer has
-  // moved in document space", i.e. its raw viewport movement PLUS however
-  // much the container has scrolled since the drag started. Without the
-  // scroll term, once auto-scroll kicks in the dragged row would drift off
-  // the pointer (its un-transformed flow position scrolls with the page,
-  // but the transform offset wouldn't compensate) and the reorder math
-  // would freeze the instant the finger stopped moving, even though the
-  // list is still scrolling underneath it.
-  const updateFromPointer = useCallback((clientY) => {
-    const container = scrollContainerRef.current;
-    const scrollDelta = container ? container.scrollTop - startScrollTopRef.current : 0;
-    const deltaY = (clientY - startYRef.current) + scrollDelta;
+  // The single place drag position is ever computed, from pointer position
+  // alone — deliberately the exact same shape as before auto-scroll existed
+  // (setDragOffset + steps/target-slot math off one deltaY). Auto-scroll
+  // never adds a competing term here; it only ever moves startYRef (see
+  // tickAutoScroll), so this function can't tell the difference between
+  // "the pointer moved" and "the container scrolled out from under a still
+  // pointer" — which is exactly the point: one formula, always correct.
+  const applyPointerDelta = useCallback((deltaY) => {
     setDragOffset(deltaY);
 
     const rowHeight = rowHeightRef.current || 44;
@@ -143,17 +152,20 @@ export function useReorderableList(items, onReorder) {
 
   // The auto-scroll loop itself: while the pointer sits within
   // AUTO_SCROLL_EDGE px of the container's top/bottom, nudge scrollTop
-  // every frame (speed ramping up closer to the edge), re-run the
-  // position math so the dragged row stays glued to the pointer and
-  // reordering keeps pace, and reschedule. Stops rescheduling itself the
-  // moment the pointer isn't near an edge — pointermove restarts it
-  // (ensureAutoScroll below) the next time it re-enters the zone, so nothing
-  // spins in the background once the drag stops needing to scroll.
+  // every frame (speed ramping up closer to the edge), shift startYRef by
+  // however much the container actually moved (see the comment on
+  // startYRef above), re-run applyPointerDelta so the dragged row stays
+  // glued to the pointer and reordering keeps pace, and reschedule. Stops
+  // rescheduling itself the moment the pointer isn't near an edge —
+  // pointermove restarts it (ensureAutoScroll below) the next time it
+  // re-enters the zone, so nothing spins in the background once the drag
+  // stops needing to scroll.
   //
   // Kept in a ref (rather than referencing `tickAutoScroll` by name inside
   // itself) purely to dodge the temporal-dead-zone error that recursive
-  // self-reference through a `useCallback` binding hits — the rAF callback
-  // always resolves it at call time, once the ref's been assigned below.
+  // self-reference through a `useCallback` binding hits — assigned via the
+  // effect below, which always runs before any drag (a user gesture) could
+  // possibly reach it.
   const tickAutoScrollRef = useRef(null);
   const tickAutoScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -185,10 +197,15 @@ export function useReorderableList(items, onReorder) {
     const after = Math.max(0, Math.min(maxScrollTop, before + speed));
     if (after !== before) {
       container.scrollTop = after;
-      updateFromPointer(y);
+      // The content just moved (after - before)px under a pointer that
+      // hasn't necessarily moved at all — shift the baseline so the next
+      // "clientY - startYRef" in applyPointerDelta already reflects it,
+      // instead of teaching applyPointerDelta a second input to reconcile.
+      startYRef.current -= (after - before);
+      applyPointerDelta(y - startYRef.current);
     }
     autoScrollFrameRef.current = requestAnimationFrame(tickAutoScrollRef.current);
-  }, [updateFromPointer]);
+  }, [applyPointerDelta]);
   useEffect(() => {
     tickAutoScrollRef.current = tickAutoScroll;
   }, [tickAutoScroll]);
@@ -263,9 +280,20 @@ export function useReorderableList(items, onReorder) {
     startYRef.current = e.clientY;
     lastClientYRef.current = e.clientY;
 
-    const scrollContainer = findScrollContainer(e.currentTarget);
-    scrollContainerRef.current = scrollContainer;
-    startScrollTopRef.current = scrollContainer ? scrollContainer.scrollTop : 0;
+    // Resolved once per component instance, not on every drag: this walk
+    // reads scrollHeight/clientHeight up the ancestor chain, which forces a
+    // synchronous layout on each node it checks. Doing that inside every
+    // single pointerdown — the exact handler that has to complete quickly
+    // enough for the browser/OS to recognize a drag gesture rather than a
+    // tap or a scroll — was enough added latency there to make dragging
+    // itself unreliable on-device, even though the logic was otherwise
+    // correct. The list's DOM structure (and therefore its scroll
+    // ancestor) doesn't change between drags, so caching the result is
+    // both cheaper and just as correct.
+    if (!scrollContainerCacheRef.current) {
+      scrollContainerCacheRef.current = findScrollContainer(e.currentTarget);
+    }
+    scrollContainerRef.current = scrollContainerCacheRef.current;
 
     setDragIndex(index);
     setOrderIds(initialOrder);
@@ -276,7 +304,7 @@ export function useReorderableList(items, onReorder) {
     const onMove = (ev) => {
       if (dragIndexRef.current == null) return;
       lastClientYRef.current = ev.clientY;
-      updateFromPointer(ev.clientY);
+      applyPointerDelta(ev.clientY - startYRef.current);
       // Cheap no-op if a scroll is already in flight; (re)starts it the
       // moment the pointer is back within the edge zone otherwise. The
       // loop itself decides speed each frame and stops rescheduling once
@@ -291,7 +319,7 @@ export function useReorderableList(items, onReorder) {
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
-  }, [endDrag, ensureAutoScroll, updateFromPointer]);
+  }, [endDrag, ensureAutoScroll, applyPointerDelta]);
 
   // Keyboard fallback (section 9: reorder without a pointer) — Alt/Option +
   // Arrow Up/Down on a focused handle nudges the row one slot and commits

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
@@ -18,7 +18,8 @@ import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThum
 import { useTour } from '../context/TourContext';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, PlayIcon, PauseIcon } from './TimerIcons';
+import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { useReorderableList } from '../hooks/useReorderableList';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
@@ -1342,6 +1343,15 @@ const WorkoutTracker = () => {
       return prevStatus;
     });
   };
+
+  const {
+    isReordering: isLogReordering,
+    dragIndex: logDragIndex,
+    getRowStyle: getLogRowStyle,
+    startReorderDrag: startLogExerciseDrag,
+    measureRowHeight: measureLogRowHeight,
+    moveByKeyboard: moveLogExerciseByKeyboard,
+  } = useReorderableList(logExercises, setLogExercises);
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
@@ -3426,7 +3436,10 @@ const WorkoutTracker = () => {
                 const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
-                  <div key={exIdx} className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
+                  <div key={exIdx} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
+                  <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
+                  <div className="ex-reorder-full">
+                  <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
                     <div className="ex-card-header">
                       <div className="ex-card-title-group">
                         <span className="ex-indicator-dot"></span>
@@ -3466,15 +3479,29 @@ const WorkoutTracker = () => {
                           🎬 Form Guide
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-delete-exercise-card"
-                        onClick={() => setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx))}
-                        title="Remove Exercise"
-                        style={{ display: 'flex', alignItems: 'center' }}
-                      >
-                        <TrashIcon size={16} />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                          type="button"
+                          className="btn-drag-handle"
+                          onPointerDown={startLogExerciseDrag(exIdx)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowUp') { e.preventDefault(); moveLogExerciseByKeyboard(exIdx, -1); }
+                            if (e.key === 'ArrowDown') { e.preventDefault(); moveLogExerciseByKeyboard(exIdx, 1); }
+                          }}
+                          title="Hold and drag to reorder"
+                          aria-label={`Reorder ${ex.name}`}
+                          style={{ touchAction: 'none' }}
+                        ><DragHandleIcon size={18} /></button>
+                        <button
+                          type="button"
+                          className="btn-delete-exercise-card"
+                          onClick={() => setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx))}
+                          title="Remove Exercise"
+                          style={{ display: 'flex', alignItems: 'center' }}
+                        >
+                          <TrashIcon size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     {exIsBodyweight && (
@@ -3812,6 +3839,24 @@ const WorkoutTracker = () => {
                         ➕ Add Set
                       </button>
                     </div>
+                  </div>
+                  </div>
+                  <div className="ex-reorder-compact">
+                    <div
+                      className={`ex-reorder-compact-row ${logDragIndex === exIdx ? 'ex-reorder-dragging' : ''}`}
+                      ref={exIdx === 0 ? measureLogRowHeight : undefined}
+                    >
+                      <button
+                        type="button"
+                        className="btn-drag-handle"
+                        onPointerDown={startLogExerciseDrag(exIdx)}
+                        aria-label={`Reorder ${ex.name}`}
+                        style={{ touchAction: 'none' }}
+                      ><DragHandleIcon size={16} /></button>
+                      <span className="ex-reorder-compact-name">{ex.name}</span>
+                    </div>
+                  </div>
+                  </div>
                   </div>
                 );
               })}

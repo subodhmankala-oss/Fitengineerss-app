@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
@@ -20,7 +20,8 @@ import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from 
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon } from './TimerIcons';
+import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { useReorderableList } from '../hooks/useReorderableList';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -1272,6 +1273,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const handleLiveRemoveExercise = (exIdx) => {
     setLiveExercises(prev => prev.filter((_, idx) => idx !== exIdx));
   };
+
+  const {
+    isReordering: isLiveReordering,
+    dragIndex: liveDragIndex,
+    getRowStyle: getLiveRowStyle,
+    startReorderDrag: startLiveExerciseDrag,
+    measureRowHeight: measureLiveRowHeight,
+    moveByKeyboard: moveLiveExerciseByKeyboard,
+  } = useReorderableList(liveExercises, setLiveExercises);
 
   const handleSaveLiveSession = async () => {
     if (!selectedClient) return;
@@ -2548,6 +2558,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const handleRemoveExerciseFromEditor = (exIdx) => {
     setEditorExercises(prev => prev.filter((_, idx) => idx !== exIdx));
   };
+
+  const {
+    isReordering: isEditorReordering,
+    dragIndex: editorDragIndex,
+    getRowStyle: getEditorRowStyle,
+    startReorderDrag: startEditorExerciseDrag,
+    measureRowHeight: measureEditorRowHeight,
+    moveByKeyboard: moveEditorExerciseByKeyboard,
+  } = useReorderableList(editorExercises, setEditorExercises);
 
   const handleSendCoachMessage = async () => {
     if (!chatInput.trim() || !selectedClient) return;
@@ -5182,7 +5201,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             const exIsTimed = isTimedExercise(ex.name);
                             const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
                             return (
-                              <div key={exIdx} className="live-logger-exercise-card">
+                              <div key={exIdx} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
+                              <div className={`ex-reorder-morph ${isEditorReordering ? 'is-reordering' : ''}`}>
+                              <div className="ex-reorder-full">
+                              <div className="live-logger-exercise-card">
                                 <div className="live-logger-ex-header">
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                                     <span className="live-logger-ex-name">{ex.name}</span>
@@ -5194,11 +5216,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       🎬 Form Guide
                                     </button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveExerciseFromEditor(exIdx)}
-                                    style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
-                                  ><TrashIcon size={16} /></button>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <button
+                                      type="button"
+                                      className="btn-drag-handle"
+                                      onPointerDown={startEditorExerciseDrag(exIdx)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'ArrowUp') { e.preventDefault(); moveEditorExerciseByKeyboard(exIdx, -1); }
+                                        if (e.key === 'ArrowDown') { e.preventDefault(); moveEditorExerciseByKeyboard(exIdx, 1); }
+                                      }}
+                                      title="Hold and drag to reorder"
+                                      aria-label={`Reorder ${ex.name}`}
+                                      style={{ touchAction: 'none' }}
+                                    ><DragHandleIcon size={18} /></button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveExerciseFromEditor(exIdx)}
+                                      style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
+                                    ><TrashIcon size={16} /></button>
+                                  </div>
                                 </div>
 
                                 <div className="hevy-sets-table">
@@ -5376,6 +5412,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   onClick={() => handleAddSetToExercise(exIdx)}
                                   className="btn-add-set-link live-logger-add-set"
                                 >➕ Add Set</button>
+                              </div>
+                              </div>
+                              <div className="ex-reorder-compact">
+                                <div
+                                  className={`ex-reorder-compact-row ${editorDragIndex === exIdx ? 'ex-reorder-dragging' : ''}`}
+                                  ref={exIdx === 0 ? measureEditorRowHeight : undefined}
+                                >
+                                  <button
+                                    type="button"
+                                    className="btn-drag-handle"
+                                    onPointerDown={startEditorExerciseDrag(exIdx)}
+                                    aria-label={`Reorder ${ex.name}`}
+                                    style={{ touchAction: 'none' }}
+                                  ><DragHandleIcon size={16} /></button>
+                                  <span className="ex-reorder-compact-name">{ex.name}</span>
+                                </div>
+                              </div>
+                              </div>
                               </div>
                             );
                             })}
@@ -5782,7 +5836,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
-                      <div key={exIdx} className="live-logger-exercise-card">
+                      <div key={exIdx} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
+                      <div className={`ex-reorder-morph ${isLiveReordering ? 'is-reordering' : ''}`}>
+                      <div className="ex-reorder-full">
+                      <div className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
@@ -5804,10 +5861,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               🎬 Form Guide
                             </button>
                           </div>
-                          <button
-                            onClick={() => handleLiveRemoveExercise(exIdx)}
-                            style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
-                          ><TrashIcon size={16} /></button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <button
+                              type="button"
+                              className="btn-drag-handle"
+                              onPointerDown={startLiveExerciseDrag(exIdx)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'ArrowUp') { e.preventDefault(); moveLiveExerciseByKeyboard(exIdx, -1); }
+                                if (e.key === 'ArrowDown') { e.preventDefault(); moveLiveExerciseByKeyboard(exIdx, 1); }
+                              }}
+                              title="Hold and drag to reorder"
+                              aria-label={`Reorder ${ex.name}`}
+                              style={{ touchAction: 'none' }}
+                            ><DragHandleIcon size={18} /></button>
+                            <button
+                              onClick={() => handleLiveRemoveExercise(exIdx)}
+                              style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
+                            ><TrashIcon size={16} /></button>
+                          </div>
                         </div>
 
                         {/* Bodyweight/+Weight toggle — push-ups, mountain
@@ -6106,6 +6177,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           onClick={() => handleLiveAddSet(exIdx)}
                           className="btn-add-set-link live-logger-add-set"
                         >➕ Add Set</button>
+                      </div>
+                      </div>
+                      <div className="ex-reorder-compact">
+                        <div
+                          className={`ex-reorder-compact-row ${liveDragIndex === exIdx ? 'ex-reorder-dragging' : ''}`}
+                          ref={exIdx === 0 ? measureLiveRowHeight : undefined}
+                        >
+                          <button
+                            type="button"
+                            className="btn-drag-handle"
+                            onPointerDown={startLiveExerciseDrag(exIdx)}
+                            aria-label={`Reorder ${ex.name}`}
+                            style={{ touchAction: 'none' }}
+                          ><DragHandleIcon size={16} /></button>
+                          <span className="ex-reorder-compact-name">{ex.name}</span>
+                        </div>
+                      </div>
+                      </div>
                       </div>
                     );
                     })}

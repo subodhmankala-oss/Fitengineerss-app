@@ -1351,6 +1351,7 @@ const WorkoutTracker = () => {
     startReorderDrag: startLogExerciseDrag,
     measureRowHeight: measureLogRowHeight,
     moveByKeyboard: moveLogExerciseByKeyboard,
+    getItemKey: getLogItemKey,
   } = useReorderableList(logExercises, setLogExercises);
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
@@ -3436,7 +3437,7 @@ const WorkoutTracker = () => {
                 const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
-                  <div key={exIdx} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
+                  <div key={getLogItemKey(exIdx)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
                   <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
                   <div className="ex-reorder-full">
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>

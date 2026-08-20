@@ -1281,6 +1281,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     startReorderDrag: startLiveExerciseDrag,
     measureRowHeight: measureLiveRowHeight,
     moveByKeyboard: moveLiveExerciseByKeyboard,
+    getItemKey: getLiveItemKey,
   } = useReorderableList(liveExercises, setLiveExercises);
 
   const handleSaveLiveSession = async () => {
@@ -2566,6 +2567,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     startReorderDrag: startEditorExerciseDrag,
     measureRowHeight: measureEditorRowHeight,
     moveByKeyboard: moveEditorExerciseByKeyboard,
+    getItemKey: getEditorItemKey,
   } = useReorderableList(editorExercises, setEditorExercises);
 
   const handleSendCoachMessage = async () => {
@@ -5201,7 +5203,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             const exIsTimed = isTimedExercise(ex.name);
                             const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
                             return (
-                              <div key={exIdx} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
+                              <div key={getEditorItemKey(exIdx)} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
                               <div className={`ex-reorder-morph ${isEditorReordering ? 'is-reordering' : ''}`}>
                               <div className="ex-reorder-full">
                               <div className="live-logger-exercise-card">
@@ -5836,7 +5838,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
-                      <div key={exIdx} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
+                      <div key={getLiveItemKey(exIdx)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
                       <div className={`ex-reorder-morph ${isLiveReordering ? 'is-reordering' : ''}`}>
                       <div className="ex-reorder-full">
                       <div className="live-logger-exercise-card">

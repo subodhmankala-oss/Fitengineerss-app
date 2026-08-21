@@ -2558,6 +2558,17 @@ const databaseService = {
       localStorage.removeItem('userCoachId');
       localStorage.removeItem('userCoachName');
       localStorage.removeItem('userSessionsLimit');
+      // Also clear the program-dates cache — left behind before, so a client
+      // who later reconnects (this coach or a new one) had
+      // WorkoutProgressDashboard's initial render seed itself from the OLD
+      // program_started_on/program_est_completion (see its useState
+      // initializer) until its own DB reconcile overwrote it moments later.
+      // WorkoutTracker.jsx has no such seed (starts null every mount), so the
+      // two screens showed different "Started on"/session-remaining numbers
+      // for that window — read as "the log side shows something different
+      // from the home side."
+      localStorage.removeItem('userProgramStartedOn');
+      localStorage.removeItem('userProgramEstCompletion');
       return { disconnected: true, oldCoachId };
     } catch (e) {
       console.error('checkAndHandleSessionPackageCompletion error:', e);

@@ -636,7 +636,17 @@ const WorkoutTracker = () => {
   // Coach-set program length (clients.total_sessions) for the logged-in client.
   // This is the source of truth for the session total, overriding the legacy
   // mock package counts so the Workout tab matches the client home card.
-  const [coachSetTotalSessions, setCoachSetTotalSessions] = useState(null);
+  // Seeded from the SAME localStorage fast-paint cache WorkoutProgressDashboard
+  // uses (userSessionsLimit) — not just for a faster first paint, but so this
+  // screen and the home card agree from the very first render instead of only
+  // converging once both screens' own DB reconciles land. Before this, this
+  // state started bare `null` every mount (unlike the home card's seeded
+  // state), so the two screens could show different numbers — read as "home
+  // screen shows different sessions than the log side."
+  const [coachSetTotalSessions, setCoachSetTotalSessions] = useState(() => {
+    const cachedLimit = parseInt(localStorage.getItem('userSessionsLimit'), 10);
+    return Number.isFinite(cachedLimit) && cachedLimit > 0 ? cachedLimit : null;
+  });
   // DB-backed completed-session dates (distinct workout_logs dates) for the
   // logged-in client — same source as the home progress card, so the two
   // surfaces agree on "Completed". Kept as the raw distinct dates (not a
@@ -645,8 +655,9 @@ const WorkoutTracker = () => {
   // getTotalSessionsDone — see completedSessionsCount's comment.
   const [dbLogDates, setDbLogDates] = useState(null);
   // Coach-set renewal date (clients.program_started_on) — scopes
-  // completedSessionsCount to the CURRENT program period.
-  const [programStartedOn, setProgramStartedOn] = useState(null);
+  // completedSessionsCount to the CURRENT program period. Same
+  // localStorage-seed reasoning as coachSetTotalSessions above.
+  const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
 
   // Custom templates and plans state
@@ -958,12 +969,29 @@ const WorkoutTracker = () => {
     // matches what the coach configured (and the client home progress card).
     databaseService.getOwnCoachConnection().then(conn => {
       setHasCoachAssigned(conn.connected);
+      // Only ever overwrite the seeded/cached values once the connection read
+      // is actually confirmed (conn.resolved) — an unresolved read is "we
+      // don't know yet", not proof the coach unassigned everything (see
+      // getOwnCoachConnection's own comment on this). Clearing the cache on
+      // an unresolved read previously reset this screen to "no package" —
+      // and immediately went stale relative to the home card, which already
+      // guards the same way — right on the moment this read was most likely
+      // to fail (right after login/reopen, competing with other requests).
+      if (!conn.resolved) return;
       if (conn.connected && Number.isFinite(conn.totalSessions) && conn.totalSessions > 0) {
         setCoachSetTotalSessions(conn.totalSessions);
+        localStorage.setItem('userSessionsLimit', String(conn.totalSessions));
       } else {
         setCoachSetTotalSessions(null);
+        localStorage.removeItem('userSessionsLimit');
       }
-      setProgramStartedOn(conn.connected ? (conn.programStartedOn || null) : null);
+      if (conn.connected && conn.programStartedOn) {
+        setProgramStartedOn(conn.programStartedOn);
+        localStorage.setItem('userProgramStartedOn', conn.programStartedOn);
+      } else {
+        setProgramStartedOn(null);
+        localStorage.removeItem('userProgramStartedOn');
+      }
     }).catch(() => {});
 
     // Completed count = distinct workout_logs dates (identical to the home card).

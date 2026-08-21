@@ -2302,7 +2302,21 @@ const databaseService = {
   // scope check happens server-side regardless of which clients RLS policy
   // set is deployed — no policy changes needed.
   async setClientTotalSessions(clientUserId, totalSessions) {
-    const coachUserId = localStorage.getItem('userId');
+    // Resolve by email (resolveCanonicalUserId) rather than trusting
+    // localStorage.getItem('userId') directly — that cache can be poisoned
+    // with the Supabase auth UID instead of the coach's public.users.id
+    // (see resolveCanonicalUserId's own comment; same class of bug fixed for
+    // getAllUsers/getOwnCoachConnection/resolveCoachUserId elsewhere in this
+    // file). A poisoned id here never throws: it's a syntactically valid
+    // UUID, so it sails past the RPC's own validation but never matches any
+    // clients.coach_id row, so set_client_total_sessions's WHERE clause
+    // updates zero rows and returns success:false — which looked like the
+    // Save button silently doing nothing (the popup already had the coach's
+    // own dashboard rendering correctly off the properly-resolved id, so
+    // nothing else on screen looked wrong). Reported for a client who had
+    // just been reconnected via a fresh invite code, which is exactly when a
+    // stale/poisoned localStorage id is likeliest to still be sitting there.
+    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
     if (!coachUserId || !clientUserId) {
       return { success: false, error: 'Missing coach or client id.' };
     }
@@ -2347,7 +2361,10 @@ const databaseService = {
   // coach↔client relationship is re-checked server-side on every write.
   // Either date may be null to clear it.
   async setClientProgramDates(clientUserId, startedOn, estCompletion) {
-    const coachUserId = localStorage.getItem('userId');
+    // Same poisoned-localStorage-id fix as setClientTotalSessions above —
+    // resolve the coach's real public.users.id instead of trusting the raw
+    // cache, or this RPC's coach_id scope check silently matches zero rows.
+    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
     if (!coachUserId || !clientUserId) {
       return { success: false, error: 'Missing coach or client id.' };
     }

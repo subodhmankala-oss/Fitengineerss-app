@@ -637,10 +637,16 @@ const WorkoutTracker = () => {
   // This is the source of truth for the session total, overriding the legacy
   // mock package counts so the Workout tab matches the client home card.
   const [coachSetTotalSessions, setCoachSetTotalSessions] = useState(null);
-  // DB-backed completed-session count (distinct workout_logs dates) for the
+  // DB-backed completed-session dates (distinct workout_logs dates) for the
   // logged-in client — same source as the home progress card, so the two
-  // surfaces agree on "Completed".
-  const [dbCompletedSessions, setDbCompletedSessions] = useState(null);
+  // surfaces agree on "Completed". Kept as the raw distinct dates (not a
+  // pre-reduced count) so completedSessionsCount below can scope them to the
+  // current program period, same as WorkoutProgressDashboard's
+  // getTotalSessionsDone — see completedSessionsCount's comment.
+  const [dbLogDates, setDbLogDates] = useState(null);
+  // Coach-set renewal date (clients.program_started_on) — scopes
+  // completedSessionsCount to the CURRENT program period.
+  const [programStartedOn, setProgramStartedOn] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
 
   // Custom templates and plans state
@@ -957,6 +963,7 @@ const WorkoutTracker = () => {
       } else {
         setCoachSetTotalSessions(null);
       }
+      setProgramStartedOn(conn.connected ? (conn.programStartedOn || null) : null);
     }).catch(() => {});
 
     // Completed count = distinct workout_logs dates (identical to the home card).
@@ -983,8 +990,8 @@ const WorkoutTracker = () => {
     };
     loadOwnDbLogs().then(({ ownKey, logs }) => {
       const rows = logs || [];
-      setDbCompletedSessions(new Set(rows.map(l => l.log_date)).size);
       const dbDates = new Set(rows.map(l => l.log_date));
+      setDbLogDates(Array.from(dbDates));
 
       if (rows.length > 0) {
         // Group flat log rows into one session per date → { exercises:[{name,sets}] }
@@ -1471,9 +1478,17 @@ const WorkoutTracker = () => {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   // For the logged-in client, "Completed" mirrors the home card's DB-backed
-  // distinct-date count; other (coach-viewed) profiles keep the local count.
-  const completedSessionsCount = (isOwnProfile && dbCompletedSessions != null)
-    ? dbCompletedSessions
+  // distinct-date count, scoped to sessions logged on/after the coach's
+  // program_started_on — same as WorkoutProgressDashboard's
+  // getTotalSessionsDone — so a renewed client's "sessions left" here
+  // matches the home card instead of counting their full lifetime history
+  // against the new package. Without this scoping, a client who had already
+  // logged 12+ lifetime sessions before a renewal read "0 sessions left" /
+  // "Renew Package" here even while the home card correctly showed
+  // "4 of 12" for the current period. Other (coach-viewed) profiles keep the
+  // local count.
+  const completedSessionsCount = (isOwnProfile && dbLogDates != null)
+    ? (programStartedOn ? dbLogDates.filter(d => d >= programStartedOn).length : dbLogDates.length)
     : clientSessions.length;
   const remainingSessionsCount = Math.max(0, activeProfile.totalSessions - completedSessionsCount);
   // A connected client's session package total is only real once the coach has

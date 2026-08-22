@@ -1792,6 +1792,18 @@
      inline on each handle too) keeps the browser from starting a page
      scroll on the first touch move, so vertical drags stay smooth. */
   touch-action: none;
+  /* touch-action: none stops the page from scrolling, but does nothing
+     about iOS/Android's own long-press text-selection gesture — that's
+     driven by user-select/-webkit-touch-callout, a separate mechanism. The
+     very first press of a drag always lands here (reorder mode, and its
+     user-select:none belt-and-suspenders on .ex-reorder-compact-row, only
+     exists *after* the row is already mid-drag), so without this the
+     press-and-hold that's meant to start a drag can instead surface the
+     native selection magnifier/callout over the handle before our
+     pointerdown handler's preventDefault has a chance to matter. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .btn-drag-handle:hover {

@@ -5687,6 +5687,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {/* ─── LIVE SESSION LOGGER TAB ─── */}
               {detailTab === 'livelog' && (
                 <div className="live-logger-container" style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative' }}>
+                  {/* Everything above the exercise list is chrome around the
+                      logger (toast, client/date line, timer, plan config) —
+                      hidden for the duration of an active reorder drag so
+                      the only thing on screen is the list being reordered,
+                      per the coach's explicit ask. isLiveReordering is only
+                      ever true from pointerdown through the drop settle
+                      (useReorderableList), so all of this simply reappears
+                      the instant the drag ends — nothing here changes for
+                      any other flow. */}
+                  {!isLiveReordering && (
+                  <>
                   {/* Toast */}
                   {liveToast && (
                     <div style={{
@@ -5833,6 +5844,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         </div>
                       )}
                     </div>
+                  </>
+                  )}
 
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
@@ -6208,6 +6221,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     })}
                   </div>
 
+                  {/* Same reorder-declutter as the block above the list —
+                      Add Exercise, the Coach note toggle/composer, the
+                      floating rest timer, and the Discard/Save bar all hide
+                      for the duration of an active reorder drag. */}
+                  {!isLiveReordering && (
+                  <>
                   {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
                   <button
                     type="button"
@@ -6236,6 +6255,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   >
                     💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
                   </button>
+                  </>
+                  )}
 
                   {showClockTimer && (
                     <ClockTimerModal onClose={() => setShowClockTimer(false)} />
@@ -6249,7 +6270,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       — otherwise it scrolls away with this panel's own
                       internal scroll instead of staying pinned to the
                       screen. */}
-                  {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
+                  {!isLiveReordering && restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
                     <div
                       key={restPulseKey}
                       className={`rest-timer-floating-card rest-timer-floating-card--coach ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
@@ -6299,11 +6320,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
                     {/* Always mounted (not `showLiveCoachNote &&`) so the
                         toggle can transition smoothly in both directions
-                        instead of popping in/out on mount+unmount. Height is
-                        measured in JS (coachNoteSlideMaxHeight effect above)
-                        rather than animated via CSS grid tracks, which some
-                        browsers don't interpolate at all. See
-                        .coach-note-slide in TrainerDashboard.css. */}
+                        instead of popping in/out on mount+unmount — except
+                        during an active reorder drag, hidden along with the
+                        toggle button above per the same declutter as the
+                        rest of this screen's chrome. Height is measured in
+                        JS (coachNoteSlideMaxHeight effect above) rather than
+                        animated via CSS grid tracks, which some browsers
+                        don't interpolate at all. See .coach-note-slide in
+                        TrainerDashboard.css. */}
+                    {!isLiveReordering && (
                     <div
                       ref={coachNoteSlideRef}
                       className={`coach-note-slide ${showLiveCoachNote ? 'coach-note-slide--open' : ''}`}
@@ -6341,8 +6366,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         />
                       </div>
                     </div>
+                    )}
 
-                  {/* Discard (left) + Save (right) — plain, un-elevated flow,
+                  {!isLiveReordering && (
+                  /* Discard (left) + Save (right) — plain, un-elevated flow,
                       matching the client's own WorkoutTracker save button
                       exactly (see btn-save-workout-session there). This used
                       to raise its own z-index above the pad (see git history
@@ -6356,7 +6383,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       problem because it never elevates this button either —
                       the pad's own opaque background simply covers it like
                       any other content, no dueling stacking. Matched that
-                      here instead of chasing more positioning fixes. */}
+                      here instead of chasing more positioning fixes. */
                   <div ref={liveLogActionBarRef} className="live-log-action-bar" style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
@@ -6395,6 +6422,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       {liveSaving ? '⏳ Saving...' : '💾 Save Workout Session'}
                     </button>
                   </div>
+                  )}
                 </div>
               )}
 

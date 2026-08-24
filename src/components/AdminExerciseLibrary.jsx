@@ -219,8 +219,15 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
     return matchesSearch && matchesCategory;
   });
 
+  // No side padding of its own — the parent (.platform-admin-view /
+  // .admin-content-panel in TrainerDashboard.jsx) already sets the gutter
+  // for this whole tab. Having both left this flush at 0px while the KPI
+  // cards above kept the parent's inset, reported 2026-08-24 ("Total
+  // Clients div is there. The bottom one is not matching them") — one
+  // source of truth for the left/right edge instead of two paddings that
+  // could drift out of sync.
   return (
-    <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0, boxSizing: 'border-box' }}>
       
       {/* Control bar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
@@ -287,7 +294,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
       </div>
 
       {/* Library Table Card */}
-      <div className="glass-panel" style={{
+      <div className="glass-panel admin-exercise-table-card" style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-color)',
         borderRadius: '12px',

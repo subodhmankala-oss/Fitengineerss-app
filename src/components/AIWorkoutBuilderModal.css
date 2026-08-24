@@ -6,6 +6,31 @@
   flex-direction: column;
 }
 
+/* Super-admin desktop frame (class toggled in TrainerDashboard.jsx — see
+   index.css) — this modal was still the 480px mobile card floating in the
+   middle of a much wider screen (reported 2026-08-24: "not desktop made").
+   Widen the card and let the fields that only stacked for lack of room
+   (optional fields, advanced-option chip rows) actually sit side by side. */
+@media (min-width: 900px) {
+  body.admin-wide-frame .ai-builder-modal-card {
+    max-width: 935px;
+  }
+
+  body.admin-wide-frame .ai-optional-fields-row {
+    flex-direction: row;
+  }
+
+  body.admin-wide-frame .ai-optional-fields-row .ai-select,
+  body.admin-wide-frame .ai-optional-fields-row .ai-text-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  body.admin-wide-frame .ai-client-summary-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
 .ai-builder-body {
   display: flex;
   flex-direction: column;

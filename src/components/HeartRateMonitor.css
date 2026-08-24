@@ -1,0 +1,152 @@
+.hr-monitor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-size: 13px;
+  color: var(--text-muted);
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+}
+
+.hr-monitor__icon {
+  flex-shrink: 0;
+}
+
+/* Connect (idle) state — whole widget is a button */
+.hr-monitor--connect {
+  cursor: pointer;
+  color: var(--text-main);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  font: inherit;
+  text-align: left;
+}
+
+.hr-monitor--connect:hover {
+  border-color: var(--primary-accent);
+  background: var(--bg-card-hover);
+}
+
+.hr-monitor--connect .hr-monitor__icon {
+  color: var(--primary-accent-light);
+}
+
+.hr-monitor__error {
+  color: var(--danger);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+/* Connecting state */
+.hr-monitor--connecting {
+  color: var(--text-muted);
+}
+
+.hr-monitor__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-accent-light);
+  animation: hr-monitor-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes hr-monitor-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Live / connected state */
+.hr-monitor--live {
+  border-color: var(--primary-accent);
+  background: linear-gradient(135deg, var(--primary-accent-glow), var(--bg-card));
+}
+
+.hr-monitor--live .hr-monitor__icon {
+  color: var(--danger);
+}
+
+.hr-monitor__icon--pulse {
+  animation: hr-monitor-pulse 1s ease-in-out infinite;
+}
+
+@keyframes hr-monitor-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.hr-monitor__reading {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.hr-monitor__bpm {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.hr-monitor__unit {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hr-monitor__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: auto;
+  text-align: right;
+  font-size: 11px;
+}
+
+.hr-monitor__device {
+  color: var(--text-muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hr-monitor__battery {
+  color: var(--text-subtle);
+}
+
+.hr-monitor__warning {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.hr-monitor--no-contact .hr-monitor__bpm {
+  color: var(--text-muted);
+}
+
+.hr-monitor__disconnect {
+  background: transparent;
+  border: none;
+  color: var(--text-subtle);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.hr-monitor__disconnect:hover {
+  color: var(--danger);
+  background: var(--bg-card-hover);
+}
+
+/* Unsupported browser state — quiet, non-interactive */
+.hr-monitor--unsupported {
+  color: var(--text-subtle);
+  font-size: 12px;
+}

@@ -5,7 +5,7 @@
 // uses, triggered client-side only when the coach explicitly presses
 // "Assign Workout Plan" (see TrainerDashboard.jsx).
 //
-// Uses Groq's free tier (Llama 3.3) via raw REST (OpenAI-compatible chat
+// Uses Groq's free tier (GPT-OSS-120B) via raw REST (OpenAI-compatible chat
 // completions API, no SDK dependency — same pattern as every other external
 // call in this api/ folder) — no billing required, and unlike Gemini's free
 // tier this isn't subject to per-region quota=0 restrictions. Trade-off:
@@ -24,7 +24,7 @@
 // `exercises` slice, rather than duplicating the prompt/validation logic.
 // Not implemented now, per spec — this file only does full-draft generation.
 
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const DRAFT_JSON_SHAPE = `{

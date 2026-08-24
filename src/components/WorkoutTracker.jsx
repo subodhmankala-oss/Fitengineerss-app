@@ -3944,6 +3944,21 @@ const WorkoutTracker = () => {
                 💾 Save Workout Session
               </button>
             </div>
+
+            {/* Reserve room to scroll the list fully clear of the floating
+                rest timer (portaled to .app-container — see its own comment —
+                so it never shrinks this list's scrollHeight on its own).
+                Without this the last exercises and the Save/Discard row stay
+                permanently covered by that overlay for as long as a rest is
+                running, including while reordering — the exact "workout
+                never comes into viewport" complaint. Sized generously above
+                the card's own rendered height (~64px bottom offset for the
+                client tab bar + the card itself) rather than measured, same
+                as this file's other fixed-cap choices (e.g. .ex-reorder-full's
+                max-height). */}
+            {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && (
+              <div aria-hidden="true" style={{ height: 'calc(210px + env(safe-area-inset-bottom, 0px))' }} />
+            )}
           </div>
         </form>
       )}

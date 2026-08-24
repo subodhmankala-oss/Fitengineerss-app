@@ -110,14 +110,24 @@ function captureAnchorTop(anchorEl) {
 // movement caused by *other* rows animating open/closed elsewhere in the
 // list while the user's eyes are still on the row they just dropped.
 function startAnchorCorrection(container, anchorEl, targetTop) {
-  if (!container || !anchorEl || targetTop == null) return;
+  if (!container || !anchorEl || targetTop == null) {
+    // scrollBehavior was forced to 'auto' for the whole drag+settle
+    // lifecycle in startReorderDrag (see the comment there) — this is one
+    // of the two paths (the other being the loop's own end below) that
+    // lifecycle can end on, so it's what has to hand scrolling back to
+    // .main-content's own CSS `scroll-behavior: smooth`.
+    if (container) container.style.scrollBehavior = '';
+    return;
+  }
   const start = now();
   const step = () => {
-    if (!anchorEl.isConnected) return; // row's DOM node is gone — nothing left to anchor to
+    if (!anchorEl.isConnected) { container.style.scrollBehavior = ''; return; } // row's DOM node is gone — nothing left to anchor to
     const drift = anchorEl.getBoundingClientRect().top - targetTop;
     if (drift !== 0) container.scrollTop += drift;
     if (now() - start < SCROLL_ANCHOR_WINDOW_MS) {
       requestAnimationFrame(step);
+    } else {
+      container.style.scrollBehavior = '';
     }
   };
   requestAnimationFrame(step);
@@ -394,6 +404,20 @@ export function useReorderableList(items, onReorder) {
       scrollContainerCacheRef.current = findScrollContainer(e.currentTarget);
     }
     scrollContainerRef.current = scrollContainerCacheRef.current;
+    // .main-content (this container, in the real app) is styled
+    // `scroll-behavior: smooth` for ordinary in-app navigation. Every
+    // frame of auto-scroll (tickAutoScroll) and the post-drop anchor
+    // correction (startAnchorCorrection) writes `scrollTop` directly,
+    // expecting that write to land immediately — under `smooth` it instead
+    // kicks off a new ~300ms CSS scroll animation *every single frame*,
+    // each one retargeting/fighting the last. That's what made dragging
+    // near an edge read as "barely moves, and stalls a few rows in" rather
+    // than a steady scroll: this is forcing instant scrolling for the
+    // whole drag+settle lifecycle. Handed back to the CSS default in
+    // startAnchorCorrection once that lifecycle actually ends (both of its
+    // exit paths reset this), not here, since the correction keeps writing
+    // scrollTop for a while after the drag itself is over.
+    scrollContainerRef.current.style.scrollBehavior = 'auto';
     // For the scroll-anchor correction in endDrag — the wrapper, not the
     // handle button itself, since that's the node whose position on screen
     // is "where the workout the user just moved" visually is.
@@ -484,6 +508,11 @@ export function useReorderableList(items, onReorder) {
     if (settleTimeoutRef.current) window.clearTimeout(settleTimeoutRef.current);
     if (autoScrollFrameRef.current != null) cancelAnimationFrame(autoScrollFrameRef.current);
     document.body.style.userSelect = '';
+    // Hand scroll-behavior back to .main-content's own CSS if this unmounts
+    // mid-drag/mid-correction (see the comment in startReorderDrag) — the
+    // pending startAnchorCorrection rAF loop's own cleanup won't run once
+    // its anchorEl is unmounted along with everything else here.
+    if (scrollContainerRef.current) scrollContainerRef.current.style.scrollBehavior = '';
   }, []);
 
   return { isReordering, dragIndex, getRowStyle, startReorderDrag, measureRowHeight, moveByKeyboard, getItemKey };

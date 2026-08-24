@@ -203,6 +203,22 @@ button {
   padding-top: 0;
 }
 
+/* The super-admin dashboard (TrainerDashboard.jsx, class toggled there) is a
+   desktop screen, not part of the mobile "phone frame" simulation above —
+   let it fill the real viewport instead of sitting in a second, smaller box
+   centered inside the browser window (that's what a fixed max-width here
+   did: a 1320px island with dead space on both sides on any wider monitor).
+   1800px still caps line/table length on an ultra-wide display; anything
+   narrower than that just fills edge to edge. Gated to real desktop widths
+   so a phone browser never gets stretched; below that breakpoint it stays
+   the normal phone frame and the admin view's own CSS falls back to a
+   single column. */
+@media (min-width: 900px) {
+  body.admin-wide-frame .app-container {
+    max-width: min(1800px, 100%);
+  }
+}
+
 /* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)
    block that lived here switched body/#root/.app-container to native `dvh`
    on iOS, meant to fix a gap below a scrolled list in iOS standalone mode.

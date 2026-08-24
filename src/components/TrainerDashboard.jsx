@@ -99,6 +99,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const coachTour = useCoachTour();
   const showDemoClientRow = coachTour.step > 0;
   const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
+  // The app is a fixed-width "phone frame" everywhere else (index.css
+  // --app-max-width: 480px) — deliberately, for the coach/client mobile UI.
+  // subodhmankala@gmail.com is the one account that only ever uses this
+  // dashboard as the super-admin, on desktop, so the whole TrainerDashboard
+  // (My Clients directory, a selected client's detail tabs, and the
+  // Super-Admin tab) widens for them. Regular coach accounts — who this
+  // component also renders for — keep the phone frame untouched.
+  useEffect(() => {
+    document.body.classList.toggle('admin-wide-frame', superAdmin);
+    return () => document.body.classList.remove('admin-wide-frame');
+  }, [superAdmin, viewMode]);
   // Custom on-screen number pad for the Live Log set table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
   // native mobile keyboard entirely.
@@ -2768,18 +2779,70 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
   return (
     <div className="trainer-dashboard-container animate-scale-in">
+      {/* Desktop-only left icon sidebar for the super-admin (Instagram-style
+          app shell — requested 2026-08-24). CSS-only concern: fixed
+          position, hidden below 900px / for every non-superAdmin account
+          (see .admin-shell-sidebar in TrainerDashboard.css), so it changes
+          nothing about the mobile layout or a regular coach's dashboard.
+          Reuses the exact same state/handlers as the header controls below
+          (viewMode, notifOn, handleLogout, ...) — no new functionality,
+          just a second, desktop-only way to reach it. Those header controls
+          stay in the DOM and still work; they're just visually hidden on
+          this same breakpoint so the action isn't offered twice. */}
+      {superAdmin && (
+        <aside className="admin-shell-sidebar">
+          <img src="/logo.png" alt="Fitengineers" className="admin-shell-logo" />
+          <nav className="admin-shell-nav">
+            <button
+              type="button"
+              className={viewMode === 'coach' ? 'active' : ''}
+              onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
+              title="My Clients"
+              aria-label="My Clients"
+            >
+              <span className="admin-shell-icon">👥</span>
+              <span className="admin-shell-label">Clients</span>
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'admin' ? 'active' : ''}
+              onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
+              title="Super-Admin"
+              aria-label="Super-Admin"
+            >
+              <span className="admin-shell-icon">🛡️</span>
+              <span className="admin-shell-label">Admin</span>
+            </button>
+            <button
+              type="button"
+              className={notifOn ? 'active' : ''}
+              onClick={toggleCoachNotifications}
+              title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications'}
+              aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
+            >
+              <span className="admin-shell-icon">🔔</span>
+              <span className="admin-shell-label">Alerts</span>
+            </button>
+          </nav>
+          <button type="button" className="admin-shell-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
+            <span className="admin-shell-icon">⏻</span>
+            <span className="admin-shell-label">Logout</span>
+          </button>
+        </aside>
+      )}
+
       {/* Top Header */}
       <div className="trainer-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img 
-            src="/logo.png" 
-            alt="Fitengineers Logo" 
-            style={{ 
-              height: '42px', 
-              width: 'auto', 
+          <img
+            src="/logo.png"
+            alt="Fitengineers Logo"
+            style={{
+              height: '42px',
+              width: 'auto',
               objectFit: 'contain',
               filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))'
-            }} 
+            }}
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{
@@ -2802,7 +2865,66 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+        {/* Role toggle — lives inline in the header row on desktop (see
+            .role-toggle-bar in TrainerDashboard.css) so it doesn't cost a
+            second near-empty full-width row above the fold; on mobile /
+            narrower widths that same rule wraps it onto its own line below,
+            matching how it always looked before. Super-admin only — coaches
+            never render this. */}
+        {superAdmin && (
+          <div className="role-toggle-bar" style={{
+            display: 'flex',
+            gap: '8px',
+            padding: '4px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '14px',
+          }}>
+            <button
+              onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
+              style={{
+                flex: 1,
+                padding: '11px 16px',
+                borderRadius: '10px',
+                border: 'none',
+                background: viewMode === 'coach' ? 'rgba(16,185,129,0.14)' : 'transparent',
+                color: viewMode === 'coach' ? '#10b981' : 'rgba(148,163,184,0.55)',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+                boxShadow: viewMode === 'coach' ? '0 1px 8px rgba(16,185,129,0.15)' : 'none',
+                letterSpacing: '0.01em',
+              }}
+            >
+              👥 My Clients ({myClientsCount})
+            </button>
+            <button
+              onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
+              style={{
+                flex: 1,
+                padding: '11px 16px',
+                borderRadius: '10px',
+                border: 'none',
+                background: viewMode === 'admin' ? 'rgba(139,92,246,0.14)' : 'transparent',
+                color: viewMode === 'admin' ? '#a78bfa' : 'rgba(148,163,184,0.55)',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+                boxShadow: viewMode === 'admin' ? '0 1px 8px rgba(139,92,246,0.15)' : 'none',
+                letterSpacing: '0.01em',
+              }}
+            >
+              🛡️ Super-Admin
+            </button>
+          </div>
+        )}
+
+        <div className="trainer-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {!superAdmin && onReplayDemoTour && (
             <button
               type="button"
@@ -2854,171 +2976,122 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         </div>
       </div>
 
-      {superAdmin && (
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          padding: '4px',
-          marginBottom: '20px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '14px',
-        }}>
-          <button
-            onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
-            style={{
-              flex: 1,
-              padding: '11px 16px',
-              borderRadius: '10px',
-              border: 'none',
-              background: viewMode === 'coach' ? 'rgba(16,185,129,0.14)' : 'transparent',
-              color: viewMode === 'coach' ? '#10b981' : 'rgba(148,163,184,0.55)',
-              fontSize: '0.88rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              fontFamily: 'inherit',
-              boxShadow: viewMode === 'coach' ? '0 1px 8px rgba(16,185,129,0.15)' : 'none',
-              letterSpacing: '0.01em',
-            }}
-          >
-            👥 My Clients ({myClientsCount})
-          </button>
-          <button
-            onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
-            style={{
-              flex: 1,
-              padding: '11px 16px',
-              borderRadius: '10px',
-              border: 'none',
-              background: viewMode === 'admin' ? 'rgba(139,92,246,0.14)' : 'transparent',
-              color: viewMode === 'admin' ? '#a78bfa' : 'rgba(148,163,184,0.55)',
-              fontSize: '0.88rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              fontFamily: 'inherit',
-              boxShadow: viewMode === 'admin' ? '0 1px 8px rgba(139,92,246,0.15)' : 'none',
-              letterSpacing: '0.01em',
-            }}
-          >
-            🛡️ Super-Admin
-          </button>
-        </div>
-      )}
-
       {viewMode === 'admin' ? (
-        <div className="platform-admin-view animate-scale-in" style={{ margin: '0 -16px', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px' }}>
-            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>Super-Admin Overview</h4>
-            <button 
-              onClick={handleRefresh}
-              disabled={refreshing}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border-color)',
-                color: '#fff',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                fontWeight: 600
-              }}
-            >
-              🔄 Refresh Data
-            </button>
-            {refreshToast && (
-              <div style={{ marginLeft: '12px', color: '#fff', fontSize: '0.85rem', background: 'rgba(0,0,0,0.35)', padding: '6px 10px', borderRadius: '8px', display: 'inline-block' }}>
-                {refreshToast}
-              </div>
-            )}
+        <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 className="admin-overview-title" style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>Super-Admin Overview</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {refreshToast && (
+                <div style={{ color: '#fff', fontSize: '0.85rem', background: 'rgba(0,0,0,0.35)', padding: '6px 10px', borderRadius: '8px', display: 'inline-block' }}>
+                  {refreshToast}
+                </div>
+              )}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid var(--border-color)',
+                  color: '#fff',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                🔄 Refresh Data
+              </button>
+            </div>
           </div>
 
-          {/* Admin Sub-tabs: Total Clients | Total Coaches | Exercises */}
-          <div style={{
-            display: 'flex', gap: '8px', padding: '4px',
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '14px', margin: '0 16px'
-          }}>
-            <button
-              onClick={() => setAdminSubTab('clients')}
-              style={{
-                flex: 1, padding: '11px 16px', borderRadius: '10px', border: 'none',
-                background: adminSubTab === 'clients' ? 'rgba(16,185,129,0.14)' : 'transparent',
-                color: adminSubTab === 'clients' ? '#10b981' : 'rgba(148,163,184,0.55)',
-                fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
-                fontFamily: 'inherit', letterSpacing: '0.01em',
-                boxShadow: adminSubTab === 'clients' ? '0 1px 8px rgba(16,185,129,0.15)' : 'none'
-              }}
-            >
-              👥 Total Clients
-              <span style={{
-                marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
-                color: adminSubTab === 'clients' ? '#10b981' : 'rgba(148,163,184,0.4)'
-              }}>
-                {platformStats.totalActiveClients}
-              </span>
-            </button>
-            <button
-              onClick={() => setAdminSubTab('coaches')}
-              style={{
-                flex: 1, padding: '11px 16px', borderRadius: '10px', border: 'none',
-                background: adminSubTab === 'coaches' ? 'rgba(245,158,11,0.14)' : 'transparent',
-                color: adminSubTab === 'coaches' ? '#f59e0b' : 'rgba(148,163,184,0.55)',
-                fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
-                fontFamily: 'inherit', letterSpacing: '0.01em',
-                boxShadow: adminSubTab === 'coaches' ? '0 1px 8px rgba(245,158,11,0.15)' : 'none'
-              }}
-            >
-              🏅 Total Coaches
-              <span style={{
-                marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
-                color: adminSubTab === 'coaches' ? '#f59e0b' : 'rgba(148,163,184,0.4)'
-              }}>
-                {coachesList.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setAdminSubTab('exercises')}
-              style={{
-                flex: 1, padding: '11px 16px', borderRadius: '10px', border: 'none',
-                background: adminSubTab === 'exercises' ? 'rgba(139,92,246,0.14)' : 'transparent',
-                color: adminSubTab === 'exercises' ? '#a78bfa' : 'rgba(148,163,184,0.55)',
-                fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
-                fontFamily: 'inherit', letterSpacing: '0.01em',
-                boxShadow: adminSubTab === 'exercises' ? '0 1px 8px rgba(139,92,246,0.15)' : 'none'
-              }}
-            >
-              🏋️ Exercise Library
-              <span style={{
-                marginLeft: '8px', fontSize: '0.82rem', fontWeight: 700,
-                color: adminSubTab === 'exercises' ? '#a78bfa' : 'rgba(148,163,184,0.4)'
-              }}>
-                {exerciseCount}
-              </span>
-            </button>
+          {/* KPI stat cards — desktop overview row. One neutral accent
+              (the app's own --primary-accent-light) rather than a color per
+              category, flat rather than glowing — reads as a calm summary
+              strip, not a row of buttons competing for attention. */}
+          <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+            {[
+              { key: 'clients', icon: '👥', label: 'Total Clients', value: platformStats.totalActiveClients },
+              { key: 'coaches', icon: '🏅', label: 'Total Coaches', value: coachesList.length },
+              { key: 'exercises', icon: '🏋️', label: 'Exercise Library', value: exerciseCount },
+            ].map(card => (
+              <button
+                key={card.key}
+                className="admin-kpi-card"
+                onClick={() => setAdminSubTab(card.key)}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start',
+                  textAlign: 'left', padding: '16px 18px', borderRadius: '10px', cursor: 'pointer',
+                  fontFamily: 'inherit', transition: 'background 0.15s, border-color 0.15s',
+                  background: adminSubTab === card.key ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)',
+                  border: '1px solid var(--border-color)',
+                  borderLeftWidth: '2px',
+                  borderLeftColor: adminSubTab === card.key ? 'var(--primary-accent-light)' : 'transparent'
+                }}
+              >
+                <span className="admin-kpi-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(148,163,184,0.7)', letterSpacing: '0.02em' }}>
+                  {card.icon} {card.label}
+                </span>
+                <span className="admin-kpi-value" style={{ fontSize: '1.7rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+                  {card.value}
+                </span>
+              </button>
+            ))}
           </div>
 
-          {/* Sub-tab content */}
-          {adminSubTab === 'exercises' ? (
-            <AdminExerciseLibrary onExerciseCountChange={(count) => setExerciseCount(count)} />
-          ) : adminSubTab === 'coaches' ? (
-            <AdminCoachesList
-              coachesList={coachesList}
-              loadingAdmin={loadingAdmin}
-              onToggleBlock={handleToggleCoachBlock}
-              onViewClients={handleViewCoachClients}
-            />
-          ) : (
-            <AdminClientsList
-              clients={clients}
-              goalFilter={goalFilter}
-              setGoalFilter={setGoalFilter}
-              loadingClients={loadingClients}
-              coachesList={coachesList}
-              onSelectCoachDetails={handleViewCoachClients}
-            />
-          )}
+          {/* Desktop layout: left nav rail + content panel. Collapses to a
+              stacked, horizontally-scrollable tab row on narrow screens —
+              see .admin-nav-content-row in TrainerDashboard.css — this
+              part was never gated to desktop-only, so a real phone/narrow
+              window rendered this fixed-width side-by-side layout too
+              (reported 2026-08-24: "why the design is changed in mobile
+              version"). */}
+          <div className="admin-nav-content-row" style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+            <div className="admin-nav-rail" style={{ width: '180px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '2px', position: 'sticky', top: '16px' }}>
+              {[
+                { key: 'clients', icon: '👥', label: 'Clients' },
+                { key: 'coaches', icon: '🏅', label: 'Coaches' },
+                { key: 'exercises', icon: '🏋️', label: 'Exercise Library' },
+              ].map(nav => (
+                <button
+                  key={nav.key}
+                  onClick={() => setAdminSubTab(nav.key)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
+                    padding: '9px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, transition: 'background 0.15s, color 0.15s',
+                    background: adminSubTab === nav.key ? 'rgba(255,255,255,0.06)' : 'transparent',
+                    color: adminSubTab === nav.key ? '#fff' : 'rgba(148,163,184,0.65)'
+                  }}
+                >
+                  <span>{nav.icon}</span>
+                  <span>{nav.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="admin-content-panel" style={{ flex: 1, minWidth: 0, width: '100%' }}>
+              {adminSubTab === 'exercises' ? (
+                <AdminExerciseLibrary onExerciseCountChange={(count) => setExerciseCount(count)} />
+              ) : adminSubTab === 'coaches' ? (
+                <AdminCoachesList
+                  coachesList={coachesList}
+                  loadingAdmin={loadingAdmin}
+                  onToggleBlock={handleToggleCoachBlock}
+                  onViewClients={handleViewCoachClients}
+                />
+              ) : (
+                <AdminClientsList
+                  clients={clients}
+                  goalFilter={goalFilter}
+                  setGoalFilter={setGoalFilter}
+                  loadingClients={loadingClients}
+                  coachesList={coachesList}
+                  onSelectCoachDetails={handleViewCoachClients}
+                />
+              )}
+            </div>
+          </div>
 
           {/* Coach Client Drill-down Modal — shared by both Coaches and Clients sub-tabs */}
           {drilldownCoach && (
@@ -3820,6 +3893,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 <span style={{ color: '#fff', fontWeight: 600 }}>Manage Client</span>
               </div>
 
+              {/* Desktop split: profile/metrics sidebar (left) + tabs and
+                  their content (right). On mobile this is a no-op — the CSS
+                  grid only activates under body.admin-wide-frame at
+                  min-width:900px, so it stays the original single-column
+                  stack everywhere else. */}
+              <div className="client-detail-body">
+              <div className="client-detail-sidebar">
               {/* Client Profile Title Block */}
               <div className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                 <div 
@@ -4197,7 +4277,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   </div>
                 );
               })()}
+              </div>
 
+              <div className="client-detail-main">
               {/* Tab Navigation */}
               <div className="trainer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <button
@@ -6426,6 +6508,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 </div>
               )}
 
+              </div>
+              </div>
             </div>
           )}
         </>

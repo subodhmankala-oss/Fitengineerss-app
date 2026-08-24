@@ -2702,6 +2702,47 @@
   100% { transform: translateY(100%); }
 }
 
+/* Super-admin desktop frame (class toggled in TrainerDashboard.jsx — see
+   index.css). The full-screen edge-to-edge sheet above is deliberate for
+   mobile (comment at the top of this section) but on a wide desktop
+   screen the same rules stretch a single-column exercise list across the
+   entire monitor — reported 2026-08-24 while checking the other coach
+   modals for the same "still looks like the mobile card" issue. Falls
+   back to a normal centered card, and the list becomes 2 columns so the
+   extra width is actually used instead of just widening empty rows. */
+@media (min-width: 900px) {
+  body.admin-wide-frame .exercise-modal-backdrop {
+    padding: 24px;
+  }
+
+  body.admin-wide-frame .exercise-modal-card {
+    width: 100%;
+    max-width: 935px;
+    height: auto;
+    max-height: 85vh;
+    margin: 0 auto;
+    border-radius: var(--radius-lg, 16px);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    padding: 20px 24px;
+  }
+
+  body.admin-wide-frame .exercise-modal-card.exercise-modal-slide-in {
+    animation: scaleIn var(--transition-spring, 0.25s ease) !important;
+  }
+
+  body.admin-wide-frame .exercise-modal-card.exercise-modal-slide-out {
+    animation: modalFadeOut 0.2s ease !important;
+  }
+
+  body.admin-wide-frame .exercise-presets-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-content: start;
+    gap: 8px;
+  }
+}
+
 @keyframes modalFadeOut {
   0% { opacity: 1; }
   100% { opacity: 0; }

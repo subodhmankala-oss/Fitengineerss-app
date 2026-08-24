@@ -1,5 +1,99 @@
 /* Trainer Dashboard Premium Styling */
 
+/* The Super-Admin tab's KPI cards + left nav rail (added when this tab was
+   first built for desktop) were unconditional fixed-width CSS, not gated
+   to admin-wide-frame — so a real phone, or any window narrower than the
+   900px desktop breakpoint used everywhere else in this file, rendered the
+   same 3-fixed-column grid and fixed-180px-sidebar-next-to-content layout,
+   overflowing/cramping instead of falling back to something usable
+   (reported 2026-08-24: "why the design is changed in mobile version").
+   This is a genuine responsive fallback, not an admin-wide-frame override —
+   it has to hold even for a coach account that somehow reaches this width,
+   and even if admin-wide-frame's own JS toggle hasn't run yet.
+
+   The grid is a flat `repeat(3, 1fr)` (set inline in TrainerDashboard.jsx)
+   — always exactly one row of 3, at every width, per 2026-08-24 ("just
+   keep it inline"); an auto-fit/minmax version tried first was meant to
+   wrap gracefully but instead wrapped 2+1 well before it needed to. What's
+   left here is shrinking the card padding/text so 3 columns actually fit
+   without crowding at phone widths. That earlier attempt's font-size cutoff
+   also had its own breakpoint-mismatch bug (640px still read "too big" at
+   a 682px window) — matching the 900px threshold every other desktop-only
+   rule in this file already uses closes that off for good. */
+@media (max-width: 899px) {
+  .admin-overview-title {
+    font-size: 1rem !important;
+  }
+  .admin-kpi-card {
+    padding: 10px 8px !important;
+    gap: 4px !important;
+  }
+  .admin-kpi-value {
+    font-size: 1.05rem !important;
+  }
+  /* Still "too big" at 0.68rem, and "Exercise Library" (the longest of the
+     3 labels) was wrapping onto 2 lines inside its third of a 3-equal-
+     column row — nowrap + ellipsis reads as a clean truncation instead of
+     a ragged wrap, on top of the smaller size itself. */
+  .admin-kpi-label {
+    font-size: 0.58rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    max-width: 100%;
+  }
+  /* 32px was the desktop gutter, sized to line up with the sidebar/header
+     that only exist at 900px+. On mobile it was just dead space down the
+     left edge of the whole tab — reported 2026-08-24 ("space wasted...
+     need in one line from left"). --screen-gutter (16px) matches every
+     other mobile screen in this file. */
+  .platform-admin-view {
+    padding-left: var(--screen-gutter) !important;
+    padding-right: var(--screen-gutter) !important;
+  }
+}
+@media (max-width: 720px) {
+  .admin-nav-content-row {
+    flex-direction: column !important;
+  }
+  /* Reported 2026-08-24 ("remove the highlighted one from mobile"): this
+     row duplicated the KPI cards above it — both call the same
+     setAdminSubTab(key), so on mobile it was two switchers for the same
+     three tabs. The cards stay (they also carry the counts); this second
+     row is redundant there and gone entirely instead of just resized. */
+  .admin-nav-content-row .admin-nav-rail {
+    display: none !important;
+  }
+  /* The exercise library's search bar + Add button row, and its results
+     table, were forcing this panel (and the whole page, since nothing
+     upstream stopped it) wider than the viewport instead of wrapping/
+     scrolling internally — reported 2026-08-24: "make the workout library
+     within viewport". min-width:0 breaks that shrink-resistance chain;
+     overflow-x:hidden is the backstop in case anything inside still tries
+     to force extra width. */
+  .admin-content-panel {
+    min-width: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Reported 2026-08-24: "remove this blue background and padding" — the
+     card chrome (var(--bg-card)'s lighter/blue-tinted background, 16px
+     padding, rounded border) that reads fine as a contained panel next to
+     a nav rail on desktop just eats width and reads as a stray box at
+     phone size. Flatten it to a plain edge-to-edge list, matching this
+     app's existing pattern for dense mobile lists (see the exercise
+     picker's own "full-screen sheet, not a small card" comment in
+     WorkoutTracker.css). */
+  .admin-exercise-table-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+}
+
 /* Edge-to-edge support: the container has no side gutter, so in the client
    DETAIL view the hero stat cards + program/tab cards span full width. Plain
    text, controls, and dense tab content (tables/forms) re-apply
@@ -63,10 +157,157 @@
 /* Header Section */
 .trainer-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  row-gap: 12px;
   margin-bottom: 20px;
   padding: 0 var(--screen-gutter);
+}
+
+/* The role toggle (super-admin only) is a middle child of .trainer-header —
+   flex-basis:100% forces it onto its own wrapped line by default (matching
+   how it always looked, full-width below the title/icons), and only on
+   real desktop widths, for the wide admin frame, does it shrink back down
+   to sit inline in the header row alongside them. See TrainerDashboard.jsx
+   for why it lives here instead of as its own row unconditionally.
+   .trainer-header-actions (bell/logout) needs its own `order` too — it's
+   the third DOM child but was never given one, so it defaulted to order:0,
+   tying it with the title group and sorting it BEFORE the toggle's order:2
+   on desktop instead of after (bell/logout landing in the middle of the
+   header, toggle stranded out at the far edge — reported 2026-08-24). */
+.role-toggle-bar {
+  flex: 1 1 100%;
+  order: 3;
+}
+.trainer-header-actions {
+  order: 1;
+}
+@media (min-width: 900px) {
+  body.admin-wide-frame .role-toggle-bar {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  /* Must outrank the toggle's desktop order:2 so bell/logout end up past
+     it, flush at the right edge, with the (now compact) toggle sitting
+     just to their left — not the other way around. */
+  body.admin-wide-frame .trainer-header-actions {
+    order: 3;
+  }
+  /* Small, single-line pill buttons instead of the mobile-sized ones that
+     wrapped "My Clients (21)" onto two lines and read as oversized next to
+     the icons beside them. */
+  body.admin-wide-frame .role-toggle-bar button {
+    padding: 6px 12px !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* ==========================================================================
+   Instagram-style app shell: fixed left icon sidebar (requested 2026-08-24)
+   — desktop-only, super-admin-only (.admin-shell-sidebar itself is also
+   conditionally rendered in TrainerDashboard.jsx, only for that account;
+   this display:none is the fallback for every width below the breakpoint).
+   The sidebar duplicates the header's role-toggle/notif/logout controls in
+   a new spot, so those originals are hidden here rather than removed —
+   they're still the ones actually used on mobile and by every coach
+   account, completely untouched.
+   ========================================================================== */
+.admin-shell-sidebar {
+  display: none;
+}
+@media (min-width: 900px) {
+  body.admin-wide-frame .admin-shell-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 84px;
+    padding: 20px 0;
+    background: rgba(10, 14, 23, 0.95);
+    border-right: 1px solid var(--border-color);
+    z-index: 40;
+  }
+
+  body.admin-wide-frame .admin-shell-logo {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.35));
+  }
+
+  body.admin-wide-frame .admin-shell-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+
+  body.admin-wide-frame .admin-shell-nav button,
+  body.admin-wide-frame .admin-shell-logout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 64px;
+    padding: 10px 6px;
+    background: none;
+    border: none;
+    border-radius: 10px;
+    color: rgba(148, 163, 184, 0.65);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  body.admin-wide-frame .admin-shell-nav button:hover,
+  body.admin-wide-frame .admin-shell-logout:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+  }
+
+  body.admin-wide-frame .admin-shell-nav button.active {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+  }
+
+  body.admin-wide-frame .admin-shell-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+
+  body.admin-wide-frame .admin-shell-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+  }
+
+  body.admin-wide-frame .admin-shell-logout {
+    color: #f87171;
+  }
+
+  /* Room for the fixed sidebar so it doesn't sit on top of the header/
+     content — the rest of the frame's own paddings (32px gutters etc.)
+     stack on top of this, same as always. */
+  body.admin-wide-frame .trainer-dashboard-container {
+    padding-left: 84px;
+  }
+
+  /* Now duplicated in the sidebar (Clients/Admin toggle, Alerts, Logout) —
+     hide rather than remove; both still exist and both still work
+     everywhere else (any width below 900px, and for every regular coach
+     account, which never renders the sidebar at all). !important because
+     these are the same two elements the earlier "put the toggle inline in
+     the header" fix gave an explicit `order` and `flex` to in the block
+     above — belt and braces against that specificity fight reopening. */
+  body.admin-wide-frame .role-toggle-bar,
+  body.admin-wide-frame .trainer-header-actions {
+    display: none !important;
+  }
 }
 
 .trainer-title-group h3 {
@@ -1035,4 +1276,151 @@
   to { opacity: 1; transform: translateX(0); }
 }
 .awaiting-slide-next { animation: awaitingSlideInNext 0.3s ease-out; }
+
+/* ==========================================================================
+   Super-Admin desktop overrides
+   Scoped to `body.admin-wide-frame` (toggled in TrainerDashboard.jsx only
+   for subodhmankala@gmail.com — see index.css for the frame-width rule this
+   pairs with) and to real desktop widths, so a phone browser and every
+   regular coach account keep the untouched mobile layout below. This only
+   re-flows components that were built to stretch full-width on a 480px
+   frame (tab bars, the role toggle) or that read as sparse rather than
+   deliberate at 1300px (the metrics grid); nothing else in this file changes.
+   ========================================================================== */
+@media (min-width: 900px) {
+  /* Matches the 32px gutter given to the views below, so the header/toggle
+     row lines up with the table/card edges instead of sitting 16px more
+     inset than everything under it. */
+  body.admin-wide-frame .trainer-header {
+    padding-top: 12px;
+    padding-left: 32px;
+    padding-right: 32px;
+    /* Was 20px, sized for the mobile layout where the toggle used to wrap
+       onto its own row below and needed the breathing room; the role
+       toggle/notif/logout that used to fill this row's right side now
+       live in the left icon sidebar instead (Instagram-shell rules
+       above), so this row is just the logo/title now — reported
+       2026-08-24 as still "wasting a lot of space on top" even after the
+       first pass, because a WIDE empty row reads as more dead space than
+       its actual height. Squeezed down as far as it'll go without
+       clipping the logo. */
+    margin-bottom: 0;
+  }
+
+  /* Trims the same "sized for mobile's stacked rows" margin down the rest
+     of the client detail header chain, so the tabs sit right under the
+     toggle instead of several stacked 16-24px gaps down. */
+  body.admin-wide-frame .dashboard-breadcrumb {
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+  body.admin-wide-frame .client-detail-header {
+    margin-bottom: 12px !important;
+  }
+  body.admin-wide-frame .client-metrics-grid {
+    margin-bottom: 12px !important;
+  }
+
+  /* Same "wide + empty reads as wasted" row on the Super-Admin tab — its
+     own title/Refresh-Data row sits directly under the header with no
+     breadcrumb in between, so it only needed the container's own top
+     padding trimmed, not a margin fix. */
+  body.admin-wide-frame .trainer-dashboard-container {
+    padding-top: 8px;
+  }
+
+  /* Instagram's desktop content column (935px), centered — settled on
+     2026-08-24 after the wider 1600px version still read as one big
+     stretched box rather than a deliberate desktop layout. */
+  body.admin-wide-frame .client-directory-view,
+  body.admin-wide-frame .client-detail-view {
+    max-width: 935px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  body.admin-wide-frame .search-filter-box {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  body.admin-wide-frame .trainer-search-input {
+    max-width: 360px;
+  }
+
+  body.admin-wide-frame .trainer-tabs {
+    max-width: 640px;
+  }
+
+  body.admin-wide-frame .trainer-tab-btn {
+    flex-direction: row;
+    flex: 0 1 auto;
+    gap: 6px;
+    padding: 10px 18px;
+    font-size: 0.85rem;
+  }
+
+  /* Client detail: profile/metrics sidebar (left) + tabs and their content
+     (right). Fixed 380px, then a proportional 40/60 split (2fr 3fr divides
+     the space left after the gap exactly 40:60, unlike a literal 40%/60%
+     which would overflow by the gap's width). */
+  body.admin-wide-frame .client-detail-body {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  body.admin-wide-frame .client-detail-sidebar {
+    position: sticky;
+    top: 16px;
+  }
+
+  body.admin-wide-frame .client-detail-sidebar .client-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  body.admin-wide-frame .client-detail-sidebar .metric-mini-card {
+    padding: 14px 12px;
+  }
+
+  body.admin-wide-frame .client-detail-main .trainer-tabs {
+    max-width: none;
+  }
+
+  /* Workout History's stat row (Monthly Volume/Sets/Completed/Calories) —
+     was 3 columns wrapping the 4th card onto its own near-empty row.
+     Compact fixed-width columns, edge to edge, so all 4 sit inline;
+     minmax(0,1fr) rather than a fixed px ceiling so they actually reach the
+     row's right edge instead of leaving space unused (2026-08-24 follow-up:
+     the first version capped each card at 200px and still left a gap). */
+  body.admin-wide-frame .client-detail-main .stats-row-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* The 4th card carries an inline gridColumn:'1 / -1' from a mobile-only
+     fix (WorkoutProgressDashboard.jsx) that made it span the full row alone
+     on the old 3-column grid — exactly the wrap this override is meant to
+     undo. An inline style beats any CSS specificity, so this needs
+     !important to actually win. */
+  body.admin-wide-frame .client-detail-main .stats-row-cards .stat-card {
+    grid-column: auto !important;
+  }
+
+  /* The "Create/Edit Workout Plan" editor (plans tab, .plan-editor-card in
+     TrainerDashboard.jsx) isn't a modal — it's inline content, so it
+     already inherited the wide main column; unlike this file's other
+     overrides it isn't fixing broken/stretched layout (the set table's
+     columns are already fr-based, so they scale cleanly). This just caps
+     it at a normal form-reading width instead of a plan-name input or
+     "Also assign to" chip row stretching edge to edge at 1200px+. */
+  body.admin-wide-frame .plan-editor-card {
+    max-width: 935px;
+  }
+}
 .awaiting-slide-prev { animation: awaitingSlideInPrev 0.3s ease-out; }

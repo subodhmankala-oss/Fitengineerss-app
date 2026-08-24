@@ -1226,7 +1226,18 @@ const WorkoutTracker = () => {
           databaseService.saveWorkoutDraft({
             userId: ownUserId,
             coachId: null,
-            source: workoutSource,
+            // Always 'self' here, never workoutSource: this component only
+            // ever renders for the logged-in client logging their own
+            // session (coach live-logging is a separate path in
+            // TrainerDashboard.jsx that saves source: 'coach' explicitly).
+            // workoutSource instead tracks who *authored the plan* being
+            // followed ('coach' for a coach-assigned template) and is used
+            // for the saved session's source field, not for who's live-
+            // logging. Reusing it here made picking a coach-assigned plan
+            // mislabel the draft as coach-logged, so a client logging their
+            // own workout from a coach's plan saw "Your coach is logging a
+            // session for you" on their dashboard. BUG FIX (2026-08-24).
+            source: 'self',
             planName: templateName,
             logDate,
             exercises: logExercises,

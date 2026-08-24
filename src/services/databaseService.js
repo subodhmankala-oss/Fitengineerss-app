@@ -398,6 +398,34 @@ async function getWorkoutLogsViaServer(userId) {
   }
 }
 
+// RLS-proof workout_drafts read via api/get-workout-draft.js (data-read.js's
+// 'workout-draft' resource) — see saveWorkoutDraftViaServer's comment below
+// for why this pairs with it. Returns the raw DB row (or null), or null on
+// any failure; never throws.
+async function getWorkoutDraftViaServer(userId) {
+  try {
+    const { headers, email } = await serverFallbackAuth();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch('/api/get-workout-draft', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId, email }),
+        signal: controller.signal
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json().catch(() => null);
+      return data?.draft || null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('getWorkoutDraftViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
 // RLS-proof workout_logs write via api/save-workout-session.js — see that
 // file's comment. Returns true on success, false on any failure (caller
 // decides how to surface that; never throws).
@@ -432,6 +460,38 @@ async function saveWorkoutLogsViaServer(records) {
     }
   } catch (e) {
     console.error('saveWorkoutLogsViaServer failed:', e?.name === 'AbortError' ? 'timed out after 20s' : (e?.message || e));
+    return false;
+  }
+}
+
+// RLS-proof workout_drafts write via api/save-workout-draft.js — see that
+// file's comment. `record` is already in DB column shape (as built by
+// saveWorkoutDraft below). Returns true on success, false on any failure
+// (caller decides how to surface that; never throws).
+async function saveWorkoutDraftViaServer(record) {
+  try {
+    const { headers, email } = await serverFallbackAuth();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const resp = await fetch('/api/save-workout-draft', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ record, email }),
+        signal: controller.signal
+      });
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => '');
+        console.error('saveWorkoutDraftViaServer: /api/save-workout-draft',
+          resp.status, body.slice(0, 300), '| sent auth:', !!headers.Authorization);
+        return false;
+      }
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.error('saveWorkoutDraftViaServer failed:', e?.name === 'AbortError' ? 'timed out after 8s' : (e?.message || e));
     return false;
   }
 }
@@ -3240,51 +3300,67 @@ const databaseService = {
   // a live "what's open right now" table, never history.
   async saveWorkoutDraft(draft) {
     if (!isSupabaseConfigured || !supabase || !draft?.userId) return;
+    const record = {
+      user_id: draft.userId,
+      coach_id: draft.coachId || null,
+      source: draft.source === 'coach' ? 'coach' : 'self',
+      plan_name: draft.planName || null,
+      log_date: draft.logDate || null,
+      exercises: draft.exercises || [],
+      timer_status: draft.timerStatus || 'idle',
+      timer_started_at: draft.timerStartedAt ?? null,
+      pause_intervals: draft.pauseIntervals || [],
+      updated_at: new Date().toISOString()
+    };
     try {
-      const record = {
-        user_id: draft.userId,
-        coach_id: draft.coachId || null,
-        source: draft.source === 'coach' ? 'coach' : 'self',
-        plan_name: draft.planName || null,
-        log_date: draft.logDate || null,
-        exercises: draft.exercises || [],
-        timer_status: draft.timerStatus || 'idle',
-        timer_started_at: draft.timerStartedAt ?? null,
-        pause_intervals: draft.pauseIntervals || [],
-        updated_at: new Date().toISOString()
-      };
       // Raw PostgREST (restUpsert) instead of supabase.from() — same
       // SDK-hang bypass as everywhere else in this file.
       await restUpsert('workout_drafts', record, 'user_id');
     } catch (e) {
       console.error('Cloud DB Save Workout Draft Error:', e);
+      // workout_drafts' live INSERT policy turned out to be auth.uid()-based
+      // rather than the permissive one sql/lock_down_reads.sql describes —
+      // same drift documented for workout_logs (see save-workout-session.js)
+      // — so the client-side upsert above 42501s every time. Fall back to
+      // the service-role-backed endpoint rather than silently dropping the
+      // draft; without this, the Home tab's "resume workout" banner never
+      // had anything to read back. Confirmed 2026-08-24.
+      await saveWorkoutDraftViaServer(record);
     }
   },
 
   async getWorkoutDraft(userId) {
     if (!isSupabaseConfigured || !userId) return null;
+    const normalize = (row) => !row ? null : {
+      userId: row.user_id,
+      coachId: row.coach_id,
+      source: row.source,
+      planName: row.plan_name,
+      logDate: row.log_date,
+      exercises: row.exercises || [],
+      timerStatus: row.timer_status || 'idle',
+      timerStartedAt: row.timer_started_at ?? null,
+      pauseIntervals: row.pause_intervals || [],
+      updatedAt: row.updated_at
+    };
     try {
       const rows = await restSelect(
         `workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`
       );
       const row = Array.isArray(rows) ? rows[0] : null;
-      if (!row) return null;
-      return {
-        userId: row.user_id,
-        coachId: row.coach_id,
-        source: row.source,
-        planName: row.plan_name,
-        logDate: row.log_date,
-        exercises: row.exercises || [],
-        timerStatus: row.timer_status || 'idle',
-        timerStartedAt: row.timer_started_at ?? null,
-        pauseIntervals: row.pause_intervals || [],
-        updatedAt: row.updated_at
-      };
+      if (row) return normalize(row);
     } catch (e) {
       console.error('Cloud DB Get Workout Draft Error:', e);
-      return null;
     }
+    // A null/errored result here doesn't prove "no draft" — RLS silently
+    // returns zero rows on a stale/expired bearer instead of throwing, the
+    // same asymmetry saveWorkoutDraft's write-side fallback above exists
+    // for. Confirm via the service-role-backed read before believing it;
+    // without this, a draft that only ever reached the DB through that
+    // fallback (RLS blocking the direct upsert) could still read back empty
+    // here, leaving the Home tab's "resume workout" banner missing even
+    // though the draft genuinely exists. Confirmed 2026-08-24.
+    return normalize(await getWorkoutDraftViaServer(userId));
   },
 
   // For the coach's own home/client-list screen: every session currently

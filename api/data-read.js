@@ -285,11 +285,83 @@ async function handleLookupProfile(req, res) {
   }
 }
 
+// ─── get-workout-draft (workout_drafts read) ───
+// Same RLS-drift story as the write side (see api/save-workout-draft.js):
+// workout_drafts_select in the repo's sql/lock_down_reads.sql reads
+// `user_id = current_app_user_id() OR coach_id = current_app_user_id()`,
+// but the client's own restSelect() (anon key + caller's bearer token) can
+// end up seeing zero rows for the exact same reasons workout_logs/
+// workout_plans reads already needed this service-role-backed fallback —
+// a stale/expired bearer never surfaces as an error (RLS silently returns
+// []), so the Home tab's "resume workout" banner looked like there was
+// simply no draft, even once one existed in the DB. Confirmed 2026-08-24.
+async function handleWorkoutDraft(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+
+  const { userId } = req.body || {};
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId || '');
+  if (!isUuid) return res.status(400).json({ error: 'userId must be a UUID' });
+
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) {
+    return res.status(401).json({ error: 'Could not verify your session.' });
+  }
+
+  try {
+    const ownerResp = await fetch(
+      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&select=email`,
+      { headers: svcHeaders }
+    );
+    const ownerRows = await ownerResp.json().catch(() => []);
+    const ownerEmail = (Array.isArray(ownerRows) && ownerRows[0]?.email || '').trim().toLowerCase();
+    const isOwnDraft = !!ownerEmail && ownerEmail === verifiedEmail;
+    const isSuperAdmin = verifiedEmail === 'subodhmankala@gmail.com';
+
+    let isClientsOwnCoach = false;
+    if (!isOwnDraft && !isSuperAdmin) {
+      const clientRows = await fetch(
+        `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(userId)}&select=coach_id`,
+        { headers: svcHeaders }
+      ).then(r => r.json()).catch(() => []);
+      const coachId = Array.isArray(clientRows) && clientRows[0]?.coach_id;
+      if (coachId) {
+        const coachUserRows = await fetch(
+          `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(coachId)}&select=email`,
+          { headers: svcHeaders }
+        ).then(r => r.json()).catch(() => []);
+        const coachEmail = (Array.isArray(coachUserRows) && coachUserRows[0]?.email || '').trim().toLowerCase();
+        isClientsOwnCoach = !!coachEmail && coachEmail === verifiedEmail;
+      }
+    }
+
+    if (!isOwnDraft && !isSuperAdmin && !isClientsOwnCoach) {
+      return res.status(403).json({ error: 'You are not authorized to read this data.' });
+    }
+
+    const resp = await fetch(
+      `${supabaseUrl}/rest/v1/workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
+      { headers: svcHeaders }
+    );
+    const data = await resp.json().catch(() => []);
+    if (!resp.ok) {
+      console.error('get-workout-draft failed:', resp.status, data);
+      return res.status(502).json({ error: 'Failed to read workout draft.' });
+    }
+    return res.status(200).json({ draft: (Array.isArray(data) && data[0]) || null });
+  } catch (err) {
+    console.error('get-workout-draft error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to read workout draft.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
   'workout-plans': handleWorkoutPlans,
-  'profile': handleLookupProfile
+  'profile': handleLookupProfile,
+  'workout-draft': handleWorkoutDraft
 };
 
 export default async function handler(req, res) {

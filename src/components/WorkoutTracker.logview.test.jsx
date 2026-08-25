@@ -8,12 +8,19 @@ vi.mock('../services/databaseService', () => {
     getDefaultWorkoutTemplates: vi.fn().mockResolvedValue([]),
     getGenericWorkoutsByLevel: vi.fn().mockResolvedValue([]),
     getWorkoutPlansForUser: vi.fn().mockResolvedValue([]),
-    getOwnCoachConnection: vi.fn().mockResolvedValue({ connected: false }),
+    getOwnCoachConnection: vi.fn().mockResolvedValue({ connected: false, resolved: true }),
     resolveUserId: vi.fn().mockResolvedValue('u1'),
     getWorkoutLogsForUser: vi.fn().mockResolvedValue([]),
     getExerciseLibrary: vi.fn().mockResolvedValue([]),
     saveWorkoutSession: vi.fn().mockResolvedValue(undefined),
     saveWorkoutPlan: vi.fn().mockResolvedValue(undefined),
+    // WorkoutTracker's debounced draft-autosave effect fires ~1.2s after
+    // mount whenever a logging session is active (every test here seeds one
+    // via seedActiveDraft) — without these, a test that awaits past that
+    // window (findByText's default timeout) hits the real setTimeout,
+    // calling these as undefined and crashing with "is not a function".
+    getWorkoutDraft: vi.fn().mockResolvedValue(null),
+    saveWorkoutDraft: vi.fn().mockResolvedValue(undefined),
     BUILTIN_TEMPLATES: []
   };
   return { __esModule: true, default: svc, isTrainer: () => false };
@@ -21,6 +28,12 @@ vi.mock('../services/databaseService', () => {
 
 import WorkoutTracker from './WorkoutTracker';
 import databaseService from '../services/databaseService';
+import { TourProvider } from '../context/TourContext';
+
+// WorkoutTracker calls useTour() (spotlight walkthrough state), which throws
+// outside a TourProvider — render through this helper instead of the bare
+// component everywhere below.
+const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
 
 const DRAFT_KEY = 'workoutDraft_u1';
 
@@ -50,7 +63,7 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
     localStorage.clear();
     localStorage.setItem('userName', 'TestClient');
     localStorage.setItem('userId', 'u1');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: false });
+    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: false, resolved: true });
     databaseService.getWorkoutLogsForUser.mockResolvedValue([]);
   });
   afterEach(() => {
@@ -61,7 +74,7 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
 
   it('shows the client-friendly header, not the old coach-notebook copy', async () => {
     seedActiveDraft();
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
     expect(screen.queryByText('📝 Log New Workout Session')).toBeNull();
     expect(screen.queryByText(/directly from client notebooks/i)).toBeNull();
@@ -69,11 +82,11 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
 
   it('hides the billing/renewal box while the client still has plenty of sessions left', async () => {
     localStorage.setItem('userCoachId', 'coach-1');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, totalSessions: 20 });
+    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 20 });
     databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4)); // 16 left
     seedActiveDraft();
 
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     await screen.findByText("🏋️ Today's Workout");
     // Give the async coach-connection + logs effects time to settle.
     await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
@@ -83,11 +96,11 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
 
   it('shows the renewal box only when the connected client is nearly out of sessions', async () => {
     localStorage.setItem('userCoachId', 'coach-1');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, totalSessions: 20 });
+    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 20 });
     databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(18)); // 2 left (<= 3)
     seedActiveDraft();
 
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     await screen.findByText("🏋️ Today's Workout");
     expect(await screen.findByText(/Renew Package/i)).toBeTruthy();
     expect(screen.getByText(/Only 2 sessions left/i)).toBeTruthy();
@@ -98,10 +111,10 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
     // split renders. userGoal is what the client picked in the wizard.
     localStorage.setItem('userCoachId', 'coach-1');
     localStorage.setItem('userGoal', 'Muscle Building');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, totalSessions: 20 });
+    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 20 });
     databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4));
 
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     // Label is reframed as the client's goal, and the value is their real choice.
     expect(await screen.findByText('My Goal')).toBeTruthy();
     expect(screen.getByText('Muscle Building')).toBeTruthy();
@@ -113,10 +126,10 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
     localStorage.setItem('userCoachId', 'coach-1');
     localStorage.setItem('userGoal', 'Gut Health');
     // Connected to a coach, but no total_sessions assigned yet.
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, totalSessions: 0 });
+    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 0 });
     databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4));
 
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     // Accounting split renders (client is connected), and the remaining count is
     // "Unassigned" rather than "N left" off a random mock package total.
     expect(await screen.findByText('Unassigned')).toBeTruthy();
@@ -128,10 +141,10 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
   it('shows the coach-assigned total when the coach HAS set a session count', async () => {
     localStorage.setItem('userCoachId', 'coach-1');
     localStorage.setItem('userGoal', 'Muscle Building');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, totalSessions: 24 });
+    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 24 });
     databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4)); // 20 left
 
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     expect(await screen.findByText('4 / 24')).toBeTruthy();
     expect(screen.getByText('20 left')).toBeTruthy();
     expect(screen.queryByText('Unassigned')).toBeNull();

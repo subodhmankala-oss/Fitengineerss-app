@@ -97,6 +97,20 @@ async function resolveBearerToken() {
   return cachedAccessToken || supabaseAnonKey;
 }
 
+// Exported wrapper around resolveBearerToken for callers OUTSIDE this file
+// that need a real signed-in user's access token — same safe, never-hangs
+// expiry-check-and-refresh, but returns null instead of falling back to the
+// anon key, since a caller asking for "the user's token" needs to tell "no
+// real session" apart from "here's a token" (the anon key would satisfy
+// neither and silently masquerade as a real one). Added 2026-08-25 so
+// Onboarding.jsx's coach-apply-via-Google-session flow could stop calling
+// supabase.auth.getSession() directly — see connectClientToCoach's comment
+// above for why that call is unsafe anywhere in this app.
+export async function resolveRealAccessToken() {
+  const token = await resolveBearerToken();
+  return (token && token !== supabaseAnonKey) ? token : null;
+}
+
 // ─── RAW TOKEN REFRESH (SDK-hang bypass) ───
 // cachedAccessToken above is set once per onAuthStateChange event and never
 // updates itself in between — there's no timer refreshing it, and the SDK's
@@ -3686,6 +3700,31 @@ const databaseService = {
     }
   },
 
+  // Coach-login lookup: the full coaches row for a just-authenticated
+  // user_id (is_blocked check, coach.id for userCoachId, etc.) and, when
+  // ensureAdminRow is true, auto-creates an approved row for the super-admin
+  // account if one doesn't exist yet. Raw PostgREST (restSelect/restInsert),
+  // not supabase.from() — this used to be a raw SDK call sitting directly on
+  // Onboarding.jsx's coach sign-in success path, unguarded by any dev-only
+  // flag, immediately after a fresh sign-in (exactly when a token refresh is
+  // plausible) — the same SDK-hang risk documented throughout this file,
+  // just reached on every single coach login instead of an edge case. A hang
+  // here left the login button spinning forever with no error. Confirmed and
+  // fixed 2026-08-25.
+  async getCoachRecordByUserId(userId, { ensureAdminRow = false } = {}) {
+    if (!userId || !isSupabaseConfigured) return null;
+    const rows = await restSelect(`coaches?user_id=eq.${encodeURIComponent(userId)}&select=*`);
+    let record = Array.isArray(rows) && rows[0] ? rows[0] : null;
+    if (!record && ensureAdminRow) {
+      record = await restUpsert('coaches', {
+        user_id: userId,
+        status: 'approved',
+        brand_name: 'Admin Fitness'
+      }, 'user_id');
+    }
+    return record;
+  },
+
   async getAllCoaches() {
     if (isSupabaseConfigured && supabase) {
       try {
@@ -4769,11 +4808,23 @@ const databaseService = {
     let clientId = await resolveCanonicalUserId();
 
     // If still unresolved (no cached userId AND no userEmail), fall back to the
-    // auth session's EMAIL — again, the email, not the auth uid.
+    // auth session's EMAIL — again, the email, not the auth uid. Reads the
+    // persisted session directly (same helper resolveBearerToken/
+    // refreshAccessTokenRaw use) rather than supabase.auth.getSession() —
+    // this file's own top comment warns that calling any supabase.auth.*
+    // session method from inside a helper like this reintroduces the SDK's
+    // token-refresh hang, since getSession() can trigger the same stuck
+    // refresh restSelect/resolveBearerToken were built specifically to
+    // avoid. A client landing in this exact fallback (no cached userId AND
+    // no cached userEmail — e.g. a fresh install or cleared storage) would
+    // have hung here indefinitely with no timeout and no error, leaving
+    // "Connect to Coach" stuck on whatever loading state called it. Confirmed
+    // 2026-08-25 — this call violated the very rule documented at the top of
+    // this file.
     if (!clientId && isSupabaseConfigured && supabase) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const authEmail = (session?.user?.email || '').trim().toLowerCase();
+        const stored = readStoredSupabaseSession();
+        const authEmail = (stored?.session?.user?.email || '').trim().toLowerCase();
         if (authEmail) {
           const rows = await restSelect(`users?email=eq.${encodeURIComponent(authEmail)}&select=id`);
           clientId = (Array.isArray(rows) && rows[0]?.id) ? rows[0].id : null;

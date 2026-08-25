@@ -663,6 +663,23 @@ const WorkoutTracker = () => {
   // Custom templates and plans state
   const [isLoggingWorkout, setIsLoggingWorkout] = useState(!!savedWorkoutDraft);
 
+  // SetNumberPad is rendered once, unconditionally, at the bottom of this
+  // component's JSX — it isn't scoped inside the `activeView === 'log' &&
+  // isLoggingWorkout` block that's the only place Kg/Reps/Km/Time fields
+  // actually call registerSetField. Switching to the Progress or Workouts
+  // tab (or discarding/saving the in-progress session) while the pad is
+  // open used to leave it floating over whatever's now on screen: nothing
+  // ever closed it, and its registry entry stops being refreshed the moment
+  // the row that owns it stops rendering, so the pad also shows a frozen
+  // value while any typing still silently mutates the (now invisible) set
+  // in the background — the exact "always fresh, never stale" guarantee
+  // documented in utils/setInputUtils.js broken by simply switching tabs.
+  // Confirmed 2026-08-25.
+  useEffect(() => {
+    if (activeView !== 'log' || !isLoggingWorkout) closeSetField();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, isLoggingWorkout]);
+
   // First-login spotlight tour — advance the shared step whenever the real
   // navigation state it's watching for actually changes. See TourOverlay.jsx
   // for what each step highlights.

@@ -480,6 +480,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [clientPlans, setClientPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [showPlanEditor, setShowPlanEditor] = useState(false);
+  // SetNumberPad (registerLiveSetField's registry) is rendered once,
+  // unconditionally, at the bottom of this component — but the Kg/Reps/Km/
+  // Time fields that call registerLiveSetField only render inside the plan
+  // editor (detailTab 'plans' + showPlanEditor) or the Live Log tab
+  // (detailTab 'livelog'). Switching clients, switching detailTab, or
+  // closing the plan editor while the pad was open used to leave it
+  // floating over whatever's now on screen — same bug as, and fixed the
+  // same way as, WorkoutTracker.jsx's client-side pad. Its registry entry
+  // also stops refreshing the moment the row that owns it stops rendering,
+  // so it shows a frozen value while typing still silently mutates the
+  // (now invisible) set underneath. Confirmed 2026-08-25.
+  useEffect(() => {
+    const padOwningSectionActive = detailTab === 'livelog' || (detailTab === 'plans' && showPlanEditor);
+    if (!selectedClient || !padOwningSectionActive) closeLiveSetField();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClient, detailTab, showPlanEditor]);
   const [editingPlan, setEditingPlan] = useState(null);
   const [editorPlanName, setEditorPlanName] = useState('');
   const [editorExercises, setEditorExercises] = useState([]);

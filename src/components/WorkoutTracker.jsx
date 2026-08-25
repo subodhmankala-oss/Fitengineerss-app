@@ -6,7 +6,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -1438,6 +1438,17 @@ const WorkoutTracker = () => {
     });
   };
 
+  // Reordering permutes logExercises without touching setTimers, which is
+  // keyed purely by array position — remap alongside every reorder so a
+  // running cardio/timed stopwatch stays attached to the set it actually
+  // belongs to instead of silently reattaching to whatever now sits at its
+  // old index. See remapSetTimersForReorder's comment in liveWorkoutTimer.js.
+  const handleLogExercisesReordered = useCallback((newOrder) => {
+    setSetTimers(prev => remapSetTimersForReorder(logExercises, newOrder, prev));
+    setLogExercises(newOrder);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logExercises]);
+
   const {
     isReordering: isLogReordering,
     dragIndex: logDragIndex,
@@ -1446,7 +1457,7 @@ const WorkoutTracker = () => {
     measureRowHeight: measureLogRowHeight,
     moveByKeyboard: moveLogExerciseByKeyboard,
     getItemKey: getLogItemKey,
-  } = useReorderableList(logExercises, setLogExercises);
+  } = useReorderableList(logExercises, handleLogExercisesReordered);
 
   const handleToggleSetCompleted = (exerciseIndex, setIndex) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
@@ -1742,6 +1753,11 @@ const WorkoutTracker = () => {
   };
 
   const handleRemoveSet = (exerciseIndex, setIndex) => {
+    // Remap first — see remapSetTimersForSetRemoval's comment in
+    // liveWorkoutTimer.js. Without this a running stopwatch on any LATER
+    // set in this exercise silently reattached to whatever set shifted
+    // into its old index.
+    setSetTimers(prev => remapSetTimersForSetRemoval(exerciseIndex, setIndex, prev));
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         return {
@@ -3610,7 +3626,15 @@ const WorkoutTracker = () => {
                         <button
                           type="button"
                           className="btn-delete-exercise-card"
-                          onClick={() => setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx))}
+                          onClick={() => {
+                            // Remap first — see remapSetTimersForExerciseRemoval's
+                            // comment in liveWorkoutTimer.js. Without this a
+                            // running stopwatch on any LATER exercise silently
+                            // reattached to whatever exercise shifted into its
+                            // old index.
+                            setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
+                            setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+                          }}
                           title="Remove Exercise"
                           style={{ display: 'flex', alignItems: 'center' }}
                         >
@@ -3691,6 +3715,35 @@ const WorkoutTracker = () => {
                               // even though every set is checked off.
                               startSessionClockIfIdle();
                               const now = Date.now();
+                              // Same freeze-before-complete fix as
+                              // handleCardioSetComplete/handleSetStopwatchComplete,
+                              // just looped over every set in this exercise — "✓ all"
+                              // used to set isCompleted:true directly on every set with
+                              // no regard for a still-RUNNING cardio/timed stopwatch,
+                              // so that set saved with whatever time.distanceKm it had
+                              // BEFORE Play was pressed (often blank/0) instead of the
+                              // real elapsed duration, and its setTimers entry was left
+                              // orphaned (isRunning forever, ticking in the background
+                              // with no visible row to show it). Confirmed 2026-08-25.
+                              const runningKeysToClear = [];
+                              ex.sets.forEach((set, sIdx) => {
+                                const key = getSetTimerKey(exIdx, sIdx);
+                                const timer = setTimers[key];
+                                if (!timer?.isRunning) return;
+                                const elapsed = getSetElapsedSeconds(exIdx, sIdx);
+                                handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+                                if (exIsCardio && timer.autoKm) {
+                                  handleSetChange(exIdx, sIdx, 'distanceKm', String(estimateCardioDistanceKm(ex.name, elapsed)));
+                                }
+                                runningKeysToClear.push(key);
+                              });
+                              if (runningKeysToClear.length > 0) {
+                                setSetTimers(prev => {
+                                  const updated = { ...prev };
+                                  runningKeysToClear.forEach((k) => delete updated[k]);
+                                  return updated;
+                                });
+                              }
                               setLogExercises(prev => prev.map((e, i) => i === exIdx
                                 ? { ...e, sets: e.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now })) }
                                 : e

@@ -299,6 +299,69 @@ export function computeElapsedSeconds(startedAt, pauseIntervals = [], now = Date
   return Math.max(0, total - paused);
 }
 
+// ─── SET-TIMER KEY REMAPPING (index-drift fix) ───
+// WorkoutTracker.jsx/TrainerDashboard.jsx key their per-set live-stopwatch
+// state (setTimers/liveSetTimers) purely by array position — "${exIdx},
+// ${sIdx}" — built by getSetTimerKey in each file. That's fine as long as
+// exercises/sets never change position, but reordering (drag or the Alt+
+// Arrow keyboard fallback), removing an exercise, or removing a set all
+// DO change every subsequent item's index — and until this fix, nothing
+// ever touched the timer dict when that happened. A running cardio/timed
+// stopwatch attached to exercise 3 silently reattached itself to whatever
+// exercise ended up at index 3 after a reorder/removal — a set the client
+// never pressed Play on could suddenly show a live-ticking stopwatch (and
+// contribute live kcal) with no way to explain why. Confirmed 2026-08-25.
+// These three pure helpers compute the remapped timers dict; callers pass
+// it straight to their setSetTimers/setLiveSetTimers.
+
+// Reorder: `oldExercises`/`newExercises` are the exact same object
+// references in a different order (useReorderableList never clones), so
+// each timer's exercise index is looked up by identity, not by value.
+export function remapSetTimersForReorder(oldExercises, newExercises, timers) {
+  if (!timers || Object.keys(timers).length === 0) return timers;
+  const oldIndexOf = new Map(oldExercises.map((ex, i) => [ex, i]));
+  const remapped = {};
+  newExercises.forEach((ex, newIdx) => {
+    const oldIdx = oldIndexOf.get(ex);
+    if (oldIdx == null) return;
+    Object.keys(timers).forEach((key) => {
+      const [exPart, setPart] = key.split(',');
+      if (Number(exPart) === oldIdx) remapped[`${newIdx},${setPart}`] = timers[key];
+    });
+  });
+  return remapped;
+}
+
+// Exercise removal: drop that exercise's own timers, shift every
+// subsequent exercise's timers down by one index to match the array's own
+// reindexing after the splice.
+export function remapSetTimersForExerciseRemoval(removedExIdx, timers) {
+  if (!timers || Object.keys(timers).length === 0) return timers;
+  const remapped = {};
+  Object.keys(timers).forEach((key) => {
+    const [exPart, setPart] = key.split(',');
+    const ex = Number(exPart);
+    if (ex === removedExIdx) return;
+    remapped[`${ex > removedExIdx ? ex - 1 : ex},${setPart}`] = timers[key];
+  });
+  return remapped;
+}
+
+// Set removal: same idea, scoped to one exercise's own sets.
+export function remapSetTimersForSetRemoval(exIdx, removedSetIdx, timers) {
+  if (!timers || Object.keys(timers).length === 0) return timers;
+  const remapped = {};
+  Object.keys(timers).forEach((key) => {
+    const [exPart, setPart] = key.split(',');
+    const ex = Number(exPart);
+    const set = Number(setPart);
+    if (ex !== exIdx) { remapped[key] = timers[key]; return; }
+    if (set === removedSetIdx) return;
+    remapped[`${ex},${set > removedSetIdx ? set - 1 : set}`] = timers[key];
+  });
+  return remapped;
+}
+
 // Sums calories for every completed set only — MET-based (on bodyWeightKg +
 // logged weight + reps) for regular strength sets, MET-based (on bodyWeightKg
 // + reps) for bodyweight moves like push-ups, MET-based for cardio, MET-based

@@ -884,6 +884,32 @@ const WorkoutTracker = () => {
     { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
   ]);
 
+  // A draft resumed on a LATER calendar day than it was started (app closed
+  // mid-workout and reopened a day+ later, or a device that sat offline)
+  // used to stay silently pinned to the original day forever: logDate and
+  // workoutTimerStartedAt both came straight from the stale draft with no
+  // freshness check, so finishing it saved the session under the OLD date
+  // (invisible in "today's log") with an elapsed duration spanning the whole
+  // real-world gap since the original start (e.g. a week later reads as a
+  // ~161-hour "workout"). Confirmed 2026-08-25: a client's Aug 18 draft,
+  // resumed and finished Aug 25, logged under log_date 2026-08-18 with
+  // duration_seconds ~582316 (6.7 days) instead of showing up today.
+  // Fix: on mount, if the restored draft's date isn't today, bump logDate to
+  // today and restart the timer clock from now — already-completed sets are
+  // kept (still counted toward the session), only the date/duration window
+  // moves to reflect that the session is actually finishing today.
+  useEffect(() => {
+    if (!savedWorkoutDraft || !savedWorkoutDraft.logDate) return;
+    if (savedWorkoutDraft.logDate === getLocalDateString()) return;
+    setLogDate(getLocalDateString());
+    if (savedWorkoutDraft.workoutTimerStatus && savedWorkoutDraft.workoutTimerStatus !== 'idle') {
+      setWorkoutTimerStartedAt(Date.now());
+      setWorkoutPauseIntervals([]);
+    }
+    triggerToast("↩️ Resumed an unfinished session from earlier — logged as today, timer restarted.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const loggedInUser = localStorage.getItem('userName') || 'Warrior';
     const loggedInKey = loggedInUser.toLowerCase().replace(/\s+/g, '');
@@ -1196,12 +1222,24 @@ const WorkoutTracker = () => {
         if (!savedWorkoutDraft || dbTime > localTime) {
           if (dbDraft.exercises && dbDraft.exercises.length > 0) setLogExercises(dbDraft.exercises);
           setSetTimers({});
-          if (dbDraft.logDate) setLogDate(dbDraft.logDate);
+          // Same staleness check as the local-draft mount effect above — this
+          // DB draft may be from a previous calendar day (different device,
+          // or the local mirror was cleared). Never resume it pinned to that
+          // old date/timer window, or the finished session lands invisibly
+          // on the old day with a multi-day "duration".
+          const draftIsStale = dbDraft.logDate && dbDraft.logDate !== getLocalDateString();
+          setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
-          setWorkoutTimerStartedAt(dbDraft.timerStartedAt ?? null);
-          setWorkoutPauseIntervals(dbDraft.pauseIntervals || []);
+          if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
+            setWorkoutTimerStartedAt(Date.now());
+            setWorkoutPauseIntervals([]);
+            triggerToast("↩️ Resumed an unfinished session from earlier — logged as today, timer restarted.");
+          } else {
+            setWorkoutTimerStartedAt(dbDraft.timerStartedAt ?? null);
+            setWorkoutPauseIntervals(dbDraft.pauseIntervals || []);
+          }
           setIsLoggingWorkout(true);
           setActiveView('log');
         }

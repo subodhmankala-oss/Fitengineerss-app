@@ -11,11 +11,37 @@ import { isWarmupExercise, isBodyweightExercise } from '../data/exerciseLibrary'
 // number never moves on its own just because the session clock is running.
 export const DEFAULT_BODY_WEIGHT_KG = 70;
 
-// MET for a static core hold (plank, side plank, wall sit) — Compendium of
-// Physical Activities lists isometric abdominal/calisthenic holds around
-// 3.5-4.0 MET; a single flat value here matches the app's existing approach
-// of fixed MET brackets rather than per-exercise tuning (see cardioMET).
+// MET for a static core hold (plank, side plank, wall sit, hollow hold, dead
+// hang) — Compendium of Physical Activities lists isometric abdominal/
+// calisthenic holds around 3.5-4.0 MET; a single flat value here matches the
+// app's existing approach of fixed MET brackets rather than per-exercise
+// tuning (see cardioMET).
 const TIMED_HOLD_MET = 3.8;
+
+// MET for the isTimedExercise entries that are vigorous continuous effort,
+// not a static hold — Air Rowing (rowing ergometer), Battle Rope, Side Hops
+// (continuous lateral hopping) and Foot Fires (rapid alternating-leg fast
+// feet drill). Compendium lists rowing ergometer at ~7.0 MET (moderate) to
+// ~8.5 (vigorous), battle ropes/HIIT work in the same 8-10 MET band, and
+// jumping/plyometric drills (jumping jacks, rope-adjacent hopping) around
+// 8.0 MET — none of these are an isometric hold, so none belong at 3.8.
+// Every timed exercise used the isometric-hold MET until 2026-08-25, which
+// undercounted a real session on any of these four by over half. Reuses the
+// same bracket as BODYWEIGHT_MET below rather than adding a third arbitrary
+// constant. Side Hops and Foot Fires were checked and fixed together with
+// Air Rowing/Battle Rope (same root cause: one flat MET for every timed
+// exercise regardless of whether it's actually a hold).
+const VIGOROUS_TIMED_MET = 8.0;
+
+// Picks the right MET bracket for an isTimedExercise entry by name — see the
+// two constants above. Plank/Side Plank/Wall Sit/Hollow Hold/Dead Hang fall
+// through to the TIMED_HOLD_MET default, which is correct for them — they're
+// the only true static holds among isTimedExercise's names.
+function timedHoldMET(exerciseName) {
+  const n = (exerciseName || '').toLowerCase();
+  if (/air rowing|battle rope|side hops?|foot fires?/.test(n)) return VIGOROUS_TIMED_MET;
+  return TIMED_HOLD_MET;
+}
 
 // MET (Metabolic Equivalent of Task) by exercise + pace, from the Compendium
 // of Physical Activities. A flat kcal/km rate was tried first and badly
@@ -121,20 +147,24 @@ export function estimateCardioDistanceKm(exerciseName, durationSeconds) {
   return Math.round(speedKmh * (minutes / 60) * 100) / 100;
 }
 
-// Same MET formula as cardioKcal, but for a static hold (no distance/pace to
-// derive intensity from) — duration alone drives the estimate.
-function timedHoldKcal(durationSeconds, bodyWeightKg) {
+// Same MET formula as cardioKcal, but for a duration-driven set (no
+// distance/pace to derive intensity from) — duration alone drives the
+// estimate, with the MET bracket picked by exercise name (see timedHoldMET
+// above: static holds vs. Air Rowing/Battle Rope). exerciseName is optional
+// so existing callers that don't have it yet still get the old flat-hold
+// behavior rather than a crash.
+function timedHoldKcal(durationSeconds, bodyWeightKg, exerciseName) {
   const minutes = (durationSeconds || 0) / 60;
   if (minutes <= 0) return 0;
-  return (TIMED_HOLD_MET * 3.5 * bodyWeightKg / 200) * minutes;
+  return (timedHoldMET(exerciseName) * 3.5 * bodyWeightKg / 200) * minutes;
 }
 
 // Public wrapper around timedHoldKcal — mirrors estimateCardioKcal above but
-// for isTimedExercise sets (Plank, Side Hops, Wall Sit, ...), so the logger
-// can show the same "burning now" live estimate while their stopwatch is
-// running, before the set is ticked complete.
-export function estimateTimedHoldKcal(durationSeconds, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
-  return Math.round(timedHoldKcal(durationSeconds, bodyWeightKg) * 10) / 10;
+// for isTimedExercise sets (Plank, Side Hops, Wall Sit, Air Rowing, Battle
+// Rope, ...), so the logger can show the same "burning now" live estimate
+// while their stopwatch is running, before the set is ticked complete.
+export function estimateTimedHoldKcal(durationSeconds, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG, exerciseName) {
+  return Math.round(timedHoldKcal(durationSeconds, bodyWeightKg, exerciseName) * 10) / 10;
 }
 
 // MET for vigorous bodyweight calisthenics (push-ups, mountain climbers,
@@ -296,7 +326,7 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
         workKcal += cardioKcal(ex.name, set.distanceKm, parseTimeStringToSeconds(set.time), bodyWeightKg);
       } else if (set.time !== undefined) {
         // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
-        workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg);
+        workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg, ex.name);
       } else if (isBodyweightExercise(ex.name)) {
         const reps = parseFloat(set.reps) || 0;
         const addedWeight = parseFloat(set.weight) || 0;

@@ -90,7 +90,12 @@ const CLIENT_NAMES = [
 export function inferCategory(name) {
   const n = name.toLowerCase();
   if (/(arm circle|leg swing|bird dog|cat camel)/.test(n)) return 'Warm Up';
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  // 'air rowing' must be checked here, before the Back regex below — 'row'
+  // is a bare substring there and 'rowing' contains it, so without this
+  // Air Rowing silently fell through to Back (and showed "Back / Lats" as
+  // its primary muscle via the identical bug in inferPrimary). Confirmed
+  // 2026-08-25.
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope|shoulder taps?)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?)/.test(n)) return 'Legs';
@@ -108,7 +113,9 @@ export function inferCategory(name) {
 // Short primary-muscle label for the row subtitle.
 export function inferPrimary(name) {
   const n = name.toLowerCase();
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  // See the matching comment in inferCategory above — same 'air rowing'
+  // must-check-before-Back reasoning applies here.
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$/.test(n)) return 'Triceps';
   if (/(curl|preacher|concentration)/.test(n)) return 'Biceps';
   if (/wrist/.test(n)) return 'Forearms';
@@ -148,10 +155,13 @@ export const EXERCISE_LIBRARY = (() => {
 // 'High Knees' / 'High Knees Walk' / 'Foot Fires' are excluded here even
 // though they're tagged Cardio category (see CARDIO_NAMES) — they use the
 // bodyweight/reps and loaded-carry/meters set shapes respectively, not
-// KM+TIME.
+// KM+TIME. 'Air Rowing' is excluded the same way (added 2026-08-25, fixing
+// the category-only bug above) — it's now correctly tagged Cardio for the
+// picker's filter chip, but it stays on the mm:ss-only isTimedExercise
+// shape below, not KM+TIME, since there's no real distance being tracked.
 export function isCardioExercise(name) {
   if (!name) return false;
-  if (/high knees|foot fires?/.test(name.toLowerCase())) return false;
+  if (/high knees|foot fires?|air rowing/.test(name.toLowerCase())) return false;
   return inferCategory(name) === 'Cardio';
 }
 

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
 import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
+import { adaptiveTimeout } from '../utils/networkQuality';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -189,7 +190,7 @@ let exerciseLibraryCache = null;
 let exerciseLibraryFetchPromise = null;
 let seededOnce = false;
 
-async function restSelect(pathAndQuery, { timeoutMs = 8000 } = {}) {
+async function restSelect(pathAndQuery, { timeoutMs = adaptiveTimeout(8000) } = {}) {
   const doFetch = async (token) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -253,7 +254,7 @@ async function lookupProfileViaServer(email) {
     if (token && token !== supabaseAnonKey) headers.Authorization = `Bearer ${token}`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch('/api/lookup-profile', {
         method: 'POST',
@@ -279,7 +280,7 @@ async function getCoachClientsViaServer(coachId) {
   try {
     const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch('/api/get-coach-clients', {
         method: 'POST',
@@ -306,7 +307,7 @@ async function getWorkoutPlansViaServer(userId) {
   try {
     const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch('/api/get-workout-plans', {
         method: 'POST',
@@ -378,7 +379,7 @@ async function getWorkoutLogsViaServer(userId) {
   try {
     const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch('/api/get-workout-logs', {
         method: 'POST',
@@ -406,7 +407,7 @@ async function getWorkoutDraftViaServer(userId) {
   try {
     const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch('/api/get-workout-draft', {
         method: 'POST',
@@ -437,7 +438,7 @@ async function saveWorkoutLogsViaServer(records) {
     // just spent an hour logging, and the caller's own ceiling now allows 25s
     // (see handleSaveLiveSession). Aborting a save that would have landed is
     // strictly worse here than waiting a few more seconds.
-    const timer = setTimeout(() => controller.abort(), 20000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(20000));
     try {
       const resp = await fetch('/api/save-workout-session', {
         method: 'POST',
@@ -472,7 +473,7 @@ async function saveWorkoutDraftViaServer(record) {
   try {
     const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch('/api/save-workout-draft', {
         method: 'POST',
@@ -550,7 +551,7 @@ export async function flushPendingWorkoutLogs() {
 // redeeming a coach invite code (link_coach_and_enter_transaction is
 // SECURITY DEFINER, so it doesn't need the caller's own session/RLS —
 // the anon apikey is sufficient, same as restSelect).
-async function restRpc(fnName, params, { timeoutMs = 10000 } = {}) {
+async function restRpc(fnName, params, { timeoutMs = adaptiveTimeout(10000) } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -590,7 +591,7 @@ async function restRpc(fnName, params, { timeoutMs = 10000 } = {}) {
 // row matched the filter" to every caller here. Confirmed cause of
 // markCoachNoteRead / markClientReplySeen silently no-op'ing (row updated,
 // caller sees nothing and retries forever) (2026-08-09).
-async function restUpdate(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
+async function restUpdate(pathAndQuery, body, { timeoutMs = adaptiveTimeout(8000) } = {}) {
   const doFetch = async (token) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -648,7 +649,7 @@ async function restUpdate(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
 // Confirmed cause of "Send note" on the coach home screen doing nothing (no
 // toast even shows there — it only renders inside the Live Log tab — so it
 // just looked like the button silently did nothing) (2026-08-09).
-async function restInsert(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
+async function restInsert(pathAndQuery, body, { timeoutMs = adaptiveTimeout(8000) } = {}) {
   const doFetch = async (token) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -695,7 +696,7 @@ async function restInsert(pathAndQuery, body, { timeoutMs = 8000 } = {}) {
 // of a plain insert (which would 409 on a conflicting key). Same
 // return=representation caveat as restInsert/restUpdate above — sent under
 // the caller's real bearer token, or the RLS re-select comes back empty.
-async function restUpsert(pathAndQuery, body, onConflict, { timeoutMs = 8000 } = {}) {
+async function restUpsert(pathAndQuery, body, onConflict, { timeoutMs = adaptiveTimeout(8000) } = {}) {
   const sep = pathAndQuery.includes('?') ? '&' : '?';
   const fullPath = onConflict ? `${pathAndQuery}${sep}on_conflict=${encodeURIComponent(onConflict)}` : pathAndQuery;
   const doFetch = async (token) => {
@@ -744,7 +745,7 @@ async function restUpsert(pathAndQuery, body, onConflict, { timeoutMs = 8000 } =
 // tightened (see restUpdate's comment above for the coach_notes instance of
 // it). Fixing this now rather than waiting for the next lockdown pass to hit
 // a DELETE call and reproduce the same "did nothing, no error" symptom.
-async function restDelete(pathAndQuery, { timeoutMs = 8000 } = {}) {
+async function restDelete(pathAndQuery, { timeoutMs = adaptiveTimeout(8000) } = {}) {
   const doFetch = async (token) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -5403,7 +5404,7 @@ const databaseService = {
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
 
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 30000);
+        const timer = setTimeout(() => controller.abort(), adaptiveTimeout(30000));
         try {
           const res = await fetch(`${supabaseUrl}/storage/v1/object/exercise-videos/${fileName}`, {
             method: 'POST',

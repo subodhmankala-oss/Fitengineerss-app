@@ -2066,11 +2066,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       if (canResume) {
         setLiveExercises(dbDraft.exercises);
         setLivePlanName(dbDraft.planName || 'Live Routine');
-        if (dbDraft.logDate) setLiveDate(dbDraft.logDate);
+        // Same staleness check as WorkoutTracker's client-side resume: a
+        // draft left open from a previous calendar day (coach backgrounded
+        // the app / closed the tab mid-session) must not silently save under
+        // that old date with a multi-day "duration" once finished today —
+        // see WorkoutTracker.jsx's matching fix, confirmed 2026-08-25.
+        const draftIsStale = dbDraft.logDate && dbDraft.logDate !== getLocalDateString();
+        setLiveDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
         setLiveTimerStatus(dbDraft.timerStatus || 'idle');
-        setLiveTimerStartedAt(dbDraft.timerStartedAt ?? null);
-        setLivePauseIntervals(dbDraft.pauseIntervals || []);
-        triggerLiveToast(`↩️ Resumed in-progress Live Log for ${client.userName}`);
+        if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
+          setLiveTimerStartedAt(Date.now());
+          setLivePauseIntervals([]);
+          triggerLiveToast(`↩️ Resumed an unfinished session for ${client.userName} — logged as today, timer restarted.`);
+        } else {
+          setLiveTimerStartedAt(dbDraft.timerStartedAt ?? null);
+          setLivePauseIntervals(dbDraft.pauseIntervals || []);
+          triggerLiveToast(`↩️ Resumed in-progress Live Log for ${client.userName}`);
+        }
       } else {
         setLiveExercises([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]);
         setLivePlanName('Live Routine');

@@ -16,12 +16,25 @@ vi.mock('../services/databaseService', () => {
     getExerciseLibrary: vi.fn().mockResolvedValue([]),
     saveWorkoutSession: vi.fn().mockResolvedValue(undefined),
     saveWorkoutPlan: vi.fn().mockResolvedValue(undefined),
+    // WorkoutTracker's debounced draft-autosave effect fires ~1.2s after
+    // mount whenever a logging session is active — without these, a test
+    // that awaits past that window hits the real setTimeout, calling these
+    // as undefined and crashing with "is not a function" (see the same fix
+    // in WorkoutTracker.logview.test.jsx).
+    getWorkoutDraft: vi.fn().mockResolvedValue(null),
+    saveWorkoutDraft: vi.fn().mockResolvedValue(undefined),
     BUILTIN_TEMPLATES: []
   };
   return { __esModule: true, default: svc, isTrainer: () => false };
 });
 
 import WorkoutTracker from './WorkoutTracker';
+import { TourProvider } from '../context/TourContext';
+
+// WorkoutTracker calls useTour() (spotlight walkthrough state), which throws
+// outside a TourProvider — render through this helper instead of the bare
+// component everywhere below.
+const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
 
 const DRAFT_KEY = 'workoutDraft_u1';
 
@@ -55,16 +68,20 @@ describe('WorkoutTracker in-progress session persistence', () => {
   it('restores a half-finished workout from localStorage on mount (survives a tab switch / reload)', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft('Bulgarian Split Squat')));
 
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
 
     // The logging view is shown, not the default analytics view...
     expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
-    // ...and the exact exercise the client had entered before leaving is back.
-    expect(screen.getByText('Bulgarian Split Squat')).toBeTruthy();
+    // ...and the exact exercise the client had entered before leaving is
+    // back. The exercise-reorder row legitimately renders its name twice at
+    // once (a compact span + the full-view heading, for the drag morph
+    // animation) — assert at least one is present rather than assuming a
+    // single match.
+    expect(screen.getAllByText('Bulgarian Split Squat').length).toBeGreaterThan(0);
   });
 
   it('shows the default analytics view (no logging form) when there is no saved draft', async () => {
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     // Let mount effects settle.
     await waitFor(() => expect(localStorage.getItem('userName')).toBe('TestClient'));
     expect(screen.queryByText("🏋️ Today's Workout")).toBeNull();
@@ -74,7 +91,7 @@ describe('WorkoutTracker in-progress session persistence', () => {
 
   it('ignores a stale draft that is not an active session', async () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ isLoggingWorkout: false, logExercises: [] }));
-    render(<WorkoutTracker />);
+    renderWorkoutTracker();
     await waitFor(() => expect(localStorage.getItem('userName')).toBe('TestClient'));
     expect(screen.queryByText("🏋️ Today's Workout")).toBeNull();
     // The non-active draft is cleared out rather than lingering.

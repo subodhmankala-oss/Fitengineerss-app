@@ -1400,6 +1400,18 @@ const WorkoutTracker = () => {
       // it for either event until now (see api/push.js).
       notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
     }
+    // Ticking a set or pressing Play while the session is PAUSED (not idle)
+    // is the same "real work just happened" signal, and needs the same
+    // response: the top banner was left reading "Paused" while that set's
+    // own stopwatch ran and its live kcal fed straight into the displayed
+    // total (liveRunningCardioKcal doesn't check workoutTimerStatus) — the
+    // exact inverse of the gap handlePauseWorkoutTimer had (that one left a
+    // running stopwatch ticking after Pause; this one lets a fresh one start
+    // without ever un-pausing the banner). Confirmed 2026-08-25.
+    if (workoutTimerStatus === 'paused') {
+      handleResumeWorkoutTimer();
+      return;
+    }
     setWorkoutTimerStatus(prevStatus => {
       if (prevStatus === 'idle') {
         setWorkoutTimerStartedAt(now);

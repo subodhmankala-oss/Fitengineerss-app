@@ -1255,6 +1255,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // calling it again later (Play, then tick) is a harmless no-op.
   const startLiveSessionClockIfIdle = () => {
     const now = Date.now();
+    // Ticking a set or pressing Play while the session is PAUSED (not idle)
+    // is the same "real work just happened" signal as idle→running, and
+    // needs the same response — see the matching fix in the client's own
+    // Log Sets screen (WorkoutTracker.jsx's startSessionClockIfIdle) for the
+    // full symptom: without this, starting a fresh set's stopwatch while
+    // paused left the top banner reading "Paused" while liveRunningCardioKcal
+    // (which never checks liveTimerStatus) kept climbing underneath it.
+    // Confirmed 2026-08-25.
+    if (liveTimerStatus === 'paused') {
+      handleResumeLiveTimer();
+      return;
+    }
     setLiveTimerStatus(prevStatus => {
       if (prevStatus === 'idle') {
         setLiveTimerStartedAt(now);

@@ -6,18 +6,19 @@
 // category + primary-muscle inferred for the modal's filter chips and
 // muscle subtitle.
 
-export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio', 'Warm Up'];
+export const EXERCISE_CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio', 'Warm Up', 'Whole Body'];
 
 // Cardio exercises are logged as distance + time instead of weight + reps
 // (see isCardioExercise below) — the set shape and the picker/table UI both
 // branch on this list.
 //
-// 'High Knees' and 'High Knees Walk' are both tagged Cardio here (the
-// picker's filter category), but neither actually uses the KM+TIME set
-// shape below — 'High Knees' is bodyweight/reps (isBodyweightExercise) and
-// 'High Knees Walk' is weight+meters (isLoadedCarryExercise), each excluded
-// from isCardioExercise explicitly so their own classifiers win instead.
-const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk', 'Walking', 'High Knees', 'High Knees Walk'];
+// 'High Knees', 'High Knees Walk' and 'Foot Fires' are all tagged Cardio
+// here (the picker's filter category), but none of them actually use the
+// KM+TIME set shape below — 'High Knees' and 'Foot Fires' are bodyweight/
+// reps (isBodyweightExercise) and 'High Knees Walk' is weight+meters
+// (isLoadedCarryExercise), each excluded from isCardioExercise explicitly
+// so their own classifiers win instead.
+const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline Walk', 'Walking', 'High Knees', 'High Knees Walk', 'Foot Fires'];
 
 // Names that show under the picker's "Warm Up" filter chip (inferCategory
 // below). Arm Circle + Leg Swing are auto-added to a fresh client workout
@@ -89,20 +90,25 @@ const CLIENT_NAMES = [
 export function inferCategory(name) {
   const n = name.toLowerCase();
   if (/(arm circle|leg swing|bird dog|cat camel)/.test(n)) return 'Warm Up';
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope|shoulder taps?)/.test(n)) return 'Core';
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?)/.test(n)) return 'Legs';
   if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart)/.test(n)) return 'Shoulders';
   if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar)/.test(n)) return 'Back';
   if (/(bench|chest|fly|pec deck|push-?up|push up|dip|crossover|around the world|floor press|press)/.test(n)) return 'Chest';
-  return 'Other';
+  // Compound/full-body moves that don't isolate one region (Ball Slam,
+  // Burpee, Jumping Jack) fall through every regex above to here — this
+  // used to be an unlabeled 'Other' bucket with no filter chip in
+  // EXERCISE_CATEGORIES, so these were only reachable under "All". Now a
+  // real "Whole Body" chip.
+  return 'Whole Body';
 }
 
 // Short primary-muscle label for the row subtitle.
 export function inferPrimary(name) {
   const n = name.toLowerCase();
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$/.test(n)) return 'Triceps';
   if (/(curl|preacher|concentration)/.test(n)) return 'Biceps';
   if (/wrist/.test(n)) return 'Forearms';
@@ -139,12 +145,13 @@ export const EXERCISE_LIBRARY = (() => {
 // reps. Checked by category rather than a fixed name list so a custom
 // exercise the client types in (e.g. "Swimming") is also recognized.
 //
-// 'High Knees' / 'High Knees Walk' are excluded here even though they're
-// tagged Cardio category (see CARDIO_NAMES) — they use the bodyweight/reps
-// and loaded-carry/meters set shapes respectively, not KM+TIME.
+// 'High Knees' / 'High Knees Walk' / 'Foot Fires' are excluded here even
+// though they're tagged Cardio category (see CARDIO_NAMES) — they use the
+// bodyweight/reps and loaded-carry/meters set shapes respectively, not
+// KM+TIME.
 export function isCardioExercise(name) {
   if (!name) return false;
-  if (/high knees/.test(name.toLowerCase())) return false;
+  if (/high knees|foot fires?/.test(name.toLowerCase())) return false;
   return inferCategory(name) === 'Cardio';
 }
 
@@ -162,10 +169,18 @@ export function isCardioExercise(name) {
 //
 // Side Hops is logged the same duration-only way (mm:ss, no weight/reps) —
 // it's trained as rounds of continuous hopping, not a rep count.
+//
+// Foot Fires (rapid alternating-leg "fast feet" drill, added 2026-08-25) is
+// the one exercise that matches BOTH this and isBodyweightExercise below —
+// unlike Battle Rope/Side Hops it DOES keep the Bodyweight/+Add Weight
+// toggle, with the reps field replaced by this duration field instead of
+// being dropped entirely (see the render logic in WorkoutTracker.jsx, which
+// checks isBodyweightExercise(name) && isTimedExercise(name) as its own
+// combined case ahead of the plain timed-only branch).
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope|side hops?/.test(n);
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope|side hops?|foot fires?/.test(n);
 }
 
 // Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
@@ -180,13 +195,20 @@ export function isLoadedCarryExercise(name) {
 }
 
 // Bodyweight exercises (push-ups, mountain climbers, jumping jacks, burpees,
-// high knees, beast walk/bear crawl, leg raises, sit-ups, bodyweight squats)
-// are usually logged with no added weight, but a client can wear a weighted
-// vest or hold a plate, so the logger offers a Bodyweight/+Add Weight toggle
-// instead of always requiring a KG number. 'high knees' also matches inside
-// 'High Knees Walk', but that name is caught by isLoadedCarryExercise first
-// in the render priority order, so this overlap never actually shows the
-// wrong UI for it. 'beast walk' contains 'walk' too, but
+// high knees, foot fires, beast walk/bear crawl, leg raises, sit-ups,
+// bodyweight squats) are usually logged with no added weight, but a client
+// can wear a weighted vest or hold a plate, so the logger offers a
+// Bodyweight/+Add Weight toggle instead of always requiring a KG number.
+// Foot Fires (added 2026-08-25) is classified Cardio (see CARDIO_NAMES/
+// inferCategory) and keeps this Bodyweight/+Add Weight toggle, but ALSO
+// matches isTimedExercise above — it's logged by duration (mm:ss), not rep
+// count, so the toggle's second field is a time field instead of the usual
+// reps field. See the combined isBodyweightExercise+isTimedExercise render
+// branch in WorkoutTracker.jsx. 'high knees' also matches inside 'High Knees
+// Walk', but that name
+// is caught by isLoadedCarryExercise first in the render priority order, so
+// this overlap never actually shows the wrong UI for it. 'beast walk'
+// contains 'walk' too, but
 // inferCategory/inferPrimary explicitly exclude it from the Cardio walk
 // match (see the 'beast' exclusion there), so it never competes with the
 // KM+TIME cardio shape.
@@ -221,7 +243,7 @@ export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|steppers?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

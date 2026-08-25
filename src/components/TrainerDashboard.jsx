@@ -1132,6 +1132,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
       newSet = { distanceKm: '', time: '', isCompleted: false };
+    } else if (isTimedExercise(name) && bodyweight) {
+      // Foot Fires: keeps a weight field alongside the time field.
+      newSet = { time: '', weight: '0', isCompleted: false };
     } else if (isTimedExercise(name)) {
       newSet = { time: '', isCompleted: false };
     } else if (bodyweight || isWarmupExercise(name)) {
@@ -1175,6 +1178,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         const last = ex.sets[ex.sets.length - 1];
         // Suggest the previous set's distance and time as a starting point.
         return { ...ex, sets: [...ex.sets, { distanceKm: last?.distanceKm || '', time: last?.time || '', isCompleted: false }] };
+      }
+      if (isTimedExercise(ex.name) && isBodyweightExercise(ex.name)) {
+        const last = ex.sets[ex.sets.length - 1];
+        return { ...ex, sets: [...ex.sets, { time: '', weight: last?.weight || '0', isCompleted: false }] };
       }
       if (isTimedExercise(ex.name)) {
         return { ...ex, sets: [...ex.sets, { time: '', isCompleted: false }] };
@@ -1410,6 +1417,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             // collapse them to zero.
             ...(exIsCardio
               ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+              : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
+              ? { time: s.time || '', weight: parseFloat(s.weight) || 0 }
               : isTimedExercise(ex.name)
               ? { time: s.time || '' }
               : { reps: parseInt(s.reps) || 0, weight: parseFloat(s.weight) || 0 }),
@@ -2312,6 +2321,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       sets: ex.sets.map(s => ({
         ...(exIsCardio
           ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
+          : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
+          ? { time: s.time || '', weight: parseFloat(s.weight) || 0 }
           : isTimedExercise(ex.name)
           ? { time: s.time || '' }
           : { reps: parseInt(s.reps) || 10, weight: parseFloat(s.weight) || 0 }),
@@ -2490,6 +2501,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // ...) to a bogus 20kg instead of bodyweight.
     if (isCardioExercise(name)) {
       newSet = { distanceKm: '', time: '' };
+    } else if (isTimedExercise(name) && isBodyweightExercise(name)) {
+      // Foot Fires: keeps a weight field alongside the time field.
+      newSet = { time: '', weight: 0 };
     } else if (isTimedExercise(name)) {
       newSet = { time: '' };
     } else if (isBodyweightExercise(name) || isWarmupExercise(name)) {
@@ -2512,6 +2526,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         if (isCardioExercise(ex.name)) {
           const lastSet = ex.sets[ex.sets.length - 1];
           return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: '' }] };
+        }
+        if (isTimedExercise(ex.name) && isBodyweightExercise(ex.name)) {
+          const lastSet = ex.sets[ex.sets.length - 1];
+          return { ...ex, sets: [...ex.sets, { time: '', weight: lastSet?.weight || 0 }] };
         }
         if (isTimedExercise(ex.name)) {
           return { ...ex, sets: [...ex.sets, { time: '' }] };
@@ -6019,6 +6037,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 <span className="col-weight">KM</span>
                                 <span className="col-reps">TIME</span>
                               </>
+                            ) : isTimedExercise(ex.name) && exIsBodyweight ? (
+                              <>
+                                <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                <span className="col-reps">TIME</span>
+                              </>
                             ) : isTimedExercise(ex.name) ? (
                               <>
                                 <span className="col-weight">TIME</span>
@@ -6052,6 +6075,67 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               const liveWorkingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                               const liveLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : liveWorkingNum;
                               const prevStats = getPreviousSessionSet(ex.name, setIdx);
+                              // Shared stopwatch/mm:ss control — see the mirrored
+                              // helper in WorkoutTracker.jsx's exercises-input-list.
+                              const renderLiveTimeControl = () => {
+                                if (set.isCompleted) {
+                                  return (
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                      {set.time || formatSecondsToTimeString(0)}
+                                    </span>
+                                  );
+                                }
+                                const timerKey = getSetTimerKey(exIdx, setIdx);
+                                const timer = liveSetTimers[timerKey];
+                                const isRunning = timer?.isRunning || false;
+                                const elapsedSeconds = getLiveSetElapsedSeconds(exIdx, setIdx);
+                                const timeStr = formatSecondsToTimeString(elapsedSeconds);
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => isRunning ? handleLiveSetStopwatchPause(exIdx, setIdx) : handleLiveSetStopwatchStart(exIdx, setIdx)}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'rgba(148,163,184,0.7)',
+                                        fontSize: '1.1rem',
+                                        cursor: 'pointer',
+                                        padding: '2px 4px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                      }}
+                                      title={isRunning ? 'Pause' : 'Start'}
+                                    >
+                                      {isRunning ? '⏸' : '▶'}
+                                    </button>
+                                    {isRunning ? (
+                                      <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                        {timeStr}
+                                      </span>
+                                    ) : (
+                                      (() => {
+                                        const timedKey = `timed-${exIdx}-${setIdx}`;
+                                        registerLiveSetField(timedKey, {
+                                          value: set.time || '',
+                                          mode: 'time',
+                                          label: `${ex.name} · Time`,
+                                          onValue: (v) => handleLiveTimedSetTimeEdit(exIdx, setIdx, v),
+                                        });
+                                        return (
+                                          <SetValueField
+                                            value={set.time || ''}
+                                            placeholder="mm:ss"
+                                            active={activeLiveSetKey === timedKey}
+                                            onOpen={() => openLiveSetField(timedKey)}
+                                            className="cardio-time-input"
+                                          />
+                                        );
+                                      })()
+                                    )}
+                                  </div>
+                                );
+                              };
                               return (
                               <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`}>
                                 <span className="col-set set-type-menu-wrapper">
@@ -6131,76 +6215,39 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       </div>
                                     </>
                                   );
+                                })() : (isTimedExercise(ex.name) && exIsBodyweight) ? (() => {
+                                  // Foot Fires: keeps the Bodyweight/+Add Weight toggle, with
+                                  // the time control moved into the reps column.
+                                  const weightKey = `w-${exIdx}-${setIdx}`;
+                                  registerLiveSetField(weightKey, {
+                                    value: set.weight,
+                                    mode: 'decimal',
+                                    label: `${ex.name} · Kg`,
+                                    onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'weight', v),
+                                  });
+                                  return (
+                                    <>
+                                      {exBwMode ? (
+                                        <div className="col-weight bw-static-label">BW</div>
+                                      ) : (
+                                        <div className="col-weight set-input-field">
+                                          <SetValueField
+                                            value={set.weight}
+                                            placeholder="0"
+                                            active={activeLiveSetKey === weightKey}
+                                            onOpen={() => openLiveSetField(weightKey)}
+                                          />
+                                        </div>
+                                      )}
+                                      <div className="col-reps" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
+                                        {renderLiveTimeControl()}
+                                      </div>
+                                    </>
+                                  );
                                 })() : isTimedExercise(ex.name) ? (
                                   <>
                                     <div className="col-weight" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
-                                      {(() => {
-                                        // Once the set is completed, its time is frozen in set.time —
-                                        // the live timer entry is deleted on completion (see
-                                        // handleLiveSetStopwatchComplete), so reading from liveSetTimers
-                                        // here would show 00:00 instead of the saved duration.
-                                        if (set.isCompleted) {
-                                          return (
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
-                                              {set.time || formatSecondsToTimeString(0)}
-                                            </span>
-                                          );
-                                        }
-                                        const timerKey = getSetTimerKey(exIdx, setIdx);
-                                        const timer = liveSetTimers[timerKey];
-                                        const isRunning = timer?.isRunning || false;
-                                        const elapsedSeconds = getLiveSetElapsedSeconds(exIdx, setIdx);
-                                        const timeStr = formatSecondsToTimeString(elapsedSeconds);
-                                        return (
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
-                                            <button
-                                              type="button"
-                                              onClick={() => isRunning ? handleLiveSetStopwatchPause(exIdx, setIdx) : handleLiveSetStopwatchStart(exIdx, setIdx)}
-                                              style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                color: 'rgba(148,163,184,0.7)',
-                                                fontSize: '1.1rem',
-                                                cursor: 'pointer',
-                                                padding: '2px 4px',
-                                                display: 'flex',
-                                                alignItems: 'center'
-                                              }}
-                                              title={isRunning ? 'Pause' : 'Start'}
-                                            >
-                                              {isRunning ? '⏸' : '▶'}
-                                            </button>
-                                            {isRunning ? (
-                                              <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
-                                                {timeStr}
-                                              </span>
-                                            ) : (
-                                              // Not running — editable directly, same as the cardio
-                                              // time field, instead of only settable by running the
-                                              // stopwatch live. Pressing Start resumes from whatever's
-                                              // typed here (see handleLiveSetStopwatchStart's fallback).
-                                              (() => {
-                                                const timedKey = `timed-${exIdx}-${setIdx}`;
-                                                registerLiveSetField(timedKey, {
-                                                  value: set.time || '',
-                                                  mode: 'time',
-                                                  label: `${ex.name} · Time`,
-                                                  onValue: (v) => handleLiveTimedSetTimeEdit(exIdx, setIdx, v),
-                                                });
-                                                return (
-                                                  <SetValueField
-                                                    value={set.time || ''}
-                                                    placeholder="mm:ss"
-                                                    active={activeLiveSetKey === timedKey}
-                                                    onOpen={() => openLiveSetField(timedKey)}
-                                                    className="cardio-time-input"
-                                                  />
-                                                );
-                                              })()
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
+                                      {renderLiveTimeControl()}
                                     </div>
                                     <div className="col-reps"></div>
                                   </>

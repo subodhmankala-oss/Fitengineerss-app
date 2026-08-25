@@ -14,7 +14,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
@@ -1229,6 +1229,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   };
 
   const handleLiveRemoveSet = (exIdx, setIdx) => {
+    // Remap first — see remapSetTimersForSetRemoval's comment in
+    // liveWorkoutTimer.js. Without this a running stopwatch on any LATER
+    // set in this exercise silently reattached to whatever set shifted
+    // into its old index.
+    setLiveSetTimers(prev => remapSetTimersForSetRemoval(exIdx, setIdx, prev));
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
       return { ...ex, sets: ex.sets.filter((_, si) => si !== setIdx) };
@@ -1325,8 +1330,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   };
 
   const handleLiveRemoveExercise = (exIdx) => {
+    // Remap first — see remapSetTimersForExerciseRemoval's comment in
+    // liveWorkoutTimer.js. Without this a running stopwatch on any LATER
+    // exercise silently reattached to whatever exercise shifted into its
+    // old index.
+    setLiveSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
     setLiveExercises(prev => prev.filter((_, idx) => idx !== exIdx));
   };
+
+  // Reordering permutes liveExercises without touching liveSetTimers, which
+  // is keyed purely by array position — remap alongside every reorder so a
+  // running cardio/timed stopwatch stays attached to the set it actually
+  // belongs to instead of silently reattaching to whatever now sits at its
+  // old index. See remapSetTimersForReorder's comment in liveWorkoutTimer.js.
+  const handleLiveExercisesReordered = useCallback((newOrder) => {
+    setLiveSetTimers(prev => remapSetTimersForReorder(liveExercises, newOrder, prev));
+    setLiveExercises(newOrder);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveExercises]);
 
   const {
     isReordering: isLiveReordering,
@@ -1336,7 +1357,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     measureRowHeight: measureLiveRowHeight,
     moveByKeyboard: moveLiveExerciseByKeyboard,
     getItemKey: getLiveItemKey,
-  } = useReorderableList(liveExercises, setLiveExercises);
+  } = useReorderableList(liveExercises, handleLiveExercisesReordered);
 
   const handleSaveLiveSession = async () => {
     if (!selectedClient) return;

@@ -794,15 +794,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (liveTimerStatus !== 'running') return;
     setLivePauseIntervals((prev) => [...prev, { pausedAt: Date.now(), resumedAt: null }]);
     setLiveTimerStatus('paused');
-    // Pausing the whole session should also freeze any cardio set actively
-    // running underneath it — otherwise that stopwatch (and its live
-    // calories) kept ticking on its own even though the session clock
-    // itself had stopped.
+    // Pausing the whole session should also freeze any cardio OR timed
+    // (Plank, Wall Sit, Air Rowing, Battle Rope, Side Hops, Foot Fires, ...)
+    // set actively running underneath it — otherwise that stopwatch (and its
+    // live calories) kept ticking on its own even though the session clock
+    // itself had stopped. Same gap as the client's Log Sets screen
+    // (WorkoutTracker.jsx's handlePauseWorkoutTimer) — the cardio half was
+    // fixed already; the isTimedExercise half was missed on both screens.
+    // Confirmed 2026-08-25.
     liveExercises.forEach((ex, exIdx) => {
-      if (!isCardioExercise(ex.name)) return;
+      const isCardio = isCardioExercise(ex.name);
+      const isTimed = isTimedExercise(ex.name);
+      if (!isCardio && !isTimed) return;
       ex.sets.forEach((set, setIdx) => {
         const timer = liveSetTimers[getSetTimerKey(exIdx, setIdx)];
-        if (timer?.isRunning) handleLiveCardioStopwatchPause(exIdx, setIdx);
+        if (!timer?.isRunning) return;
+        if (isCardio) handleLiveCardioStopwatchPause(exIdx, setIdx);
+        else handleLiveSetStopwatchPause(exIdx, setIdx);
       });
     });
   };
@@ -1074,7 +1082,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         const isRunning = timer?.isRunning || false;
         const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
         if (elapsed <= 0) return s;
-        return s + estimateTimedHoldKcal(elapsed, resolvedClientWeightKg);
+        return s + estimateTimedHoldKcal(elapsed, resolvedClientWeightKg, ex.name);
       }, 0);
     }
     if (!isCardioExercise(ex.name)) return sum;

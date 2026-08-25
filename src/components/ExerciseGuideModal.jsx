@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
+import { isSlowConnection } from '../utils/networkQuality';
 
 // Hevy-style "how to perform this exercise" bottom sheet — video (where one
 // exists), primary/secondary muscle summary, and a 3-step setup/execution/
@@ -11,9 +12,16 @@ import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 // unmounted (no exercise selected).
 export default function ExerciseGuideModal({ exercise, onClose }) {
   const [guideTab, setGuideTab] = useState('summary');
+  // On a detected-slow connection (or Data Saver on), don't autoplay the raw
+  // MP4 the moment the sheet opens — a user tapping through several
+  // exercises' Form Guides back-to-back on 2G would otherwise download a
+  // full video for each one whether they watch it or not. Gate behind a
+  // tap; YouTube embeds already don't autoplay so they're unaffected.
+  const [videoTapped, setVideoTapped] = useState(!isSlowConnection());
 
   useEffect(() => {
     setGuideTab('summary');
+    setVideoTapped(!isSlowConnection());
   }, [exercise]);
 
   if (!exercise) return null;
@@ -34,7 +42,7 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
                 allowFullScreen
                 style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' }}
               />
-            ) : (
+            ) : videoTapped ? (
               <video
                 key={exercise.videoFile}
                 src={exercise.videoFile}
@@ -45,6 +53,20 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
                 controls
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
+            ) : (
+              <button
+                type="button"
+                className="guide-video-gate"
+                onClick={() => setVideoTapped(true)}
+                style={{
+                  width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  background: '#000', color: '#fff', border: 'none', cursor: 'pointer'
+                }}
+              >
+                <span style={{ fontSize: '2rem' }}>▶️</span>
+                <span style={{ fontSize: '0.85rem', opacity: 0.85 }}>Tap to load video · slow connection detected</span>
+              </button>
             )
           ) : (
             <div className="guide-image-placeholder">

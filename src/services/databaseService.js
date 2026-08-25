@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
 import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
-import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -1275,6 +1275,11 @@ const databaseService = {
               // cardio_duration_seconds instead.
               const isCardioSet = set.distanceKm !== undefined;
               const isTimedSet = !isCardioSet && set.time !== undefined;
+              // Foot Fires is the one timed exercise that also keeps the
+              // Bodyweight/+Add Weight toggle (see isBodyweightExercise in
+              // exerciseLibrary.js) — its weight_kg is real data, not the
+              // "not applicable" 0 every other timed set gets below.
+              const isTimedBodyweightSet = isTimedSet && isBodyweightExercise(ex.name);
               // Every record in this array goes into ONE PostgREST bulk
               // insert (see saveWorkoutLogsViaServer / restInsert), which
               // requires every object in the batch to have IDENTICAL keys —
@@ -1304,7 +1309,7 @@ const databaseService = {
                 exercise_name: ex.name,
                 set_number: sIdx + 1,
                 reps: (isCardioSet || isTimedSet) ? 0 : parseInt(set.reps || '0'),
-                weight_kg: (isCardioSet || isTimedSet) ? 0 : parseFloat(set.weight || '0.0'),
+                weight_kg: (isCardioSet || (isTimedSet && !isTimedBodyweightSet)) ? 0 : parseFloat(set.weight || '0.0'),
                 plan_name: session.planName || 'Custom Routine',
                 distance_km: isCardioSet ? (parseFloat(set.distanceKm || '0') || 0) : null,
                 cardio_duration_seconds: (isCardioSet || isTimedSet) ? parseTimeStringToSeconds(set.time) : null,
@@ -2697,13 +2702,16 @@ const databaseService = {
               if (ex.sets) {
                 const exIsCardio = isCardioExercise(ex.name);
                 const exIsTimed = isTimedExercise(ex.name);
+                // See the saveWorkoutSession comment above — Foot Fires keeps
+                // a real weight_kg even though it's also isTimedExercise.
+                const exIsTimedBodyweight = exIsTimed && isBodyweightExercise(ex.name);
                 ex.sets.forEach((set, sIdx) => {
                   flatLogs.push({
                     log_date: sess.date,
                     exercise_name: ex.name,
                     set_number: sIdx + 1,
                     reps: (exIsCardio || exIsTimed) ? 0 : parseInt(set.reps || '0'),
-                    weight_kg: (exIsCardio || exIsTimed) ? 0 : parseFloat(set.weight || '0.0'),
+                    weight_kg: (exIsCardio || (exIsTimed && !exIsTimedBodyweight)) ? 0 : parseFloat(set.weight || '0.0'),
                     plan_name: sess.planName || 'Custom Routine',
                     ...(exIsCardio ? {
                       distance_km: parseFloat(set.distanceKm || '0') || 0,

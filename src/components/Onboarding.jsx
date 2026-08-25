@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS } from '../services/databaseService';
+import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS, resolveRealAccessToken } from '../services/databaseService';
 import { calculateTargetsGeneric } from '../utils/targets';
 import './Onboarding.css';
 
@@ -257,8 +257,15 @@ const Onboarding = ({ onComplete }) => {
     }
     if (!isSupabaseConfigured || !databaseService.supabase) return;
     let cancelled = false;
-    databaseService.supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setCoachApplyHasSession(!!data?.session);
+    // resolveRealAccessToken, not supabase.auth.getSession() directly — see
+    // connectClientToCoach's comment in databaseService.js for why any
+    // supabase.auth.* session call is unsafe here (can hang indefinitely on
+    // this project's known token-refresh bug). This call never blocked the
+    // UI (no await, just .then()) so the visible symptom of the old code was
+    // milder — the password field just stayed shown even with a live
+    // session — but it's the same underlying hang risk. Fixed 2026-08-25.
+    resolveRealAccessToken().then((token) => {
+      if (!cancelled) setCoachApplyHasSession(!!token);
     });
     return () => { cancelled = true; };
   }, [authTab]);
@@ -660,15 +667,14 @@ const Onboarding = ({ onComplete }) => {
         const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
         const mockCoaches = databaseService.getMockTable('coaches');
 
-        // Find if coach record exists
+        // Find if coach record exists. Raw PostgREST via
+        // getCoachRecordByUserId, not supabase.from() directly — see that
+        // method's comment in databaseService.js for why a raw SDK call
+        // here (right after a fresh sign-in, on every coach login) risked
+        // hanging this whole flow forever. Fixed 2026-08-25.
         let coachRecord = null;
         if (isSupabaseConfigured && databaseService.supabase) {
-          const { data } = await databaseService.supabase
-            .from('coaches')
-            .select('*')
-            .eq('user_id', authUserId)
-            .maybeSingle();
-          coachRecord = data;
+          coachRecord = await databaseService.getCoachRecordByUserId(authUserId);
         } else {
           coachRecord = mockCoaches.find(c => c.user_id === authUserId);
         }
@@ -676,18 +682,7 @@ const Onboarding = ({ onComplete }) => {
         if (isSuperAdminEmail) {
           // Super admin is auto approved. Make sure a coach row exists
           if (isSupabaseConfigured && databaseService.supabase) {
-            const { data: existingAdminCoach } = await databaseService.supabase
-              .from('coaches')
-              .select('*')
-              .eq('user_id', authUserId)
-              .maybeSingle();
-            if (!existingAdminCoach) {
-              await databaseService.supabase.from('coaches').insert({
-                user_id: authUserId,
-                status: 'approved',
-                brand_name: 'Admin Fitness'
-              });
-            }
+            await databaseService.getCoachRecordByUserId(authUserId, { ensureAdminRow: true });
           } else {
             const existingAdminCoach = mockCoaches.find(c => c.user_id === authUserId);
             if (!existingAdminCoach) {
@@ -1207,8 +1202,18 @@ const Onboarding = ({ onComplete }) => {
             const formData = new FormData(e.target);
             const name = formData.get('name');
 
-            const { data: sessionData } = await databaseService.supabase.auth.getSession();
-            const accessToken = sessionData?.session?.access_token;
+            // resolveRealAccessToken, not supabase.auth.getSession() — this
+            // submit handler exists specifically for the case where the
+            // session might have gone stale while the tab sat open (see the
+            // comment above), which is exactly the condition most likely to
+            // need a token refresh — and supabase.auth.getSession() is the
+            // exact SDK call documented (databaseService.js's
+            // connectClientToCoach comment) to hang indefinitely on this
+            // project's refresh bug. Before this fix, hitting that hang here
+            // left authLoading stuck true forever with no error — the submit
+            // button spinning with no feedback, no timeout, nothing.
+            // Confirmed 2026-08-25.
+            const accessToken = await resolveRealAccessToken();
             if (!accessToken) {
               setCoachApplyHasSession(false);
               throw new Error('Your sign-in session has expired. Please sign in with Google again.');

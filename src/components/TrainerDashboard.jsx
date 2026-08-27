@@ -6,6 +6,8 @@ import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
+import AdminWorkoutReviewQueue from './AdminWorkoutReviewQueue';
+import CreateWorkoutModal from './CreateWorkoutModal';
 import './WorkoutTracker.css';
 // Weekly/Daily/Monthly chart + card styling — shared with the client's own
 // WorkoutProgressDashboard so the coach's per-client Workout History tab is
@@ -556,6 +558,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // saved/assigned until the coach presses that final button; generation
   // itself (api/generate-workout-draft.js) never touches the database.
   const [showCreatePlanChoice, setShowCreatePlanChoice] = useState(false);
+  const [showCreateWorkoutModal, setShowCreateWorkoutModal] = useState(false);
   const [showAIBuilder, setShowAIBuilder] = useState(false);
   const [isAiDraftMode, setIsAiDraftMode] = useState(false);
   const [aiDraftDays, setAiDraftDays] = useState([]); // [{ dayLabel, focus, planName, exercises }]
@@ -3153,6 +3156,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 { key: 'clients', icon: '👥', label: 'Clients' },
                 { key: 'coaches', icon: '🏅', label: 'Coaches' },
                 { key: 'exercises', icon: '🏋️', label: 'Exercise Library' },
+                { key: 'workoutReview', icon: '🎬', label: 'Review Queue' },
               ].map(nav => (
                 <button
                   key={nav.key}
@@ -3174,6 +3178,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <div className="admin-content-panel" style={{ flex: 1, minWidth: 0, width: '100%' }}>
               {adminSubTab === 'exercises' ? (
                 <AdminExerciseLibrary onExerciseCountChange={(count) => setExerciseCount(count)} />
+              ) : adminSubTab === 'workoutReview' ? (
+                <AdminWorkoutReviewQueue />
               ) : adminSubTab === 'coaches' ? (
                 <AdminCoachesList
                   coachesList={coachesList}
@@ -5678,13 +5684,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     <div className="plans-list-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }} onClick={() => setOpenPlanCardMenuId(null)}>
                       <div className="list-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <h4 style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Workout Plans</h4>
-                        <button
-                          type="button"
-                          onClick={() => setShowCreatePlanChoice(true)}
-                          style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', color: 'var(--primary-accent-light)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
-                        >
-                          ➕ Create Workout Plan
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateWorkoutModal(true)}
+                            style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#60a5fa', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+                          >
+                            🏋️ Create Workout
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowCreatePlanChoice(true)}
+                            style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', color: 'var(--primary-accent-light)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+                          >
+                            ➕ Create Workout Plan
+                          </button>
+                        </div>
                       </div>
 
                       {loadingPlans ? (
@@ -6891,6 +6906,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           </div>
         </div>
       )}
+
+      {/* New, separate "Create Workout" flow (Workout Library) — saves the
+          lighter {name, sets, reps, rest, order} template shape and starts
+          media_status = 'pending' for the super-admin's Review Queue.
+          Deliberately not folded into the "Build Manually"/"AI Draft" choice
+          above, which build the detailed per-set logging shape instead. */}
+      <CreateWorkoutModal
+        open={showCreateWorkoutModal}
+        onClose={() => setShowCreateWorkoutModal(false)}
+        mode="coach"
+        targetUserId={selectedClient?.id}
+        targetUserName={selectedClient?.userName}
+        coachId={resolvedCoachId}
+        onSaved={() => { if (selectedClient) fetchClientPlans(selectedClient.id); }}
+      />
 
       {showAIBuilder && (
         <AIWorkoutBuilderModal

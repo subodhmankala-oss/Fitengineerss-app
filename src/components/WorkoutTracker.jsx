@@ -4336,6 +4336,8 @@ const WorkoutTracker = () => {
         open={showExerciseDbModal}
         onClose={() => setShowExerciseDbModal(false)}
         addedNames={logExercises.map(le => le.name)}
+        creatorMode="client"
+        clientUserId={getPlanOwnerId()}
         onAdd={(name) => {
           const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
           if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }

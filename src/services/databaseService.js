@@ -142,6 +142,35 @@ function readStoredSupabaseSession() {
     return null;
   }
 }
+// Writes a session directly to localStorage in supabase-js v2's own storage
+// shape, independent of supabase.auth.setSession() ever completing.
+//
+// ROOT CAUSE (2026-08-27): signIn() below races setSession() against a
+// 1.5s timeout and just continues on timeout ("SDK-hang bypass") — which
+// keeps the CURRENT tab working via cachedAccessToken, but if setSession()
+// is the thing that hangs, it never gets to persist anything to storage
+// either (that's the SDK's job, done as a side effect of setSession()
+// resolving). The user is fully logged in for this tab and never notices —
+// until they close/reload the app: supabase-js boots, finds nothing under
+// "sb-<ref>-auth-token" in localStorage, fires INITIAL_SESSION with
+// session:null, and App.jsx's onAuthStateChange handler treats that
+// exactly like a real sign-out (see the ghost-login branch there), wiping
+// the cached login flags and bouncing back to the login screen — even
+// though the user "just logged in". Writing the raw token response here,
+// unconditionally and before the racy setSession() call, means the session
+// survives a reload regardless of whether the SDK call ever finishes.
+function writeStoredSupabaseSession(session) {
+  if (!session?.access_token || !session?.refresh_token) return;
+  try {
+    const existingKey = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+    const ref = (() => {
+      try { return new URL(supabaseUrl).hostname.split('.')[0]; } catch { return null; }
+    })();
+    const key = existingKey || (ref ? `sb-${ref}-auth-token` : null);
+    if (!key) return;
+    window.localStorage.setItem(key, JSON.stringify(session));
+  } catch { /* storage full/unavailable — best effort only */ }
+}
 async function refreshAccessTokenRaw() {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
@@ -1509,6 +1538,19 @@ const databaseService = {
     // resolveBearerToken() falls back to when localStorage has no fresh
     // session yet, so setting it here closes that window entirely.
     setCachedAuthToken(data.access_token);
+    // Persist the session to localStorage directly, BEFORE attempting
+    // setSession() below — do not depend on that racy SDK call to do it.
+    // See writeStoredSupabaseSession's comment for why: without this, a
+    // login that happens to hit the SDK hang works fine for the current tab
+    // but silently never survives a reload/reopen.
+    writeStoredSupabaseSession({
+      access_token: data.access_token,
+      token_type: data.token_type || 'bearer',
+      expires_in: data.expires_in,
+      expires_at: data.expires_at || (Math.floor(Date.now() / 1000) + (data.expires_in || 3600)),
+      refresh_token: data.refresh_token,
+      user: data.user
+    });
     // Hydrate the SDK client's session so downstream .from() calls and
     // onAuthStateChange listeners still see the logged-in user. Best-effort
     // with a timeout: setSession() also goes through the same browser SDK,

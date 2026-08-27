@@ -6054,6 +6054,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               title="View exercise history"
                               onClick={() => setHistoryModalExercise(ex.name)}
                               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalExercise(ex.name); } }}
+                              // See the matching comment in WorkoutTracker.jsx
+                              // — suppresses the browser's default tap-to-
+                              // focus scroll (iOS Safari in particular) on
+                              // this focusable non-input element, without
+                              // touching the click handler or Tab-key focus.
+                              onPointerDown={(e) => e.preventDefault()}
                             >
                               {ex.name}
                             </span>

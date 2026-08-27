@@ -3642,6 +3642,20 @@ const WorkoutTracker = () => {
                           title="View exercise history"
                           onClick={() => setHistoryModalExercise(ex.name)}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalExercise(ex.name); } }}
+                          // A tap on a focusable element (role="button"
+                          // tabIndex={0}) focuses it as part of the browser's
+                          // *default* pointerdown action — and on iOS Safari
+                          // in particular, focusing something can trigger the
+                          // browser's own "scroll the newly-focused element
+                          // into view" heuristic, independent of anything
+                          // this app's JS does. Right after a drop, that
+                          // reads as an unexplained scroll-to-top on tap.
+                          // preventDefault() here only suppresses that
+                          // default focus/scroll action — the click event
+                          // (and onClick above) still fires normally, and
+                          // Tab-key focus is untouched since keyboard focus
+                          // never goes through pointerdown.
+                          onPointerDown={(e) => e.preventDefault()}
                         >
                           {ex.name}
                         </h5>

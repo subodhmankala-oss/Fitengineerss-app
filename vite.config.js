@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { fileURLToPath } from 'node:url'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -41,4 +42,21 @@ export default defineConfig({
       },
     }),
   ],
+  test: {
+    environment: 'jsdom',
+    // vite-plugin-pwa's `virtual:pwa-register` module only exists under the
+    // real Vite build/dev pipeline, not vitest's transform — any test that
+    // imports (even transitively, via pwa/registerPWA.js) a component using
+    // it failed to load at all with "must be a file URL object... received
+    // 'file:///@vite-plugin-pwa/virtual:pwa-register'". Redirect it to a
+    // tiny no-op mock for tests only.
+    alias: {
+      'virtual:pwa-register': fileURLToPath(new URL('./src/test/mocks/virtualPwaRegister.js', import.meta.url)),
+    },
+    // Stale worktree checkouts under .claude/worktrees/ carry their own full
+    // copies of every test file — without this, `vitest run <path>` matches
+    // them too (by substring), so a single test file appears to run 2-3x
+    // with duplicated results from old code.
+    exclude: ['**/node_modules/**', '**/.claude/worktrees/**'],
+  },
 })

@@ -288,6 +288,22 @@ export function maskDigitsToTimeString(rawValue) {
   return `${padded.slice(0, 2)}:${padded.slice(2, 4)}`;
 }
 
+// Rest-between-sets countdown, recomputed from a fixed end timestamp rather
+// than decremented once per setInterval tick. A locked/backgrounded screen
+// throttles or fully suspends setInterval (mobile Safari/Chrome both do
+// this), so a tick-decremented counter silently stops counting down while
+// the screen is off and then "lags" — it reads several seconds/minutes high
+// the moment the screen comes back on, because it only counted the ticks
+// that actually got to run, not the real time that passed. Deriving the
+// remaining time from `restEndAt` (a wall-clock timestamp set once, when the
+// rest starts) instead means every read — including the very next tick after
+// the screen turns back on — reflects real elapsed time, exactly like
+// computeElapsedSeconds above already does for the session/set clocks.
+export function computeRestSecondsRemaining(restEndAt, now = Date.now()) {
+  if (!restEndAt) return 0;
+  return Math.max(0, Math.ceil((restEndAt - now) / 1000));
+}
+
 // elapsed = (now - startedAt) - sum(pause durations)
 export function computeElapsedSeconds(startedAt, pauseIntervals = [], now = Date.now()) {
   if (!startedAt) return 0;

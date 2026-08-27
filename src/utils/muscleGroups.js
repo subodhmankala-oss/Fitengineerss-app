@@ -74,14 +74,25 @@ const RULES = [
   { test: n => /(hamstring|romanian|stiff.?leg|leg curl|good morning|single.?leg deadlift|kettlebell swing)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
   { test: n => /(leg extension)/.test(n), muscles: ['Quads'] },
   // "box jump" added alongside "box squat" — both explosive quad/glute moves.
-  { test: n => /(squat|lunge|leg press|step.?up|wall sit|split squat|hack squat|box squat|box jump)/.test(n), muscles: ['Quads', 'Glutes'] },
+  // "Side Hops" and "Steppers" added (2026-08-25 coverage audit): both are
+  // explosive/repetitive lower-body drills with the same Quads+Glutes
+  // profile as the jump/step moves already in this rule — Side Hops is a
+  // lateral hopping conditioning move (see exerciseLibrary.js's mm:ss-timed
+  // set shape for it), Steppers a marching/stepping drill alongside Step-up
+  // in the exercise picker's A-Z list.
+  { test: n => /(squat|lunge|leg press|step.?up|wall sit|split squat|hack squat|box squat|box jump|side hops?|steppers?)/.test(n), muscles: ['Quads', 'Glutes'] },
   { test: n => /(deadlift|rack pull|sumo)/.test(n), muscles: ['Hamstrings', 'Back'] },
 
   // ── Core ──
   // "ball slam" and "jumping jack" added — both full-body/conditioning moves
   // with no other clear muscle-group home in this taxonomy; classified as
   // Core, the most defensible single bucket for them.
-  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?)/.test(n), muscles: ['Core'] },
+  // "Bird Dog" and "Cat Camel" added (2026-08-25 coverage audit) — real
+  // bodyweight core/mobility drills a client logs actual working sets of
+  // (see exerciseLibrary.js's isBodyweightExercise comment: they used to be
+  // stuck under isWarmupExercise instead, contributing zero to calories —
+  // same principle applies here, they belong in Core, not unmapped).
+  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?|bird dog|cat camel)/.test(n), muscles: ['Core'] },
   { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Core', 'Back'] },
   // Burpee: full-body conditioning move: Core (plank/crunch phase) + Quads
   // (jump/squat phase) is the most representative 2-muscle credit available
@@ -90,7 +101,18 @@ const RULES = [
   // High Knees (and High Knees Walk): rapid knee-drive cardio move — hip
   // flexors/Quads doing the actual driving, Core stabilizing the torso.
   // Same 2-muscle-credit reasoning as Burpee above.
-  { test: n => /high knees/.test(n), muscles: ['Quads', 'Core'] },
+  // "Foot Fires" added (2026-08-25 coverage audit) — same rapid-footwork
+  // conditioning profile as High Knees (see exerciseLibrary.js: both are
+  // bodyweight/reps drills tagged Cardio, added the same day), so it gets
+  // the same Quads+Core credit here.
+  { test: n => /(high knees|foot fires)/.test(n), muscles: ['Quads', 'Core'] },
+  // Battle Rope and Beast Walk (2026-08-25 coverage audit): full-body
+  // conditioning moves with no clean single-muscle home in this taxonomy —
+  // Battle Rope is upper-body-dominant (arm slams) with heavy core bracing,
+  // Beast Walk is a quadruped bear-crawl variant driven by the same
+  // shoulders + core combination. Same reasoning as Burpee/High Knees above:
+  // best 2-muscle credit available rather than inventing a "full body" bucket.
+  { test: n => /(battle rope|beast walk)/.test(n), muscles: ['Shoulders', 'Core'] },
 
   // ── Shoulders ──
   // "pull apart" (Band Pull Apart) added — a rear-delt isolation move,

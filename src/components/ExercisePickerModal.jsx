@@ -63,6 +63,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const [closing, setClosing] = useState(false);
   const listRef = useRef(null);
   const closeTimerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     if (open) {
@@ -101,11 +102,36 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const activeLibrary = [...exercises, ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()))];
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();
-  const filtered = activeLibrary.filter(ex => {
-    const matchesSearch = ex.name.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = tag === 'All' || ex.category === tag;
-    return matchesSearch && matchesCategory;
-  });
+  const q = trimmed.toLowerCase();
+
+  // Rank each exercise against the query rather than just filtering, so an
+  // exact/prefix match on the name (e.g. "Bench Press" for "bench") always
+  // beats a mid-string hit, and a mid-string hit on the name always beats a
+  // match that only came from category/primary_muscle (e.g. "chest" or
+  // "biceps" pulling in every exercise in that muscle group). Rank 3 keeps
+  // that muscle/category search working without letting it drown out actual
+  // name matches.
+  const rankExercise = (ex) => {
+    if (!q) return 0;
+    const nameLower = ex.name.toLowerCase();
+    if (nameLower === q) return 0;
+    if (nameLower.startsWith(q)) return 1;
+    if (nameLower.includes(q)) return 2;
+    const category = (ex.category || '').toLowerCase();
+    const muscle = (ex.primary_muscle || ex.primary || '').toLowerCase();
+    if (category.includes(q) || muscle.includes(q)) return 3;
+    return -1;
+  };
+
+  const filtered = activeLibrary
+    .map(ex => ({ ex, rank: rankExercise(ex) }))
+    .filter(({ ex, rank }) => {
+      const matchesSearch = rank !== -1;
+      const matchesCategory = tag === 'All' || ex.category === tag;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => a.rank - b.rank || a.ex.name.localeCompare(b.ex.name))
+    .map(({ ex }) => ex);
   const exactExists = activeLibrary.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
 
   return (
@@ -122,14 +148,28 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
           <button type="button" className="btn-exercise-modal-done" onClick={onClose}>Done</button>
         </div>
 
-        <div className="payment-input-group exercise-search-box">
+        <div className="payment-input-group exercise-search-box exercise-search-box-wrap">
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search exercise database..."
+            placeholder="Search by name, muscle, or category..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="exercise-search-input"
           />
+          {query && (
+            <button
+              type="button"
+              className="exercise-search-clear-btn"
+              aria-label="Clear search"
+              onClick={() => {
+                setQuery('');
+                searchInputRef.current?.focus();
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="exercise-filter-tags">

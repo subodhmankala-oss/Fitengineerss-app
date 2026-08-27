@@ -356,12 +356,128 @@ async function handleWorkoutDraft(req, res) {
   }
 }
 
+// ─── custom-exercises (list + create) ───
+// custom_exercises' own RLS (sql/supabase_custom_exercises.sql) gates on
+// current_app_user_id() — auth.uid()-derived — same as workout_plans_select.
+// But this app's login does NOT reliably establish a real Supabase Auth
+// session for every account (many still run on the anon key with no
+// auth.uid() at all — the same "RLS-vs-anon-key gap" every *ViaServer
+// fallback in databaseService.js exists to work around, e.g.
+// getWorkoutPlansForUser's fallback to /api/data-read?resource=workout-plans
+// when a direct restSelect/restInsert comes back empty/denied). Confirmed
+// 2026-08-27: a real client account with a linked auth_id still had no
+// sb-*-auth-token in localStorage, so its restInsert into custom_exercises
+// 42501'd outright. This service-role pair is that same safety net for
+// custom_exercises: verify the caller's identity by email (resolveVerifiedEmail,
+// same trust model as handleWorkoutPlans/handleWorkoutDraft above), then
+// read/write with the service role, which bypasses RLS entirely.
+async function resolveOwnUserRow(verifiedEmail) {
+  const rows = await fetch(
+    `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(verifiedEmail)}&select=id,email`,
+    { headers: svcHeaders }
+  ).then(r => r.json()).catch(() => []);
+  return (Array.isArray(rows) && rows[0]) || null;
+}
+
+async function handleCustomExercisesList(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    const self = await resolveOwnUserRow(verifiedEmail);
+    if (!self) return res.status(200).json({ exercises: [] });
+
+    const isSuperAdmin = verifiedEmail === 'subodhmankala@gmail.com';
+    const filter = isSuperAdmin
+      ? ''
+      : `&or=(created_by_user_id.eq.${self.id},coach_id.eq.${self.id},client_user_id.eq.${self.id})`;
+    const resp = await fetch(
+      `${supabaseUrl}/rest/v1/custom_exercises?select=*&order=name.asc${filter}`,
+      { headers: svcHeaders }
+    );
+    const data = await resp.json().catch(() => []);
+    if (!resp.ok) {
+      console.error('custom-exercises-list failed:', resp.status, data);
+      return res.status(502).json({ error: 'Failed to read custom exercises.' });
+    }
+    return res.status(200).json({ exercises: Array.isArray(data) ? data : [] });
+  } catch (err) {
+    console.error('custom-exercises-list error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to read custom exercises.' });
+  }
+}
+
+async function handleCreateCustomExercise(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const { name, equipment, category, primaryMuscle, secondaryMuscles, mode, coachId, clientUserId } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required.' });
+  if (mode !== 'coach' && mode !== 'client') return res.status(400).json({ error: 'mode must be "coach" or "client".' });
+
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    const self = await resolveOwnUserRow(verifiedEmail);
+    if (!self) return res.status(403).json({ error: 'No matching account for your session.' });
+
+    const record = {
+      name: name.trim(),
+      equipment: equipment || null,
+      category: category || null,
+      primary_muscle: primaryMuscle || null,
+      secondary_muscles: Array.isArray(secondaryMuscles) && secondaryMuscles.length > 0 ? secondaryMuscles : null
+    };
+
+    if (mode === 'client') {
+      // A client may only create one scoped to themselves.
+      if (self.id !== clientUserId) return res.status(403).json({ error: 'You can only create exercises for your own library.' });
+      record.created_by_user_id = self.id;
+      record.coach_id = null;
+      record.client_user_id = self.id;
+    } else {
+      // A coach may only create one scoped to a client they actually coach.
+      if (self.id !== coachId) return res.status(403).json({ error: 'You can only create exercises as yourself.' });
+      const clientRows = await fetch(
+        `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(clientUserId || '')}&select=coach_id`,
+        { headers: svcHeaders }
+      ).then(r => r.json()).catch(() => []);
+      const isMyClient = Array.isArray(clientRows) && clientRows[0]?.coach_id === self.id;
+      if (!isMyClient) return res.status(403).json({ error: 'That client is not assigned to you.' });
+      record.created_by_user_id = self.id;
+      record.coach_id = self.id;
+      record.client_user_id = clientUserId;
+    }
+
+    const resp = await fetch(`${supabaseUrl}/rest/v1/custom_exercises`, {
+      method: 'POST',
+      headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify(record)
+    });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok) {
+      console.error('create-custom-exercise failed:', resp.status, data);
+      return res.status(502).json({ error: 'Failed to save this exercise.' });
+    }
+    return res.status(200).json({ exercise: Array.isArray(data) ? data[0] : data });
+  } catch (err) {
+    console.error('create-custom-exercise error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to save this exercise.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
   'workout-plans': handleWorkoutPlans,
   'profile': handleLookupProfile,
-  'workout-draft': handleWorkoutDraft
+  'workout-draft': handleWorkoutDraft,
+  'custom-exercises-list': handleCustomExercisesList,
+  'custom-exercises-create': handleCreateCustomExercise
 };
 
 export default async function handler(req, res) {

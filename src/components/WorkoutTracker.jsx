@@ -5,7 +5,6 @@ import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import CreateWorkoutModal from './CreateWorkoutModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
@@ -839,7 +838,6 @@ const WorkoutTracker = () => {
   // billing, stopwatch display) keeps using this name/shape unchanged.
   const workoutActiveSeconds = computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals);
   const [showExerciseDbModal, setShowExerciseDbModal] = useState(false);
-  const [showCreateWorkoutModal, setShowCreateWorkoutModal] = useState(false);
   const [showFinishSummary, setShowFinishSummary] = useState(false);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
   const [restTimerActive, setRestTimerActive] = useState(false);
@@ -3327,13 +3325,6 @@ const WorkoutTracker = () => {
                 <h3 className="wt-library-title">Workout Library</h3>
                 <p className="wt-library-sub">Structured programs for every level</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateWorkoutModal(true)}
-                style={{ padding: '8px 14px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#60a5fa', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                🏋️ Create Workout
-              </button>
             </div>
 
             <div className="wt-level-tabs" data-tour="wt-level-tabs">
@@ -4339,20 +4330,6 @@ const WorkoutTracker = () => {
           </div>
         );
       })()}
-
-      {/* Client-side "Create Workout" — Workout Library flow. createdBy:
-          'client', coachId: null always (see CreateWorkoutModal/
-          createWorkoutPlan comments — a client's assigned coach still sees
-          this via workout_plans_select's is_my_client(user_id) clause, it
-          just isn't stamped as coach-owned). */}
-      <CreateWorkoutModal
-        open={showCreateWorkoutModal}
-        onClose={() => setShowCreateWorkoutModal(false)}
-        mode="client"
-        targetUserId={getPlanOwnerId()}
-        coachId={null}
-        onSaved={() => fetchPlans()}
-      />
 
       {/* Shared Hevy-style exercise picker (same component as the coach side) */}
       <ExercisePickerModal

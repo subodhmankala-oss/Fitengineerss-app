@@ -562,15 +562,6 @@ async function getSuperAdminUserId() {
   return admin?.id || null;
 }
 
-// Role-based version for the "notify every super-admin" case (Create
-// Workout's review-queue push) — getSuperAdminUserId above only ever
-// resolves the one hardcoded SUPER_ADMIN_EMAIL account, but role='super-admin'
-// can be granted to more than one user.
-async function getSuperAdminUserIds() {
-  const users = await rpcAll(supabase, 'get_users_for_server');
-  return users.filter((u) => u.role === 'super-admin').map((u) => u.id);
-}
-
 async function findSubscriptions(targetUserId, email, name) {
   const all = await rpcAll(supabase, 'get_push_subscriptions_for_broadcast');
   const byEndpoint = new Map();
@@ -623,7 +614,7 @@ async function getCoachDisplayName(coachId) {
 async function handleNotifyUser(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId, category, workoutType, creatorRole, creatorName } = req.body || {};
+  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId } = req.body || {};
   if (!event || !clientUserId || !UUID_RE.test(clientUserId)) {
     return res.status(400).json({ error: 'event and a valid clientUserId are required.' });
   }
@@ -725,25 +716,6 @@ async function handleNotifyUser(req, res) {
       title = '🎉 New client joined';
       body = `${clientName} just signed up on Fitengineers.`;
       url = `/?viewClient=${clientUserId}`;
-    } else if (event === 'workout_created_pending_media') {
-      // Fired from databaseService.createWorkoutPlan right after a coach or
-      // client saves a new plan through the Workout Library's Create Workout
-      // flow — fans out to EVERY role='super-admin' account (not just the
-      // single hardcoded SUPER_ADMIN_EMAIL), since media gets added by
-      // whichever admin picks it up from the Review Queue. Each recipient
-      // gets its own push_log row via pushToUser below.
-      const adminIds = await getSuperAdminUserIds();
-      if (adminIds.length === 0) return res.status(200).json({ success: true, message: 'No super-admin accounts; nothing to send.' });
-      const tag = [category, workoutType].filter(Boolean).join(' · ');
-      title = '🏋️ New workout plan — media pending';
-      body = `${creatorName || (creatorRole === 'coach' ? 'A coach' : 'A client')} created "${planName || 'a workout plan'}"${tag ? ` (${tag})` : ''} for ${clientName}.`;
-      url = '/?adminReviewQueue=1';
-      let sent = 0, failed = 0;
-      for (const adminId of adminIds) {
-        const r = await pushToUser(adminId, title, body, event, url);
-        sent += r.sent; failed += r.failed;
-      }
-      return res.status(200).json({ success: true, event, sent, failed, matched: adminIds.length });
     } else {
       return res.status(400).json({ error: `Unknown event "${event}".` });
     }

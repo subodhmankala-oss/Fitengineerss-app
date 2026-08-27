@@ -6831,6 +6831,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         open={!!exercisePickerContext}
         onClose={() => setExercisePickerContext(null)}
         addedNames={(exercisePickerContext === 'editor' ? editorExercises : liveExercises).map(e => e.name)}
+        creatorMode="coach"
+        coachId={resolvedCoachId}
+        clientUserId={selectedClient?.id}
+        clientName={selectedClient?.userName}
         onAdd={(name) => {
           if (exercisePickerContext === 'editor') handleAddExerciseToEditor(name);
           else handleLiveAddExercise(name);

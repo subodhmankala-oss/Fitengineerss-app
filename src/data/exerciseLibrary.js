@@ -34,7 +34,7 @@ const WARMUP_NAMES = ['Arm Circle', 'Leg Swing', 'Bird Dog', 'Cat Camel'];
 const COACH_NAMES = [
   'Ab Wheel Rollout', 'Alternate Leg Raise', 'Arnold Press', 'Around the World (Chest)', 'Assisted Pull-up', 'Assisted Dip',
   'Back Extension', 'Ball Slam', 'Band Pull Apart', 'Barbell Curl', 'Barbell Hip Thrust', 'Barbell Row',
-  'Barbell Shrug', 'Barbell Squat', 'Battle Rope', 'Beast Walk', 'Behind Neck Press', 'Bench Press', 'Bent Over Dumbbell Row',
+  'Barbell Squat', 'Battle Rope', 'Beast Walk', 'Behind Neck Press', 'Bench Press', 'Bent Over Dumbbell Row',
   'Bent Over Row (Barbell)', 'Bicep Curl (Cable)', 'Bicep Curl (Dumbbell)', 'Box Jump', 'Box Squat',
   'Bulgarian Split Squat', 'Burpee', 'Cable Crossover', 'Cable Crunch', 'Cable Curl', 'Cable Fly', 'Chair Squat',
   'Cable Kickback', 'Cable Overhead Triceps Extension', 'Cable Pull Through',
@@ -72,7 +72,7 @@ const CLIENT_NAMES = [
   'Shoulders Press', 'Biceps Curls', 'One Arm Row', 'Lat Pull Down', 'Flat Bench Press', 'Incline Dumbbell Press',
   'Barbell Squat', 'Romanian Deadlift', 'Overhead Triceps Extension', 'Plank',
   'Assisted Dip', 'Assisted Pull-up', 'Back Extension',
-  'Barbell Curl', 'Barbell Row', 'Barbell Shrug', 'Bench Press (Barbell)', 'Bench Press (Dumbbell)',
+  'Barbell Curl', 'Barbell Row', 'Bench Press (Barbell)', 'Bench Press (Dumbbell)',
   'Bent Over Row (Barbell)', 'Bicep Curl (Dumbbell)', 'Bulgarian Split Squat', 'Cable Fly Crossovers',
   'Cable Kickback', 'Calf Raise', 'Chest Dip', 'Chest Fly (Dumbbell)',
   'Concentration Curl', 'Crunch', 'Deadlift (Barbell)', 'Decline Bench Press', 'Dumbbell Fly', 'Dumbbell Row',

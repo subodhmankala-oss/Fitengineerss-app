@@ -28,8 +28,6 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
   const [primaryMuscle, setPrimaryMuscle] = useState('');
   const [otherMuscles, setOtherMuscles] = useState([]);
   const [category, setCategory] = useState('');
-  const [assetFile, setAssetFile] = useState(null);
-  const [assetPreview, setAssetPreview] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,20 +38,11 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
       setPrimaryMuscle('');
       setOtherMuscles([]);
       setCategory('');
-      setAssetFile(null);
-      setAssetPreview('');
       setError('');
     }
   }, [open, initialName]);
 
   if (!open) return null;
-
-  const handleAssetChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAssetFile(file);
-    setAssetPreview(URL.createObjectURL(file));
-  };
 
   const handleSave = async () => {
     setError('');
@@ -62,17 +51,13 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
 
     setSaving(true);
     try {
-      let mediaUrl = null;
-      if (assetFile) {
-        mediaUrl = await databaseService.uploadCustomExerciseMedia(assetFile);
-      }
       const saved = await databaseService.createCustomExercise({
         name: name.trim(),
         equipment: equipment || null,
         category: category || null,
         primaryMuscle: primaryMuscle || null,
         secondaryMuscles: otherMuscles,
-        mediaUrl,
+        mediaUrl: null,
         mode,
         coachId,
         clientUserId
@@ -114,24 +99,7 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
           <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '10px 18px 0' }}>Saved to your own exercise library — private to you.</p>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 18px 4px' }}>
-          <label style={{ cursor: 'pointer' }}>
-            <div style={{
-              width: '84px', height: '84px', borderRadius: '50%', border: '1px solid var(--border-color)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: 'rgba(255,255,255,0.03)'
-            }}>
-              {assetPreview ? (
-                <img src={assetPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ fontSize: '1.6rem' }}>📷</span>
-              )}
-            </div>
-            <input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleAssetChange} />
-          </label>
-          <span style={{ fontSize: '0.78rem', color: 'var(--primary-accent-light)', marginTop: '8px', fontWeight: 600 }}>Add Asset</span>
-        </div>
-
-        <div style={{ padding: '10px 18px 0' }}>
+        <div style={{ padding: '20px 18px 0' }}>
           <input
             type="text"
             value={name}

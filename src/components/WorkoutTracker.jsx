@@ -6,7 +6,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -841,6 +841,15 @@ const WorkoutTracker = () => {
   const [showFinishSummary, setShowFinishSummary] = useState(false);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
   const [restTimerActive, setRestTimerActive] = useState(false);
+  // Wall-clock timestamp the current rest ends at — the actual source of
+  // truth restSecondsRemaining is recomputed from (see computeRestSecondsRemaining
+  // in liveWorkoutTimer.js for why this needs to be a timestamp, not a
+  // decremented counter).
+  const [restEndAt, setRestEndAt] = useState(null);
+  // Guards the "rest hit 0 naturally" alarm/blink so it only ever fires once
+  // per rest (a visibilitychange tick and the next setInterval tick can both
+  // observe remaining<=0 for the same rest otherwise).
+  const restFinishHandledRef = useRef(false);
   // Rest start/end used to be announced with a toast; now the floating rest
   // timer card itself blinks instead — bumping this key forces React to
   // remount the card so its CSS blink animation replays every time (a class
@@ -1354,31 +1363,43 @@ const WorkoutTracker = () => {
   };
 
   useEffect(() => {
-    let interval = null;
-    if (restTimerActive && restSecondsRemaining > 0) {
-      interval = setInterval(() => {
-        setRestSecondsRemaining(prev => {
-          if (prev <= 1) {
-            // Swap to the "Rest over" blink instead of a toast, then let the
-            // card linger just long enough to actually be seen blinking
-            // before it clears itself.
-            setRestJustFinished(true);
-            setRestPulseKey(k => k + 1);
-            playAlarmBeeps(1);
-            setTimeout(() => {
-              setRestTimerActive(false);
-              setRestJustFinished(false);
-            }, 2200);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
+    if (!restTimerActive || !restEndAt) return undefined;
+
+    const tick = () => {
+      const remaining = computeRestSecondsRemaining(restEndAt);
+      setRestSecondsRemaining(remaining);
+      if (remaining <= 0 && !restFinishHandledRef.current) {
+        restFinishHandledRef.current = true;
+        // Swap to the "Rest over" blink instead of a toast, then let the
+        // card linger just long enough to actually be seen blinking before
+        // it clears itself.
+        setRestJustFinished(true);
+        setRestPulseKey(k => k + 1);
+        playAlarmBeeps(1);
+        setTimeout(() => {
+          setRestTimerActive(false);
+          setRestJustFinished(false);
+        }, 2200);
+      }
+    };
+
+    tick(); // sync immediately (covers restEndAt changing via +15/-15)
+    const interval = setInterval(tick, 1000);
+    // setInterval is throttled or fully suspended while the screen is
+    // locked/tab is backgrounded, so a countdown driven only by tick counts
+    // visibly "lags" once the screen comes back on — it kept counting the
+    // ticks that actually ran, not the real time that passed. Recomputing
+    // from the wall-clock restEndAt the instant the page becomes visible
+    // again corrects the display immediately instead of waiting for
+    // however many missed 1s ticks to catch up (they never do — see
+    // computeRestSecondsRemaining's comment).
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
       clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [restTimerActive, restSecondsRemaining]);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [restTimerActive, restEndAt]);
 
   // Listen for coach live-session saves and merge new sessions in real-time
   useEffect(() => {
@@ -1515,6 +1536,8 @@ const WorkoutTracker = () => {
             if (sIdx === setIndex) {
               const nextState = !s.isCompleted;
               if (nextState) {
+                restFinishHandledRef.current = false;
+                setRestEndAt(Date.now() + 60000);
                 setRestSecondsRemaining(60);
                 setRestTimerActive(true);
                 setRestJustFinished(false);
@@ -4481,14 +4504,32 @@ const WorkoutTracker = () => {
                 <button
                   type="button"
                   className="btn-rest-adjust"
-                  onClick={() => setRestSecondsRemaining(prev => Math.max(0, prev - 15))}
+                  onClick={() => {
+                    const newEnd = (restEndAt || Date.now()) - 15000;
+                    if (newEnd <= Date.now()) {
+                      // Manually dragged to/past zero — close silently, same
+                      // as the original cap-at-0 behavior (no alarm/blink;
+                      // that's reserved for the countdown finishing on its
+                      // own).
+                      setRestTimerActive(false);
+                      setRestSecondsRemaining(0);
+                      setRestEndAt(null);
+                    } else {
+                      setRestEndAt(newEnd);
+                      setRestSecondsRemaining(computeRestSecondsRemaining(newEnd));
+                    }
+                  }}
                 >
                   -15
                 </button>
                 <button
                   type="button"
                   className="btn-rest-adjust"
-                  onClick={() => setRestSecondsRemaining(prev => prev + 15)}
+                  onClick={() => {
+                    const newEnd = (restEndAt || Date.now()) + 15000;
+                    setRestEndAt(newEnd);
+                    setRestSecondsRemaining(computeRestSecondsRemaining(newEnd));
+                  }}
                 >
                   +15
                 </button>
@@ -4498,6 +4539,7 @@ const WorkoutTracker = () => {
                   onClick={() => {
                     setRestTimerActive(false);
                     setRestSecondsRemaining(0);
+                    setRestEndAt(null);
                     setRestJustFinished(false);
                   }}
                 >

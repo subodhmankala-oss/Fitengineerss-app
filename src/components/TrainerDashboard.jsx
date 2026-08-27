@@ -14,7 +14,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
@@ -733,6 +733,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // marked complete, alarms + blinks "Rest over" when it hits 0.
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
   const [restTimerActive, setRestTimerActive] = useState(false);
+  // Wall-clock timestamp the current rest ends at — see the matching state
+  // in WorkoutTracker.jsx / computeRestSecondsRemaining's comment for why.
+  const [restEndAt, setRestEndAt] = useState(null);
+  const restFinishHandledRef = useRef(false);
   const [restPulseKey, setRestPulseKey] = useState(0);
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [showDiscardLiveModal, setShowDiscardLiveModal] = useState(false);
@@ -777,28 +781,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // (WorkoutTracker.jsx): swaps to a blinking "Rest over" card + alarm beeps
   // instead of a toast when it hits 0, then clears itself shortly after.
   useEffect(() => {
-    let interval = null;
-    if (restTimerActive && restSecondsRemaining > 0) {
-      interval = setInterval(() => {
-        setRestSecondsRemaining(prev => {
-          if (prev <= 1) {
-            setRestJustFinished(true);
-            setRestPulseKey(k => k + 1);
-            playAlarmBeeps(1);
-            setTimeout(() => {
-              setRestTimerActive(false);
-              setRestJustFinished(false);
-            }, 2200);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
+    if (!restTimerActive || !restEndAt) return undefined;
+
+    const tick = () => {
+      const remaining = computeRestSecondsRemaining(restEndAt);
+      setRestSecondsRemaining(remaining);
+      if (remaining <= 0 && !restFinishHandledRef.current) {
+        restFinishHandledRef.current = true;
+        setRestJustFinished(true);
+        setRestPulseKey(k => k + 1);
+        playAlarmBeeps(1);
+        setTimeout(() => {
+          setRestTimerActive(false);
+          setRestJustFinished(false);
+        }, 2200);
+      }
+    };
+
+    tick(); // sync immediately (covers restEndAt changing via +15/-15)
+    const interval = setInterval(tick, 1000);
+    // See the matching comment in WorkoutTracker.jsx: setInterval is
+    // throttled/suspended while the screen is locked or the tab is
+    // backgrounded, so re-syncing from the wall-clock restEndAt the instant
+    // the page is visible again is what keeps this from lagging.
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
       clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [restTimerActive, restSecondsRemaining]);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [restTimerActive, restEndAt]);
 
   const resetLiveTimer = () => {
     setLiveTimerStatus('idle');
@@ -1322,6 +1334,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // Marking a set complete (not un-completing one) auto-starts the rest
     // timer, same as the client's own logger.
     if (togglingSetOn) {
+      restFinishHandledRef.current = false;
+      setRestEndAt(Date.now() + 60000);
       setRestSecondsRemaining(60);
       setRestTimerActive(true);
       setRestJustFinished(false);
@@ -6487,14 +6501,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <button
                               type="button"
                               className="btn-rest-adjust"
-                              onClick={() => setRestSecondsRemaining(prev => Math.max(0, prev - 15))}
+                              onClick={() => {
+                                const newEnd = (restEndAt || Date.now()) - 15000;
+                                if (newEnd <= Date.now()) {
+                                  setRestTimerActive(false);
+                                  setRestSecondsRemaining(0);
+                                  setRestEndAt(null);
+                                } else {
+                                  setRestEndAt(newEnd);
+                                  setRestSecondsRemaining(computeRestSecondsRemaining(newEnd));
+                                }
+                              }}
                             >
                               -15
                             </button>
                             <button
                               type="button"
                               className="btn-rest-adjust"
-                              onClick={() => setRestSecondsRemaining(prev => prev + 15)}
+                              onClick={() => {
+                                const newEnd = (restEndAt || Date.now()) + 15000;
+                                setRestEndAt(newEnd);
+                                setRestSecondsRemaining(computeRestSecondsRemaining(newEnd));
+                              }}
                             >
                               +15
                             </button>
@@ -6504,6 +6532,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               onClick={() => {
                                 setRestTimerActive(false);
                                 setRestSecondsRemaining(0);
+                                setRestEndAt(null);
                                 setRestJustFinished(false);
                               }}
                             >

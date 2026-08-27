@@ -562,6 +562,15 @@ async function getSuperAdminUserId() {
   return admin?.id || null;
 }
 
+// Role-based version for the "notify every super-admin" case (custom
+// exercise creation) — getSuperAdminUserId above only ever resolves the one
+// hardcoded SUPER_ADMIN_EMAIL account, but role='super-admin' can be
+// granted to more than one user.
+async function getSuperAdminUserIds() {
+  const users = await rpcAll(supabase, 'get_users_for_server');
+  return users.filter((u) => u.role === 'super-admin').map((u) => u.id);
+}
+
 async function findSubscriptions(targetUserId, email, name) {
   const all = await rpcAll(supabase, 'get_push_subscriptions_for_broadcast');
   const byEndpoint = new Map();
@@ -614,7 +623,7 @@ async function getCoachDisplayName(coachId) {
 async function handleNotifyUser(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId } = req.body || {};
+  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId, exerciseName, creatorRole, creatorName } = req.body || {};
   if (!event || !clientUserId || !UUID_RE.test(clientUserId)) {
     return res.status(400).json({ error: 'event and a valid clientUserId are required.' });
   }
@@ -716,6 +725,21 @@ async function handleNotifyUser(req, res) {
       title = '🎉 New client joined';
       body = `${clientName} just signed up on Fitengineers.`;
       url = `/?viewClient=${clientUserId}`;
+    } else if (event === 'custom_exercise_created') {
+      // Fired from databaseService.createCustomExercise right after a coach
+      // or client saves a new custom exercise from the Add Exercise
+      // picker's "Create" row — fans out to every role='super-admin'
+      // account, each getting its own push_log row via pushToUser below.
+      const adminIds = await getSuperAdminUserIds();
+      if (adminIds.length === 0) return res.status(200).json({ success: true, message: 'No super-admin accounts; nothing to send.' });
+      title = '🏷️ New custom exercise';
+      body = `${creatorName || (creatorRole === 'coach' ? 'A coach' : 'A client')} created "${exerciseName || 'a new exercise'}"${creatorRole === 'coach' ? ` for ${clientName}` : ''}.`;
+      let sent = 0, failed = 0;
+      for (const adminId of adminIds) {
+        const r = await pushToUser(adminId, title, body, event, null);
+        sent += r.sent; failed += r.failed;
+      }
+      return res.status(200).json({ success: true, event, sent, failed, matched: adminIds.length });
     } else {
       return res.status(400).json({ error: `Unknown event "${event}".` });
     }

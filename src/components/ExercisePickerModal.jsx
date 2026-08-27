@@ -3,6 +3,7 @@ import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES } from '../data/exerciseLibrary';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
+import CreateCustomExerciseModal from './CreateCustomExerciseModal';
 
 // MuscleThumbnail mounts a real anatomical body SVG (vendored, quite
 // detailed) plus a muscle-overlay SVG via dangerouslySetInnerHTML. That's
@@ -52,10 +53,12 @@ function LazyMuscleIcon({ rootRef, muscle, color, size }) {
 // close animation actually gets to play instead of the card just vanishing.
 const CLOSE_ANIM_MS = 240;
 
-export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove, onShowFormGuide }) {
+export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove, onShowFormGuide, creatorMode = 'client', coachId = null, clientUserId = null, clientName = '' }) {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState('All');
   const [exercises, setExercises] = useState([]);
+  const [customExercises, setCustomExercises] = useState([]);
+  const [showCreateExercise, setShowCreateExercise] = useState(false);
   // Mirrors `open` but lags behind on close, so the slide-down animation has
   // something to animate before the modal actually leaves the DOM. `closing`
   // drives which animation class is applied.
@@ -78,6 +81,9 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       databaseService.getExerciseLibrary()
         .then(setExercises)
         .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
+      databaseService.getCustomExercisesForViewer()
+        .then(setCustomExercises)
+        .catch(err => console.error('Failed to fetch custom exercises in picker modal:', err));
     } else {
       setClosing(true);
       closeTimerRef.current = setTimeout(() => {
@@ -99,7 +105,16 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   // entries win on a name collision (richer video/guide data), but a
   // static-only entry now always still shows up.
   const dbNames = new Set(exercises.map(e => (e.name || '').toLowerCase()));
-  const activeLibrary = [...exercises, ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()))];
+  // customExercises (RLS-scoped to this viewer, see getCustomExercisesForViewer)
+  // are folded in the same way a static-only library entry is: they only
+  // fill a name that isn't already in the shared DB catalog, so a coach/
+  // client's private exercise never shadows a real catalog entry.
+  const customNames = new Set(customExercises.map(e => (e.name || '').toLowerCase()));
+  const activeLibrary = [
+    ...exercises,
+    ...customExercises.filter(e => !dbNames.has(e.name.toLowerCase())),
+    ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()) && !customNames.has(e.name.toLowerCase()))
+  ];
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();
   const q = trimmed.toLowerCase();
@@ -204,7 +219,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
               <button
                 type="button"
                 className="btn-add-preset-action"
-                onClick={() => { onAdd(trimmed); setQuery(''); }}
+                onClick={() => setShowCreateExercise(true)}
               >
                 ➕ Create
               </button>
@@ -253,6 +268,22 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
           )}
         </div>
       </div>
+
+      <CreateCustomExerciseModal
+        open={showCreateExercise}
+        onClose={() => setShowCreateExercise(false)}
+        initialName={trimmed}
+        mode={creatorMode}
+        coachId={coachId}
+        clientUserId={clientUserId}
+        clientName={clientName}
+        onCreated={({ name }) => {
+          setShowCreateExercise(false);
+          setQuery('');
+          databaseService.getCustomExercisesForViewer().then(setCustomExercises).catch(() => {});
+          onAdd(name);
+        }}
+      />
     </div>
   );
 }

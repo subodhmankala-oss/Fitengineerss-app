@@ -5389,6 +5389,118 @@ const databaseService = {
     }
   },
 
+  // ─── CUSTOM EXERCISES ───
+  // A coach/client-created exercise from the Add Exercise picker's
+  // "Create '{query}'" row — separate from the shared admin-curated
+  // public.exercises catalog (saveExercise below), which stays admin-only.
+  // See sql/supabase_custom_exercises.sql for the visibility rules this
+  // enforces at the RLS layer (coach+that one client, or client-only-private).
+  //
+  // RLS scopes SELECT automatically based on the caller's real session
+  // token, so no viewer params are needed here — restSelect already sends
+  // that token (see restSelect's own doc comment).
+  async getCustomExercisesForViewer() {
+    try {
+      const rows = await restSelect('custom_exercises?select=*&order=name.asc');
+      return (Array.isArray(rows) ? rows : []).map(r => ({
+        id: r.id,
+        name: r.name,
+        equipment: r.equipment,
+        category: r.category,
+        primary_muscle: r.primary_muscle,
+        secondary_muscle: Array.isArray(r.secondary_muscles) ? r.secondary_muscles.join(', ') : '',
+        media_url: r.media_url,
+        isCustom: true
+      }));
+    } catch (e) {
+      console.warn('Failed to load custom exercises (non-fatal):', e);
+      return [];
+    }
+  },
+
+  // mode: 'coach' | 'client'. Coach mode requires coachId (their own id) and
+  // clientUserId (the specific client they're working with, must be their
+  // assigned client per RLS). Client mode ignores coachId and stamps
+  // clientUserId as the caller's own id.
+  async createCustomExercise({ name, equipment, category, primaryMuscle, secondaryMuscles, mediaUrl, mode, coachId, clientUserId }) {
+    if (!name || !name.trim()) throw new Error('Exercise name is required.');
+    const record = {
+      name: name.trim(),
+      equipment: equipment || null,
+      category: category || null,
+      primary_muscle: primaryMuscle || null,
+      secondary_muscles: Array.isArray(secondaryMuscles) && secondaryMuscles.length > 0 ? secondaryMuscles : null,
+      media_url: mediaUrl || null
+    };
+    if (mode === 'coach') {
+      if (!coachId || !clientUserId) throw new Error('createCustomExercise (coach mode) requires coachId and clientUserId.');
+      record.created_by_user_id = coachId;
+      record.coach_id = coachId;
+      record.client_user_id = clientUserId;
+    } else {
+      if (!clientUserId) throw new Error('createCustomExercise (client mode) requires clientUserId.');
+      record.created_by_user_id = clientUserId;
+      record.coach_id = null;
+      record.client_user_id = clientUserId;
+    }
+
+    const inserted = await restInsert('custom_exercises', record);
+
+    // Best-effort super-admin notification — never let a push hiccup fail
+    // the actual save the coach/client is waiting on.
+    try {
+      await fetch('/api/push?action=notify-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'custom_exercise_created',
+          clientUserId: record.client_user_id,
+          exerciseName: record.name,
+          creatorRole: mode,
+          creatorName: localStorage.getItem('userName') || null
+        })
+      });
+    } catch (e) {
+      console.warn('custom_exercise_created notification failed (non-fatal):', e);
+    }
+
+    return inserted;
+  },
+
+  // Raw Storage REST upload into the custom-exercise-media bucket, sent with
+  // the caller's real session bearer token so the row-owning viewer (not
+  // just anyone with the anon key) is the one who actually attached it —
+  // matches the write model uploadWorkoutMedia/uploadExerciseVideo already
+  // use elsewhere in this file.
+  async uploadCustomExerciseMedia(file) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const token = await resolveBearerToken();
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(30000));
+    try {
+      const res = await fetch(`${supabaseUrl}/storage/v1/object/custom-exercise-media/${fileName}`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': file.type || 'application/octet-stream'
+        },
+        body: file,
+        signal: controller.signal
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error((errData && (errData.message || errData.error)) || `Upload failed: ${res.status}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+
+    return `${supabaseUrl}/storage/v1/object/public/custom-exercise-media/${fileName}`;
+  },
+
   async saveExercise(exercise) {
     if (isSupabaseConfigured && supabase) {
       try {

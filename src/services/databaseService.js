@@ -5400,18 +5400,34 @@ const databaseService = {
   // token, so no viewer params are needed here — restSelect already sends
   // that token (see restSelect's own doc comment).
   async getCustomExercisesForViewer() {
+    const shape = (r) => ({
+      id: r.id,
+      name: r.name,
+      equipment: r.equipment,
+      category: r.category,
+      primary_muscle: r.primary_muscle,
+      secondary_muscle: Array.isArray(r.secondary_muscles) ? r.secondary_muscles.join(', ') : '',
+      media_url: r.media_url,
+      isCustom: true
+    });
     try {
       const rows = await restSelect('custom_exercises?select=*&order=name.asc');
-      return (Array.isArray(rows) ? rows : []).map(r => ({
-        id: r.id,
-        name: r.name,
-        equipment: r.equipment,
-        category: r.category,
-        primary_muscle: r.primary_muscle,
-        secondary_muscle: Array.isArray(r.secondary_muscles) ? r.secondary_muscles.join(', ') : '',
-        media_url: r.media_url,
-        isCustom: true
-      }));
+      if (Array.isArray(rows) && rows.length > 0) return rows.map(shape);
+    } catch (e) {
+      console.warn('Direct custom_exercises read failed, falling back to server route:', e);
+    }
+    // Fallback for accounts without a real auth.uid()-bearing session — same
+    // RLS-vs-anon-key gap every other *ViaServer fallback in this file works
+    // around (see api/data-read.js's custom-exercises-list comment).
+    try {
+      const token = await resolveBearerToken();
+      const res = await fetch('/api/data-read?resource=custom-exercises-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: localStorage.getItem('userEmail') || '' })
+      });
+      const data = await res.json().catch(() => null);
+      return (data && Array.isArray(data.exercises)) ? data.exercises.map(shape) : [];
     } catch (e) {
       console.warn('Failed to load custom exercises (non-fatal):', e);
       return [];
@@ -5444,7 +5460,37 @@ const databaseService = {
       record.client_user_id = clientUserId;
     }
 
-    const inserted = await restInsert('custom_exercises', record);
+    let inserted;
+    try {
+      inserted = await restInsert('custom_exercises', record);
+    } catch (e) {
+      // Same RLS-vs-anon-key gap as getCustomExercisesForViewer above — fall
+      // back to the service-role create route instead of failing the save
+      // outright. That route re-derives created_by_user_id/coach_id/
+      // client_user_id itself from the verified caller identity (never
+      // trusts the client-supplied ids directly), so it re-sends the same
+      // inputs but the server decides what actually gets written.
+      console.warn('Direct custom_exercises insert failed, falling back to server route:', e);
+      const token = await resolveBearerToken();
+      const res = await fetch('/api/data-read?resource=custom-exercises-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: localStorage.getItem('userEmail') || '',
+          name: record.name,
+          equipment: record.equipment,
+          category: record.category,
+          primaryMuscle: record.primary_muscle,
+          secondaryMuscles: record.secondary_muscles,
+          mode,
+          coachId,
+          clientUserId
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || 'Could not save this exercise.');
+      inserted = data.exercise;
+    }
 
     // Best-effort super-admin notification — never let a push hiccup fail
     // the actual save the coach/client is waiting on.

@@ -227,6 +227,23 @@
   position: relative;
 }
 
+/* Entrance transition for the full-page mobile menu (2026-08-28: "no
+   transition" — it used to just pop in/out instantly on mount/unmount).
+   Fades + drops in slightly from the top, matching the ☰ button it opens
+   from. No `forwards` — same reasoning as .animate-scale-in/.animate-slide-up
+   above: the keyframe already ends at the element's natural state
+   (opacity:1, transform:none), and `forwards` would otherwise leave a
+   computed transform other than `none` sitting on this fixed-position
+   element after the animation finishes, which is exactly the containing-
+   block hazard documented on those two classes. */
+@keyframes mobileMenuFadeIn {
+  0% { opacity: 0; transform: translateY(-16px); }
+  100% { opacity: 1; transform: none; }
+}
+.trainer-header-mobile-menu {
+  animation: mobileMenuFadeIn 0.22s ease-out;
+}
+
 @media (min-width: 900px) {
   body.admin-wide-frame .role-toggle-bar {
     order: 2;

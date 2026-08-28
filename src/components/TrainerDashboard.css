@@ -212,6 +212,19 @@
   .trainer-header-hamburger {
     display: flex !important;
   }
+  /* Redundant on mobile once the hamburger menu shows the same name/brand
+     as its own header — see .trainer-header-mobile-menu below. */
+  .trainer-title-namebrand {
+    display: none !important;
+  }
+}
+
+/* Anchors the hamburger's dropdown to the FULL header row (not just the
+   narrow icon-row it's nested in) so it can span edge-to-edge — see the
+   dropdown's own left:0/right:0 in TrainerDashboard.jsx, which resolves
+   against this. */
+.trainer-header {
+  position: relative;
 }
 
 @media (min-width: 900px) {

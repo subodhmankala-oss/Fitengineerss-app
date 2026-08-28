@@ -3133,8 +3133,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             }}>
               Coach Dashboard
             </span>
-            <h3 style={{ margin: 0, lineHeight: 1.2 }}>{localStorage.getItem('userName') || 'Coach'}</h3>
-            <span style={{
+            {/* Name/brand hidden below 900px (2026-08-28: "remove the names
+                from there") — now redundant on mobile since the hamburger
+                menu's own header already shows them (see
+                .trainer-header-mobile-menu below). The "Coach Dashboard"
+                eyebrow label above stays; it's a page label, not the name.
+                Desktop is unaffected — still shows both, unchanged. */}
+            <h3 className="trainer-title-namebrand" style={{ margin: 0, lineHeight: 1.2 }}>{localStorage.getItem('userName') || 'Coach'}</h3>
+            <span className="trainer-title-namebrand" style={{
               fontSize: '0.85rem',
               color: 'var(--text-muted)',
               fontWeight: 600,
@@ -3203,7 +3209,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           </div>
         )}
 
-        <div className="trainer-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+        <div className="trainer-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Desktop: unchanged individual icon buttons (hidden below 900px
               via .trainer-header-actions-desktop in TrainerDashboard.css).
               Mobile (<900px, per the coach's explicit "keep desktop as is"
@@ -3306,12 +3312,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 onClick={() => setMobileHeaderMenuOpen(false)}
                 style={{ position: 'fixed', inset: 0, zIndex: 49 }}
               />
+              {/* Full-width (2026-08-28: "make this full width") — spans the
+                  whole header via .trainer-header's position:relative in
+                  TrainerDashboard.css, instead of a small right-aligned
+                  card. */}
               <div
                 className="trainer-header-mobile-menu"
                 style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50,
+                  position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 50,
                   background: '#141d2c', border: '1px solid var(--border-color)', borderRadius: '12px',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)', minWidth: '220px', overflow: 'hidden'
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)', overflow: 'hidden',
+                  display: 'flex', flexDirection: 'column'
                 }}
               >
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-color)' }}>
@@ -3353,13 +3364,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 >
                   🔔 {notifOn ? 'Notifications On' : 'Enable Notifications'}
                 </button>
+                {/* Kept last/at the bottom of the menu (2026-08-28: "keep
+                    the logout button in the bottom") — a top border plus
+                    extra top padding sets it visually apart from the
+                    actions above it, not just list order. */}
                 <button
                   type="button"
                   onClick={() => { setMobileHeaderMenuOpen(false); handleLogout(); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none',
-                    color: '#fca5a5', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
+                    background: 'none', borderTop: '1px solid var(--border-color)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
+                    color: '#fca5a5', padding: '16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', marginTop: '4px'
                   }}
                 >
                   ⏻ Logout

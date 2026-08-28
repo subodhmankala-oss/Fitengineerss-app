@@ -3156,8 +3156,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             second near-empty full-width row above the fold; on mobile /
             narrower widths that same rule wraps it onto its own line below,
             matching how it always looked before. Super-admin only — coaches
-            never render this. */}
-        {superAdmin && (
+            never render this. Hidden in Payments (2026-08-28: "nothing
+            should show instead of current page") — neither "My Clients" nor
+            "Super-Admin" is the page actually showing there, and tapping
+            either just navigates away, so it read as a stray, half-relevant
+            toggle floating above an unrelated screen. Payments already has
+            its own back button (see client-payments-view) for leaving. */}
+        {superAdmin && viewMode !== 'payments' && (
           <div className="role-toggle-bar" style={{
             display: 'flex',
             gap: '8px',

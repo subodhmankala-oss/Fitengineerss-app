@@ -50,18 +50,36 @@
 }
 
 /* Every native <input type="date"> in this dark-themed app (2026-08-28:
-   "Calendar icon everywhere in the app is not visible"). Chrome/Edge/Safari
-   render that icon in a fixed dark gray with no CSS color property to
-   target — it just disappears against this app's near-black backgrounds.
-   `invert(1)` is the standard fix (already applied to one single input in
-   WorkoutProgressDashboard.css before this; this is the same fix made
-   global so every date field — coach plan dates, program dates, the
-   Payments date field, etc. — gets it automatically instead of needing the
-   same rule copy-pasted onto every input one at a time). Firefox does not
-   support this pseudo-element and isn't targeted here; nothing regresses
-   there, its native icon just isn't restyled by this rule either way. */
+   "Calendar icon everywhere in the app is not visible" — reported again
+   after a plain `invert(1)` still read as too dim/low-contrast to actually
+   see). Chrome/Edge/Safari render that icon in a fixed dark gray with no
+   CSS `color` property to target — it just disappears against this app's
+   near-black backgrounds.
+   Two layers, not one:
+   1. `color-scheme: dark` on the input itself tells the browser its OWN
+      light-vs-dark rendering choice for native form-control chrome (this
+      icon included) should assume a dark surrounding UI — Chrome/Edge/
+      Safari draw the icon in a light color for it on their own, with no
+      filter needed.
+   2. `filter: invert(1) brightness(1.8)` on the icon itself as a second,
+      independent pass — belt-and-braces for whichever engine/version
+      doesn't honor color-scheme on this specific pseudo-element. Plain
+      invert(1) alone (the previous fix here) turns the browser's dark gray
+      icon into a mid-light gray, not full white — visible in isolation but
+      still low-contrast against this app's near-black backgrounds, which
+      is exactly the "still not visible" report. brightness(1.8) pushes
+      that inverted gray the rest of the way to a clean, clearly-visible
+      white.
+   Made global (was previously copy-pasted onto one single input in
+   WorkoutProgressDashboard.css) so every date field — coach plan dates,
+   program dates, the Payments date field, etc. — gets both automatically.
+   Firefox honors color-scheme but not the -webkit- pseudo-element; nothing
+   regresses there, its native icon just isn't touched by layer 2. */
+input[type="date"] {
+  color-scheme: dark;
+}
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+  filter: invert(1) brightness(1.8);
   cursor: pointer;
 }
 

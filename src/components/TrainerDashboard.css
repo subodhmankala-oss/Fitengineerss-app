@@ -134,6 +134,16 @@
   padding-right: var(--screen-gutter);
 }
 
+/* Payments view (2026-08-28: "wasting a lot of left and right space" — it
+   was hardcoding the 32px desktop gutter unconditionally, even at real
+   phone widths). Same mobile/desktop split as .client-directory-view right
+   above: --screen-gutter (16px) here, bumped to 32px only inside the
+   admin-wide-frame desktop override below. */
+.client-payments-view {
+  padding-left: var(--screen-gutter);
+  padding-right: var(--screen-gutter);
+}
+
 .trainer-dashboard-container {
   display: flex;
   flex-direction: column;
@@ -197,6 +207,53 @@
 .trainer-header-actions {
   order: 1;
 }
+
+/* Mobile-only hamburger (2026-08-28: "put this inside 3 line icon" — the
+   coach explicitly asked to keep desktop as-is). Below 900px — the same
+   threshold every other desktop/mobile split in this file already uses —
+   the row of individual Payments/Alerts/Logout circles collapses into one
+   ☰ button with a dropdown, since they crowded a real phone-width header.
+   900px+ (desktop, including admin-wide-frame) keeps showing the
+   individual buttons exactly as before and hides the hamburger entirely. */
+@media (max-width: 899px) {
+  .trainer-header-actions-desktop {
+    display: none !important;
+  }
+  .trainer-header-hamburger {
+    display: flex !important;
+  }
+  /* Redundant on mobile once the hamburger menu shows the same name/brand
+     as its own header — see .trainer-header-mobile-menu below. */
+  .trainer-title-namebrand {
+    display: none !important;
+  }
+}
+
+/* Anchors the hamburger's dropdown to the FULL header row (not just the
+   narrow icon-row it's nested in) so it can span edge-to-edge — see the
+   dropdown's own left:0/right:0 in TrainerDashboard.jsx, which resolves
+   against this. */
+.trainer-header {
+  position: relative;
+}
+
+/* Entrance transition for the full-page mobile menu (2026-08-28: "no
+   transition" — it used to just pop in/out instantly on mount/unmount).
+   Fades + drops in slightly from the top, matching the ☰ button it opens
+   from. No `forwards` — same reasoning as .animate-scale-in/.animate-slide-up
+   above: the keyframe already ends at the element's natural state
+   (opacity:1, transform:none), and `forwards` would otherwise leave a
+   computed transform other than `none` sitting on this fixed-position
+   element after the animation finishes, which is exactly the containing-
+   block hazard documented on those two classes. */
+@keyframes mobileMenuFadeIn {
+  0% { opacity: 0; transform: translateY(-16px); }
+  100% { opacity: 1; transform: none; }
+}
+.trainer-header-mobile-menu {
+  animation: mobileMenuFadeIn 0.22s ease-out;
+}
+
 @media (min-width: 900px) {
   body.admin-wide-frame .role-toggle-bar {
     order: 2;
@@ -1358,6 +1415,11 @@
     width: 100%;
     margin-left: auto;
     margin-right: auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  body.admin-wide-frame .client-payments-view {
     padding-left: 32px;
     padding-right: 32px;
   }

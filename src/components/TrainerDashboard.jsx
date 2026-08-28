@@ -175,8 +175,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       window.dispatchEvent(new Event('notificationPermissionChanged'));
       if (result === 'granted') {
         const coachName = localStorage.getItem('userName');
-        await subscribeToPush(coachName);
-        setPushSubscribed(true);
+        const subscribed = await subscribeToPush(coachName);
+        setPushSubscribed(subscribed);
+        if (!subscribed) {
+          alert('Notifications were allowed, but this device could not be registered to receive them. Please try again, or check your connection.');
+        }
+      } else {
+        // result is 'default' here (never 'denied' — that's handled above),
+        // meaning the browser did NOT grant permission but also showed no
+        // dialog the coach could act on. This is the desktop-only silent
+        // failure reported 2026-08-28: Chrome/Edge on desktop will resolve
+        // requestPermission() to 'default' with zero visible prompt when the
+        // browser's own "Sites can ask to send notifications" setting is
+        // switched off (chrome://settings/content/notifications) — clicking
+        // the bell looked like it did nothing at all, with no error and no
+        // state change to explain why. Mobile Chrome doesn't have this
+        // global toggle, which is why the same button works there. Since
+        // there's no dialog left to react to, tell the coach where to look
+        // instead of failing silently again.
+        alert("Your browser didn't show a permission prompt, so notifications are still off. Check your browser's site settings for this page (usually the icon left of the address bar, or chrome://settings/content/notifications) and make sure notifications are allowed, then try the bell again.");
       }
     } catch (e) {
       console.error('Notification permission request failed:', e);

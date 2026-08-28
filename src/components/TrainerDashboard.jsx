@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
+import Avatar from './Avatar';
 import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
 import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
@@ -3288,8 +3289,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </button>
           </div>
 
-          {/* Mobile-only hamburger — same actions, one tap away instead of
-              4 crowded circles. */}
+          {/* Mobile-only header control — same actions, one tap away instead of
+              4 crowded circles. Was a plain ☰ hamburger; now shows the coach's
+              own photo (2026-08-28: "instead of 3 burger icon in coach side,
+              add the image there") so tapping it reads as "open my account
+              menu" rather than a generic nav toggle. */}
           <button
             type="button"
             className="trainer-header-hamburger"
@@ -3300,14 +3304,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             style={{
               display: 'none', alignItems: 'center', justifyContent: 'center',
               background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-              color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer'
+              borderRadius: '50%', padding: '2px', cursor: 'pointer'
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+            <Avatar
+              email={localStorage.getItem('userEmail')}
+              name={localStorage.getItem('userName') || 'Coach'}
+              avatarUrl={localStorage.getItem('userAvatarUrl')}
+              size={30}
+            />
           </button>
 
           {mobileHeaderMenuOpen && (

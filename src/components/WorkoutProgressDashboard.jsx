@@ -4,6 +4,7 @@ import ConnectCoachModal from './ConnectCoachModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import WelcomeBanner from './WelcomeBanner';
 import WelcomeBackScreen from './WelcomeBackScreen';
+import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import { getSetTypeVisual } from './SetTypeMenu';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
@@ -756,7 +757,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
       {/* Top Header Panel */}
       <div className="dashboard-header-panel">
         <div className="profile-group">
-          <div className="avatar-shield">🏋️‍♂️</div>
+          <Avatar
+            className="avatar-shield"
+            email={localStorage.getItem('userEmail')}
+            name={userName}
+            avatarUrl={localStorage.getItem('userAvatarUrl')}
+            size={44}
+            style={{ borderRadius: 'var(--radius-md)' }}
+          />
           <div className="profile-titles">
             {/* "Welcome back" reads oddly for a client who's never logged a
                 workout yet — logs.length is the same "first-time" signal

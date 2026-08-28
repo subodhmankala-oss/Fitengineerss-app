@@ -3724,6 +3724,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
 
+          {/* Auto-calculated total across every logged payment (2026-08-28
+              feature request: "there should be total amount of all should be
+              auto calculated"). Derived straight from paymentsList so it
+              always matches what's on screen — no separate running total to
+              keep in sync. */}
+          {!loadingPayments && paymentsList.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)',
+              borderRadius: '10px', padding: '12px 14px'
+            }}>
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85rem' }}>
+                Total ({paymentsList.length} payment{paymentsList.length === 1 ? '' : 's'})
+              </span>
+              <span style={{ color: '#10b981', fontWeight: 800, fontSize: '1.05rem' }}>
+                ₹{paymentsList.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
+              </span>
+            </div>
+          )}
+
           {/* Ledger — every payment this coach has logged, newest first. */}
           {loadingPayments ? (
             <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>Loading…</div>

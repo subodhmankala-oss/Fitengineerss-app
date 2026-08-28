@@ -3620,6 +3620,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </button>
             <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
           </div>
+          {/* Subtitle (2026-08-28: "the better version of this should be
+              written there" — the page opened with just the icon+heading and
+              no context for what it's for). */}
+          <p style={{ margin: '-8px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Keep track of every payment you receive from your clients.
+          </p>
 
           {/* One-step logging row: client + amount + method pill + date, all
               on one row, defaulted to today — no separate modal/wizard (coach

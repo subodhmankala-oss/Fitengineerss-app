@@ -216,6 +216,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [drilldownClients, setDrilldownClients] = useState([]);
   const [loadingDrilldown, setLoadingDrilldown] = useState(false);
 
+  // Client Payments ledger (2026-08-28 feature request: "manage client
+  // payments... it should be updating in our app itself"). One-step inline
+  // form — client + amount + method pill + date (defaulted to today) — no
+  // multi-screen wizard, per the coach's explicit "much faster, one step"
+  // ask. Purely a manual record; see addClientPayment's comment in
+  // databaseService.js for why it doesn't touch anything else.
+  const [paymentsList, setPaymentsList] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentFormClientId, setPaymentFormClientId] = useState('');
+  const [paymentFormAmount, setPaymentFormAmount] = useState('');
+  const [paymentFormMethod, setPaymentFormMethod] = useState('cash');
+  const [paymentFormDate, setPaymentFormDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentSaveError, setPaymentSaveError] = useState('');
+
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
     setLoadingDrilldown(true);
@@ -341,7 +356,56 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (viewMode === 'admin') {
       fetchAdminData();
     }
+    if (viewMode === 'payments') {
+      fetchClientPayments();
+    }
   }, [viewMode]);
+
+  const fetchClientPayments = async () => {
+    if (!resolvedCoachId) return;
+    setLoadingPayments(true);
+    try {
+      const payments = await databaseService.getClientPaymentsForCoach(resolvedCoachId);
+      setPaymentsList(payments || []);
+    } catch (e) {
+      console.error('Error fetching client payments:', e);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  const handleLogPayment = async (e) => {
+    e.preventDefault();
+    if (!paymentFormClientId || !paymentFormAmount || Number(paymentFormAmount) <= 0) {
+      setPaymentSaveError('Pick a client and enter an amount.');
+      return;
+    }
+    setSavingPayment(true);
+    setPaymentSaveError('');
+    try {
+      // Local date input (YYYY-MM-DD) has no time-of-day — noon avoids any
+      // timezone conversion pushing it onto the wrong calendar day.
+      const paidAtIso = new Date(`${paymentFormDate}T12:00:00`).toISOString();
+      const res = await databaseService.addClientPayment(paymentFormClientId, resolvedCoachId, {
+        amount: Number(paymentFormAmount),
+        method: paymentFormMethod,
+        paidAt: paidAtIso
+      });
+      if (res.success) {
+        // Reset only the amount — client/method/date stay put so logging
+        // several payments in a row (the common case) is genuinely one
+        // field + Enter each time, not re-filling the whole form.
+        setPaymentFormAmount('');
+        fetchClientPayments();
+      } else {
+        setPaymentSaveError(res.error || 'Failed to save payment.');
+      }
+    } catch (err) {
+      setPaymentSaveError(err.message || 'Failed to save payment.');
+    } finally {
+      setSavingPayment(false);
+    }
+  };
 
   // Deliberately no mount-time fetch of the coach's still-active DB invite
   // code here anymore — the coach asked for the "Active Code" panel to start
@@ -2871,6 +2935,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // number than what clicking the tab actually shows — 35 vs. this coach's
   // real 17 attached clients. Confirmed 2026-08-12.
   const myClientsCount = loggedInUserId ? clients.filter(c => c.coach_id === loggedInUserId).length : 0;
+  // Same ownership scope as myClientsCount — the Payments tab's client
+  // picker, sorted alphabetically so a long client list stays scannable.
+  const myClients = loggedInUserId
+    ? clients.filter(c => c.coach_id === loggedInUserId).slice().sort((a, b) => (a.userName || '').localeCompare(b.userName || ''))
+    : [];
 
   const filteredClients = clients.filter(c => {
     // SECURITY (data isolation): in coach view EVERY coach — including the
@@ -2939,6 +3008,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             >
               <span className="admin-shell-icon">🛡️</span>
               <span className="admin-shell-label">Admin</span>
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'payments' ? 'active' : ''}
+              onClick={() => { setViewMode('payments'); setSelectedClient(null); }}
+              title="Client Payments"
+              aria-label="Client Payments"
+            >
+              <span className="admin-shell-icon">💰</span>
+              <span className="admin-shell-label">Payments</span>
             </button>
             <button
               type="button"
@@ -3080,6 +3159,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               </svg>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === 'payments' ? 'coach' : 'payments')}
+            title={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
+            aria-label={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: viewMode === 'payments' ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
+              border: viewMode === 'payments' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
+              color: viewMode === 'payments' ? 'var(--primary-accent-light)' : '#fff',
+              borderRadius: '50%', padding: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            <span style={{ fontSize: '15px', lineHeight: 1 }}>💰</span>
+          </button>
           <button
             type="button"
             onClick={toggleCoachNotifications}
@@ -3291,6 +3386,132 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   </div>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      ) : viewMode === 'payments' ? (
+        <div className="client-payments-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+          <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+
+          {/* One-step logging row: client + amount + method pill + date, all
+              on one row, defaulted to today — no separate modal/wizard (coach
+              asked for "much faster, one step" after the first design pass
+              proposed a full form). Enter (via form onSubmit) or the Log
+              button both save immediately; the client/method/date stay put
+              afterward so logging several payments in a row only means
+              retyping the amount each time. */}
+          <form
+            onSubmit={handleLogPayment}
+            style={{
+              display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)',
+              borderRadius: '12px', padding: '12px'
+            }}
+          >
+            <select
+              value={paymentFormClientId}
+              onChange={(e) => setPaymentFormClientId(e.target.value)}
+              required
+              style={{
+                flex: '1 1 180px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                borderRadius: '8px', color: '#fff', padding: '9px 10px', fontSize: '0.85rem'
+              }}
+            >
+              <option value="" disabled>Select client…</option>
+              {myClients.map(c => (
+                <option key={c.id} value={c.id}>{c.userName}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              placeholder="Amount"
+              value={paymentFormAmount}
+              onChange={(e) => setPaymentFormAmount(e.target.value)}
+              required
+              style={{
+                flex: '1 1 110px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                borderRadius: '8px', color: '#fff', padding: '9px 10px', fontSize: '0.85rem'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '4px', flex: '2 1 260px' }}>
+              {[
+                { id: 'cash', label: 'Cash' },
+                { id: 'upi', label: 'UPI' },
+                { id: 'bank_transfer', label: 'Bank' },
+                { id: 'card', label: 'Card' },
+                { id: 'other', label: 'Other' },
+              ].map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPaymentFormMethod(m.id)}
+                  style={{
+                    flex: 1, padding: '9px 6px', borderRadius: '8px', border: 'none',
+                    background: paymentFormMethod === m.id ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.06)',
+                    color: paymentFormMethod === m.id ? '#10b981' : 'rgba(226,232,240,0.75)',
+                    fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="date"
+              value={paymentFormDate}
+              onChange={(e) => setPaymentFormDate(e.target.value)}
+              required
+              style={{
+                flex: '1 1 140px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                borderRadius: '8px', color: '#fff', padding: '9px 10px', fontSize: '0.85rem'
+              }}
+            />
+            <button
+              type="submit"
+              disabled={savingPayment}
+              style={{
+                flex: '0 0 auto', background: 'var(--primary-accent-light)', border: 'none',
+                borderRadius: '8px', color: '#04140f', padding: '9px 18px', fontSize: '0.85rem',
+                fontWeight: 800, cursor: savingPayment ? 'default' : 'pointer', opacity: savingPayment ? 0.7 : 1
+              }}
+            >
+              {savingPayment ? 'Saving…' : 'Log'}
+            </button>
+          </form>
+          {paymentSaveError && (
+            <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
+          )}
+
+          {/* Ledger — every payment this coach has logged, newest first. */}
+          {loadingPayments ? (
+            <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>Loading…</div>
+          ) : paymentsList.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>No payments logged yet.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {paymentsList.map(p => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                    borderRadius: '10px', padding: '10px 14px'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{p.clientName}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                      {new Date(p.paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' · '}
+                      {({ cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank Transfer', card: 'Card', other: 'Other' })[p.method] || p.method}
+                    </span>
+                  </div>
+                  <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.95rem' }}>₹{p.amount.toLocaleString()}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>

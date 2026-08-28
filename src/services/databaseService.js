@@ -3609,6 +3609,74 @@ const databaseService = {
     }
   },
 
+  // ─── CLIENT PAYMENTS ───
+  // A coach's own manual ledger of payments received from clients (cash/UPI/
+  // bank transfer/etc. collected outside the app) — see sql migration
+  // create_client_payments_table. Purely a record: logging one here does not
+  // touch users.payment_status or any other part of the app (2026-08-28
+  // feature request). clientId/coachId are both users.id, same convention as
+  // coach_notes above.
+  async addClientPayment(clientId, coachId, { amount, method, paidAt, note } = {}) {
+    if (!isSupabaseConfigured || !clientId || !coachId || !amount || !method) {
+      return { success: false, error: 'Missing required fields' };
+    }
+    try {
+      const data = await restInsert('client_payments', {
+        client_id: clientId,
+        coach_id: coachId,
+        amount,
+        method,
+        paid_at: paidAt || new Date().toISOString(),
+        note: note?.trim() || null
+      });
+      return {
+        success: true,
+        payment: {
+          id: data.id,
+          clientId: data.client_id,
+          coachId: data.coach_id,
+          amount: Number(data.amount),
+          method: data.method,
+          paidAt: data.paid_at,
+          note: data.note,
+          createdAt: data.created_at
+        }
+      };
+    } catch (e) {
+      console.error('Cloud DB Add Client Payment Error:', e);
+      return { success: false, error: e.message || 'Save failed' };
+    }
+  },
+
+  // Every payment this coach has logged across all their clients, newest
+  // first — powers the sidebar Payments tab. client_payments.client_id is a
+  // direct FK to users(id) (same convention as coach_notes, NOT the clients
+  // table's own PK — see getClientsForCoach's id-vs-user_id mapping), so the
+  // client's name is embedded straight off users.full_name in one round
+  // trip rather than a second query per row.
+  async getClientPaymentsForCoach(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const rows = await restSelect(
+        `client_payments?select=*,users!client_payments_client_id_fkey(full_name)&coach_id=eq.${encodeURIComponent(coachId)}&order=paid_at.desc`
+      );
+      return (rows || []).map(r => ({
+        id: r.id,
+        clientId: r.client_id,
+        clientName: r.users?.full_name || 'Unknown client',
+        coachId: r.coach_id,
+        amount: Number(r.amount),
+        method: r.method,
+        paidAt: r.paid_at,
+        note: r.note,
+        createdAt: r.created_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Client Payments Error:', e);
+      return [];
+    }
+  },
+
   // Whether the client still has the one-time "Welcome to Fitengineers"
   // banner (WelcomeBanner.jsx) to see. See sql/supabase_welcome_message.sql.
   async getWelcomeSeen(userId) {

@@ -6,7 +6,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
+import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -2569,12 +2569,22 @@ const WorkoutTracker = () => {
       ...getDefaultWarmupExercises(),
       ...planExercises.map(ex => ({
         name: ex.name,
+        // `time` is deliberately NOT carried over from the saved plan, unlike
+        // reps/weight/distanceKm which are legitimate reusable targets. A
+        // saved mm:ss is the actual duration a PAST session's stopwatch ran
+        // for, not a target — starting a template with it pre-filled made
+        // the set look already-timed, and liveRunningCardioKcal below reads
+        // any non-empty, non-running set.time as a frozen elapsed value, so
+        // the calorie total silently included that stale time before the
+        // client had touched the stopwatch. Reported 2026-08-28 for Plank/
+        // Air Rowing. Always start these blank; only an explicit "resume"
+        // flow should ever restore a real in-progress time.
         sets: ex.sets.map(s => isCardioExercise(ex.name)
-          ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+          ? { distanceKm: s.distanceKm ?? '', time: '', isCompleted: false }
           : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-          ? { time: s.time ?? '', weight: String(s.weight ?? '0'), isCompleted: false }
+          ? { time: '', weight: String(s.weight ?? '0'), isCompleted: false }
           : isTimedExercise(ex.name)
-          ? { time: s.time ?? '', isCompleted: false }
+          ? { time: '', isCompleted: false }
           // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
           // exercise like Farmer Walk saved from a source that didn't fill
           // both fields) — String(undefined) renders as the literal text
@@ -3418,7 +3428,14 @@ const WorkoutTracker = () => {
       {activeView === 'log' && !isLoggingWorkout && (() => {
         // startPlan is defined at component scope (see above) — shared with
         // the Coach Plans card in the Templates view.
-        const templatePlans = clientPlans.filter(p => p.createdBy === 'client');
+        // "Top 10" means best-PERFORMED, not most recent: ranked by each
+        // template's own average calories burned, session duration, and
+        // weight volume across its past completed sessions (see
+        // rankTemplatesByPerformance) — a template never actually performed
+        // sorts last. Anything beyond the top 10 isn't shown at all, even
+        // via "View all".
+        const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
+        const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
 
         const handleDeleteTemplate = async (plan) => {
@@ -3524,12 +3541,18 @@ const WorkoutTracker = () => {
                         setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
                         setLogExercises(plan.exercises.map(ex => ({
                           name: ex.name,
+                          // See startPlan's identical comment above: `time` is
+                          // never carried over from the saved plan — it's a
+                          // past session's real duration, not a target, and a
+                          // stale non-empty value here silently fed straight
+                          // into liveRunningCardioKcal's calorie total before
+                          // the client touched anything.
                           sets: ex.sets.map(s => isCardioExercise(ex.name)
-                            ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                            ? { distanceKm: s.distanceKm ?? '', time: '', isCompleted: false }
                             : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-                            ? { time: s.time ?? '', weight: String(s.weight ?? '0'), isCompleted: false }
+                            ? { time: '', weight: String(s.weight ?? '0'), isCompleted: false }
                             : isTimedExercise(ex.name)
-                            ? { time: s.time ?? '', isCompleted: false }
+                            ? { time: '', isCompleted: false }
                             // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
                 // exercise like Farmer Walk saved from a source that didn't fill
                 // both fields) — String(undefined) renders as the literal text
@@ -3550,7 +3573,15 @@ const WorkoutTracker = () => {
                     }}
                   >
                     <option value="" disabled>Select template</option>
-                    {clientPlans.map(p => (
+                    {/* Top 10 by actual performance (avg calories/duration/
+                        volume from past sessions logged under each plan's
+                        name) — see rankTemplatesByPerformance — not just the
+                        10 most recent. */}
+                    {rankTemplatesByPerformance(
+                      clientPlans,
+                      sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase()),
+                      10
+                    ).map(p => (
                       <option key={p.id} value={p.id}>{p.planName}</option>
                     ))}
                   </select>

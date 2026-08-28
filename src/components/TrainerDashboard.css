@@ -152,6 +152,20 @@
   padding: 24px 0;
   background-color: var(--bg-app);
   scroll-behavior: smooth;
+  /* iOS/mobile momentum-scroll can desync `position: sticky` inside a
+     scrolling flex container — the sticky child (.live-timer-bar) then
+     drifts away from the true scroll-container top instead of staying
+     pinned, landing wherever the scroll happened to stop.
+     `-webkit-overflow-scrolling: touch` opts this container into native
+     momentum scrolling instead of the browser's synthetic fallback, which
+     is the standard fix for that drift. Deliberately NOT adding a
+     `transform` here to force a compositing layer (the usual second half
+     of this fix) — this element is the containing block for every
+     `position: fixed` overlay in the coach dashboard (number pad,
+     modals, ...), and giving it a permanent transform would create a new
+     containing block for all of them, exactly the bug already documented
+     and fixed once for `.animate-scale-in` in index.css. */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Header Section */
@@ -910,8 +924,13 @@
   /* Opaque base under the amber tint so scrolled content doesn't show
      through while the bar is pinned. */
   background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), #141d2c;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* No backdrop-filter here (unlike other blurred panels in this app) —
+     `backdrop-filter` on a `position: sticky` element itself is a known
+     mobile Safari/Chrome compositing bug: the browser can freeze the sticky
+     element into a stale layer, so it visually stops tracking the scroll
+     ("floats" mid-page) even though the CSS position/top is correct. The
+     background above is already fully opaque (#141d2c base), so the blur
+     was purely decorative and safe to drop. */
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: var(--radius-md);
   flex-wrap: wrap;

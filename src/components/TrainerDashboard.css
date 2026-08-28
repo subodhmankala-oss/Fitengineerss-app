@@ -253,6 +253,7 @@
     height: 34px;
     object-fit: contain;
     filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.35));
+    cursor: pointer;
   }
 
   body.admin-wide-frame .admin-shell-nav {

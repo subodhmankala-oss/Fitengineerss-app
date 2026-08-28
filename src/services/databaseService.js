@@ -3677,6 +3677,48 @@ const databaseService = {
     }
   },
 
+  // Correcting a logged payment (wrong amount/method/date typed in the
+  // one-step form) — only the fields actually editable in the UI, not
+  // client/coach (moving a payment to a different client is a delete +
+  // re-log, not an edit).
+  async updateClientPayment(paymentId, { amount, method, paidAt } = {}) {
+    if (!isSupabaseConfigured || !paymentId) return { success: false, error: 'Missing payment id' };
+    try {
+      const body = {};
+      if (amount != null) body.amount = amount;
+      if (method) body.method = method;
+      if (paidAt) body.paid_at = paidAt;
+      const data = await restUpdate(`client_payments?id=eq.${encodeURIComponent(paymentId)}`, body);
+      return {
+        success: true,
+        payment: {
+          id: data.id,
+          clientId: data.client_id,
+          coachId: data.coach_id,
+          amount: Number(data.amount),
+          method: data.method,
+          paidAt: data.paid_at,
+          note: data.note,
+          createdAt: data.created_at
+        }
+      };
+    } catch (e) {
+      console.error('Cloud DB Update Client Payment Error:', e);
+      return { success: false, error: e.message || 'Update failed' };
+    }
+  },
+
+  async deleteClientPayment(paymentId) {
+    if (!isSupabaseConfigured || !paymentId) return { success: false, error: 'Missing payment id' };
+    try {
+      await restDelete(`client_payments?id=eq.${encodeURIComponent(paymentId)}`);
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Delete Client Payment Error:', e);
+      return { success: false, error: e.message || 'Delete failed' };
+    }
+  },
+
   // Whether the client still has the one-time "Welcome to Fitengineers"
   // banner (WelcomeBanner.jsx) to see. See sql/supabase_welcome_message.sql.
   async getWelcomeSeen(userId) {

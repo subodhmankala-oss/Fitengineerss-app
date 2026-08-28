@@ -2964,11 +2964,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           <img
             src="/logo.png"
             alt="Fitengineers Logo"
+            onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
+            title="Home"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewMode('coach'); setSelectedClient(null); } }}
             style={{
               height: '42px',
               width: 'auto',
               objectFit: 'contain',
-              filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))'
+              filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))',
+              cursor: 'pointer'
             }}
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>

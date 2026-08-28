@@ -62,8 +62,10 @@ export async function subscribeToPush(userName) {
       })
     });
     console.log('Registered with Vercel Web Push backend for lock-screen nudges.');
+    return true;
   } catch (err) {
     console.error('Push subscription failed:', err);
+    return false;
   }
 }
 

@@ -134,6 +134,16 @@
   padding-right: var(--screen-gutter);
 }
 
+/* Payments view (2026-08-28: "wasting a lot of left and right space" — it
+   was hardcoding the 32px desktop gutter unconditionally, even at real
+   phone widths). Same mobile/desktop split as .client-directory-view right
+   above: --screen-gutter (16px) here, bumped to 32px only inside the
+   admin-wide-frame desktop override below. */
+.client-payments-view {
+  padding-left: var(--screen-gutter);
+  padding-right: var(--screen-gutter);
+}
+
 .trainer-dashboard-container {
   display: flex;
   flex-direction: column;
@@ -1405,6 +1415,11 @@
     width: 100%;
     margin-left: auto;
     margin-right: auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  body.admin-wide-frame .client-payments-view {
     padding-left: 32px;
     padding-right: 32px;
   }

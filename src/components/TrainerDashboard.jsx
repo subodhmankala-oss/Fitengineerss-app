@@ -3590,7 +3590,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           )}
         </div>
       ) : viewMode === 'payments' ? (
-        <div className="client-payments-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+        <div className="client-payments-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           {/* Visible back button on the page itself (2026-08-28: "bad UI" —
               the only way out used to be digging into the mobile hamburger
               menu, which relabeled itself "Back to Clients" while inside

@@ -510,6 +510,14 @@ function App() {
       try {
         const email = user.email;
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+        // Google's OAuth profile carries the account's real photo under one of
+        // these keys depending on provider/version. Persisted onto the users
+        // row below so it survives across devices, not just this browser.
+        const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+        if (googleAvatarUrl) {
+          localStorage.setItem('userAvatarUrl', googleAvatarUrl);
+          databaseService.updateUserAvatarUrl(email, googleAvatarUrl).catch(() => {});
+        }
 
         if (lastProcessedEmailRef.current === email) {
           // Avoid duplicate processing/database hits on same user to prevent state resets
@@ -555,6 +563,13 @@ function App() {
         }
 
         let profile = await databaseService.getUserProfileByEmail(email);
+        // The users.avatar_url write above (updateUserAvatarUrl) is
+        // fire-and-forget and may not have landed before this SELECT ran, so
+        // `profile.userAvatarUrl` can still read stale/empty right after a
+        // fresh Google login. Merge in the value we just got from Google
+        // directly so loadProfileIntoLocalStorage below doesn't wipe the
+        // localStorage copy this same handler set moments ago.
+        if (googleAvatarUrl && profile) profile.userAvatarUrl = googleAvatarUrl;
         // A null result here used to be trusted outright as "this user
         // doesn't exist yet" and fed straight into the auto-create path below,
         // which overwrites any EXISTING profile (coach_id: null + placeholder
@@ -663,6 +678,7 @@ function App() {
                 verified: false
               });
               clientProfile = await databaseService.getUserProfileByEmail(email);
+              if (googleAvatarUrl && clientProfile) clientProfile.userAvatarUrl = googleAvatarUrl;
             } catch (err) {
               console.error("Error auto-creating user profile in session handler:", err);
             }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
+import Avatar from './Avatar';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -162,7 +163,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
     return () => { cancelled = true; };
   }, []);
 
-  const initial = form.userName?.charAt(0)?.toUpperCase() || '?';
+  const userAvatarUrl = localStorage.getItem('userAvatarUrl') || null;
 
   const handleField = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -654,7 +655,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
     <div className="cp-container animate-slide-up">
       {/* User card at top */}
       <div className="cp-user-card">
-        <div className="cp-avatar">{initial}</div>
+        <Avatar className="cp-avatar" email={userEmail} name={form.userName} avatarUrl={userAvatarUrl} size={56} style={{ fontSize: '1.4rem' }} />
         <div className="cp-user-info">
           <div className="cp-user-name">{form.userName || 'Warrior'}</div>
           <div className="cp-user-email">{userEmail}</div>

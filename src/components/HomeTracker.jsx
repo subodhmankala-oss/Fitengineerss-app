@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MealScanner from './MealScanner';
 import ConnectCoachModal from './ConnectCoachModal';
+import Avatar from './Avatar';
 import './HomeTracker.css';
 
 const HomeTracker = ({ setActiveTab, handleLogout }) => {
@@ -368,7 +369,13 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
       {/* 1. HealthifyMe Top Profile Bar */}
       <div className="healthify-header">
         <div className="profile-info-group">
-          <div className="avatar-circle">🌱</div>
+          <Avatar
+            className="avatar-circle"
+            email={localStorage.getItem('userEmail')}
+            name={userName}
+            avatarUrl={localStorage.getItem('userAvatarUrl')}
+            size={46}
+          />
           <div className="greeting-text">
             <span>Good Morning,</span>
             <h2>{userName}</h2>

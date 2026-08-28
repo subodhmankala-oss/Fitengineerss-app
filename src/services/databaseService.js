@@ -1606,6 +1606,24 @@ const databaseService = {
     }
   },
 
+  // Persists a client's real photo (from Google's OAuth profile) onto their
+  // users row so it survives across devices/sessions instead of only living
+  // in localStorage. Fire-and-forget — a failure here just means the next
+  // login falls back to the Gravatar/initials Avatar renders in the meantime.
+  async updateUserAvatarUrl(email, avatarUrl) {
+    if (!email || !avatarUrl) return;
+    try {
+      const rows = await restSelect(`users?email=eq.${encodeURIComponent(email.trim().toLowerCase())}&select=id,avatar_url`);
+      const user = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      // Don't clobber a photo the user already has saved with a stale one.
+      if (user && user.avatar_url !== avatarUrl) {
+        await restUpdate(`users?id=eq.${encodeURIComponent(user.id)}`, { avatar_url: avatarUrl });
+      }
+    } catch (e) {
+      console.warn('updateUserAvatarUrl failed (non-fatal):', e.message || e);
+    }
+  },
+
   async signInWithGoogle() {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
@@ -1824,6 +1842,10 @@ const databaseService = {
             // is set for coaches too (register-coach.js writes it), so check
             // that before falling back to branding.
             userName: client?.full_name || user.full_name || coach?.brand_name || user.email.split('@')[0],
+            // Real photo (Google OAuth `avatar_url`, or whatever a previous
+            // login already saved here) — Avatar.jsx falls back to a
+            // Gravatar lookup by email, then to initials, when this is null.
+            userAvatarUrl: user.avatar_url || null,
             userAge: client?.age ? String(client.age) : '',
             userHeight: client?.height_cm ? String(client.height_cm) : '',
             userWeight: client?.weight_kg ? String(client.weight_kg) : '',
@@ -1924,6 +1946,10 @@ const databaseService = {
     localStorage.setItem('userName', profile.userName || 'Trainer');
     localStorage.setItem('userEmail', email);
     if (profile.id) localStorage.setItem('userId', profile.id);
+    // Real Google/Gmail photo, if this account has one saved (Avatar.jsx
+    // falls back to Gravatar-by-email, then initials, when this is absent).
+    if (profile.userAvatarUrl) localStorage.setItem('userAvatarUrl', profile.userAvatarUrl);
+    else localStorage.removeItem('userAvatarUrl');
     if (profile.userCoachId) localStorage.setItem('userCoachId', profile.userCoachId);
     if (profile.userClientId) localStorage.setItem('userClientId', profile.userClientId);
     if (profile.userAge) localStorage.setItem('userAge', profile.userAge);

@@ -242,6 +242,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
 
+  // Mobile-only header hamburger (2026-08-28: "put this inside 3 line
+  // icon" — desktop keeps the individual icon buttons, only the header row
+  // used below 900px collapses into a single menu). See
+  // .trainer-header-hamburger/.trainer-header-actions-desktop in
+  // TrainerDashboard.css for the breakpoint that shows/hides each.
+  const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
+
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
     setLoadingDrilldown(true);
@@ -3126,8 +3133,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             }}>
               Coach Dashboard
             </span>
-            <h3 style={{ margin: 0, lineHeight: 1.2 }}>{localStorage.getItem('userName') || 'Coach'}</h3>
-            <span style={{
+            {/* Name/brand hidden below 900px (2026-08-28: "remove the names
+                from there") — now redundant on mobile since the hamburger
+                menu's own header already shows them (see
+                .trainer-header-mobile-menu below). The "Coach Dashboard"
+                eyebrow label above stays; it's a page label, not the name.
+                Desktop is unaffected — still shows both, unchanged. */}
+            <h3 className="trainer-title-namebrand" style={{ margin: 0, lineHeight: 1.2 }}>{localStorage.getItem('userName') || 'Coach'}</h3>
+            <span className="trainer-title-namebrand" style={{
               fontSize: '0.85rem',
               color: 'var(--text-muted)',
               fontWeight: 600,
@@ -3143,8 +3156,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             second near-empty full-width row above the fold; on mobile /
             narrower widths that same rule wraps it onto its own line below,
             matching how it always looked before. Super-admin only — coaches
-            never render this. */}
-        {superAdmin && (
+            never render this. Hidden in Payments (2026-08-28: "nothing
+            should show instead of current page") — neither "My Clients" nor
+            "Super-Admin" is the page actually showing there, and tapping
+            either just navigates away, so it read as a stray, half-relevant
+            toggle floating above an unrelated screen. Payments already has
+            its own back button (see client-payments-view) for leaving. */}
+        {superAdmin && viewMode !== 'payments' && (
           <div className="role-toggle-bar" style={{
             display: 'flex',
             gap: '8px',
@@ -3197,70 +3215,197 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         )}
 
         <div className="trainer-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {!superAdmin && onReplayDemoTour && (
+          {/* Desktop: unchanged individual icon buttons (hidden below 900px
+              via .trainer-header-actions-desktop in TrainerDashboard.css).
+              Mobile (<900px, per the coach's explicit "keep desktop as is"
+              2026-08-28 request): collapsed into a single ☰ button below,
+              since 3-4 separate circular buttons crowded the header on a
+              real phone width. */}
+          <div className="trainer-header-actions-desktop" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {!superAdmin && onReplayDemoTour && (
+              <button
+                type="button"
+                onClick={onReplayDemoTour}
+                title="Watch the quick app tutorial again"
+                aria-label="Watch app tutorial"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: '#fff',
+                  borderRadius: '50%', padding: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
-              onClick={onReplayDemoTour}
-              title="Watch the quick app tutorial again"
-              aria-label="Watch app tutorial"
+              onClick={() => setViewMode(viewMode === 'payments' ? 'coach' : 'payments')}
+              title={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
+              aria-label={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                color: '#fff',
+                background: viewMode === 'payments' ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
+                border: viewMode === 'payments' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
+                color: viewMode === 'payments' ? 'var(--primary-accent-light)' : '#fff',
+                borderRadius: '50%', padding: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <span style={{ fontSize: '15px', lineHeight: 1 }}>💰</span>
+            </button>
+            <button
+              type="button"
+              onClick={toggleCoachNotifications}
+              title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications to get client alerts'}
+              aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: notifOn ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
+                border: notifOn ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
+                color: notifOn ? 'var(--primary-accent-light)' : '#fff',
+                boxShadow: notifOn ? '0 4px 14px rgba(16,185,129,0.35)' : 'none',
                 borderRadius: '50%', padding: '8px',
                 cursor: 'pointer'
               }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
             </button>
+            <button className="logout-btn-trainer" onClick={handleLogout} title="Logout" aria-label="Logout">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                <line x1="12" y1="2" x2="12" y2="12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Mobile-only hamburger — same actions, one tap away instead of
+              4 crowded circles. */}
+          <button
+            type="button"
+            className="trainer-header-hamburger"
+            onClick={() => setMobileHeaderMenuOpen(o => !o)}
+            title="Menu"
+            aria-label="Menu"
+            aria-expanded={mobileHeaderMenuOpen}
+            style={{
+              display: 'none', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+              color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer'
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
+          {mobileHeaderMenuOpen && (
+            // Full PAGE (2026-08-28: "I need the dropdown full page" — the
+            // earlier full-WIDTH-but-short dropdown wasn't enough), not just
+            // a panel below the header. Covers the whole viewport, so the ☰
+            // button underneath is no longer reachable to close it — an
+            // explicit ✕ replaces it here instead.
+            <div
+              className="trainer-header-mobile-menu"
+              style={{
+                position: 'fixed', inset: 0, zIndex: 50,
+                background: '#0a0e1a', display: 'flex', flexDirection: 'column'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 16px 14px', borderBottom: '1px solid var(--border-color)' }}>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>{localStorage.getItem('userName') || 'Coach'}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>{localStorage.getItem('userBrand') || 'Fit Engineers'}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileHeaderMenuOpen(false)}
+                  title="Close menu"
+                  aria-label="Close menu"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                    color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer'
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              {!superAdmin && onReplayDemoTour && (
+                <button
+                  type="button"
+                  onClick={() => { setMobileHeaderMenuOpen(false); onReplayDemoTour(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
+                    color: '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  ❓ App Tutorial
+                </button>
+              )}
+                {/* Static label/action (2026-08-28: "bad UI" — this used to
+                    relabel itself "Back to Clients" while already inside
+                    Payments, which meant the ONLY way out of that page was
+                    digging back into this menu. A menu item that changes
+                    meaning depending on where you already are is confusing
+                    on its own, so it's a plain "go to Payments" entry now;
+                    the Payments page itself has its own back button (see
+                    client-payments-view above) for leaving it. */}
+                <button
+                  type="button"
+                  onClick={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
+                    color: viewMode === 'payments' ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  💰 Client Payments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMobileHeaderMenuOpen(false); toggleCoachNotifications(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
+                    color: notifOn ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  🔔 {notifOn ? 'Notifications On' : 'Enable Notifications'}
+                </button>
+                {/* Flexible spacer pushes Logout all the way to the true
+                    bottom of the full-page menu (2026-08-28: "keep the
+                    logout button in the bottom"), not just last in a short
+                    list. */}
+                <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={() => { setMobileHeaderMenuOpen(false); handleLogout(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                    background: 'none', borderTop: '1px solid var(--border-color)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
+                    color: '#fca5a5', padding: '18px 16px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  ⏻ Logout
+                </button>
+            </div>
           )}
-          <button
-            type="button"
-            onClick={() => setViewMode(viewMode === 'payments' ? 'coach' : 'payments')}
-            title={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
-            aria-label={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: viewMode === 'payments' ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
-              border: viewMode === 'payments' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
-              color: viewMode === 'payments' ? 'var(--primary-accent-light)' : '#fff',
-              borderRadius: '50%', padding: '8px',
-              cursor: 'pointer'
-            }}
-          >
-            <span style={{ fontSize: '15px', lineHeight: 1 }}>💰</span>
-          </button>
-          <button
-            type="button"
-            onClick={toggleCoachNotifications}
-            title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications to get client alerts'}
-            aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: notifOn ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
-              border: notifOn ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
-              color: notifOn ? 'var(--primary-accent-light)' : '#fff',
-              boxShadow: notifOn ? '0 4px 14px rgba(16,185,129,0.35)' : 'none',
-              borderRadius: '50%', padding: '8px',
-              cursor: 'pointer'
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-          </button>
-          <button className="logout-btn-trainer" onClick={handleLogout} title="Logout" aria-label="Logout">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-              <line x1="12" y1="2" x2="12" y2="12" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -3450,8 +3595,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           )}
         </div>
       ) : viewMode === 'payments' ? (
-        <div className="client-payments-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-          <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+        <div className="client-payments-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+          {/* Visible back button on the page itself (2026-08-28: "bad UI" —
+              the only way out used to be digging into the mobile hamburger
+              menu, which relabeled itself "Back to Clients" while inside
+              Payments. That relabeling is reverted below; a page the coach
+              is already looking at should offer its own way out instead of
+              hiding it in a menu. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
+              title="Back to Clients"
+              aria-label="Back to Clients"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer', flexShrink: 0
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+          </div>
+          {/* Subtitle (2026-08-28: "the better version of this should be
+              written there" — the page opened with just the icon+heading and
+              no context for what it's for). */}
+          <p style={{ margin: '-8px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Keep track of every payment you receive from your clients.
+          </p>
 
           {/* One-step logging row: client + amount + method pill + date, all
               on one row, defaulted to today — no separate modal/wizard (coach

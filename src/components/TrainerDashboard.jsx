@@ -3353,16 +3353,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   ❓ App Tutorial
                 </button>
               )}
+                {/* Static label/action (2026-08-28: "bad UI" — this used to
+                    relabel itself "Back to Clients" while already inside
+                    Payments, which meant the ONLY way out of that page was
+                    digging back into this menu. A menu item that changes
+                    meaning depending on where you already are is confusing
+                    on its own, so it's a plain "go to Payments" entry now;
+                    the Payments page itself has its own back button (see
+                    client-payments-view above) for leaving it. */}
                 <button
                   type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); setViewMode(viewMode === 'payments' ? 'coach' : 'payments'); }}
+                  onClick={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
                     background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
                     color: viewMode === 'payments' ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
                   }}
                 >
-                  💰 {viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
+                  💰 Client Payments
                 </button>
                 <button
                   type="button"
@@ -3583,7 +3591,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         </div>
       ) : viewMode === 'payments' ? (
         <div className="client-payments-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-          <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+          {/* Visible back button on the page itself (2026-08-28: "bad UI" —
+              the only way out used to be digging into the mobile hamburger
+              menu, which relabeled itself "Back to Clients" while inside
+              Payments. That relabeling is reverted below; a page the coach
+              is already looking at should offer its own way out instead of
+              hiding it in a menu. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
+              title="Back to Clients"
+              aria-label="Back to Clients"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer', flexShrink: 0
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+          </div>
 
           {/* One-step logging row: client + amount + method pill + date, all
               on one row, defaulted to today — no separate modal/wizard (coach

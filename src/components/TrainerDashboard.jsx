@@ -2909,7 +2909,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           this same breakpoint so the action isn't offered twice. */}
       {superAdmin && (
         <aside className="admin-shell-sidebar">
-          <img src="/logo.png" alt="Fitengineers" className="admin-shell-logo" />
+          <img
+            src="/logo.png"
+            alt="Fitengineers"
+            className="admin-shell-logo"
+            onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
+            title="Home"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewMode('coach'); setSelectedClient(null); } }}
+          />
           <nav className="admin-shell-nav">
             <button
               type="button"

@@ -1525,6 +1525,15 @@
   background: rgba(13, 20, 35, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  /* This form also carries .glass-panel, whose `backdrop-filter: blur(12px)`
+     creates a new containing block for any sticky/fixed descendant — that
+     hijacks .hevy-stopwatch-banner's `position: sticky` away from the real
+     scroll container (.main-content) onto this form's own box, so the banner
+     just scrolls with the form instead of pinning to the top (looks like a
+     normal floating card). The form already has its own opaque background
+     above, so dropping the blur here costs nothing visually. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Stopwatch Banner — sticks to the top of the scroll area while logging so the

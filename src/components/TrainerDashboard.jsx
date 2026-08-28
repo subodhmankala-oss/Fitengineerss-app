@@ -3724,6 +3724,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
 
+          {/* Total across every logged payment (2026-08-29: "I dont see the
+              total calculation here.. Its should calculate the total") —
+              the ledger below only ever showed per-row amounts, with no sum
+              of what the coach has actually collected. */}
+          {!loadingPayments && paymentsList.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              borderRadius: '10px', padding: '10px 14px'
+            }}>
+              <span style={{ color: 'rgba(226,232,240,0.75)', fontSize: '0.8rem', fontWeight: 600 }}>
+                Total ({paymentsList.length} {paymentsList.length === 1 ? 'payment' : 'payments'})
+              </span>
+              <span style={{ color: '#10b981', fontWeight: 800, fontSize: '1.05rem' }}>
+                ₹{paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}
+              </span>
+            </div>
+          )}
+
           {/* Ledger — every payment this coach has logged, newest first. */}
           {loadingPayments ? (
             <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>Loading…</div>

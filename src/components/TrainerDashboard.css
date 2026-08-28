@@ -197,6 +197,23 @@
 .trainer-header-actions {
   order: 1;
 }
+
+/* Mobile-only hamburger (2026-08-28: "put this inside 3 line icon" — the
+   coach explicitly asked to keep desktop as-is). Below 900px — the same
+   threshold every other desktop/mobile split in this file already uses —
+   the row of individual Payments/Alerts/Logout circles collapses into one
+   ☰ button with a dropdown, since they crowded a real phone-width header.
+   900px+ (desktop, including admin-wide-frame) keeps showing the
+   individual buttons exactly as before and hides the hamburger entirely. */
+@media (max-width: 899px) {
+  .trainer-header-actions-desktop {
+    display: none !important;
+  }
+  .trainer-header-hamburger {
+    display: flex !important;
+  }
+}
+
 @media (min-width: 900px) {
   body.admin-wide-frame .role-toggle-bar {
     order: 2;

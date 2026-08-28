@@ -14,7 +14,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
@@ -5989,10 +5989,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 setLiveExercises(plan.exercises.map(ex => ({
                                   name: ex.name,
                                   ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
+                                  // `time` is deliberately NOT carried over from the saved
+                                  // plan, unlike reps/weight/distanceKm — it's a past
+                                  // session's actual stopwatch duration, not a reusable
+                                  // target. Loading it here left a non-empty, non-running
+                                  // set.time behind, which liveRunningCardioKcal above reads
+                                  // as a frozen elapsed value — so the calorie total silently
+                                  // included a stale duration before the coach touched
+                                  // anything. Reported 2026-08-28 for Plank/Air Rowing.
                                   sets: ex.sets.map(s => isCardioExercise(ex.name)
-                                    ? { distanceKm: s.distanceKm ?? '', time: s.time ?? '', isCompleted: false }
+                                    ? { distanceKm: s.distanceKm ?? '', time: '', isCompleted: false }
                                     : isTimedExercise(ex.name)
-                                    ? { time: s.time ?? '', isCompleted: false }
+                                    ? { time: '', isCompleted: false }
                                     : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
                                 })));
                                 // liveSetTimers is keyed purely by "exIdx,setIdx" (see
@@ -6020,7 +6028,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             }}
                           >
                             <option value="" disabled>Select template</option>
-                            {clientPlans.map(p => (
+                            {/* Top 10 by actual performance (avg calories/duration/
+                                volume from this client's past logged sessions under
+                                each plan's name) — see rankTemplatesByPerformance —
+                                not just the 10 most recent. */}
+                            {rankTemplatesByPerformance(clientPlans, workoutLogs, 10).map(p => (
                               <option key={p.id} value={p.id}>{p.planName}</option>
                             ))}
                           </select>

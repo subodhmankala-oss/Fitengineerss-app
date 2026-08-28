@@ -421,3 +421,71 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
   const rounded = Math.round(workKcal * 10) / 10;
   return { totalKcal: rounded, workKcal: rounded, restKcal: 0 };
 }
+
+// Sums (reps × weight) across every set in a finished session's exercises —
+// the same "volume" metric already used for the client's progress chart
+// (WorkoutTracker's graphData). Cardio/timed sets have no reps/weight and
+// simply contribute 0 here, which is fine: their effort already shows up in
+// calories/duration instead.
+export function computeSessionVolume(session) {
+  if (!session || !Array.isArray(session.exercises)) return 0;
+  return session.exercises.reduce((total, ex) => {
+    if (!Array.isArray(ex.sets)) return total;
+    return total + ex.sets.reduce((sum, s) => sum + (parseFloat(s.reps) || 0) * (parseFloat(s.weight) || 0), 0);
+  }, 0);
+}
+
+// Ranks saved templates/plans by how well they've actually performed
+// historically — average calories burned, average session duration, and
+// average weight volume across every past session logged under that
+// template's name — rather than just how recently they were created.
+//
+// `sessions` is any array of {planName, caloriesBurned, durationSeconds,
+// exercises} records; WorkoutTracker's `sessions` state and
+// TrainerDashboard's `workoutLogs` are both shaped this way. Matching is by
+// planName (case-insensitive, trimmed) since neither session records store
+// a plan id.
+//
+// Each dimension is min-max normalized across only the templates that have
+// matching session history, so one dimension (e.g. calories in the hundreds
+// vs. duration in seconds) can't dominate the score purely from its raw
+// scale. A template with zero matching sessions scores lowest and sorts to
+// the back — it's never excluded outright, just deprioritized behind
+// anything with real performance data, so a brand-new template still shows
+// up if there's room left in `limit`.
+export function rankTemplatesByPerformance(templates, sessions, limit = 10) {
+  const stats = templates.map(plan => {
+    const name = (plan.planName || '').trim().toLowerCase();
+    const matches = name
+      ? sessions.filter(s => (s.planName || '').trim().toLowerCase() === name)
+      : [];
+    if (matches.length === 0) {
+      return { plan, avgCalories: 0, avgDuration: 0, avgVolume: 0, performed: false };
+    }
+    const avg = (fn) => matches.reduce((sum, s) => sum + fn(s), 0) / matches.length;
+    return {
+      plan,
+      avgCalories: avg(s => s.caloriesBurned || 0),
+      avgDuration: avg(s => s.durationSeconds || 0),
+      avgVolume: avg(computeSessionVolume),
+      performed: true
+    };
+  });
+
+  const performedStats = stats.filter(s => s.performed);
+  const maxOf = (key) => Math.max(...performedStats.map(s => s[key]), 0) || 1;
+  const maxCalories = maxOf('avgCalories');
+  const maxDuration = maxOf('avgDuration');
+  const maxVolume = maxOf('avgVolume');
+
+  return stats
+    .map(s => ({
+      ...s,
+      score: s.performed
+        ? (s.avgCalories / maxCalories) + (s.avgDuration / maxDuration) + (s.avgVolume / maxVolume)
+        : -1
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(s => s.plan);
+}

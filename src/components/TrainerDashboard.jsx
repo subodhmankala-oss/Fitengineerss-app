@@ -3306,42 +3306,53 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           </button>
 
           {mobileHeaderMenuOpen && (
-            <>
-              {/* Tap-outside-to-close backdrop. */}
-              <div
-                onClick={() => setMobileHeaderMenuOpen(false)}
-                style={{ position: 'fixed', inset: 0, zIndex: 49 }}
-              />
-              {/* Full-width (2026-08-28: "make this full width") — spans the
-                  whole header via .trainer-header's position:relative in
-                  TrainerDashboard.css, instead of a small right-aligned
-                  card. */}
-              <div
-                className="trainer-header-mobile-menu"
-                style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 50,
-                  background: '#141d2c', border: '1px solid var(--border-color)', borderRadius: '12px',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)', overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column'
-                }}
-              >
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-color)' }}>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '0.95rem' }}>{localStorage.getItem('userName') || 'Coach'}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '2px' }}>{localStorage.getItem('userBrand') || 'Fit Engineers'}</div>
+            // Full PAGE (2026-08-28: "I need the dropdown full page" — the
+            // earlier full-WIDTH-but-short dropdown wasn't enough), not just
+            // a panel below the header. Covers the whole viewport, so the ☰
+            // button underneath is no longer reachable to close it — an
+            // explicit ✕ replaces it here instead.
+            <div
+              className="trainer-header-mobile-menu"
+              style={{
+                position: 'fixed', inset: 0, zIndex: 50,
+                background: '#0a0e1a', display: 'flex', flexDirection: 'column'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 16px 14px', borderBottom: '1px solid var(--border-color)' }}>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>{localStorage.getItem('userName') || 'Coach'}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>{localStorage.getItem('userBrand') || 'Fit Engineers'}</div>
                 </div>
-                {!superAdmin && onReplayDemoTour && (
-                  <button
-                    type="button"
-                    onClick={() => { setMobileHeaderMenuOpen(false); onReplayDemoTour(); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                      background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                      color: '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                    }}
-                  >
-                    ❓ App Tutorial
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setMobileHeaderMenuOpen(false)}
+                  title="Close menu"
+                  aria-label="Close menu"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                    color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer'
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              {!superAdmin && onReplayDemoTour && (
+                <button
+                  type="button"
+                  onClick={() => { setMobileHeaderMenuOpen(false); onReplayDemoTour(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
+                    color: '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  ❓ App Tutorial
+                </button>
+              )}
                 <button
                   type="button"
                   onClick={() => { setMobileHeaderMenuOpen(false); setViewMode(viewMode === 'payments' ? 'coach' : 'payments'); }}
@@ -3364,23 +3375,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 >
                   🔔 {notifOn ? 'Notifications On' : 'Enable Notifications'}
                 </button>
-                {/* Kept last/at the bottom of the menu (2026-08-28: "keep
-                    the logout button in the bottom") — a top border plus
-                    extra top padding sets it visually apart from the
-                    actions above it, not just list order. */}
+                {/* Flexible spacer pushes Logout all the way to the true
+                    bottom of the full-page menu (2026-08-28: "keep the
+                    logout button in the bottom"), not just last in a short
+                    list. */}
+                <div style={{ flex: 1 }} />
                 <button
                   type="button"
                   onClick={() => { setMobileHeaderMenuOpen(false); handleLogout(); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
                     background: 'none', borderTop: '1px solid var(--border-color)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
-                    color: '#fca5a5', padding: '16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', marginTop: '4px'
+                    color: '#fca5a5', padding: '18px 16px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer'
                   }}
                 >
                   ⏻ Logout
                 </button>
-              </div>
-            </>
+            </div>
           )}
         </div>
       </div>

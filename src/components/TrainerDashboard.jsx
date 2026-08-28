@@ -230,6 +230,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [paymentFormDate, setPaymentFormDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [savingPayment, setSavingPayment] = useState(false);
   const [paymentSaveError, setPaymentSaveError] = useState('');
+  // Editing an already-logged row (2026-08-28: "if I want to edit the
+  // client's payment, I can't"). Only amount/method/date are editable
+  // in-place — changing which client a payment belongs to isn't exposed
+  // here; delete and re-log instead. editingPaymentId null means no row is
+  // in edit mode.
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [editPaymentAmount, setEditPaymentAmount] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] = useState('cash');
+  const [editPaymentDate, setEditPaymentDate] = useState('');
+  const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState(null);
 
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
@@ -404,6 +415,55 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       setPaymentSaveError(err.message || 'Failed to save payment.');
     } finally {
       setSavingPayment(false);
+    }
+  };
+
+  const startEditingPayment = (payment) => {
+    setEditingPaymentId(payment.id);
+    setEditPaymentAmount(String(payment.amount));
+    setEditPaymentMethod(payment.method);
+    setEditPaymentDate(payment.paidAt.slice(0, 10));
+  };
+
+  const cancelEditingPayment = () => setEditingPaymentId(null);
+
+  const handleSavePaymentEdit = async (paymentId) => {
+    if (!editPaymentAmount || Number(editPaymentAmount) <= 0) return;
+    setSavingPaymentEdit(true);
+    try {
+      const paidAtIso = new Date(`${editPaymentDate}T12:00:00`).toISOString();
+      const res = await databaseService.updateClientPayment(paymentId, {
+        amount: Number(editPaymentAmount),
+        method: editPaymentMethod,
+        paidAt: paidAtIso
+      });
+      if (res.success) {
+        setEditingPaymentId(null);
+        fetchClientPayments();
+      } else {
+        alert(res.error || 'Failed to update payment.');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to update payment.');
+    } finally {
+      setSavingPaymentEdit(false);
+    }
+  };
+
+  const handleDeletePayment = async (payment) => {
+    if (!window.confirm(`Delete this ₹${payment.amount.toLocaleString()} payment from ${payment.clientName}?`)) return;
+    setDeletingPaymentId(payment.id);
+    try {
+      const res = await databaseService.deleteClientPayment(payment.id);
+      if (res.success) {
+        setPaymentsList(prev => prev.filter(p => p.id !== payment.id));
+      } else {
+        alert(res.error || 'Failed to delete payment.');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to delete payment.');
+    } finally {
+      setDeletingPaymentId(null);
     }
   };
 
@@ -3493,24 +3553,133 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {paymentsList.map(p => (
-                <div
-                  key={p.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                    background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
-                    borderRadius: '10px', padding: '10px 14px'
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{p.clientName}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
-                      {new Date(p.paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {' · '}
-                      {({ cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank Transfer', card: 'Card', other: 'Other' })[p.method] || p.method}
-                    </span>
+                editingPaymentId === p.id ? (
+                  // Edit mode — same inline shape as the log form above, so
+                  // correcting a mistyped amount/method/date doesn't require
+                  // deleting and re-logging (2026-08-28: "if I want to edit
+                  // the client's payment, I can't"). Client isn't editable
+                  // here — moving a payment to a different client is a
+                  // delete + re-log, not an edit.
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px',
+                      background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.3)',
+                      borderRadius: '10px', padding: '10px 14px'
+                    }}
+                  >
+                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85rem', flex: '1 1 120px' }}>{p.clientName}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0.01"
+                      step="0.01"
+                      value={editPaymentAmount}
+                      onChange={(e) => setEditPaymentAmount(e.target.value)}
+                      style={{
+                        flex: '1 1 90px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                        borderRadius: '8px', color: '#fff', padding: '7px 8px', fontSize: '0.8rem'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '4px', flex: '2 1 220px' }}>
+                      {[
+                        { id: 'cash', label: 'Cash' },
+                        { id: 'upi', label: 'UPI' },
+                        { id: 'bank_transfer', label: 'Bank' },
+                        { id: 'card', label: 'Card' },
+                        { id: 'other', label: 'Other' },
+                      ].map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setEditPaymentMethod(m.id)}
+                          style={{
+                            flex: 1, padding: '7px 4px', borderRadius: '7px', border: 'none',
+                            background: editPaymentMethod === m.id ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.06)',
+                            color: editPaymentMethod === m.id ? '#10b981' : 'rgba(226,232,240,0.75)',
+                            fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="date"
+                      value={editPaymentDate}
+                      onChange={(e) => setEditPaymentDate(e.target.value)}
+                      style={{
+                        flex: '1 1 130px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                        borderRadius: '8px', color: '#fff', padding: '7px 8px', fontSize: '0.8rem'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSavePaymentEdit(p.id)}
+                      disabled={savingPaymentEdit}
+                      style={{
+                        background: 'var(--primary-accent-light)', border: 'none', borderRadius: '7px',
+                        color: '#04140f', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 800,
+                        cursor: savingPaymentEdit ? 'default' : 'pointer', opacity: savingPaymentEdit ? 0.7 : 1
+                      }}
+                    >
+                      {savingPaymentEdit ? '…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditingPayment}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', borderRadius: '7px',
+                        color: 'rgba(226,232,240,0.75)', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
                   </div>
-                  <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.95rem' }}>₹{p.amount.toLocaleString()}</span>
-                </div>
+                ) : (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                      borderRadius: '10px', padding: '10px 14px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{p.clientName}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                        {new Date(p.paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {' · '}
+                        {({ cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank Transfer', card: 'Card', other: 'Other' })[p.method] || p.method}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.95rem' }}>₹{p.amount.toLocaleString()}</span>
+                      <button
+                        type="button"
+                        onClick={() => startEditingPayment(p)}
+                        title="Edit payment"
+                        aria-label="Edit payment"
+                        style={{ background: 'none', border: 'none', color: 'rgba(226,232,240,0.55)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePayment(p)}
+                        disabled={deletingPaymentId === p.id}
+                        title="Delete payment"
+                        aria-label="Delete payment"
+                        style={{
+                          background: 'none', border: 'none', color: '#f87171', cursor: deletingPaymentId === p.id ? 'default' : 'pointer',
+                          fontSize: '0.9rem', padding: '4px', opacity: deletingPaymentId === p.id ? 0.5 : 1
+                        }}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                )
               ))}
             </div>
           )}

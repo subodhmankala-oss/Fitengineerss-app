@@ -3183,27 +3183,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </button>
             {/* 2026-08-29: "All these things i want it in left bar. The way
                 other menu exist" — CoachProfile.jsx's own settings rows
-                (Profile/Account/Business Profile/What's New) get their own
-                direct sidebar entries here too, matching every other icon
-                above (one click straight to that destination, not "open a
-                menu, then tap again"). Each jumps straight past
-                CoachProfile's main list into that sub-page via
-                initialSection — same mobileHeaderMenuOpen state the header
-                avatar already toggles, just more specific triggers for it.
-                Notifications and Client Payments aren't duplicated here —
-                Alerts/Payments right above already ARE their direct
-                sidebar entry, wired straight to the same actions
-                CoachProfile's own rows call. */}
-            <button
-              type="button"
-              className={mobileHeaderMenuOpen && coachProfileSection === 'profile' ? 'active' : ''}
-              onClick={() => openCoachProfileSection('profile')}
-              title="Profile"
-              aria-label="Profile"
-            >
-              <span className="admin-shell-icon">👤</span>
-              <span className="admin-shell-label">Profile</span>
-            </button>
+                (Account/Business Profile/What's New) get their own direct
+                sidebar entries here too, matching every other icon above
+                (one click straight to that destination, not "open a menu,
+                then tap again"). Each jumps straight past CoachProfile's
+                main list into that sub-page via initialSection — same
+                mobileHeaderMenuOpen state the header avatar already
+                toggles, just more specific triggers for it. Notifications
+                and Client Payments aren't duplicated here — Alerts/Payments
+                right above already ARE their direct sidebar entry, wired
+                straight to the same actions CoachProfile's own rows call.
+                Business Profile covers what used to be a separate "Profile"
+                entry too (2026-08-29: "Business profile and profile. Merge
+                it into one... keep the name Business profile") —
+                CoachProfile's 'business' section now includes the personal
+                Name/Phone fields the old 'profile' section had. */}
             <button
               type="button"
               className={mobileHeaderMenuOpen && coachProfileSection === 'account' ? 'active' : ''}

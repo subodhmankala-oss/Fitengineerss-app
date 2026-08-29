@@ -54,8 +54,16 @@ function SettingsRow({ icon, label, value, onTap, last }) {
   );
 }
 
-export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose }) {
-  const [activeSection, setActiveSection] = useState(null);
+// initialSection (2026-08-29: "all these things I want it in left bar, the
+// way other menu exist" — the coach dashboard's desktop sidebar wants a
+// direct one-click entry per settings row, not "open the menu, then tap
+// again") jumps straight past the main list into that sub-page on open, so
+// a sidebar button can be "Profile" -> profile edit form directly, same as
+// every other sidebar icon is already a direct destination rather than a
+// menu of menus. Back still returns to the main list (activeSection: null),
+// same as reaching that sub-page by tapping its row there normally would.
+export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose, initialSection = null }) {
+  const [activeSection, setActiveSection] = useState(initialSection);
 
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',
@@ -115,14 +123,19 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     }
   };
 
-  // ── Sub-section: Profile Edit ──────────────────────────────────────────────
-  if (activeSection === 'profile') {
+  // ── Sub-section: Business Profile ──────────────────────────────────────────
+  // Merged with the old standalone "Profile" section (2026-08-29: "Business
+  // profile and profile. Merge it into one... keep the name Business
+  // profile") — Personal Info (name/phone) and Business Info now live in
+  // one page/sidebar entry instead of two, both still saved via the same
+  // saveProfile() call since they were always one `form` object/one DB row.
+  if (activeSection === 'business' || activeSection === 'profile') {
     return (
       <Overlay>
         <div className="cp-container animate-slide-up">
           <div className="cp-sub-header">
             <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
-            <h2 className="cp-sub-title">Profile</h2>
+            <h2 className="cp-sub-title">Business Profile</h2>
             <button
               className={`cp-save-btn${saving ? ' cp-save-btn--loading' : ''}`}
               onClick={saveProfile}
@@ -143,30 +156,6 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 <input className="cp-field-input" type="tel" value={form.phone} onChange={e => handleField('phone', e.target.value)} placeholder="Phone number" />
               </div>
             </div>
-            {saveMsg === 'error' && <p className="cp-save-error">Failed to save. Check your connection and try again.</p>}
-          </div>
-        </div>
-      </Overlay>
-    );
-  }
-
-  // ── Sub-section: Business Profile ──────────────────────────────────────────
-  if (activeSection === 'business') {
-    return (
-      <Overlay>
-        <div className="cp-container animate-slide-up">
-          <div className="cp-sub-header">
-            <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
-            <h2 className="cp-sub-title">Business Profile</h2>
-            <button
-              className={`cp-save-btn${saving ? ' cp-save-btn--loading' : ''}`}
-              onClick={saveProfile}
-              disabled={saving}
-            >
-              {saving ? 'Saving…' : saveMsg === 'saved' ? '✓ Saved' : 'Save'}
-            </button>
-          </div>
-          <div className="cp-form-scroll">
             <div className="cp-form-section-label">Business Info</div>
             <div className="cp-form-card">
               <div className="cp-field">
@@ -327,7 +316,6 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
 
         <div className="cp-section-label">Account</div>
         <div className="cp-section-card">
-          <SettingsRow icon="👤" label="Profile" onTap={() => { setForm(readProfile()); setActiveSection('profile'); }} />
           <SettingsRow icon="🔒" label="Account" onTap={() => setActiveSection('account')} />
           <SettingsRow icon="🔔" label="Notifications" value={notifOn ? 'On' : 'Off'} onTap={() => setActiveSection('notifications')} last />
         </div>

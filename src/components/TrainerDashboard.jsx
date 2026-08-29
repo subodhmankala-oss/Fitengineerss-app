@@ -254,6 +254,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // TrainerDashboard.css for the breakpoint that shows/hides the mobile
   // trigger vs. the desktop icon row.
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
+  // Which CoachProfile sub-page to land on when it opens (2026-08-29: "all
+  // these things I want it in left bar, the way other menu exist" — the
+  // superAdmin's desktop sidebar wants a direct one-click entry per
+  // settings row, not "open the menu, then tap again"). null = the main
+  // settings list (still used when opened from the header avatar, which has
+  // no single obvious sub-page to jump to). Reset to null on close so the
+  // NEXT open — from whichever trigger — doesn't inherit the last one's
+  // destination.
+  const [coachProfileSection, setCoachProfileSection] = useState(null);
+  const openCoachProfileSection = (section) => {
+    setCoachProfileSection(section);
+    setMobileHeaderMenuOpen(true);
+  };
 
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
@@ -3135,7 +3148,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="My Clients"
               aria-label="My Clients"
             >
-              <span className="admin-shell-icon">👥</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Clients</span>
             </button>
             <button
@@ -3145,7 +3165,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="Super-Admin"
               aria-label="Super-Admin"
             >
-              <span className="admin-shell-icon">🛡️</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Admin</span>
             </button>
             <button
@@ -3155,7 +3179,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="Client Payments"
               aria-label="Client Payments"
             >
-              <span className="admin-shell-icon">💰</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Payments</span>
             </button>
             <button
@@ -3165,12 +3194,83 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications'}
               aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
             >
-              <span className="admin-shell-icon">🔔</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Alerts</span>
+            </button>
+            {/* 2026-08-29: "All these things i want it in left bar. The way
+                other menu exist" — CoachProfile.jsx's own settings rows
+                (Account/Business Profile/What's New) get their own direct
+                sidebar entries here too, matching every other icon above
+                (one click straight to that destination, not "open a menu,
+                then tap again"). Each jumps straight past CoachProfile's
+                main list into that sub-page via initialSection — same
+                mobileHeaderMenuOpen state the header avatar already
+                toggles, just more specific triggers for it. Notifications
+                and Client Payments aren't duplicated here — Alerts/Payments
+                right above already ARE their direct sidebar entry, wired
+                straight to the same actions CoachProfile's own rows call.
+                Business Profile covers what used to be a separate "Profile"
+                entry too (2026-08-29: "Business profile and profile. Merge
+                it into one... keep the name Business profile") —
+                CoachProfile's 'business' section now includes the personal
+                Name/Phone fields the old 'profile' section had. */}
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'account' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('account')}
+              title="Account"
+              aria-label="Account"
+            >
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
+              <span className="admin-shell-label">Account</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'business' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('business')}
+              title="Business Profile"
+              aria-label="Business Profile"
+            >
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+              </span>
+              <span className="admin-shell-label">Business</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'whatsnew' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('whatsnew')}
+              title="What's New"
+              aria-label="What's New"
+            >
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z" />
+                </svg>
+              </span>
+              <span className="admin-shell-label">What's New</span>
             </button>
           </nav>
           <button type="button" className="admin-shell-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
-            <span className="admin-shell-icon">⏻</span>
+            <span className="admin-shell-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                <line x1="12" y1="2" x2="12" y2="12" />
+              </svg>
+            </span>
             <span className="admin-shell-label">Logout</span>
           </button>
         </aside>
@@ -3182,6 +3282,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           <img
             src="/logo.png"
             alt="Fitengineers Logo"
+            className="trainer-header-logo"
             onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
             title="Home"
             role="button"
@@ -3423,18 +3524,38 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </svg>
           </button>
 
-          {mobileHeaderMenuOpen && (
-            <CoachProfile
-              handleLogout={handleLogout}
-              onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
-              notifOn={notifOn}
-              onToggleNotifications={toggleCoachNotifications}
-              onOpenPayments={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
-              onClose={() => setMobileHeaderMenuOpen(false)}
-            />
-          )}
         </div>
       </div>
+
+      {/* Moved out of .trainer-header-actions (2026-08-29: "add it over
+          there in desktop version" — the superAdmin's sidebar now has its
+          own "Profile" entry point too, see admin-shell-nav above). That
+          div is entirely display:none for the superAdmin's real desktop
+          width (everything in it is duplicated in the sidebar instead —
+          see .trainer-header-actions in TrainerDashboard.css), which was
+          silently hiding this overlay too whenever the sidebar's new
+          Profile button set mobileHeaderMenuOpen. Rendering it here, a
+          sibling of the header rather than a child of the row that account
+          hides, means BOTH triggers (sidebar Profile / header avatar) open
+          the same full-page overlay regardless of which one is visible. */}
+      {mobileHeaderMenuOpen && (
+        <CoachProfile
+          // Forces a fresh mount when the sidebar jumps to a DIFFERENT
+          // section while the overlay is already open — CoachProfile only
+          // reads initialSection once (on mount) to seed its own
+          // activeSection state, so switching sidebar buttons without this
+          // key would leave whatever sub-page was already showing in
+          // place instead of navigating.
+          key={coachProfileSection || 'main'}
+          handleLogout={handleLogout}
+          onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
+          notifOn={notifOn}
+          onToggleNotifications={toggleCoachNotifications}
+          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setViewMode('payments'); }}
+          onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); }}
+          initialSection={coachProfileSection}
+        />
+      )}
 
       {viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>

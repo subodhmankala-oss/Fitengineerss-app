@@ -208,50 +208,36 @@
   order: 1;
 }
 
-/* Mobile-only hamburger (2026-08-28: "put this inside 3 line icon" — the
-   coach explicitly asked to keep desktop as-is).
+/* Avatar/hamburger settings menu — universal, every account, every width.
+   (2026-08-28/29: started as a mobile-only "3 line icon" collapse of the
+   old individual bell/payments/logout circles, keeping desktop on its own
+   separate row — but CoachProfile.jsx ("Add coach profile settings page",
+   2026-08-29) superseded that old row entirely: Profile/Account/
+   Notifications/Business Profile/Client Payments/What's New/App
+   Tutorial/Logout now all live in the ONE avatar-triggered sheet this
+   button opens, explicitly "reachable from the avatar in the header on
+   both mobile and desktop, replacing the old flat hamburger menu.")
 
-   BUG FIX 2026-08-28: this used to be a single `@media (max-width: 899px)`
-   block, gated on the REAL browser viewport width. That's wrong for every
-   regular (non-superAdmin) coach account: this whole app renders as a
-   fixed ~480px "phone frame" for them regardless of how wide their actual
-   desktop browser window is (see the app-container comment near the top of
-   this file) — only the superAdmin gets the wide admin-wide-frame layout.
-   So a coach opening the app in a normal wide desktop browser window kept
-   seeing the OLD individual-icon header forever, since the viewport media
-   query never matched even though their on-screen layout was the narrow
-   phone frame the hamburger was built for. Reported as "I don't see the
-   changes... in desktop version" — from a coach account, not the
-   superAdmin one these features were verified against.
-
-   Correct default: collapse into the hamburger UNCONDITIONALLY (every
-   regular coach, at any real window width, since they're always the phone
-   frame). Only admin-wide-frame — the superAdmin, and only once actually
-   at a real desktop width — opts back into the old individual-icon row. */
+   This class previously had a `@media (min-width: 900px)
+   body.admin-wide-frame` override that resurrected the OLD row (and hid
+   this button) for the superAdmin's desktop layout specifically — a
+   leftover from when this button's own scope was still "mobile only".
+   Left in place after CoachProfile superseded the old row, that override
+   is exactly why the superAdmin desktop kept showing the old row and
+   never gained the new settings sheet at all ("I don't see these changes
+   in desktop version"). Removed: .trainer-header-actions-desktop (and its
+   name/brand) now stay retired everywhere, matching the same account/
+   width on every account, superAdmin desktop included. The superAdmin's
+   separate Clients/Admin nav sidebar is untouched — this is only the
+   settings/actions entry point, not navigation. */
 .trainer-header-actions-desktop {
   display: none !important;
 }
 .trainer-header-hamburger {
   display: flex !important;
 }
-/* Redundant once the hamburger menu shows the same name/brand as its own
-   header — see .trainer-header-mobile-menu below. Same default-on/
-   admin-wide-frame-desktop-off split as the hamburger itself, for the same
-   reason. */
 .trainer-title-namebrand {
   display: none !important;
-}
-
-@media (min-width: 900px) {
-  body.admin-wide-frame .trainer-header-actions-desktop {
-    display: flex !important;
-  }
-  body.admin-wide-frame .trainer-header-hamburger {
-    display: none !important;
-  }
-  body.admin-wide-frame .trainer-title-namebrand {
-    display: block !important;
-  }
 }
 
 /* Anchors the hamburger's dropdown to the FULL header row (not just the
@@ -394,15 +380,20 @@
     padding-left: 84px;
   }
 
-  /* Now duplicated in the sidebar (Clients/Admin toggle, Alerts, Logout) —
-     hide rather than remove; both still exist and both still work
-     everywhere else (any width below 900px, and for every regular coach
-     account, which never renders the sidebar at all). !important because
-     these are the same two elements the earlier "put the toggle inline in
-     the header" fix gave an explicit `order` and `flex` to in the block
-     above — belt and braces against that specificity fight reopening. */
-  body.admin-wide-frame .role-toggle-bar,
-  body.admin-wide-frame .trainer-header-actions {
+  /* role-toggle-bar (My Clients/Super-Admin) is duplicated in the sidebar —
+     hide rather than remove; it still exists and still works everywhere
+     else (any width below 900px, and for every regular coach account,
+     which never renders the sidebar at all). !important because it's the
+     same element the earlier "put the toggle inline in the header" fix
+     gave an explicit `order`/`flex` to in the block above — belt and
+     braces against that specificity fight reopening.
+     .trainer-header-actions (the avatar/settings button) is DELIBERATELY
+     NOT hidden here (was, until 2026-08-29) — CoachProfile.jsx's
+     Profile/Account/Business Profile settings have no sidebar equivalent,
+     so hiding this on the superAdmin's desktop removed the only way for
+     that account to reach them at all. See the button's own class comment
+     above for the full history. */
+  body.admin-wide-frame .role-toggle-bar {
     display: none !important;
   }
 }

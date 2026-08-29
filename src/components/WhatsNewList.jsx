@@ -1,4 +1,5 @@
-import { getWhatsNewFor } from '../data/whatsNewData';
+import { useEffect } from 'react';
+import { getWhatsNewFor, markWhatsNewSeen } from '../data/whatsNewData';
 
 // Shared "What's New" list body — used inside both ClientProfile's and
 // CoachProfile's own sub-page shell (back header etc. stay with the caller
@@ -8,6 +9,15 @@ const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numer
 
 export default function WhatsNewList({ audience }) {
   const entries = getWhatsNewFor(audience);
+
+  // Actually viewing this list is what clears the "new" dot elsewhere (e.g.
+  // the coach sidebar) — marks the instant the list mounts, not just when
+  // its parent nav item was tapped, so scrolling in without reading nothing
+  // still counts (same "seen" semantics as every other unread indicator in
+  // the app, e.g. coach_notes' read_at).
+  useEffect(() => {
+    markWhatsNewSeen(audience);
+  }, [audience]);
   if (entries.length === 0) {
     return (
       <div className="cp-form-card" style={{ padding: '18px 16px' }}>

@@ -4207,49 +4207,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 </div>
               )}
 
-              {/* Clients on a monthly cadence who haven't paid again in ~25+
-                  days (databaseService.getRenewalDueClients) — surfaces the
-                  renewal conversation BEFORE (or right as) the month runs
-                  out. Red once actually overdue, amber while still inside
-                  the month but close. No action button by design: clicking a
-                  row just opens that client (e.g. to message them or check
-                  their history) — logging their next payment in Client
-                  Payments is what clears them from this list, automatically,
-                  on the very next refresh. */}
-              {renewalDueClients.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                  {renewalDueClients.map(r => {
-                    const overdue = r.daysOverdue > 0;
-                    const client = clients.find(c => c.id === r.clientId);
-                    const color = overdue ? '#ef4444' : '#f59e0b';
-                    const bg = overdue ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
-                    const border = overdue ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
-                    return (
-                      <div
-                        key={r.clientId}
-                        onClick={() => { if (client) handleSelectClient(client); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '10px',
-                          background: bg, border: `1px solid ${border}`,
-                          borderRadius: '12px', padding: '12px 14px', cursor: client ? 'pointer' : 'default'
-                        }}
-                      >
-                        <span style={{ fontSize: '1.3rem' }}>{overdue ? '🔴' : '⏳'}</span>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color }}>
-                            {r.clientName}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            {overdue
-                              ? `${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue on their monthly renewal (last paid ${r.daysSincePaid} days ago)`
-                              : `Renewal due in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid ${r.daysSincePaid} days ago)`}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {/* Renewal-due reminders (Clients on a monthly cadence who
+                  haven't paid again in ~25+ days) MOVED to the Client
+                  Payments view (2026-08-29: "this should all come in client
+                  payment section. As reminder" — confirmed 2026-08-29 as a
+                  move, not a duplicate, after it kept showing here too: "why
+                  it is still showing on homepage"). See client-payments-view
+                  below for the surviving copy of this block. */}
 
               {/* triggerLiveToast's own toast only renders inside the Live Log
                   tab (selectedClient view), so success/failure from the

@@ -9,6 +9,24 @@
   overflow-y: auto;
 }
 
+/* 2026-08-29: "In desktop its too stretched.. Make it decent width" — this
+   page (CoachProfile.jsx's Overlay, and ClientProfile's own full-page
+   equivalent) is position:fixed/inset:0, so it escapes the app's normal
+   480px phone-frame width entirely and stretches edge-to-edge on any real
+   desktop-width browser window — every coach/client account, not just the
+   superAdmin's wide layout, since this page was never given its own
+   desktop cap the way the dashboard's list/card views already were (see
+   .client-directory-view/.client-payments-view in TrainerDashboard.css).
+   A settings form reads best narrower than a data-dense list, so this gets
+   its own smaller cap rather than reusing their 935px. */
+@media (min-width: 900px) {
+  .cp-container {
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+  }
+}
+
 /* ── User hero card ──────────────────────────────────────────────────────── */
 .cp-user-card {
   display: flex;

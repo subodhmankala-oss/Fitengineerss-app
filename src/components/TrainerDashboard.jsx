@@ -3168,6 +3168,33 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <span className="admin-shell-icon">🔔</span>
               <span className="admin-shell-label">Alerts</span>
             </button>
+            {/* 2026-08-29: "we already have this left bar... add it over
+                there in desktop version" — CoachProfile.jsx (Profile/
+                Account/Business Profile/What's New) has no sidebar
+                equivalent, but its own trigger button is the header avatar,
+                which this sidebar deliberately hides on desktop (everything
+                already in the sidebar is hidden in the header instead, so
+                the same action isn't offered twice — see
+                .trainer-header-actions in TrainerDashboard.css). Rather
+                than break that pattern by un-hiding the header button, this
+                gives the sidebar its own entry point into the exact same
+                sheet — same mobileHeaderMenuOpen state the header's avatar
+                button already toggles, just a second way to flip it. */}
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen ? 'active' : ''}
+              onClick={() => setMobileHeaderMenuOpen(true)}
+              title="Profile & Settings"
+              aria-label="Profile & Settings"
+            >
+              <Avatar
+                email={localStorage.getItem('userEmail')}
+                name={localStorage.getItem('userName') || 'Coach'}
+                avatarUrl={localStorage.getItem('userAvatarUrl')}
+                size={22}
+              />
+              <span className="admin-shell-label">Profile</span>
+            </button>
           </nav>
           <button type="button" className="admin-shell-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
             <span className="admin-shell-icon">⏻</span>
@@ -3423,18 +3450,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </svg>
           </button>
 
-          {mobileHeaderMenuOpen && (
-            <CoachProfile
-              handleLogout={handleLogout}
-              onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
-              notifOn={notifOn}
-              onToggleNotifications={toggleCoachNotifications}
-              onOpenPayments={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
-              onClose={() => setMobileHeaderMenuOpen(false)}
-            />
-          )}
         </div>
       </div>
+
+      {/* Moved out of .trainer-header-actions (2026-08-29: "add it over
+          there in desktop version" — the superAdmin's sidebar now has its
+          own "Profile" entry point too, see admin-shell-nav above). That
+          div is entirely display:none for the superAdmin's real desktop
+          width (everything in it is duplicated in the sidebar instead —
+          see .trainer-header-actions in TrainerDashboard.css), which was
+          silently hiding this overlay too whenever the sidebar's new
+          Profile button set mobileHeaderMenuOpen. Rendering it here, a
+          sibling of the header rather than a child of the row that account
+          hides, means BOTH triggers (sidebar Profile / header avatar) open
+          the same full-page overlay regardless of which one is visible. */}
+      {mobileHeaderMenuOpen && (
+        <CoachProfile
+          handleLogout={handleLogout}
+          onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
+          notifOn={notifOn}
+          onToggleNotifications={toggleCoachNotifications}
+          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
+          onClose={() => setMobileHeaderMenuOpen(false)}
+        />
+      )}
 
       {viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>

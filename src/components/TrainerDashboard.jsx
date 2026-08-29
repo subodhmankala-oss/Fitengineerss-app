@@ -3799,6 +3799,49 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             Keep track of every payment you receive from your clients.
           </p>
 
+          {/* Renewal reminders (2026-08-29: "this should all come in client
+              payment section. As reminder") — same list/data as the My
+              Clients directory's own renewal banner (renewalDueClients,
+              already fetched there; see refreshRenewalDueClients), surfaced
+              here too since Payments is exactly where a coach acts on one.
+              Clicking a row pre-fills the log form with that client instead
+              of navigating away (the directory's version opens the client
+              instead, which makes less sense here — you're already on the
+              screen that logs their renewal payment). */}
+          {renewalDueClients.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {renewalDueClients.map(r => {
+                const overdue = r.daysOverdue > 0;
+                const color = overdue ? '#ef4444' : '#f59e0b';
+                const bg = overdue ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
+                const border = overdue ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+                return (
+                  <div
+                    key={r.clientId}
+                    onClick={() => setPaymentFormClientId(r.clientId)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      background: bg, border: `1px solid ${border}`,
+                      borderRadius: '12px', padding: '12px 14px', cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.3rem' }}>{overdue ? '🔴' : '⏳'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color }}>
+                        {r.clientName}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {overdue
+                          ? `${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue on their monthly renewal (last paid ${r.daysSincePaid} days ago)`
+                          : `Renewal due in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid ${r.daysSincePaid} days ago)`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* One-step logging row: client + amount + method pill + date, all
               on one row, defaulted to today — no separate modal/wizard (coach
               asked for "much faster, one step" after the first design pass

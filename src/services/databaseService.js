@@ -1858,8 +1858,18 @@ const databaseService = {
             userCarbsTarget: client?.carbs_target ? String(client.carbs_target) : '',
             userFatsTarget: client?.fats_target ? String(client.fats_target) : '',
             role: activeRole,
-            phone: client?.phone_number || '',
+            // client?.phone_number is the client's own number; a coach has no
+            // client row, so falls to users.phone (coaches.saveCoachSelfProfile
+            // writes there — see CoachProfile.jsx).
+            phone: client?.phone_number || user.phone || '',
             brand: coach?.brand_name || 'Fit Engineers',
+            // Coach-only business fields, written by saveCoachSelfProfile.
+            // Blank ('') for clients since `coach` is always null for them.
+            specialization: coach?.specialization || '',
+            certifications: coach?.certifications || '',
+            experienceYears: coach?.experience_years != null ? String(coach.experience_years) : '',
+            locationCity: coach?.location_city || '',
+            socialHandle: coach?.social_media_handle || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -1923,8 +1933,13 @@ const databaseService = {
         userCarbsTarget: mClient?.carbs_target ? String(mClient.carbs_target) : '',
         userFatsTarget: mClient?.fats_target ? String(mClient.fats_target) : '',
         role: activeRole,
-        phone: mClient?.phone_number || '',
+        phone: mClient?.phone_number || mUser?.phone || '',
         brand: mCoach?.brand_name || 'Fit Engineers',
+        specialization: mCoach?.specialization || '',
+        certifications: mCoach?.certifications || '',
+        experienceYears: mCoach?.experience_years != null ? String(mCoach.experience_years) : '',
+        locationCity: mCoach?.location_city || '',
+        socialHandle: mCoach?.social_media_handle || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -2988,6 +3003,66 @@ const databaseService = {
       // tell "fetch failed" apart from "genuinely nothing pending" and keep
       // showing whatever was already on screen.
       console.error('Cloud DB getSessionsAwaitingCoachNote error:', e);
+      return null;
+    }
+  },
+
+  // ─── RENEWAL-DUE CLIENTS (coach directory banner) ───
+  // Monthly billing cadence, not session-count — "renewal" here means "paid
+  // again within the last ~30 days", derived purely from client_payments.
+  // Deliberately has NO separate "mark as renewed" step: logging a payment
+  // (addClientPayment above) IS the renewal action, because this always
+  // reads each client's MOST RECENT paid_at fresh. A coach who logs today's
+  // payment sees that client drop off this list on the very next refresh —
+  // no nudge, no manual toggle, nothing else to remember (2026-08-29 request:
+  // "auto renewal once coach updates the payment, no nudge nothing"). Only
+  // considers clients who have paid at least once; a client who's never paid
+  // belongs to the separate "never paid" conversation, not a renewal one.
+  async getRenewalDueClients(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const clientRows = await restSelect(
+        `clients?select=user_id,full_name&coach_id=eq.${encodeURIComponent(coachId)}`
+      );
+      if (!clientRows || clientRows.length === 0) return [];
+      const nameById = {};
+      clientRows.forEach(c => { if (c.user_id) nameById[c.user_id] = c.full_name || 'Client'; });
+
+      const payments = await restSelect(
+        `client_payments?select=client_id,paid_at&coach_id=eq.${encodeURIComponent(coachId)}&order=paid_at.desc`
+      );
+      if (!payments || payments.length === 0) return [];
+
+      // Rows are paid_at-desc, so the first one seen per client is their
+      // most recent payment.
+      const lastPaidByClient = {};
+      payments.forEach(p => {
+        if (!lastPaidByClient[p.client_id]) lastPaidByClient[p.client_id] = p.paid_at;
+      });
+
+      const MONTH_DAYS = 30;
+      // Surfaces 5 days ahead of the due date so a coach has time to actually
+      // have the conversation, not just a same-day surprise.
+      const DUE_SOON_DAYS = MONTH_DAYS - 5;
+      const now = Date.now();
+
+      const results = Object.entries(lastPaidByClient)
+        .filter(([clientId]) => nameById[clientId]) // only this coach's current clients
+        .map(([clientId, paidAt]) => {
+          const daysSincePaid = Math.floor((now - new Date(paidAt).getTime()) / 86_400_000);
+          return {
+            clientId,
+            clientName: nameById[clientId],
+            lastPaidAt: paidAt,
+            daysSincePaid,
+            daysOverdue: daysSincePaid - MONTH_DAYS // negative = not yet due
+          };
+        })
+        .filter(r => r.daysSincePaid >= DUE_SOON_DAYS);
+
+      return results.sort((a, b) => b.daysSincePaid - a.daysSincePaid);
+    } catch (e) {
+      console.error('Cloud DB getRenewalDueClients error:', e);
       return null;
     }
   },
@@ -4101,6 +4176,49 @@ const databaseService = {
       localStorage.setItem('coaches_list', JSON.stringify(defaults));
       try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: defaults })); } catch(e) {}
     }
+  },
+
+  // Self-service coach profile edit (CoachProfile.jsx) — distinct from
+  // saveCoachProfile above, which is the SUPER-ADMIN coach-management path
+  // (brand/payment_status only, keyed by users.id from the admin's coach
+  // list). This one is the coach editing their own name/phone/business info.
+  //
+  // Uses restUpdate (PATCH), never restUpsert/on_conflict — both the coaches
+  // and users rows already exist by the time a coach can open this screen
+  // (created at signup), so there's nothing to insert. This sidesteps the
+  // documented on_conflict-hits-the-SELECT-policy 42501 trap entirely: a
+  // plain PATCH only needs the UPDATE (and, for the returned representation,
+  // SELECT) policy to pass for the coach's OWN row, which it does — these
+  // calls run under the coach's real session token (resolveBearerToken),
+  // not the anon key.
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle }) {
+    if (!userId) throw new Error('Missing user id — could not save profile.');
+    if (isSupabaseConfigured && supabase) {
+      const expYears = parseInt(experienceYears, 10);
+      await restUpdate(`users?id=eq.${encodeURIComponent(userId)}`, {
+        full_name: name,
+        phone: phone || null,
+      });
+      await restUpdate(`coaches?user_id=eq.${encodeURIComponent(userId)}`, {
+        brand_name: brand || null,
+        specialization: specialization || null,
+        certifications: certifications || null,
+        experience_years: Number.isFinite(expYears) ? expYears : null,
+        location_city: locationCity || null,
+        social_media_handle: socialHandle || null,
+      });
+    }
+
+    // Mirror to localStorage regardless — same cache-then-reconcile pattern
+    // used by every other profile screen in this app.
+    if (name) localStorage.setItem('userName', name);
+    if (phone) localStorage.setItem('userPhone', phone); else localStorage.removeItem('userPhone');
+    if (brand) localStorage.setItem('userBrand', brand);
+    localStorage.setItem('userSpecialization', specialization || '');
+    localStorage.setItem('userCertifications', certifications || '');
+    localStorage.setItem('userExperienceYears', experienceYears || '');
+    localStorage.setItem('userLocationCity', locationCity || '');
+    localStorage.setItem('userSocialHandle', socialHandle || '');
   },
 
   async getPlatformStats() {

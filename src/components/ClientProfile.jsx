@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import Avatar from './Avatar';
+import WhatsNewList from './WhatsNewList';
 import './ClientProfile.css';
 
 const GOALS = ['Fat Loss', 'Muscle Building', 'Gut Fix', 'General Fitness'];
@@ -650,6 +651,22 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
     );
   }
 
+  // ── Sub-section: What's New ────────────────────────────────────────────────
+  if (activeSection === 'whatsnew') {
+    return (
+      <div className="cp-container animate-slide-up">
+        <div className="cp-sub-header">
+          <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
+          <h2 className="cp-sub-title">What's New</h2>
+          <span style={{ width: 60 }} />
+        </div>
+        <div className="cp-form-scroll">
+          <WhatsNewList audience="client" />
+        </div>
+      </div>
+    );
+  }
+
   // ── Main Settings Page ─────────────────────────────────────────────────────
   return (
     <div className="cp-container animate-slide-up">
@@ -676,6 +693,12 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
         <SettingsRow icon="🏋️" label="Workouts" onTap={() => setActiveSection('workouts')} />
         <SettingsRow icon="📏" label="Measurements" onTap={() => setActiveSection('measurements')} />
         <SettingsRow icon="📐" label="Units" value={weightUnit === 'kg' ? 'Metric' : 'Imperial'} onTap={() => setActiveSection('units')} last />
+      </div>
+
+      {/* Updates section */}
+      <div className="cp-section-label">Updates</div>
+      <div className="cp-section-card">
+        <SettingsRow icon="✨" label="What's New" onTap={() => setActiveSection('whatsnew')} last />
       </div>
 
       {/* Help section */}

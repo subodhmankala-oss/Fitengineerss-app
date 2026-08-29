@@ -54,8 +54,16 @@ function SettingsRow({ icon, label, value, onTap, last }) {
   );
 }
 
-export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose }) {
-  const [activeSection, setActiveSection] = useState(null);
+// initialSection (2026-08-29: "all these things I want it in left bar, the
+// way other menu exist" — the coach dashboard's desktop sidebar wants a
+// direct one-click entry per settings row, not "open the menu, then tap
+// again") jumps straight past the main list into that sub-page on open, so
+// a sidebar button can be "Profile" -> profile edit form directly, same as
+// every other sidebar icon is already a direct destination rather than a
+// menu of menus. Back still returns to the main list (activeSection: null),
+// same as reaching that sub-page by tapping its row there normally would.
+export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose, initialSection = null }) {
+  const [activeSection, setActiveSection] = useState(initialSection);
 
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',

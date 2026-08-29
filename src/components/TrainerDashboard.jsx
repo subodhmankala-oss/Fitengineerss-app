@@ -254,6 +254,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // TrainerDashboard.css for the breakpoint that shows/hides the mobile
   // trigger vs. the desktop icon row.
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
+  // Which CoachProfile sub-page to land on when it opens (2026-08-29: "all
+  // these things I want it in left bar, the way other menu exist" — the
+  // superAdmin's desktop sidebar wants a direct one-click entry per
+  // settings row, not "open the menu, then tap again"). null = the main
+  // settings list (still used when opened from the header avatar, which has
+  // no single obvious sub-page to jump to). Reset to null on close so the
+  // NEXT open — from whichever trigger — doesn't inherit the last one's
+  // destination.
+  const [coachProfileSection, setCoachProfileSection] = useState(null);
+  const openCoachProfileSection = (section) => {
+    setCoachProfileSection(section);
+    setMobileHeaderMenuOpen(true);
+  };
 
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
@@ -3168,32 +3181,58 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <span className="admin-shell-icon">🔔</span>
               <span className="admin-shell-label">Alerts</span>
             </button>
-            {/* 2026-08-29: "we already have this left bar... add it over
-                there in desktop version" — CoachProfile.jsx (Profile/
-                Account/Business Profile/What's New) has no sidebar
-                equivalent, but its own trigger button is the header avatar,
-                which this sidebar deliberately hides on desktop (everything
-                already in the sidebar is hidden in the header instead, so
-                the same action isn't offered twice — see
-                .trainer-header-actions in TrainerDashboard.css). Rather
-                than break that pattern by un-hiding the header button, this
-                gives the sidebar its own entry point into the exact same
-                sheet — same mobileHeaderMenuOpen state the header's avatar
-                button already toggles, just a second way to flip it. */}
+            {/* 2026-08-29: "All these things i want it in left bar. The way
+                other menu exist" — CoachProfile.jsx's own settings rows
+                (Profile/Account/Business Profile/What's New) get their own
+                direct sidebar entries here too, matching every other icon
+                above (one click straight to that destination, not "open a
+                menu, then tap again"). Each jumps straight past
+                CoachProfile's main list into that sub-page via
+                initialSection — same mobileHeaderMenuOpen state the header
+                avatar already toggles, just more specific triggers for it.
+                Notifications and Client Payments aren't duplicated here —
+                Alerts/Payments right above already ARE their direct
+                sidebar entry, wired straight to the same actions
+                CoachProfile's own rows call. */}
             <button
               type="button"
-              className={mobileHeaderMenuOpen ? 'active' : ''}
-              onClick={() => setMobileHeaderMenuOpen(true)}
-              title="Profile & Settings"
-              aria-label="Profile & Settings"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'profile' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('profile')}
+              title="Profile"
+              aria-label="Profile"
             >
-              <Avatar
-                email={localStorage.getItem('userEmail')}
-                name={localStorage.getItem('userName') || 'Coach'}
-                avatarUrl={localStorage.getItem('userAvatarUrl')}
-                size={22}
-              />
+              <span className="admin-shell-icon">👤</span>
               <span className="admin-shell-label">Profile</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'account' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('account')}
+              title="Account"
+              aria-label="Account"
+            >
+              <span className="admin-shell-icon">🔒</span>
+              <span className="admin-shell-label">Account</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'business' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('business')}
+              title="Business Profile"
+              aria-label="Business Profile"
+            >
+              <span className="admin-shell-icon">🏢</span>
+              <span className="admin-shell-label">Business</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'whatsnew' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('whatsnew')}
+              title="What's New"
+              aria-label="What's New"
+            >
+              <span className="admin-shell-icon">✨</span>
+              <span className="admin-shell-label">What's New</span>
             </button>
           </nav>
           <button type="button" className="admin-shell-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
@@ -3466,12 +3505,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           the same full-page overlay regardless of which one is visible. */}
       {mobileHeaderMenuOpen && (
         <CoachProfile
+          // Forces a fresh mount when the sidebar jumps to a DIFFERENT
+          // section while the overlay is already open — CoachProfile only
+          // reads initialSection once (on mount) to seed its own
+          // activeSection state, so switching sidebar buttons without this
+          // key would leave whatever sub-page was already showing in
+          // place instead of navigating.
+          key={coachProfileSection || 'main'}
           handleLogout={handleLogout}
           onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
           notifOn={notifOn}
           onToggleNotifications={toggleCoachNotifications}
-          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
-          onClose={() => setMobileHeaderMenuOpen(false)}
+          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setViewMode('payments'); }}
+          onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); }}
+          initialSection={coachProfileSection}
         />
       )}
 

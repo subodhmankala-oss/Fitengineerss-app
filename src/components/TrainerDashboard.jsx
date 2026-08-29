@@ -3248,6 +3248,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           <img
             src="/logo.png"
             alt="Fitengineers Logo"
+            className="trainer-header-logo"
             onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
             title="Home"
             role="button"

@@ -251,6 +251,14 @@
   body.admin-wide-frame .trainer-header-hamburger {
     display: none !important;
   }
+  /* 2026-08-29: "Remove the logo too from here" — the header's own logo is
+     redundant on the superAdmin's desktop now too: the sidebar has its own
+     logo (also a Home shortcut) right above these same nav icons. Header-
+     logo click-to-home stays intact for every other account/width, where
+     there's no sidebar logo to duplicate it. */
+  body.admin-wide-frame .trainer-header-logo {
+    display: none !important;
+  }
 }
 
 /* Anchors the hamburger's dropdown to the FULL header row (not just the

@@ -234,10 +234,12 @@
 .trainer-header-hamburger {
   display: flex !important;
 }
-/* Redundant once the hamburger menu shows the same name/brand as its own
-   header — see .trainer-header-mobile-menu below. Same default-on/
-   admin-wide-frame-desktop-off split as the hamburger itself, for the same
-   reason. */
+/* Redundant everywhere, desktop included (2026-08-29: "Remove this in
+   desktop version" — the name/brand text next to the logo, once the
+   sidebar's own Profile section and the CoachProfile sheet it opens both
+   already show the same name/email). Previously restored on the
+   superAdmin's real desktop width via a `body.admin-wide-frame` override
+   below; removed entirely instead of narrowing that override further. */
 .trainer-title-namebrand {
   display: none !important;
 }
@@ -248,9 +250,6 @@
   }
   body.admin-wide-frame .trainer-header-hamburger {
     display: none !important;
-  }
-  body.admin-wide-frame .trainer-title-namebrand {
-    display: block !important;
   }
 }
 

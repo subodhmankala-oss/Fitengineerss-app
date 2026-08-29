@@ -209,23 +209,48 @@
 }
 
 /* Mobile-only hamburger (2026-08-28: "put this inside 3 line icon" — the
-   coach explicitly asked to keep desktop as-is). Below 900px — the same
-   threshold every other desktop/mobile split in this file already uses —
-   the row of individual Payments/Alerts/Logout circles collapses into one
-   ☰ button with a dropdown, since they crowded a real phone-width header.
-   900px+ (desktop, including admin-wide-frame) keeps showing the
-   individual buttons exactly as before and hides the hamburger entirely. */
-@media (max-width: 899px) {
-  .trainer-header-actions-desktop {
-    display: none !important;
-  }
-  .trainer-header-hamburger {
+   coach explicitly asked to keep desktop as-is).
+
+   BUG FIX 2026-08-28: this used to be a single `@media (max-width: 899px)`
+   block, gated on the REAL browser viewport width. That's wrong for every
+   regular (non-superAdmin) coach account: this whole app renders as a
+   fixed ~480px "phone frame" for them regardless of how wide their actual
+   desktop browser window is (see the app-container comment near the top of
+   this file) — only the superAdmin gets the wide admin-wide-frame layout.
+   So a coach opening the app in a normal wide desktop browser window kept
+   seeing the OLD individual-icon header forever, since the viewport media
+   query never matched even though their on-screen layout was the narrow
+   phone frame the hamburger was built for. Reported as "I don't see the
+   changes... in desktop version" — from a coach account, not the
+   superAdmin one these features were verified against.
+
+   Correct default: collapse into the hamburger UNCONDITIONALLY (every
+   regular coach, at any real window width, since they're always the phone
+   frame). Only admin-wide-frame — the superAdmin, and only once actually
+   at a real desktop width — opts back into the old individual-icon row. */
+.trainer-header-actions-desktop {
+  display: none !important;
+}
+.trainer-header-hamburger {
+  display: flex !important;
+}
+/* Redundant once the hamburger menu shows the same name/brand as its own
+   header — see .trainer-header-mobile-menu below. Same default-on/
+   admin-wide-frame-desktop-off split as the hamburger itself, for the same
+   reason. */
+.trainer-title-namebrand {
+  display: none !important;
+}
+
+@media (min-width: 900px) {
+  body.admin-wide-frame .trainer-header-actions-desktop {
     display: flex !important;
   }
-  /* Redundant on mobile once the hamburger menu shows the same name/brand
-     as its own header — see .trainer-header-mobile-menu below. */
-  .trainer-title-namebrand {
+  body.admin-wide-frame .trainer-header-hamburger {
     display: none !important;
+  }
+  body.admin-wide-frame .trainer-title-namebrand {
+    display: block !important;
   }
 }
 

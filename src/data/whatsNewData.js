@@ -44,3 +44,27 @@ export const WHATS_NEW = [
 export function getWhatsNewFor(audience) {
   return WHATS_NEW.filter(entry => entry.audience === 'all' || entry.audience === audience);
 }
+
+// ─── "New" dot tracking (2026-08-29: "Whenever anything new comes in any
+// navigation. There should be dot") ───
+// Entries have no stable per-entry id (just date+title, and dates aren't
+// strictly ordered — see the file header's "add to the TOP" convention,
+// which isn't always followed by date). Rather than rely on either, this
+// tracks a simple entry COUNT per audience: whenever the count of entries
+// visible to that audience exceeds the count last recorded as "seen", a new
+// entry must have been added since. Keyed by audience so the client and
+// coach sides (this changelog and WhatsNewList.jsx are shared between both)
+// never share or clobber each other's seen state.
+function seenCountKey(audience) {
+  return `whatsNewSeenCount_${audience}`;
+}
+
+export function hasUnseenWhatsNew(audience) {
+  const total = getWhatsNewFor(audience).length;
+  const seen = Number(localStorage.getItem(seenCountKey(audience)) || 0);
+  return total > seen;
+}
+
+export function markWhatsNewSeen(audience) {
+  localStorage.setItem(seenCountKey(audience), String(getWhatsNewFor(audience).length));
+}

@@ -34,6 +34,7 @@ import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import CoachProfile from './CoachProfile';
+import { hasUnseenWhatsNew } from '../data/whatsNewData';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -267,6 +268,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setCoachProfileSection(section);
     setMobileHeaderMenuOpen(true);
   };
+
+  // "New" dot on the sidebar's What's New icon (2026-08-29: "Whenever
+  // anything new comes in any navigation. There should be dot"). Re-read on
+  // every CoachProfile close (see the overlay's onClose below) rather than
+  // just once on mount — actually viewing What's New marks it seen (see
+  // WhatsNewList.jsx), and that only happens while the overlay is open, so
+  // the dot needs to re-check right as it closes to actually clear.
+  const [hasNewWhatsNew, setHasNewWhatsNew] = useState(() => hasUnseenWhatsNew('coach'));
 
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
@@ -3256,10 +3265,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="What's New"
               aria-label="What's New"
             >
-              <span className="admin-shell-icon">
+              <span className="admin-shell-icon" style={{ position: 'relative' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                   <path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z" />
                 </svg>
+                {/* "New" dot (2026-08-29: "Whenever anything new comes in
+                    any navigation. There should be dot"). Clears once the
+                    coach actually opens What's New — see WhatsNewList.jsx's
+                    markWhatsNewSeen() call and this state's own re-check on
+                    the overlay's onClose below. */}
+                {hasNewWhatsNew && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute', top: -2, right: -4,
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: '#ef4444', border: '2px solid #0a0e17'
+                    }}
+                  />
+                )}
               </span>
               <span className="admin-shell-label">What's New</span>
             </button>
@@ -3551,8 +3575,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
           notifOn={notifOn}
           onToggleNotifications={toggleCoachNotifications}
-          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setViewMode('payments'); }}
-          onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); }}
+          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); setViewMode('payments'); }}
+          onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); }}
           initialSection={coachProfileSection}
         />
       )}

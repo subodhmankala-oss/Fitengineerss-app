@@ -234,10 +234,12 @@
 .trainer-header-hamburger {
   display: flex !important;
 }
-/* Redundant once the hamburger menu shows the same name/brand as its own
-   header — see .trainer-header-mobile-menu below. Same default-on/
-   admin-wide-frame-desktop-off split as the hamburger itself, for the same
-   reason. */
+/* Redundant everywhere, desktop included (2026-08-29: "Remove this in
+   desktop version" — the name/brand text next to the logo, once the
+   sidebar's own Profile section and the CoachProfile sheet it opens both
+   already show the same name/email). Previously restored on the
+   superAdmin's real desktop width via a `body.admin-wide-frame` override
+   below; removed entirely instead of narrowing that override further. */
 .trainer-title-namebrand {
   display: none !important;
 }
@@ -249,8 +251,13 @@
   body.admin-wide-frame .trainer-header-hamburger {
     display: none !important;
   }
-  body.admin-wide-frame .trainer-title-namebrand {
-    display: block !important;
+  /* 2026-08-29: "Remove the logo too from here" — the header's own logo is
+     redundant on the superAdmin's desktop now too: the sidebar has its own
+     logo (also a Home shortcut) right above these same nav icons. Header-
+     logo click-to-home stays intact for every other account/width, where
+     there's no sidebar logo to duplicate it. */
+  body.admin-wide-frame .trainer-header-logo {
+    display: none !important;
   }
 }
 
@@ -373,8 +380,16 @@
     color: #fff;
   }
 
+  /* 2026-08-29: "I want our icons like this design. Not kiddish the one we
+     have" — swapped from emoji glyphs to plain stroked-line SVGs (feather-
+     icon style, matching the Instagram-shell aesthetic this sidebar already
+     borrows its layout from). stroke="currentColor" on each SVG means the
+     existing color/hover/.active rules above apply to the icon automatically
+     — no separate active-state color rule needed here. */
   body.admin-wide-frame .admin-shell-icon {
-    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
   }
 
@@ -1407,6 +1422,15 @@
        its actual height. Squeezed down as far as it'll go without
        clipping the logo. */
     margin-bottom: 0;
+    /* 2026-08-29: "Keep the coach dashboard text align center" — role-
+       toggle-bar and trainer-header-actions are BOTH display:none on this
+       account/width (duplicated in the sidebar — see further down this
+       file), and the logo/name-brand next to "Coach Dashboard" are now
+       also hidden here (same recent cleanup), so this row's only visible
+       child left is the "Coach Dashboard" eyebrow label. space-between's
+       default flex-start left-aligned it; center is exact since it's the
+       one remaining flex item, no grid/absolute-positioning trick needed. */
+    justify-content: center;
   }
 
   /* Trims the same "sized for mobile's stacked rows" margin down the rest

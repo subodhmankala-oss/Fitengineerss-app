@@ -33,6 +33,7 @@ import { useCoachTour } from '../context/CoachTourContext';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
+import CoachProfile from './CoachProfile';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -243,11 +244,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
 
-  // Mobile-only header hamburger (2026-08-28: "put this inside 3 line
-  // icon" — desktop keeps the individual icon buttons, only the header row
-  // used below 900px collapses into a single menu). See
+  // Full-page coach settings overlay (CoachProfile.jsx). Opened from the
+  // avatar hamburger below 900px (2026-08-28: "put this inside 3 line
+  // icon" — desktop originally kept individual icon buttons instead), and
+  // from a matching avatar button in the desktop icon row (2026-08-29:
+  // "coach profile should be similar to client side") so the same settings
+  // page is reachable regardless of viewport width. See
   // .trainer-header-hamburger/.trainer-header-actions-desktop in
-  // TrainerDashboard.css for the breakpoint that shows/hides each.
+  // TrainerDashboard.css for the breakpoint that shows/hides the mobile
+  // trigger vs. the desktop icon row.
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
 
   const handleViewCoachClients = async (coach) => {
@@ -416,6 +421,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         // field + Enter each time, not re-filling the whole form.
         setPaymentFormAmount('');
         fetchClientPayments();
+        // This IS the renewal action on a monthly cadence — see
+        // getRenewalDueClients' header comment. Re-pull immediately so a
+        // client who was overdue drops off the directory banner right away
+        // instead of waiting for the next visibility/focus refresh.
+        refreshRenewalDueClients();
       } else {
         setPaymentSaveError(res.error || 'Failed to save payment.');
       }
@@ -536,6 +546,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // coachActiveDrafts above: a client_reply push fires the moment the client
   // sends it, this is what shows it here if that push was missed/dismissed.
   const [pendingClientReplies, setPendingClientReplies] = useState([]);
+
+  // Clients on a monthly cadence who haven't paid again in ~30 days (or are
+  // coming up on that) — see databaseService.getRenewalDueClients. Purely
+  // informational: no nudge button, no manual "mark renewed" step. Logging
+  // that client's next payment in Client Payments is what clears them off
+  // this list on the next refresh (2026-08-29: "auto renewal once coach
+  // updates the payment, no nudge nothing").
+  const [renewalDueClients, setRenewalDueClients] = useState([]);
 
   // Clients who just finished a workout and haven't received a coach note for
   // that session yet — the home-screen fallback for a missed "workout
@@ -1828,6 +1846,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setPendingClientReplies(replies);
   };
 
+  // null (fetch failed) is treated the same as getSessionsAwaitingCoachNote's
+  // own null case — keep whatever was already on screen rather than
+  // unmounting the banner on a dropped request.
+  const refreshRenewalDueClients = async () => {
+    if (!resolvedCoachId) return;
+    const due = await databaseService.getRenewalDueClients(resolvedCoachId);
+    if (due !== null) setRenewalDueClients(due);
+  };
+
   // Coach has seen this reply — dismiss it from the directory card for good.
   const handleDismissClientReply = async (replyId) => {
     setPendingClientReplies((prev) => prev.filter((r) => r.id !== replyId));
@@ -1948,7 +1975,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     refreshCoachActiveDrafts();
     refreshPendingClientReplies();
     refreshSessionsAwaitingNote();
-    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); };
+    refreshRenewalDueClients();
+    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); refreshRenewalDueClients(); };
     document.addEventListener('visibilitychange', refreshBoth);
     window.addEventListener('focus', refreshBoth);
     return () => {
@@ -1970,6 +1998,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       refreshCoachActiveDrafts();
       refreshPendingClientReplies();
       refreshSessionsAwaitingNote();
+      refreshRenewalDueClients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, viewMode]);
@@ -3117,7 +3146,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewMode('coach'); setSelectedClient(null); } }}
             style={{
-              height: '42px',
+              // 20px, not the 42px this was before logo.png got cropped down
+              // to its actual mark (2026-08-29) — the old height compensated
+              // for a lot of built-in transparent padding around the glyph,
+              // so keeping anywhere near the old value after the crop
+              // rendered the mark oversized here (28px was still too big).
+              height: '20px',
               width: 'auto',
               objectFit: 'contain',
               filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))',
@@ -3126,7 +3160,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{
-              fontSize: '0.68rem',
+              fontSize: '0.8rem',
               color: 'var(--text-muted)',
               fontWeight: 700,
               textTransform: 'uppercase',
@@ -3281,6 +3315,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
             </button>
+            {/* Opens the same CoachProfile settings overlay the mobile
+                hamburger below opens (2026-08-29: "coach profile should be
+                similar to client side") — desktop had no way to reach it
+                otherwise, since this icon row is the whole desktop header
+                for a regular (non-super-admin) coach. */}
+            <button
+              type="button"
+              onClick={() => setMobileHeaderMenuOpen(true)}
+              title="Profile & Settings"
+              aria-label="Profile & Settings"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '20px', padding: '2px 8px 2px 2px', cursor: 'pointer'
+              }}
+            >
+              <Avatar
+                email={localStorage.getItem('userEmail')}
+                name={localStorage.getItem('userName') || 'Coach'}
+                avatarUrl={localStorage.getItem('userAvatarUrl')}
+                size={26}
+              />
+              {/* Signals this circle opens a menu (2026-08-29: "add the down
+                  arrow right side besides here") rather than reading as a
+                  plain static profile photo. */}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
             <button className="logout-btn-trainer" onClick={handleLogout} title="Logout" aria-label="Logout">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
@@ -3302,9 +3365,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             aria-label="Menu"
             aria-expanded={mobileHeaderMenuOpen}
             style={{
-              display: 'none', alignItems: 'center', justifyContent: 'center',
+              display: 'none', alignItems: 'center', justifyContent: 'center', gap: '4px',
               background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '50%', padding: '2px', cursor: 'pointer'
+              borderRadius: '20px', padding: '2px 9px 2px 2px', cursor: 'pointer'
             }}
           >
             <Avatar
@@ -3313,103 +3376,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               avatarUrl={localStorage.getItem('userAvatarUrl')}
               size={30}
             />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
 
           {mobileHeaderMenuOpen && (
-            // Full PAGE (2026-08-28: "I need the dropdown full page" — the
-            // earlier full-WIDTH-but-short dropdown wasn't enough), not just
-            // a panel below the header. Covers the whole viewport, so the ☰
-            // button underneath is no longer reachable to close it — an
-            // explicit ✕ replaces it here instead.
-            <div
-              className="trainer-header-mobile-menu"
-              style={{
-                position: 'fixed', inset: 0, zIndex: 50,
-                background: '#0a0e1a', display: 'flex', flexDirection: 'column'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 16px 14px', borderBottom: '1px solid var(--border-color)' }}>
-                <div>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>{localStorage.getItem('userName') || 'Coach'}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>{localStorage.getItem('userBrand') || 'Fit Engineers'}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMobileHeaderMenuOpen(false)}
-                  title="Close menu"
-                  aria-label="Close menu"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                    color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer'
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-              {!superAdmin && onReplayDemoTour && (
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); onReplayDemoTour(); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                    color: '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  ❓ App Tutorial
-                </button>
-              )}
-                {/* Static label/action (2026-08-28: "bad UI" — this used to
-                    relabel itself "Back to Clients" while already inside
-                    Payments, which meant the ONLY way out of that page was
-                    digging back into this menu. A menu item that changes
-                    meaning depending on where you already are is confusing
-                    on its own, so it's a plain "go to Payments" entry now;
-                    the Payments page itself has its own back button (see
-                    client-payments-view above) for leaving it. */}
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                    color: viewMode === 'payments' ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  💰 Client Payments
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); toggleCoachNotifications(); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                    color: notifOn ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  🔔 {notifOn ? 'Notifications On' : 'Enable Notifications'}
-                </button>
-                {/* Flexible spacer pushes Logout all the way to the true
-                    bottom of the full-page menu (2026-08-28: "keep the
-                    logout button in the bottom"), not just last in a short
-                    list. */}
-                <div style={{ flex: 1 }} />
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); handleLogout(); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', borderTop: '1px solid var(--border-color)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
-                    color: '#fca5a5', padding: '18px 16px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  ⏻ Logout
-                </button>
-            </div>
+            <CoachProfile
+              handleLogout={handleLogout}
+              onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
+              notifOn={notifOn}
+              onToggleNotifications={toggleCoachNotifications}
+              onOpenPayments={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
+              onClose={() => setMobileHeaderMenuOpen(false)}
+            />
           )}
         </div>
       </div>
@@ -3991,6 +3971,50 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         >
                           ✕
                         </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Clients on a monthly cadence who haven't paid again in ~25+
+                  days (databaseService.getRenewalDueClients) — surfaces the
+                  renewal conversation BEFORE (or right as) the month runs
+                  out. Red once actually overdue, amber while still inside
+                  the month but close. No action button by design: clicking a
+                  row just opens that client (e.g. to message them or check
+                  their history) — logging their next payment in Client
+                  Payments is what clears them from this list, automatically,
+                  on the very next refresh. */}
+              {renewalDueClients.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  {renewalDueClients.map(r => {
+                    const overdue = r.daysOverdue > 0;
+                    const client = clients.find(c => c.id === r.clientId);
+                    const color = overdue ? '#ef4444' : '#f59e0b';
+                    const bg = overdue ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
+                    const border = overdue ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+                    return (
+                      <div
+                        key={r.clientId}
+                        onClick={() => { if (client) handleSelectClient(client); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          background: bg, border: `1px solid ${border}`,
+                          borderRadius: '12px', padding: '12px 14px', cursor: client ? 'pointer' : 'default'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.3rem' }}>{overdue ? '🔴' : '⏳'}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color }}>
+                            {r.clientName}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {overdue
+                              ? `${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue on their monthly renewal (last paid ${r.daysSincePaid} days ago)`
+                              : `Renewal due in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid ${r.daysSincePaid} days ago)`}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

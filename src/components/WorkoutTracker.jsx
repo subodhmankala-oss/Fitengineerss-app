@@ -1885,14 +1885,25 @@ const WorkoutTracker = () => {
     // until it's ticked complete.
     startSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, sIdx);
-    // Same resume-from-typed-value fallback as handleCardioStopwatchStart:
-    // if there's no timer entry yet (fresh set, or one whose time the
-    // client typed in by hand instead of running the stopwatch), start from
-    // the set's own saved `time` instead of always restarting at 0.
+    const set = logExercises[exIdx]?.sets[sIdx];
+    // Resume from the set's own saved `time` ONLY when it's actually a real,
+    // previously-run elapsed value (set.timeIsLive, written by
+    // handleSetStopwatchPause/Complete whenever a live timer really produced
+    // it) — e.g. completing a set then unchecking it and pressing Play again
+    // should pick up where it left off. A set that's never genuinely been
+    // run has no such guarantee: its `time` could be a template/plan default,
+    // an "+Add Set" suggestion copied from the previous set, or any other
+    // prefill — starting the stopwatch from that silently baked a phantom
+    // head start into both the displayed time and the live calorie total
+    // before the client did anything. Reported repeatedly for Plank/Air
+    // Rowing, including on a session that had already been open since before
+    // the hydration paths themselves were fixed to leave `time` blank — an
+    // in-progress session keeps whatever it was hydrated with, so a never-
+    // completed set could still be carrying the old stale value.
     const existingPausedDuration = setTimers[key]?.pausedDuration;
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
-      : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
+      : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
@@ -1906,6 +1917,10 @@ const WorkoutTracker = () => {
     // time field had no manually-editable value to show while paused, since
     // the live count only ever lived in setTimers, not on the set itself.
     handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+    // This value just came from a real running timer, so it's safe for a
+    // later Play (this pause, or after a complete/uncomplete round trip) to
+    // resume from — see handleSetStopwatchStart's timeIsLive check.
+    handleSetChange(exIdx, sIdx, 'timeIsLive', true);
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
@@ -1925,6 +1940,13 @@ const WorkoutTracker = () => {
   // resumed from the OLD number instead of the freshly typed one. Reported
   // 2026-08-14. Keep the two in sync on every manual edit, same fix applied
   // to handleCardioTimeEdit below for cardio's identical shape.
+  //
+  // Only applies once a timer entry already exists (i.e. the set has been
+  // played/paused at least once this session) — typing into a set that's
+  // never been played does NOT mark it resumable (see set.timeIsLive in
+  // handleSetStopwatchStart): a typed-but-never-run number is otherwise
+  // indistinguishable from a stale template/plan default or an "+Add Set"
+  // suggestion, and letting Play resume from it reproduced exactly that bug.
   const handleTimedSetTimeEdit = (exIdx, sIdx, rawValue) => {
     const masked = maskDigitsToTimeString(rawValue);
     handleSetChange(exIdx, sIdx, 'time', masked);
@@ -1952,6 +1974,7 @@ const WorkoutTracker = () => {
     // ticking right away instead of waiting for a tick/complete.
     startSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, sIdx);
+    const set = logExercises[exIdx]?.sets[sIdx];
     // A normal pause leaves the timer entry in place with its pausedDuration
     // — but ticking a set complete deletes the entry entirely (see
     // handleCardioSetComplete), so un-ticking and pressing Start again found
@@ -1959,11 +1982,16 @@ const WorkoutTracker = () => {
     // that had already accumulated. Falling back to the set's own saved
     // `time` field (which survives both complete and un-complete) instead
     // of a bare 0 makes Start always resume from wherever it was actually
-    // left, not just within the same uninterrupted run.
+    // left, not just within the same uninterrupted run — but ONLY when
+    // set.timeIsLive confirms that saved value really came from a live timer
+    // (see handleSetStopwatchStart's identical guard for the full reasoning);
+    // otherwise it could be a template/plan default or an "+Add Set"
+    // suggestion, and resuming from it would bake a phantom head start into
+    // the displayed time and live calorie total.
     const existingPausedDuration = setTimers[key]?.pausedDuration;
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
-      : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
+      : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true }
@@ -2043,6 +2071,10 @@ const WorkoutTracker = () => {
     if (timer?.isRunning) {
       const elapsed = getSetElapsedSeconds(exIdx, sIdx);
       handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+      // Real elapsed time from a running timer — safe for a later Play (after
+      // an uncomplete) to resume from. See handleCardioStopwatchStart's
+      // timeIsLive guard.
+      handleSetChange(exIdx, sIdx, 'timeIsLive', true);
       if (timer.autoKm) {
         const exName = logExercises[exIdx]?.name;
         handleSetChange(exIdx, sIdx, 'distanceKm', String(estimateCardioDistanceKm(exName, elapsed)));
@@ -2064,10 +2096,16 @@ const WorkoutTracker = () => {
     // moment the set gets ticked. Only fall back to the live timer's
     // elapsed time when a timer entry actually exists; otherwise keep
     // whatever's already in set.time.
-    const elapsed = setTimers[key]
+    const hadRealTimer = !!setTimers[key];
+    const elapsed = hadRealTimer
       ? getSetElapsedSeconds(exIdx, sIdx)
       : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
     handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+    // Only mark it "live" (safe for a later Play, after an uncomplete, to
+    // resume from — see handleSetStopwatchStart) when it actually came from
+    // a real running timer just now. A typed-then-ticked value stays
+    // untrusted for that purpose, same as any other prefill.
+    if (hadRealTimer) handleSetChange(exIdx, sIdx, 'timeIsLive', true);
     handleToggleSetCompleted(exIdx, sIdx);
     setSetTimers(prev => {
       const updated = { ...prev };
@@ -2639,7 +2677,12 @@ const WorkoutTracker = () => {
   //   same moment this starts counting).
   // - PAUSED (not completed): elapsed reads the frozen set.time value that
   //   pausing already synced there, so the total holds steady instead of
-  //   dropping to 0 and then jumping back up on resume.
+  //   dropping to 0 and then jumping back up on resume. Gated on
+  //   set.timeIsLive (see handleSetStopwatchStart) — a never-actually-run
+  //   set's `time` could be a template/plan default or an "+Add Set"
+  //   suggestion rather than real elapsed time, and counting calories from
+  //   that reproduced the exact "calories calculated before I did anything"
+  //   bug this whole mechanism was meant to avoid.
   // - COMPLETED: excluded here on purpose — computeLiveCalories's own
   //   completed-set branch already counts it from the same final
   //   time/distanceKm, so nothing is double-counted or lost when a set gets
@@ -2655,7 +2698,7 @@ const WorkoutTracker = () => {
         if (set.isCompleted) return s;
         const timer = setTimers[getSetTimerKey(exIdx, sIdx)];
         const isRunning = timer?.isRunning || false;
-        const elapsed = isRunning ? getSetElapsedSeconds(exIdx, sIdx) : (parseTimeStringToSeconds(set.time) || 0);
+        const elapsed = isRunning ? getSetElapsedSeconds(exIdx, sIdx) : (set.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
         if (elapsed <= 0) return s;
         return s + estimateTimedHoldKcal(elapsed, bodyWeightKgForLiveKcal, ex.name);
       }, 0);
@@ -2665,7 +2708,7 @@ const WorkoutTracker = () => {
       if (set.isCompleted) return s;
       const timer = setTimers[getSetTimerKey(exIdx, sIdx)];
       const isRunning = timer?.isRunning || false;
-      const elapsed = isRunning ? getSetElapsedSeconds(exIdx, sIdx) : (parseTimeStringToSeconds(set.time) || 0);
+      const elapsed = isRunning ? getSetElapsedSeconds(exIdx, sIdx) : (set.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
       if (elapsed <= 0) return s;
       const km = (isRunning && timer?.autoKm !== false) ? estimateCardioDistanceKm(ex.name, elapsed) : set.distanceKm;
       return s + estimateCardioKcal(ex.name, km, elapsed, bodyWeightKgForLiveKcal);
@@ -3838,6 +3881,10 @@ const WorkoutTracker = () => {
                                 if (!timer?.isRunning) return;
                                 const elapsed = getSetElapsedSeconds(exIdx, sIdx);
                                 handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
+                                // Real elapsed from a running timer — safe for a later
+                                // Play (after an uncomplete) to resume from. See
+                                // handleSetStopwatchStart's timeIsLive guard.
+                                handleSetChange(exIdx, sIdx, 'timeIsLive', true);
                                 if (exIsCardio && timer.autoKm) {
                                   handleSetChange(exIdx, sIdx, 'distanceKm', String(estimateCardioDistanceKm(ex.name, elapsed)));
                                 }

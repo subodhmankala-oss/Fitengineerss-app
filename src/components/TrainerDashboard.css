@@ -1414,6 +1414,15 @@
        its actual height. Squeezed down as far as it'll go without
        clipping the logo. */
     margin-bottom: 0;
+    /* 2026-08-29: "Keep the coach dashboard text align center" — role-
+       toggle-bar and trainer-header-actions are BOTH display:none on this
+       account/width (duplicated in the sidebar — see further down this
+       file), and the logo/name-brand next to "Coach Dashboard" are now
+       also hidden here (same recent cleanup), so this row's only visible
+       child left is the "Coach Dashboard" eyebrow label. space-between's
+       default flex-start left-aligned it; center is exact since it's the
+       one remaining flex item, no grid/absolute-positioning trick needed. */
+    justify-content: center;
   }
 
   /* Trims the same "sized for mobile's stacked rows" margin down the rest

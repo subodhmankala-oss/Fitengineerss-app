@@ -60,10 +60,25 @@ function SettingsRow({ icon, label, value, onTap, last }) {
 // again") jumps straight past the main list into that sub-page on open, so
 // a sidebar button can be "Profile" -> profile edit form directly, same as
 // every other sidebar icon is already a direct destination rather than a
-// menu of menus. Back still returns to the main list (activeSection: null),
-// same as reaching that sub-page by tapping its row there normally would.
+// menu of menus.
+//
+// BUG FIX 2026-08-29: "when i click on any of left menu icon. It takes me
+// there but when i click back. Its takes me to this page [the main
+// settings list] in desktop. It should be back to dashboard" — every
+// sub-page's back button unconditionally did setActiveSection(null),
+// landing on the main list regardless of how the coach got there. That's
+// correct when they reached a sub-page BY tapping its row in the main list
+// (there's somewhere real to go back to) — but a sidebar shortcut skips the
+// main list entirely, so backing out of it should close the whole overlay
+// and reveal the dashboard underneath, not surface an intermediate menu
+// they never opened. goBack() below is what every sub-page's back button
+// calls now instead of setActiveSection(null) directly.
 export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose, initialSection = null }) {
   const [activeSection, setActiveSection] = useState(initialSection);
+  const goBack = () => {
+    if (initialSection) onClose?.();
+    else setActiveSection(null);
+  };
 
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',
@@ -134,7 +149,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       <Overlay>
         <div className="cp-container animate-slide-up">
           <div className="cp-sub-header">
-            <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
             <h2 className="cp-sub-title">Business Profile</h2>
             <button
               className={`cp-save-btn${saving ? ' cp-save-btn--loading' : ''}`}
@@ -196,7 +211,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       <Overlay>
         <div className="cp-container animate-slide-up">
           <div className="cp-sub-header">
-            <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
             <h2 className="cp-sub-title">Account</h2>
             <span style={{ width: 60 }} />
           </div>
@@ -242,7 +257,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       <Overlay>
         <div className="cp-container animate-slide-up">
           <div className="cp-sub-header">
-            <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
             <h2 className="cp-sub-title">Notifications</h2>
             <span style={{ width: 60 }} />
           </div>
@@ -276,7 +291,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       <Overlay>
         <div className="cp-container animate-slide-up">
           <div className="cp-sub-header">
-            <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
             <h2 className="cp-sub-title">What's New</h2>
             <span style={{ width: 60 }} />
           </div>

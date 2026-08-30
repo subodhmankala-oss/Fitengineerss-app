@@ -198,8 +198,10 @@ async function handleChatMessage(req, res) {
       return res.status(403).json({ error: 'You are not authorized to message this thread.' });
     }
     // sender must match who's actually calling — a client can't post as
-    // 'coach' and vice versa.
-    if ((sender === 'client' && !isTheClient) || (sender === 'coach' && !isTheirCoach)) {
+    // 'coach' and vice versa. The client's own sender value is 'user', not
+    // 'client' (see CoachChat.jsx/TrainerDashboard.jsx callers of
+    // saveChatMessage — chat_messages_sender_check only allows 'user'/'coach').
+    if ((sender === 'user' && !isTheClient) || (sender === 'coach' && !isTheirCoach)) {
       return res.status(403).json({ error: 'sender does not match your role in this conversation.' });
     }
 

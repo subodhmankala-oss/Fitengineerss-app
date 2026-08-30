@@ -5591,9 +5591,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 <div className="workout-history-content">
                   <h4 className="history-section-title">Workout History</h4>
 
-                  {/* Timeframe segmented control (Weekly / Daily / Monthly) */}
+                  {/* Timeframe segmented control — order matches the
+                      client's own Home dashboard (Muscles/Daily/Weekly/
+                      Monthly) so a coach viewing a client sees the same tab
+                      order the client sees themselves. */}
                   <div className="wsum-timeframe-nav">
-                    {['weekly', 'daily', 'monthly', 'muscles'].map((tf) => (
+                    {['muscles', 'daily', 'weekly', 'monthly'].map((tf) => (
                       <button
                         key={tf}
                         type="button"
@@ -5989,15 +5992,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   <strong className="val text-blue">{daySession?.sets || 0} sets</strong>
                                 </div>
                                 <div className="stat-card inline">
-                                  <span className="lbl">Exercises:</span>
+                                  <span className="lbl">Workouts:</span>
                                   <strong className="val" style={{ color: '#a78bfa' }}>{daySession?.exercises.length || 0}</strong>
                                 </div>
-                                {daySession?.caloriesBurned != null && (
-                                  <div className="stat-card inline">
-                                    <span className="lbl">🔥 Calories:</span>
-                                    <strong className="val" style={{ color: '#fbbf24' }}>{daySession.caloriesBurned} kcal</strong>
-                                  </div>
-                                )}
+                                {/* No `!= null` guard — Volume/Sets/Workouts
+                                    above all show a plain 0 on a rest day
+                                    instead of disappearing, this should read
+                                    the same way instead of just vanishing.
+                                    Matches the client-side fix. */}
+                                <div className="stat-card inline">
+                                  <span className="lbl">Calories:</span>
+                                  <strong className="val" style={{ color: '#fbbf24' }}>{daySession?.caloriesBurned || 0} kcal</strong>
+                                </div>
                                 {daySession?.durationSeconds != null && (
                                   <div className="stat-card inline">
                                     <span className="lbl">⏱ Time:</span>
@@ -6096,31 +6102,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
                         {historyTimeframe === 'monthly' && (
                           <div className="timeframe-content flex-col gap-4">
-                            <div className="stats-row-cards">
-                              <div className="stat-card glass-panel">
-                                <span className="card-label">Monthly Volume</span>
-                                <strong className="card-value text-emerald">{monthVolume.toLocaleString('en-IN')} <span className="value-unit">kg</span></strong>
-                                <p className="card-sub">Last 30 days</p>
+                            {/* Matches the client-side Home dashboard's Monthly
+                                cards — inline label/value pills instead of the
+                                stacked "Monthly Volume"/"Monthly Sets"/
+                                "Completed" cards + 🔥 emoji + span-full-row
+                                workaround this used before. */}
+                            <div className="stats-row-cards mini">
+                              <div className="stat-card inline">
+                                <span className="lbl">Volume:</span>
+                                <strong className="val text-emerald">{monthVolume.toLocaleString('en-IN')} kg</strong>
                               </div>
-                              <div className="stat-card glass-panel">
-                                <span className="card-label">Monthly Sets</span>
-                                <strong className="card-value text-blue">{monthSets} <span className="value-unit">sets</span></strong>
-                                <p className="card-sub">Last 30 days</p>
+                              <div className="stat-card inline">
+                                <span className="lbl">Sets:</span>
+                                <strong className="val text-blue">{monthSets} sets</strong>
                               </div>
-                              <div className="stat-card glass-panel">
-                                <span className="card-label">Completed</span>
-                                <strong className="card-value text-amber">{monthWorkouts} <span className="value-unit">workouts</span></strong>
-                                <p className="card-sub">Last 30 days</p>
+                              <div className="stat-card inline">
+                                <span className="lbl">Workouts:</span>
+                                <strong className="val text-amber">{monthWorkouts}</strong>
                               </div>
-                              {/* 3-column grid + 4 cards leaves this one orphaned alone in
-                                  a mostly-empty second row, with its own left edge matching
-                                  the "Monthly Volume" card above but everything to its right
-                                  just blank — read as a padding/alignment bug. Span the full
-                                  row instead so its width actually matches the row above. */}
-                              <div className="stat-card glass-panel" style={{ gridColumn: '1 / -1' }}>
-                                <span className="card-label">🔥 Calories</span>
-                                <strong className="card-value" style={{ color: '#fbbf24' }}>{monthlyTotalCalories.toLocaleString('en-IN')} <span className="value-unit">kcal</span></strong>
-                                <p className="card-sub">Last 30 days</p>
+                              <div className="stat-card inline">
+                                <span className="lbl">Calories:</span>
+                                <strong className="val" style={{ color: '#fbbf24' }}>{monthlyTotalCalories.toLocaleString('en-IN')} kcal</strong>
                               </div>
                             </div>
 

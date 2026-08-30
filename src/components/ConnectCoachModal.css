@@ -260,6 +260,43 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── Read-only coach detail rows (CoachDetailsModal) ── */
+.cdm-field-list {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cdm-field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cdm-field-row:first-child {
+  border-top: none;
+}
+
+.cdm-field-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.8);
+  flex-shrink: 0;
+}
+
+.cdm-field-value {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #f8faff;
+  text-align: right;
+}
+
 /* ── Success state ── */
 .ccm-success-body {
   text-align: center;

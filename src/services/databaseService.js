@@ -177,11 +177,26 @@ async function refreshAccessTokenRaw() {
     const stored = readStoredSupabaseSession();
     const refreshToken = stored?.session?.refresh_token;
     if (!refreshToken) return null;
+    // Every OTHER raw fetch in this file bounds itself with an
+    // AbortController timeout (see restSelect, lookupProfileViaServer,
+    // etc.) — this one didn't, and every caller (resolveBearerToken, and
+    // through it restSelect/lookupProfileViaServer/every server-fallback
+    // helper) AWAITS this before ever starting its own timeout. So if this
+    // specific request stalls (dead connection, an intermediary that
+    // swallows it silently — the auth token-refresh endpoint, unlike a
+    // normal data read, has no retry/fallback path built on top of it),
+    // literally everything downstream hangs forever with nothing to time it
+    // out. Confirmed 2026-08-31: CoachDetailsModal stuck on "Loading coach
+    // details…" indefinitely, with the request never reaching the
+    // AbortController-guarded fetch inside lookupProfileViaServer at all.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
       const resp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: supabaseAnonKey },
-        body: JSON.stringify({ refresh_token: refreshToken })
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        signal: controller.signal
       });
       if (!resp.ok) return null;
       const data = await resp.json().catch(() => null);
@@ -200,6 +215,8 @@ async function refreshAccessTokenRaw() {
       return data.access_token;
     } catch {
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   })();
   try {
@@ -278,38 +295,51 @@ async function restSelect(pathAndQuery, { timeoutMs = adaptiveTimeout(8000) } = 
 // profile). Never throws: any failure returns null so the caller falls back to
 // its existing behaviour rather than breaking login outright.
 async function lookupProfileViaServer(email) {
-  try {
-    // Must go through resolveBearerToken() (checks expiry, refreshes if
-    // stale) rather than reading the stored/cached token raw — this fallback
-    // exists specifically for the "just reopened the app" moment, which is
-    // exactly when the stored access token is most likely to have expired.
-    // A raw expired token here gets silently 401'd by the server's
-    // resolveVerifiedEmail, so this whole fallback returned null instead of
-    // the real profile — the caller then had no `client` row to read
-    // onboarding_completed from, defaulted it to false, and sent an
-    // already-onboarded client back through the 4-step wizard on reopen.
-    // Confirmed 2026-08-11: a client with onboarding_completed=true in the
-    // DB was shown the wizard again after being idle/closed for a while.
-    const token = await resolveBearerToken();
+  const doFetch = async (token) => {
     const headers = { 'Content-Type': 'application/json' };
     // Only a real user token is worth sending — the anon key proves nothing
     // and would just be rejected.
     if (token && token !== supabaseAnonKey) headers.Authorization = `Bearer ${token}`;
-
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), adaptiveTimeout(8000));
     try {
-      const resp = await fetch('/api/lookup-profile', {
+      return await fetch('/api/lookup-profile', {
         method: 'POST',
         headers,
         body: JSON.stringify({ email }),
         signal: controller.signal
       });
-      if (!resp.ok) return null;
-      return await resp.json().catch(() => null);
     } finally {
       clearTimeout(timer);
     }
+  };
+
+  try {
+    // Fire immediately with whatever token is already sitting in
+    // localStorage/memory — NOT resolveBearerToken(), which proactively
+    // refreshes (a real network round-trip, ~seconds when it's slow) before
+    // this even gets a chance to try. That upfront wait made every caller of
+    // this function (this modal included) feel hung even when the current
+    // token was still perfectly valid. Refresh-and-retry only kicks in below
+    // on an actual 401 — same reactive pattern restSelect already uses for
+    // its own 401 handling, just applied here too instead of only there.
+    const stored = readStoredSupabaseSession();
+    const quickToken = cachedAccessToken || stored?.session?.access_token || supabaseAnonKey;
+    let resp = await doFetch(quickToken);
+
+    // 401 means that quick token really was expired/invalid — NOW pay for a
+    // real refresh (this is the "just reopened the app" moment the old
+    // comment here described) and retry once before giving up. Confirmed
+    // 2026-08-11: a client with onboarding_completed=true in the DB was
+    // shown the onboarding wizard again after being idle/closed for a
+    // while, because a stale token here silently 401'd and this whole
+    // fallback returned null instead of the real profile.
+    if (resp.status === 401) {
+      const refreshed = await refreshAccessTokenRaw();
+      if (refreshed) resp = await doFetch(refreshed);
+    }
+    if (!resp.ok) return null;
+    return await resp.json().catch(() => null);
   } catch (e) {
     console.warn('lookupProfileViaServer failed (non-fatal):', e?.message || e);
     return null;
@@ -378,6 +408,18 @@ async function getCoachNameViaServer() {
   if (!email) return null;
   const serverProfile = await lookupProfileViaServer(email);
   return serverProfile?.coachName || null;
+}
+
+// Same idea as getCoachNameViaServer, but the full business-profile object
+// (see api/data-read.js's handleLookupProfile). Used as getCoachDetailsById's
+// fallback: whenever the direct authenticated read can't be trusted (no/bad
+// coachId, RLS blanking on a stale token, a transient failure), this
+// service-role read is immune to all of that.
+async function getCoachDetailsViaServer() {
+  const email = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+  if (!email) return null;
+  const serverProfile = await lookupProfileViaServer(email);
+  return serverProfile?.coachDetails || null;
 }
 
 // Shared auth headers for the workout-log server fallbacks below — same
@@ -4013,6 +4055,32 @@ const databaseService = {
       console.error('[getCoachNameById] error:', e);
       return await getCoachNameViaServer();
     }
+  },
+
+  // Full business-profile fields for the client's own connected coach (shown
+  // read-only when a client taps the "Coach: [Name]" pill).
+  //
+  // Goes straight to the service-role-backed server lookup (see
+  // getCoachDetailsViaServer / api/data-read.js's handleLookupProfile),
+  // deliberately skipping a direct client-side restSelect. Two reasons:
+  //   1. It first went through restSelect (users/coaches, authenticated as
+  //      the client), same as getCoachNameById — but that hung the modal on
+  //      "Loading coach details…" forever for a real connected client with
+  //      real coach data, confirmed 2026-08-31. This file has a long history
+  //      of restSelect/resolveBearerToken getting stuck on the Supabase JS
+  //      SDK's token-refresh path (see resolveBearerToken's and
+  //      refreshAccessTokenRaw's comments above) — a straightforward
+  //      candidate given nothing else about that path looked wrong.
+  //   2. The server lookup is already the fallback other callers reach for
+  //      in this exact situation, needs no coachId (resolves the caller's
+  //      own connection from their verified email), and was confirmed
+  //      working end-to-end via curl for this same account — so making it
+  //      the ONLY path removes the hang risk entirely instead of leaving a
+  //      slow/hanging first attempt in front of a working fallback.
+  // coachId is accepted for API-compat with existing callers but unused.
+  async getCoachDetailsById(_coachId) {
+    if (!isSupabaseConfigured) return null;
+    return await getCoachDetailsViaServer();
   },
 
   // Coach-login lookup: the full coaches row for a just-authenticated

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
+import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import WelcomeBanner from './WelcomeBanner';
 import WelcomeBackScreen from './WelcomeBackScreen';
@@ -37,6 +38,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  // Once connected, the pill opens a read-only "who is my coach" view
+  // instead of the connect flow — that flow only makes sense pre-connection.
+  const [showCoachDetailsModal, setShowCoachDetailsModal] = useState(false);
   // An in-progress workout (self-logged, or a coach logging live for this
   // client) that's still open in workout_drafts — surfaced here so it isn't
   // silently lost just because the client was away from the app/tab for a
@@ -357,22 +361,40 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           exercises: {},
           planName: log.plan_name || log.planName || '',
           durationSeconds: null,
-          caloriesBurned: null
+          caloriesBurned: null,
+          // Every row of ONE session write shares the exact same created_at
+          // (one bulk INSERT — see saveWorkoutSession/save-workout-session.js
+          // — Postgres evaluates `now()` once per statement), so it doubles
+          // as a session id here even though workout_logs has no real one.
+          // Tracks which sessions' duration/calories have already been
+          // folded into this date, so a second (or third...) separate
+          // session logged on the same calendar day gets its own
+          // duration/calories added on top instead of silently dropped.
+          _seenSessionKeys: new Set()
         };
       }
 
       if (!grouped[date].planName && (log.plan_name || log.planName)) {
         grouped[date].planName = log.plan_name || log.planName;
       }
-      // Session duration/calories are duplicated onto every row of the session
-      // (workout_logs has no session-level row) — take the first non-null seen.
-      if (log.duration_seconds != null && grouped[date].durationSeconds == null) {
-        grouped[date].durationSeconds = log.duration_seconds;
+      // Duration/calories are per-SESSION values duplicated onto every row of
+      // that session, not per-row — summing every row directly would multiply
+      // a single session's total by however many sets it has. Previously this
+      // took the first non-null value seen for the whole date and stopped,
+      // which underreported any day with more than one separate session (a
+      // client logging twice in a day only ever counted the first). Add each
+      // distinct session's value exactly once instead, keyed by created_at.
+      const sessionKey = log.created_at || 'no-created-at';
+      if (!grouped[date]._seenSessionKeys.has(sessionKey)) {
+        grouped[date]._seenSessionKeys.add(sessionKey);
+        if (log.duration_seconds != null) {
+          grouped[date].durationSeconds = (grouped[date].durationSeconds || 0) + log.duration_seconds;
+        }
+        if (log.calories_burned != null) {
+          grouped[date].caloriesBurned = (grouped[date].caloriesBurned || 0) + log.calories_burned;
+        }
       }
-      if (log.calories_burned != null && grouped[date].caloriesBurned == null) {
-        grouped[date].caloriesBurned = log.calories_burned;
-      }
-      
+
       const weight = parseFloat(log.weight_kg) || 0;
       const reps = parseInt(log.reps) || 0;
       // Tonnage/set counting go through the shared analytics helpers so these
@@ -776,7 +798,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
-            onClick={() => { if (!coachStatusPending) setShowConnectModal(true); }}
+            onClick={() => {
+              if (coachStatusPending) return;
+              if (isLinkedToCoach) setShowCoachDetailsModal(true);
+              else setShowConnectModal(true);
+            }}
             disabled={coachStatusPending}
             title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
             style={{
@@ -796,12 +822,6 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                 <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>{coachName || 'Coach'}</span>
               </span>
             ) : '🔗 Connect to coach'}
-          </button>
-          <button className="btn-logout" onClick={handleLogout} title="Reset Profile/Log Out">
-            <svg className="logout-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v7" />
-              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-            </svg>
           </button>
         </div>
       </div>
@@ -894,15 +914,183 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
         </div>
       )}
 
+      {/* Single Prominent Sessions Done Progress Card — belongs to the
+          coaching relationship, so it only renders for clients actually
+          connected to a coach via invite code. Sits above the Weekly/Daily/
+          Monthly/Muscles tabs since it's not tied to any one of them —
+          previously only showed inside the Weekly tab's content. Same
+          "hidden behind Welcome Back" gate as the tab switcher below it. */}
+      {!showWelcomeBack && isLinkedToCoach && (() => {
+        const hasConfiguredTotal = Number.isFinite(sessionsTotal) && sessionsTotal > 0;
+        if (!hasConfiguredTotal) {
+          // Connected, but the coach hasn't set a program length yet —
+          // show an honest waiting state instead of fake numbers.
+          return (
+            <div className="sessions-progress-card glass-panel animate-scale-in" style={{
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: 0,
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              // This card used to sit inside a `.flex-col.gap-4` container
+              // (16px auto-gap between children) — now that it's rendered
+              // directly in .workout-progress-container (a plain flex column
+              // with no gap), it needs its own bottom margin or it overlaps
+              // the tab switcher right below it.
+              marginBottom: '20px',
+              flexShrink: 0,
+              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
+            }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+                Your coach hasn't set your program length yet. Your session progress will appear here once they do. 🗓️
+              </p>
+            </div>
+          );
+        }
+        const percentComplete = Math.min(100, Math.round((totalSessionsDone / sessionsTotal) * 100));
+        // Matches the coach-side "Started on / Est. completion" footer
+        // in TrainerDashboard.jsx's Program Length card 1:1 — same
+        // fields, same format, just styled for this card's theme.
+        const formatProgramDate = (iso) => {
+          if (!iso) return null;
+          const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+          if (Number.isNaN(d.getTime())) return null;
+          return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+        const startedOnLabel = formatProgramDate(programStartedOn);
+        const estCompletionLabel = formatProgramDate(programEstCompletion);
+        return (
+          <div className="sessions-progress-card glass-panel animate-scale-in" style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
+            borderRadius: 0,
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            // See the "no configured total" branch above for why this
+            // needs an explicit bottom margin now.
+            marginBottom: '20px',
+            // Now a DIRECT child of the height-bounded, overflow-y:auto flex
+            // column .workout-progress-container (previously nested two
+            // flex-columns deeper, which didn't squeeze it). This card's own
+            // `overflow: hidden` below (only there to clip the decorative
+            // glow circle) makes its automatic flex minimum size 0 per spec
+            // — so without flexShrink:0, the layout was shrinking the whole
+            // card down to ~50px and clipping the ring/text via that same
+            // overflow:hidden instead of ever showing them. Confirmed via
+            // getBoundingClientRect() on the live page.
+            flexShrink: 0,
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Decorative background glow */}
+            <div style={{
+              position: 'absolute',
+              top: '-50%',
+              right: '-10%',
+              width: '180px',
+              height: '180px',
+              borderRadius: '50%',
+              background: 'rgba(139, 92, 246, 0.25)',
+              filter: 'blur(40px)',
+              pointerEvents: 'none'
+            }}></div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 1 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
+              <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
+                {totalSessionsDone} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
+              </h3>
+              <span style={{ fontSize: '0.85rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>
+                {percentComplete}% Completed
+              </span>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+                {totalSessionsDone >= sessionsTotal
+                  ? 'Congratulations! You have completed your coaching package! 🎉'
+                  : `${sessionsTotal - totalSessionsDone} sessions remaining in your active program.`}
+              </p>
+            </div>
+
+            {/* Circular Progress Ring */}
+            <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
+              <svg width="90" height="90" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke="rgba(255, 255, 255, 0.05)"
+                  strokeWidth="8"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke="url(#progressGradient)"
+                  strokeWidth="8"
+                  strokeDasharray={`${2 * Math.PI * 40}`}
+                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - percentComplete / 100)}`}
+                  strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                />
+                <defs>
+                  <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="var(--primary-accent-light)" />
+                    <stop offset="100%" stopColor="#10b981" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div style={{ position: 'absolute', fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>
+                {percentComplete}%
+              </div>
+            </div>
+            </div>
+
+            {/* Started on / Est. completion — mirrors the coach-side
+                Program Length card footer so the renewal window the
+                coach set is visible here too, not just to them. */}
+            {(startedOnLabel || estCompletionLabel) && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap',
+                paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)', zIndex: 1
+              }}>
+                {startedOnLabel && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>🚩</span>
+                    <div>
+                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
+                      <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{startedOnLabel}</div>
+                    </div>
+                  </div>
+                )}
+                {estCompletionLabel && (
+                  <div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
+                    <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{estCompletionLabel}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Segment Timeframe Tab Switches — hidden behind the Welcome Back
           screen (it has its own "Show my progress" entry point back in). */}
       {!showWelcomeBack && (
         <div className="timeframe-navigation">
           <button
-            className={`timeframe-btn ${timeframe === 'weekly' ? 'active' : ''}`}
-            onClick={() => setTimeframe('weekly')}
+            className={`timeframe-btn ${timeframe === 'muscles' ? 'active' : ''}`}
+            onClick={() => setTimeframe('muscles')}
           >
-            Weekly
+            Muscles
           </button>
           <button
             className={`timeframe-btn ${timeframe === 'daily' ? 'active' : ''}`}
@@ -911,16 +1099,16 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
             Daily
           </button>
           <button
+            className={`timeframe-btn ${timeframe === 'weekly' ? 'active' : ''}`}
+            onClick={() => setTimeframe('weekly')}
+          >
+            Weekly
+          </button>
+          <button
             className={`timeframe-btn ${timeframe === 'monthly' ? 'active' : ''}`}
             onClick={() => setTimeframe('monthly')}
           >
             Monthly
-          </button>
-          <button
-            className={`timeframe-btn ${timeframe === 'muscles' ? 'active' : ''}`}
-            onClick={() => setTimeframe('muscles')}
-          >
-            Muscles
           </button>
         </div>
       )}
@@ -956,151 +1144,6 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           {/* ─── WEEKLY VIEW CONTENT ─── */}
           {timeframe === 'weekly' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Single Prominent Sessions Done Progress Card — belongs to the
-                  coaching relationship, so it only renders for clients actually
-                  connected to a coach via invite code. */}
-              {isLinkedToCoach && (() => {
-                const hasConfiguredTotal = Number.isFinite(sessionsTotal) && sessionsTotal > 0;
-                if (!hasConfiguredTotal) {
-                  // Connected, but the coach hasn't set a program length yet —
-                  // show an honest waiting state instead of fake numbers.
-                  return (
-                    <div className="sessions-progress-card glass-panel animate-scale-in" style={{
-                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
-                      border: '1px solid rgba(139, 92, 246, 0.25)',
-                      borderRadius: 0,
-                      padding: '24px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
-                    }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
-                        Your coach hasn't set your program length yet. Your session progress will appear here once they do. 🗓️
-                      </p>
-                    </div>
-                  );
-                }
-                const percentComplete = Math.min(100, Math.round((totalSessionsDone / sessionsTotal) * 100));
-                // Matches the coach-side "Started on / Est. completion" footer
-                // in TrainerDashboard.jsx's Program Length card 1:1 — same
-                // fields, same format, just styled for this card's theme.
-                const formatProgramDate = (iso) => {
-                  if (!iso) return null;
-                  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
-                  if (Number.isNaN(d.getTime())) return null;
-                  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-                };
-                const startedOnLabel = formatProgramDate(programStartedOn);
-                const estCompletionLabel = formatProgramDate(programEstCompletion);
-                return (
-                  <div className="sessions-progress-card glass-panel animate-scale-in" style={{
-                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
-                    border: '1px solid rgba(139, 92, 246, 0.25)',
-                    borderRadius: 0,
-                    padding: '24px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '16px',
-                    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
-                    {/* Decorative background glow */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '-50%',
-                      right: '-10%',
-                      width: '180px',
-                      height: '180px',
-                      borderRadius: '50%',
-                      background: 'rgba(139, 92, 246, 0.25)',
-                      filter: 'blur(40px)',
-                      pointerEvents: 'none'
-                    }}></div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 1 }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
-                      <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
-                        {totalSessionsDone} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
-                      </h3>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>
-                        {percentComplete}% Completed
-                      </span>
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
-                        {totalSessionsDone >= sessionsTotal 
-                          ? 'Congratulations! You have completed your coaching package! 🎉' 
-                          : `${sessionsTotal - totalSessionsDone} sessions remaining in your active program.`}
-                      </p>
-                    </div>
-
-                    {/* Circular Progress Ring */}
-                    <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
-                      <svg width="90" height="90" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-                        <circle 
-                          cx="50" 
-                          cy="50" 
-                          r="40" 
-                          fill="transparent" 
-                          stroke="rgba(255, 255, 255, 0.05)" 
-                          strokeWidth="8" 
-                        />
-                        <circle 
-                          cx="50" 
-                          cy="50" 
-                          r="40" 
-                          fill="transparent" 
-                          stroke="url(#progressGradient)" 
-                          strokeWidth="8" 
-                          strokeDasharray={`${2 * Math.PI * 40}`}
-                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - percentComplete / 100)}`}
-                          strokeLinecap="round"
-                          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }}
-                        />
-                        <defs>
-                          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="var(--primary-accent-light)" />
-                            <stop offset="100%" stopColor="#10b981" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                      <div style={{ position: 'absolute', fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>
-                        {percentComplete}%
-                      </div>
-                    </div>
-                    </div>
-
-                    {/* Started on / Est. completion — mirrors the coach-side
-                        Program Length card footer so the renewal window the
-                        coach set is visible here too, not just to them. */}
-                    {(startedOnLabel || estCompletionLabel) && (
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap',
-                        paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)', zIndex: 1
-                      }}>
-                        {startedOnLabel && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '0.85rem' }}>🚩</span>
-                            <div>
-                              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
-                              <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{startedOnLabel}</div>
-                            </div>
-                          </div>
-                        )}
-                        {estCompletionLabel && (
-                          <div>
-                            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
-                            <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{estCompletionLabel}</div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
               {/* Weekly SVG Chart Widget */}
               <div className="chart-widget-card glass-panel">
                 <div className="widget-header justify-between">
@@ -1276,15 +1319,16 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
                     <strong className="val text-blue">{dailyStats.sets} sets</strong>
                   </div>
                   <div className="stat-card inline">
-                    <span className="lbl">Exercises:</span>
+                    <span className="lbl">Workouts:</span>
                     <strong className="val" style={{ color: '#a78bfa' }}>{dailyStats.exercises.length}</strong>
                   </div>
-                  {dailyStats.calories != null && (
-                    <div className="stat-card inline">
-                      <span className="lbl">🔥 Calories:</span>
-                      <strong className="val" style={{ color: '#fbbf24' }}>{dailyStats.calories} kcal</strong>
-                    </div>
-                  )}
+                  {/* No `!= null` guard — Volume/Sets/Exercises above all show
+                      a plain 0 on a rest day instead of disappearing, this
+                      should read the same way instead of just vanishing. */}
+                  <div className="stat-card inline">
+                    <span className="lbl">Calories:</span>
+                    <strong className="val" style={{ color: '#fbbf24' }}>{dailyStats.calories || 0} kcal</strong>
+                  </div>
                   {dailyStats.durationSeconds != null && (
                     <div className="stat-card inline">
                       <span className="lbl">⏱ Time:</span>
@@ -1403,32 +1447,24 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
           {/* ─── MONTHLY VIEW CONTENT ─── */}
           {timeframe === 'monthly' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Highlight Stats Row */}
-              <div className="stats-row-cards">
-                <div className="stat-card glass-panel">
-                  <span className="card-label">Monthly Volume</span>
-                  <strong className="card-value text-emerald">{monthlyStats.totalVolume.toLocaleString('en-IN')} <span className="value-unit">kg</span></strong>
-                  <p className="card-sub">Last 30 days</p>
+              {/* Highlight Stats Row — inline pill cards, same style as the
+                  Daily tab's stat cards (label left, value right, 2x2 grid). */}
+              <div className="stats-row-cards mini">
+                <div className="stat-card inline">
+                  <span className="lbl">Volume:</span>
+                  <strong className="val text-emerald">{monthlyStats.totalVolume.toLocaleString('en-IN')} kg</strong>
                 </div>
-                <div className="stat-card glass-panel">
-                  <span className="card-label">Monthly Sets</span>
-                  <strong className="card-value text-blue">{monthlyStats.totalSets} <span className="value-unit">sets</span></strong>
-                  <p className="card-sub">Last 30 days</p>
+                <div className="stat-card inline">
+                  <span className="lbl">Sets:</span>
+                  <strong className="val text-blue">{monthlyStats.totalSets} sets</strong>
                 </div>
-                <div className="stat-card glass-panel">
-                  <span className="card-label">Completed</span>
-                  <strong className="card-value text-amber">{monthlyStats.workoutsCount} <span className="value-unit">workouts</span></strong>
-                  <p className="card-sub">Last 30 days</p>
+                <div className="stat-card inline">
+                  <span className="lbl">Workouts:</span>
+                  <strong className="val text-amber">{monthlyStats.workoutsCount}</strong>
                 </div>
-                {/* 3-column grid + 4 cards leaves this one orphaned alone in a
-                    mostly-empty second row, with its own left edge matching the
-                    "Monthly Volume" card above but everything to its right just
-                    blank — read as a padding/alignment bug. Span the full row
-                    instead so its width actually matches the row above. */}
-                <div className="stat-card glass-panel" style={{ gridColumn: '1 / -1' }}>
-                  <span className="card-label">🔥 Calories</span>
-                  <strong className="card-value" style={{ color: '#fbbf24' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} <span className="value-unit">kcal</span></strong>
-                  <p className="card-sub">Last 30 days</p>
+                <div className="stat-card inline">
+                  <span className="lbl">Calories:</span>
+                  <strong className="val" style={{ color: '#fbbf24' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} kcal</strong>
                 </div>
               </div>
 
@@ -1560,6 +1596,13 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
             // 2026-08-16 (client: giri.kailasam → coach subodhmankala@gmail.com).
             if (userId) notifyEvent('client_connected', { clientUserId: userId });
           }}
+        />
+      )}
+      {showCoachDetailsModal && (
+        <CoachDetailsModal
+          coachId={localStorage.getItem('userCoachId')}
+          coachName={coachName}
+          onClose={() => setShowCoachDetailsModal(false)}
         />
       )}
     </div>

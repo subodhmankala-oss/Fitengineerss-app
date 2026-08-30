@@ -56,8 +56,11 @@
 .tracker-top-summary {
   padding: 12px 14px;
   border-radius: var(--radius-md);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* Subtle athletic-blue-to-green tint (same accent colors as the skill-
+     level bar itself) instead of the flat dark card background every other
+     section uses — gives this one a bit more sporty presence. */
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(16, 185, 129, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.2);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -116,14 +119,26 @@
   color: var(--text-main);
 }
 
+/* Heading + Weekly/Monthly toggle, side by side at the top of the card. */
+.progression-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .session-filters {
   display: flex;
-  flex-wrap: wrap;
+  /* Dropdown + metric-switch inline, 70/30 split (see their flex-basis
+     below), not stacked on separate rows. */
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  padding-top: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
   width: 100%;
 }
 
@@ -131,16 +146,22 @@
   background: rgba(9, 14, 23, 0.5);
   color: var(--text-main);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
-  font-size: 16px;
+  /* Was locked to 16px to stop iOS Safari auto-zooming the page on focus.
+     Dropped below that on request, to match the surrounding UI's size —
+     that iOS zoom-on-tap behavior is back for this control specifically. */
+  font-size: 0.85rem;
   font-weight: 600;
   font-family: inherit;
   outline: none;
   cursor: pointer;
-  flex: 1 1 150px;
-  min-width: 130px;
+  /* 70% of .session-filters' width (.metric-switch takes the other 30%). */
+  flex: 7 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .exercise-select-dropdown option {
@@ -154,15 +175,19 @@
   padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.03);
-  flex: 1 0 100%;
+  /* Sits next to .progression-section-heading in .progression-heading-row
+     now, not stacked full-width in .session-filters anymore — size to its
+     own content instead of forcing the full row width. */
+  flex: 0 0 auto;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .timeframe-toggle .toggle-btn {
   flex: 1;
   text-align: center;
-  padding: 6px 12px;
-  font-size: 0.75rem;
+  padding: 7px 12px;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted);
   border-radius: 4px;
@@ -183,41 +208,49 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
-.chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  gap: 12px;
+/* Card-level heading — replaces the old per-exercise title-section (which
+   duplicated the exercise name already shown in the dropdown below it). */
+.progression-section-heading {
+  margin-bottom: 16px;
 }
 
-.title-section h3 {
+.progression-section-heading h3 {
   font-size: 0.95rem;
   color: var(--text-main);
   font-weight: 700;
 }
 
-.title-section p {
-  font-size: 0.75rem;
+.progression-section-heading p {
+  font-size: 0.7rem;
   color: var(--text-muted);
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .metric-switch {
+  /* Side-by-side never had enough room in a 30%-wide column for both
+     labels at any readable size — "Weight"/"Volume" kept truncating to
+     "Wei…"/"Volu…" no matter how small the font got. Stacked instead: each
+     button gets the FULL 30% width to itself, one per row. */
   display: flex;
+  flex-direction: column;
   background: rgba(9, 14, 23, 0.4);
   padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.03);
+  /* 30% of .session-filters' width (.exercise-select-dropdown takes 70%). */
+  flex: 3 1 0;
+  min-width: 0;
 }
 
 .metric-btn {
-  padding: 6px 10px;
+  padding: 5px 8px;
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
   border-radius: 4px;
   transition: all var(--transition-fast);
+  white-space: nowrap;
+  text-align: center;
 }
 
 .metric-btn.active {
@@ -244,12 +277,78 @@
 .svg-container-box {
   width: 100%;
   position: relative;
+  /* The chart is only as wide as its container when ~7 or fewer sessions
+     are plotted (fixed per-point spacing — see the width calc in
+     WorkoutTracker.jsx). Beyond that the <svg> itself is wider than this
+     box, so scroll/drag reveals the rest instead of crushing every point
+     together. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.svg-container-box::-webkit-scrollbar {
+  display: none;
+}
+
+/* Wraps .svg-container-box only to host the right-edge fade — kept separate
+   from .svg-container-box itself since that element needs overflow:auto
+   (the actual scroll container) while the fade needs overflow:hidden on
+   its own layer so the gradient doesn't get scrolled away with the content. */
+.svg-scroll-wrap {
+  position: relative;
+}
+
+.svg-scroll-wrap.scrollable::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  /* Matches .overload-chart-card's own background so it reads as a fade
+     into the card edge, not a visible box. */
+  background: linear-gradient(90deg, transparent, rgba(21, 29, 44, 0.9));
+  pointer-events: none;
+}
+
+.svg-scroll-hint {
+  position: absolute;
+  top: -14px;
+  right: 18px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
 }
 
 .analytics-svg-graph {
-  width: 100%;
+  /* Explicit width set inline per-render (matches the viewBox) instead of
+     100% — 100% would just rescale the whole viewBox back down to fit the
+     container, undoing the fixed per-point spacing this is all built on. */
   height: auto;
   overflow: visible;
+  display: block;
+}
+
+.chart-point-tooltip {
+  background: rgba(13, 19, 31, 0.96);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.chart-point-tooltip strong {
+  display: block;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 /* Slider Controls */
@@ -311,6 +410,17 @@
   font-size: 0.62rem;
   color: var(--text-subtle, var(--text-muted));
   white-space: nowrap;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.timeline-date-tick:hover,
+.timeline-date-tick:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
 }
 
 .timeline-date-tick:first-child {
@@ -932,21 +1042,93 @@
 
 /* Session Accounting Breakdown */
 .sessions-accounting-split {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
-  gap: 6px;
+  display: block;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding: 8px 0;
   margin: 0;
 }
 
-@media (max-width: 480px) {
-  .sessions-accounting-split {
-    grid-template-columns: 1.1fr 1fr 1fr;
-    gap: 2px;
-  }
+/* ── Skill-level bar (Beginner/Intermediate/Advanced/Elite) ── */
+.skill-level-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
+
+.skill-level-track {
+  display: flex;
+  gap: 3px;
+}
+
+.skill-level-segment {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.skill-level-segment.filled {
+  background: linear-gradient(90deg, #3b82f6, var(--primary-accent-light));
+}
+
+/* Partial fill for the CURRENT tier's segment only — past tiers use
+   .filled (solid), future tiers stay empty. This is the piece that was
+   missing: the current segment used to render fully solid regardless of
+   actual progress within it. */
+.skill-level-segment-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #3b82f6, var(--primary-accent-light));
+}
+
+.skill-level-marker {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary-accent-light);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.skill-level-labels {
+  display: flex;
+  justify-content: space-between;
+}
+
+.skill-level-label-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.58rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+
+.skill-level-label-item em {
+  font-style: normal;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 1px;
+}
+
+.skill-level-label-item.active {
+  color: var(--primary-accent-light);
+  font-weight: 800;
+}
+
+.skill-level-label-item.active em {
+  color: var(--primary-accent-light);
+  opacity: 0.85;
+}
+
 
 .acc-item {
   display: flex;
@@ -969,12 +1151,77 @@
   white-space: nowrap;
 }
 
+/* Now sits above .sessions-accounting-split's own top border/divider,
+   instead of inside it right below that line. Its own subtitle-style size
+   instead of the tiny .acc-lbl uppercase label look — reads as a section
+   heading for the card, not a field label. */
+.skill-level-heading {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
 .acc-item strong {
   font-size: 0.8rem;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.acc-sub-date {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Best Lift card — below the Strength Progression chart. */
+.best-lift-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(21, 29, 44, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.best-lift-card .acc-lbl {
+  font-size: 0.68rem;
+}
+
+.best-lift-card strong {
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+/* Every other exercise's own PR, listed under the top one. */
+.other-prs-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 6px;
+}
+
+.other-pr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.other-pr-row span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.other-pr-row strong {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .text-emerald {
@@ -3362,8 +3609,8 @@
 
 /* Exercise Video & Form Guide */
 .video-guide-btn {
-  padding: 8px 16px;
-  font-size: 0.8rem;
+  padding: 6px 13px;
+  font-size: 0.74rem;
   font-weight: 700;
   border-radius: var(--radius-md);
   cursor: pointer;

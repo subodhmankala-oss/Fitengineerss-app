@@ -912,24 +912,45 @@ const Onboarding = ({ onComplete }) => {
     if (coachId) {
       localStorage.setItem('userCoachId', coachId);
     } else if (isSupabaseConfigured && databaseService.supabase && !dbProfile) {
-      // Brand-new client: create initial client profile with no coach linked yet
+      // Brand-new client: create initial client profile with no coach linked
+      // yet. This used to go through databaseService.saveUserProfile(),
+      // which upserts the `users` row on the `email` conflict key with
+      // whatever bearer token is on hand — for this exact moment (right
+      // after picking a mock Google account, before any real Supabase auth
+      // session exists) that's the anon key, and an anon-key upsert against
+      // `users` 42501s outright (documented RLS gap: "ON CONFLICT hits the
+      // SELECT policy" — never upsert with the anon key on this project).
+      // Confirmed 2026-09-01: every brand-new signup landed in a broken
+      // half-created "Warrior" ghost state with every tab spinning forever,
+      // since no real users/clients row ever got created.
+      //
+      // saveClientOnboardingData() (the wizard's own save path) exists
+      // specifically to avoid this — it goes through /api/complete-
+      // onboarding, which resolves-or-creates the users+clients row
+      // server-side with the service-role key, immune to the anon-key gap
+      // above. These mock-Google profiles already carry full stats and skip
+      // the wizard UI entirely (see handleInstantLogin below), but there's
+      // no reason the actual SAVE needs to skip the safe path too.
       try {
-        await databaseService.saveUserProfile({
-          userName: profile.name,
-          email: email,
-          role: 'client',
-          coach_id: null,
-          userAge: profile.age,
-          userHeight: profile.height,
-          userWeight: profile.weight,
-          userActivity: profile.activity,
-          userGoal: profile.goal,
-          userDiet: profile.diet || 'Non-Vegetarian',
-          userCalorieTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).calories.toString(),
-          userProteinTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).protein.toString(),
-          userCarbsTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).carbs.toString(),
-          userFatsTarget: calculateTargetsGeneric(profile.weight, profile.height, profile.age, profile.activity, profile.goal).fats.toString(),
-          verified: false
+        // clients.program has a DB check constraint requiring the slug form
+        // ('fat_loss', not 'Fat Loss') — confirmed via the 23514 constraint
+        // violation this threw before this map existed. activity_level has
+        // no such constraint, so the mock profile's display label ("Moderately
+        // Active") passes straight through saveClientOnboardingData's own
+        // slug→label map unchanged (falls through to `|| activity_level`).
+        const goalToProgramSlug = {
+          'Fat Loss': 'fat_loss',
+          'Muscle Building': 'muscle_building',
+          'Gut Health': 'gut_repair',
+          'Gut Fix': 'gut_repair'
+        };
+        await databaseService.saveClientOnboardingData({
+          age: profile.age,
+          weight_kg: profile.weight,
+          height_cm: profile.height,
+          program: goalToProgramSlug[profile.goal] || 'fat_loss',
+          activity_level: profile.activity,
+          full_name: profile.name
         });
       } catch (e) {
         console.error("Error creating initial client user profile:", e);

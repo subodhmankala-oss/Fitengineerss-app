@@ -9,6 +9,8 @@
 // push_subscriptions — so no further pushes are ever sent to it, even
 // though the OS permission indicator will still show "allowed".
 
+import { resolveRealAccessToken } from '../services/databaseService.js';
+
 // Subscribes THIS device to push and registers it server-side under the
 // current user (so notify-user/send-nudges can target it). Idempotent:
 // reuses an existing subscription instead of creating a duplicate. Always
@@ -52,9 +54,19 @@ export async function subscribeToPush(userName) {
       : JSON.parse(JSON.stringify(subscription));
     subJson.userEmail = localStorage.getItem('userEmail') || '';
 
+    // The server now requires proof of ownership (a real Supabase Auth
+    // bearer token resolving back to this exact userId) before it will file
+    // the subscription under that userId — see api/push.js's
+    // resolveOwnVerifiedUserId for why. Without a token the subscription
+    // still registers (matched later by email/name instead), just not for
+    // the id-targeted scheduled nudges.
+    const accessToken = await resolveRealAccessToken().catch(() => null);
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
     await fetch('/api/subscribe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         userName: userName || 'Warrior',
         userId: localStorage.getItem('userId') || null,

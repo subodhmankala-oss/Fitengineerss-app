@@ -13,6 +13,22 @@
 //   /api/verify-recovery-token   -> /api/password?action=verify-token
 
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+
+// public.users.password_hash is never read for real (Supabase-Auth-backed)
+// logins — actual authentication goes through Supabase Auth's own
+// auth.admin.updateUserById() a few lines below this column's write, and
+// nothing in api/ or src/services/databaseService.js compares against this
+// column outside the localStorage-only mock/offline fallback (which has its
+// own separate copy of the value and never touches this table). So this is
+// purely a durable secondary record — but it must never hold the raw
+// password: salted+hashed with scrypt (Node's built-in, no extra dependency)
+// so a DB leak doesn't hand out plaintext passwords directly.
+function hashPasswordForStorage(rawPassword) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
 
 // ════════════════════════════════════════════════════════════════════════
 // ─── request-password-reset.js (action=request-reset) ───
@@ -256,7 +272,7 @@ async function handleResetPassword(req, res) {
 
       const { error: dbError } = await resetSupabase
         .from('users')
-        .update({ password_hash: newPassword })
+        .update({ password_hash: hashPasswordForStorage(newPassword) })
         .eq('id', resetToken.user_id);
 
       if (dbError) {

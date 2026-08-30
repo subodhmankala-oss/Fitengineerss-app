@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import Avatar from './Avatar';
@@ -242,6 +242,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [editPaymentDate, setEditPaymentDate] = useState('');
   const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
+
+  // Month-wise breakdown + month-over-month difference (2026-08-30 feature
+  // request: "how do i check the monthly wise difference"). Grouped by the
+  // payment's paidAt month, newest month first, each row diffed against the
+  // month right after it in that sorted order (i.e. the previous month).
+  const monthlyPaymentBreakdown = useMemo(() => {
+    const totalsByMonth = new Map();
+    paymentsList.forEach(p => {
+      const d = new Date(p.paidAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      totalsByMonth.set(key, (totalsByMonth.get(key) || 0) + Number(p.amount || 0));
+    });
+    const rows = Array.from(totalsByMonth.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, total]) => {
+        const [year, month] = key.split('-').map(Number);
+        const label = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        return { key, label, total };
+      });
+    return rows.map((row, i) => {
+      const prev = rows[i + 1];
+      const diff = prev ? row.total - prev.total : null;
+      const pct = prev && prev.total !== 0 ? (diff / prev.total) * 100 : null;
+      return { ...row, diff, pct };
+    });
+  }, [paymentsList]);
 
   // Mobile-only header hamburger (2026-08-28: "put this inside 3 line
   // icon" — desktop keeps the individual icon buttons, only the header row
@@ -3741,6 +3767,38 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <span style={{ color: '#10b981', fontWeight: 800, fontSize: '1.05rem' }}>
                 ₹{paymentsList.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
               </span>
+            </div>
+          )}
+
+          {/* Month-wise breakdown — each month's total plus its change vs.
+              the month before it, so a coach can see at a glance whether
+              collections are up or down month over month. */}
+          {!loadingPayments && monthlyPaymentBreakdown.length > 0 && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '6px',
+              background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+              borderRadius: '10px', padding: '12px 14px'
+            }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Monthly Breakdown
+              </span>
+              {monthlyPaymentBreakdown.map(row => (
+                <div key={row.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                  <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600 }}>{row.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {row.diff !== null && (
+                      <span style={{
+                        fontSize: '0.75rem', fontWeight: 700,
+                        color: row.diff > 0 ? '#10b981' : row.diff < 0 ? '#f87171' : 'var(--text-muted)'
+                      }}>
+                        {row.diff > 0 ? '▲' : row.diff < 0 ? '▼' : '—'} ₹{Math.abs(row.diff).toLocaleString()}
+                        {row.pct !== null ? ` (${row.diff > 0 ? '+' : ''}${row.pct.toFixed(0)}%)` : ''}
+                      </span>
+                    )}
+                    <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.9rem' }}>₹{row.total.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

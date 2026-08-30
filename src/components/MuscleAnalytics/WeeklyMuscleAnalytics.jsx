@@ -15,15 +15,17 @@ import { shiftLocalDateString } from '../../utils/dateUtils';
 import { useCountUp } from '../../hooks/useCountUp';
 import './WeeklyMuscleAnalytics.css';
 
-const AnimatedStat = ({ value, label, sub, suffix = '' }) => {
+// Inline pill style — label left, value right, one line per card — matching
+// the Daily tab's stat cards (.stat-card.inline) rather than the stacked
+// glass-panel look used elsewhere on this page.
+const AnimatedStat = ({ value, label, valueClass = 'text-emerald', suffix = '' }) => {
   const animated = useCountUp(value);
   return (
-    <div className="stat-card glass-panel">
-      <span className="card-label">{label}</span>
-      <strong className="card-value text-emerald">
+    <div className="stat-card inline">
+      <span className="lbl">{label}:</span>
+      <strong className={`val ${valueClass}`}>
         {Math.round(animated).toLocaleString('en-IN')}{suffix}
       </strong>
-      <p className="card-sub">{sub}</p>
     </div>
   );
 };
@@ -95,10 +97,10 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
 
         <div className="stats-row-cards mini" style={{ marginTop: '10px' }}>
-          <AnimatedStat value={weeklyStats.workoutsCount} label="Total Workouts" sub="This week" />
-          <AnimatedStat value={weeklyStats.totalSets} label="Total Sets" sub="This week" />
-          <AnimatedStat value={weeklyStats.totalVolume} label="Total Volume" sub="kg lifted" suffix=" kg" />
-          <AnimatedStat value={weeklyStats.workoutsCount} label="Training Days" sub="Active this week" />
+          <AnimatedStat value={weeklyStats.totalVolume} label="Volume" valueClass="text-emerald" suffix=" kg" />
+          <AnimatedStat value={weeklyStats.totalSets} label="Sets" valueClass="text-blue" suffix=" sets" />
+          <AnimatedStat value={weeklyStats.workoutsCount} label="Workouts" valueClass="text-amber" />
+          <AnimatedStat value={weeklyStats.totalCalories} label="Calories" valueClass="text-amber" suffix=" kcal" />
         </div>
       </div>
 

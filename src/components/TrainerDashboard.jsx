@@ -33,6 +33,8 @@ import { useCoachTour } from '../context/CoachTourContext';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
+import CoachProfile from './CoachProfile';
+import { hasUnseenWhatsNew } from '../data/whatsNewData';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -294,12 +296,37 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   }, [monthlyPaymentBreakdown, selectedPaymentMonth]);
   const selectedMonthData = monthlyPaymentBreakdown.find(m => m.key === selectedPaymentMonth) || null;
 
-  // Mobile-only header hamburger (2026-08-28: "put this inside 3 line
-  // icon" — desktop keeps the individual icon buttons, only the header row
-  // used below 900px collapses into a single menu). See
+  // Full-page coach settings overlay (CoachProfile.jsx). Opened from the
+  // avatar hamburger below 900px (2026-08-28: "put this inside 3 line
+  // icon" — desktop originally kept individual icon buttons instead), and
+  // from a matching avatar button in the desktop icon row (2026-08-29:
+  // "coach profile should be similar to client side") so the same settings
+  // page is reachable regardless of viewport width. See
   // .trainer-header-hamburger/.trainer-header-actions-desktop in
-  // TrainerDashboard.css for the breakpoint that shows/hides each.
+  // TrainerDashboard.css for the breakpoint that shows/hides the mobile
+  // trigger vs. the desktop icon row.
   const [mobileHeaderMenuOpen, setMobileHeaderMenuOpen] = useState(false);
+  // Which CoachProfile sub-page to land on when it opens (2026-08-29: "all
+  // these things I want it in left bar, the way other menu exist" — the
+  // superAdmin's desktop sidebar wants a direct one-click entry per
+  // settings row, not "open the menu, then tap again"). null = the main
+  // settings list (still used when opened from the header avatar, which has
+  // no single obvious sub-page to jump to). Reset to null on close so the
+  // NEXT open — from whichever trigger — doesn't inherit the last one's
+  // destination.
+  const [coachProfileSection, setCoachProfileSection] = useState(null);
+  const openCoachProfileSection = (section) => {
+    setCoachProfileSection(section);
+    setMobileHeaderMenuOpen(true);
+  };
+
+  // "New" dot on the sidebar's What's New icon (2026-08-29: "Whenever
+  // anything new comes in any navigation. There should be dot"). Re-read on
+  // every CoachProfile close (see the overlay's onClose below) rather than
+  // just once on mount — actually viewing What's New marks it seen (see
+  // WhatsNewList.jsx), and that only happens while the overlay is open, so
+  // the dot needs to re-check right as it closes to actually clear.
+  const [hasNewWhatsNew, setHasNewWhatsNew] = useState(() => hasUnseenWhatsNew('coach'));
 
   const handleViewCoachClients = async (coach) => {
     setDrilldownCoach(coach);
@@ -467,6 +494,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         // field + Enter each time, not re-filling the whole form.
         setPaymentFormAmount('');
         fetchClientPayments();
+        // This IS the renewal action on a monthly cadence — see
+        // getRenewalDueClients' header comment. Re-pull immediately so a
+        // client who was overdue drops off the directory banner right away
+        // instead of waiting for the next visibility/focus refresh.
+        refreshRenewalDueClients();
       } else {
         setPaymentSaveError(res.error || 'Failed to save payment.');
       }
@@ -587,6 +619,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // coachActiveDrafts above: a client_reply push fires the moment the client
   // sends it, this is what shows it here if that push was missed/dismissed.
   const [pendingClientReplies, setPendingClientReplies] = useState([]);
+
+  // Clients on a monthly cadence who haven't paid again in ~30 days (or are
+  // coming up on that) — see databaseService.getRenewalDueClients. Purely
+  // informational: no nudge button, no manual "mark renewed" step. Logging
+  // that client's next payment in Client Payments is what clears them off
+  // this list on the next refresh (2026-08-29: "auto renewal once coach
+  // updates the payment, no nudge nothing").
+  const [renewalDueClients, setRenewalDueClients] = useState([]);
 
   // Clients who just finished a workout and haven't received a coach note for
   // that session yet — the home-screen fallback for a missed "workout
@@ -1071,14 +1111,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // should already be climbing while the hold is in progress.
     startLiveSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, setIdx);
-    // Same resume-from-typed-value fallback as handleLiveCardioStopwatchStart:
-    // if there's no timer entry yet (fresh set, or one whose time the coach
-    // typed in by hand instead of running the stopwatch), start from the
-    // set's own saved `time` instead of always restarting at 0.
+    const set = liveExercises[exIdx]?.sets[setIdx];
+    // Resume from the set's own saved `time` ONLY when set.timeIsLive
+    // confirms it's a real, previously-run elapsed value (written by
+    // handleLiveSetStopwatchPause/Complete) — e.g. completing a set then
+    // unchecking it and pressing Play again should pick up where it left
+    // off. A set that's never genuinely been run has no such guarantee: its
+    // `time` could be a template/plan default or an "+Add Set" suggestion
+    // copied from the previous set, and resuming from that silently baked a
+    // phantom head start into both the displayed time and the live calorie
+    // total before the coach did anything. Reported repeatedly for Plank/Air
+    // Rowing, including on a session already open since before the
+    // hydration paths themselves were fixed to leave `time` blank — an
+    // in-progress session keeps whatever it was hydrated with, so a never-
+    // completed set could still be carrying the old stale value.
     const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
-      : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
+      : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
@@ -1092,6 +1142,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // time field had no manually-editable value to show while paused, since
     // the live count only ever lived in liveSetTimers, not on the set itself.
     handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+    // This value just came from a real running timer, so a later Play (this
+    // pause, or after a complete/uncomplete round trip) can safely resume
+    // from it — see handleLiveSetStopwatchStart's timeIsLive check.
+    handleLiveSetChange(exIdx, setIdx, 'timeIsLive', true);
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
@@ -1108,6 +1162,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // never touched that stale pausedDuration — pressing Start again resumed
   // from the OLD number instead of the freshly typed one. Reported
   // 2026-08-14. Same fix applied to handleLiveCardioTimeEdit below.
+  //
+  // Only applies once a timer entry already exists (the set has been
+  // played/paused at least once this session) — typing into a set that's
+  // never been played does NOT mark it resumable (see set.timeIsLive in
+  // handleLiveSetStopwatchStart): a typed-but-never-run number is otherwise
+  // indistinguishable from a stale template/plan default, and letting Play
+  // resume from it reproduced exactly that bug.
   const handleLiveTimedSetTimeEdit = (exIdx, setIdx, rawValue) => {
     const masked = maskDigitsToTimeString(rawValue);
     handleLiveSetChange(exIdx, setIdx, 'time', masked);
@@ -1133,6 +1194,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // right away instead of waiting for a tick/complete.
     startLiveSessionClockIfIdle();
     const key = getSetTimerKey(exIdx, setIdx);
+    const set = liveExercises[exIdx]?.sets[setIdx];
     // A normal pause leaves the timer entry in place with its pausedDuration
     // — but ticking a set complete deletes the entry entirely (see
     // handleLiveCardioSetComplete), so un-ticking and pressing Start again
@@ -1140,11 +1202,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // time/km that had already accumulated. Falling back to the set's own
     // saved `time` field (which survives both complete and un-complete)
     // instead of a bare 0 makes Start always resume from wherever it was
-    // actually left, not just within the same uninterrupted run.
+    // actually left, not just within the same uninterrupted run — but ONLY
+    // when set.timeIsLive confirms that saved value really came from a live
+    // timer (see handleLiveSetStopwatchStart's identical guard for the full
+    // reasoning); otherwise it could be a template/plan default or an
+    // "+Add Set" suggestion, and resuming from it would bake a phantom head
+    // start into the displayed time and live calorie total.
     const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
-      : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
+      : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true }
@@ -1219,10 +1286,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // typed value the moment the set gets ticked. Only fall back to the
     // live timer's elapsed time when a timer entry actually exists;
     // otherwise keep whatever's already in set.time.
-    const elapsed = liveSetTimers[key]
+    const hadRealTimer = !!liveSetTimers[key];
+    const elapsed = hadRealTimer
       ? getLiveSetElapsedSeconds(exIdx, setIdx)
       : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
     handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+    // Only mark it "live" (safe for a later Play, after an uncomplete, to
+    // resume from — see handleLiveSetStopwatchStart) when it actually came
+    // from a real running timer just now. A typed-then-ticked value stays
+    // untrusted for that purpose, same as any other prefill.
+    if (hadRealTimer) handleLiveSetChange(exIdx, setIdx, 'timeIsLive', true);
     handleLiveToggleSet(exIdx, setIdx);
     setLiveSetTimers(prev => {
       const updated = { ...prev };
@@ -1243,6 +1316,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (timer?.isRunning) {
       const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
       handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+      // Real elapsed time from a running timer — safe for a later Play
+      // (after an uncomplete) to resume from. See
+      // handleLiveCardioStopwatchStart's timeIsLive guard.
+      handleLiveSetChange(exIdx, setIdx, 'timeIsLive', true);
       if (timer.autoKm) {
         const exName = liveExercises[exIdx]?.name;
         handleLiveSetChange(exIdx, setIdx, 'distanceKm', String(estimateCardioDistanceKm(exName, elapsed)));
@@ -1297,7 +1374,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   //   same moment this starts counting).
   // - PAUSED (not completed): elapsed reads the frozen set.time value that
   //   pausing already synced there, so the total holds steady instead of
-  //   dropping to 0 and then jumping back up on resume.
+  //   dropping to 0 and then jumping back up on resume. Gated on
+  //   set.timeIsLive (see handleLiveSetStopwatchStart) — a never-actually-
+  //   run set's `time` could be a template/plan default or an "+Add Set"
+  //   suggestion rather than real elapsed time, and counting calories from
+  //   that reproduced the exact "calories calculated before I did anything"
+  //   bug this whole mechanism was meant to avoid.
   // - COMPLETED: excluded here on purpose — computeLiveCalories's own
   //   completed-set branch already counts it from the same final
   //   time/distanceKm, so nothing is double-counted or lost when a set gets
@@ -1308,7 +1390,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         if (set.isCompleted) return s;
         const timer = liveSetTimers[getSetTimerKey(exIdx, setIdx)];
         const isRunning = timer?.isRunning || false;
-        const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
+        const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (set.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
         if (elapsed <= 0) return s;
         return s + estimateTimedHoldKcal(elapsed, resolvedClientWeightKg, ex.name);
       }, 0);
@@ -1318,7 +1400,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       if (set.isCompleted) return s;
       const timer = liveSetTimers[getSetTimerKey(exIdx, setIdx)];
       const isRunning = timer?.isRunning || false;
-      const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
+      const elapsed = isRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (set.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
       if (elapsed <= 0) return s;
       const km = (isRunning && timer?.autoKm !== false) ? estimateCardioDistanceKm(ex.name, elapsed) : set.distanceKm;
       return s + estimateCardioKcal(ex.name, km, elapsed, resolvedClientWeightKg);
@@ -1879,6 +1961,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setPendingClientReplies(replies);
   };
 
+  // null (fetch failed) is treated the same as getSessionsAwaitingCoachNote's
+  // own null case — keep whatever was already on screen rather than
+  // unmounting the banner on a dropped request.
+  const refreshRenewalDueClients = async () => {
+    if (!resolvedCoachId) return;
+    const due = await databaseService.getRenewalDueClients(resolvedCoachId);
+    if (due !== null) setRenewalDueClients(due);
+  };
+
   // Coach has seen this reply — dismiss it from the directory card for good.
   const handleDismissClientReply = async (replyId) => {
     setPendingClientReplies((prev) => prev.filter((r) => r.id !== replyId));
@@ -1999,7 +2090,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     refreshCoachActiveDrafts();
     refreshPendingClientReplies();
     refreshSessionsAwaitingNote();
-    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); };
+    refreshRenewalDueClients();
+    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); refreshRenewalDueClients(); };
     document.addEventListener('visibilitychange', refreshBoth);
     window.addEventListener('focus', refreshBoth);
     return () => {
@@ -2021,6 +2113,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       refreshCoachActiveDrafts();
       refreshPendingClientReplies();
       refreshSessionsAwaitingNote();
+      refreshRenewalDueClients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, viewMode]);
@@ -3115,7 +3208,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="My Clients"
               aria-label="My Clients"
             >
-              <span className="admin-shell-icon">👥</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Clients</span>
             </button>
             <button
@@ -3125,7 +3225,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="Super-Admin"
               aria-label="Super-Admin"
             >
-              <span className="admin-shell-icon">🛡️</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Admin</span>
             </button>
             <button
@@ -3135,7 +3239,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title="Client Payments"
               aria-label="Client Payments"
             >
-              <span className="admin-shell-icon">💰</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Payments</span>
             </button>
             <button
@@ -3145,12 +3254,98 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               title={notifOn ? 'Notifications are on — tap to turn off' : 'Enable notifications'}
               aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
             >
-              <span className="admin-shell-icon">🔔</span>
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </span>
               <span className="admin-shell-label">Alerts</span>
+            </button>
+            {/* 2026-08-29: "All these things i want it in left bar. The way
+                other menu exist" — CoachProfile.jsx's own settings rows
+                (Account/Business Profile/What's New) get their own direct
+                sidebar entries here too, matching every other icon above
+                (one click straight to that destination, not "open a menu,
+                then tap again"). Each jumps straight past CoachProfile's
+                main list into that sub-page via initialSection — same
+                mobileHeaderMenuOpen state the header avatar already
+                toggles, just more specific triggers for it. Notifications
+                and Client Payments aren't duplicated here — Alerts/Payments
+                right above already ARE their direct sidebar entry, wired
+                straight to the same actions CoachProfile's own rows call.
+                Business Profile covers what used to be a separate "Profile"
+                entry too (2026-08-29: "Business profile and profile. Merge
+                it into one... keep the name Business profile") —
+                CoachProfile's 'business' section now includes the personal
+                Name/Phone fields the old 'profile' section had. */}
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'account' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('account')}
+              title="Account"
+              aria-label="Account"
+            >
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
+              <span className="admin-shell-label">Account</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'business' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('business')}
+              title="Business Profile"
+              aria-label="Business Profile"
+            >
+              <span className="admin-shell-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+              </span>
+              <span className="admin-shell-label">Business</span>
+            </button>
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'whatsnew' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('whatsnew')}
+              title="What's New"
+              aria-label="What's New"
+            >
+              <span className="admin-shell-icon" style={{ position: 'relative' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z" />
+                </svg>
+                {/* "New" dot (2026-08-29: "Whenever anything new comes in
+                    any navigation. There should be dot"). Clears once the
+                    coach actually opens What's New — see WhatsNewList.jsx's
+                    markWhatsNewSeen() call and this state's own re-check on
+                    the overlay's onClose below. */}
+                {hasNewWhatsNew && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute', top: -2, right: -4,
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: '#ef4444', border: '2px solid #0a0e17'
+                    }}
+                  />
+                )}
+              </span>
+              <span className="admin-shell-label">What's New</span>
             </button>
           </nav>
           <button type="button" className="admin-shell-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
-            <span className="admin-shell-icon">⏻</span>
+            <span className="admin-shell-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                <line x1="12" y1="2" x2="12" y2="12" />
+              </svg>
+            </span>
             <span className="admin-shell-label">Logout</span>
           </button>
         </aside>
@@ -3162,13 +3357,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           <img
             src="/logo.png"
             alt="Fitengineers Logo"
+            className="trainer-header-logo"
             onClick={() => { setViewMode('coach'); setSelectedClient(null); }}
             title="Home"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewMode('coach'); setSelectedClient(null); } }}
             style={{
-              height: '42px',
+              // 20px, not the 42px this was before logo.png got cropped down
+              // to its actual mark (2026-08-29) — the old height compensated
+              // for a lot of built-in transparent padding around the glyph,
+              // so keeping anywhere near the old value after the crop
+              // rendered the mark oversized here (28px was still too big).
+              height: '20px',
               width: 'auto',
               objectFit: 'contain',
               filter: 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))',
@@ -3177,7 +3378,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{
-              fontSize: '0.68rem',
+              fontSize: '0.8rem',
               color: 'var(--text-muted)',
               fontWeight: 700,
               textTransform: 'uppercase',
@@ -3332,6 +3533,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
             </button>
+            {/* Opens the same CoachProfile settings overlay the mobile
+                hamburger below opens (2026-08-29: "coach profile should be
+                similar to client side") — desktop had no way to reach it
+                otherwise, since this icon row is the whole desktop header
+                for a regular (non-super-admin) coach. */}
+            <button
+              type="button"
+              onClick={() => setMobileHeaderMenuOpen(true)}
+              title="Profile & Settings"
+              aria-label="Profile & Settings"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '20px', padding: '2px 8px 2px 2px', cursor: 'pointer'
+              }}
+            >
+              <Avatar
+                email={localStorage.getItem('userEmail')}
+                name={localStorage.getItem('userName') || 'Coach'}
+                avatarUrl={localStorage.getItem('userAvatarUrl')}
+                size={26}
+              />
+              {/* Signals this circle opens a menu (2026-08-29: "add the down
+                  arrow right side besides here") rather than reading as a
+                  plain static profile photo. */}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
             <button className="logout-btn-trainer" onClick={handleLogout} title="Logout" aria-label="Logout">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
@@ -3353,9 +3583,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             aria-label="Menu"
             aria-expanded={mobileHeaderMenuOpen}
             style={{
-              display: 'none', alignItems: 'center', justifyContent: 'center',
+              display: 'none', alignItems: 'center', justifyContent: 'center', gap: '4px',
               background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '50%', padding: '2px', cursor: 'pointer'
+              borderRadius: '20px', padding: '2px 9px 2px 2px', cursor: 'pointer'
             }}
           >
             <Avatar
@@ -3364,106 +3594,43 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               avatarUrl={localStorage.getItem('userAvatarUrl')}
               size={30}
             />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
 
-          {mobileHeaderMenuOpen && (
-            // Full PAGE (2026-08-28: "I need the dropdown full page" — the
-            // earlier full-WIDTH-but-short dropdown wasn't enough), not just
-            // a panel below the header. Covers the whole viewport, so the ☰
-            // button underneath is no longer reachable to close it — an
-            // explicit ✕ replaces it here instead.
-            <div
-              className="trainer-header-mobile-menu"
-              style={{
-                position: 'fixed', inset: 0, zIndex: 50,
-                background: '#0a0e1a', display: 'flex', flexDirection: 'column'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 16px 14px', borderBottom: '1px solid var(--border-color)' }}>
-                <div>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem' }}>{localStorage.getItem('userName') || 'Coach'}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>{localStorage.getItem('userBrand') || 'Fit Engineers'}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMobileHeaderMenuOpen(false)}
-                  title="Close menu"
-                  aria-label="Close menu"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                    color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer'
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-              {!superAdmin && onReplayDemoTour && (
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); onReplayDemoTour(); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                    color: '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  ❓ App Tutorial
-                </button>
-              )}
-                {/* Static label/action (2026-08-28: "bad UI" — this used to
-                    relabel itself "Back to Clients" while already inside
-                    Payments, which meant the ONLY way out of that page was
-                    digging back into this menu. A menu item that changes
-                    meaning depending on where you already are is confusing
-                    on its own, so it's a plain "go to Payments" entry now;
-                    the Payments page itself has its own back button (see
-                    client-payments-view above) for leaving it. */}
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); setViewMode('payments'); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                    color: viewMode === 'payments' ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  💰 Client Payments
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); toggleCoachNotifications(); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)',
-                    color: notifOn ? '#10b981' : '#fff', padding: '12px 16px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  🔔 {notifOn ? 'Notifications On' : 'Enable Notifications'}
-                </button>
-                {/* Flexible spacer pushes Logout all the way to the true
-                    bottom of the full-page menu (2026-08-28: "keep the
-                    logout button in the bottom"), not just last in a short
-                    list. */}
-                <div style={{ flex: 1 }} />
-                <button
-                  type="button"
-                  onClick={() => { setMobileHeaderMenuOpen(false); handleLogout(); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-                    background: 'none', borderTop: '1px solid var(--border-color)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
-                    color: '#fca5a5', padding: '18px 16px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer'
-                  }}
-                >
-                  ⏻ Logout
-                </button>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Moved out of .trainer-header-actions (2026-08-29: "add it over
+          there in desktop version" — the superAdmin's sidebar now has its
+          own "Profile" entry point too, see admin-shell-nav above). That
+          div is entirely display:none for the superAdmin's real desktop
+          width (everything in it is duplicated in the sidebar instead —
+          see .trainer-header-actions in TrainerDashboard.css), which was
+          silently hiding this overlay too whenever the sidebar's new
+          Profile button set mobileHeaderMenuOpen. Rendering it here, a
+          sibling of the header rather than a child of the row that account
+          hides, means BOTH triggers (sidebar Profile / header avatar) open
+          the same full-page overlay regardless of which one is visible. */}
+      {mobileHeaderMenuOpen && (
+        <CoachProfile
+          // Forces a fresh mount when the sidebar jumps to a DIFFERENT
+          // section while the overlay is already open — CoachProfile only
+          // reads initialSection once (on mount) to seed its own
+          // activeSection state, so switching sidebar buttons without this
+          // key would leave whatever sub-page was already showing in
+          // place instead of navigating.
+          key={coachProfileSection || 'main'}
+          handleLogout={handleLogout}
+          onReplayDemoTour={!superAdmin ? onReplayDemoTour : null}
+          notifOn={notifOn}
+          onToggleNotifications={toggleCoachNotifications}
+          onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); setViewMode('payments'); }}
+          onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); }}
+          initialSection={coachProfileSection}
+        />
+      )}
 
       {viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -3683,6 +3850,49 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             Keep track of every payment you receive from your clients.
           </p>
 
+          {/* Renewal reminders (2026-08-29: "this should all come in client
+              payment section. As reminder") — same list/data as the My
+              Clients directory's own renewal banner (renewalDueClients,
+              already fetched there; see refreshRenewalDueClients), surfaced
+              here too since Payments is exactly where a coach acts on one.
+              Clicking a row pre-fills the log form with that client instead
+              of navigating away (the directory's version opens the client
+              instead, which makes less sense here — you're already on the
+              screen that logs their renewal payment). */}
+          {renewalDueClients.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {renewalDueClients.map(r => {
+                const overdue = r.daysOverdue > 0;
+                const color = overdue ? '#ef4444' : '#f59e0b';
+                const bg = overdue ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)';
+                const border = overdue ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)';
+                return (
+                  <div
+                    key={r.clientId}
+                    onClick={() => setPaymentFormClientId(r.clientId)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      background: bg, border: `1px solid ${border}`,
+                      borderRadius: '12px', padding: '12px 14px', cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.3rem' }}>{overdue ? '🔴' : '⏳'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color }}>
+                        {r.clientName}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {overdue
+                          ? `${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue on their monthly renewal (last paid ${r.daysSincePaid} days ago)`
+                          : `Renewal due in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid ${r.daysSincePaid} days ago)`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* One-step logging row: client + amount + method pill + date, all
               on one row, defaulted to today — no separate modal/wizard (coach
               asked for "much faster, one step" after the first design pass
@@ -3775,22 +3985,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
 
-          {/* Auto-calculated total across every logged payment (2026-08-28
-              feature request: "there should be total amount of all should be
-              auto calculated"). Derived straight from paymentsList so it
-              always matches what's on screen — no separate running total to
-              keep in sync. */}
+          {/* Total across every logged payment (2026-08-29: "I dont see the
+              total calculation here.. Its should calculate the total") —
+              the ledger below only ever showed per-row amounts, with no sum
+              of what the coach has actually collected. */}
           {!loadingPayments && paymentsList.length > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)',
-              borderRadius: '10px', padding: '12px 14px'
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              borderRadius: '10px', padding: '10px 14px'
             }}>
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85rem' }}>
-                Total ({paymentsList.length} payment{paymentsList.length === 1 ? '' : 's'})
+              <span style={{ color: 'rgba(226,232,240,0.75)', fontSize: '0.8rem', fontWeight: 600 }}>
+                Total ({paymentsList.length} {paymentsList.length === 1 ? 'payment' : 'payments'})
               </span>
               <span style={{ color: '#10b981', fontWeight: 800, fontSize: '1.05rem' }}>
-                ₹{paymentsList.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
+                ₹{paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}
               </span>
             </div>
           )}
@@ -4200,6 +4409,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   })}
                 </div>
               )}
+
+              {/* Renewal-due reminders (Clients on a monthly cadence who
+                  haven't paid again in ~25+ days) MOVED to the Client
+                  Payments view (2026-08-29: "this should all come in client
+                  payment section. As reminder" — confirmed 2026-08-29 as a
+                  move, not a duplicate, after it kept showing here too: "why
+                  it is still showing on homepage"). See client-payments-view
+                  below for the surviving copy of this block. */}
 
               {/* triggerLiveToast's own toast only renders inside the Live Log
                   tab (selectedClient view), so success/failure from the

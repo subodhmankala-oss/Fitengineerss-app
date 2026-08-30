@@ -1192,18 +1192,30 @@ const databaseService = {
         const user = rows[0] || null;
 
         if (user) {
-          await restUpsert('tracker_logs', {
-            user_id: user.id,
-            log_date: log.date || new Date().toISOString().split('T')[0],
-            water_glasses: parseInt(log.waterGlasses || '0'),
-            synced_steps: parseInt(log.syncedSteps || '0'),
-            logged_calories: parseInt(log.loggedCalories || '0'),
-            logged_protein: parseInt(log.loggedProtein || '0'),
-            logged_fats: parseInt(log.loggedFats || '0'),
-            walk_lunch_dinner: log.walkLunchDinner === 'true' || log.walkLunchDinner === true
-          }, 'user_id,log_date');
-
-          console.log('Cloud DB: Synced daily tracker logs.');
+          try {
+            await restUpsert('tracker_logs', {
+              user_id: user.id,
+              log_date: log.date || new Date().toISOString().split('T')[0],
+              water_glasses: parseInt(log.waterGlasses || '0'),
+              synced_steps: parseInt(log.syncedSteps || '0'),
+              logged_calories: parseInt(log.loggedCalories || '0'),
+              logged_protein: parseInt(log.loggedProtein || '0'),
+              logged_fats: parseInt(log.loggedFats || '0'),
+              walk_lunch_dinner: log.walkLunchDinner === 'true' || log.walkLunchDinner === true
+            }, 'user_id,log_date');
+            console.log('Cloud DB: Synced daily tracker logs.');
+          } catch (directError) {
+            // Same fallback shape as saveWorkoutSession's workout_logs path —
+            // most commonly 42501 because the caller's session token wasn't
+            // ready/valid yet. See api/save-user-data.js.
+            console.warn('tracker_logs client-side upsert failed, falling back to server:', directError?.message || directError);
+            const { headers } = await serverFallbackAuth();
+            const resp = await fetch('/api/save-user-data?action=tracker-log', {
+              method: 'POST', headers, body: JSON.stringify({ log })
+            });
+            if (!resp.ok) throw directError;
+            console.log('Cloud DB: Synced daily tracker logs (via server fallback).');
+          }
         }
       } catch (e) {
         console.error('Cloud DB Tracker Sync Error:', e);
@@ -1247,8 +1259,19 @@ const databaseService = {
             });
           }
 
-          await restUpsert('progress_history', records, 'user_id,day_number');
-          console.log('Cloud DB: Progress history synchronized.');
+          try {
+            await restUpsert('progress_history', records, 'user_id,day_number');
+            console.log('Cloud DB: Progress history synchronized.');
+          } catch (directError) {
+            // Same fallback shape as tracker_logs above — see api/save-user-data.js.
+            console.warn('progress_history client-side upsert failed, falling back to server:', directError?.message || directError);
+            const { headers } = await serverFallbackAuth();
+            const resp = await fetch('/api/save-user-data?action=progress-history', {
+              method: 'POST', headers, body: JSON.stringify({ history })
+            });
+            if (!resp.ok) throw directError;
+            console.log('Cloud DB: Progress history synchronized (via server fallback).');
+          }
         }
       } catch (e) {
         console.error('Cloud DB Progress Sync Error:', e);
@@ -1858,8 +1881,18 @@ const databaseService = {
             userCarbsTarget: client?.carbs_target ? String(client.carbs_target) : '',
             userFatsTarget: client?.fats_target ? String(client.fats_target) : '',
             role: activeRole,
-            phone: client?.phone_number || '',
+            // client?.phone_number is the client's own number; a coach has no
+            // client row, so falls to users.phone (coaches.saveCoachSelfProfile
+            // writes there — see CoachProfile.jsx).
+            phone: client?.phone_number || user.phone || '',
             brand: coach?.brand_name || 'Fit Engineers',
+            // Coach-only business fields, written by saveCoachSelfProfile.
+            // Blank ('') for clients since `coach` is always null for them.
+            specialization: coach?.specialization || '',
+            certifications: coach?.certifications || '',
+            experienceYears: coach?.experience_years != null ? String(coach.experience_years) : '',
+            locationCity: coach?.location_city || '',
+            socialHandle: coach?.social_media_handle || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -1923,8 +1956,13 @@ const databaseService = {
         userCarbsTarget: mClient?.carbs_target ? String(mClient.carbs_target) : '',
         userFatsTarget: mClient?.fats_target ? String(mClient.fats_target) : '',
         role: activeRole,
-        phone: mClient?.phone_number || '',
+        phone: mClient?.phone_number || mUser?.phone || '',
         brand: mCoach?.brand_name || 'Fit Engineers',
+        specialization: mCoach?.specialization || '',
+        certifications: mCoach?.certifications || '',
+        experienceYears: mCoach?.experience_years != null ? String(mCoach.experience_years) : '',
+        locationCity: mCoach?.location_city || '',
+        socialHandle: mCoach?.social_media_handle || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -2450,22 +2488,7 @@ const databaseService = {
   // scope check happens server-side regardless of which clients RLS policy
   // set is deployed — no policy changes needed.
   async setClientTotalSessions(clientUserId, totalSessions) {
-    // Resolve by email (resolveCanonicalUserId) rather than trusting
-    // localStorage.getItem('userId') directly — that cache can be poisoned
-    // with the Supabase auth UID instead of the coach's public.users.id
-    // (see resolveCanonicalUserId's own comment; same class of bug fixed for
-    // getAllUsers/getOwnCoachConnection/resolveCoachUserId elsewhere in this
-    // file). A poisoned id here never throws: it's a syntactically valid
-    // UUID, so it sails past the RPC's own validation but never matches any
-    // clients.coach_id row, so set_client_total_sessions's WHERE clause
-    // updates zero rows and returns success:false — which looked like the
-    // Save button silently doing nothing (the popup already had the coach's
-    // own dashboard rendering correctly off the properly-resolved id, so
-    // nothing else on screen looked wrong). Reported for a client who had
-    // just been reconnected via a fresh invite code, which is exactly when a
-    // stale/poisoned localStorage id is likeliest to still be sitting there.
-    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
-    if (!coachUserId || !clientUserId) {
+    if (!clientUserId) {
       return { success: false, error: 'Missing coach or client id.' };
     }
     const parsed = parseInt(totalSessions, 10);
@@ -2475,15 +2498,26 @@ const databaseService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // Raw-fetch RPC (SDK-hang bypass) — see restRpc's comment; same class
-        // of "stuck forever with no timeout" bug as the Connect-to-Coach RPC.
-        const data = await restRpc('set_client_total_sessions', {
-          p_coach_id: coachUserId,
-          p_client_id: clientUserId,
-          p_total: parsed
+        // Goes through /api/admin-write, not a direct RPC call — the RPC's
+        // own coach↔client scope check was real, but calling it straight via
+        // restRpc (anon key only) meant p_coach_id was whatever the CLIENT
+        // claimed, with nothing tying it to who was actually calling. This
+        // endpoint verifies the caller's real session server-side and
+        // resolves the coach id itself, closing that gap (confirmed
+        // exploitable 2026-08-30 via a direct anon-key RPC call with an
+        // arbitrary coach_id/client_id pair). See api/admin-write.js.
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+        }
+        const res = await fetch('/api/admin-write?action=set-client-total-sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ clientUserId, totalSessions: parsed })
         });
-        if (data && data.success === false) {
-          return { success: false, error: data.error || 'Update failed.' };
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.success === false)) {
+          return { success: false, error: (data && data.error) || 'Update failed.' };
         }
         return { success: true, total_sessions: parsed, total_sessions_updated_at: data?.total_sessions_updated_at || new Date().toISOString() };
       } catch (e) {
@@ -2492,7 +2526,11 @@ const databaseService = {
       }
     }
 
-    // Mock fallback — same coach↔client scoping as the RPC's WHERE clause
+    // Mock fallback (offline/no Supabase configured) — same coach↔client
+    // scoping as the RPC's WHERE clause. Only reached when there's no real
+    // backend to talk to, so trusting localStorage's own id here is fine —
+    // there's no server-side authority to check against in this mode.
+    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
     const mockClients = this.getMockTable('clients');
     const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
     if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
@@ -2509,24 +2547,27 @@ const databaseService = {
   // coach↔client relationship is re-checked server-side on every write.
   // Either date may be null to clear it.
   async setClientProgramDates(clientUserId, startedOn, estCompletion) {
-    // Same poisoned-localStorage-id fix as setClientTotalSessions above —
-    // resolve the coach's real public.users.id instead of trusting the raw
-    // cache, or this RPC's coach_id scope check silently matches zero rows.
-    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
-    if (!coachUserId || !clientUserId) {
+    if (!clientUserId) {
       return { success: false, error: 'Missing coach or client id.' };
     }
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const data = await restRpc('set_client_program_dates', {
-          p_coach_id: coachUserId,
-          p_client_id: clientUserId,
-          p_started_on: startedOn || null,
-          p_est_completion: estCompletion || null
+        // Same /api/admin-write fix as setClientTotalSessions above — the
+        // caller's identity is now verified server-side instead of trusted
+        // from a client-supplied p_coach_id. See api/admin-write.js.
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+        }
+        const res = await fetch('/api/admin-write?action=set-client-program-dates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ clientUserId, startedOn: startedOn || null, estCompletion: estCompletion || null })
         });
-        if (data && data.success === false) {
-          return { success: false, error: data.error || 'Update failed.' };
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.success === false)) {
+          return { success: false, error: (data && data.error) || 'Update failed.' };
         }
         return { success: true, program_started_on: startedOn || null, program_est_completion: estCompletion || null };
       } catch (e) {
@@ -2535,7 +2576,10 @@ const databaseService = {
       }
     }
 
-    // Mock fallback — same coach↔client scoping as the RPC's WHERE clause
+    // Mock fallback (offline/no Supabase configured) — same coach↔client
+    // scoping as the RPC's WHERE clause; no server-side authority to check
+    // against in this mode, so trusting localStorage's id here is fine.
+    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
     const mockClients = this.getMockTable('clients');
     const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
     if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
@@ -2992,6 +3036,66 @@ const databaseService = {
     }
   },
 
+  // ─── RENEWAL-DUE CLIENTS (coach directory banner) ───
+  // Monthly billing cadence, not session-count — "renewal" here means "paid
+  // again within the last ~30 days", derived purely from client_payments.
+  // Deliberately has NO separate "mark as renewed" step: logging a payment
+  // (addClientPayment above) IS the renewal action, because this always
+  // reads each client's MOST RECENT paid_at fresh. A coach who logs today's
+  // payment sees that client drop off this list on the very next refresh —
+  // no nudge, no manual toggle, nothing else to remember (2026-08-29 request:
+  // "auto renewal once coach updates the payment, no nudge nothing"). Only
+  // considers clients who have paid at least once; a client who's never paid
+  // belongs to the separate "never paid" conversation, not a renewal one.
+  async getRenewalDueClients(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const clientRows = await restSelect(
+        `clients?select=user_id,full_name&coach_id=eq.${encodeURIComponent(coachId)}`
+      );
+      if (!clientRows || clientRows.length === 0) return [];
+      const nameById = {};
+      clientRows.forEach(c => { if (c.user_id) nameById[c.user_id] = c.full_name || 'Client'; });
+
+      const payments = await restSelect(
+        `client_payments?select=client_id,paid_at&coach_id=eq.${encodeURIComponent(coachId)}&order=paid_at.desc`
+      );
+      if (!payments || payments.length === 0) return [];
+
+      // Rows are paid_at-desc, so the first one seen per client is their
+      // most recent payment.
+      const lastPaidByClient = {};
+      payments.forEach(p => {
+        if (!lastPaidByClient[p.client_id]) lastPaidByClient[p.client_id] = p.paid_at;
+      });
+
+      const MONTH_DAYS = 30;
+      // Surfaces 5 days ahead of the due date so a coach has time to actually
+      // have the conversation, not just a same-day surprise.
+      const DUE_SOON_DAYS = MONTH_DAYS - 5;
+      const now = Date.now();
+
+      const results = Object.entries(lastPaidByClient)
+        .filter(([clientId]) => nameById[clientId]) // only this coach's current clients
+        .map(([clientId, paidAt]) => {
+          const daysSincePaid = Math.floor((now - new Date(paidAt).getTime()) / 86_400_000);
+          return {
+            clientId,
+            clientName: nameById[clientId],
+            lastPaidAt: paidAt,
+            daysSincePaid,
+            daysOverdue: daysSincePaid - MONTH_DAYS // negative = not yet due
+          };
+        })
+        .filter(r => r.daysSincePaid >= DUE_SOON_DAYS);
+
+      return results.sort((a, b) => b.daysSincePaid - a.daysSincePaid);
+    } catch (e) {
+      console.error('Cloud DB getRenewalDueClients error:', e);
+      return null;
+    }
+  },
+
   async saveChatMessage(clientId, sender, message) {
     if (isSupabaseConfigured && supabase) {
       try {
@@ -3005,8 +3109,22 @@ const databaseService = {
         if (data) {
           return [data];
         }
-      } catch (e) {
-        console.error('Cloud DB Save Chat Error, falling back to local:', e);
+      } catch (directError) {
+        // Same fallback shape as saveWorkoutSession's workout_logs path —
+        // see api/save-user-data.js. Only falls through to the localStorage
+        // mock below if this ALSO fails.
+        console.warn('chat_messages client-side insert failed, falling back to server:', directError?.message || directError);
+        try {
+          const { headers } = await serverFallbackAuth();
+          const resp = await fetch('/api/save-user-data?action=chat-message', {
+            method: 'POST', headers, body: JSON.stringify({ clientId, sender, message })
+          });
+          const body = await resp.json().catch(() => null);
+          if (resp.ok && body?.message) {
+            return [body.message];
+          }
+        } catch (e2) { /* fall through to local mock below */ }
+        console.error('Cloud DB Save Chat Error, falling back to local:', directError);
       }
     }
     
@@ -3499,9 +3617,28 @@ const databaseService = {
     if (!isSupabaseConfigured || !userId) {
       return { success: false, error: 'Not configured' };
     }
+    let data;
     try {
-      const data = await restInsert('body_measurements', { user_id: userId, measurements: measurements || {} });
+      data = await restInsert('body_measurements', { user_id: userId, measurements: measurements || {} });
+    } catch (directError) {
+      // Same fallback shape as saveWorkoutSession's workout_logs path — see
+      // api/save-user-data.js.
+      console.warn('body_measurements client-side insert failed, falling back to server:', directError?.message || directError);
+      try {
+        const { headers } = await serverFallbackAuth();
+        const resp = await fetch('/api/save-user-data?action=body-measurement', {
+          method: 'POST', headers, body: JSON.stringify({ userId, measurements })
+        });
+        const body = await resp.json().catch(() => null);
+        if (!resp.ok || !body?.success) throw directError;
+        return body;
+      } catch (e2) {
+        console.error('Cloud DB Save Body Measurement Error:', directError);
+        return { success: false, error: directError.message || 'Save failed' };
+      }
+    }
 
+    try {
       // Keep clients.weight_kg in sync with the client's latest logged
       // weight. body_measurements is history-only (insert-only, never
       // touches clients) — but clients.weight_kg is what the coach's
@@ -4101,6 +4238,49 @@ const databaseService = {
       localStorage.setItem('coaches_list', JSON.stringify(defaults));
       try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: defaults })); } catch(e) {}
     }
+  },
+
+  // Self-service coach profile edit (CoachProfile.jsx) — distinct from
+  // saveCoachProfile above, which is the SUPER-ADMIN coach-management path
+  // (brand/payment_status only, keyed by users.id from the admin's coach
+  // list). This one is the coach editing their own name/phone/business info.
+  //
+  // Uses restUpdate (PATCH), never restUpsert/on_conflict — both the coaches
+  // and users rows already exist by the time a coach can open this screen
+  // (created at signup), so there's nothing to insert. This sidesteps the
+  // documented on_conflict-hits-the-SELECT-policy 42501 trap entirely: a
+  // plain PATCH only needs the UPDATE (and, for the returned representation,
+  // SELECT) policy to pass for the coach's OWN row, which it does — these
+  // calls run under the coach's real session token (resolveBearerToken),
+  // not the anon key.
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle }) {
+    if (!userId) throw new Error('Missing user id — could not save profile.');
+    if (isSupabaseConfigured && supabase) {
+      const expYears = parseInt(experienceYears, 10);
+      await restUpdate(`users?id=eq.${encodeURIComponent(userId)}`, {
+        full_name: name,
+        phone: phone || null,
+      });
+      await restUpdate(`coaches?user_id=eq.${encodeURIComponent(userId)}`, {
+        brand_name: brand || null,
+        specialization: specialization || null,
+        certifications: certifications || null,
+        experience_years: Number.isFinite(expYears) ? expYears : null,
+        location_city: locationCity || null,
+        social_media_handle: socialHandle || null,
+      });
+    }
+
+    // Mirror to localStorage regardless — same cache-then-reconcile pattern
+    // used by every other profile screen in this app.
+    if (name) localStorage.setItem('userName', name);
+    if (phone) localStorage.setItem('userPhone', phone); else localStorage.removeItem('userPhone');
+    if (brand) localStorage.setItem('userBrand', brand);
+    localStorage.setItem('userSpecialization', specialization || '');
+    localStorage.setItem('userCertifications', certifications || '');
+    localStorage.setItem('userExperienceYears', experienceYears || '');
+    localStorage.setItem('userLocationCity', locationCity || '');
+    localStorage.setItem('userSocialHandle', socialHandle || '');
   },
 
   async getPlatformStats() {
@@ -5431,16 +5611,27 @@ const databaseService = {
           seededOnce = true;
         }
         if (!existing || existing.length === 0) {
-          // Seed via the admin_seed_exercises SECURITY DEFINER RPC (see
-          // sql/exercises_table.sql). The exercises table's write RLS denies
-          // all direct writes; only these functions can write, called with
-          // the anon key — the same pattern link_coach_and_enter_transaction
-          // uses. This also runs regardless of how the admin logged in, since
-          // this app's coach login is localStorage-based (no auth JWT).
-          const adminEmail = localStorage.getItem('userEmail') || '';
+          // Seed via /api/admin-write?action=seed-exercises, which verifies
+          // the caller server-side before calling the admin_seed_exercises
+          // SECURITY DEFINER RPC (see sql/exercises_table.sql) with the
+          // service role key. Previously called the RPC directly via the
+          // anon key with a client-supplied p_admin_email — anyone could
+          // call that RPC themselves and just type the admin's email in, no
+          // login required (confirmed exploitable 2026-08-30). See
+          // api/admin-write.js.
           console.log('[seeding] Seeding exercises table in Supabase...');
           try {
-            await restRpc('admin_seed_exercises', { p_exercises: seedData, p_admin_email: adminEmail });
+            const accessToken = await resolveRealAccessToken();
+            if (!accessToken) throw new Error('No verified session available to seed exercises.');
+            const res = await fetch('/api/admin-write?action=seed-exercises', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+              body: JSON.stringify({ exercises: seedData })
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => null);
+              throw new Error((errData && errData.error) || `Seed failed: ${res.status}`);
+            }
             seededOnce = true;
           } catch (insertError) {
             console.error('[seeding] Supabase exercise seeding error:', insertError);
@@ -5686,30 +5877,28 @@ const databaseService = {
   async saveExercise(exercise) {
     if (isSupabaseConfigured && supabase) {
       try {
-        // Writes go through the save_exercise SECURITY DEFINER RPC (see
-        // sql/exercises_table.sql), NOT supabase.from().insert()/.update().
-        // The exercises table denies all direct writes via RLS; the function
-        // (running as its owner) performs the write and is called with the
-        // anon key — exactly how this app already does privileged writes
-        // (e.g. link_coach_and_enter_transaction). This works no matter how
-        // the admin logged in, since the coach login here is localStorage-
-        // based and produces no auth JWT for an RLS policy to check.
-        const adminEmail = localStorage.getItem('userEmail') || '';
-        const payload = {
-          id: exercise.id || null,
-          name: exercise.name,
-          category: exercise.category,
-          primary_muscle: exercise.primary_muscle,
-          secondary_muscle: exercise.secondary_muscle || '',
-          video_url: exercise.video_url || '',
-          setup: exercise.setup || '',
-          execution: exercise.execution || '',
-          tip: exercise.tip || ''
-        };
-
-        const data = await restRpc('save_exercise', { p_exercise: payload, p_admin_email: adminEmail });
+        // Goes through /api/admin-write?action=save-exercise, which verifies
+        // the caller server-side (must resolve to the super-admin account)
+        // before calling the save_exercise SECURITY DEFINER RPC with the
+        // service role key. Previously called the RPC directly via the anon
+        // key with a client-supplied p_admin_email — anyone hitting that RPC
+        // could just type the admin's email in themselves, no login required
+        // (confirmed exploitable 2026-08-30). See api/admin-write.js.
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          throw new Error('Your session could not be verified. Please sign in again.');
+        }
+        const res = await fetch('/api/admin-write?action=save-exercise', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ exercise })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error((data && data.error) || `Save failed: ${res.status}`);
+        }
         this.invalidateExerciseLibraryCache();
-        return Array.isArray(data) ? data[0] : data;
+        return data.exercise;
       } catch (err) {
         console.error('Error saving exercise to Supabase:', err);
         throw err;
@@ -5762,8 +5951,20 @@ const databaseService = {
   async deleteExercise(id) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const adminEmail = localStorage.getItem('userEmail') || '';
-        await restRpc('delete_exercise', { p_id: id, p_admin_email: adminEmail });
+        // Same /api/admin-write fix as saveExercise above — see its comment.
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+        }
+        const res = await fetch('/api/admin-write?action=delete-exercise', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ id })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          return { success: false, error: (data && data.error) || 'Delete failed' };
+        }
         this.invalidateExerciseLibraryCache();
         return { success: true };
       } catch (err) {

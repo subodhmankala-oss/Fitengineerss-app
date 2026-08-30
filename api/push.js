@@ -28,7 +28,50 @@ import webPush from 'web-push';
 import { getWeeklyMuscleStats, RECOMMENDED_EXERCISES } from '../src/utils/muscleAnalytics.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../src/utils/dateUtils.js';
 
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, anonKey);
+
+// Verifies the caller actually owns `claimedUserId` before letting a push
+// subscription be filed under it. Without this, POST /api/subscribe took
+// any client-supplied userId with no proof of ownership — anyone who knew
+// or guessed a valid account UUID could register their own device under a
+// stranger's id and silently receive every push meant for that person
+// (coach notes, client replies, workout/measurement summaries), since
+// pushToUserId/findSubscriptions fan out to every subscription row sharing
+// that user_id. Same bearer-token-to-email verification pattern as
+// api/data-read.js's resolveVerifiedEmail, plus one extra step (matching the
+// verified email back to a users.id) since this endpoint deals in ids, not
+// emails. Returns claimedUserId only when it provably belongs to the caller;
+// null otherwise (never throws — a subscription with no user_id still works
+// for the email/name-matched notify-user path, just not the id-targeted
+// scheduled nudges).
+async function resolveOwnVerifiedUserId(req, claimedUserId) {
+  if (!claimedUserId || !serviceKey) return null;
+  const authHeader = req.headers.authorization || '';
+  const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!accessToken || accessToken === anonKey) return null;
+
+  try {
+    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}` }
+    });
+    if (!userResp.ok) return null;
+    const authUser = await userResp.json().catch(() => null);
+    const verifiedEmail = (authUser?.email || '').trim().toLowerCase();
+    if (!verifiedEmail) return null;
+
+    const rows = await fetch(
+      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(verifiedEmail)}&select=id`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    ).then(r => r.json()).catch(() => []);
+    const ownId = Array.isArray(rows) && rows[0]?.id;
+    return ownId && ownId === claimedUserId ? claimedUserId : null;
+  } catch {
+    return null;
+  }
+}
 
 webPush.setVapidDetails(
   'mailto:support@fitengineers.com',
@@ -132,10 +175,30 @@ function coachAboutInactiveClientMessage(clientName, days) {
   };
 }
 
-async function pushToUserId(supabaseClient, userId, title, body, event = 'inactivity_nudge', url = null) {
+// identityHints ({ email, name }, optional) lets this match a subscription
+// by email/device-name too, not just user_id — added 2026-08-30 alongside
+// /api/subscribe now requiring a verified session before it will attach
+// user_id (closing the IDOR where anyone could claim any account's id; see
+// resolveOwnVerifiedUserId above). Without this fallback, a real user whose
+// device subscribed before ever getting a persisted Supabase Auth session
+// would have a user_id-less row and silently stop receiving these
+// strictly-by-id sweeps — the three the app leans on most (inactivity,
+// muscle-balance, measurement-reminder). This mirrors the matching
+// notify-user's own pushToUser/findSubscriptions already trusts for its
+// direct-message targeting; identityHints here always comes from this
+// server's own get_users_for_server/get_clients_for_server RPCs, never from
+// unauthenticated client input, so it can't be used to redirect a push
+// anywhere the real account data doesn't already point.
+async function pushToUserId(supabaseClient, userId, title, body, event = 'inactivity_nudge', url = null, identityHints = null) {
   if (!userId) return { sent: 0, failed: 0 };
   const allSubs = await rpcAll(supabaseClient, 'get_push_subscriptions_for_broadcast');
-  const subs = allSubs.filter((s) => s.user_id === userId);
+  const email = identityHints?.email ? identityHints.email.trim().toLowerCase() : null;
+  const name = identityHints?.name || null;
+  const subs = allSubs.filter((s) =>
+    s.user_id === userId ||
+    (email && (s.subscription?.userEmail || '').trim().toLowerCase() === email) ||
+    (name && s.user_name === name)
+  );
   if (!subs || subs.length === 0) return { sent: 0, failed: 0 };
   // sw.js's push handler reads this and sets it as the notification's
   // click-through target — without it, every notification opens the bare
@@ -162,6 +225,7 @@ async function runInactivitySweep(supabaseClient, res) {
     const users = await rpcAll(supabaseClient, 'get_users_for_server');
     const clientRows = await rpcAll(supabaseClient, 'get_clients_for_server');
     const coachRows = await rpcAll(supabaseClient, 'get_coaches_for_server');
+    const usersById = new Map((users || []).map((u) => [u.id, u]));
 
     let clientNudges = 0, coachNudges = 0, coachAlerts = 0, skipped = 0;
 
@@ -181,7 +245,7 @@ async function runInactivitySweep(supabaseClient, res) {
 
         const name = clientRow.full_name || u.full_name || 'there';
         const msg = clientInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge');
+        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge', null, { email: u.email, name });
         if (result.sent > 0) clientNudges++;
 
         // Same 3+ day threshold as the client's own nudge above (was 2+) —
@@ -190,17 +254,18 @@ async function runInactivitySweep(supabaseClient, res) {
         // quiet" signal.
         if (clientRow.coach_id) {
           const alert = coachAboutInactiveClientMessage(name, days);
+          const coachUser = usersById.get(clientRow.coach_id);
           // Deep-link straight to this client's profile (same ?viewClient=
           // pattern as the other coach-facing pushes below) so tapping the
           // notification lands the coach right where they'd send the nudge,
           // instead of the bare homepage.
-          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert', `/?viewClient=${u.id}`);
+          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert', `/?viewClient=${u.id}`, { email: coachUser?.email, name: coachUser?.full_name });
           if (coachResult.sent > 0) coachAlerts++;
         }
       } else if (coachRow) {
         const name = coachRow.brand_name || u.full_name || 'there';
         const msg = coachSelfInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'coach_self_inactivity_nudge');
+        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'coach_self_inactivity_nudge', null, { email: u.email, name });
         if (result.sent > 0) coachNudges++;
       } else {
         skipped++;
@@ -256,7 +321,9 @@ async function runMuscleBalanceSweep(supabaseClient, res) {
   try {
     const { weekStart, weekEnd } = getIstWeekBounds();
     const clientRows = await rpcAll(supabaseClient, 'get_clients_for_server');
+    const usersRows = await rpcAll(supabaseClient, 'get_users_for_server');
     const logs = await rpcRecentWorkoutLogs(supabaseClient, weekStart);
+    const usersById = new Map((usersRows || []).map((u) => [u.id, u]));
 
     let notified = 0, skipped = 0;
     for (const client of clientRows || []) {
@@ -277,7 +344,8 @@ async function runMuscleBalanceSweep(supabaseClient, res) {
         ? `Your ${muscleText} ${isPlural ? 'are' : 'is'} trained less this week — let's cover it up. Try ${exercises.slice(0, 2).join(' or ')}.`
         : `Your ${muscleText} ${isPlural ? 'are' : 'is'} trained less this week — let's cover it up before the week ends.`;
 
-      const result = await pushToUserId(supabaseClient, client.user_id, title, body, 'muscle_balance_nudge');
+      const clientUser = usersById.get(client.user_id);
+      const result = await pushToUserId(supabaseClient, client.user_id, title, body, 'muscle_balance_nudge', null, { email: clientUser?.email, name: client.full_name || clientUser?.full_name });
       if (result.sent > 0) notified++;
     }
 
@@ -333,6 +401,7 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
       if (daysSince < 15 || daysSince % 15 !== 0) { skipped++; continue; }
 
       const clientName = client.full_name || 'there';
+      const clientUser = usersById.get(client.user_id);
 
       const clientResult = await pushToUserId(
         supabaseClient,
@@ -342,11 +411,13 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
         'measurement_reminder_client',
         // Deep link: App.jsx reads this query param on load and jumps
         // straight to Profile > Measurements instead of the bare homepage.
-        '/?openMeasurements=1'
+        '/?openMeasurements=1',
+        { email: clientUser?.email, name: clientName }
       );
       if (clientResult.sent > 0) clientsNotified++;
 
       if (client.coach_id) {
+        const coachUser = usersById.get(client.coach_id);
         const coachResult = await pushToUserId(
           supabaseClient,
           client.coach_id,
@@ -356,7 +427,8 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
           // Deep link: opens this exact client's profile in the coach
           // dashboard, where the new "Send Measurement Reminder" button
           // (TrainerDashboard.jsx) lets the coach act on it immediately.
-          `/?viewClient=${client.user_id}`
+          `/?viewClient=${client.user_id}`,
+          { email: coachUser?.email, name: coachUser?.full_name }
         );
         if (coachResult.sent > 0) coachesNotified++;
       }
@@ -373,8 +445,22 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
 }
 
 async function handleSendNudges(req, res) {
-  // Optional: Add simple secret key security for trigger
-  const triggerAuth = req.headers['authorization'] || req.query.secret;
+  // CRON_SECRET gate — this endpoint fans out real push notifications to
+  // real users on every call, so an unauthenticated trigger isn't a
+  // theoretical concern: confirmed 2026-08-30 when a manual verification
+  // call against this exact route (with no CRON_SECRET configured anywhere,
+  // dev or production) actually delivered live inactivity nudges to real
+  // client/coach accounts, off-schedule. CRON_SECRET was unset in every
+  // environment up to that point, so the `expectedSecret &&` guard below
+  // never activated — anyone who found this URL could have fired it
+  // repeatedly. Vercel's own Cron Jobs send this as `Authorization: Bearer
+  // <CRON_SECRET>` (its documented format once the env var is set), so the
+  // header is unwrapped before comparing — a raw-string compare against
+  // "Bearer <secret>" would 401 every legitimate scheduled run in
+  // vercel.json the moment the secret was configured. ?secret= query param
+  // stays supported too, for manual/admin-triggered runs.
+  const authHeader = req.headers['authorization'] || '';
+  const triggerAuth = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (authHeader || req.query.secret);
   const expectedSecret = process.env.CRON_SECRET;
   if (expectedSecret && triggerAuth !== expectedSecret) {
     return res.status(401).json({ error: 'Unauthorized secret credentials.' });
@@ -780,9 +866,8 @@ async function handleSubscribe(req, res) {
     return res.status(400).json({ error: 'userName and subscription parameters are required.' });
   }
 
-  const validUserId = (typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId))
-    ? userId
-    : null;
+  const looksLikeUuid = typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+  const validUserId = looksLikeUuid ? await resolveOwnVerifiedUserId(req, userId) : null;
 
   try {
     const endpoint = subscription.endpoint;

@@ -285,8 +285,10 @@
 }
 
 .onboarding-logo {
-  width: clamp(70px, 18vw, 90px);
-  height: clamp(70px, 18vw, 90px);
+  /* Scaled down with .portal-logo above — same logo.png crop (2026-08-29)
+     made the old clamp() render oversized here too. */
+  width: clamp(36px, 9vw, 44px);
+  height: clamp(36px, 9vw, 44px);
   object-fit: contain;
   margin-bottom: 12px;
   filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.25));
@@ -863,13 +865,14 @@
 }
 
 .portal-logo {
-  width: 84px;
-  height: 84px;
+  /* 40px — logo.png got cropped down to its actual mark (2026-08-29,
+     removed a lot of built-in transparent padding around it), so sizes
+     tuned for the old, mostly-transparent file (84px, then 56px) both
+     rendered the mark too big here. */
+  width: 40px;
+  height: 40px;
   object-fit: contain;
   filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.45));
-  /* logo.png has built-in transparent padding around the mark itself, so a
-     plain 0 gap still reads as a big gap visually — pull the title up into it. */
-  margin-bottom: -24px;
 }
 
 .onboarding-container h2.portal-brand-title {

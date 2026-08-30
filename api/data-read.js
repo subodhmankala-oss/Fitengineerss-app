@@ -236,48 +236,74 @@ async function handleLookupProfile(req, res) {
     return res.status(401).json({ error: 'Could not verify your session.' });
   }
 
-  try {
-    const userRows = await fetch(
-      `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=*`,
-      { headers: svcHeaders }
-    ).then(r => r.json()).catch(() => []);
+  // asOne: PostgREST returns an embedded to-one relation as either a single
+  // object or a single-element array depending on how it infers cardinality
+  // from the FK/unique constraints — normalize both to "object or null" so
+  // the parsing below doesn't have to care which one came back.
+  const asOne = (v) => (Array.isArray(v) ? (v[0] || null) : (v || null));
 
-    const user = Array.isArray(userRows) && userRows[0] ? userRows[0] : null;
-    if (!user) {
+  try {
+    // Single embedded PostgREST query instead of the previous 3 sequential
+    // round-trips (users → Promise.all[coaches,clients] → Promise.all[coach's
+    // users,coaches]) — those were 100% dependent on each other (each needs
+    // an id the last one returned), so they couldn't be parallelized, and
+    // measured ~2s end-to-end even with nothing slow individually. Embedding
+    // the coach chain (clients -> its coach_id's users row -> that user's
+    // own coaches row) via the FK hints below gets everything in one request.
+    // Confirmed 2026-08-31 this shape works: users!email -> clients (via
+    // clients_user_id_fkey) -> coach:users (via clients_coach_id_fkey) ->
+    // coaches (via coaches_user_id_fkey). See sql/schema for those FK names
+    // if this ever needs re-verifying against a schema change.
+    //
+    // NOTE: users has no avatar_url column (checked directly against the
+    // schema) — don't add it here, it 400s the whole embedded query dead
+    // rather than just coming back null the way a normal select would.
+    const resp = await fetch(
+      `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(email)}` +
+      `&select=*,coaches!coaches_user_id_fkey(*),clients!clients_user_id_fkey(*,coach:users!clients_coach_id_fkey(full_name,coaches!coaches_user_id_fkey(brand_name,specialization,certifications,experience_years,location_city,social_media_handle)))`,
+      { headers: svcHeaders }
+    );
+    const rows = await resp.json().catch(() => []);
+    if (!resp.ok) {
+      console.error('lookup-profile embedded query failed:', resp.status, rows);
+      return res.status(502).json({ error: 'Profile lookup failed.' });
+    }
+
+    const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+    if (!row) {
       return res.status(200).json({ found: false, user: null, coach: null, client: null });
     }
 
-    const [coachRows, clientRows] = await Promise.all([
-      fetch(`${supabaseUrl}/rest/v1/coaches?user_id=eq.${encodeURIComponent(user.id)}&select=*`, { headers: svcHeaders })
-        .then(r => r.json()).catch(() => []),
-      fetch(`${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(user.id)}&select=*`, { headers: svcHeaders })
-        .then(r => r.json()).catch(() => [])
-    ]);
-
-    const client = Array.isArray(clientRows) && clientRows[0] ? clientRows[0] : null;
+    const { coaches: embeddedCoach, clients: embeddedClient, ...user } = row;
+    const coach = asOne(embeddedCoach);
+    const clientRow = asOne(embeddedClient);
+    const client = clientRow ? (() => { const { coach: _c, ...rest } = clientRow; return rest; })() : null;
 
     let coachName = null;
-    if (client?.coach_id) {
-      const coachUserRows = await fetch(
-        `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(client.coach_id)}&select=full_name`,
-        { headers: svcHeaders }
-      ).then(r => r.json()).catch(() => []);
-      coachName = (Array.isArray(coachUserRows) && coachUserRows[0]?.full_name) || null;
-      if (!coachName) {
-        const coachBrandRows = await fetch(
-          `${supabaseUrl}/rest/v1/coaches?user_id=eq.${encodeURIComponent(client.coach_id)}&select=brand_name`,
-          { headers: svcHeaders }
-        ).then(r => r.json()).catch(() => []);
-        coachName = (Array.isArray(coachBrandRows) && coachBrandRows[0]?.brand_name) || null;
-      }
+    let coachDetails = null;
+    const connectedCoach = clientRow ? asOne(clientRow.coach) : null;
+    if (connectedCoach) {
+      const coachBusiness = asOne(connectedCoach.coaches);
+      coachName = connectedCoach.full_name || coachBusiness?.brand_name || null;
+      coachDetails = {
+        name: coachName,
+        avatarUrl: null, // no avatar_url column on users — see note above
+        brand: coachBusiness?.brand_name || null,
+        specialization: coachBusiness?.specialization || null,
+        certifications: coachBusiness?.certifications || null,
+        experienceYears: coachBusiness?.experience_years != null ? String(coachBusiness.experience_years) : null,
+        locationCity: coachBusiness?.location_city || null,
+        socialHandle: coachBusiness?.social_media_handle || null,
+      };
     }
 
     return res.status(200).json({
       found: true,
       user,
-      coach: Array.isArray(coachRows) && coachRows[0] ? coachRows[0] : null,
+      coach,
       client,
-      coachName
+      coachName,
+      coachDetails
     });
   } catch (err) {
     console.error('lookup-profile error:', err);

@@ -1192,18 +1192,30 @@ const databaseService = {
         const user = rows[0] || null;
 
         if (user) {
-          await restUpsert('tracker_logs', {
-            user_id: user.id,
-            log_date: log.date || new Date().toISOString().split('T')[0],
-            water_glasses: parseInt(log.waterGlasses || '0'),
-            synced_steps: parseInt(log.syncedSteps || '0'),
-            logged_calories: parseInt(log.loggedCalories || '0'),
-            logged_protein: parseInt(log.loggedProtein || '0'),
-            logged_fats: parseInt(log.loggedFats || '0'),
-            walk_lunch_dinner: log.walkLunchDinner === 'true' || log.walkLunchDinner === true
-          }, 'user_id,log_date');
-
-          console.log('Cloud DB: Synced daily tracker logs.');
+          try {
+            await restUpsert('tracker_logs', {
+              user_id: user.id,
+              log_date: log.date || new Date().toISOString().split('T')[0],
+              water_glasses: parseInt(log.waterGlasses || '0'),
+              synced_steps: parseInt(log.syncedSteps || '0'),
+              logged_calories: parseInt(log.loggedCalories || '0'),
+              logged_protein: parseInt(log.loggedProtein || '0'),
+              logged_fats: parseInt(log.loggedFats || '0'),
+              walk_lunch_dinner: log.walkLunchDinner === 'true' || log.walkLunchDinner === true
+            }, 'user_id,log_date');
+            console.log('Cloud DB: Synced daily tracker logs.');
+          } catch (directError) {
+            // Same fallback shape as saveWorkoutSession's workout_logs path —
+            // most commonly 42501 because the caller's session token wasn't
+            // ready/valid yet. See api/save-user-data.js.
+            console.warn('tracker_logs client-side upsert failed, falling back to server:', directError?.message || directError);
+            const { headers } = await serverFallbackAuth();
+            const resp = await fetch('/api/save-user-data?action=tracker-log', {
+              method: 'POST', headers, body: JSON.stringify({ log })
+            });
+            if (!resp.ok) throw directError;
+            console.log('Cloud DB: Synced daily tracker logs (via server fallback).');
+          }
         }
       } catch (e) {
         console.error('Cloud DB Tracker Sync Error:', e);
@@ -1247,8 +1259,19 @@ const databaseService = {
             });
           }
 
-          await restUpsert('progress_history', records, 'user_id,day_number');
-          console.log('Cloud DB: Progress history synchronized.');
+          try {
+            await restUpsert('progress_history', records, 'user_id,day_number');
+            console.log('Cloud DB: Progress history synchronized.');
+          } catch (directError) {
+            // Same fallback shape as tracker_logs above — see api/save-user-data.js.
+            console.warn('progress_history client-side upsert failed, falling back to server:', directError?.message || directError);
+            const { headers } = await serverFallbackAuth();
+            const resp = await fetch('/api/save-user-data?action=progress-history', {
+              method: 'POST', headers, body: JSON.stringify({ history })
+            });
+            if (!resp.ok) throw directError;
+            console.log('Cloud DB: Progress history synchronized (via server fallback).');
+          }
         }
       } catch (e) {
         console.error('Cloud DB Progress Sync Error:', e);
@@ -3086,8 +3109,22 @@ const databaseService = {
         if (data) {
           return [data];
         }
-      } catch (e) {
-        console.error('Cloud DB Save Chat Error, falling back to local:', e);
+      } catch (directError) {
+        // Same fallback shape as saveWorkoutSession's workout_logs path —
+        // see api/save-user-data.js. Only falls through to the localStorage
+        // mock below if this ALSO fails.
+        console.warn('chat_messages client-side insert failed, falling back to server:', directError?.message || directError);
+        try {
+          const { headers } = await serverFallbackAuth();
+          const resp = await fetch('/api/save-user-data?action=chat-message', {
+            method: 'POST', headers, body: JSON.stringify({ clientId, sender, message })
+          });
+          const body = await resp.json().catch(() => null);
+          if (resp.ok && body?.message) {
+            return [body.message];
+          }
+        } catch (e2) { /* fall through to local mock below */ }
+        console.error('Cloud DB Save Chat Error, falling back to local:', directError);
       }
     }
     
@@ -3580,9 +3617,28 @@ const databaseService = {
     if (!isSupabaseConfigured || !userId) {
       return { success: false, error: 'Not configured' };
     }
+    let data;
     try {
-      const data = await restInsert('body_measurements', { user_id: userId, measurements: measurements || {} });
+      data = await restInsert('body_measurements', { user_id: userId, measurements: measurements || {} });
+    } catch (directError) {
+      // Same fallback shape as saveWorkoutSession's workout_logs path — see
+      // api/save-user-data.js.
+      console.warn('body_measurements client-side insert failed, falling back to server:', directError?.message || directError);
+      try {
+        const { headers } = await serverFallbackAuth();
+        const resp = await fetch('/api/save-user-data?action=body-measurement', {
+          method: 'POST', headers, body: JSON.stringify({ userId, measurements })
+        });
+        const body = await resp.json().catch(() => null);
+        if (!resp.ok || !body?.success) throw directError;
+        return body;
+      } catch (e2) {
+        console.error('Cloud DB Save Body Measurement Error:', directError);
+        return { success: false, error: directError.message || 'Save failed' };
+      }
+    }
 
+    try {
       // Keep clients.weight_kg in sync with the client's latest logged
       // weight. body_measurements is history-only (insert-only, never
       // touches clients) — but clients.weight_kg is what the coach's

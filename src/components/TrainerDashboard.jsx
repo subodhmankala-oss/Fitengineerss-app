@@ -28,7 +28,7 @@ import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
-import { presetExercises } from './WorkoutTracker';
+import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/CoachTourContext';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';

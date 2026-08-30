@@ -6,6 +6,7 @@ import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
+import { presetExercises } from '../data/presetExercises';
 import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -369,221 +370,13 @@ const availablePrograms = [
   }
 ];
 
-// Exported so other screens (TrainerDashboard's Form Guide) can use this as
-// a local fallback when the DB-backed exercise fetch fails/times out —
-// without it, a network hiccup meant those exercises' real video/guide data
-// was completely unreachable, not just briefly delayed (see the matching
-// comment on TrainerDashboard's guideExercisesList fetch).
-export const presetExercises = [
-  {
-    name: 'Shoulders Press',
-    category: 'Shoulders',
-    primary: 'Deltoids',
-    secondary: 'Triceps, Upper Chest',
-    videoFile: '/videos/shoulders-press.mp4',
-    guide: {
-      target: 'Deltoids (Shoulders), Triceps, Upper Chest',
-      setup: 'Sit on a bench with back support. Hold dumbbells at shoulder height with an overhand grip, elbows bent at 90 degrees.',
-      execution: 'Press the weights straight up above your head until your arms are fully extended. Lower slowly back to the starting point.',
-      tip: 'Keep your core engaged and avoid arching your lower back as you press the weights overhead.'
-    }
-  },
-  {
-    name: 'Biceps Curls',
-    category: 'Arms',
-    primary: 'Biceps',
-    secondary: 'Brachialis, Brachioradialis',
-    videoFile: '/videos/biceps-curls.mp4',
-    guide: {
-      target: 'Biceps Brachii, Brachialis, Brachioradialis',
-      setup: 'Stand upright with feet shoulder-width apart, holding dumbbells at your sides with palms facing forward.',
-      execution: 'Keep elbows close to your torso. Curl the weights while contracting your biceps. Lower slowly to full extension.',
-      tip: 'Do not swing your body or use momentum. Keep your upper arms completely stationary during the movement.'
-    }
-  },
-  {
-    name: 'One Arm Row',
-    category: 'Back',
-    primary: 'Latissimus Dorsi',
-    secondary: 'Rhomboids, Trapezius, Biceps',
-    videoFile: '/videos/one-arm-row.mp4',
-    guide: {
-      target: 'Latissimus Dorsi (Lats), Rhomboids, Trapezius, Biceps',
-      setup: 'Place one knee and same-side hand on a flat bench. Keep your back flat and parallel to the floor, holding a dumbbell in the other hand.',
-      execution: 'Row the dumbbell up to your hip crease, squeezing your shoulder blade at the peak. Lower with control to full stretch.',
-      tip: 'Pull with your elbow rather than your hand. Maintain a neutral spine throughout the set.'
-    }
-  },
-  {
-    name: 'Lat Pull Down',
-    category: 'Back',
-    primary: 'Latissimus Dorsi',
-    secondary: 'Upper Back, Biceps',
-    videoFile: '/videos/lat-pull-down.mp4',
-    guide: {
-      target: 'Latissimus Dorsi (Lats), Upper Back, Biceps',
-      setup: 'Sit at a pulldown station and adjust the thigh pad. Grasp the bar with a wide overhand grip, leaning slightly back.',
-      execution: 'Pull the bar down to your upper chest by driving your elbows down and back. Squeeze your lats and slowly return.',
-      tip: 'Avoid pulling the bar behind your neck. Control the weight on the way up to maximize hypertrophy.'
-    }
-  },
-  {
-    name: 'Flat Bench Press',
-    category: 'Chest',
-    primary: 'Pectoralis Major',
-    secondary: 'Anterior Deltoids, Triceps',
-    videoFile: '/videos/flat-bench-press.mp4',
-    guide: {
-      target: 'Pectoralis Major (Chest), Anterior Deltoids, Triceps',
-      setup: 'Lie flat on a bench, grip the barbell slightly wider than shoulder-width. Keep feet flat on the floor and retract shoulder blades.',
-      execution: 'Unrack the bar and lower it slowly to your mid-chest. Press upward in a slight arc until arms are locked out.',
-      tip: 'Keep your elbows tucked at roughly 45 degrees. Do not bounce the bar off your chest.'
-    }
-  },
-  {
-    name: 'Incline Dumbbell Press',
-    category: 'Chest',
-    primary: 'Upper Chest',
-    secondary: 'Shoulders, Triceps',
-    videoFile: '/videos/incline-dumbbell-press.mp4',
-    guide: {
-      target: 'Clavicular Pectoralis (Upper Chest), Shoulders, Triceps',
-      setup: 'Set an incline bench to 30-45 degrees. Sit with dumbbells at your chest, elbows tucked, feet firmly planted.',
-      execution: 'Press the dumbbells straight up over your chest until arms are extended. Lower slowly until you feel a deep chest stretch.',
-      tip: 'Keep your shoulder blades pinched together. Press in a stable, controlled path.'
-    }
-  },
-  {
-    name: 'Cable Crossover',
-    category: 'Chest',
-    primary: 'Pectoralis Major',
-    secondary: 'Anterior Deltoids',
-    videoFile: '/videos/cable-crossover.mp4',
-    guide: {
-      target: 'Sternal Pectoralis (Inner & Lower Chest)',
-      setup: 'Set pulleys to high position. Hold handles, step forward with one foot, lean slightly forward, arms extended out.',
-      execution: 'Bring hands down and forward in a wide arc until they meet or cross over. Squeeze your chest hard at the bottom.',
-      tip: 'Keep a slight bend in your elbows. Do not let the weights fly back aggressively; control the eccentric phase.'
-    }
-  },
-  {
-    name: 'Barbell Squat',
-    category: 'Legs',
-    primary: 'Quadriceps',
-    secondary: 'Glutes, Hamstrings, Core',
-    videoFile: '/videos/barbell-squat.mp4',
-    guide: {
-      target: 'Quadriceps, Gluteus Maximus, Hamstrings, Core',
-      setup: 'Rest the barbell across your upper traps. Stand with feet slightly wider than shoulder-width, toes flared out.',
-      execution: 'Send hips back and bend knees to squat down until thighs are parallel to floor or lower. Drive through heels to stand.',
-      tip: 'Keep your chest up and knees tracking in line with your toes. Never let your knees cave inward.'
-    }
-  },
-  {
-    name: 'Romanian Deadlift',
-    category: 'Legs',
-    primary: 'Hamstrings',
-    secondary: 'Glutes, Lower Back',
-    videoFile: '/videos/romanian-deadlift.mp4',
-    guide: {
-      target: 'Hamstrings, Glutes, Lower Back (Erectors)',
-      setup: 'Stand tall holding dumbbells or a barbell at hip height. Feet hip-width apart, knees slightly unlocked.',
-      execution: 'Hinge at your hips, pushing them back as you lower the weight down your shins. Squeeze glutes to return when stretch is felt.',
-      tip: 'Keep the bar touching your legs. Maintain a flat back; do not round your spine.'
-    }
-  },
-  {
-    name: 'Leg Extensions',
-    category: 'Legs',
-    primary: 'Quadriceps',
-    secondary: 'Rectus Femoris, Vastus Lateralis',
-    videoFile: '/videos/leg-extensions.mp4',
-    guide: {
-      target: 'Quadriceps (Rectus Femoris, Vastus Lateralis)',
-      setup: 'Sit in the extension machine, back flush against pad. Place ankles under the roller pad and hold the side handles.',
-      execution: 'Extend your legs fully by contracting your quads. Hold for a split second at peak extension, then lower slowly.',
-      tip: 'Keep your hips locked into the seat. Do not swing the weight or use momentum.'
-    }
-  },
-  {
-    name: 'Overhead Triceps Extension',
-    category: 'Arms',
-    primary: 'Triceps',
-    secondary: 'Core, Shoulders',
-    videoFile: '/videos/overhead-triceps-extension.mp4',
-    guide: {
-      target: 'Triceps Brachii (Long Head focus)',
-      setup: 'Stand or sit, holding a dumbbell with both hands vertically overhead, cupping the top plate under your palms.',
-      execution: 'Lower the dumbbell slowly behind your head by bending your elbows. Keep upper arms close to ears. Press back up.',
-      tip: 'Do not flare your elbows excessively outward. Keep your torso upright and core tight.'
-    }
-  },
-  {
-    name: 'Hammer Curls',
-    category: 'Arms',
-    primary: 'Brachialis',
-    secondary: 'Brachioradialis, Biceps',
-    videoFile: '/videos/hammer-curls.mp4',
-    guide: {
-      target: 'Brachialis, Brachioradialis (Forearms), Biceps',
-      setup: 'Stand tall with dumbbells in each hand, palms facing each other (neutral grip).',
-      execution: 'Curl the dumbbells up toward shoulders while maintaining a neutral grip. Lower slowly to full extension.',
-      tip: 'Avoid swinging the elbows forward. Squeeze the forearm and bicep muscles at the top.'
-    }
-  },
-  {
-    name: 'Plank',
-    category: 'Core',
-    primary: 'Core',
-    secondary: 'Glutes, Shoulders',
-    videoFile: '/videos/plank.mp4',
-    guide: {
-      target: 'Core (Rectus Abdominis, Obliques, Transverse Abdominis)',
-      setup: 'Place forearms on the floor, elbows aligned under shoulders. Extend legs straight back, resting on toes.',
-      execution: 'Engage your core, glutes, and thighs. Maintain a straight line from head to heels. Hold static position.',
-      tip: 'Do not let your hips sag down or your butt push up in the air. Keep breathing consistently.'
-    }
-  },
-  {
-    name: 'Hanging Leg Raises',
-    category: 'Core',
-    primary: 'Lower Abs',
-    secondary: 'Hip Flexors, Core',
-    videoFile: '/videos/hanging-leg-raises.mp4',
-    guide: {
-      target: 'Lower Rectus Abdominis, Iliopsoas (Hip Flexors)',
-      setup: 'Hang from a pull-up bar with an overhand grip, arms and legs fully extended, shoulders active.',
-      execution: 'Keeping legs straight or slightly bent, engage core to raise feet up until legs are parallel to floor or higher. Lower slowly.',
-      tip: 'Do not swing your body. Initiate the lift using your lower abs, not momentum.'
-    }
-  },
-  {
-    name: 'Dumbbell Lateral Raises',
-    category: 'Shoulders',
-    primary: 'Lateral Deltoids',
-    secondary: 'Trapezius',
-    videoFile: '/videos/dumbbell-lateral-raises.mp4',
-    guide: {
-      target: 'Lateral Deltoids (Side Shoulders)',
-      setup: 'Stand upright holding dumbbells at your sides, palms facing inward. Lean forward very slightly.',
-      execution: 'Raise dumbbells out to the sides in a wide arc until arms are parallel to the floor. Lower back down slowly.',
-      tip: 'Keep elbows slightly bent. Do not shrug your shoulders or raise the weights above shoulder level.'
-    }
-  },
-  {
-    name: 'Pull-ups',
-    category: 'Back',
-    primary: 'Latissimus Dorsi',
-    secondary: 'Rhomboids, Teres Major, Biceps',
-    videoFile: '/videos/pull-ups.mp4',
-    guide: {
-      target: 'Latissimus Dorsi (Lats), Teres Major, Rhomboids, Biceps',
-      setup: 'Hang from a bar with a wide overhand grip. Depress and retract your scapula (pull shoulders down).',
-      execution: 'Pull your body upward by driving elbows down until your chest approaches the bar. Lower with control.',
-      tip: 'Avoid kicking or kipping with your legs. Focus on a full range of motion from dead hang to chin over bar.'
-    }
-  }
-];
+// presetExercises moved to src/data/presetExercises.js — this file (a React
+// component module) was exporting it inline, which disables Vite Fast
+// Refresh for the whole file (any non-component export forces a full
+// module reload/remount on every edit instead of a state-preserving hot
+// update). That was silently resetting the client's dashboard state back
+// to a fresh "0 sessions" load on every edit made to this file. See that
+// module's own comment for the full writeup.
 
 // Form-guide lookup order: DB-sourced exercises (if loaded) take precedence,
 // then the 16 rich presets (with video/guide), then the shared
@@ -808,6 +601,12 @@ const WorkoutTracker = () => {
   }, [setTypeMenu]);
   const [chartMetric, setChartMetric] = useState('weight'); // 'weight' or 'volume'
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(4);
+  // The strength-progression chart is now wider than its card once there are
+  // more than ~7 sessions (fixed per-point spacing — see the chart's width
+  // calc below) and scrolls horizontally instead of squeezing every point
+  // together. This keeps whichever point the slider/date-ticks select
+  // scrolled into view instead of leaving it off-screen.
+  const chartScrollRef = useRef(null);
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' or 'monthly'
   const [toastMessage, setToastMessage] = useState('');
   const [historyExpandedDate, setHistoryExpandedDate] = useState(null);
@@ -1619,16 +1418,117 @@ const WorkoutTracker = () => {
     ? { ...baseProfile, totalSessions: coachSetTotalSessions }
     : baseProfile;
 
-  // The client's own goal, exactly as chosen in the onboarding wizard
-  // (localStorage 'userGoal' = 'Fat Loss' | 'Muscle Building' | 'Gut Health' /
-  // 'Gut Fix'). This is what the client recognizes — the mapped mock program
-  // name ('Body Weights & Dumbbells' etc.) is meaningless to them.
-  const clientGoal = (localStorage.getItem('userGoal') || '').trim();
-
   // Sessions count calculations
   const clientSessions = sessions
     .filter(s => s.clientName.toLowerCase() === selectedClient.toLowerCase())
     .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // "Best Lift" — every exercise's own personal-best weight (heaviest set
+  // ever logged for that exercise, any session), not just a single overall
+  // number. The card shows the true all-time top PR first (highlighted —
+  // ties included, since a client can genuinely max out two exercises at
+  // the same weight), then every other exercise's own PR underneath.
+  const prsByExercise = {}; // exercise name -> { weight, date } of its own best set
+  clientSessions.forEach(s => {
+    (s.exercises || []).forEach(ex => {
+      (ex.sets || []).forEach(set => {
+        const w = parseFloat(set.weight) || 0;
+        if (w <= 0) return;
+        if (!prsByExercise[ex.name] || w > prsByExercise[ex.name].weight) {
+          prsByExercise[ex.name] = { weight: w, date: s.date };
+        }
+      });
+    });
+  });
+  const prList = Object.entries(prsByExercise)
+    .map(([name, v]) => ({ name, weight: v.weight, date: v.date }))
+    .sort((a, b) => b.weight - a.weight);
+
+  const bestWeight = prList[0]?.weight || 0;
+  const topPRs = prList.filter(p => p.weight === bestWeight);
+  const otherPRs = prList.filter(p => p.weight !== bestWeight);
+
+  const bestLiftLabel = topPRs.length > 0
+    ? `${topPRs.map(p => p.name).join(', ')} ${bestWeight}kg`
+    : 'No sessions yet';
+  // Only unambiguous when exactly one exercise holds the top record — with
+  // a tie, one date would misleadingly look like it applies to all of them.
+  const bestSessionDateLabel = topPRs.length === 1
+    ? new Date(topPRs[0].date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+
+  // ─── Skill level: Beginner / Intermediate / Advanced / Elite ───
+  // A LIFETIME journey, not a recent-activity snapshot — a client who's only
+  // been training for two weeks cannot reach Advanced/Elite no matter how
+  // perfect those two weeks were; those tiers have to be earned with real
+  // calendar time, the same way an actual training journey works. Two parts:
+  //
+  //   1. A tenure gate — minimum weeks since their FIRST ever logged session
+  //      — that caps which tier is reachable at all, regardless of score:
+  //      Beginner (0-4wk) → Intermediate (4-12wk) → Advanced (12-26wk) →
+  //      Elite (26wk+).
+  //   2. A 0-100 score computed from their WHOLE history (not a 30-day/
+  //      6-session window), which decides where within that tenure-allowed
+  //      range they actually land — someone eligible for Advanced by tenure
+  //      but who trains erratically still sits at Beginner/Intermediate.
+  //      - Consistency (50%): distinct days logged, lifetime, against an
+  //        expected ~3x/week cadence for however many weeks they've been
+  //        active. A quiet stretch still pulls this down over time (more
+  //        weeks active with the same session count = lower rate), it just
+  //        can't swing the whole score in 30 days the way a rolling window
+  //        did.
+  //      - Progressive overload (50%): across their ENTIRE session history,
+  //        what fraction of exercise-to-exercise comparisons (each exercise
+  //        vs its own most recent prior occurrence) held steady or went
+  //        heavier.
+  //
+  // Final tier = min(tenure-gate tier, score-based tier) — both have to
+  // agree; neither alone is enough.
+  const skillLevel = (() => {
+    const tiers = ['Beginner', 'Intermediate', 'Advanced', 'Elite'];
+    if (clientSessions.length === 0) {
+      return { score: 0, tier: tiers[0], tierIndex: 0, withinTierPct: 0 };
+    }
+
+    const firstDate = new Date(`${clientSessions[0].date}T00:00:00`);
+    const weeksActive = Math.max(1, (Date.now() - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+    const distinctDays = new Set(clientSessions.map(s => s.date)).size;
+    const consistencyPct = Math.min(1, distinctDays / (weeksActive * 3));
+
+    let comparisons = 0;
+    let maintainedOrUp = 0;
+    clientSessions.forEach((session, idx) => {
+      if (idx === 0) return; // nothing earlier to compare against
+      (session.exercises || []).forEach(ex => {
+        const maxWeight = Math.max(0, ...(ex.sets || []).map(s => parseFloat(s.weight) || 0));
+        if (maxWeight <= 0) return; // bodyweight/cardio — no weight to compare
+        // Most recent EARLIER session (anywhere in their history) that also
+        // logged this exercise with a real weight.
+        for (let back = idx - 1; back >= 0; back--) {
+          const prevEx = (clientSessions[back].exercises || []).find(e => e.name.toLowerCase() === ex.name.toLowerCase());
+          if (!prevEx) continue;
+          const prevMax = Math.max(0, ...prevEx.sets.map(s => parseFloat(s.weight) || 0));
+          if (prevMax <= 0) break;
+          comparisons += 1;
+          if (maxWeight >= prevMax) maintainedOrUp += 1;
+          break;
+        }
+      });
+    });
+    const overloadPct = comparisons > 0 ? maintainedOrUp / comparisons : 0;
+
+    const score = consistencyPct * 50 + overloadPct * 50; // 0–100
+    const scoreTierIndex = Math.min(3, Math.floor(score / 25));
+    const tenureTierIndex = weeksActive >= 26 ? 3 : weeksActive >= 12 ? 2 : weeksActive >= 4 ? 1 : 0;
+    const tierIndex = Math.min(scoreTierIndex, tenureTierIndex);
+    // Position within the active tier's own 25%-wide slice, for the marker
+    // — clamped against the score actually reached, so a tenure-capped
+    // client (score would place them higher) shows at the START of their
+    // capped tier rather than implying they're about to overflow it.
+    const withinTierPct = tierIndex < scoreTierIndex ? 0 : Math.min(1, (score - tierIndex * 25) / 25);
+    return { score, tier: tiers[tierIndex], tierIndex, withinTierPct };
+  })();
 
   // For the logged-in client, "Completed" mirrors the home card's DB-backed
   // distinct-date count, scoped to sessions logged on/after the coach's
@@ -1720,10 +1620,25 @@ const WorkoutTracker = () => {
   const overload = getOverloadMetrics();
 
   // SVG calculations
-  const width = 500;
-  const height = 200;
+  // Fixed pixel spacing per point instead of squeezing every session into a
+  // constant-width chart — with many sessions that meant points, labels, and
+  // dates all crushed on top of each other. VISIBLE_POINTS worth fit in the
+  // card's normal width with no scrolling; beyond that the SVG grows wider
+  // than its container and .svg-container-box (overflow-x: auto) lets the
+  // user drag/scroll through the rest instead of cramming them in.
+  const VISIBLE_POINTS = 7;
+  const pointSpacing = 62;
+  // Vertical margin (room for value labels above points, date labels below)
+  // and horizontal margin (just breathing room before the first/after the
+  // last point) used to share one `padding` value — there's no Y-axis text
+  // that actually needs 35px on the left/right, so that shared value read as
+  // a big dead gap before the first point once scrolled all the way to the
+  // start. Split them: paddingX stays tight, padding (vertical) unchanged.
   const padding = 35;
-  const chartWidth = width - padding * 2;
+  const paddingX = 14;
+  const chartWidth = pointSpacing * Math.max(graphData.length - 1, 0);
+  const width = Math.max(paddingX * 2 + pointSpacing * (VISIBLE_POINTS - 1), paddingX * 2 + chartWidth);
+  const height = 200;
   const chartHeight = height - padding * 2;
 
   let pathPoints = '';
@@ -1735,9 +1650,9 @@ const WorkoutTracker = () => {
   if (graphData.length > 0) {
     graphData.forEach((d, idx) => {
       const val = chartMetric === 'weight' ? d.weight : d.volume;
-      const x = padding + (idx / Math.max(graphData.length - 1, 1)) * chartWidth;
+      const x = paddingX + idx * pointSpacing;
       const y = padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
-      
+
       if (idx === 0) {
         pathPoints += `M ${x} ${y}`;
         areaPoints += `M ${x} ${padding + chartHeight} L ${x} ${y}`;
@@ -1751,8 +1666,21 @@ const WorkoutTracker = () => {
     });
   }
 
-  const getPointX = (idx) => padding + (idx / Math.max(graphData.length - 1, 1)) * chartWidth;
+  const getPointX = (idx) => paddingX + idx * pointSpacing;
   const getPointY = (val) => padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
+
+  // Keep the slider/date-tick-selected session scrolled into view when the
+  // chart is wider than its card (see width calc above).
+  useEffect(() => {
+    const el = chartScrollRef.current;
+    if (!el || !activeSessionData) return;
+    const targetX = getPointX(activeSessionData.index);
+    // SVG viewBox units → actual rendered pixels (the container may be
+    // narrower than `width`, but the SVG itself renders at `width`px — see
+    // the inline style on the <svg> — so this is a 1:1 unit match).
+    const targetScroll = targetX - el.clientWidth / 2;
+    el.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+  }, [selectedSessionIndex, chartMetric, selectedExercise]);
 
   // Coach Log set actions
   const handleAddSet = (exerciseIndex, isWarmup = false) => {
@@ -2737,18 +2665,18 @@ const WorkoutTracker = () => {
           📈 Progress
         </button>
         <button
-          data-tour="wt-tab-templates"
-          className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
-          onClick={() => setActiveView('templates')}
-        >
-          🏋️ Workouts
-        </button>
-        <button
           data-tour="wt-tab-log"
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
           onClick={() => setActiveView('log')}
         >
           📝 Log Sets
+        </button>
+        <button
+          data-tour="wt-tab-templates"
+          className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
+          onClick={() => setActiveView('templates')}
+        >
+          🏋️ Workouts
         </button>
       </div>
 
@@ -2777,12 +2705,16 @@ const WorkoutTracker = () => {
 
           {/* Header area */}
           <div className="tracker-top-summary glass-panel">
-            <div className="profile-details-group">
-              <div className="name-group">
-                {isTrainer(localStorage.getItem('userEmail')) ? (
-                  <select 
+            {/* Only rendered for a coach/trainer — for a client, this used to
+                render an empty wrapper (name-group had nothing inside, since
+                the select is trainer-only) that still took up its own
+                padding/margin as visible dead space above Training Level. */}
+            {isTrainer(localStorage.getItem('userEmail')) && (
+              <div className="profile-details-group">
+                <div className="name-group">
+                  <select
                     className="client-select-dropdown"
-                    value={selectedClient} 
+                    value={selectedClient}
                     onChange={(e) => {
                       setSelectedClient(e.target.value);
                       const clientSessionsCount = sessions.filter(s => s.clientName.toLowerCase() === e.target.value.toLowerCase()).length;
@@ -2795,39 +2727,89 @@ const WorkoutTracker = () => {
                       </option>
                     ))}
                   </select>
-                ) : null}
+                </div>
               </div>
-            </div>
-
-            {/* Session counters breakdown — coaching-program accounting, only for
-                clients connected to a coach (or a coach viewing a client). */}
-            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
-            <div className="sessions-accounting-split">
-              <div className="acc-item">
-                <span className="acc-lbl">{isOwnProfile ? 'My Goal' : 'Program Name'}</span>
-                <strong>{isOwnProfile ? (clientGoal || activeProfile.activeProgram) : activeProfile.activeProgram}</strong>
-              </div>
-              <div className="acc-item">
-                <span className="acc-lbl">Completed</span>
-                <strong className="text-emerald">
-                  {hasAssignedSessions ? `${completedSessionsCount} / ${activeProfile.totalSessions}` : completedSessionsCount}
-                </strong>
-              </div>
-              <div className="acc-item">
-                <span className="acc-lbl">Remaining</span>
-                {hasAssignedSessions ? (
-                  <strong className={remainingSessionsCount <= 3 ? 'text-warn' : 'text-blue'}>
-                    {remainingSessionsCount} left
-                  </strong>
-                ) : (
-                  <strong className="text-muted">Unassigned</strong>
-                )}
-              </div>
-            </div>
             )}
 
+            {/* Skill-level progress bar — coaching-program accounting, only
+                for clients connected to a coach (or a coach viewing a
+                client). Completed/Remaining session counts (still computed
+                above, just no longer shown here) replaced by this bar per
+                request — session accounting still lives on the Home
+                dashboard's own progress card. Best Lift moved below the
+                Strength Progression chart (see further down). */}
+            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
+            <>
+            <span className="skill-level-heading">🏆 Training Level</span>
+            <div className="sessions-accounting-split">
+              <div className="skill-level-bar" title={`${Math.round(skillLevel.score)}/100 — earned from consistency and progressive overload over your whole training history, not just recent activity`}>
+                <div className="skill-level-track">
+                  {['Beginner', 'Intermediate', 'Advanced', 'Elite'].map((tier, i) => (
+                    <div key={tier} className={`skill-level-segment ${i < skillLevel.tierIndex ? 'filled' : ''}`}>
+                      {/* Past tiers render fully solid. The CURRENT tier
+                          fills only up to withinTierPct — otherwise the
+                          whole segment looked 100% filled regardless of
+                          actual progress within it, while the dot sat
+                          somewhere in the middle implying otherwise. Now
+                          the dot always sits exactly at the filled/empty
+                          edge of its own segment. */}
+                      {i === skillLevel.tierIndex && (
+                        <div className="skill-level-segment-fill" style={{ width: `${skillLevel.withinTierPct * 100}%` }} />
+                      )}
+                      {i === skillLevel.tierIndex && (
+                        <div className="skill-level-marker" style={{ left: `${skillLevel.withinTierPct * 100}%` }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="skill-level-labels">
+                  {[
+                    ['Beginner', '0-4wk'],
+                    ['Intermediate', '4-12wk'],
+                    ['Advanced', '12-26wk'],
+                    ['Elite', '26wk+']
+                  ].map(([tier, weeks], i) => (
+                    <span key={tier} className={`skill-level-label-item ${i === skillLevel.tierIndex ? 'active' : ''}`}>
+                      {tier}
+                      <em>{weeks}</em>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            </>
+            )}
+          </div>
+
+          {/* SVG Graph block — the exercise picker/Guide/timeframe row now
+              lives in this same card (was previously a separate section in
+              .tracker-top-summary above), so the picker and the strength
+              progression chart it controls read as one section instead of
+              two stacked ones. */}
+          <div className="overload-chart-card glass-panel">
+            <div className="progression-heading-row">
+              <div className="progression-section-heading">
+                <h3>📈 Strength Progression</h3>
+                <p>Track progressive overload metrics</p>
+              </div>
+              <div className="timeframe-toggle">
+                <button
+                  className={`toggle-btn ${timeframe === 'weekly' ? 'active' : ''}`}
+                  onClick={() => setTimeframe('weekly')}
+                >
+                  Weekly
+                </button>
+                <button
+                  className={`toggle-btn ${timeframe === 'monthly' ? 'active' : ''}`}
+                  onClick={() => setTimeframe('monthly')}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+
             <div className="session-filters">
-              <select 
+              <select
                 className="exercise-select-dropdown"
                 value={selectedExercise}
                 onChange={(e) => setSelectedExercise(e.target.value)}
@@ -2846,68 +2828,20 @@ const WorkoutTracker = () => {
                 }
               </select>
 
-              <button 
-                type="button"
-                className="video-guide-btn"
-                onClick={() => {
-                  const matched = findExerciseGuideMatch(exercisesList, selectedExercise) ||
-                                  findExerciseGuideMatch(presetExercises, selectedExercise);
-                  if (matched) {
-                    setActiveGuideExercise(normalizeExerciseForGuide(matched));
-                  } else {
-                    setActiveGuideExercise({
-                      name: selectedExercise,
-                      category: 'Custom',
-                      videoFile: '',
-                      guide: {
-                        target: 'Primary Muscle Group',
-                        setup: 'Position yourself comfortably with stable support and check alignment.',
-                        execution: 'Control the weights through a full range of motion. Keep core tight.',
-                        tip: 'Focus on mind-muscle connection and avoid using momentum.'
-                      }
-                    });
-                  }
-                }}
-              >
-                🎬 Guide
-              </button>
-
-              <div className="timeframe-toggle">
-                <button 
-                  className={`toggle-btn ${timeframe === 'weekly' ? 'active' : ''}`}
-                  onClick={() => setTimeframe('weekly')}
-                >
-                  Weekly
-                </button>
-                <button 
-                  className={`toggle-btn ${timeframe === 'monthly' ? 'active' : ''}`}
-                  onClick={() => setTimeframe('monthly')}
-                >
-                  Monthly
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* SVG Graph block */}
-          <div className="overload-chart-card glass-panel">
-            <div className="chart-header">
-              <div className="title-section">
-                <h3>{selectedExercise} Strength Progression</h3>
-                <p>Tracking progressive overload metrics</p>
-              </div>
               <div className="metric-switch">
-                <button 
+                <button
                   className={`metric-btn ${chartMetric === 'weight' ? 'active' : ''}`}
                   onClick={() => setChartMetric('weight')}
+                  title="Peak Weight"
                 >
-                  Peak Weight
+                  Weight
                 </button>
-                <button 
+                <button
                   className={`metric-btn ${chartMetric === 'volume' ? 'active' : ''}`}
                   onClick={() => setChartMetric('volume')}
+                  title="Workload Volume"
                 >
-                  Workload Volume
+                  Volume
                 </button>
               </div>
             </div>
@@ -2918,23 +2852,47 @@ const WorkoutTracker = () => {
               </div>
             ) : (
               <div className="chart-body">
-                <div className="svg-container-box">
-                  <svg viewBox={`0 0 ${width} ${height}`} className="analytics-svg-graph">
-                    <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-                    <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-                    <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                {/* Nothing in the UI previously hinted this chart is
+                    horizontally draggable once there are more sessions than
+                    fit — a client had no way to know there was more to see.
+                    Edge fade (CSS) + this small caption only appear when the
+                    chart is actually wider than its box. */}
+                <div className={`svg-scroll-wrap ${graphData.length > VISIBLE_POINTS ? 'scrollable' : ''}`}>
+                  <div className="svg-container-box" ref={chartScrollRef}>
+                  <svg
+                    viewBox={`0 0 ${width} ${height}`}
+                    className="analytics-svg-graph"
+                    style={{ width: `${width}px` }}
+                  >
+                    <line x1={paddingX} y1={padding} x2={width - paddingX} y2={padding} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
+                    <line x1={paddingX} y1={padding + chartHeight / 2} x2={width - paddingX} y2={padding + chartHeight / 2} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
+                    <line x1={paddingX} y1={padding + chartHeight} x2={width - paddingX} y2={padding + chartHeight} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
 
-                    {chartMetric === 'volume' && areaPoints && (
-                      <path 
-                        d={areaPoints} 
-                        fill="url(#volumeGradient)" 
-                        opacity="0.15" 
+                    {/* Gradient fill under the line — was gated to only the
+                        Volume metric before, so the Weight chart (the one in
+                        the reference design) never got it. Shows for both
+                        now, tinted to match whichever metric's line color. */}
+                    {areaPoints && (
+                      <path
+                        d={areaPoints}
+                        fill={chartMetric === 'weight' ? 'url(#weightGradient)' : 'url(#volumeGradient)'}
                       />
                     )}
                     <defs>
+                      {/* Extra stop partway down so the color carries further
+                          toward the bottom instead of fading out by the
+                          halfway point — opacity now lives on the stops
+                          themselves (not a flat opacity on the whole shape),
+                          so this curve is the actual visible spread. */}
+                      <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.55" />
+                        <stop offset="65%" stopColor="#3b82f6" stopOpacity="0.18" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                      </linearGradient>
                       <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--primary-accent-light)" />
-                        <stop offset="100%" stopColor="transparent" />
+                        <stop offset="0%" stopColor="var(--primary-accent-light)" stopOpacity="0.55" />
+                        <stop offset="65%" stopColor="var(--primary-accent-light)" stopOpacity="0.18" />
+                        <stop offset="100%" stopColor="var(--primary-accent-light)" stopOpacity="0" />
                       </linearGradient>
                     </defs>
 
@@ -2961,6 +2919,31 @@ const WorkoutTracker = () => {
                       />
                     )}
 
+                    {/* Per-point date labels — safe to show one per point
+                        now that spacing is fixed (pointSpacing) instead of
+                        every session being squeezed into a constant-width
+                        chart; extra points just extend the scrollable width
+                        instead of crowding these together. Clickable —
+                        jumps the slider straight to that session, same as
+                        tapping its point on the line does. Replaces the
+                        separate thinned date-tick row under the slider,
+                        which was redundant with this. */}
+                    {graphData.map((d, idx) => (
+                      <text
+                        key={`axis-${d.date}-${idx}`}
+                        x={getPointX(d.index)}
+                        y={padding + chartHeight + 22}
+                        textAnchor="middle"
+                        fontSize="11"
+                        fontWeight="600"
+                        fill={d.index === selectedSessionIndex ? '#fff' : 'var(--text-muted)'}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => setSelectedSessionIndex(d.index)}
+                      >
+                        {new Date(d.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </text>
+                    ))}
+
                     {graphData.map((d, idx) => {
                       const val = chartMetric === 'weight' ? d.weight : d.volume;
                       const active = activeSessionData && activeSessionData.index === d.index;
@@ -2968,20 +2951,35 @@ const WorkoutTracker = () => {
                       const py = getPointY(val);
                       return (
                         <g key={`${d.date}-${idx}`}>
-                          <text
-                            x={px}
-                            y={Math.max(py - 14, 14)}
-                            textAnchor="middle"
-                            fontSize={active ? "14" : "13"}
-                            fontWeight="800"
-                            stroke="#090e17"
-                            strokeWidth="3"
-                            strokeLinejoin="round"
-                            paintOrder="stroke"
-                            fill={active ? '#fff' : 'rgba(255,255,255,0.85)'}
-                          >
-                            {chartMetric === 'weight' ? `${val}${getExerciseUnit(selectedExercise)}` : val}
-                          </text>
+                          {/* Plain value label for every OTHER point — the
+                              active point gets the tooltip card below
+                              instead, so it isn't shown twice. */}
+                          {!active && (
+                            <text
+                              x={px}
+                              y={Math.max(py - 14, 14)}
+                              textAnchor="middle"
+                              fontSize="13"
+                              fontWeight="800"
+                              stroke="#090e17"
+                              strokeWidth="3"
+                              strokeLinejoin="round"
+                              paintOrder="stroke"
+                              fill="rgba(255,255,255,0.85)"
+                            >
+                              {chartMetric === 'weight' ? `${val}${getExerciseUnit(selectedExercise)}` : val}
+                            </text>
+                          )}
+                          {/* Soft halo ring behind the active point, matching
+                              the reference design's highlighted dot. */}
+                          {active && (
+                            <circle
+                              cx={px}
+                              cy={py}
+                              r="11"
+                              fill={chartMetric === 'weight' ? 'rgba(59,130,246,0.18)' : 'rgba(16,185,129,0.18)'}
+                            />
+                          )}
                           <circle
                             cx={px}
                             cy={py}
@@ -2994,7 +2992,37 @@ const WorkoutTracker = () => {
                         </g>
                       );
                     })}
+
+                    {/* Tooltip card above the active (slider-selected) point —
+                        "Jul 3 | Weight: 22.5kg" style, replaces the plain
+                        number label for that one point. foreignObject so it
+                        can use real HTML/CSS (rounded card, border) instead
+                        of hand-building it out of SVG rect/text primitives. */}
+                    {activeSessionData && (() => {
+                      const val = chartMetric === 'weight' ? activeSessionData.weight : activeSessionData.volume;
+                      const label = chartMetric === 'weight'
+                        ? `Weight: ${val}${getExerciseUnit(selectedExercise)}`
+                        : `Volume: ${val}kg`;
+                      const dateLabel = new Date(activeSessionData.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const boxWidth = 118;
+                      const boxHeight = 40;
+                      const px = getPointX(activeSessionData.index);
+                      const py = getPointY(val);
+                      const boxX = Math.min(Math.max(px - boxWidth / 2, 2), width - boxWidth - 2);
+                      const boxY = Math.max(py - boxHeight - 16, 2);
+                      return (
+                        <foreignObject x={boxX} y={boxY} width={boxWidth} height={boxHeight} style={{ overflow: 'visible' }}>
+                          <div className="chart-point-tooltip">
+                            <span>{dateLabel} |</span> <strong>{label}</strong>
+                          </div>
+                        </foreignObject>
+                      );
+                    })()}
                   </svg>
+                  </div>
+                  {graphData.length > VISIBLE_POINTS && (
+                    <span className="svg-scroll-hint">↔ Drag</span>
+                  )}
                 </div>
 
                 <div className="graph-day-slider-panel">
@@ -3012,32 +3040,35 @@ const WorkoutTracker = () => {
                     onChange={(e) => setSelectedSessionIndex(parseInt(e.target.value))}
                     className="timeline-range-slider"
                   />
-                  {graphData.length > 0 && (() => {
-                    const maxLabels = 6;
-                    const step = Math.max(Math.ceil(graphData.length / maxLabels), 1);
-                    return (
-                      <div className="timeline-date-ticks">
-                        {graphData.map((d, idx) => {
-                          if (idx !== 0 && idx !== graphData.length - 1 && idx % step !== 0) return null;
-                          const pct = graphData.length > 1 ? (idx / (graphData.length - 1)) * 100 : 0;
-                          const label = new Date(`${d.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                          return (
-                            <span
-                              key={`${d.date}-${idx}`}
-                              className={`timeline-date-tick ${idx === selectedSessionIndex ? 'active' : ''}`}
-                              style={{ left: `${pct}%` }}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Best Lift — moved out of the top header row, below the Strength
+              Progression chart instead. Top PR highlighted, every other
+              exercise's own PR listed underneath. */}
+          {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
+            <div className="best-lift-card glass-panel">
+              <span className="acc-lbl" style={{ color: '#f59e0b' }}>Best Lift</span>
+              <strong>{bestLiftLabel}</strong>
+              {bestSessionDateLabel && <span className="acc-sub-date">{bestSessionDateLabel}</span>}
+              {otherPRs.length > 0 && (
+                // Hard cap, full stop — top 10 best lifts total (the top PR
+                // row above + up to 9 more here), no "+N more"/expand affordance
+                // for whatever's past that. A client who's logged hundreds of
+                // distinct exercises still just sees their top 10, nothing else.
+                <div className="other-prs-list">
+                  {otherPRs.slice(0, 9).map(p => (
+                    <div key={p.name} className="other-pr-row">
+                      <span>{p.name}</span>
+                      <strong>{p.weight}kg</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Overload status badge */}
           {overload && (
@@ -3054,279 +3085,6 @@ const WorkoutTracker = () => {
             </div>
           )}
 
-          {/* ─── WORKOUT HISTORY CALENDAR ─── */}
-          <div className="session-detail-card glass-panel" style={{ marginTop: '16px' }}>
-            <div className="detail-header" style={{ marginBottom: '12px' }}>
-              <h3>📅 Workout History</h3>
-              <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--primary-accent-light)', borderRadius: '20px', padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700 }}>
-                {clientSessions.length} session{clientSessions.length !== 1 ? 's' : ''} logged
-              </span>
-            </div>
-
-            {/* ── Mini Calendar ── */}
-            {clientSessions.length > 0 && (() => {
-              const workoutDates = new Set(clientSessions.map(s => s.date));
-              const year = calendarMonth.year;
-              const month = calendarMonth.month;
-              const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-              const daysInMonth = new Date(year, month + 1, 0).getDate();
-              const todayStr = getLocalDateString();
-              const monthName = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-              const cells = [];
-              for (let i = 0; i < firstDay; i++) cells.push(null);
-              for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-              const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-              return (
-                <div style={{ marginBottom: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', padding: '12px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  {/* Month nav */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <button onClick={() => setCalendarMonth(prev => {
-                      let m = prev.month - 1, y = prev.year;
-                      if (m < 0) { m = 11; y -= 1; }
-                      return { year: y, month: m };
-                    })} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer', padding: '0 8px' }}>‹</button>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>{monthName}</span>
-                    <button onClick={() => setCalendarMonth(prev => {
-                      let m = prev.month + 1, y = prev.year;
-                      if (m > 11) { m = 0; y += 1; }
-                      return { year: y, month: m };
-                    })} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.1rem', cursor: 'pointer', padding: '0 8px' }}>›</button>
-                  </div>
-                  {/* Day labels */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
-                    {DAY_LABELS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 700, padding: '2px 0' }}>{d}</div>)}
-                  </div>
-                  {/* Day cells */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' }}>
-                    {cells.map((day, idx) => {
-                      if (!day) return <div key={`empty-${idx}`} />;
-                      const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                      const hasWorkout = workoutDates.has(dateStr);
-                      const isToday = dateStr === todayStr;
-                      // Find matching sessions
-                      const matchSessions = clientSessions.filter(s => s.date === dateStr);
-                      const isSelected = matchSessions.some(s => {
-                        const key = s.id || `${s.date}-${s.clientName}`;
-                        return historyExpandedDate === key;
-                      });
-                      return (
-                        <div
-                          key={dateStr}
-                          onClick={() => {
-                            if (!hasWorkout) return;
-                            // Toggle: if any session of this date is expanded, collapse; else expand first
-                            if (isSelected) {
-                              setHistoryExpandedDate(null);
-                            } else {
-                              const firstSess = matchSessions[0];
-                              const key = firstSess.id || `${firstSess.date}-${firstSess.clientName}`;
-                              setHistoryExpandedDate(key);
-                            }
-                          }}
-                          style={{
-                            position: 'relative',
-                            textAlign: 'center',
-                            padding: '5px 2px',
-                            borderRadius: '8px',
-                            fontSize: '0.72rem',
-                            fontWeight: isToday || hasWorkout ? 700 : 400,
-                            color: isSelected ? '#fff' : isToday ? 'var(--primary-accent-light)' : hasWorkout ? '#d1fae5' : 'var(--text-muted)',
-                            background: isSelected ? 'rgba(16,185,129,0.3)' : isToday ? 'rgba(16,185,129,0.08)' : 'transparent',
-                            border: isToday ? '1px solid rgba(16,185,129,0.3)' : '1px solid transparent',
-                            cursor: hasWorkout ? 'pointer' : 'default',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {day}
-                          {hasWorkout && (
-                            <span style={{ display: 'block', width: '4px', height: '4px', borderRadius: '50%', background: isSelected ? '#fff' : 'var(--primary-accent-light)', margin: '2px auto 0' }} />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {clientSessions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🏋️‍♂️</div>
-                <p style={{ fontSize: '0.85rem' }}>No sessions logged yet.</p>
-                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Complete a workout or ask your coach to log a live session!</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[...clientSessions].reverse().map((sess) => {
-                  const sessKey = sess.id || `${sess.date}-${sess.clientName}`;
-                  const isExpanded = historyExpandedDate === sessKey;
-                  let totalVol = 0, totalSets = 0;
-                  sess.exercises.forEach(ex => ex.sets.forEach(s => {
-                    totalVol += (parseFloat(s.weight)||0) * (parseInt(s.reps)||0);
-                    totalSets += 1;
-                  }));
-                  const dateLabel = new Date(sess.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-                  const isToday = isLocalToday(sess.date);
-                  const isCoachLogged = sess.loggedByCoach;
-                  const planName = sess.planName || (isCoachLogged ? 'Coach Session' : 'Workout Session');
-                  // Self-logged sessions store a pre-formatted "duration" string;
-                  // coach Live Log sessions store raw "durationSeconds" instead —
-                  // support whichever this session actually has.
-                  const displayDuration = sess.duration || (sess.durationSeconds != null ? formatDuration(sess.durationSeconds) : null);
-                  const displayCalories = sess.caloriesBurned != null ? sess.caloriesBurned : null;
-                  const displayAvgHr = sess.avgHeartRate != null ? sess.avgHeartRate : null;
-                  const displayMaxHr = sess.maxHeartRate != null ? sess.maxHeartRate : null;
-
-                  return (
-                    <div key={sessKey} style={{
-                      background: isExpanded ? 'rgba(16,185,129,0.06)' : 'rgba(0,0,0,0.15)',
-                      border: isExpanded ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 'var(--radius-md)',
-                      overflow: 'hidden',
-                      transition: 'all 0.2s ease'
-                    }}>
-
-                      {/* Session Header */}
-                      <div onClick={() => setHistoryExpandedDate(isExpanded ? null : sessKey)}
-                        style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                          {/* Workout Name (Plan Name) */}
-                          <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#fff', marginBottom: '2px' }}>{planName}</div>
-                          {/* Date */}
-                          <div style={{ fontSize: '0.73rem', color: isToday ? 'var(--primary-accent-light)' : 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
-                            📅 {dateLabel}{isToday ? ' · Today' : ''}
-                          </div>
-                          {/* Badges */}
-                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                            {isCoachLogged && (
-                              <span style={{ fontSize: '0.6rem', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>👨‍🏫 Coach</span>
-                            )}
-                            <span style={{ fontSize: '0.6rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>{totalSets} sets</span>
-                            <span style={{ fontSize: '0.6rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>{totalVol.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</span>
-                            <span style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', padding: '1px 7px', borderRadius: '20px' }}>{sess.exercises.length} exercises</span>
-                            {displayCalories != null && (
-                              <span style={{ fontSize: '0.6rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>🔥 {displayCalories} kcal</span>
-                            )}
-                            {displayAvgHr != null && (
-                              <span style={{ fontSize: '0.6rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', padding: '1px 7px', borderRadius: '20px', fontWeight: 700 }}>❤️ {displayAvgHr} bpm avg</span>
-                            )}
-                          </div>
-                        </div>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 800, marginLeft: '8px', paddingTop: '2px' }}>{isExpanded ? '▲' : '▼'}</span>
-                      </div>
-
-                      {/* Expanded Detail */}
-                      {isExpanded && (
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px' }}>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                            <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
-                              <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>⏱ Duration</div>
-                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fff', marginTop:'2px' }}>{displayDuration || '—'}</div>
-                            </div>
-                            <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
-                              <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>🏋️ Lifted</div>
-                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'var(--primary-accent-light)', marginTop:'2px' }}>{totalVol.toLocaleString('en-IN',{maximumFractionDigits:0})} kg</div>
-                            </div>
-                            <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
-                              <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>✓ Sets</div>
-                              <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#60a5fa', marginTop:'2px' }}>{totalSets}</div>
-                            </div>
-                            {displayCalories != null && (
-                              <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
-                                <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>🔥 Calories</div>
-                                <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#fbbf24', marginTop:'2px' }}>{displayCalories} kcal</div>
-                              </div>
-                            )}
-                            {displayAvgHr != null && (
-                              <div style={{ flex:1, minWidth:'70px', background:'rgba(0,0,0,0.2)', borderRadius:'8px', padding:'8px 10px', textAlign:'center' }}>
-                                <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase' }}>❤️ Heart Rate</div>
-                                <div style={{ fontSize:'0.88rem', fontWeight:800, color:'#f87171', marginTop:'2px' }}>{displayAvgHr}{displayMaxHr != null ? ` / ${displayMaxHr}` : ''} bpm</div>
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                            {sess.exercises.map((ex, exIdx) => {
-                              const exIsTimed = isTimedExercise(ex.name);
-                              const exIsCardioHist = isCardioExercise(ex.name);
-                              const exIsLoadedCarryHist = isLoadedCarryExercise(ex.name);
-                              const exIsBodyweightHist = isBodyweightExercise(ex.name);
-                              return (
-                              <div key={exIdx} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'8px', padding:'10px 12px' }}>
-                                <div style={{ fontWeight:700, fontSize:'0.82rem', color:'#fff', marginBottom:'8px' }}>{ex.name}</div>
-                                <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                                  <thead><tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-                                    <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Set</th>
-                                    {exIsTimed ? (
-                                      <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Time</th>
-                                    ) : exIsCardioHist ? (
-                                      <>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Km</th>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Time</th>
-                                      </>
-                                    ) : exIsLoadedCarryHist ? (
-                                      <>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Weight</th>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Meters</th>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Weight</th>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Reps</th>
-                                        <th style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, textTransform:'uppercase', padding:'3px 0', textAlign:'left' }}>Vol</th>
-                                      </>
-                                    )}
-                                  </tr></thead>
-                                  <tbody>
-                                    {ex.sets.map((set, sIdx) => {
-                                      // Sequential number among normal working sets only —
-                                      // matches the logger's own Warmup/Dropset/Failure badges.
-                                      const workingNum = ex.sets.slice(0, sIdx + 1)
-                                        .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
-                                      const visual = getSetTypeVisual(set, workingNum);
-                                      return (
-                                        <tr key={sIdx} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                                          <td style={{ padding:'4px 0', fontSize:'0.72rem' }}>
-                                            <span style={{
-                                              display:'inline-flex', alignItems:'center', justifyContent:'center', width:'17px', height:'17px', borderRadius:'50%',
-                                              background: visual.color ? `${visual.color}22` : 'rgba(255,255,255,0.08)',
-                                              fontSize:'0.62rem', fontWeight:800,
-                                              color: visual.color || '#fff'
-                                            }}>{visual.label}</span>
-                                          </td>
-                                          {exIsTimed ? (
-                                            <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.time || '00:00'}</td>
-                                          ) : exIsCardioHist ? (
-                                            <>
-                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{set.distanceKm} km</td>
-                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.time || '00:00'}</td>
-                                            </>
-                                          ) : (
-                                            <>
-                                              {/* Bodyweight exercises log weight: 0 when no plate/vest was
-                                                  added — show "BW" like the live logger does, instead of
-                                                  the raw "0 kg" which reads as a logging error. */}
-                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff', fontWeight:600 }}>{exIsBodyweightHist && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
-                                              <td style={{ padding:'4px 0', fontSize:'0.78rem', color:'#fff' }}>{set.reps} reps</td>
-                                              <td style={{ padding:'4px 0', fontSize:'0.7rem', color:'var(--text-muted)' }}>{((parseFloat(set.weight)||0)*(parseInt(set.reps)||0)).toFixed(0)} kg</td>
-                                            </>
-                                          )}
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
       )}
 

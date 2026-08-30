@@ -176,6 +176,10 @@
   color: #f59e0b;
 }
 
+.text-purple {
+  color: #a78bfa;
+}
+
 /* Chart widget container */
 .chart-widget-card {
   padding: 16px;

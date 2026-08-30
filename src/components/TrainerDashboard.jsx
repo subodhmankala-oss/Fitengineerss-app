@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import Avatar from './Avatar';
@@ -244,6 +244,57 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [editPaymentDate, setEditPaymentDate] = useState('');
   const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
+
+  // Month-wise breakdown + month-over-month difference (2026-08-30 feature
+  // request: "how do i check the monthly wise difference"). Grouped by the
+  // payment's paidAt month, newest month first, each row diffed against the
+  // month right after it in that sorted order (i.e. the previous month).
+  const monthlyPaymentBreakdown = useMemo(() => {
+    const byMonth = new Map();
+    paymentsList.forEach(p => {
+      const d = new Date(p.paidAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!byMonth.has(key)) byMonth.set(key, { total: 0, payments: [] });
+      const bucket = byMonth.get(key);
+      bucket.total += Number(p.amount || 0);
+      bucket.payments.push(p); // paymentsList is already newest-first, so this stays newest-first too
+    });
+    const rows = Array.from(byMonth.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, { total, payments }]) => {
+        const [year, month] = key.split('-').map(Number);
+        const label = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        return { key, label, total, count: payments.length, payments };
+      });
+    return rows.map((row, i) => {
+      const prev = rows[i + 1];
+      const diff = prev ? row.total - prev.total : null;
+      const pct = prev && prev.total !== 0 ? (diff / prev.total) * 100 : null;
+      return { ...row, diff, pct };
+    });
+  }, [paymentsList]);
+
+  // Oldest -> newest, for the comparison chart (reads left to right).
+  const chronoPaymentMonths = useMemo(
+    () => [...monthlyPaymentBreakdown].reverse(),
+    [monthlyPaymentBreakdown]
+  );
+
+  // Which month the dropdown + chart + ledger below are all showing. Defaults
+  // to the newest month with any payments, and re-snaps to it whenever the
+  // currently selected month disappears (e.g. its last payment got deleted).
+  const [selectedPaymentMonth, setSelectedPaymentMonth] = useState(null);
+  const [paymentMonthMenuOpen, setPaymentMonthMenuOpen] = useState(false);
+  useEffect(() => {
+    if (monthlyPaymentBreakdown.length === 0) {
+      if (selectedPaymentMonth !== null) setSelectedPaymentMonth(null);
+      return;
+    }
+    if (!monthlyPaymentBreakdown.some(m => m.key === selectedPaymentMonth)) {
+      setSelectedPaymentMonth(monthlyPaymentBreakdown[0].key);
+    }
+  }, [monthlyPaymentBreakdown, selectedPaymentMonth]);
+  const selectedMonthData = monthlyPaymentBreakdown.find(m => m.key === selectedPaymentMonth) || null;
 
   // Full-page coach settings overlay (CoachProfile.jsx). Opened from the
   // avatar hamburger below 900px (2026-08-28: "put this inside 3 line
@@ -3953,14 +4004,166 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </div>
           )}
 
-          {/* Ledger — every payment this coach has logged, newest first. */}
+          {/* Month-wise breakdown (2026-08-30: "make this as dropdown
+              monthly wise" + "graph section for monthly comparison"). A
+              dropdown picks the month; the total-vs-previous-month readout,
+              the bar chart, and the ledger below all follow that selection —
+              one source of truth (selectedPaymentMonth) instead of three
+              separately-scrolled views. */}
+          {!loadingPayments && selectedMonthData && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '14px',
+              background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+              borderRadius: '14px', padding: '14px'
+            }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Monthly Breakdown
+              </span>
+
+              {/* Custom dropdown (not a native <select>) so each option can
+                  show its own total alongside the month name. */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMonthMenuOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                    width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
+                    borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0 }}>
+                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{selectedMonthData.label}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                      {selectedMonthData.count} payment{selectedMonthData.count === 1 ? '' : 's'}
+                    </span>
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ color: 'var(--text-muted)', flexShrink: 0, transform: paymentMonthMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {paymentMonthMenuOpen && (
+                  <div style={{
+                    position: 'absolute', left: 0, right: 0, top: 'calc(100% + 6px)', zIndex: 5,
+                    background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '10px',
+                    padding: '4px', boxShadow: '0 12px 28px rgba(0,0,0,0.45)', maxHeight: '240px', overflowY: 'auto'
+                  }}>
+                    {monthlyPaymentBreakdown.map(row => (
+                      <button
+                        key={row.key}
+                        type="button"
+                        onClick={() => { setSelectedPaymentMonth(row.key); setPaymentMonthMenuOpen(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                          background: 'none', border: 'none', borderRadius: '7px', padding: '9px 10px', cursor: 'pointer',
+                          color: row.key === selectedPaymentMonth ? '#10b981' : '#fff',
+                          fontWeight: row.key === selectedPaymentMonth ? 700 : 500, fontSize: '0.85rem', font: 'inherit'
+                        }}
+                      >
+                        <span>{row.label}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>₹{row.total.toLocaleString()}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected month's total + change vs. the month before it. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ flexShrink: 0 }}>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.4rem' }}>₹{selectedMonthData.total.toLocaleString()}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>collected this month</div>
+                </div>
+                {selectedMonthData.diff === null ? (
+                  <span style={{
+                    display: 'inline-flex', padding: '6px 10px', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700,
+                    background: 'rgba(148,163,184,0.14)', color: 'var(--text-muted)'
+                  }}>
+                    No earlier month
+                  </span>
+                ) : (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '999px',
+                    fontSize: '0.74rem', fontWeight: 700, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap',
+                    background: selectedMonthData.diff > 0 ? 'rgba(16,185,129,0.14)' : selectedMonthData.diff < 0 ? 'rgba(248,113,113,0.14)' : 'rgba(148,163,184,0.14)',
+                    color: selectedMonthData.diff > 0 ? '#10b981' : selectedMonthData.diff < 0 ? '#f87171' : 'var(--text-muted)'
+                  }}>
+                    <span>{selectedMonthData.diff > 0 ? '▲' : selectedMonthData.diff < 0 ? '▼' : '—'}</span>
+                    <span>₹{Math.abs(selectedMonthData.diff).toLocaleString()}</span>
+                    {selectedMonthData.pct !== null && (
+                      <span>({selectedMonthData.diff > 0 ? '+' : ''}{selectedMonthData.pct.toFixed(0)}%)</span>
+                    )}
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                      vs {monthlyPaymentBreakdown[monthlyPaymentBreakdown.findIndex(m => m.key === selectedPaymentMonth) + 1]?.label.split(' ')[0].slice(0, 3)}
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {/* Month-over-month bar chart. One bar per month, oldest to
+                  newest; the selected month is highlighted, others dimmed;
+                  tapping a bar selects that month (kept in sync with the
+                  dropdown above). */}
+              {chronoPaymentMonths.length > 1 && (
+                <div>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>
+                    Month-over-month comparison
+                  </span>
+                  {(() => {
+                    const W = 100, H = 46, padTop = 12, padBottom = 8, gap = 3;
+                    const plotH = H - padTop - padBottom;
+                    const max = Math.max(...chronoPaymentMonths.map(m => m.total)) * 1.15 || 1;
+                    const n = chronoPaymentMonths.length;
+                    const barW = (W - gap * (n - 1)) / n;
+                    return (
+                      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: '120px', display: 'block' }}>
+                        {[0, 1, 2].map(i => {
+                          const y = padTop + plotH - (plotH * (i / 2));
+                          return <line key={i} x1={0} x2={W} y1={y} y2={y} stroke="var(--border-color)" strokeWidth="0.4" />;
+                        })}
+                        {chronoPaymentMonths.map((m, i) => {
+                          const x = i * (barW + gap);
+                          const barH = (m.total / max) * plotH;
+                          const y = padTop + plotH - barH;
+                          const isSelected = m.key === selectedPaymentMonth;
+                          return (
+                            <g key={m.key} onClick={() => setSelectedPaymentMonth(m.key)} style={{ cursor: 'pointer' }}>
+                              <rect x={x} y={0} width={barW} height={H} fill="transparent" />
+                              <rect x={x} y={y} width={barW} height={Math.max(barH, 1)} rx="1"
+                                fill={isSelected ? '#10b981' : 'rgba(16,185,129,0.38)'} />
+                              <text x={x + barW / 2} y={H - 1.5} textAnchor="middle" fontSize="3.6" fill="var(--text-muted)">
+                                {m.label.split(' ')[0].slice(0, 3)}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ledger — the selected month's payments, newest first. */}
           {loadingPayments ? (
             <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>Loading…</div>
           ) : paymentsList.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }}>No payments logged yet.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {paymentsList.map(p => (
+              {selectedMonthData && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 2px' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {selectedMonthData.label}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                    {selectedMonthData.count} payment{selectedMonthData.count === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )}
+              {(selectedMonthData?.payments || []).map(p => (
                 editingPaymentId === p.id ? (
                   // Edit mode — same inline shape as the log form above, so
                   // correcting a mistyped amount/method/date doesn't require

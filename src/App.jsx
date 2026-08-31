@@ -655,34 +655,26 @@ function App() {
           // forces the coach sign-up form on the next Onboarding mount (e.g.
           // right after this OAuth redirect, or the next logout).
           localStorage.removeItem('pendingCoachApply');
-          // First, check if client row exists. If not, create with coach_id = null and defaults.
+          // First, check if a client row already exists.
+          //
+          // IMPORTANT: a brand-new Google client (no row yet) must NOT get a
+          // users/clients row created here. This used to eagerly insert one
+          // with fabricated defaults (age 30, "Fat Loss", coach_id null, ...)
+          // and — critically — no phone number at all, before the client
+          // ever saw the phone field. Since that row already made them a
+          // real, visible account (Self-Guided, tagged "Fat Loss", showing
+          // up in the coach/admin client list) the moment they authenticated,
+          // anyone who didn't finish the 4-step wizard afterward (closed the
+          // tab, backgrounded the app, etc.) ended up permanently on record
+          // with no phone — exactly the "signed up without a phone number"
+          // case reported 2026-08-31 (raju bn). The wizard's own save
+          // (ClientOnboardingWizard → saveClientOnboardingData →
+          // /api/complete-onboarding) already resolves-or-creates the
+          // users+clients row server-side from email alone when none exists,
+          // and it always includes the phone the client just entered — so
+          // account creation now happens there, once phone is guaranteed to
+          // be captured, instead of here.
           let clientProfile = profile;
-          if (!clientProfile) {
-            const defaultName = googleName || email.split('@')[0] || 'Warrior';
-            try {
-              await databaseService.saveUserProfile({
-                userName: defaultName,
-                email: email,
-                role: 'client',
-                coach_id: null,
-                userAge: '30',
-                userHeight: '175',
-                userWeight: '70',
-                userActivity: 'Moderately Active',
-                userGoal: 'Fat Loss',
-                userDiet: 'Non-Vegetarian',
-                userCalorieTarget: '2000',
-                userProteinTarget: '120',
-                userCarbsTarget: '220',
-                userFatsTarget: '70',
-                verified: false
-              });
-              clientProfile = await databaseService.getUserProfileByEmail(email);
-              if (googleAvatarUrl && clientProfile) clientProfile.userAvatarUrl = googleAvatarUrl;
-            } catch (err) {
-              console.error("Error auto-creating user profile in session handler:", err);
-            }
-          }
 
           if (clientProfile) {
             await databaseService.loadProfileIntoLocalStorage(clientProfile, email);
@@ -705,7 +697,11 @@ function App() {
               }).catch(e => console.warn('Client name backfill from Google failed (non-fatal):', e));
             }
           } else {
-            // Fallback storage if db fails
+            // No DB row yet (brand-new client, or a lookup failure) — hold
+            // everything in localStorage only. No users/clients row is
+            // created here; onboardingCompleted stays 'false' below so the
+            // wizard is shown, and its own save is what actually creates the
+            // account (with phone) once the client completes it.
             localStorage.setItem('userName', googleName || email.split('@')[0] || 'Warrior');
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userRole', 'client');

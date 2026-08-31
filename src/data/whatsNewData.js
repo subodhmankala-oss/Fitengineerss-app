@@ -8,22 +8,28 @@
 // changed recently" glance, not a full engineering changelog.
 export const WHATS_NEW = [
   {
+    date: '2026-08-31',
+    audience: 'coach',
+    title: 'Client stat cards now match the client view',
+    description: 'A client\'s Daily/Monthly workout summary on your dashboard now shows the same tab order, labels, and numbers (including a 0 kcal rest day) as what the client sees on their own Home screen.',
+  },
+  {
+    date: '2026-08-31',
+    audience: 'client',
+    title: 'Coach details view and a smoother workout chart',
+    description: 'Tap your coach\'s name to see a read-only Coach Details view. The Strength Progression chart in Progress now spaces sessions evenly, scrolls once you have more than a handful, and shows a proper tooltip.',
+  },
+  {
+    date: '2026-08-30',
+    audience: 'coach',
+    title: 'Monthly payment breakdown with comparison chart',
+    description: 'Client Payments now has a month picker with a month-over-month bar chart instead of a static list of every month — tap a bar or pick from the dropdown to see that month\'s change and ledger.',
+  },
+  {
     date: '2026-08-28',
     audience: 'coach',
     title: 'Running total on Client Payments',
     description: 'The Client Payments ledger now shows a running total so you can see collected amounts at a glance.',
-  },
-  {
-    date: '2026-08-27',
-    audience: 'all',
-    title: 'Real profile photos',
-    description: 'Client and coach avatars now show your real photo (from Google sign-in or your account) instead of a placeholder icon.',
-  },
-  {
-    date: '2026-08-26',
-    audience: 'all',
-    title: 'Easier-to-see date picker icon',
-    description: 'The calendar icon on date fields is now visible in both light and dark mode across the app.',
   },
   {
     date: '2026-08-28',
@@ -36,6 +42,18 @@ export const WHATS_NEW = [
     audience: 'coach',
     title: 'Edit & delete client payments',
     description: 'Logged payments in the Client Payments ledger can now be edited or deleted, not just added.',
+  },
+  {
+    date: '2026-08-27',
+    audience: 'all',
+    title: 'Real profile photos',
+    description: 'Client and coach avatars now show your real photo (from Google sign-in or your account) instead of a placeholder icon.',
+  },
+  {
+    date: '2026-08-26',
+    audience: 'all',
+    title: 'Easier-to-see date picker icon',
+    description: 'The calendar icon on date fields is now visible in both light and dark mode across the app.',
   },
 ];
 

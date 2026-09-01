@@ -1,7 +1,21 @@
 .install-banner {
   position: fixed;
   left: 50%;
-  top: calc(12px + env(safe-area-inset-top, 0px));
+  /* A plain `calc(12px + env(safe-area-inset-top, 0px))` leaves this banner
+     sitting right under the status bar / Dynamic Island on some mobile
+     browsers (reported: Chrome on iOS, cutting the banner's top edge off
+     under the Dynamic Island). index.css's .app-container deliberately does
+     NOT compensate for the top safe area, on the reasoning that removing
+     `viewport-fit=cover` makes the browser inset the viewport itself on
+     every platform — but that contract isn't honoured by every browser for
+     `position: fixed` overlays specifically, this banner being a case in
+     point. Rather than trust env() alone (0 in practice here, since there's
+     no `viewport-fit=cover` for it to read from) or guess an exact status
+     bar height (the index.css comment above already documents multiple
+     reverted attempts at that for the app shell), floor this at a value
+     that clears every real status bar/notch/Dynamic Island, while still
+     growing via env() on platforms that do populate it correctly. */
+  top: max(46px, calc(12px + env(safe-area-inset-top, 0px)));
   transform: translateX(-50%);
   width: calc(100% - 32px);
   max-width: 420px;

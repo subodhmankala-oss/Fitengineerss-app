@@ -4780,7 +4780,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
                       {/* WhatsApp Share Button */}
                       <a
-                        href={`https://wa.me/?text=${encodeURIComponent("Hi! I'm Subodh from Fitengineers. Use this invitation code to join my coaching program: " + generatedInviteCode)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          `Hi! I'm ${(localStorage.getItem('userName') || 'your coach').trim()} from Fitengineers. Join my coaching program here: ${window.location.origin} — use invitation code: ${generatedInviteCode}`
+                        )}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{

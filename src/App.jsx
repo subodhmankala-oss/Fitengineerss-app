@@ -384,9 +384,15 @@ function App() {
   // instead of re-triggering navigation on every re-render.
   const [deepLinkOpenMeasurements, setDeepLinkOpenMeasurements] = useState(() => new URLSearchParams(window.location.search).get('openMeasurements') === '1');
   const [deepLinkClientId] = useState(() => new URLSearchParams(window.location.search).get('viewClient') || null);
+  // ?openMuscleMap=1 — coach's "share" icon on a client's Muscle Balance
+  // Overview / Muscle Heat Map cards links here (see shareMuscleMapWithClient
+  // in TrainerDashboard.jsx). Lands the client straight on Home → Muscles,
+  // same one-shot-consume pattern as deepLinkOpenMeasurements above.
+  const [deepLinkOpenMuscleMap, setDeepLinkOpenMuscleMap] = useState(() => new URLSearchParams(window.location.search).get('openMuscleMap') === '1');
   useEffect(() => {
     if (deepLinkOpenMeasurements) setActiveTab('profile');
-    if (deepLinkOpenMeasurements || deepLinkClientId) {
+    if (deepLinkOpenMuscleMap) setActiveTab('home');
+    if (deepLinkOpenMeasurements || deepLinkClientId || deepLinkOpenMuscleMap) {
       // Strip the query params so a later refresh/share of this URL doesn't
       // re-trigger the same deep link forever.
       window.history.replaceState(null, '', window.location.pathname);
@@ -403,6 +409,13 @@ function App() {
     const t = setTimeout(() => setDeepLinkOpenMeasurements(false), 1000);
     return () => clearTimeout(t);
   }, [deepLinkOpenMeasurements]);
+  // Same one-shot consumption for the muscle map deep link — WorkoutProgressDashboard
+  // reads it on mount to pick its initial timeframe tab.
+  useEffect(() => {
+    if (!deepLinkOpenMuscleMap) return undefined;
+    const t = setTimeout(() => setDeepLinkOpenMuscleMap(false), 1000);
+    return () => clearTimeout(t);
+  }, [deepLinkOpenMuscleMap]);
   // First-login spotlight walkthrough — shown once per role, replayable via a help button.
   const demoTourCheckedRef = useRef(false);
   const clientTour = useTour();
@@ -1337,7 +1350,13 @@ function App() {
   };
 
   const renderHomeDashboard = () => {
-    return <WorkoutProgressDashboard handleLogout={handleLogout} onNavigateToWorkouts={() => setActiveTab('workouts')} />;
+    return (
+      <WorkoutProgressDashboard
+        handleLogout={handleLogout}
+        onNavigateToWorkouts={() => setActiveTab('workouts')}
+        initialTimeframe={deepLinkOpenMuscleMap ? 'muscles' : null}
+      />
+    );
   };
 
   const renderContent = () => {

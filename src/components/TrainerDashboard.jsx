@@ -2277,6 +2277,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     }
   };
 
+  // Opens WhatsApp with a deep link to this client's OWN Muscle Analytics tab
+  // (?openMuscleMap=1 — consumed once by App.jsx the same way ?openMeasurements=1
+  // already is). No client-specific data is embedded in the link: it always
+  // opens to whichever client's data is logged in on the device that clicks
+  // it, so the client sees their own current Muscle Balance / Heat Map, not a
+  // stale coach-side snapshot.
+  const shareMuscleMapWithClient = (client) => {
+    const clientName = (client?.userName || 'there').trim();
+    const link = `${window.location.origin}/?openMuscleMap=1`;
+    const text = `Hi ${clientName}! Check out your latest Muscle Balance & Heat Map here: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
+
   // Manual, coach-triggered nudge once this client's sessions-left ≤ 4 — a
   // push notification only; never sent automatically.
   const handleSendSessionReminder = async () => {
@@ -6169,6 +6182,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
+                            onShare={() => shareMuscleMapWithClient(selectedClient)}
                           />
                         )}
                       </>

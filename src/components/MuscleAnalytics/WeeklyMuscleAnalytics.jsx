@@ -30,12 +30,44 @@ const AnimatedStat = ({ value, label, valueClass = 'text-emerald', suffix = '' }
   );
 };
 
+// Share icon (iOS-style "share out") — sits next to a section's tab toggle
+// so a coach can send that client's live view as a WhatsApp deep link. Only
+// rendered when the parent passes an `onShare` handler (coach view of a
+// specific client); the client's own dashboard has nobody to share it with.
+const ShareIconButton = ({ onClick, title }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={title}
+    aria-label={title}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '26px',
+      height: '26px',
+      borderRadius: '50%',
+      background: 'rgba(255, 255, 255, 0.06)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      color: 'var(--text-muted)',
+      cursor: 'pointer',
+      flexShrink: 0
+    }}
+  >
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v13" />
+      <path d="M7 8l5-5 5 5" />
+      <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+    </svg>
+  </button>
+);
+
 /**
  * Phase 1 of "Weekly Muscle Analytics": header stats + Section 1 (Muscle
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShare = null }) => {
   const weekStartStr = weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
@@ -113,9 +145,12 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
       <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{balanceTab === 'balance' ? '💪 Muscle Balance Overview' : '⚠️ Neglected Muscles'}</h4>
-          <div className="heatmap-view-toggle">
-            <button type="button" className={balanceTab === 'balance' ? 'active' : ''} onClick={() => setBalanceTab('balance')}>Balance</button>
-            <button type="button" className={balanceTab === 'neglected' ? 'active' : ''} onClick={() => setBalanceTab('neglected')}>Neglected</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="heatmap-view-toggle">
+              <button type="button" className={balanceTab === 'balance' ? 'active' : ''} onClick={() => setBalanceTab('balance')}>Balance</button>
+              <button type="button" className={balanceTab === 'neglected' ? 'active' : ''} onClick={() => setBalanceTab('neglected')}>Neglected</button>
+            </div>
+            {onShare && <ShareIconButton onClick={onShare} title="Share this client's Muscle Balance Overview" />}
           </div>
         </div>
 
@@ -151,9 +186,12 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
       <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{mapTab === 'heatmap' ? '🗺️ Muscle Heat Map' : '🔋 Recovery Dashboard'}</h4>
-          <div className="heatmap-view-toggle">
-            <button type="button" className={mapTab === 'heatmap' ? 'active' : ''} onClick={() => setMapTab('heatmap')}>Map</button>
-            <button type="button" className={mapTab === 'recovery' ? 'active' : ''} onClick={() => setMapTab('recovery')}>Recovery</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="heatmap-view-toggle">
+              <button type="button" className={mapTab === 'heatmap' ? 'active' : ''} onClick={() => setMapTab('heatmap')}>Map</button>
+              <button type="button" className={mapTab === 'recovery' ? 'active' : ''} onClick={() => setMapTab('recovery')}>Recovery</button>
+            </div>
+            {onShare && <ShareIconButton onClick={onShare} title="Share this client's Muscle Heat Map" />}
           </div>
         </div>
 

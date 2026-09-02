@@ -2299,21 +2299,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       ? `Please do check your focused area — ${neglectedMuscles.join(', ')}. We need to work on ${neglectedMuscles.length > 1 ? 'these' : 'this'} this week.`
       : `Check out your latest Muscle Balance & Heat Map here.`;
     const text = `Hi ${clientName}! ${focusLine} ${link}`;
-    // Was `window.open(url, '_blank', 'noopener,noreferrer')` — in the
-    // installed iOS PWA (standalone mode), that opens a blank new Safari tab
-    // sitting on its own empty address bar instead of navigating to WhatsApp,
-    // leaving the coach looking at "Search or enter website name" with no
-    // way back to where they were. A real, synchronously-clicked <a> tag
-    // (same pattern as the working WhatsApp share links elsewhere on this
-    // page, e.g. the invite-code share button) navigates correctly in that
-    // same standalone context, so build and click one instead.
-    const a = document.createElement('a');
-    a.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // Was `window.open('https://wa.me/...', '_blank', ...)`, then (still
+    // wrong, same root cause) a synthetic <a target="_blank"> click. Both
+    // spawn a SEPARATE browser tab to load wa.me, which then hands off to
+    // the WhatsApp app — but in the installed iOS PWA (standalone mode) that
+    // hand-off leaves the spawned tab behind, blank, on its own empty
+    // "Search or enter website name" bar. Switching back from WhatsApp
+    // returns to THAT orphaned tab, not to the app, which is the actual bug
+    // reported (confirmed with the reporter — it's not the WhatsApp-opening
+    // step that fails, it's what's left behind after).
+    // whatsapp://send is WhatsApp's own URL scheme: navigating the CURRENT
+    // page to it (no new tab/window involved at all) makes the OS hand off
+    // directly to the WhatsApp app, so there is nothing left behind to land
+    // on when the coach switches back — the app's own tab is exactly where
+    // they were.
+    window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
   };
 
   // Manual, coach-triggered nudge once this client's sessions-left ≤ 4 — a

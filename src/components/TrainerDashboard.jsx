@@ -2286,18 +2286,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // stale coach-side snapshot.
   // neglectedMuscles: this client's zero-sets-this-week muscle names (same
   // "Neglected" list the coach is looking at on screen when they tap Share —
-  // see WeeklyMuscleAnalytics' onShare callers, which compute it from the
-  // same weekly muscle stats as the Neglected tab). Personalizes the message
+  // see WeeklyMuscleAnalytics' onShareBalance/onShareHeatMap callers below,
+  // which compute it from the same weekly muscle stats as the Neglected
+  // tab). Personalizes the message
   // with what the client actually needs to focus on instead of a generic
   // "check your dashboard" line; falls back to the generic line when there's
   // nothing neglected (or the caller didn't pass any) so a client who's
   // covering everything doesn't get a message implying otherwise.
-  const shareMuscleMapWithClient = (client, neglectedMuscles = []) => {
+  // source: which card's share icon was tapped — 'balance' (Muscle Balance
+  // Overview) or 'heatmap' (Muscle Heat Map). The two used to send identical
+  // text regardless of which icon was tapped; they now word the message
+  // around what that specific card actually shows.
+  const shareMuscleMapWithClient = (client, neglectedMuscles = [], source = 'balance') => {
     const clientName = (client?.userName || 'there').trim();
     const link = `${window.location.origin}/?openMuscleMap=1`;
-    const focusLine = neglectedMuscles.length > 0
-      ? `Please do check your focused area — ${neglectedMuscles.join(', ')}. We need to work on ${neglectedMuscles.length > 1 ? 'these' : 'this'} this week.`
-      : `Check out your latest Muscle Balance & Heat Map here.`;
+    const focusLine = source === 'heatmap'
+      ? (neglectedMuscles.length > 0
+          ? `Check your Muscle Heat Map — ${neglectedMuscles.join(', ')} ${neglectedMuscles.length > 1 ? 'are' : 'is'} showing cold this week, everything else is lighting up.`
+          : `Check your Muscle Heat Map — see which areas are lighting up and which need attention.`)
+      : (neglectedMuscles.length > 0
+          ? `Please do check your focused area — ${neglectedMuscles.join(', ')}. We need to work on ${neglectedMuscles.length > 1 ? 'these' : 'this'} this week.`
+          : `Check out your latest Muscle Balance Overview here.`);
     const text = `Hi ${clientName}! ${focusLine} ${link}`;
     // Was `window.open('https://wa.me/...', '_blank', ...)`, then (still
     // wrong, same root cause) a synthetic <a target="_blank"> click. Both
@@ -6208,7 +6217,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
-                            onShare={() => {
+                            onShareBalance={() => {
                               // Same computation NeglectedMuscles.jsx uses for
                               // its list — zero sets logged in the currently
                               // browsed week (weekDays), not a rolling
@@ -6217,7 +6226,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               const neglectedMuscles = getWeeklyMuscleStats(rawWorkoutLogs, weekDays[0], weekDays[6])
                                 .filter(m => m.status.key === 'neglected')
                                 .map(m => m.muscle);
-                              shareMuscleMapWithClient(selectedClient, neglectedMuscles);
+                              shareMuscleMapWithClient(selectedClient, neglectedMuscles, 'balance');
+                            }}
+                            onShareHeatMap={() => {
+                              const neglectedMuscles = getWeeklyMuscleStats(rawWorkoutLogs, weekDays[0], weekDays[6])
+                                .filter(m => m.status.key === 'neglected')
+                                .map(m => m.muscle);
+                              shareMuscleMapWithClient(selectedClient, neglectedMuscles, 'heatmap');
                             }}
                           />
                         )}

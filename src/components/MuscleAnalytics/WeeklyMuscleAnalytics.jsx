@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import MuscleCard from './MuscleCard';
 import WeeklyInsights from './WeeklyInsights';
 import ProgressComparison from './ProgressComparison';
@@ -68,7 +68,7 @@ const ShareIconButton = ({ onClick, title }) => (
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null }) => {
   const weekStartStr = weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
@@ -81,6 +81,31 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const [balanceTab, setBalanceTab] = useState('balance'); // 'balance' | 'neglected'
   const [insightsTab, setInsightsTab] = useState('insights'); // 'insights' | 'comparison' | 'recommendations'
   const [mapTab, setMapTab] = useState('heatmap'); // 'heatmap' | 'recovery'
+
+  // focusSection: 'balance' | 'heatmap' — which card to scroll straight to
+  // (see shareMuscleMapWithClient in TrainerDashboard.jsx / the &section=
+  // deep link param in App.jsx). Landing on the Muscles tab alone still left
+  // the client looking at this header + stats above whichever card was
+  // actually shared; Heat Map in particular is the SECOND card down, easy
+  // to miss without scrolling. Both card refs are always attached — which
+  // one (if either) gets used just depends on focusSection.
+  const balanceCardRef = useRef(null);
+  const heatMapCardRef = useRef(null);
+  useEffect(() => {
+    if (!focusSection) return undefined;
+    // Deferred a tick: on mount, the heat map's own SVG/animated stat counts
+    // are still settling into their final layout, and scrolling immediately
+    // measures against that not-yet-final geometry — landing short (or
+    // scrolling again after animations shift it below the fold anyway).
+    const t = setTimeout(() => {
+      const target = focusSection === 'heatmap' ? heatMapCardRef.current : balanceCardRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    return () => clearTimeout(t);
+    // Intentionally once-only, on mount — this only ever exists to honor a
+    // deep link's initial destination, not to re-scroll on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const muscleStats = useMemo(
     () => getWeeklyMuscleStats(logs, weekStartStr, weekEndStr),
@@ -143,7 +168,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           of two separate stacked cards. Neglected Muscles reflects real
           "right now" status (last actual training date), not the browsed
           week, so it reads `logs` directly rather than `muscleStats`. ── */}
-      <div className={cardClass()}>
+      <div className={cardClass()} ref={balanceCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{balanceTab === 'balance' ? '💪 Muscle Balance Overview' : '⚠️ Neglected Muscles'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -184,7 +209,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           above). The heat map keeps its own inner Front/Back toggle — a
           second-level choice (which side of the body), not the same kind
           of switch as this outer Heat Map/Recovery tab. ── */}
-      <div className={cardClass()}>
+      <div className={cardClass()} ref={heatMapCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{mapTab === 'heatmap' ? '🗺️ Muscle Heat Map' : '🔋 Recovery Dashboard'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

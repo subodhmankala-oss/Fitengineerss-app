@@ -389,6 +389,12 @@ function App() {
   // in TrainerDashboard.jsx). Lands the client straight on Home → Muscles,
   // same one-shot-consume pattern as deepLinkOpenMeasurements above.
   const [deepLinkOpenMuscleMap, setDeepLinkOpenMuscleMap] = useState(() => new URLSearchParams(window.location.search).get('openMuscleMap') === '1');
+  // &section=balance|heatmap on the same link — which of the two cards
+  // inside the Muscles tab to scroll straight to, since landing on the tab
+  // alone still left the client staring at the header/stats above whichever
+  // card the coach actually meant to share (Heat Map is the SECOND card
+  // down). Read once, same lifetime as deepLinkOpenMuscleMap itself.
+  const [deepLinkMuscleSection] = useState(() => new URLSearchParams(window.location.search).get('section') || null);
   useEffect(() => {
     if (deepLinkOpenMeasurements) setActiveTab('profile');
     if (deepLinkOpenMuscleMap) setActiveTab('home');
@@ -1355,6 +1361,7 @@ function App() {
         handleLogout={handleLogout}
         onNavigateToWorkouts={() => setActiveTab('workouts')}
         initialTimeframe={deepLinkOpenMuscleMap ? 'muscles' : null}
+        initialMuscleSection={deepLinkOpenMuscleMap ? deepLinkMuscleSection : null}
       />
     );
   };

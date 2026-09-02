@@ -2299,7 +2299,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // around what that specific card actually shows.
   const shareMuscleMapWithClient = (client, neglectedMuscles = [], source = 'balance') => {
     const clientName = (client?.userName || 'there').trim();
-    const link = `${window.location.origin}/?openMuscleMap=1`;
+    // &section= tells App.jsx/WeeklyMuscleAnalytics which of the two cards
+    // to scroll straight to — landing on the Muscles tab alone still left
+    // the client looking at the header/stats above whichever card was
+    // actually shared (Heat Map is the SECOND card down).
+    const link = `${window.location.origin}/?openMuscleMap=1&section=${source}`;
     const focusLine = source === 'heatmap'
       ? (neglectedMuscles.length > 0
           ? `Check your Muscle Heat Map — ${neglectedMuscles.join(', ')} ${neglectedMuscles.length > 1 ? 'are' : 'is'} showing cold this week, everything else is lighting up.`

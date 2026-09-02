@@ -13,6 +13,7 @@ import './WorkoutTracker.css';
 // visually identical (same chart widgets, session cards, heatmap).
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
+import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
@@ -2283,10 +2284,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // opens to whichever client's data is logged in on the device that clicks
   // it, so the client sees their own current Muscle Balance / Heat Map, not a
   // stale coach-side snapshot.
-  const shareMuscleMapWithClient = (client) => {
+  // neglectedMuscles: this client's zero-sets-this-week muscle names (same
+  // "Neglected" list the coach is looking at on screen when they tap Share —
+  // see WeeklyMuscleAnalytics' onShare callers, which compute it from the
+  // same weekly muscle stats as the Neglected tab). Personalizes the message
+  // with what the client actually needs to focus on instead of a generic
+  // "check your dashboard" line; falls back to the generic line when there's
+  // nothing neglected (or the caller didn't pass any) so a client who's
+  // covering everything doesn't get a message implying otherwise.
+  const shareMuscleMapWithClient = (client, neglectedMuscles = []) => {
     const clientName = (client?.userName || 'there').trim();
     const link = `${window.location.origin}/?openMuscleMap=1`;
-    const text = `Hi ${clientName}! Check out your latest Muscle Balance & Heat Map here: ${link}`;
+    const focusLine = neglectedMuscles.length > 0
+      ? `Please do check your focused area — ${neglectedMuscles.join(', ')}. We need to work on ${neglectedMuscles.length > 1 ? 'these' : 'this'} this week.`
+      : `Check out your latest Muscle Balance & Heat Map here.`;
+    const text = `Hi ${clientName}! ${focusLine} ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -6182,7 +6194,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
-                            onShare={() => shareMuscleMapWithClient(selectedClient)}
+                            onShare={() => {
+                              // Same computation NeglectedMuscles.jsx uses for
+                              // its list — zero sets logged in the currently
+                              // browsed week (weekDays), not a rolling
+                              // last-trained date. See that component's header
+                              // comment for why the two can disagree.
+                              const neglectedMuscles = getWeeklyMuscleStats(rawWorkoutLogs, weekDays[0], weekDays[6])
+                                .filter(m => m.status.key === 'neglected')
+                                .map(m => m.muscle);
+                              shareMuscleMapWithClient(selectedClient, neglectedMuscles);
+                            }}
                           />
                         )}
                       </>

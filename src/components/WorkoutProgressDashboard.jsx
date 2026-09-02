@@ -28,7 +28,7 @@ import './WorkoutProgressDashboard.css';
 // which exist yet — see conversation).
 const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
-const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialTimeframe = null }) => {
+const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null }) => {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Warrior');
   // initialTimeframe carries the ?openMuscleMap=1 deep link (see App.jsx) —
@@ -1579,6 +1579,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               weekOffset={weekOffset}
               setWeekOffset={setWeekOffset}
               weekNavBtnStyle={weekNavBtnStyle}
+              focusSection={initialMuscleSection}
             />
           )}
         </div>

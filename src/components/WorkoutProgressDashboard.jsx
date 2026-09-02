@@ -90,7 +90,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
   // userId resolves, so a client who has ever interacted with the screen
   // doesn't see it again on a later open/reload — even if the no-plan
   // condition is still true.
-  const [bypassWelcomeBack, setBypassWelcomeBack] = useState(false);
+  // Also seeded true when arriving via the Muscle Map deep link
+  // (initialTimeframe === 'muscles', see shareMuscleMapWithClient in
+  // TrainerDashboard.jsx): the coach's share icon is meant to drop the
+  // client straight onto Muscles, but Welcome Back sits in front of ALL
+  // timeframe content (see showWelcomeBack below) whenever the client has
+  // no active plan — silently swallowing the deep link's target tab behind
+  // an extra "Show my progress" tap the client had no reason to expect.
+  const [bypassWelcomeBack, setBypassWelcomeBack] = useState(() => initialTimeframe === 'muscles');
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName');

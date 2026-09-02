@@ -2299,7 +2299,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       ? `Please do check your focused area — ${neglectedMuscles.join(', ')}. We need to work on ${neglectedMuscles.length > 1 ? 'these' : 'this'} this week.`
       : `Check out your latest Muscle Balance & Heat Map here.`;
     const text = `Hi ${clientName}! ${focusLine} ${link}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    // Was `window.open(url, '_blank', 'noopener,noreferrer')` — in the
+    // installed iOS PWA (standalone mode), that opens a blank new Safari tab
+    // sitting on its own empty address bar instead of navigating to WhatsApp,
+    // leaving the coach looking at "Search or enter website name" with no
+    // way back to where they were. A real, synchronously-clicked <a> tag
+    // (same pattern as the working WhatsApp share links elsewhere on this
+    // page, e.g. the invite-code share button) navigates correctly in that
+    // same standalone context, so build and click one instead.
+    const a = document.createElement('a');
+    a.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   // Manual, coach-triggered nudge once this client's sessions-left ≤ 4 — a

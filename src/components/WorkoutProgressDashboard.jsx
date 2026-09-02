@@ -28,10 +28,13 @@ import './WorkoutProgressDashboard.css';
 // which exist yet — see conversation).
 const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
-const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts }) => {
+const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialTimeframe = null }) => {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Warrior');
-  const [timeframe, setTimeframe] = useState('weekly');
+  // initialTimeframe carries the ?openMuscleMap=1 deep link (see App.jsx) —
+  // lazy init so it only wins on first mount, same as the weekly/daily/
+  // monthly toggle buttons below normally would.
+  const [timeframe, setTimeframe] = useState(() => initialTimeframe || 'weekly');
   // 0 = current week, -1 = last week, and so on — lets the weekly view page
   // back through previous weeks instead of only ever showing the current one.
   const [weekOffset, setWeekOffset] = useState(0);

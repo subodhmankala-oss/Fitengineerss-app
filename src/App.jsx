@@ -193,7 +193,7 @@ const clearLocalStoragePreservingChats = () => {
     // two keys here meant the spotlight tour replayed on every such reopen
     // even though handleLogout's explicit-logout path had already been
     // fixed to preserve them. Confirmed 2026-08-11.
-    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen')) {
+    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount')) {
       preserved[key] = localStorage.getItem(key);
     }
   }
@@ -201,6 +201,28 @@ const clearLocalStoragePreservingChats = () => {
   Object.keys(preserved).forEach(key => {
     localStorage.setItem(key, preserved[key]);
   });
+};
+
+// "Welcome back" quick login: remembers whoever last reached the dashboard on
+// this device (client or coach, Google or email) so Onboarding.jsx can show a
+// one-tap "Log in as X" screen instead of the full Client/Coach + Google/email
+// chooser on the next visit. Called from the single spot below where every
+// login path (Google, email, signup-then-wizard) converges after
+// onboardingComplete is actually set — see Onboarding.jsx's onComplete prop.
+// Overwrites any previously saved account (one remembered account at a time).
+const saveQuickLoginAccount = () => {
+  const email = localStorage.getItem('userEmail');
+  if (!email) return;
+  const name = localStorage.getItem('userName') || email.split('@')[0];
+  const role = localStorage.getItem('userRole') || 'client';
+  // Set by Onboarding.jsx at every real login-success point right before it
+  // hands off here; falls back to a role-based guess for older saved state.
+  const loginMethod = localStorage.getItem('lastLoginMethod') ||
+    ((role === 'coach' || role === 'super-admin') ? 'google' : 'email');
+  const initials = name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || email[0].toUpperCase();
+  const colors = ['#ea4335', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b'];
+  const color = colors[email.charCodeAt(0) % colors.length];
+  localStorage.setItem('savedLoginAccount', JSON.stringify({ name, email, role, loginMethod, initials, color }));
 };
 
 const trackerKeys = [
@@ -1273,6 +1295,7 @@ function App() {
           if (goal) setUserGoal(goal);
           setUserEmail(localStorage.getItem('userEmail') || '');
           setUserRole(localStorage.getItem('userRole') || 'client');
+          saveQuickLoginAccount();
           setOnboardingComplete(true);
           // Show wizard only for clients who haven't completed 4-step onboarding
           const completedWizard = localStorage.getItem('onboardingCompleted');
@@ -1299,6 +1322,10 @@ function App() {
     // the same way last_logged_in_email/lastAuthUserType already are below.
     const clientTourSeen = localStorage.getItem('clientTourSeen');
     const coachTourSeen = localStorage.getItem('coachTourSeen');
+    // The quick-login "Welcome back" account (see saveQuickLoginAccount above)
+    // is meant to survive a Log Out — that's the whole point, so the next
+    // visit shows "Log in as X" instead of the full chooser again.
+    const savedLoginAccount = localStorage.getItem('savedLoginAccount');
 
     // Sign out from Supabase Auth if active and wait for it to complete
     try {
@@ -1316,6 +1343,7 @@ function App() {
     }
     if (clientTourSeen) localStorage.setItem('clientTourSeen', clientTourSeen);
     if (coachTourSeen) localStorage.setItem('coachTourSeen', coachTourSeen);
+    if (savedLoginAccount) localStorage.setItem('savedLoginAccount', savedLoginAccount);
     // Remember which tab (coach vs client) they were using, so the login
     // screen defaults back to it instead of always landing on Client.
     if (activeRole === 'coach' || activeRole === 'super-admin') {

@@ -161,6 +161,24 @@ const Onboarding = ({ onComplete }) => {
     return saved.replace(/^\+91/, '');
   });
 
+  // "Welcome back" quick-login: whoever last reached the dashboard on this
+  // device (client or coach, Google or email) gets remembered here — see
+  // saveQuickLoginAccount() in App.jsx, which writes this after every
+  // successful login, and handleLogout, which preserves it across the
+  // localStorage.clear() logout does. Only shown when nobody's currently
+  // mid-login (a live userEmail or a pending coach application takes
+  // priority over this screen).
+  const [quickLoginAccount, setQuickLoginAccount] = useState(() => {
+    if (localStorage.getItem('userEmail')) return null;
+    if (localStorage.getItem('pendingCoachApply') === 'true') return null;
+    try {
+      const raw = localStorage.getItem('savedLoginAccount');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const startCoachGoogleLogin = async () => {
     setAuthError('');
     // sessionStorage, not localStorage: signInWithGoogle() below calls
@@ -190,6 +208,7 @@ const Onboarding = ({ onComplete }) => {
   const finishCoachGoogleLogin = async (email, displayName) => {
     sessionStorage.removeItem('pendingCoachLogin');
     localStorage.setItem('userEmail', email);
+    localStorage.setItem('lastLoginMethod', 'google');
     if (displayName) localStorage.setItem('userName', displayName);
 
     const isHardcodedCoach = TRAINER_EMAILS.includes(email.toLowerCase());
@@ -433,6 +452,7 @@ const Onboarding = ({ onComplete }) => {
         if (!profile) {
           profile = await databaseService.getUserProfileByEmail(authEmail);
         }
+        localStorage.setItem('lastLoginMethod', 'email');
         if (profile?.onboardingCompleted) {
           // Already finished the one-time wizard on a previous login — straight to the dashboard.
           await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
@@ -513,6 +533,7 @@ const Onboarding = ({ onComplete }) => {
       }
 
       // Confirmation disabled — straight into the wizard.
+      localStorage.setItem('lastLoginMethod', 'email');
       setName(cleanName);
       setStep('wizard');
     } catch (err) {
@@ -664,6 +685,7 @@ const Onboarding = ({ onComplete }) => {
           throw new Error('Could not verify your account. Please try again.');
         }
         rememberForDevAutoLogin(authEmail, authPassword);
+        localStorage.setItem('lastLoginMethod', 'email');
         const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
         const mockCoaches = databaseService.getMockTable('coaches');
 
@@ -883,6 +905,7 @@ const Onboarding = ({ onComplete }) => {
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userName', profile.name);
     localStorage.setItem('userRole', 'client');
+    localStorage.setItem('lastLoginMethod', 'google');
 
     let dbProfile = null;
     if (isSupabaseConfigured && databaseService.supabase) {
@@ -959,6 +982,46 @@ const Onboarding = ({ onComplete }) => {
     // These demo Google accounts already carry full profile data (age/height/weight/etc.),
     // so route straight to the dashboard via the instant-login path instead of the wizard.
     handleInstantLogin(profile, email);
+  };
+
+  // Tapping a saved account on the "Welcome back" quick-login screen. We
+  // never stored a password, so this can't silently re-establish a session
+  // by itself — it instead skips straight to whichever re-auth step that
+  // account actually needs, pre-filled with everything we already know
+  // (role, email), so the person only has to confirm rather than start over
+  // from the Client/Coach + Google/email chooser.
+  const handleQuickLogin = (account) => {
+    setAuthError('');
+    setQuickLoginAccount(null);
+    const isCoachAccount = account.role === 'coach' || account.role === 'super-admin' || account.role === 'coach_pending';
+    setUserType(isCoachAccount ? 'coach' : 'client');
+    setAuthTab('login');
+    setAuthEmail(account.email || '');
+
+    if (account.loginMethod === 'google' && isCoachAccount) {
+      startCoachGoogleLogin();
+      return;
+    }
+    if (account.loginMethod === 'google') {
+      // Real client Google login only exists as the localhost demo picker —
+      // if this saved account matches one of those mock profiles, log
+      // straight in with it instead of making them pick it again.
+      const match = googleAccounts.find(a => a.email === account.email);
+      if (match) {
+        handleGoogleAccountSelect(match.profile, match.email);
+      } else {
+        setGoogleModalIntent('client');
+        setShowGoogleModal(true);
+      }
+      return;
+    }
+    // Email/password account: land directly on the right role's login form,
+    // email pre-filled, just waiting on the password.
+    if (isCoachAccount) {
+      setShowCoachEmailForm(true);
+    } else {
+      setShowClientEmailForm(true);
+    }
   };
 
   useEffect(() => {
@@ -1480,6 +1543,50 @@ const Onboarding = ({ onComplete }) => {
           <div className="portal-right-panel">
             <div className="credentials-form-container animate-slide-in" style={{ padding: '20px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
 
+              {quickLoginAccount ? (
+                /* "Welcome back" quick login — whoever last reached the dashboard
+                   on this device. See saveQuickLoginAccount() in App.jsx and
+                   handleQuickLogin() above. */
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '24px 0' }}>
+                  <div style={{
+                    width: 72, height: 72, borderRadius: '50%',
+                    background: quickLoginAccount.color || '#8b5cf6', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.6rem', fontWeight: 700
+                  }}>
+                    {quickLoginAccount.initials || (quickLoginAccount.name || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 700 }}>{quickLoginAccount.name}</div>
+                    <div style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.8rem', marginTop: '2px' }}>{quickLoginAccount.email}</div>
+                  </div>
+
+                  {authError && <div className="auth-error-banner" style={{ width: '100%' }}>❌ {authError}</div>}
+
+                  <button
+                    type="button"
+                    className="gmail-login-btn"
+                    style={{ width: '100%', margin: 0, padding: '12px' }}
+                    disabled={authLoading}
+                    onClick={() => handleQuickLogin(quickLoginAccount)}
+                  >
+                    Log in as {(quickLoginAccount.name || '').split(' ')[0] || 'you'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('savedLoginAccount');
+                      localStorage.removeItem('last_logged_in_email');
+                      setQuickLoginAccount(null);
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    Not you? Use another account
+                  </button>
+                </div>
+              ) : (
+              <>
               {/* Role Toggle Tab — centered, no side heading */}
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '12px' }}>
                 <div className="form-role-toggle" style={{ margin: 0, width: '100%', maxWidth: '300px' }}>
@@ -1885,6 +1992,8 @@ const Onboarding = ({ onComplete }) => {
                     </button>
                   </div>
                 </form>
+              )}
+              </>
               )}
 
             </div>

@@ -457,6 +457,53 @@ async function serverFallbackAuth() {
   return { headers, email };
 }
 
+// ─── SUPER-ADMIN CROSS-TENANT READS ───
+// The Super-Admin overview has to count across EVERY coach and client, which
+// is exactly what RLS stops a browser-side query from doing: restSelect() on
+// `coaches`/`clients` with the anon key comes back `200 []` — success, no
+// rows, nothing thrown. getAllCoaches()/getPlatformStats() read that as a real
+// answer and reported "Total Coaches: 0 / Total Clients: 0" on a platform
+// showing 21 clients in the list right below (that list is correct because it
+// already goes through the service-role API). These two go through the same
+// service-role path, super-admin-gated server side; a non-super-admin caller
+// gets 403 and the existing browser-side path still runs as before.
+// Return null on any failure so callers can tell "couldn't read" from "empty".
+async function getAdminCoachesViaServer() {
+  try {
+    const { headers, email } = await serverFallbackAuth();
+    const resp = await fetch('/api/data-read?resource=admin-coaches', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json().catch(() => null);
+    if (!Array.isArray(data?.coaches) || !Array.isArray(data?.clientCounts)) return null;
+    return data;
+  } catch (e) {
+    console.warn('getAdminCoachesViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
+async function getPlatformStatsViaServer(weekStart) {
+  try {
+    const { headers, email } = await serverFallbackAuth();
+    const resp = await fetch('/api/data-read?resource=platform-stats', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email, weekStart })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json().catch(() => null);
+    if (typeof data?.totalActiveClients !== 'number') return null;
+    return data;
+  } catch (e) {
+    console.warn('getPlatformStatsViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
 // RLS-proof workout_logs read via api/get-workout-logs.js — see that file's
 // comment. Returns the log array, or null if the fallback itself failed (the
 // caller decides what null means; never throws).
@@ -4109,6 +4156,28 @@ const databaseService = {
   },
 
   async getAllCoaches() {
+    // Service-role path first — see getAdminCoachesViaServer for why the
+    // browser-side read below cannot see other tenants' rows.
+    const viaServer = await getAdminCoachesViaServer();
+    if (viaServer) {
+      return viaServer.coaches.map(coach => {
+        const coachUserId = coach.user_id;
+        const clients = viaServer.clientCounts.filter(c => c.coach_id === coachUserId);
+        return {
+          id: coachUserId,
+          name: coach.users?.full_name || 'Coach',
+          email: coach.users?.email || '',
+          brand: coach.brand_name || 'Fit Engineers',
+          payment_status: coach.users?.payment_status || 'active',
+          experienceYears: coach.experience_years ?? null,
+          isBlocked: coach.is_blocked === true,
+          signup_date: coach.created_at || coach.users?.created_at || new Date().toISOString(),
+          clientsCount: clients.length,
+          last_login: coach.users?.last_login || null
+        };
+      });
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         // Source of truth for "is a coach" is the coaches table, not users.role —
@@ -4354,6 +4423,17 @@ const databaseService = {
   async getPlatformStats() {
     let totalWorkoutsLoggedThisWeek = 0;
     let totalActiveClients = 0;
+
+    // weekStart is computed here, not server side, so "this week" stays in the
+    // viewer's timezone exactly as it always has been.
+    const weekStartDate = new Date();
+    weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay());
+    const weekStartStr = weekStartDate.toISOString().split('T')[0];
+
+    // Service-role path first — see getPlatformStatsViaServer for why the
+    // browser-side counts below come back as 0 for a super-admin.
+    const viaServer = await getPlatformStatsViaServer(weekStartStr);
+    if (viaServer) return viaServer;
 
     if (isSupabaseConfigured && supabase) {
       try {

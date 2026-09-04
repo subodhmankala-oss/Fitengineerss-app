@@ -1553,6 +1553,13 @@ function App() {
             onComplete={() => {
               setShowClientWizard(false);
               localStorage.setItem('onboardingCompleted', 'true');
+              // A brand-new signup reaches the dashboard through THIS
+              // completion, not the Onboarding onComplete above — so a saved
+              // quick-login account never got created for a first-time
+              // signup until this call was added (reproduced 2026-09-04: a
+              // fresh client who logged out right after finishing the
+              // wizard saw the full chooser again, not "Welcome back").
+              saveQuickLoginAccount();
             }}
             onBackToLogin={handleLogout}
           />

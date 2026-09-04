@@ -5,6 +5,7 @@ import App from './App.jsx'
 import InstallBanner from './components/InstallBanner.jsx'
 import IOSInstallBanner from './components/IOSInstallBanner.jsx'
 import UpdateToast from './components/UpdateToast.jsx'
+import PullToRefresh from './components/PullToRefresh.jsx'
 import { TourProvider } from './context/TourContext.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
 import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
@@ -19,6 +20,7 @@ createRoot(document.getElementById('root')).render(
     <InstallBanner />
     <IOSInstallBanner />
     <UpdateToast />
+    <PullToRefresh />
   </StrictMode>,
 )
 

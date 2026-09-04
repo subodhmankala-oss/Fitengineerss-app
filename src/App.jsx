@@ -224,6 +224,12 @@ const saveQuickLoginAccount = (override) => {
   if (!email) return;
   const name = override?.name || localStorage.getItem('userName') || email.split('@')[0];
   const role = override?.role || localStorage.getItem('userRole') || 'client';
+  // The real Google/Gmail photo. Has to live INSIDE this snapshot rather than
+  // being read back from localStorage.userAvatarUrl at render time: logout
+  // clears localStorage and only this one key is preserved, so the picker
+  // would otherwise always fall back to an initials circle after a logout —
+  // the exact case it exists for.
+  const avatarUrl = override?.avatarUrl || localStorage.getItem('userAvatarUrl') || null;
   // Set by Onboarding.jsx at every real login-success point right before it
   // hands off here; falls back to a role-based guess for older saved state.
   const loginMethod = override?.loginMethod || localStorage.getItem('lastLoginMethod') ||
@@ -231,7 +237,7 @@ const saveQuickLoginAccount = (override) => {
   const initials = name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || email[0].toUpperCase();
   const colors = ['#ea4335', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b'];
   const color = colors[email.charCodeAt(0) % colors.length];
-  localStorage.setItem('savedLoginAccount', JSON.stringify({ name, email, role, loginMethod, initials, color }));
+  localStorage.setItem('savedLoginAccount', JSON.stringify({ name, email, role, loginMethod, initials, color, avatarUrl }));
 };
 
 const trackerKeys = [
@@ -691,7 +697,8 @@ function App() {
               email,
               name: profile?.userName || googleName || 'Coach',
               role: profile?.role || (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'),
-              loginMethod: 'google'
+              loginMethod: 'google',
+              avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
             });
             return;
           }
@@ -781,7 +788,11 @@ function App() {
           setUserEmail(email);
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
-          saveQuickLoginAccount({ email, loginMethod: 'google' });
+          saveQuickLoginAccount({
+            email,
+            loginMethod: 'google',
+            avatarUrl: googleAvatarUrl || clientProfile?.userAvatarUrl || null
+          });
           // Show wizard if onboarding_completed is false (new client)
           if (clientProfile?.onboarding_completed === false || clientProfile?.onboarding_completed === null || !clientProfile?.onboarding_completed) {
             setShowClientWizard(true);
@@ -822,7 +833,11 @@ function App() {
 
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
-          saveQuickLoginAccount({ email, loginMethod: 'google' });
+          saveQuickLoginAccount({
+            email,
+            loginMethod: 'google',
+            avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
+          });
         } else {
           // Incomplete trainer profile!
           localStorage.setItem('userEmail', email);

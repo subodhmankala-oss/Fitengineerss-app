@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS, resolveRealAccessToken } from '../services/databaseService';
 import { calculateTargetsGeneric } from '../utils/targets';
+import Avatar from './Avatar';
 import './Onboarding.css';
 
 // Dev-only auto-login convenience (see matching isLocalDevAutoLogin in
@@ -1567,14 +1568,15 @@ const Onboarding = ({ onComplete }) => {
                         cursor: 'pointer', textAlign: 'left'
                       }}
                     >
-                      <div style={{
-                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                        background: quickLoginAccount.color || '#8b5cf6', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.95rem', fontWeight: 700
-                      }}>
-                        {quickLoginAccount.initials || (quickLoginAccount.name || '?').charAt(0).toUpperCase()}
-                      </div>
+                      {/* Real Google photo when we captured one at login (stored
+                          on the saved account itself — localStorage.userAvatarUrl
+                          doesn't survive logout), then Gravatar, then initials. */}
+                      <Avatar
+                        email={quickLoginAccount.email}
+                        name={quickLoginAccount.name}
+                        avatarUrl={quickLoginAccount.avatarUrl}
+                        size={40}
+                      />
                       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 700 }}>
                           {authLoading ? 'Logging in...' : `Log in as ${(quickLoginAccount.name || '').split(' ')[0] || 'you'}`}

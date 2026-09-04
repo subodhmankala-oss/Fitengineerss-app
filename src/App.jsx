@@ -206,18 +206,27 @@ const clearLocalStoragePreservingChats = () => {
 // "Welcome back" quick login: remembers whoever last reached the dashboard on
 // this device (client or coach, Google or email) so Onboarding.jsx can show a
 // one-tap "Log in as X" screen instead of the full Client/Coach + Google/email
-// chooser on the next visit. Called from the single spot below where every
-// login path (Google, email, signup-then-wizard) converges after
-// onboardingComplete is actually set — see Onboarding.jsx's onComplete prop.
+// chooser on the next visit. Called from every spot where a login actually
+// completes: Onboarding.jsx's onComplete prop (below), ClientOnboardingWizard's
+// own onComplete, and processSessionUser's three completion branches (a real
+// Google OAuth redirect never reaches either of those — onAuthStateChange
+// resolves the session and sets onboardingComplete directly, entirely inside
+// this effect, without Onboarding ever calling its onComplete prop. Missing
+// this is exactly why a real coach's Google login on production never showed
+// the picker on the next visit — confirmed 2026-09-05).
+// `override` lets processSessionUser pass values it already has in scope
+// instead of relying on localStorage, since one of its branches (a
+// hardcoded-trainer email with no coaches row yet) only ever writes userEmail
+// to React state, not localStorage.
 // Overwrites any previously saved account (one remembered account at a time).
-const saveQuickLoginAccount = () => {
-  const email = localStorage.getItem('userEmail');
+const saveQuickLoginAccount = (override) => {
+  const email = override?.email || localStorage.getItem('userEmail');
   if (!email) return;
-  const name = localStorage.getItem('userName') || email.split('@')[0];
-  const role = localStorage.getItem('userRole') || 'client';
+  const name = override?.name || localStorage.getItem('userName') || email.split('@')[0];
+  const role = override?.role || localStorage.getItem('userRole') || 'client';
   // Set by Onboarding.jsx at every real login-success point right before it
   // hands off here; falls back to a role-based guess for older saved state.
-  const loginMethod = localStorage.getItem('lastLoginMethod') ||
+  const loginMethod = override?.loginMethod || localStorage.getItem('lastLoginMethod') ||
     ((role === 'coach' || role === 'super-admin') ? 'google' : 'email');
   const initials = name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || email[0].toUpperCase();
   const colors = ['#ea4335', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b'];
@@ -678,6 +687,12 @@ function App() {
             setUserEmail(email);
             localStorage.setItem('onboardingComplete', 'true');
             setOnboardingComplete(true);
+            saveQuickLoginAccount({
+              email,
+              name: profile?.userName || googleName || 'Coach',
+              role: profile?.role || (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'),
+              loginMethod: 'google'
+            });
             return;
           }
 
@@ -766,6 +781,7 @@ function App() {
           setUserEmail(email);
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
+          saveQuickLoginAccount({ email, loginMethod: 'google' });
           // Show wizard if onboarding_completed is false (new client)
           if (clientProfile?.onboarding_completed === false || clientProfile?.onboarding_completed === null || !clientProfile?.onboarding_completed) {
             setShowClientWizard(true);
@@ -803,9 +819,10 @@ function App() {
           }
           if (profile?.userGoal) setUserGoal(profile.userGoal);
           setUserEmail(email);
-          
+
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
+          saveQuickLoginAccount({ email, loginMethod: 'google' });
         } else {
           // Incomplete trainer profile!
           localStorage.setItem('userEmail', email);

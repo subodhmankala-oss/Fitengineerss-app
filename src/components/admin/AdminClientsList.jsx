@@ -29,8 +29,8 @@ export default function AdminClientsList({
   }, {});
   const summaryTiles = [
     { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.2)' },
-    { key: 'inactive-1-2', label: '1–2 days inactive', count: (activityCounts['inactive-1'] || 0) + (activityCounts['inactive-2'] || 0), color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
-    { key: 'inactive-3plus', label: '3+ days inactive', count: activityCounts['inactive-3plus'] || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' },
+    { key: 'inactive-mid', label: '1–5 days inactive', count: activityCounts['inactive-mid'] || 0, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
+    { key: 'inactive-long', label: '6+ days inactive', count: activityCounts['inactive-long'] || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' },
     { key: 'never', label: 'Never logged in', count: activityCounts.never || 0, color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)' }
   ];
 

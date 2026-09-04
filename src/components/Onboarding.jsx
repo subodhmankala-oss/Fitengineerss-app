@@ -182,7 +182,9 @@ const Onboarding = ({ onComplete }) => {
   // Overflow ("⋮") menu on the quick-login row — currently just "Remove account".
   const [showQuickLoginMenu, setShowQuickLoginMenu] = useState(false);
 
-  const startCoachGoogleLogin = async () => {
+  // loginHint (the saved quick-login account's email) skips Google's "Choose
+  // an account" screen — see signInWithGoogle in databaseService.
+  const startCoachGoogleLogin = async (loginHint) => {
     setAuthError('');
     // sessionStorage, not localStorage: signInWithGoogle() below calls
     // supabase.auth.signOut() as a pre-redirect "clean slate" step, which
@@ -200,7 +202,7 @@ const Onboarding = ({ onComplete }) => {
         // Production: real OAuth redirect. App.jsx's onAuthStateChange handler
         // reads the pendingCoachLogin flag set above to route the returning
         // session through the coach path instead of defaulting to client.
-        await databaseService.signInWithGoogle();
+        await databaseService.signInWithGoogle({ loginHint });
       }
     } catch (err) {
       sessionStorage.removeItem('pendingCoachLogin');
@@ -995,31 +997,49 @@ const Onboarding = ({ onComplete }) => {
   // from the Client/Coach + Google/email chooser.
   const handleQuickLogin = (account) => {
     setAuthError('');
-    setQuickLoginAccount(null);
     const isCoachAccount = account.role === 'coach' || account.role === 'super-admin' || account.role === 'coach_pending';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     setUserType(isCoachAccount ? 'coach' : 'client');
     setAuthTab('login');
     setAuthEmail(account.email || '');
 
-    if (account.loginMethod === 'google' && isCoachAccount) {
-      startCoachGoogleLogin();
-      return;
-    }
     if (account.loginMethod === 'google') {
-      // Real client Google login only exists as the localhost demo picker —
-      // if this saved account matches one of those mock profiles, log
-      // straight in with it instead of making them pick it again.
+      // Deliberately does NOT clear quickLoginAccount: kicking off the OAuth
+      // redirect is async (a Supabase sign-out, then building the provider
+      // URL), and clearing it here dropped the user on the full Client/Coach
+      // chooser for those few hundred milliseconds before the browser
+      // navigated away — read as a bug, since tapping "Log in as X" visibly
+      // bounced through the very screen it exists to skip. Keep the row on
+      // screen in a loading state until the redirect takes over.
+      setAuthLoading(true);
+      if (isCoachAccount) {
+        startCoachGoogleLogin(account.email);
+        return;
+      }
+      // Client. On localhost the only Google login that exists is the demo
+      // picker, so log straight in with the matching mock profile; on a real
+      // deployment do the actual OAuth redirect, hinted with this account's
+      // email so Google skips its "Choose an account" screen.
       const match = googleAccounts.find(a => a.email === account.email);
-      if (match) {
+      if (isLocalhost && match) {
         handleGoogleAccountSelect(match.profile, match.email);
-      } else {
+      } else if (isLocalhost) {
+        setQuickLoginAccount(null);
+        setAuthLoading(false);
         setGoogleModalIntent('client');
         setShowGoogleModal(true);
+      } else {
+        databaseService.signInWithGoogle({ loginHint: account.email }).catch((err) => {
+          setAuthLoading(false);
+          setAuthError(err.message || 'Google login failed.');
+        });
       }
       return;
     }
-    // Email/password account: land directly on the right role's login form,
-    // email pre-filled, just waiting on the password.
+    // Email/password account: no password was ever stored, so land directly on
+    // the right role's login form with the email pre-filled, waiting only on
+    // the password.
+    setQuickLoginAccount(null);
     if (isCoachAccount) {
       setShowCoachEmailForm(true);
     } else {

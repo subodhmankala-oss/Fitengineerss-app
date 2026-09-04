@@ -161,6 +161,26 @@ const Onboarding = ({ onComplete }) => {
     return saved.replace(/^\+91/, '');
   });
 
+  // "Welcome back" quick-login: whoever last reached the dashboard on this
+  // device (client or coach, Google or email) gets remembered here — see
+  // saveQuickLoginAccount() in App.jsx, which writes this after every
+  // successful login, and handleLogout, which preserves it across the
+  // localStorage.clear() logout does. Only shown when nobody's currently
+  // mid-login (a live userEmail or a pending coach application takes
+  // priority over this screen).
+  const [quickLoginAccount, setQuickLoginAccount] = useState(() => {
+    if (localStorage.getItem('userEmail')) return null;
+    if (localStorage.getItem('pendingCoachApply') === 'true') return null;
+    try {
+      const raw = localStorage.getItem('savedLoginAccount');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  // Overflow ("⋮") menu on the quick-login row — currently just "Remove account".
+  const [showQuickLoginMenu, setShowQuickLoginMenu] = useState(false);
+
   const startCoachGoogleLogin = async () => {
     setAuthError('');
     // sessionStorage, not localStorage: signInWithGoogle() below calls
@@ -190,6 +210,7 @@ const Onboarding = ({ onComplete }) => {
   const finishCoachGoogleLogin = async (email, displayName) => {
     sessionStorage.removeItem('pendingCoachLogin');
     localStorage.setItem('userEmail', email);
+    localStorage.setItem('lastLoginMethod', 'google');
     if (displayName) localStorage.setItem('userName', displayName);
 
     const isHardcodedCoach = TRAINER_EMAILS.includes(email.toLowerCase());
@@ -433,6 +454,7 @@ const Onboarding = ({ onComplete }) => {
         if (!profile) {
           profile = await databaseService.getUserProfileByEmail(authEmail);
         }
+        localStorage.setItem('lastLoginMethod', 'email');
         if (profile?.onboardingCompleted) {
           // Already finished the one-time wizard on a previous login — straight to the dashboard.
           await databaseService.loadProfileIntoLocalStorage(profile, authEmail);
@@ -513,6 +535,7 @@ const Onboarding = ({ onComplete }) => {
       }
 
       // Confirmation disabled — straight into the wizard.
+      localStorage.setItem('lastLoginMethod', 'email');
       setName(cleanName);
       setStep('wizard');
     } catch (err) {
@@ -664,6 +687,7 @@ const Onboarding = ({ onComplete }) => {
           throw new Error('Could not verify your account. Please try again.');
         }
         rememberForDevAutoLogin(authEmail, authPassword);
+        localStorage.setItem('lastLoginMethod', 'email');
         const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
         const mockCoaches = databaseService.getMockTable('coaches');
 
@@ -883,6 +907,7 @@ const Onboarding = ({ onComplete }) => {
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userName', profile.name);
     localStorage.setItem('userRole', 'client');
+    localStorage.setItem('lastLoginMethod', 'google');
 
     let dbProfile = null;
     if (isSupabaseConfigured && databaseService.supabase) {
@@ -959,6 +984,46 @@ const Onboarding = ({ onComplete }) => {
     // These demo Google accounts already carry full profile data (age/height/weight/etc.),
     // so route straight to the dashboard via the instant-login path instead of the wizard.
     handleInstantLogin(profile, email);
+  };
+
+  // Tapping a saved account on the "Welcome back" quick-login screen. We
+  // never stored a password, so this can't silently re-establish a session
+  // by itself — it instead skips straight to whichever re-auth step that
+  // account actually needs, pre-filled with everything we already know
+  // (role, email), so the person only has to confirm rather than start over
+  // from the Client/Coach + Google/email chooser.
+  const handleQuickLogin = (account) => {
+    setAuthError('');
+    setQuickLoginAccount(null);
+    const isCoachAccount = account.role === 'coach' || account.role === 'super-admin' || account.role === 'coach_pending';
+    setUserType(isCoachAccount ? 'coach' : 'client');
+    setAuthTab('login');
+    setAuthEmail(account.email || '');
+
+    if (account.loginMethod === 'google' && isCoachAccount) {
+      startCoachGoogleLogin();
+      return;
+    }
+    if (account.loginMethod === 'google') {
+      // Real client Google login only exists as the localhost demo picker —
+      // if this saved account matches one of those mock profiles, log
+      // straight in with it instead of making them pick it again.
+      const match = googleAccounts.find(a => a.email === account.email);
+      if (match) {
+        handleGoogleAccountSelect(match.profile, match.email);
+      } else {
+        setGoogleModalIntent('client');
+        setShowGoogleModal(true);
+      }
+      return;
+    }
+    // Email/password account: land directly on the right role's login form,
+    // email pre-filled, just waiting on the password.
+    if (isCoachAccount) {
+      setShowCoachEmailForm(true);
+    } else {
+      setShowClientEmailForm(true);
+    }
   };
 
   useEffect(() => {
@@ -1480,6 +1545,97 @@ const Onboarding = ({ onComplete }) => {
           <div className="portal-right-panel">
             <div className="credentials-form-container animate-slide-in" style={{ padding: '20px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
 
+              {quickLoginAccount ? (
+                /* "Welcome back" quick login — whoever last reached the dashboard
+                   on this device. See saveQuickLoginAccount() in App.jsx and
+                   handleQuickLogin() above. Laid out as a compact account-chooser
+                   row (avatar + "Log in as X" + overflow menu), matching the
+                   native Google/Chrome account picker pattern, with a separate
+                   "Log in using another account" row below it. */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
+                  {authError && <div className="auth-error-banner">❌ {authError}</div>}
+
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      disabled={authLoading}
+                      onClick={() => handleQuickLogin(quickLoginAccount)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 12px', background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
+                        cursor: 'pointer', textAlign: 'left'
+                      }}
+                    >
+                      <div style={{
+                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                        background: quickLoginAccount.color || '#8b5cf6', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.95rem', fontWeight: 700
+                      }}>
+                        {quickLoginAccount.initials || (quickLoginAccount.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 700 }}>
+                          {authLoading ? 'Logging in...' : `Log in as ${(quickLoginAccount.name || '').split(' ')[0] || 'you'}`}
+                        </span>
+                        <span style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {quickLoginAccount.email}
+                        </span>
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setShowQuickLoginMenu(v => !v); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowQuickLoginMenu(v => !v); } }}
+                        style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '1.1rem', fontWeight: 700, padding: '4px 6px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}
+                        aria-label="Account options"
+                      >
+                        ⋮
+                      </span>
+                    </button>
+
+                    {showQuickLoginMenu && (
+                      <div style={{
+                        position: 'absolute', right: 8, top: '100%', marginTop: '4px', zIndex: 5,
+                        background: '#1a1a24', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQuickLoginMenu(false);
+                            localStorage.removeItem('savedLoginAccount');
+                            localStorage.removeItem('last_logged_in_email');
+                            setQuickLoginAccount(null);
+                          }}
+                          style={{ display: 'block', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#f87171', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'left' }}
+                        >
+                          Remove account
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('savedLoginAccount');
+                      localStorage.removeItem('last_logged_in_email');
+                      setShowQuickLoginMenu(false);
+                      setQuickLoginAccount(null);
+                    }}
+                    style={{
+                      width: '100%', padding: '12px', background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
+                      color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    Log in using another account
+                  </button>
+                </div>
+              ) : (
+              <>
               {/* Role Toggle Tab — centered, no side heading */}
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '12px' }}>
                 <div className="form-role-toggle" style={{ margin: 0, width: '100%', maxWidth: '300px' }}>
@@ -1885,6 +2041,8 @@ const Onboarding = ({ onComplete }) => {
                     </button>
                   </div>
                 </form>
+              )}
+              </>
               )}
 
             </div>

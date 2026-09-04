@@ -70,30 +70,56 @@ async function handleCoachClients(req, res) {
         `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(coachId)}&select=email`,
         { headers: svcHeaders }
       );
-      const ownerRows = await ownerResp.json().catch(() => []);
-      const ownerEmail = (Array.isArray(ownerRows) && ownerRows[0]?.email || '').trim().toLowerCase();
+      const ownerRows = await ownerResp.json().catch(() => null);
+      // A FAILED lookup is not the same as "this isn't your roster" — without
+      // this check a backend/config failure came back as 403 "not authorized",
+      // blaming the caller for a server problem.
+      if (!ownerResp.ok || !Array.isArray(ownerRows)) {
+        console.error('get-coach-clients owner lookup failed:', ownerResp.status, ownerRows);
+        return res.status(502).json({ error: 'Could not verify roster ownership.' });
+      }
+      const ownerEmail = (ownerRows[0]?.email || '').trim().toLowerCase();
       if (!ownerEmail || ownerEmail !== verifiedEmail) {
         return res.status(403).json({ error: 'You are not authorized to read this roster.' });
       }
     }
 
+    // Two attempts on purpose: the embedded last_login column isn't present
+    // on every deployment, so a failure there falls back to the narrower
+    // select. What must NOT happen is a failure of BOTH turning into an
+    // empty roster — that is exactly what made every backend/config problem
+    // (wrong Supabase project, unreadable service key, RLS change) surface
+    // in the UI as a cheerful "No Clients Found", sending debugging after
+    // missing data that was never actually missing.
+    const readRoster = async (select) => {
+      const resp = await fetch(
+        `${supabaseUrl}/rest/v1/clients?select=${select}&coach_id=eq.${encodeURIComponent(coachId)}`,
+        { headers: svcHeaders }
+      );
+      const body = await resp.json().catch(() => null);
+      if (!resp.ok || !Array.isArray(body)) {
+        const err = new Error(`clients read failed (${resp.status})`);
+        err.detail = body;
+        err.status = resp.status;
+        throw err;
+      }
+      return body;
+    };
+
     let rows;
     try {
-      rows = await fetch(
-        `${supabaseUrl}/rest/v1/clients?select=*,users!clients_user_id_fkey(email,last_login)&coach_id=eq.${encodeURIComponent(coachId)}`,
-        { headers: svcHeaders }
-      ).then(r => r.json());
-    } catch (e) {
-      rows = null;
-    }
-    if (!Array.isArray(rows)) {
-      rows = await fetch(
-        `${supabaseUrl}/rest/v1/clients?select=*,users!clients_user_id_fkey(email)&coach_id=eq.${encodeURIComponent(coachId)}`,
-        { headers: svcHeaders }
-      ).then(r => r.json()).catch(() => []);
+      rows = await readRoster('*,users!clients_user_id_fkey(email,last_login)');
+    } catch (firstErr) {
+      console.error('get-coach-clients read failed, retrying without last_login:', firstErr.status, firstErr.detail);
+      try {
+        rows = await readRoster('*,users!clients_user_id_fkey(email)');
+      } catch (secondErr) {
+        console.error('get-coach-clients read failed:', secondErr.status, secondErr.detail);
+        return res.status(502).json({ error: 'Failed to read client roster.' });
+      }
     }
 
-    return res.status(200).json({ clients: Array.isArray(rows) ? rows : [] });
+    return res.status(200).json({ clients: rows });
   } catch (err) {
     console.error('get-coach-clients error:', err);
     return res.status(500).json({ error: err.message || 'Failed to read client roster.' });
@@ -397,12 +423,21 @@ async function handleWorkoutDraft(req, res) {
 // custom_exercises: verify the caller's identity by email (resolveVerifiedEmail,
 // same trust model as handleWorkoutPlans/handleWorkoutDraft above), then
 // read/write with the service role, which bypasses RLS entirely.
+// Throws on a FAILED lookup rather than returning null, so callers can tell
+// "this user has no row" (null) apart from "the query itself broke" — the
+// latter used to be indistinguishable and surfaced as an empty result list.
 async function resolveOwnUserRow(verifiedEmail) {
-  const rows = await fetch(
+  const resp = await fetch(
     `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(verifiedEmail)}&select=id,email`,
     { headers: svcHeaders }
-  ).then(r => r.json()).catch(() => []);
-  return (Array.isArray(rows) && rows[0]) || null;
+  );
+  const rows = await resp.json().catch(() => null);
+  if (!resp.ok || !Array.isArray(rows)) {
+    const err = new Error(`user lookup failed (${resp.status})`);
+    err.detail = rows;
+    throw err;
+  }
+  return rows[0] || null;
 }
 
 async function handleCustomExercisesList(req, res) {

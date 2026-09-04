@@ -1575,15 +1575,20 @@ const Onboarding = ({ onComplete }) => {
                       }}>
                         {quickLoginAccount.initials || (quickLoginAccount.name || '?').charAt(0).toUpperCase()}
                       </div>
-                      <span style={{ flex: 1, color: '#fff', fontSize: '0.92rem', fontWeight: 700 }}>
-                        {authLoading ? 'Logging in...' : `Log in as ${(quickLoginAccount.name || '').split(' ')[0] || 'you'}`}
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ color: '#fff', fontSize: '0.92rem', fontWeight: 700 }}>
+                          {authLoading ? 'Logging in...' : `Log in as ${(quickLoginAccount.name || '').split(' ')[0] || 'you'}`}
+                        </span>
+                        <span style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {quickLoginAccount.email}
+                        </span>
                       </span>
                       <span
                         role="button"
                         tabIndex={0}
                         onClick={(e) => { e.stopPropagation(); setShowQuickLoginMenu(v => !v); }}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowQuickLoginMenu(v => !v); } }}
-                        style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '1.1rem', fontWeight: 700, padding: '4px 6px', cursor: 'pointer', lineHeight: 1 }}
+                        style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '1.1rem', fontWeight: 700, padding: '4px 6px', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}
                         aria-label="Account options"
                       >
                         ⋮
@@ -1611,10 +1616,6 @@ const Onboarding = ({ onComplete }) => {
                       </div>
                     )}
                   </div>
-
-                  <p style={{ margin: '0 0 6px 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.72rem', paddingLeft: '52px' }}>
-                    {quickLoginAccount.email}
-                  </p>
 
                   <button
                     type="button"

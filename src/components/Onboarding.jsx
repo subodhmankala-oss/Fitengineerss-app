@@ -178,6 +178,8 @@ const Onboarding = ({ onComplete }) => {
       return null;
     }
   });
+  // Overflow ("⋮") menu on the quick-login row — currently just "Remove account".
+  const [showQuickLoginMenu, setShowQuickLoginMenu] = useState(false);
 
   const startCoachGoogleLogin = async () => {
     setAuthError('');
@@ -1546,43 +1548,89 @@ const Onboarding = ({ onComplete }) => {
               {quickLoginAccount ? (
                 /* "Welcome back" quick login — whoever last reached the dashboard
                    on this device. See saveQuickLoginAccount() in App.jsx and
-                   handleQuickLogin() above. */
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '24px 0' }}>
-                  <div style={{
-                    width: 72, height: 72, borderRadius: '50%',
-                    background: quickLoginAccount.color || '#8b5cf6', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.6rem', fontWeight: 700
-                  }}>
-                    {quickLoginAccount.initials || (quickLoginAccount.name || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 700 }}>{quickLoginAccount.name}</div>
-                    <div style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.8rem', marginTop: '2px' }}>{quickLoginAccount.email}</div>
+                   handleQuickLogin() above. Laid out as a compact account-chooser
+                   row (avatar + "Log in as X" + overflow menu), matching the
+                   native Google/Chrome account picker pattern, with a separate
+                   "Log in using another account" row below it. */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
+                  {authError && <div className="auth-error-banner">❌ {authError}</div>}
+
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      disabled={authLoading}
+                      onClick={() => handleQuickLogin(quickLoginAccount)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 12px', background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
+                        cursor: 'pointer', textAlign: 'left'
+                      }}
+                    >
+                      <div style={{
+                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                        background: quickLoginAccount.color || '#8b5cf6', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.95rem', fontWeight: 700
+                      }}>
+                        {quickLoginAccount.initials || (quickLoginAccount.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{ flex: 1, color: '#fff', fontSize: '0.92rem', fontWeight: 700 }}>
+                        {authLoading ? 'Logging in...' : `Log in as ${(quickLoginAccount.name || '').split(' ')[0] || 'you'}`}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setShowQuickLoginMenu(v => !v); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowQuickLoginMenu(v => !v); } }}
+                        style={{ color: 'rgba(226, 232, 240, 0.6)', fontSize: '1.1rem', fontWeight: 700, padding: '4px 6px', cursor: 'pointer', lineHeight: 1 }}
+                        aria-label="Account options"
+                      >
+                        ⋮
+                      </span>
+                    </button>
+
+                    {showQuickLoginMenu && (
+                      <div style={{
+                        position: 'absolute', right: 8, top: '100%', marginTop: '4px', zIndex: 5,
+                        background: '#1a1a24', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQuickLoginMenu(false);
+                            localStorage.removeItem('savedLoginAccount');
+                            localStorage.removeItem('last_logged_in_email');
+                            setQuickLoginAccount(null);
+                          }}
+                          style={{ display: 'block', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#f87171', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'left' }}
+                        >
+                          Remove account
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {authError && <div className="auth-error-banner" style={{ width: '100%' }}>❌ {authError}</div>}
-
-                  <button
-                    type="button"
-                    className="gmail-login-btn"
-                    style={{ width: '100%', margin: 0, padding: '12px' }}
-                    disabled={authLoading}
-                    onClick={() => handleQuickLogin(quickLoginAccount)}
-                  >
-                    Log in as {(quickLoginAccount.name || '').split(' ')[0] || 'you'}
-                  </button>
+                  <p style={{ margin: '0 0 6px 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '0.72rem', paddingLeft: '52px' }}>
+                    {quickLoginAccount.email}
+                  </p>
 
                   <button
                     type="button"
                     onClick={() => {
                       localStorage.removeItem('savedLoginAccount');
                       localStorage.removeItem('last_logged_in_email');
+                      setShowQuickLoginMenu(false);
                       setQuickLoginAccount(null);
                     }}
-                    style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    style={{
+                      width: '100%', padding: '12px', background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
+                      color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer'
+                    }}
                   >
-                    Not you? Use another account
+                    Log in using another account
                   </button>
                 </div>
               ) : (

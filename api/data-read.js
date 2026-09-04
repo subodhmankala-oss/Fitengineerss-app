@@ -281,12 +281,16 @@ async function handleLookupProfile(req, res) {
     // coaches (via coaches_user_id_fkey). See sql/schema for those FK names
     // if this ever needs re-verifying against a schema change.
     //
-    // NOTE: users has no avatar_url column (checked directly against the
-    // schema) — don't add it here, it 400s the whole embedded query dead
-    // rather than just coming back null the way a normal select would.
+    // users.avatar_url was missing from the schema entirely until the
+    // add_avatar_url_to_users migration (updateUserAvatarUrl had been writing
+    // to a non-existent column and swallowing the failure). It exists now, so
+    // the embedded coach select below can ask for it — the top-level `*`
+    // already carries it for the user's own row. Still worth knowing that
+    // naming a column that doesn't exist 400s the whole embedded query dead
+    // rather than coming back null the way a plain select would.
     const resp = await fetch(
       `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(email)}` +
-      `&select=*,coaches!coaches_user_id_fkey(*),clients!clients_user_id_fkey(*,coach:users!clients_coach_id_fkey(full_name,coaches!coaches_user_id_fkey(brand_name,specialization,certifications,experience_years,location_city,social_media_handle)))`,
+      `&select=*,coaches!coaches_user_id_fkey(*),clients!clients_user_id_fkey(*,coach:users!clients_coach_id_fkey(full_name,avatar_url,coaches!coaches_user_id_fkey(brand_name,specialization,certifications,experience_years,location_city,social_media_handle)))`,
       { headers: svcHeaders }
     );
     const rows = await resp.json().catch(() => []);
@@ -313,7 +317,7 @@ async function handleLookupProfile(req, res) {
       coachName = connectedCoach.full_name || coachBusiness?.brand_name || null;
       coachDetails = {
         name: coachName,
-        avatarUrl: null, // no avatar_url column on users — see note above
+        avatarUrl: connectedCoach.avatar_url || null,
         brand: coachBusiness?.brand_name || null,
         specialization: coachBusiness?.specialization || null,
         certifications: coachBusiness?.certifications || null,

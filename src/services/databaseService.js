@@ -1756,12 +1756,26 @@ const databaseService = {
     }
   },
 
-  async signInWithGoogle() {
+  // loginHint: the email of an already-known account (the "Log in as X"
+  // quick-login row). When given, Google is told exactly which account is
+  // wanted and the "Choose an account" screen is skipped entirely — if that
+  // account still has a live Google session in this browser (the normal case
+  // on a personal phone), the redirect bounces straight back and lands on the
+  // dashboard with nothing to tap. Without a hint we keep forcing
+  // prompt=select_account, which is right for the generic "Continue with
+  // Google" button where we genuinely don't know who's signing in.
+  //
+  // Note the two prompts are mutually exclusive on purpose: passing
+  // prompt=select_account alongside a login_hint makes Google show the
+  // chooser anyway, defeating the hint.
+  async signInWithGoogle({ loginHint } = {}) {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
     }
-    
-    // Explicitly wipe lingering session state for a clean slate
+
+    // Explicitly wipe lingering session state for a clean slate. This is a
+    // SUPABASE sign-out only — the browser's own Google session is untouched,
+    // which is exactly what lets login_hint above resolve without any UI.
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -1772,9 +1786,9 @@ const databaseService = {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
-        queryParams: {
-          prompt: 'select_account'
-        }
+        queryParams: loginHint
+          ? { login_hint: loginHint }
+          : { prompt: 'select_account' }
       }
     });
     if (error) throw error;

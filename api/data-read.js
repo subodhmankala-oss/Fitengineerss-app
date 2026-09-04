@@ -531,6 +531,96 @@ async function handleCreateCustomExercise(req, res) {
   }
 }
 
+// ─── admin overview (super-admin only) ───
+// The Super-Admin overview counts across EVERY coach and client, which is
+// precisely what RLS is designed to stop a browser-side query from doing:
+// restSelect() with the anon key returns `200 []` for both `clients` and
+// `coaches` — success, no rows, no error to catch. getPlatformStats() and
+// getAllCoaches() therefore reported 0/0 on a platform that had 21 clients
+// listed directly underneath them (the roster reads correctly because it
+// already goes through this service-role file). Cross-tenant aggregates
+// belong here behind an explicit super-admin check, not in the browser.
+function isSuperAdminEmail(email) {
+  return email === 'subodhmankala@gmail.com';
+}
+
+async function svcSelect(path, label) {
+  const resp = await fetch(`${supabaseUrl}/rest/v1/${path}`, { headers: svcHeaders });
+  const body = await resp.json().catch(() => null);
+  if (!resp.ok || !Array.isArray(body)) {
+    const err = new Error(`${label} failed (${resp.status})`);
+    err.detail = body;
+    throw err;
+  }
+  return body;
+}
+
+async function handleAdminCoaches(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  if (!isSuperAdminEmail(verifiedEmail)) {
+    return res.status(403).json({ error: 'Super-admin only.' });
+  }
+
+  try {
+    // Same last_login-might-not-be-migrated fallback getAllCoaches has had.
+    const select = (withLastLogin) =>
+      `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at${withLastLogin ? ',last_login' : ''})&status=eq.approved&order=created_at.asc`;
+    let coaches;
+    try {
+      coaches = await svcSelect(select(true), 'admin-coaches');
+    } catch (e) {
+      console.error('admin-coaches retrying without last_login:', e.detail);
+      coaches = await svcSelect(select(false), 'admin-coaches');
+    }
+    const clientCounts = await svcSelect('clients?select=coach_id', 'admin-coaches client counts');
+    return res.status(200).json({ coaches, clientCounts });
+  } catch (err) {
+    console.error('admin-coaches error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read coaches.' });
+  }
+}
+
+async function handlePlatformStats(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  if (!isSuperAdminEmail(verifiedEmail)) {
+    return res.status(403).json({ error: 'Super-admin only.' });
+  }
+
+  // weekStart comes from the caller so the "this week" boundary stays in the
+  // viewer's timezone, exactly as the old browser-side computation did.
+  const { weekStart } = req.body || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart || '')) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+
+  try {
+    // Same stale-row filter as getAllUsers/getPlatformStats: count from
+    // `clients`, ignoring rows whose owner is no longer a client, so this
+    // can never disagree with the "All Clients" list built from the same table.
+    const clients = await svcSelect('clients?select=id,users!clients_user_id_fkey(role)', 'platform-stats clients');
+    const totalActiveClients = clients.filter((c) => !c.users?.role || c.users.role === 'client').length;
+
+    const logs = await svcSelect(
+      `workout_logs?select=log_date,user_id&log_date=gte.${encodeURIComponent(weekStart)}`,
+      'platform-stats workout logs'
+    );
+    const totalWorkoutsLoggedThisWeek = new Set(logs.map((l) => `${l.user_id}_${l.log_date}`)).size;
+
+    return res.status(200).json({ totalActiveClients, totalWorkoutsLoggedThisWeek });
+  } catch (err) {
+    console.error('platform-stats error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read platform stats.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -538,7 +628,9 @@ const RESOURCE_HANDLERS = {
   'profile': handleLookupProfile,
   'workout-draft': handleWorkoutDraft,
   'custom-exercises-list': handleCustomExercisesList,
-  'custom-exercises-create': handleCreateCustomExercise
+  'custom-exercises-create': handleCreateCustomExercise,
+  'admin-coaches': handleAdminCoaches,
+  'platform-stats': handlePlatformStats
 };
 
 export default async function handler(req, res) {

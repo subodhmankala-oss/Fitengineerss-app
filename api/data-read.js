@@ -584,6 +584,38 @@ async function handleAdminCoaches(req, res) {
   }
 }
 
+// Whole-platform client roster. getAllUsers()'s super-admin branch issues an
+// UNFILTERED clients read from the browser, but RLS still scopes it to the
+// caller's own rows — so the super-admin saw their own 21 clients under an
+// "All Clients" heading on a platform with 47. That is not an empty result,
+// so the existing zero-rows fallback there never fired. Same select shape as
+// the browser-side query so the caller's mapping is unchanged.
+async function handleAdminClients(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  if (!isSuperAdminEmail(verifiedEmail)) {
+    return res.status(403).json({ error: 'Super-admin only.' });
+  }
+
+  try {
+    // Same last_login-might-not-be-migrated retry as the browser-side read.
+    let clients;
+    try {
+      clients = await svcSelect('clients?select=*,users!clients_user_id_fkey(email,last_login,role)', 'admin-clients');
+    } catch (e) {
+      console.error('admin-clients retrying without last_login:', e.detail);
+      clients = await svcSelect('clients?select=*,users!clients_user_id_fkey(email,role)', 'admin-clients');
+    }
+    return res.status(200).json({ clients });
+  } catch (err) {
+    console.error('admin-clients error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read platform clients.' });
+  }
+}
+
 async function handlePlatformStats(req, res) {
   if (!supabaseUrl || !serviceKey) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
@@ -630,6 +662,7 @@ const RESOURCE_HANDLERS = {
   'custom-exercises-list': handleCustomExercisesList,
   'custom-exercises-create': handleCreateCustomExercise,
   'admin-coaches': handleAdminCoaches,
+  'admin-clients': handleAdminClients,
   'platform-stats': handlePlatformStats
 };
 

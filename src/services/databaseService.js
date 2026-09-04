@@ -486,6 +486,26 @@ async function getAdminCoachesViaServer() {
   }
 }
 
+// Whole-platform client roster for the super-admin "All Clients" view — the
+// unfiltered browser-side read is still RLS-scoped to the caller's own rows.
+// Returns null on any failure so the caller keeps its existing behaviour.
+async function getAdminClientsViaServer() {
+  try {
+    const { headers, email } = await serverFallbackAuth();
+    const resp = await fetch('/api/data-read?resource=admin-clients', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json().catch(() => null);
+    return Array.isArray(data?.clients) ? data.clients : null;
+  } catch (e) {
+    console.warn('getAdminClientsViaServer failed (non-fatal):', e?.message || e);
+    return null;
+  }
+}
+
 async function getPlatformStatsViaServer(weekStart) {
   try {
     const { headers, email } = await serverFallbackAuth();
@@ -2283,8 +2303,19 @@ const databaseService = {
         // must never let a missing optional column take down the whole
         // clients list.
         let data;
+        // Super-admin only: RLS scopes even an UNFILTERED browser read to the
+        // caller's own rows, so this branch returned the admin's own 21
+        // clients under an "All Clients" heading on a 47-client platform.
+        // That is a non-empty result, so the zero-rows fallback further down
+        // never fired. Read the whole roster through the service role
+        // instead; on any failure fall through to the original query so
+        // behaviour is unchanged when the endpoint is unavailable.
+        if (isSuperAdminRole) {
+          const allClients = await getAdminClientsViaServer();
+          if (allClients) data = allClients;
+        }
         try {
-          data = await restSelect(
+          if (!data) data = await restSelect(
             `clients?select=*,users!clients_user_id_fkey(email,last_login,role)${coachFilter}`
           );
         } catch (e) {

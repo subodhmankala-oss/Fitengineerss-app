@@ -8,6 +8,48 @@
 // changed recently" glance, not a full engineering changelog.
 export const WHATS_NEW = [
   {
+    date: '2026-09-05',
+    audience: 'all',
+    title: 'Push notifications register reliably again',
+    description: 'Fixed an issue where turning on notifications (or signing in on a new device) could silently fail to save. Coach notes, client replies, and reminders now reach your device as expected.',
+  },
+  {
+    date: '2026-09-04',
+    audience: 'all',
+    title: 'Pull-to-refresh on your dashboard',
+    description: 'Pull down at the top of your Home or Dashboard screen to refresh your data with a native-feeling gesture instead of reaching for the browser reload button.',
+  },
+  {
+    date: '2026-09-04',
+    audience: 'all',
+    title: 'Quicker sign-in with saved accounts',
+    description: 'After logging out, pick your account from a compact list (with your name, email, and real photo) instead of going through the full Google sign-in flow again.',
+  },
+  {
+    date: '2026-09-04',
+    audience: 'coach',
+    title: 'Client count in your client list',
+    description: 'The Coach Dashboard\'s client list header now shows how many clients you have at a glance.',
+  },
+  {
+    date: '2026-09-03',
+    audience: 'coach',
+    title: 'Share a client\'s Muscle Balance or Heat Map on WhatsApp',
+    description: 'A new share icon sends a client\'s Muscle Balance or Heat Map straight to WhatsApp, with a personalized message and a link that opens right to that view.',
+  },
+  {
+    date: '2026-09-01',
+    audience: 'all',
+    title: 'Install banner no longer clipped on notch phones',
+    description: 'The "Add to Home Screen" banner no longer gets cut off under the Dynamic Island or status bar on newer phones.',
+  },
+  {
+    date: '2026-09-01',
+    audience: 'coach',
+    title: 'Coach invite links now show your real name',
+    description: 'Invite links you share with new clients now include your actual name and a working link to the app, instead of placeholder text.',
+  },
+  {
     date: '2026-08-31',
     audience: 'coach',
     title: 'Client stat cards now match the client view',

@@ -4799,9 +4799,25 @@ const databaseService = {
     // linkCoachAndEnterTransaction's post-transaction verification fails;
     // it must never be able to hang either, or that failure-recovery path
     // becomes its own stuck-forever spinner.
+    // The revert branch deliberately leaves used_by set rather than nulling
+    // it. Nulling it makes this write impossible for the very client who
+    // needs it: invitations_select (sql/lock_down_reads.sql) is
+    // `coach_id = me OR used_by = me OR is_super_admin()`, and Postgres
+    // refuses an UPDATE whose NEW row would fall outside the table's SELECT
+    // policy — it raises 42501 "new row violates row-level security policy".
+    // So `used_by: null` made the row invisible to the client mid-write and
+    // the revert was rejected, stranding the invite as permanently used and
+    // locking them out. That is the exact outcome this revert exists to
+    // prevent. Reproduced 2026-09-05 on a scratch table: it fails under the
+    // OLD permissive `USING (true) WITH CHECK (true)` update policy too, so
+    // this has been broken since reads were locked down in August — it is
+    // not a consequence of the batch 2 write lockdown.
+    // `used: false` is what actually makes the code reusable (every reuse
+    // check filters on used, never on used_by), so the lingering used_by is
+    // an inert breadcrumb of who last consumed it.
     const usage = used
       ? { used: true, used_at: new Date().toISOString(), used_by: clientId }
-      : { used: false, used_at: null, used_by: null };
+      : { used: false, used_at: null };
 
     let query = `invitations?code=eq.${encodeURIComponent(upperCode)}`;
     if (used) query += '&used=eq.false';

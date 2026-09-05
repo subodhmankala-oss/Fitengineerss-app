@@ -31,7 +31,38 @@ import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, anonKey);
+// SERVICE ROLE, not anon — this file writes to push_log and
+// push_subscriptions directly (subscribe/unsubscribe, expired-subscription
+// cleanup, per-send logging), entirely server-side with no user session to
+// prove ownership through auth.uid(). Every one of those tables' write
+// policies is auth.uid()-based (push_subscriptions since
+// sql/lock_down_writes_phase1.sql, push_log's own lockdown deferred
+// specifically until this file stopped using the anon key — see
+// sql/lock_down_writes_phase3_batch2.sql's comment), so the anon key this
+// used to run as could never satisfy them: auth.uid() is NULL for a
+// server-to-server request with no bearer token, and a NULL check never
+// evaluates true no matter what user_id the payload claims.
+//
+// This was not a paper cut. Confirmed directly against production before
+// this fix (2026-09-05): POST /api/subscribe on the live site returned 500
+// "new row violates row-level security policy for table
+// push_subscriptions" for every request with no way to succeed — even one
+// carrying a verified bearer token, since resolveOwnVerifiedUserId below
+// proves ownership at the APPLICATION layer, but the actual INSERT still
+// went out under the anon key, where auth.uid() is NULL regardless. New
+// subscriptions and unsubscribes have been silently failing since Phase 1
+// shipped (2026-08-30) — this fixes that, not just the still-permissive
+// push_log policy Phase 3 batch 2 flagged.
+//
+// The `secret`-gated get_*_for_server / get_push_subscriptions_for_broadcast
+// RPCs (rpcAll below) are SECURITY DEFINER and already bypassed RLS
+// regardless of which key called them — service_role changes nothing for
+// those, only for the direct table writes.
+//
+// Falls back to the anon key only so a misconfigured deployment doesn't
+// crash at import time; every push_log/push_subscriptions write will 42501
+// exactly as before if SUPABASE_SERVICE_ROLE_KEY is ever unset here.
+const supabase = createClient(supabaseUrl, serviceKey || anonKey);
 
 // Verifies the caller actually owns `claimedUserId` before letting a push
 // subscription be filed under it. Without this, POST /api/subscribe took

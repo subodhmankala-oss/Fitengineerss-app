@@ -297,6 +297,34 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   }, [monthlyPaymentBreakdown, selectedPaymentMonth]);
   const selectedMonthData = monthlyPaymentBreakdown.find(m => m.key === selectedPaymentMonth) || null;
 
+  // Summary-tile figures (2026-09-05: match the coach's reference layout —
+  // Total Collection / This Month / Overdue Amount / Avg Payment Value).
+  // "This month" is always the real calendar month, independent of whatever
+  // month the dropdown/chart below happen to be showing.
+  const currentMonthKey = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const currentMonthData = monthlyPaymentBreakdown.find(m => m.key === currentMonthKey) || null;
+
+  // Overdue amount: there's no stored renewal price per client, so each
+  // overdue client's most recent logged payment stands in for what they owe
+  // (paymentsList is newest-first, so the first match per client is it).
+  const overdueAmount = useMemo(() => {
+    const overdueClients = renewalDueClients.filter(r => r.daysOverdue > 0);
+    if (overdueClients.length === 0) return { total: 0, count: 0 };
+    let total = 0;
+    overdueClients.forEach(r => {
+      const lastPayment = paymentsList.find(p => p.clientId === r.clientId);
+      if (lastPayment) total += Number(lastPayment.amount) || 0;
+    });
+    return { total, count: overdueClients.length };
+  }, [renewalDueClients, paymentsList]);
+
+  const avgPaymentValue = paymentsList.length > 0
+    ? paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) / paymentsList.length
+    : 0;
+
   // Full-page coach settings overlay (CoachProfile.jsx). Opened from the
   // avatar hamburger below 900px (2026-08-28: "put this inside 3 line
   // icon" — desktop originally kept individual icon buttons instead), and
@@ -4037,22 +4065,70 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
 
-          {/* Total across every logged payment (2026-08-29: "I dont see the
-              total calculation here.. Its should calculate the total") —
-              the ledger below only ever showed per-row amounts, with no sum
-              of what the coach has actually collected. */}
+          {/* Summary tiles: Total Collection / This Month / Overdue Amount /
+              Avg Payment Value, each clearly labeled in its own card
+              (2026-08-29: "I dont see the total calculation here.. Its
+              should calculate the total"; 2026-09-05: the earlier stacked
+              all-time-total block read like it belonged to the Monthly
+              Breakdown panel right below it — "This doesn't make any sense
+              here"). */}
           {!loadingPayments && paymentsList.length > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-              borderRadius: '10px', padding: '10px 14px'
-            }}>
-              <span style={{ color: 'rgba(226,232,240,0.75)', fontSize: '0.8rem', fontWeight: 600 }}>
-                Total ({paymentsList.length} {paymentsList.length === 1 ? 'payment' : 'payments'})
-              </span>
-              <span style={{ color: '#10b981', fontWeight: 800, fontSize: '1.05rem' }}>
-                ₹{paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}
-              </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+              {[
+                {
+                  label: 'Total collection',
+                  value: `₹${paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}`,
+                  sub: `${paymentsList.length} ${paymentsList.length === 1 ? 'payment' : 'payments'}`,
+                  color: '#10b981', bg: 'rgba(16,185,129,0.15)',
+                  icon: <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z M3 10h18" />
+                },
+                {
+                  label: currentMonthData ? `This month (${currentMonthData.label.split(' ')[0].slice(0, 3)})` : 'This month',
+                  value: `₹${(currentMonthData?.total || 0).toLocaleString()}`,
+                  sub: `${currentMonthData?.count || 0} ${currentMonthData?.count === 1 ? 'payment' : 'payments'}`,
+                  color: '#38bdf8', bg: 'rgba(56,189,248,0.15)',
+                  icon: <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></>
+                },
+                {
+                  label: 'Overdue amount',
+                  value: `₹${overdueAmount.total.toLocaleString()}`,
+                  sub: `${overdueAmount.count} ${overdueAmount.count === 1 ? 'payment' : 'payments'}`,
+                  color: '#f87171', bg: 'rgba(248,113,113,0.15)',
+                  icon: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></>
+                },
+                {
+                  label: 'Avg payment value',
+                  value: `₹${Math.round(avgPaymentValue).toLocaleString()}`,
+                  sub: 'per payment',
+                  color: '#a78bfa', bg: 'rgba(167,139,250,0.15)',
+                  icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+                },
+              ].map(tile => (
+                <div key={tile.label} style={{
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                  borderRadius: '12px', padding: '12px 14px', minWidth: 0
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {tile.label}
+                    </span>
+                    <span style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '26px', height: '26px', borderRadius: '8px', background: tile.bg, flexShrink: 0
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={tile.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        {tile.icon}
+                      </svg>
+                    </span>
+                  </div>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {tile.value}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
+                    {tile.sub}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -4121,12 +4197,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 )}
               </div>
 
-              {/* Selected month's total + change vs. the month before it. */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                <div style={{ flexShrink: 0 }}>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.4rem' }}>₹{selectedMonthData.total.toLocaleString()}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>collected this month</div>
-                </div>
+              {/* Change vs. the month before it — the total itself is shown
+                  in the summary tile above, so this panel only adds the
+                  comparison. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
                 {selectedMonthData.diff === null ? (
                   <span style={{
                     display: 'inline-flex', padding: '6px 10px', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700,

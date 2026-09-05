@@ -307,20 +307,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   }, []);
   const currentMonthData = monthlyPaymentBreakdown.find(m => m.key === currentMonthKey) || null;
 
-  // Overdue amount: there's no stored renewal price per client, so each
-  // overdue client's most recent logged payment stands in for what they owe
-  // (paymentsList is newest-first, so the first match per client is it).
-  const overdueAmount = useMemo(() => {
-    const overdueClients = renewalDueClients.filter(r => r.daysOverdue > 0);
-    if (overdueClients.length === 0) return { total: 0, count: 0 };
-    let total = 0;
-    overdueClients.forEach(r => {
-      const lastPayment = paymentsList.find(p => p.clientId === r.clientId);
-      if (lastPayment) total += Number(lastPayment.amount) || 0;
-    });
-    return { total, count: overdueClients.length };
-  }, [renewalDueClients, paymentsList]);
-
   const avgPaymentValue = paymentsList.length > 0
     ? paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) / paymentsList.length
     : 0;
@@ -656,6 +642,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // this list on the next refresh (2026-08-29: "auto renewal once coach
   // updates the payment, no nudge nothing").
   const [renewalDueClients, setRenewalDueClients] = useState([]);
+
+  // Overdue amount for the payments summary tile: there's no stored renewal
+  // price per client, so each overdue client's most recent logged payment
+  // stands in for what they owe (paymentsList is newest-first, so the first
+  // match per client is it).
+  const overdueAmount = useMemo(() => {
+    const overdueClients = renewalDueClients.filter(r => r.daysOverdue > 0);
+    if (overdueClients.length === 0) return { total: 0, count: 0 };
+    let total = 0;
+    overdueClients.forEach(r => {
+      const lastPayment = paymentsList.find(p => p.clientId === r.clientId);
+      if (lastPayment) total += Number(lastPayment.amount) || 0;
+    });
+    return { total, count: overdueClients.length };
+  }, [renewalDueClients, paymentsList]);
 
   // Clients who just finished a workout and haven't received a coach note for
   // that session yet — the home-screen fallback for a missed "workout

@@ -4037,22 +4037,45 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
 
-          {/* Total across every logged payment (2026-08-29: "I dont see the
-              total calculation here.. Its should calculate the total") —
-              the ledger below only ever showed per-row amounts, with no sum
-              of what the coach has actually collected. */}
+          {/* Summary tiles: all-time total alongside the selected month's
+              total, clearly labeled side by side (2026-08-29: "I dont see
+              the total calculation here.. Its should calculate the total").
+              Previously these were two separately-labeled blocks stacked on
+              top of each other, which read like the all-time total belonged
+              to the Monthly Breakdown panel right below it (2026-09-05:
+              "This doesn't make any sense here"). */}
           {!loadingPayments && paymentsList.length > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-              borderRadius: '10px', padding: '10px 14px'
-            }}>
-              <span style={{ color: 'rgba(226,232,240,0.75)', fontSize: '0.8rem', fontWeight: 600 }}>
-                Total ({paymentsList.length} {paymentsList.length === 1 ? 'payment' : 'payments'})
-              </span>
-              <span style={{ color: '#10b981', fontWeight: 800, fontSize: '1.05rem' }}>
-                ₹{paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}
-              </span>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{
+                flex: '1 1 200px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                borderRadius: '10px', padding: '10px 14px'
+              }}>
+                <div style={{ color: 'rgba(226,232,240,0.75)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Total collection
+                </div>
+                <div style={{ color: '#10b981', fontWeight: 800, fontSize: '1.3rem', marginTop: '2px' }}>
+                  ₹{paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
+                  {paymentsList.length} {paymentsList.length === 1 ? 'payment' : 'payments'}
+                </div>
+              </div>
+              {selectedMonthData && (
+                <div style={{
+                  flex: '1 1 200px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                  borderRadius: '10px', padding: '10px 14px'
+                }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {selectedMonthData.label}
+                  </div>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.3rem', marginTop: '2px' }}>
+                    ₹{selectedMonthData.total.toLocaleString()}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
+                    {selectedMonthData.count} {selectedMonthData.count === 1 ? 'payment' : 'payments'}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -4121,12 +4144,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 )}
               </div>
 
-              {/* Selected month's total + change vs. the month before it. */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                <div style={{ flexShrink: 0 }}>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.4rem' }}>₹{selectedMonthData.total.toLocaleString()}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>collected this month</div>
-                </div>
+              {/* Change vs. the month before it — the total itself is shown
+                  in the summary tile above, so this panel only adds the
+                  comparison. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
                 {selectedMonthData.diff === null ? (
                   <span style={{
                     display: 'inline-flex', padding: '6px 10px', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700,

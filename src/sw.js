@@ -19,10 +19,26 @@ self.addEventListener('message', (event) => {
 });
 
 cleanupOutdatedCaches();
-precacheAndRoute(self.__WB_MANIFEST);
 
 // Coach/client data must never be served stale: API routes and Supabase
 // calls always go straight to the network, never through the cache.
+//
+// This (and the NavigationRoute right below) MUST be registered before
+// precacheAndRoute(). Workbox's router dispatches each fetch to the first
+// registered route that matches, and precacheAndRoute() registers its own
+// catch-all route for every precached URL — including '/', which its
+// default directoryIndex option maps to the precached 'index.html' entry.
+// With precacheAndRoute() registered first (as this used to be), THAT route
+// won every navigation to '/' outright, serving the cached app shell from
+// whatever build was active when this worker last activated — the
+// network-first NavigationRoute below never even ran. Confirmed live
+// (2026-09-05): a coach's browser kept rendering pre-#142 markup and
+// referencing hashed JS chunks the current deployment no longer has (404 on
+// direct fetch), well after two newer deploys had gone out, with no console
+// error to point at it — the SW was quietly serving its own stale cache
+// instead of ever asking the network. Registering these two routes first
+// makes them win the match instead, so the "network first, cached shell as
+// fallback" behavior the comment below describes is what actually runs.
 registerRoute(
   ({ url }) =>
     url.pathname.startsWith('/api/') ||
@@ -47,6 +63,8 @@ registerRoute(
     }
   })
 );
+
+precacheAndRoute(self.__WB_MANIFEST);
 
 // Same-origin images/fonts get a lightweight runtime cache on top of the
 // precache list, so icons/logo etc. that change rarely don't need a network

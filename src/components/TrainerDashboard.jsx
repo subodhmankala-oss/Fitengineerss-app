@@ -4198,10 +4198,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 )}
               </div>
 
-              {/* Change vs. the month before it — the total itself is shown
-                  in the summary tile above, so this panel only adds the
-                  comparison. */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Selected month's total + change vs. the month before it
+                  (2026-09-05: removing this read like a duplicate of the
+                  "This month" tile above, but that tile only ever shows the
+                  real current calendar month — browsing to a past month via
+                  the dropdown left no total visible here at all, just a
+                  payment count). */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ flexShrink: 0 }}>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.4rem' }}>₹{selectedMonthData.total.toLocaleString()}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>collected that month</div>
+                </div>
                 {selectedMonthData.diff === null ? (
                   <span style={{
                     display: 'inline-flex', padding: '6px 10px', borderRadius: '999px', fontSize: '0.74rem', fontWeight: 700,

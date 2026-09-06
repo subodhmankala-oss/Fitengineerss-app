@@ -642,6 +642,33 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // this list on the next refresh (2026-08-29: "auto renewal once coach
   // updates the payment, no nudge nothing").
   const [renewalDueClients, setRenewalDueClients] = useState([]);
+  // Which renewal row's "⋮" action menu is open (client id, or null) — and
+  // which client's pause request is in flight, so the button can show a
+  // spinner state and can't be double-tapped.
+  const [renewalMenuOpenId, setRenewalMenuOpenId] = useState(null);
+  const [pausingClientId, setPausingClientId] = useState(null);
+  const [pauseError, setPauseError] = useState('');
+
+  // Pausing a client (2026-09-06: "what if after a month clients dont want
+  // to continue" — until now, a client who stopped renewing just aged
+  // forever in this list with no way to acknowledge it). Removes the row
+  // from THIS list immediately (optimistic — matches the existing
+  // auto-renewal removal on a logged payment, which is also instant rather
+  // than waiting on a refetch) and re-syncs with the server in the
+  // background; getRenewalDueClients excludes paused clients server-side too,
+  // so a later refresh can't bring the row back.
+  const handlePauseClient = async (clientId) => {
+    setRenewalMenuOpenId(null);
+    setPausingClientId(clientId);
+    const result = await databaseService.setClientPaused(clientId, true);
+    setPausingClientId(null);
+    if (result?.success) {
+      setRenewalDueClients(prev => prev.filter(r => r.clientId !== clientId));
+    } else {
+      setPauseError(result?.error || 'Could not pause this client — try again.');
+      setTimeout(() => setPauseError(''), 4000);
+    }
+  };
 
   // Overdue amount for the payments summary tile: there's no stored renewal
   // price per client, so each overdue client's most recent logged payment
@@ -3942,6 +3969,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               screen that logs their renewal payment). */}
           {renewalDueClients.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {pauseError && (
+                <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{pauseError}</div>
+              )}
               {renewalDueClients.map(r => {
                 const overdue = r.daysOverdue > 0;
                 const color = overdue ? '#ef4444' : '#f59e0b';
@@ -3954,11 +3984,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
                       background: bg, border: `1px solid ${border}`,
-                      borderRadius: '12px', padding: '12px 14px', cursor: 'pointer'
+                      borderRadius: '12px', padding: '12px 14px', cursor: 'pointer',
+                      position: 'relative'
                     }}
                   >
                     <span style={{ fontSize: '1.3rem' }}>{overdue ? '🔴' : '⏳'}</span>
-                    <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 800, color }}>
                         {r.clientName}
                       </div>
@@ -3967,6 +3998,47 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           ? `${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue on their monthly renewal (last paid ${r.daysSincePaid} days ago)`
                           : `Renewal due in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid ${r.daysSincePaid} days ago)`}
                       </div>
+                    </div>
+
+                    {/* Action menu (2026-09-06: "what if after a month
+                        clients dont want to continue" — the row previously
+                        had no way to acknowledge that, so a client who
+                        stopped renewing just aged forever in this list).
+                        stopPropagation everywhere here so tapping the menu
+                        never also fires the row's own onClick above. */}
+                    <div style={{ position: 'relative', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        disabled={pausingClientId === r.clientId}
+                        onClick={() => setRenewalMenuOpenId(id => id === r.clientId ? null : r.clientId)}
+                        style={{
+                          background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px',
+                          color: 'rgba(226,232,240,0.75)', width: '30px', height: '30px', fontSize: '1rem',
+                          fontWeight: 800, cursor: pausingClientId === r.clientId ? 'default' : 'pointer',
+                          opacity: pausingClientId === r.clientId ? 0.6 : 1
+                        }}
+                      >
+                        {pausingClientId === r.clientId ? '…' : '⋮'}
+                      </button>
+                      {renewalMenuOpenId === r.clientId && (
+                        <div style={{
+                          position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 5,
+                          background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '10px',
+                          padding: '4px', boxShadow: '0 12px 28px rgba(0,0,0,0.45)', whiteSpace: 'nowrap'
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => handlePauseClient(r.clientId)}
+                            style={{
+                              display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                              borderRadius: '7px', padding: '9px 12px', cursor: 'pointer', color: '#fff',
+                              fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
+                            }}
+                          >
+                            Pause subscription
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

@@ -79,6 +79,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
   // completed" below to the CURRENT program period — see getTotalSessionsDone.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
   const [programEstCompletion, setProgramEstCompletion] = useState(() => localStorage.getItem('userProgramEstCompletion') || null);
+  // Coach paused this client's subscription (clients.paused_at) — surfaced as
+  // a plain notice banner only (2026-09-06: client-side behavior is
+  // deliberately unchanged otherwise — logging, plans, chat all keep
+  // working). Not cached to localStorage: unlike sessionsTotal/program dates
+  // above, showing this stale would be actively misleading (a banner saying
+  // "paused" after the coach already unpaused, or vice versa), and it's cheap
+  // to just re-derive fresh on every reconcile instead.
+  const [isCoachPaused, setIsCoachPaused] = useState(false);
   // Existing workout-availability signal (same query WorkoutTracker uses to
   // list "My Plans"/"Coach's Plan") — reused here only to detect the
   // Welcome Back trigger (no plans at all), never to add new plan logic.
@@ -148,6 +156,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
       }
 
       setIsLinkedToCoach(conn.connected);
+      setIsCoachPaused(!!(conn.connected && conn.pausedAt));
       setCoachStatusPending(false);
       localStorage.setItem('clientLinkedToCoach', conn.connected ? 'true' : 'false');
       if (conn.coachId) localStorage.setItem('userCoachId', conn.coachId);
@@ -930,6 +939,23 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           Monthly/Muscles tabs since it's not tied to any one of them —
           previously only showed inside the Weekly tab's content. Same
           "hidden behind Welcome Back" gate as the tab switcher below it. */}
+      {/* Coach paused this client's subscription (2026-09-06) — a plain
+          notice, not a gate: logging, plans, and chat all keep working
+          exactly as before. Sits above the progress card so it's the first
+          thing noticed, without blocking anything below it. */}
+      {!showWelcomeBack && isLinkedToCoach && isCoachPaused && (
+        <div style={{
+          background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.25)',
+          borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
+          display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>⏸️</span>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+            Your subscription is currently paused{coachName ? ` by ${coachName}` : ''}. Reach out to your coach if you'd like to resume.
+          </p>
+        </div>
+      )}
+
       {!showWelcomeBack && isLinkedToCoach && (() => {
         const hasConfiguredTotal = Number.isFinite(sessionsTotal) && sessionsTotal > 0;
         if (!hasConfiguredTotal) {

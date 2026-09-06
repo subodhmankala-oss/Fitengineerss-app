@@ -3284,6 +3284,28 @@ const databaseService = {
     }
   },
 
+  // Clients this coach has paused (see setClientPaused) — kept as its own
+  // small read rather than folded into getRenewalDueClients above, since a
+  // paused client is deliberately excluded from THAT list regardless of how
+  // overdue they are, and this is the one place a coach needs to find them
+  // again to undo it.
+  async getPausedClients(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const rows = await restSelect(
+        `clients?select=user_id,full_name,paused_at&coach_id=eq.${encodeURIComponent(coachId)}&paused_at=not.is.null&order=paused_at.desc`
+      );
+      return (rows || []).map(r => ({
+        clientId: r.user_id,
+        clientName: r.full_name || 'Client',
+        pausedAt: r.paused_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB getPausedClients error:', e);
+      return null;
+    }
+  },
+
   async saveChatMessage(clientId, sender, message) {
     if (isSupabaseConfigured && supabase) {
       try {

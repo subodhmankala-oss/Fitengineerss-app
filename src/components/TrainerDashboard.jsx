@@ -5249,6 +5249,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   }}>
                                     {client.coach_id ? 'Attached' : 'Generic'}
                                   </span>
+                                  {/* 2026-09-06: paused status wasn't visible anywhere
+                                      outside Client Payments — a coach browsing the
+                                      directory had no way to tell a paused client
+                                      apart from an active one. */}
+                                  {client.paused_at && (
+                                    <span style={{
+                                      display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
+                                      fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
+                                      background: 'rgba(148, 163, 184, 0.14)', color: 'var(--text-muted)',
+                                      border: '1px solid rgba(148, 163, 184, 0.25)'
+                                    }}>
+                                      Paused
+                                    </span>
+                                  )}
                                   {client.userGoal && (
                                     <span className={`client-goal-badge ${client.userGoal.toLowerCase().replace(/\s+/g, '-')}`} style={{
                                       display: 'inline-block',
@@ -5283,18 +5297,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </td>
                           <td style={{ padding: '8px', textAlign: 'center' }}>
                             <button
-                              onClick={() => handleSelectClient(client)}
+                              onClick={() => { if (!client.paused_at) handleSelectClient(client); }}
+                              disabled={!!client.paused_at}
+                              title={client.paused_at ? 'Unpause this client (Client Payments) to manage them again' : undefined}
                               style={{
-                                background: 'var(--primary-accent-light)',
+                                background: client.paused_at ? 'rgba(255,255,255,0.06)' : 'var(--primary-accent-light)',
                                 border: 'none',
-                                color: '#fff',
+                                color: client.paused_at ? 'var(--text-muted)' : '#fff',
                                 padding: '6px 12px',
                                 borderRadius: '6px',
                                 fontSize: '0.78rem',
                                 fontWeight: 700,
-                                cursor: 'pointer',
+                                cursor: client.paused_at ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s ease',
-                                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
+                                boxShadow: client.paused_at ? 'none' : '0 2px 4px rgba(16, 185, 129, 0.2)'
                               }}
                             >
                               Manage

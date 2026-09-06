@@ -648,6 +648,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [renewalMenuOpenId, setRenewalMenuOpenId] = useState(null);
   const [pausingClientId, setPausingClientId] = useState(null);
   const [pauseError, setPauseError] = useState('');
+  // Clients this coach has paused — see databaseService.getPausedClients.
+  // Fetched alongside renewalDueClients (same refresh triggers, see
+  // refreshRenewalDueClients below) so the two lists never drift.
+  const [pausedClients, setPausedClients] = useState([]);
+  const [unpausingClientId, setUnpausingClientId] = useState(null);
+  // Collapsed by default — paused clients are the exception, not the common
+  // case, so this shouldn't compete for attention with the overdue banner.
+  const [pausedSectionOpen, setPausedSectionOpen] = useState(false);
 
   // Pausing a client (2026-09-06: "what if after a month clients dont want
   // to continue" — until now, a client who stopped renewing just aged
@@ -657,15 +665,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // than waiting on a refetch) and re-syncs with the server in the
   // background; getRenewalDueClients excludes paused clients server-side too,
   // so a later refresh can't bring the row back.
-  const handlePauseClient = async (clientId) => {
+  const handlePauseClient = async (clientId, clientName) => {
     setRenewalMenuOpenId(null);
     setPausingClientId(clientId);
     const result = await databaseService.setClientPaused(clientId, true);
     setPausingClientId(null);
     if (result?.success) {
       setRenewalDueClients(prev => prev.filter(r => r.clientId !== clientId));
+      // Optimistic add to the paused list too, using the same name already
+      // on hand — no need to wait on a refetch just to show this row.
+      setPausedClients(prev => [{ clientId, clientName, pausedAt: result.paused_at || new Date().toISOString() }, ...prev]);
     } else {
       setPauseError(result?.error || 'Could not pause this client — try again.');
+      setTimeout(() => setPauseError(''), 4000);
+    }
+  };
+
+  // Unpausing — the inverse. Re-fetches renewalDueClients (not just an
+  // optimistic local update) because whether this client belongs back on
+  // that list depends on daysSincePaid math this component doesn't have
+  // cached locally; the server-side query is the source of truth for that.
+  const handleUnpauseClient = async (clientId) => {
+    setUnpausingClientId(clientId);
+    const result = await databaseService.setClientPaused(clientId, false);
+    setUnpausingClientId(null);
+    if (result?.success) {
+      setPausedClients(prev => prev.filter(r => r.clientId !== clientId));
+      refreshRenewalDueClients();
+    } else {
+      setPauseError(result?.error || 'Could not unpause this client — try again.');
       setTimeout(() => setPauseError(''), 4000);
     }
   };
@@ -2027,6 +2055,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (due !== null) setRenewalDueClients(due);
   };
 
+  const refreshPausedClients = async () => {
+    if (!resolvedCoachId) return;
+    const paused = await databaseService.getPausedClients(resolvedCoachId);
+    if (paused !== null) setPausedClients(paused);
+  };
+
   // Coach has seen this reply — dismiss it from the directory card for good.
   const handleDismissClientReply = async (replyId) => {
     setPendingClientReplies((prev) => prev.filter((r) => r.id !== replyId));
@@ -2148,7 +2182,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     refreshPendingClientReplies();
     refreshSessionsAwaitingNote();
     refreshRenewalDueClients();
-    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); refreshRenewalDueClients(); };
+    refreshPausedClients();
+    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); refreshRenewalDueClients(); refreshPausedClients(); };
     document.addEventListener('visibilitychange', refreshBoth);
     window.addEventListener('focus', refreshBoth);
     return () => {
@@ -2171,6 +2206,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       refreshPendingClientReplies();
       refreshSessionsAwaitingNote();
       refreshRenewalDueClients();
+      refreshPausedClients();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, viewMode]);
@@ -4028,7 +4064,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         }}>
                           <button
                             type="button"
-                            onClick={() => handlePauseClient(r.clientId)}
+                            onClick={() => handlePauseClient(r.clientId, r.clientName)}
                             style={{
                               display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
                               borderRadius: '7px', padding: '9px 12px', cursor: 'pointer', color: '#fff',
@@ -4040,6 +4076,65 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         </div>
                       )}
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Paused clients — the undo path for "Pause subscription" above
+              (2026-09-06 follow-up: "build the unpause option too"). Collapsed
+              behind a toggle since this is the exception case, not something
+              that should compete with the overdue banner for attention. */}
+          {pausedClients.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setPausedSectionOpen(o => !o)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                  borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                }}
+              >
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700 }}>
+                  ⏸️ Paused clients ({pausedClients.length})
+                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ color: 'var(--text-muted)', flexShrink: 0, transform: pausedSectionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              {pausedSectionOpen && pausedClients.map(p => {
+                const daysPaused = Math.max(0, Math.floor((Date.now() - new Date(p.pausedAt).getTime()) / 86_400_000));
+                return (
+                  <div
+                    key={p.clientId}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                      borderRadius: '12px', padding: '12px 14px'
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff' }}>{p.clientName}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Paused {daysPaused === 0 ? 'today' : `${daysPaused} day${daysPaused === 1 ? '' : 's'} ago`}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={unpausingClientId === p.clientId}
+                      onClick={() => handleUnpauseClient(p.clientId)}
+                      style={{
+                        flexShrink: 0, background: 'rgba(16,185,129,0.14)', border: 'none', borderRadius: '8px',
+                        color: '#10b981', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 700,
+                        cursor: unpausingClientId === p.clientId ? 'default' : 'pointer',
+                        opacity: unpausingClientId === p.clientId ? 0.6 : 1
+                      }}
+                    >
+                      {unpausingClientId === p.clientId ? 'Unpausing…' : 'Unpause'}
+                    </button>
                   </div>
                 );
               })}

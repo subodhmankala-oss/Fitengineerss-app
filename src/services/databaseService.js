@@ -2801,7 +2801,7 @@ const databaseService = {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const rows = await restSelect(
-            `clients?select=coach_id,total_sessions,program_started_on,program_est_completion&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+            `clients?select=coach_id,total_sessions,program_started_on,program_est_completion,paused_at&user_id=eq.${encodeURIComponent(userId)}&limit=1`
           );
           const data = Array.isArray(rows) ? rows[0] : null;
           if (data) {
@@ -2811,6 +2811,7 @@ const databaseService = {
               totalSessions: data.total_sessions ?? null,
               programStartedOn: data.program_started_on ?? null,
               programEstCompletion: data.program_est_completion ?? null,
+              pausedAt: data.paused_at ?? null,
               resolved: true
             };
           }
@@ -2834,6 +2835,7 @@ const databaseService = {
                 totalSessions: client?.total_sessions ?? null,
                 programStartedOn: client?.program_started_on ?? null,
                 programEstCompletion: client?.program_est_completion ?? null,
+                pausedAt: client?.paused_at ?? null,
                 resolved: true
               };
             }
@@ -2878,6 +2880,7 @@ const databaseService = {
       totalSessions: row?.total_sessions ?? null,
       programStartedOn: row?.program_started_on ?? null,
       programEstCompletion: row?.program_est_completion ?? null,
+      pausedAt: row?.paused_at ?? null,
       resolved: true
     };
   },

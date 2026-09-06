@@ -192,12 +192,35 @@ async function handleSetClientProgramDates(req, res) {
   }
 }
 
+async function handleSetClientPaused(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { clientUserId, paused } = req.body || {};
+  if (!clientUserId || typeof paused !== 'boolean') {
+    return res.status(400).json({ error: 'clientUserId and a boolean paused are required.' });
+  }
+  try {
+    const data = await callRpc('set_client_paused', {
+      p_coach_id: caller.id,
+      p_client_id: clientUserId,
+      p_paused: paused
+    });
+    if (data && data.success === false) return res.status(403).json({ error: data.error || 'Update failed.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write set-client-paused error:', err);
+    return res.status(502).json({ error: err.message || 'Failed to update pause status.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
   'seed-exercises': handleSeedExercises,
   'set-client-total-sessions': handleSetClientTotalSessions,
-  'set-client-program-dates': handleSetClientProgramDates
+  'set-client-program-dates': handleSetClientProgramDates,
+  'set-client-paused': handleSetClientPaused
 };
 
 export default async function handler(req, res) {

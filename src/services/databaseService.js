@@ -2723,6 +2723,55 @@ const databaseService = {
     return { success: true, program_started_on: startedOn || null, program_est_completion: estCompletion || null };
   },
 
+  // Coach pauses/unpauses one attached client's subscription (2026-09-06:
+  // "what if after a month clients dont want to continue" — until now a
+  // client who stopped renewing just aged forever in the Client Payments
+  // overdue-renewal list, with no way to acknowledge it). Same
+  // SECURITY DEFINER RPC pattern as setClientTotalSessions above (see
+  // supabase_client_pause.sql) — the coach↔client relationship is re-checked
+  // server-side on every write. getRenewalDueClients excludes any client
+  // with a non-null paused_at, so pausing here is what makes the reminder
+  // row disappear.
+  async setClientPaused(clientUserId, paused) {
+    if (!clientUserId) {
+      return { success: false, error: 'Missing client id.' };
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+        }
+        const res = await fetch('/api/admin-write?action=set-client-paused', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ clientUserId, paused: !!paused })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.success === false)) {
+          return { success: false, error: (data && data.error) || 'Update failed.' };
+        }
+        return { success: true, paused_at: data?.paused_at ?? null };
+      } catch (e) {
+        console.error('[setClientPaused] error:', e);
+        return { success: false, error: e.message || 'Update failed.' };
+      }
+    }
+
+    // Mock fallback (offline/no Supabase configured) — same coach↔client
+    // scoping as the RPC's WHERE clause; no server-side authority to check
+    // against in this mode, so trusting localStorage's id here is fine.
+    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
+    const mockClients = this.getMockTable('clients');
+    const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
+    if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
+    const pausedAt = paused ? new Date().toISOString() : null;
+    mockClients[idx].paused_at = pausedAt;
+    this.saveMockTable('clients', mockClients);
+    return { success: true, paused_at: pausedAt };
+  },
+
   // Client-side read of its own connection record: is a coach attached, and
   // what program length (total_sessions) did that coach set? Only ever reads
   // the logged-in user's own clients row.
@@ -3185,11 +3234,16 @@ const databaseService = {
     if (!isSupabaseConfigured || !coachId) return [];
     try {
       const clientRows = await restSelect(
-        `clients?select=user_id,full_name&coach_id=eq.${encodeURIComponent(coachId)}`
+        `clients?select=user_id,full_name,paused_at&coach_id=eq.${encodeURIComponent(coachId)}`
       );
       if (!clientRows || clientRows.length === 0) return [];
       const nameById = {};
-      clientRows.forEach(c => { if (c.user_id) nameById[c.user_id] = c.full_name || 'Client'; });
+      // A paused client is deliberately excluded here, not just filtered from
+      // the final list below — "no matching coach-client relationship" isn't
+      // true of them, but the effect a coach wants (this client stops
+      // showing up as overdue) is the same either way, and this is the one
+      // place that decision needs to be made.
+      clientRows.forEach(c => { if (c.user_id && !c.paused_at) nameById[c.user_id] = c.full_name || 'Client'; });
 
       const payments = await restSelect(
         `client_payments?select=client_id,paid_at&coach_id=eq.${encodeURIComponent(coachId)}&order=paid_at.desc`

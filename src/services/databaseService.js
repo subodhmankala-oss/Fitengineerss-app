@@ -2400,7 +2400,8 @@ const databaseService = {
             total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null,
+            paused_at: c.paused_at ?? null
           }));
         }
       } catch (e) {
@@ -2434,7 +2435,8 @@ const databaseService = {
                 total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null,
+            paused_at: c.paused_at ?? null
               }));
             }
           }
@@ -2550,7 +2552,8 @@ const databaseService = {
             total_sessions: c.total_sessions ?? null,
             total_sessions_updated_at: c.total_sessions_updated_at ?? null,
             program_started_on: c.program_started_on ?? null,
-            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null
+            program_est_completion: c.program_est_completion ?? null, joined_at: c.created_at || null,
+            paused_at: c.paused_at ?? null
           }));
         }
       } catch (e) {

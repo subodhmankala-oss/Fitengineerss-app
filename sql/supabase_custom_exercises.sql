@@ -4,14 +4,26 @@
 -- shared admin-curated public.exercises catalog (exercises_table.sql),
 -- which stays admin-only.
 --
--- Visibility (confirmed with the user):
--- - A coach creates one while working with a specific client (TrainerDashboard's
---   selectedClient context) -> visible to that coach + that one client only.
+-- Visibility (confirmed with the user, revised 2026-09-07 — see the
+-- "Interval running" bug report):
+-- - A coach creates one while working with a client (TrainerDashboard's
+--   selectedClient context just gates *when* they can create it) -> it goes
+--   into that COACH's own library, not tied to that one client. It shows up
+--   for every client of theirs from then on. client_user_id is left NULL on
+--   these rows on purpose — a coach-owned custom exercise was never scoped
+--   to a single client.
 -- - A client creates one on their own (WorkoutTracker) -> visible to only
 --   that client (their own private library) — NOT automatically shared with
 --   their assigned coach.
 -- - super-admin sees everything, and gets a push notification every time
 --   anyone creates one (see api/push.js's custom_exercise_created event).
+--
+-- Previously a coach-created row was stamped with the specific client it was
+-- created for, which meant re-adding the "same" exercise for a second client
+-- silently created a second row with the same name — and since SELECT was
+-- already coach_id-only (not client-scoped), the picker showed every one of
+-- those duplicate rows together, looking like the exercise kept multiplying.
+-- The unique index below now makes that impossible at the DB level too.
 --
 -- Run this once in the Supabase SQL editor (same manual-apply pattern as
 -- every other sql/*.sql file in this repo).
@@ -49,6 +61,14 @@ CREATE INDEX IF NOT EXISTS custom_exercises_created_by_idx ON public.custom_exer
 CREATE INDEX IF NOT EXISTS custom_exercises_coach_id_idx ON public.custom_exercises (coach_id);
 CREATE INDEX IF NOT EXISTS custom_exercises_client_user_id_idx ON public.custom_exercises (client_user_id);
 
+-- One name per library owner: a coach's own library (coach_id, when
+-- client_user_id is NULL) or a client's own library (client_user_id, when
+-- coach_id is NULL). Stops "Create" from ever inserting a second row for a
+-- name the owner already has — the exact bug that made an exercise like
+-- "Interval running" appear duplicated in the Add Exercise picker.
+CREATE UNIQUE INDEX IF NOT EXISTS custom_exercises_owner_name_uniq
+  ON public.custom_exercises (COALESCE(coach_id, client_user_id), lower(name));
+
 ALTER TABLE public.custom_exercises ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "custom_exercises_select" ON public.custom_exercises;
@@ -59,16 +79,16 @@ CREATE POLICY "custom_exercises_select" ON public.custom_exercises FOR SELECT US
   OR public.is_super_admin()
 );
 
--- A coach may only insert one scoped to a client they actually coach
--- (is_my_client) and stamped with their own coach_id; a client may only
--- insert one scoped to themselves with no coach_id. Either way the creator
--- must be the caller.
+-- A coach may only insert one into their OWN library (coach_id = them,
+-- client_user_id left NULL — not tied to whichever client they happened to
+-- be viewing); a client may only insert one scoped to themselves with no
+-- coach_id. Either way the creator must be the caller.
 DROP POLICY IF EXISTS "custom_exercises_insert" ON public.custom_exercises;
 CREATE POLICY "custom_exercises_insert" ON public.custom_exercises FOR INSERT WITH CHECK (
   created_by_user_id = public.current_app_user_id()
   AND (
     (coach_id IS NULL AND client_user_id = public.current_app_user_id())
-    OR (coach_id = public.current_app_user_id() AND public.is_my_client(client_user_id))
+    OR (coach_id = public.current_app_user_id() AND client_user_id IS NULL)
   )
 );
 

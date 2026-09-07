@@ -81,7 +81,13 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       databaseService.getExerciseLibrary()
         .then(setExercises)
         .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
-      databaseService.getCustomExercisesForViewer()
+      // Scoped to just this coach's own library (or this client's own, in
+      // client mode) — see getCustomExercisesForViewer's comment on why an
+      // unscoped call hands a super-admin coach every OTHER coach's and
+      // client's custom exercises too, all mixed into their own picker.
+      databaseService.getCustomExercisesForViewer(
+        creatorMode === 'coach' ? { coachId } : { clientUserId }
+      )
         .then(setCustomExercises)
         .catch(err => console.error('Failed to fetch custom exercises in picker modal:', err));
     } else {
@@ -296,7 +302,9 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
         onCreated={({ name }) => {
           setShowCreateExercise(false);
           setQuery('');
-          databaseService.getCustomExercisesForViewer().then(setCustomExercises).catch(() => {});
+          databaseService.getCustomExercisesForViewer(
+            creatorMode === 'coach' ? { coachId } : { clientUserId }
+          ).then(setCustomExercises).catch(() => {});
           onAdd(name);
         }}
       />

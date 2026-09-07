@@ -5869,7 +5869,11 @@ const databaseService = {
   // RLS scopes SELECT automatically based on the caller's real session
   // token, so no viewer params are needed here — restSelect already sends
   // that token (see restSelect's own doc comment).
-  async getCustomExercisesForViewer() {
+  // coachId/clientUserId scope the result to one library — see below. Omit
+  // both to get everything RLS allows (only meaningfully different from a
+  // scoped call for a super-admin, who is otherwise handed the ENTIRE
+  // platform's custom exercises, coach and client alike, in one list).
+  async getCustomExercisesForViewer({ coachId = null, clientUserId = null } = {}) {
     const shape = (r) => ({
       id: r.id,
       name: r.name,
@@ -5878,11 +5882,27 @@ const databaseService = {
       primary_muscle: r.primary_muscle,
       secondary_muscle: Array.isArray(r.secondary_muscles) ? r.secondary_muscles.join(', ') : '',
       media_url: r.media_url,
-      isCustom: true
+      isCustom: true,
+      coach_id: r.coach_id ?? null,
+      client_user_id: r.client_user_id ?? null
     });
+    // RLS on custom_exercises_select also matches is_super_admin() (see
+    // sql/supabase_custom_exercises.sql) — a super-admin who is ALSO a coach
+    // gets every coach's and every client's custom exercises back from a
+    // plain unfiltered select, not just their own library. The picker asked
+    // for one specific library (coachId for their own coach view, or
+    // clientUserId for a client's own), so narrow down to that instead of
+    // trusting RLS's broader "sees everything" grant here. A regular coach
+    // or client is unaffected — RLS already limited them to their own rows,
+    // so this filter is a no-op.
+    const scope = (rows) => {
+      if (coachId) return rows.filter(r => r.coach_id === coachId);
+      if (clientUserId) return rows.filter(r => r.client_user_id === clientUserId);
+      return rows;
+    };
     try {
       const rows = await restSelect('custom_exercises?select=*&order=name.asc');
-      if (Array.isArray(rows) && rows.length > 0) return rows.map(shape);
+      if (Array.isArray(rows) && rows.length > 0) return scope(rows.map(shape));
     } catch (e) {
       console.warn('Direct custom_exercises read failed, falling back to server route:', e);
     }
@@ -5897,7 +5917,7 @@ const databaseService = {
         body: JSON.stringify({ email: localStorage.getItem('userEmail') || '' })
       });
       const data = await res.json().catch(() => null);
-      return (data && Array.isArray(data.exercises)) ? data.exercises.map(shape) : [];
+      return (data && Array.isArray(data.exercises)) ? scope(data.exercises.map(shape)) : [];
     } catch (e) {
       console.warn('Failed to load custom exercises (non-fatal):', e);
       return [];

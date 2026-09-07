@@ -234,8 +234,24 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
             filtered.map(ex => {
               const already = addedSet.has(ex.name.toLowerCase());
               const primaryMuscle = getMuscleGroupsForExercise(ex.name)[0];
+              // Keying by ex.name alone breaks the moment two rows in
+              // activeLibrary share a name — e.g. a super-admin browsing a
+              // coach's clients sees every custom_exercises row on the
+              // platform (RLS: is_super_admin() bypasses the owner check),
+              // so any two coaches/clients who each named something
+              // "Interval running" collide. React can't tell those apart by
+              // key, and reconciling a duplicate key across the frequent
+              // re-renders this screen gets (several live-workout timers
+              // tick every 100ms-1s on TrainerDashboard) leaves stray old
+              // list-item DOM nodes behind instead of replacing them —
+              // confirmed live: an account that had exactly 2 rows named
+              // "Interval running" was rendering 13 of them after sitting
+              // on the picker for a while. ex.id (real for every DB/custom
+              // row) is actually unique; only the static EXERCISE_LIBRARY
+              // entries fall back to name, and those are already deduped
+              // by name before they reach `filtered`.
               return (
-                <div key={ex.name} className="exercise-preset-item">
+                <div key={ex.id ? `db-${ex.id}` : `lib-${ex.name}`} className="exercise-preset-item">
                   <button
                     type="button"
                     className="preset-icon-btn"

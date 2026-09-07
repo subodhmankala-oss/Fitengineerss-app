@@ -8,8 +8,11 @@ import databaseService from '../services/databaseService';
 // see sql/supabase_custom_exercises.sql), NOT the shared admin-curated
 // public.exercises catalog. mode/coachId/clientUserId mirror the ownership
 // stamping createCustomExercise needs: coach mode scopes the exercise to
-// coachId + clientUserId (the client the coach is currently working with);
-// client mode scopes it to clientUserId only (their own private library).
+// coachId (the coach's own library — visible for every client they work
+// with, not just the one they were viewing when they hit "Create");
+// clientUserId is only required here as a UI precondition (this screen only
+// opens from within a client's profile). client mode scopes it to
+// clientUserId only (their own private library).
 const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'Kettlebell', 'Resistance Band', 'Other'];
 
 const rowStyle = {
@@ -93,7 +96,7 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
         </div>
 
         {mode === 'coach' && clientName && (
-          <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '10px 18px 0' }}>For {clientName} — only you and {clientName} will see this.</p>
+          <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '10px 18px 0' }}>Saved to your coach library — you'll be able to add it for {clientName} and any of your other clients.</p>
         )}
         {mode === 'client' && (
           <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '10px 18px 0' }}>Saved to your own exercise library — private to you.</p>

@@ -5904,9 +5904,12 @@ const databaseService = {
     }
   },
 
-  // mode: 'coach' | 'client'. Coach mode requires coachId (their own id) and
-  // clientUserId (the specific client they're working with, must be their
-  // assigned client per RLS). Client mode ignores coachId and stamps
+  // mode: 'coach' | 'client'. Coach mode requires coachId (their own id) —
+  // the row goes into that coach's own library, not scoped to any one
+  // client, so it shows up for every client they work with from then on.
+  // clientUserId is still required in coach mode purely as a UI precondition
+  // (the "Create Exercise" screen only opens from within a client's profile)
+  // but is never stored on the row. Client mode ignores coachId and stamps
   // clientUserId as the caller's own id.
   async createCustomExercise({ name, equipment, category, primaryMuscle, secondaryMuscles, mediaUrl, mode, coachId, clientUserId }) {
     if (!name || !name.trim()) throw new Error('Exercise name is required.');
@@ -5922,7 +5925,7 @@ const databaseService = {
       if (!coachId || !clientUserId) throw new Error('createCustomExercise (coach mode) requires coachId and clientUserId.');
       record.created_by_user_id = coachId;
       record.coach_id = coachId;
-      record.client_user_id = clientUserId;
+      record.client_user_id = null;
     } else {
       if (!clientUserId) throw new Error('createCustomExercise (client mode) requires clientUserId.');
       record.created_by_user_id = clientUserId;
@@ -5934,6 +5937,31 @@ const databaseService = {
     try {
       inserted = await restInsert('custom_exercises', record);
     } catch (e) {
+      // A name the owner's library already has hits the
+      // custom_exercises_owner_name_uniq unique index (Postgres 23505) —
+      // that's not a failure, it means the exercise is already there. Reuse
+      // it instead of erroring, so a stale/unfetched picker list can't
+      // insert a second row for the same name (the "Interval running"
+      // duplication bug).
+      if (e && (e.code === '23505' || /duplicate key|already exists/i.test(e.message || ''))) {
+        const owner = mode === 'coach' ? coachId : clientUserId;
+        const ownerField = mode === 'coach' ? 'coach_id' : 'client_user_id';
+        const existing = await restSelect(
+          `custom_exercises?select=*&${ownerField}=eq.${encodeURIComponent(owner)}&name=ilike.${encodeURIComponent(record.name)}&limit=1`
+        ).catch(() => null);
+        if (Array.isArray(existing) && existing.length > 0) {
+          return {
+            id: existing[0].id,
+            name: existing[0].name,
+            equipment: existing[0].equipment,
+            category: existing[0].category,
+            primary_muscle: existing[0].primary_muscle,
+            secondary_muscle: Array.isArray(existing[0].secondary_muscles) ? existing[0].secondary_muscles.join(', ') : '',
+            media_url: existing[0].media_url,
+            isCustom: true
+          };
+        }
+      }
       // Same RLS-vs-anon-key gap as getCustomExercisesForViewer above — fall
       // back to the service-role create route instead of failing the save
       // outright. That route re-derives created_by_user_id/coach_id/

@@ -505,7 +505,11 @@ async function handleCreateCustomExercise(req, res) {
       record.coach_id = null;
       record.client_user_id = self.id;
     } else {
-      // A coach may only create one scoped to a client they actually coach.
+      // A coach may only create from within a client's profile they
+      // actually coach (UI precondition) — but the row itself goes into the
+      // coach's own library, not scoped to that one client, so it shows up
+      // for every client they work with from then on. client_user_id is
+      // deliberately left null; see sql/supabase_custom_exercises.sql.
       if (self.id !== coachId) return res.status(403).json({ error: 'You can only create exercises as yourself.' });
       const clientRows = await fetch(
         `${supabaseUrl}/rest/v1/clients?user_id=eq.${encodeURIComponent(clientUserId || '')}&select=coach_id`,
@@ -515,7 +519,7 @@ async function handleCreateCustomExercise(req, res) {
       if (!isMyClient) return res.status(403).json({ error: 'That client is not assigned to you.' });
       record.created_by_user_id = self.id;
       record.coach_id = self.id;
-      record.client_user_id = clientUserId;
+      record.client_user_id = null;
     }
 
     const resp = await fetch(`${supabaseUrl}/rest/v1/custom_exercises`, {
@@ -525,6 +529,22 @@ async function handleCreateCustomExercise(req, res) {
     });
     const data = await resp.json().catch(() => null);
     if (!resp.ok) {
+      // A name the owner's library already has hits
+      // custom_exercises_owner_name_uniq (Postgres 23505) — not a real
+      // failure, just reuse the existing row instead of erroring (the
+      // "Interval running" duplication bug).
+      if (data && data.code === '23505') {
+        const ownerField = mode === 'coach' ? 'coach_id' : 'client_user_id';
+        const ownerId = mode === 'coach' ? record.coach_id : record.client_user_id;
+        const existingResp = await fetch(
+          `${supabaseUrl}/rest/v1/custom_exercises?select=*&${ownerField}=eq.${encodeURIComponent(ownerId)}&name=ilike.${encodeURIComponent(record.name)}&limit=1`,
+          { headers: svcHeaders }
+        );
+        const existing = await existingResp.json().catch(() => null);
+        if (Array.isArray(existing) && existing.length > 0) {
+          return res.status(200).json({ exercise: existing[0] });
+        }
+      }
       console.error('create-custom-exercise failed:', resp.status, data);
       return res.status(502).json({ error: 'Failed to save this exercise.' });
     }

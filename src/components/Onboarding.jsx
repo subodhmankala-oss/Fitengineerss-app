@@ -694,22 +694,36 @@ const Onboarding = ({ onComplete }) => {
         const isSuperAdminEmail = authEmail.toLowerCase() === 'subodhmankala@gmail.com';
         const mockCoaches = databaseService.getMockTable('coaches');
 
-        // Find if coach record exists. Raw PostgREST via
-        // getCoachRecordByUserId, not supabase.from() directly — see that
-        // method's comment in databaseService.js for why a raw SDK call
-        // here (right after a fresh sign-in, on every coach login) risked
-        // hanging this whole flow forever. Fixed 2026-08-25.
-        let coachRecord = null;
-        if (isSupabaseConfigured && databaseService.supabase) {
-          coachRecord = await databaseService.getCoachRecordByUserId(authUserId);
-        } else {
-          coachRecord = mockCoaches.find(c => c.user_id === authUserId);
-        }
+        // Find if coach record exists. NOT via getCoachRecordByUserId(authUserId)
+        // — authUserId here is the raw Supabase Auth uid (auth.users.id), but
+        // coaches.user_id references public.users.id, and register-coach.js
+        // upserts that users row on CONFLICT (email) without ever setting its
+        // id to match the auth uid — so for the large majority of real coach
+        // accounts the two ids are simply different values (confirmed live
+        // 2026-09-07: 9 of the last 11 coach signups). Querying coaches by the
+        // auth uid directly returns nothing for exactly those accounts, and
+        // this whole branch mistakes a real, already-approved coach logging
+        // in with their correct password for a brand-new signup — silently
+        // signing them out and dumping them back on the Sign Up form. It went
+        // unnoticed because Google OAuth (the primary CTA) resolves the coach
+        // some other way and never hits this code path.
+        // getUserProfileByEmail already resolves the coaches row correctly
+        // (it looks the users row up by email, then coaches by that row's own
+        // id — see its comment), so reuse that single lookup instead of a
+        // second, id-mismatched one. It also gives us the actual
+        // public.users.id (profile.id) to use everywhere below instead of
+        // authUserId — see [[project-userid-vs-authuid]] in memory for why
+        // storing the raw auth uid as the app's user id breaks other reads.
+        profile = await databaseService.getUserProfileByEmail(authEmail);
+        const resolvedUserId = profile?.id || authUserId;
+        const coachRecord = isSupabaseConfigured && databaseService.supabase
+          ? (profile?.userCoachId ? { id: profile.userCoachId, is_blocked: profile.coachIsBlocked === true } : null)
+          : mockCoaches.find(c => c.user_id === authUserId);
 
         if (isSuperAdminEmail) {
           // Super admin is auto approved. Make sure a coach row exists
           if (isSupabaseConfigured && databaseService.supabase) {
-            await databaseService.getCoachRecordByUserId(authUserId, { ensureAdminRow: true });
+            await databaseService.getCoachRecordByUserId(resolvedUserId, { ensureAdminRow: true });
           } else {
             const existingAdminCoach = mockCoaches.find(c => c.user_id === authUserId);
             if (!existingAdminCoach) {
@@ -724,7 +738,7 @@ const Onboarding = ({ onComplete }) => {
           }
           await databaseService.loadProfileIntoLocalStorage({
             ...profile,
-            id: authUserId,
+            id: resolvedUserId,
             role: 'super-admin',
             userCoachId: 'coach-subodh'
           }, authEmail);
@@ -736,13 +750,9 @@ const Onboarding = ({ onComplete }) => {
             try { await databaseService.signOut(); } catch (e) { /* */ }
             throw new Error('Your coach access has been suspended. Please contact the Fitengineers team.');
           }
-          // profile can still be null here if this account somehow got a
-          // coaches row without a public.users row — re-fetch now that we
-          // have a confirmed real user id, rather than losing their name/etc.
-          if (!profile) profile = await databaseService.getUserProfileByEmail(authEmail);
           await databaseService.loadProfileIntoLocalStorage({
             ...profile,
-            id: authUserId,
+            id: resolvedUserId,
             role: 'coach',
             userCoachId: coachRecord.id
           }, authEmail);

@@ -6017,7 +6017,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       }
                     });
                     const weeklyTotalCalories = Math.round(weekCaloriesRaw * 10) / 10;
-                    const muscleAnalyticsWeeklyStats = { workoutsCount: weekWorkoutsCount, totalSets: weekTotalSets, totalVolume: weekTotalVolume, dailySets };
+                    const muscleAnalyticsWeeklyStats = { workoutsCount: weekWorkoutsCount, totalSets: weekTotalSets, totalVolume: weekTotalVolume, totalCalories: weeklyTotalCalories, dailySets };
 
                     // Monthly aggregation (last 30 days)
                     const dailyVolumeHistory = [];

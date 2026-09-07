@@ -27,6 +27,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0B1220" />
 
+    <!-- Warm the connections the Exercise Form Guide needs before it's even
+         opened — the iframe/video only start their own DNS+TLS handshake
+         once the guide sheet mounts, which is exactly the moment users are
+         staring at a black box waiting for the video (reported as "takes a
+         long time to load"). Doing that handshake ahead of time here shaves
+         it off the perceived wait. %VITE_SUPABASE_URL% is replaced by Vite
+         at build time from the env var of the same name (see .env). -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
+    <link rel="preconnect" href="https://www.youtube.com" />
+
     <!-- iOS "Add to Home Screen" behavior -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />

@@ -18,10 +18,19 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
   // full video for each one whether they watch it or not. Gate behind a
   // tap; YouTube embeds already don't autoplay so they're unaffected.
   const [videoTapped, setVideoTapped] = useState(!isSlowConnection());
+  // The iframe/video element itself renders instantly, but the actual
+  // YouTube embed or MP4 can take several seconds to actually paint a
+  // frame — until now that gap showed nothing but a black box, which reads
+  // as "the video isn't loading" (the reported bug). This flips to false
+  // once the iframe fires onLoad or the <video> reports real data, and the
+  // spinner overlay (CSS already existed for this — .guide-spinner /
+  // .guide-image-loading — but was never wired up) covers the black gap.
+  const [videoLoading, setVideoLoading] = useState(true);
 
   useEffect(() => {
     setGuideTab('summary');
     setVideoTapped(!isSlowConnection());
+    setVideoLoading(true);
   }, [exercise]);
 
   if (!exercise) return null;
@@ -34,25 +43,43 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
         <div className="guide-image-section">
           {exercise.videoFile ? (
             getYouTubeEmbedUrl(exercise.videoFile) ? (
-              <iframe
-                key={exercise.videoFile}
-                src={getYouTubeEmbedUrl(exercise.videoFile)}
-                title="Exercise Form Guide"
-                frameBorder="0"
-                allowFullScreen
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' }}
-              />
+              <>
+                {videoLoading && (
+                  <div className="guide-image-placeholder guide-image-loading" style={{ position: 'absolute', inset: 0 }}>
+                    <div className="guide-spinner" />
+                  </div>
+                )}
+                <iframe
+                  key={exercise.videoFile}
+                  src={getYouTubeEmbedUrl(exercise.videoFile)}
+                  title="Exercise Form Guide"
+                  frameBorder="0"
+                  allowFullScreen
+                  onLoad={() => setVideoLoading(false)}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' }}
+                />
+              </>
             ) : videoTapped ? (
-              <video
-                key={exercise.videoFile}
-                src={exercise.videoFile}
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
+              <>
+                {videoLoading && (
+                  <div className="guide-image-placeholder guide-image-loading" style={{ position: 'absolute', inset: 0 }}>
+                    <div className="guide-spinner" />
+                  </div>
+                )}
+                <video
+                  key={exercise.videoFile}
+                  src={exercise.videoFile}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                  preload="auto"
+                  onLoadedData={() => setVideoLoading(false)}
+                  onError={() => setVideoLoading(false)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </>
             ) : (
               <button
                 type="button"

@@ -762,11 +762,18 @@ async function handleNotifyUser(req, res) {
       // never read here — this event never received it from the client at
       // all until now (see WorkoutTracker.jsx's handleToggleSetCompleted).
       body = workoutName ? `Started "${workoutName}" session` : 'Session started';
+      // Deep link, same ?viewClient= pattern as client_connected/
+      // new_client_signup/measurement_reminder_coach below — was missing
+      // here despite being the exact same "coach, look at this client" shape,
+      // so tapping it opened the bare homepage instead of the client's
+      // profile. Confirmed missing 2026-09-07.
+      url = `/?viewClient=${clientUserId}`;
     } else if (event === 'measurements_saved') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
       title = clientName;
       body = 'Updated body measurements';
+      url = `/?viewClient=${clientUserId}`;
     } else if (event === 'workout_finished') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
@@ -780,6 +787,7 @@ async function handleNotifyUser(req, res) {
       body = workoutName
         ? `"${workoutName}" completed${stats ? ` — ${stats}` : ''}`
         : `Workout completed${stats ? ` — ${stats}` : ''}`;
+      url = `/?viewClient=${clientUserId}`;
     } else if (event === 'coach_note') {
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for coach_note.' });
       targetUserId = clientUserId;
@@ -791,6 +799,7 @@ async function handleNotifyUser(req, res) {
       targetUserId = client.coach_id;
       title = clientName;
       body = message.trim();
+      url = `/?viewClient=${clientUserId}`;
     } else if (event === 'session_reminder') {
       targetUserId = clientUserId;
       const left = Number.isFinite(sessionsLeft) ? sessionsLeft : null;

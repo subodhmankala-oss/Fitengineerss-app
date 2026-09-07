@@ -249,11 +249,19 @@ export function isLoadedCarryExercise(name) {
 // stay always-loaded. A plain glute bridge is usually bodyweight but often
 // loaded with a barbell across the hips, exactly the push-up/mountain-
 // climber pattern this toggle exists for.
+//
+// Step-Up/One Leg Step-Ups (added 2026-09-07) are usually done bodyweight
+// (stepping onto a box/bench) but often loaded with a pair of dumbbells, so
+// they get the same Bodyweight/+Add Weight toggle. Matched as 'step-?ups?'
+// (with the hyphen optional) rather than a bare 'step' substring, so this
+// doesn't also catch unrelated future exercise names; 'steppers?\b' is kept
+// as its own separate alternative since 'Steppers' (a stepper-machine
+// cardio exercise) is a different name than 'Step-up'/'Step-Ups'.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

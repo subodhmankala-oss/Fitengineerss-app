@@ -200,9 +200,11 @@ const Onboarding = ({ onComplete }) => {
         setShowGoogleModal(true);
       } else {
         // Production: real OAuth redirect. App.jsx's onAuthStateChange handler
-        // reads the pendingCoachLogin flag set above to route the returning
-        // session through the coach path instead of defaulting to client.
-        await databaseService.signInWithGoogle({ loginHint });
+        // reads the pendingCoachLogin flag set above (and the authIntent=coach
+        // redirect param this adds — belt-and-suspenders, see
+        // signInWithGoogle's comment) to route the returning session through
+        // the coach path instead of defaulting to client.
+        await databaseService.signInWithGoogle({ loginHint, intent: 'coach' });
       }
     } catch (err) {
       sessionStorage.removeItem('pendingCoachLogin');

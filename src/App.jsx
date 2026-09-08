@@ -668,7 +668,23 @@ function App() {
         // 4-step onboarding wizard. sessionStorage survives the same-tab OAuth
         // redirect just as well and is completely untouched by
         // localStorage.clear(), so it can't be collaterally wiped this way.
-        const pendingCoachLogin = sessionStorage.getItem('pendingCoachLogin') === 'true';
+        //
+        // Even sessionStorage isn't fully reliable across the redirect on
+        // every device — confirmed 2026-09-08: a genuine coach's Google
+        // sign-in still came back with no usable flag (an in-app-browser
+        // OAuth hop is one known way this happens) and this handler fell
+        // through to the "brand-new client" branch below, auto-creating a
+        // clients row AND upserting users.role back to 'client' over a coach
+        // signup in progress. signInWithGoogle now ALSO encodes the intent on
+        // the redirect URL itself (?authIntent=coach), which can't be dropped
+        // the way tab storage can — trust either signal.
+        const authIntentParam = new URLSearchParams(window.location.search).get('authIntent');
+        if (authIntentParam) {
+          // One-shot: strip it so a later plain reload of this URL doesn't
+          // keep re-asserting coach intent for an unrelated session.
+          window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+        }
+        const pendingCoachLogin = sessionStorage.getItem('pendingCoachLogin') === 'true' || authIntentParam === 'coach';
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
           resolvedRole === 'coach' ||

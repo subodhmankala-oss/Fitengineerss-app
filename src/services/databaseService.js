@@ -1768,7 +1768,7 @@ const databaseService = {
   // Note the two prompts are mutually exclusive on purpose: passing
   // prompt=select_account alongside a login_hint makes Google show the
   // chooser anyway, defeating the hint.
-  async signInWithGoogle({ loginHint } = {}) {
+  async signInWithGoogle({ loginHint, intent } = {}) {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured.");
     }
@@ -1782,10 +1782,26 @@ const databaseService = {
       console.warn("Signout prior to Google sign-in was skipped or not needed:", e);
     }
 
+    // `intent` (e.g. 'coach') rides back on the redirect URL itself rather
+    // than relying solely on the sessionStorage 'pendingCoachLogin' flag
+    // Onboarding.jsx also sets before calling this. That flag is meant to
+    // survive the redirect (sessionStorage, not localStorage — see its own
+    // comment), but real coach signups still landed back as auto-created
+    // clients (confirmed 2026-09-08: a coach's Google sign-in returned with
+    // no usable flag and App.jsx's processSessionUser fell through to its
+    // "brand-new client" branch, both creating a stray clients row AND
+    // upserting users.role back to 'client'). A query param on the redirect
+    // URL can't be silently dropped by storage partitioning/an in-app
+    // browser losing the tab's session storage across the OAuth hop the way
+    // sessionStorage can — App.jsx now reads BOTH and trusts either.
+    const redirectTo = intent
+      ? `${window.location.origin}?authIntent=${encodeURIComponent(intent)}`
+      : window.location.origin;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo,
         queryParams: loginHint
           ? { login_hint: loginHint }
           : { prompt: 'select_account' }

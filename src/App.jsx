@@ -821,7 +821,28 @@ function App() {
           // forces the coach sign-up form on the next Onboarding mount (e.g.
           // right after this OAuth redirect, or the next logout).
           localStorage.removeItem('pendingCoachApply');
-          // First, check if client row exists. If not, create with coach_id = null and defaults.
+          // First, check if client row exists. If not, create a bare stub —
+          // name/email/role only, nothing else.
+          //
+          // Confirmed 2026-09-09: this used to fabricate age/height/weight/
+          // activity/goal/diet/macro-target values (30, 175cm, 70kg, "Fat
+          // Loss", "Non-Vegetarian", etc.) at the moment this row was
+          // created — before the client had chosen any of it. Those aren't
+          // placeholders that get overwritten later either: ClientOnboarding
+          // Wizard (which still runs right after this, gated on
+          // onboarding_completed below) only ever WRITES real values on
+          // Finish, it never reads these back to pre-fill the form. So a
+          // client who authenticated but hadn't finished the wizard yet
+          // showed up on the coach's dashboard with an invented "Fat Loss"
+          // goal and invented stats that looked like real answers she never
+          // gave (mayeevenigalla@gmail.com, joined today, onboarding_completed
+          // still false). Every one of the omitted fields below is nullable
+          // (verified against the live schema) and every reader already
+          // null-guards or falls back to '' — AdminClientsList's goal tag
+          // only renders `{client.userGoal && (...)}`, and getUserProfileByEmail
+          // maps a null straight to '' — so leaving them out is a strict
+          // improvement, not a new gap: a half-onboarded client now reads as
+          // genuinely incomplete instead of fabricated.
           let clientProfile = profile;
           if (!clientProfile) {
             const defaultName = googleName || email.split('@')[0] || 'Warrior';
@@ -831,16 +852,6 @@ function App() {
                 email: email,
                 role: 'client',
                 coach_id: null,
-                userAge: '30',
-                userHeight: '175',
-                userWeight: '70',
-                userActivity: 'Moderately Active',
-                userGoal: 'Fat Loss',
-                userDiet: 'Non-Vegetarian',
-                userCalorieTarget: '2000',
-                userProteinTarget: '120',
-                userCarbsTarget: '220',
-                userFatsTarget: '70',
                 verified: false
               });
               clientProfile = await databaseService.getUserProfileByEmail(email);

@@ -562,7 +562,7 @@ function App() {
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
-    const processSessionUser = async (user) => {
+    const processSessionUser = async (user, accessToken) => {
       try {
         const email = user.email;
         const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
@@ -717,6 +717,65 @@ function App() {
               avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
             });
             return;
+          }
+
+          // Confirmed 2026-09-09: coaches who got exactly this far — Google
+          // auth done, no profile yet — but then closed the tab instead of
+          // submitting the "Coach Sign Up" details form (name/experience/
+          // brand/etc.) were left permanently invisible: a real login in
+          // auth.users with NO public.users/coaches row at all, since that
+          // form is the only thing that ever writes one. If they never
+          // return, nothing ever prompts them again — pendingCoachApply only
+          // lives in localStorage on THIS device/tab. One confirmed real
+          // case (Vipin Sanaka) had to be recovered by hand from the DB.
+          //
+          // Fix: create the coach profile right now, with just their Google
+          // name — /api/register-coach-google only requires `name`, every
+          // other field already defaults sensibly (see its own comments).
+          // They land in the dashboard immediately instead of behind a form
+          // gate, and can fill in experience/brand/etc. from their coach
+          // profile settings later. Best-effort: if this fails (network,
+          // expired token), fall through to the old pendingCoachApply form
+          // exactly as before — nothing regresses.
+          if (accessToken) {
+            try {
+              const resp = await fetch('/api/register-coach-google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+                body: JSON.stringify({ name: googleName || email.split('@')[0] || 'Coach' })
+              });
+              const result = await resp.json().catch(() => ({}));
+              if (resp.ok && !result.error) {
+                const autoProfile = await databaseService.getUserProfileByEmail(email);
+                localStorage.removeItem('pendingCoachApply');
+                await databaseService.loadProfileIntoLocalStorage({
+                  ...(autoProfile || {}),
+                  role: 'coach',
+                  userCoachId: result.coachId,
+                  // Explicit: loadProfileIntoLocalStorage falls back to the
+                  // literal 'Trainer' when userName is absent, and this read
+                  // can legitimately come back empty right after the insert
+                  // (see the retry-on-null comment above for the same race).
+                  // Their Google name is already known here — don't lose it.
+                  userName: autoProfile?.userName || googleName || 'Coach'
+                }, email);
+                setUserRole('coach');
+                setUserEmail(email);
+                localStorage.setItem('onboardingComplete', 'true');
+                setOnboardingComplete(true);
+                saveQuickLoginAccount({
+                  email,
+                  name: autoProfile?.userName || googleName || 'Coach',
+                  role: 'coach',
+                  loginMethod: 'google',
+                  avatarUrl: googleAvatarUrl || autoProfile?.userAvatarUrl || null
+                });
+                return;
+              }
+              console.warn('[coach auto-provision] register-coach-google failed, falling back to apply form:', result.error);
+            } catch (e) {
+              console.warn('[coach auto-provision] request failed, falling back to apply form:', e.message);
+            }
           }
 
           localStorage.setItem('pendingCoachApply', 'true');
@@ -924,7 +983,7 @@ function App() {
         return; // Don't run processSessionUser — just show the reset form
       }
       if (session && session.user) {
-        await processSessionUser(session.user);
+        await processSessionUser(session.user, session.access_token);
       } else if (
         event === 'SIGNED_OUT' ||
         // No real session but localStorage still claims a logged-in client

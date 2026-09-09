@@ -684,7 +684,21 @@ function App() {
           // keep re-asserting coach intent for an unrelated session.
           window.history.replaceState(null, '', window.location.pathname + window.location.hash);
         }
-        const pendingCoachLogin = sessionStorage.getItem('pendingCoachLogin') === 'true' || authIntentParam === 'coach';
+        // Third signal, and the only one that's actually durable: both of the
+        // above live in THIS TAB's storage and are gone the moment someone
+        // closes the tab before finishing sign-up. Confirmed 2026-09-09: even
+        // with the auto-provision fix below, someone who authenticates, closes
+        // the tab before it finishes, and returns later in a brand-new
+        // tab/session (fresh sessionStorage, no authIntent param — it was a
+        // one-shot on the original redirect) still fell through to the
+        // "brand-new client" branch and got silently created as a client.
+        // intendedRole is written to the AUTH ACCOUNT ITSELF (raw_user_meta_data,
+        // via the raw PUT below — never the SDK's updateUser(), which hangs on
+        // this project the same way it does in the password-reset flow) the
+        // first time either of the other two signals is seen, so it survives
+        // every future login on any device until a real coach profile exists.
+        const metadataIntent = user.user_metadata?.intendedRole === 'coach';
+        const pendingCoachLogin = sessionStorage.getItem('pendingCoachLogin') === 'true' || authIntentParam === 'coach' || metadataIntent;
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||
           resolvedRole === 'coach' ||
@@ -737,6 +751,20 @@ function App() {
           // profile settings later. Best-effort: if this fails (network,
           // expired token), fall through to the old pendingCoachApply form
           // exactly as before — nothing regresses.
+          //
+          // Persist intent onto the auth account itself, the first time we
+          // see it from either of the tab-local signals, so a fresh return
+          // with both gone still knows to retry this branch instead of
+          // falling through to "brand-new client" below. Fire-and-forget —
+          // must not block or gate provisioning on this side write landing.
+          if (accessToken && !metadataIntent) {
+            fetch(`${SUPABASE_URL}/auth/v1/user`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ data: { intendedRole: 'coach' } })
+            }).catch(() => {});
+          }
+
           if (accessToken) {
             try {
               const resp = await fetch('/api/register-coach-google', {

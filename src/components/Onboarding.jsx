@@ -149,6 +149,9 @@ const Onboarding = ({ onComplete }) => {
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
   const [coachApplyName, setCoachApplyName] = useState(() => localStorage.getItem('userName') || '');
   const [coachApplyEmail, setCoachApplyEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  // Digits only, no +91 — same convention as the client wizard's phone step
+  // below (phoneNumber state), the +91 prefix is added on submit for both.
+  const [coachApplyPhone, setCoachApplyPhone] = useState('');
   // Whether a real, live Supabase session already exists when this coach
   // sign-up form is showing. True only for someone who just arrived via a
   // genuine "Continue with Google" redirect — that flow already proves who
@@ -1142,6 +1145,10 @@ const Onboarding = ({ onComplete }) => {
             const email = formData.get('email');
             const name = formData.get('name');
             const password = formData.get('password');
+            const phoneDigits = (formData.get('phone') || '').replace(/\D/g, '');
+            if (phoneDigits.length !== 10) {
+              throw new Error('Please enter a valid 10-digit phone number.');
+            }
             const resp = await fetch('/api/register-coach', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1149,6 +1156,7 @@ const Onboarding = ({ onComplete }) => {
                 name,
                 email,
                 password,
+                phone: `+91${phoneDigits}`,
                 experience: formData.get('experience'),
                 brand: formData.get('specialization'),
                 certifications: formData.get('certifications'),
@@ -1234,6 +1242,10 @@ const Onboarding = ({ onComplete }) => {
           try {
             const formData = new FormData(e.target);
             const name = formData.get('name');
+            const phoneDigits = (formData.get('phone') || '').replace(/\D/g, '');
+            if (phoneDigits.length !== 10) {
+              throw new Error('Please enter a valid 10-digit phone number.');
+            }
 
             // resolveRealAccessToken, not supabase.auth.getSession() — this
             // submit handler exists specifically for the case where the
@@ -1257,6 +1269,7 @@ const Onboarding = ({ onComplete }) => {
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
               body: JSON.stringify({
                 name,
+                phone: `+91${phoneDigits}`,
                 experience: formData.get('experience'),
                 brand: formData.get('specialization'),
                 certifications: formData.get('certifications'),
@@ -1306,6 +1319,26 @@ const Onboarding = ({ onComplete }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Email Address</label>
                 <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!coachApplyEmail} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Phone Number</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <span style={{
+                    padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '8px', color: '#fff', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap'
+                  }}>🇮🇳 +91</span>
+                  <input
+                    name="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    value={coachApplyPhone}
+                    onChange={e => setCoachApplyPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="10-digit mobile number"
+                    style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none', minWidth: 0 }}
+                    required
+                  />
+                </div>
               </div>
 
               {coachApplyHasSession ? (

@@ -16,9 +16,25 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
+// users.phone carries a UNIQUE constraint, so a number already on another
+// account (a coach who is also an existing client, or a plain typo) comes back
+// as a Postgres 23505 the coach can't act on -- "duplicate key value violates
+// unique constraint users_phone_key" tells them nothing about which field to
+// fix. Worse, on the email path it lands in the rollback below and deletes the
+// auth account they just made, so they need to know it's the phone that has to
+// change before retrying. Returns null for any other error.
+function phoneConflictMessage(err) {
+  const code = err?.code || '';
+  const msg = (err?.message || '').toLowerCase();
+  const isDuplicate = code === '23505' || msg.includes('duplicate key');
+  if (!isDuplicate) return null;
+  if (!msg.includes('phone')) return null;
+  return 'That phone number is already registered to another account. Use a different number, or log in to the account that already has it.';
+}
+
 // ─── register-coach.js (method=email) ───
 async function handleRegisterEmail(req, res) {
-  const { email, name, password, experience, brand, certifications, social, location } = req.body || {};
+  const { email, name, password, phone, experience, brand, certifications, social, location } = req.body || {};
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
   }
@@ -83,10 +99,18 @@ async function handleRegisterEmail(req, res) {
     try {
       const { data: userRow, error: userErr } = await adminClient
         .from('users')
-        .upsert({ email: normalizedEmail, full_name: name, role: 'coach' }, { onConflict: 'email' })
+        .upsert({
+          email: normalizedEmail,
+          full_name: name,
+          role: 'coach',
+          // Only overwrite phone when one was actually submitted — an upsert
+          // on an existing row (the alreadyExists/retry path) must not blank
+          // out a number this account already has.
+          ...(phone ? { phone } : {})
+        }, { onConflict: 'email' })
         .select('id')
         .single();
-      if (userErr) throw new Error(userErr.message || 'Could not save your account details.');
+      if (userErr) throw new Error(phoneConflictMessage(userErr) || userErr.message || 'Could not save your account details.');
       publicUserId = userRow.id;
 
       const expYears = parseInt(experience, 10);
@@ -142,7 +166,7 @@ async function handleRegisterGoogle(req, res) {
     return res.status(401).json({ error: 'Missing session token.' });
   }
 
-  const { name, experience, brand, certifications, social, location } = req.body || {};
+  const { name, phone, experience, brand, certifications, social, location } = req.body || {};
   if (!name) {
     return res.status(400).json({ error: 'name is required' });
   }
@@ -162,10 +186,18 @@ async function handleRegisterGoogle(req, res) {
 
     const { data: userRow, error: userErr } = await adminClient
       .from('users')
-      .upsert({ email: normalizedEmail, full_name: name, role: 'coach' }, { onConflict: 'email' })
+      .upsert({
+        email: normalizedEmail,
+        full_name: name,
+        role: 'coach',
+        // Same as the email path: never blank out an existing number. The
+        // auto-provision call in App.jsx sends no phone at all (Google gives
+        // us none), so this must stay optional here.
+        ...(phone ? { phone } : {})
+      }, { onConflict: 'email' })
       .select('id')
       .single();
-    if (userErr) throw new Error(userErr.message || 'Could not save your account details.');
+    if (userErr) throw new Error(phoneConflictMessage(userErr) || userErr.message || 'Could not save your account details.');
     const publicUserId = userRow.id;
 
     const expYears = parseInt(experience, 10);

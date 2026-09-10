@@ -3707,7 +3707,15 @@
 .guide-image-section {
   position: relative;
   width: 100%;
+  /* Default for YouTube embeds and the no-video placeholder. A raw <video>
+     overrides this inline with its own measured ratio — see mediaAspect in
+     ExerciseGuideModal. */
   aspect-ratio: 16/9;
+  /* Portrait footage would otherwise make this box taller than the sheet and
+     push the tabs off-screen entirely (the section is flex-shrink: 0, so it
+     will not give way on its own). Capped here, object-fit: contain keeps the
+     whole frame visible and letterboxes into the black instead of cropping. */
+  max-height: 46vh;
   background: #000;
   flex-shrink: 0;
   overflow: hidden;

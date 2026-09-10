@@ -5603,7 +5603,7 @@ const databaseService = {
         category: 'Shoulders',
         primary_muscle: 'Deltoids',
         secondary_muscle: 'Triceps, Upper Chest',
-        video_url: '/videos/shoulders-press.mp4',
+        video_url: '',
         setup: 'Sit on a bench with back support. Hold dumbbells at shoulder height with an overhand grip, elbows bent at 90 degrees.',
         execution: 'Press the weights straight up above your head until your arms are fully extended. Lower slowly back to the starting point.',
         tip: 'Keep your core engaged and avoid arching your lower back as you press the weights overhead.'
@@ -5613,7 +5613,7 @@ const databaseService = {
         category: 'Arms',
         primary_muscle: 'Biceps',
         secondary_muscle: 'Brachialis, Brachioradialis',
-        video_url: '/videos/biceps-curls.mp4',
+        video_url: '',
         setup: 'Stand upright with feet shoulder-width apart, holding dumbbells at your sides with palms facing forward.',
         execution: 'Keep elbows close to your torso. Curl the weights while contracting your biceps. Lower slowly to full extension.',
         tip: 'Do not swing your body or use momentum. Keep your upper arms completely stationary during the movement.'
@@ -5623,7 +5623,7 @@ const databaseService = {
         category: 'Back',
         primary_muscle: 'Latissimus Dorsi',
         secondary_muscle: 'Rhomboids, Trapezius, Biceps',
-        video_url: '/videos/one-arm-row.mp4',
+        video_url: '',
         setup: 'Place one knee and same-side hand on a flat bench. Hold a dumbbell in your opposite hand with your arm extended down.',
         execution: 'Pull the dumbbell up to your rib cage, keeping your elbow tucked close. Lower slowly back to start.',
         tip: 'Focus on drawing your elbow back rather than pulling with your forearm. Squeeze your lat at the top.'
@@ -5633,7 +5633,7 @@ const databaseService = {
         category: 'Chest',
         primary_muscle: 'Pectorals',
         secondary_muscle: 'Triceps, Anterior Deltoids',
-        video_url: '/videos/flat-bench-press.mp4',
+        video_url: '',
         setup: 'Lie flat on a bench. Grip the barbell slightly wider than shoulder width. Feet flat on the floor.',
         execution: 'Unrack the bar. Lower it slowly to mid-chest. Press upward forcefully until arms are locked out.',
         tip: 'Keep your shoulder blades retracted and drive your feet into the floor to maintain tension.'
@@ -5643,7 +5643,7 @@ const databaseService = {
         category: 'Legs',
         primary_muscle: 'Quadriceps',
         secondary_muscle: 'Glutes, Hamstrings, Core',
-        video_url: '/videos/barbell-squat.mp4',
+        video_url: '',
         setup: 'Rest barbell on your upper back. Feet shoulder-width apart, toes pointed slightly outwards.',
         execution: 'Send hips back and bend knees to lower until thighs are parallel to the floor or lower. Press back to standing.',
         tip: 'Keep chest upright, knees tracking in line with toes, and drive through your heels.'
@@ -5653,7 +5653,7 @@ const databaseService = {
         category: 'Legs',
         primary_muscle: 'Quadriceps',
         secondary_muscle: 'None',
-        video_url: '/videos/leg-extensions.mp4',
+        video_url: '',
         setup: 'Sit in the extension machine. Place shins behind the padded roller. Grip side handles for support.',
         execution: 'Extend knees fully, squeezing quadriceps at the top. Lower the load under control to starting point.',
         tip: 'Do not allow your lower back to arch. Keep glutes firmly pressed into the seat.'
@@ -5663,7 +5663,7 @@ const databaseService = {
         category: 'Legs',
         primary_muscle: 'Hamstrings',
         secondary_muscle: 'Glutes, Lower Back',
-        video_url: '/videos/romanian-deadlift.mp4',
+        video_url: '',
         setup: 'Stand holding a barbell at hip height. Feet hip-width apart, knees slightly unlocked.',
         execution: 'Hinge forward at the hips, keeping back flat. Lower weight along thighs/shins until stretch is felt in hamstrings. Return to top.',
         tip: 'Ensure the bar remains close to your body and avoid bending the knees further during the descent.'
@@ -5673,7 +5673,7 @@ const databaseService = {
         category: 'Arms',
         primary_muscle: 'Triceps',
         secondary_muscle: 'Shoulders',
-        video_url: '/videos/overhead-triceps-extension.mp4',
+        video_url: '',
         setup: 'Hold a dumbbell with both hands overhead, arms fully extended.',
         execution: 'Keep elbows tucked in close. Lower the weight behind your head by bending elbows. Extend back to top.',
         tip: 'Ensure only your forearms move; your upper arms should remain stationary and vertical.'
@@ -5683,7 +5683,7 @@ const databaseService = {
         category: 'Arms',
         primary_muscle: 'Biceps',
         secondary_muscle: 'Brachialis, Forearms',
-        video_url: '/videos/hammer-curls.mp4',
+        video_url: '',
         setup: 'Stand upright with a dumbbell in each hand, palms facing each other (neutral grip).',
         execution: 'Keep upper arms stationary. Curl the weights forward while contracting biceps. Lower to starting point.',
         tip: 'Avoid swinging weights or using body momentum. Keep elbows close to your sides.'
@@ -5693,7 +5693,7 @@ const databaseService = {
         category: 'Core',
         primary_muscle: 'Core / Abs',
         secondary_muscle: 'Shoulders, Glutes',
-        video_url: '/videos/plank.mp4',
+        video_url: '',
         setup: 'Place forearms on floor, elbows aligned under shoulders. Extend legs straight back, resting on toes.',
         execution: 'Hold a straight line from head to heels. Contract abs, glutes, and thighs.',
         tip: 'Do not allow hips to sag or rise. Keep neck neutral by looking at the floor.'
@@ -5703,7 +5703,7 @@ const databaseService = {
         category: 'Core',
         primary_muscle: 'Core / Abs',
         secondary_muscle: 'Hip Flexors, Grip Strength',
-        video_url: '/videos/hanging-leg-raises.mp4',
+        video_url: '',
         setup: 'Hang from a pull-up bar with arms fully extended, using an overhand grip.',
         execution: 'Keep legs straight. Raise them up until they are parallel to the floor or higher. Lower slowly under control.',
         tip: 'Minimize swinging. Engage your core before starting each rep.'
@@ -5713,7 +5713,7 @@ const databaseService = {
         category: 'Shoulders',
         primary_muscle: 'Side Delts',
         secondary_muscle: 'Trapezius',
-        video_url: '/videos/dumbbell-lateral-raises.mp4',
+        video_url: '',
         setup: 'Stand upright holding dumbbells at your sides, palms facing inwards.',
         execution: 'Raise arms out to the sides with a slight elbow bend, until parallel to the floor. Lower under control.',
         tip: 'Lead the movement with your elbows and avoid shrugging your shoulders at the top.'
@@ -5723,7 +5723,7 @@ const databaseService = {
         category: 'Back',
         primary_muscle: 'Back / Lats',
         secondary_muscle: 'Biceps, Rear Delts',
-        video_url: '/videos/pull-ups.mp4',
+        video_url: '',
         setup: 'Grip pull-up bar with palms facing away from you, wider than shoulder-width.',
         execution: 'Pull your body up until your chin clears the bar. Lower slowly to a dead hang.',
         tip: 'Focus on driving your elbows down toward your ribs to engage your back muscles.'
@@ -6226,7 +6226,9 @@ const databaseService = {
       }
     } else {
       await new Promise(resolve => setTimeout(resolve, 800));
-      return `/videos/shoulders-press.mp4`;
+      // Mock-mode stub (no Supabase configured) — simulates a successful
+      // upload without a real file to point at.
+      return '';
     }
   }
 };

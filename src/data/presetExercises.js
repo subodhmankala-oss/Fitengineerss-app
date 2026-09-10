@@ -18,7 +18,7 @@ export const presetExercises = [
     category: 'Shoulders',
     primary: 'Deltoids',
     secondary: 'Triceps, Upper Chest',
-    videoFile: '/videos/shoulders-press.mp4',
+    videoFile: '',
     guide: {
       target: 'Deltoids (Shoulders), Triceps, Upper Chest',
       setup: 'Sit on a bench with back support. Hold dumbbells at shoulder height with an overhand grip, elbows bent at 90 degrees.',
@@ -31,7 +31,7 @@ export const presetExercises = [
     category: 'Arms',
     primary: 'Biceps',
     secondary: 'Brachialis, Brachioradialis',
-    videoFile: '/videos/biceps-curls.mp4',
+    videoFile: '',
     guide: {
       target: 'Biceps Brachii, Brachialis, Brachioradialis',
       setup: 'Stand upright with feet shoulder-width apart, holding dumbbells at your sides with palms facing forward.',
@@ -44,7 +44,7 @@ export const presetExercises = [
     category: 'Back',
     primary: 'Latissimus Dorsi',
     secondary: 'Rhomboids, Trapezius, Biceps',
-    videoFile: '/videos/one-arm-row.mp4',
+    videoFile: '',
     guide: {
       target: 'Latissimus Dorsi (Lats), Rhomboids, Trapezius, Biceps',
       setup: 'Place one knee and same-side hand on a flat bench. Keep your back flat and parallel to the floor, holding a dumbbell in the other hand.',
@@ -57,7 +57,7 @@ export const presetExercises = [
     category: 'Back',
     primary: 'Latissimus Dorsi',
     secondary: 'Upper Back, Biceps',
-    videoFile: '/videos/lat-pull-down.mp4',
+    videoFile: '',
     guide: {
       target: 'Latissimus Dorsi (Lats), Upper Back, Biceps',
       setup: 'Sit at a pulldown station and adjust the thigh pad. Grasp the bar with a wide overhand grip, leaning slightly back.',
@@ -70,7 +70,7 @@ export const presetExercises = [
     category: 'Chest',
     primary: 'Pectoralis Major',
     secondary: 'Anterior Deltoids, Triceps',
-    videoFile: '/videos/flat-bench-press.mp4',
+    videoFile: '',
     guide: {
       target: 'Pectoralis Major (Chest), Anterior Deltoids, Triceps',
       setup: 'Lie flat on a bench, grip the barbell slightly wider than shoulder-width. Keep feet flat on the floor and retract shoulder blades.',
@@ -83,7 +83,7 @@ export const presetExercises = [
     category: 'Chest',
     primary: 'Upper Chest',
     secondary: 'Shoulders, Triceps',
-    videoFile: '/videos/incline-dumbbell-press.mp4',
+    videoFile: '',
     guide: {
       target: 'Clavicular Pectoralis (Upper Chest), Shoulders, Triceps',
       setup: 'Set an incline bench to 30-45 degrees. Sit with dumbbells at your chest, elbows tucked, feet firmly planted.',
@@ -96,7 +96,7 @@ export const presetExercises = [
     category: 'Chest',
     primary: 'Pectoralis Major',
     secondary: 'Anterior Deltoids',
-    videoFile: '/videos/cable-crossover.mp4',
+    videoFile: '',
     guide: {
       target: 'Sternal Pectoralis (Inner & Lower Chest)',
       setup: 'Set pulleys to high position. Hold handles, step forward with one foot, lean slightly forward, arms extended out.',
@@ -109,7 +109,7 @@ export const presetExercises = [
     category: 'Legs',
     primary: 'Quadriceps',
     secondary: 'Glutes, Hamstrings, Core',
-    videoFile: '/videos/barbell-squat.mp4',
+    videoFile: '',
     guide: {
       target: 'Quadriceps, Gluteus Maximus, Hamstrings, Core',
       setup: 'Rest the barbell across your upper traps. Stand with feet slightly wider than shoulder-width, toes flared out.',
@@ -122,7 +122,7 @@ export const presetExercises = [
     category: 'Legs',
     primary: 'Hamstrings',
     secondary: 'Glutes, Lower Back',
-    videoFile: '/videos/romanian-deadlift.mp4',
+    videoFile: '',
     guide: {
       target: 'Hamstrings, Glutes, Lower Back (Erectors)',
       setup: 'Stand tall holding dumbbells or a barbell at hip height. Feet hip-width apart, knees slightly unlocked.',
@@ -135,7 +135,7 @@ export const presetExercises = [
     category: 'Legs',
     primary: 'Quadriceps',
     secondary: 'Rectus Femoris, Vastus Lateralis',
-    videoFile: '/videos/leg-extensions.mp4',
+    videoFile: '',
     guide: {
       target: 'Quadriceps (Rectus Femoris, Vastus Lateralis)',
       setup: 'Sit in the extension machine, back flush against pad. Place ankles under the roller pad and hold the side handles.',
@@ -148,7 +148,7 @@ export const presetExercises = [
     category: 'Arms',
     primary: 'Triceps',
     secondary: 'Core, Shoulders',
-    videoFile: '/videos/overhead-triceps-extension.mp4',
+    videoFile: '',
     guide: {
       target: 'Triceps Brachii (Long Head focus)',
       setup: 'Stand or sit, holding a dumbbell with both hands vertically overhead, cupping the top plate under your palms.',
@@ -161,7 +161,7 @@ export const presetExercises = [
     category: 'Arms',
     primary: 'Brachialis',
     secondary: 'Brachioradialis, Biceps',
-    videoFile: '/videos/hammer-curls.mp4',
+    videoFile: '',
     guide: {
       target: 'Brachialis, Brachioradialis (Forearms), Biceps',
       setup: 'Stand tall with dumbbells in each hand, palms facing each other (neutral grip).',
@@ -174,7 +174,7 @@ export const presetExercises = [
     category: 'Core',
     primary: 'Core',
     secondary: 'Glutes, Shoulders',
-    videoFile: '/videos/plank.mp4',
+    videoFile: '',
     guide: {
       target: 'Core (Rectus Abdominis, Obliques, Transverse Abdominis)',
       setup: 'Place forearms on the floor, elbows aligned under shoulders. Extend legs straight back, resting on toes.',
@@ -187,7 +187,7 @@ export const presetExercises = [
     category: 'Core',
     primary: 'Lower Abs',
     secondary: 'Hip Flexors, Core',
-    videoFile: '/videos/hanging-leg-raises.mp4',
+    videoFile: '',
     guide: {
       target: 'Lower Rectus Abdominis, Iliopsoas (Hip Flexors)',
       setup: 'Hang from a pull-up bar with an overhand grip, arms and legs fully extended, shoulders active.',
@@ -200,7 +200,7 @@ export const presetExercises = [
     category: 'Shoulders',
     primary: 'Lateral Deltoids',
     secondary: 'Trapezius',
-    videoFile: '/videos/dumbbell-lateral-raises.mp4',
+    videoFile: '',
     guide: {
       target: 'Lateral Deltoids (Side Shoulders)',
       setup: 'Stand upright holding dumbbells at your sides, palms facing inward. Lean forward very slightly.',
@@ -213,7 +213,7 @@ export const presetExercises = [
     category: 'Back',
     primary: 'Latissimus Dorsi',
     secondary: 'Rhomboids, Teres Major, Biceps',
-    videoFile: '/videos/pull-ups.mp4',
+    videoFile: '',
     guide: {
       target: 'Latissimus Dorsi (Lats), Teres Major, Rhomboids, Biceps',
       setup: 'Hang from a bar with a wide overhand grip. Depress and retract your scapula (pull shoulders down).',

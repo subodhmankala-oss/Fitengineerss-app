@@ -18,10 +18,26 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
   // full video for each one whether they watch it or not. Gate behind a
   // tap; YouTube embeds already don't autoplay so they're unaffected.
   const [videoTapped, setVideoTapped] = useState(!isSlowConnection());
+  // Shown over the black video square while the MP4 buffers its first
+  // playable frame, so the sheet reads as "opening" instead of "stuck" —
+  // the raw <video> gives no visual feedback on its own until it has
+  // enough data to paint a frame, which on a cold cache can take a beat.
+  const [videoLoading, setVideoLoading] = useState(true);
+  // The media box used to be locked to 16/9 with the video cropped to `cover`,
+  // which quietly threw away most of a portrait clip: the demo footage is
+  // 384x848, so a 16/9 box showed a ~25%-tall horizontal band of it — a strip
+  // of torso, with the actual movement cut off above and below. Rather than
+  // trade one hardcoded ratio for another, shape the box to whatever the
+  // media actually is (read off the loaded video) and let `contain` guarantee
+  // nothing is ever cropped. 16/9 footage then fills the box edge to edge as
+  // before, so this needs no revisiting when real per-exercise clips land.
+  const [mediaAspect, setMediaAspect] = useState(null);
 
   useEffect(() => {
     setGuideTab('summary');
     setVideoTapped(!isSlowConnection());
+    setVideoLoading(true);
+    setMediaAspect(null);
   }, [exercise]);
 
   if (!exercise) return null;
@@ -31,7 +47,12 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
       <div className="guide-sheet animate-slide-up" onClick={(e) => e.stopPropagation()}>
         <div className="guide-sheet-handle" />
 
-        <div className="guide-image-section">
+        <div
+          className="guide-image-section"
+          // Only a raw <video> reports its dimensions; a YouTube embed can't
+          // be measured cross-origin, so those keep the stylesheet's 16/9.
+          style={mediaAspect ? { aspectRatio: String(mediaAspect) } : undefined}
+        >
           {exercise.videoFile ? (
             getYouTubeEmbedUrl(exercise.videoFile) ? (
               <iframe
@@ -43,16 +64,31 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
                 style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' }}
               />
             ) : videoTapped ? (
-              <video
-                key={exercise.videoFile}
-                src={exercise.videoFile}
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
+              <>
+                <video
+                  key={exercise.videoFile}
+                  src={exercise.videoFile}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                  preload="auto"
+                  onLoadedMetadata={(e) => {
+                    const { videoWidth, videoHeight } = e.currentTarget;
+                    if (videoWidth && videoHeight) setMediaAspect(videoWidth / videoHeight);
+                  }}
+                  onLoadedData={() => setVideoLoading(false)}
+                  onCanPlay={() => setVideoLoading(false)}
+                  onError={() => setVideoLoading(false)}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                />
+                {videoLoading && (
+                  <div className="guide-image-placeholder guide-image-loading" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    <span className="guide-spinner" />
+                  </div>
+                )}
+              </>
             ) : (
               <button
                 type="button"

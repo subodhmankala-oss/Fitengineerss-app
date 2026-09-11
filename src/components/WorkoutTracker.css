@@ -2282,6 +2282,22 @@
   background: rgba(59, 130, 246, 0.22);
 }
 
+.bw-header-toggle {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bw-header-toggle:hover,
+.bw-header-toggle:focus-visible {
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+}
+
+.bw-header-toggle:active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
 .bw-hint-icon {
   display: inline-block;
   font-size: 0.7rem;

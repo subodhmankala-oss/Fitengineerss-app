@@ -3580,10 +3580,18 @@ const WorkoutTracker = () => {
                           </>
                         ) : isTimedExercise(ex.name) && exIsBodyweight ? (
                           <>
-                            <span className="col-weight">
+                            <span
+                              className="col-weight bw-header-toggle"
+                              role="button"
+                              tabIndex={0}
+                              title={exBwMode ? 'Tap to add weight' : 'Tap to switch back to bodyweight'}
+                              onClick={() => handleToggleLogBodyweightMode(exIdx)}
+                            >
                               {exBwMode ? (
-                                <>BODYWEIGHT <span className="bw-hint-icon" title="Tap BW below to add weight">⇄</span></>
-                              ) : `🏋️ ${unit}`}
+                                <>BODYWEIGHT <span className="bw-hint-icon">⇄</span></>
+                              ) : (
+                                <>🏋️ {unit} <span className="bw-hint-icon">⇄</span></>
+                              )}
                             </span>
                             <span className="col-reps">TIME</span>
                           </>
@@ -3604,10 +3612,18 @@ const WorkoutTracker = () => {
                           </>
                         ) : exIsBodyweight ? (
                           <>
-                            <span className="col-weight">
+                            <span
+                              className="col-weight bw-header-toggle"
+                              role="button"
+                              tabIndex={0}
+                              title={exBwMode ? 'Tap to add weight' : 'Tap to switch back to bodyweight'}
+                              onClick={() => handleToggleLogBodyweightMode(exIdx)}
+                            >
                               {exBwMode ? (
-                                <>BODYWEIGHT <span className="bw-hint-icon" title="Tap BW below to add weight">⇄</span></>
-                              ) : `🏋️ ${unit}`}
+                                <>BODYWEIGHT <span className="bw-hint-icon">⇄</span></>
+                              ) : (
+                                <>🏋️ {unit} <span className="bw-hint-icon">⇄</span></>
+                              )}
                             </span>
                             <span className="col-reps">REPS</span>
                           </>

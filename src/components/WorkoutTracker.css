@@ -2266,6 +2266,29 @@
   color: var(--text-muted);
 }
 
+.bw-static-label--tappable {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bw-static-label--tappable:hover,
+.bw-static-label--tappable:focus-visible {
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+}
+
+.bw-static-label--tappable:active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.bw-hint-icon {
+  display: inline-block;
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
 /* Set Table Styling */
 .hevy-sets-table {
   width: 100%;

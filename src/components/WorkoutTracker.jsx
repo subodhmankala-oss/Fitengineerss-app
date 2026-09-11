@@ -3580,7 +3580,11 @@ const WorkoutTracker = () => {
                           </>
                         ) : isTimedExercise(ex.name) && exIsBodyweight ? (
                           <>
-                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
+                            <span className="col-weight">
+                              {exBwMode ? (
+                                <>BODYWEIGHT <span className="bw-hint-icon" title="Tap BW below to add weight">⇄</span></>
+                              ) : `🏋️ ${unit}`}
+                            </span>
                             <span className="col-reps">TIME</span>
                           </>
                         ) : isTimedExercise(ex.name) ? (
@@ -3600,7 +3604,11 @@ const WorkoutTracker = () => {
                           </>
                         ) : exIsBodyweight ? (
                           <>
-                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
+                            <span className="col-weight">
+                              {exBwMode ? (
+                                <>BODYWEIGHT <span className="bw-hint-icon" title="Tap BW below to add weight">⇄</span></>
+                              ) : `🏋️ ${unit}`}
+                            </span>
                             <span className="col-reps">REPS</span>
                           </>
                         ) : (
@@ -3846,7 +3854,15 @@ const WorkoutTracker = () => {
                                 return (
                                   <>
                                     {exBwMode ? (
-                                      <div className="col-weight bw-static-label">BW</div>
+                                      <div
+                                        className="col-weight bw-static-label bw-static-label--tappable"
+                                        role="button"
+                                        tabIndex={0}
+                                        title="Tap to add weight"
+                                        onClick={() => { handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
+                                      >
+                                        BW
+                                      </div>
                                     ) : (
                                       <div className="col-weight set-input-field">
                                         <SetValueField
@@ -3892,7 +3908,15 @@ const WorkoutTracker = () => {
                                     {exIsWarmup ? (
                                       <div className="col-weight" />
                                     ) : exIsBodyweight && exBwMode ? (
-                                      <div className="col-weight bw-static-label">BW</div>
+                                      <div
+                                        className="col-weight bw-static-label bw-static-label--tappable"
+                                        role="button"
+                                        tabIndex={0}
+                                        title="Tap to add weight"
+                                        onClick={() => { handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
+                                      >
+                                        BW
+                                      </div>
                                     ) : (
                                       <div className="col-weight set-input-field">
                                         <SetValueField

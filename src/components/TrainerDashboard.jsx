@@ -716,6 +716,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     return new File([blob], filename, { type: blob.type || 'image/jpeg' });
   };
 
+  const loadImage = (src) => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+
   // Composites the raw logo (whatever size it actually is — public/logo.png
   // is a full app icon, easily 512×512+) onto a fixed-size card with a name
   // caption underneath, instead of sharing it full-bleed (2026-09-11: "The
@@ -723,16 +730,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // Bounding the logo to a fixed box keeps every reminder's image the same
   // modest size in the WhatsApp bubble regardless of the source image's
   // actual dimensions, and the caption makes clear what the logo even is
-  // when it's just an icon with no text of its own.
+  // when it's just an icon with no text of its own. Used for the no-QR
+  // "Gentle reminder" variant, where this is the only image being sent.
   const buildLogoCardFile = async (logoSrc, captionText) => {
-    const img = new Image();
-    const loaded = new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
-    img.src = logoSrc;
-    await loaded;
-
+    const img = await loadImage(logoSrc);
     const W = 480, H = 380, boxSize = 200, topPad = 40;
     const canvas = document.createElement('canvas');
     canvas.width = W;
@@ -750,6 +751,42 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
     const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.9))).blob();
     return new File([blob], 'logo.jpg', { type: 'image/jpeg' });
+  };
+
+  // One combined card — logo + brand caption stacked above the payment QR —
+  // instead of sharing them as two separate images (2026-09-11: "QR is
+  // completely coming separate. Which is off the beat."). WhatsApp posts
+  // each shared file as its own bubble, so two files always looked like two
+  // unrelated messages; a single composited image reads as one thing. The
+  // QR itself is drawn undistorted with a generous white quiet zone around
+  // it (the actual scannable pattern is untouched pixels, just surrounded by
+  // more canvas), so WhatsApp's own "this looks like a payment QR" card
+  // detection still has a clean, standard QR to recognize.
+  const buildBrandQrCardFile = async (logoSrc, captionText, qrSrc) => {
+    const [logoImg, qrImg] = await Promise.all([loadImage(logoSrc), loadImage(qrSrc)]);
+    const W = 480, topPad = 32, logoBox = 110, qrBox = 300, gap = 24;
+    const H = topPad + logoBox + 12 + 40 + gap + qrBox + 28;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    const logoScale = Math.min(logoBox / logoImg.width, logoBox / logoImg.height);
+    const lw = logoImg.width * logoScale, lh = logoImg.height * logoScale;
+    ctx.drawImage(logoImg, (W - lw) / 2, topPad + (logoBox - lh) / 2, lw, lh);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 30px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    const captionY = topPad + logoBox + 34;
+    ctx.fillText(captionText, W / 2, captionY);
+
+    const qrTop = captionY + gap;
+    ctx.drawImage(qrImg, (W - qrBox) / 2, qrTop, qrBox, qrBox);
+
+    const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.92))).blob();
+    return new File([blob], 'payment-qr.jpg', { type: 'image/jpeg' });
   };
 
   // India-only heuristic (₹ is the only currency this app shows anywhere) —
@@ -820,17 +857,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       const logoCaption = usingCustomLogo ? coachBrand : 'Fitengineers';
       const qrUrl = withQr ? (assets?.qrUrl || '') : '';
 
-      // Build whichever of {logo, QR} actually exist into one share list —
-      // navigator.share happily takes multiple files in one action, so a
-      // coach with both uploaded gets a single share-sheet tap that sends
-      // logo + QR + text together rather than two separate prompts. The logo
-      // goes through buildLogoCardFile (bounded size + caption, see its
-      // comment) rather than being shared raw.
-      let logoFile = null;
-      let qrFile = null;
-      if (logoUrl) { try { logoFile = await buildLogoCardFile(logoUrl, logoCaption); } catch { /* skip a corrupt/unreadable logo */ } }
-      if (qrUrl) { try { qrFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* skip a corrupt/unreadable QR */ } }
-      const shareFiles = [logoFile, qrFile].filter(Boolean);
+      // Exactly ONE image file, never two (2026-09-11: "QR is completely
+      // coming separate. Which is off the beat" — WhatsApp posts each shared
+      // file as its own bubble, so logo + QR as separate files always read
+      // as two unrelated messages). The QR variant gets one combined
+      // logo-caption-QR card (buildBrandQrCardFile); the no-QR variant gets
+      // just the logo card.
+      let mediaFile = null;
+      if (qrUrl) {
+        try { mediaFile = await buildBrandQrCardFile(logoUrl, logoCaption, qrUrl); }
+        catch { /* combined card failed (e.g. unreadable QR) — fall back to the QR alone so payment is still the priority */
+          try { mediaFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* give up on an image entirely */ }
+        }
+      } else if (logoUrl) {
+        try { mediaFile = await buildLogoCardFile(logoUrl, logoCaption); } catch { /* skip a corrupt/unreadable logo */ }
+      }
+      const shareFiles = mediaFile ? [mediaFile] : [];
       const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
 
       const payLine = qrUrl
@@ -851,29 +893,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         }
       }
 
-      // Couldn't share as files (desktop browser, mostly, or nothing
-      // uploaded) — download whichever images exist locally (the composited
-      // logo card, not the raw source) so the coach can still attach them by
-      // hand in the same WhatsApp chat the line below opens.
-      if (!canShareFiles && (logoFile || qrFile)) {
-        if (logoFile) {
-          const url = URL.createObjectURL(logoFile);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `logo-${firstName.toLowerCase()}.jpg`;
-          link.click();
-          URL.revokeObjectURL(url);
-        }
-        if (qrFile) {
-          const url = URL.createObjectURL(qrFile);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `payment-qr-${firstName.toLowerCase()}.jpg`;
-          link.click();
-          URL.revokeObjectURL(url);
-        }
-        const what = logoFile && qrFile ? 'Logo and QR code' : logoFile ? 'Logo' : 'QR code';
-        triggerLiveToast(`📥 ${what} downloaded — attach ${logoFile && qrFile ? 'them' : 'it'} in the chat too.`);
+      // Couldn't share as a file (desktop browser, mostly, or nothing to
+      // send) — download the one combined image locally (the composited
+      // card, not a raw source) so the coach can still attach it by hand in
+      // the same WhatsApp chat the line below opens.
+      if (!canShareFiles && mediaFile) {
+        const url = URL.createObjectURL(mediaFile);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
+        link.click();
+        URL.revokeObjectURL(url);
+        triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
       }
 
       // The gentle (no-QR) variant also pushes a notification straight to

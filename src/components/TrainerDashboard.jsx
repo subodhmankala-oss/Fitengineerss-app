@@ -1055,6 +1055,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [editingPlan, setEditingPlan] = useState(null);
   const [editorPlanName, setEditorPlanName] = useState('');
   const [editorExercises, setEditorExercises] = useState([]);
+  // Whether the exercises currently in the editor were just recovered from
+  // an unsaved-refresh draft (see the restore effect near the deep-link
+  // effect below) — drives the small "restored" banner in the editor list.
+  const [restoredPlanDraft, setRestoredPlanDraft] = useState(false);
   // Which surface opened the shared exercise picker: 'editor' | 'live' | null
   const [exercisePickerContext, setExercisePickerContext] = useState(null);
   // "How to perform this exercise" sheet, opened from the picker's
@@ -1755,6 +1759,49 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId]);
+
+  // Debounce-push the Plan Editor (Create/Edit Workout Plan) to localStorage
+  // while it's open, so refreshing the page mid-build — reported 2026-09-11,
+  // the whole exercise list was lost and had to be re-typed by hand — has
+  // something to restore from. Unlike the Live Log's session (which needs to
+  // survive across devices/logouts and so goes to workout_drafts in the DB),
+  // this only needs to survive an accidental refresh in the same browser
+  // tab, so plain localStorage is enough and avoids an extra write on every
+  // keystroke hitting the network.
+  const planEditorDraftSaveTimerRef = useRef(null);
+  useEffect(() => {
+    if (!showPlanEditor || !selectedClient) return;
+    if (planEditorDraftSaveTimerRef.current) clearTimeout(planEditorDraftSaveTimerRef.current);
+    planEditorDraftSaveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem('coachPlanEditorDraft', JSON.stringify({
+          clientId: selectedClient.id,
+          editingPlanId: editingPlan?.id || null,
+          editorPlanName,
+          editorExercises,
+          extraAssignClientIds,
+          isAiDraftMode,
+          aiDraftDays,
+          activeAiDraftDayIndex,
+          aiDraftSummary,
+          savedAt: Date.now()
+        }));
+      } catch (err) {
+        console.error('Failed to save plan editor draft:', err);
+      }
+    }, 800);
+    return () => {
+      if (planEditorDraftSaveTimerRef.current) clearTimeout(planEditorDraftSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPlanEditor, selectedClient, editingPlan, editorPlanName, editorExercises, extraAssignClientIds, isAiDraftMode, aiDraftDays, activeAiDraftDayIndex, aiDraftSummary]);
+
+  // Clears the localStorage draft above — called whenever the editor closes
+  // for a "real" reason (saved/assigned, or explicitly cancelled) so a stale
+  // draft doesn't reappear and clobber the next plan the coach opens.
+  const clearPlanEditorDraft = () => {
+    try { localStorage.removeItem('coachPlanEditorDraft'); } catch { /* ignore */ }
+  };
 
   const triggerLiveToast = (msg) => {
     setLiveToast(msg);
@@ -2524,6 +2571,42 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkClientId, clients]);
 
+  // Restore an unsaved Plan Editor draft (see the save effect near
+  // liveDraftSaveTimerRef above) after a page refresh wiped out the coach's
+  // in-progress exercise list. Same "wait for clients to load, then run
+  // once" shape as the deep-link effect just above.
+  const planDraftRestoredRef = useRef(false);
+  useEffect(() => {
+    if (planDraftRestoredRef.current || clients.length === 0) return;
+    planDraftRestoredRef.current = true;
+    let draft;
+    try {
+      const raw = localStorage.getItem('coachPlanEditorDraft');
+      draft = raw ? JSON.parse(raw) : null;
+    } catch {
+      draft = null;
+    }
+    if (!draft) return;
+    const match = clients.find(c => c.id === draft.clientId);
+    if (!match || !Array.isArray(draft.editorExercises) || draft.editorExercises.length === 0) {
+      clearPlanEditorDraft();
+      return;
+    }
+    setViewMode('coach');
+    handleSelectClient(match);
+    setEditingPlan(draft.editingPlanId ? { id: draft.editingPlanId } : null);
+    setEditorPlanName(draft.editorPlanName || '');
+    setEditorExercises(draft.editorExercises);
+    setExtraAssignClientIds(draft.extraAssignClientIds || []);
+    setIsAiDraftMode(!!draft.isAiDraftMode);
+    setAiDraftDays(draft.aiDraftDays || []);
+    setActiveAiDraftDayIndex(draft.activeAiDraftDayIndex || 0);
+    setAiDraftSummary(draft.aiDraftSummary || '');
+    setShowPlanEditor(true);
+    setRestoredPlanDraft(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
+
   // Coach sets this client's coaching-program length. Persisted via the
   // coach↔client-scoped RPC; drives the client's home progress card.
   const handleSaveTotalSessions = async () => {
@@ -3098,6 +3181,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setExtraAssignClientIds([]);
     setShowCreatePlanChoice(false);
     setShowPlanEditor(true);
+    setRestoredPlanDraft(false);
   };
 
   // AIWorkoutBuilderModal's onGenerated — loads the first day into the
@@ -3116,6 +3200,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setIsAiDraftMode(true);
     setShowAIBuilder(false);
     setShowPlanEditor(true);
+    setRestoredPlanDraft(false);
   };
 
   // Switching day tabs while reviewing an AI draft: sync whatever the coach
@@ -3193,6 +3278,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         setEditorPlanName('');
         setEditorExercises([]);
         setExtraAssignClientIds([]);
+        setRestoredPlanDraft(false);
+        clearPlanEditorDraft();
         fetchClientPlans(selectedClient.id);
       } finally {
         setAssigningAiDraft(false);
@@ -3240,6 +3327,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setEditorPlanName('');
     setEditorExercises([]);
     setExtraAssignClientIds([]);
+    setRestoredPlanDraft(false);
+    clearPlanEditorDraft();
     fetchClientPlans(selectedClient.id);
   };
 
@@ -7005,6 +7094,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         </div>
                       )}
 
+                      {restoredPlanDraft && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', marginBottom: '12px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', color: 'var(--primary-accent-light)' }}>
+                          <span>↩️ Restored your unsaved exercises from before the page refreshed.</span>
+                          <button
+                            type="button"
+                            onClick={() => setRestoredPlanDraft(false)}
+                            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '0.9rem', lineHeight: 1, padding: '2px 4px' }}
+                            aria-label="Dismiss"
+                          >✕</button>
+                        </div>
+                      )}
+
                       {/* Exercises in the editor — matches the Live Log's Hevy-style
                           layout (flush cards, styled set rows, set-type badges). */}
                       <div className="editor-exercises-list" style={{ marginBottom: '16px' }}>
@@ -7290,6 +7391,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             setAiDraftSummary('');
                             setActiveAiDraftDayIndex(0);
                             setExtraAssignClientIds([]);
+                            setRestoredPlanDraft(false);
+                            clearPlanEditorDraft();
                           }}
                           style={{ flex: 1, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.5 : 1 }}
                         >
@@ -7407,6 +7510,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           setEditorExercises(plan.exercises);
                                           setExtraAssignClientIds([]);
                                           setShowPlanEditor(true);
+                                          setRestoredPlanDraft(false);
                                         }}
                                         style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
                                       >

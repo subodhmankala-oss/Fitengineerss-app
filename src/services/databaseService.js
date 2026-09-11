@@ -2032,6 +2032,7 @@ const databaseService = {
             experienceYears: coach?.experience_years != null ? String(coach.experience_years) : '',
             locationCity: coach?.location_city || '',
             socialHandle: coach?.social_media_handle || '',
+            paymentQrUrl: coach?.payment_qr_url || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -2102,6 +2103,7 @@ const databaseService = {
         experienceYears: mCoach?.experience_years != null ? String(mCoach.experience_years) : '',
         locationCity: mCoach?.location_city || '',
         socialHandle: mCoach?.social_media_handle || '',
+        paymentQrUrl: mCoach?.payment_qr_url || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -3256,16 +3258,25 @@ const databaseService = {
     if (!isSupabaseConfigured || !coachId) return [];
     try {
       const clientRows = await restSelect(
-        `clients?select=user_id,full_name,paused_at&coach_id=eq.${encodeURIComponent(coachId)}`
+        `clients?select=user_id,full_name,phone_number,paused_at&coach_id=eq.${encodeURIComponent(coachId)}`
       );
       if (!clientRows || clientRows.length === 0) return [];
       const nameById = {};
+      // Client's own WhatsApp number, so "Send reminder" (see TrainerDashboard's
+      // renewal-row menu) can target their chat directly instead of opening a
+      // generic contact picker.
+      const phoneById = {};
       // A paused client is deliberately excluded here, not just filtered from
       // the final list below — "no matching coach-client relationship" isn't
       // true of them, but the effect a coach wants (this client stops
       // showing up as overdue) is the same either way, and this is the one
       // place that decision needs to be made.
-      clientRows.forEach(c => { if (c.user_id && !c.paused_at) nameById[c.user_id] = c.full_name || 'Client'; });
+      clientRows.forEach(c => {
+        if (c.user_id && !c.paused_at) {
+          nameById[c.user_id] = c.full_name || 'Client';
+          phoneById[c.user_id] = c.phone_number || '';
+        }
+      });
 
       const payments = await restSelect(
         `client_payments?select=client_id,paid_at&coach_id=eq.${encodeURIComponent(coachId)}&order=paid_at.desc`
@@ -3292,6 +3303,7 @@ const databaseService = {
           return {
             clientId,
             clientName: nameById[clientId],
+            clientPhone: phoneById[clientId] || '',
             lastPaidAt: paidAt,
             daysSincePaid,
             daysOverdue: daysSincePaid - MONTH_DAYS // negative = not yet due
@@ -4533,7 +4545,7 @@ const databaseService = {
   // SELECT) policy to pass for the coach's OWN row, which it does — these
   // calls run under the coach's real session token (resolveBearerToken),
   // not the anon key.
-  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle }) {
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl }) {
     if (!userId) throw new Error('Missing user id — could not save profile.');
     if (isSupabaseConfigured && supabase) {
       const expYears = parseInt(experienceYears, 10);
@@ -4548,6 +4560,10 @@ const databaseService = {
         experience_years: Number.isFinite(expYears) ? expYears : null,
         location_city: locationCity || null,
         social_media_handle: socialHandle || null,
+        // paymentQrUrl is a data: URL (see supabase_coach_payment_qr.sql) —
+        // '' means "removed" (CoachProfile's Remove button), so write null
+        // rather than the empty string.
+        payment_qr_url: paymentQrUrl || null,
       });
     }
 
@@ -4561,6 +4577,25 @@ const databaseService = {
     localStorage.setItem('userExperienceYears', experienceYears || '');
     localStorage.setItem('userLocationCity', locationCity || '');
     localStorage.setItem('userSocialHandle', socialHandle || '');
+    if (paymentQrUrl) localStorage.setItem('userPaymentQrUrl', paymentQrUrl);
+    else localStorage.removeItem('userPaymentQrUrl');
+  },
+
+  // Small on-demand read for the renewal-reminder "Send reminder" action
+  // (TrainerDashboard's Client Payments view) — that view has no reason to
+  // fetch the coach's whole profile, just this one field, and it needs it
+  // fresh (whichever device last saved it via saveCoachSelfProfile above,
+  // not necessarily this one's localStorage). Same raw-PostgREST shape as
+  // getCoachNameById's brand_name lookup just above.
+  async getCoachPaymentQrUrl(coachId) {
+    if (!isSupabaseConfigured || !coachId) return null;
+    try {
+      const rows = await restSelect(`coaches?select=payment_qr_url&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
+      return (Array.isArray(rows) && rows[0]?.payment_qr_url) || null;
+    } catch (e) {
+      console.error('getCoachPaymentQrUrl error:', e);
+      return null;
+    }
   },
 
   async getPlatformStats() {

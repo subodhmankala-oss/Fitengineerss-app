@@ -656,6 +656,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // Collapsed by default — paused clients are the exception, not the common
   // case, so this shouldn't compete for attention with the overdue banner.
   const [pausedSectionOpen, setPausedSectionOpen] = useState(false);
+  // The coach's own payment QR (Business Profile -> Payment QR Code),
+  // attached to every "Send reminder" WhatsApp message below. null until
+  // fetched; '' means fetched but the coach hasn't uploaded one yet.
+  const [coachPaymentQrUrl, setCoachPaymentQrUrl] = useState(null);
+  const [sendingReminderId, setSendingReminderId] = useState(null);
 
   // Pausing a client (2026-09-06: "what if after a month clients dont want
   // to continue" — until now, a client who stopped renewing just aged
@@ -695,6 +700,98 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     } else {
       setPauseError(result?.error || 'Could not unpause this client — try again.');
       setTimeout(() => setPauseError(''), 4000);
+    }
+  };
+
+  // Turns the coach's stored payment QR (a data: URL, see
+  // supabase_coach_payment_qr.sql) into a File — needed for the Web Share
+  // API path below, since whatsapp://send/wa.me links are text-only and a
+  // QR image can only travel alongside the text through navigator.share's
+  // native share sheet.
+  const dataUrlToFile = async (dataUrl, filename) => {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+  };
+
+  // India-only heuristic (₹ is the only currency this app shows anywhere) —
+  // a bare 10-digit number is assumed local and gets the country code
+  // prefixed; anything already longer is trusted as-is. Good enough to
+  // pre-fill WhatsApp's own "phone" param, which just falls back to its
+  // contact picker if this guesses wrong rather than erroring.
+  const toWhatsappNumber = (phone) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    return digits.length === 10 ? `91${digits}` : digits;
+  };
+
+  // Renewal reminder — a subtle, kind nudge rather than a collections
+  // message (2026-09-11: "Very shutle and kind way"), sent over WhatsApp
+  // with the coach's payment QR attached so the client can pay right from
+  // the chat. Prefers the native share sheet (text + QR image together, one
+  // action) and falls back to a text-only WhatsApp deep link — targeted at
+  // the client's own number when we have it — when Web Share with files
+  // isn't available (desktop browsers, mainly); the QR still downloads
+  // there so the coach can attach it manually in the same chat.
+  const handleSendRenewalReminder = async (r) => {
+    setRenewalMenuOpenId(null);
+    setSendingReminderId(r.clientId);
+    try {
+      let qrUrl = coachPaymentQrUrl;
+      if (qrUrl === null) {
+        qrUrl = (await databaseService.getCoachPaymentQrUrl(resolvedCoachId)) || '';
+        setCoachPaymentQrUrl(qrUrl);
+      }
+
+      let qrFile = null;
+      let canShareWithQr = false;
+      if (qrUrl && typeof navigator !== 'undefined' && navigator.canShare) {
+        try {
+          qrFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg');
+          canShareWithQr = navigator.canShare({ files: [qrFile] });
+        } catch { /* treat as unsupported — falls through to text-only below */ }
+      }
+
+      const firstName = (r.clientName || 'there').trim().split(/\s+/)[0];
+      const overdue = r.daysOverdue > 0;
+      const payLine = canShareWithQr
+        ? 'you can renew using the QR code here'
+        : 'you can renew whenever works for you';
+      const message = overdue
+        ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
+        : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`;
+
+      if (canShareWithQr) {
+        try {
+          await navigator.share({ text: message, files: [qrFile] });
+          return;
+        } catch (e) {
+          if (e?.name === 'AbortError') return; // coach cancelled the share sheet
+          // Any other failure falls through to the text-only path below.
+        }
+      }
+
+      // QR exists but couldn't be shared as a file (desktop browser, mostly)
+      // — download it locally so the coach can still attach it by hand in
+      // the same WhatsApp chat the line below opens.
+      if (qrUrl && !canShareWithQr) {
+        const link = document.createElement('a');
+        link.href = qrUrl;
+        link.download = `payment-qr-${firstName.toLowerCase()}.jpg`;
+        link.click();
+        triggerLiveToast('📥 QR code downloaded — attach it in the chat too.');
+      }
+
+      // Same whatsapp:// direct-to-app hand-off as shareMuscleMapWithClient
+      // below (see its comment for why not wa.me/a synthetic <a> click).
+      // Targets the client's own number when we have one, so this opens
+      // straight into their chat instead of a contact picker.
+      const waNumber = toWhatsappNumber(r.clientPhone);
+      const qs = new URLSearchParams({ text: message });
+      if (waNumber) qs.set('phone', waNumber);
+      window.location.href = `whatsapp://send?${qs.toString()}`;
+    } finally {
+      setSendingReminderId(null);
     }
   };
 
@@ -4062,6 +4159,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '10px',
                           padding: '4px', boxShadow: '0 12px 28px rgba(0,0,0,0.45)', whiteSpace: 'nowrap'
                         }}>
+                          <button
+                            type="button"
+                            disabled={sendingReminderId === r.clientId}
+                            onClick={() => handleSendRenewalReminder(r)}
+                            style={{
+                              display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                              borderRadius: '7px', padding: '9px 12px', cursor: sendingReminderId === r.clientId ? 'default' : 'pointer',
+                              color: '#25D366', opacity: sendingReminderId === r.clientId ? 0.6 : 1,
+                              fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
+                            }}
+                          >
+                            {sendingReminderId === r.clientId ? 'Opening WhatsApp…' : '💬 Send reminder'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => handlePauseClient(r.clientId, r.clientName)}

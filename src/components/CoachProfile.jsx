@@ -89,11 +89,13 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     experienceYears: localStorage.getItem('userExperienceYears') || '',
     locationCity: localStorage.getItem('userLocationCity') || '',
     socialHandle: localStorage.getItem('userSocialHandle') || '',
+    paymentQrUrl: localStorage.getItem('userPaymentQrUrl') || '',
   });
 
   const [form, setForm] = useState(readProfile);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [qrError, setQrError] = useState('');
 
   const userEmail = localStorage.getItem('userEmail') || '';
   const userAvatarUrl = localStorage.getItem('userAvatarUrl') || null;
@@ -116,6 +118,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       if (profile.experienceYears) fresh.experienceYears = profile.experienceYears;
       if (profile.locationCity) fresh.locationCity = profile.locationCity;
       if (profile.socialHandle) fresh.socialHandle = profile.socialHandle;
+      if (profile.paymentQrUrl) fresh.paymentQrUrl = profile.paymentQrUrl;
       if (Object.keys(fresh).length === 0) return;
       setForm(f => ({ ...f, ...fresh }));
     }).catch(() => {});
@@ -123,6 +126,41 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
   }, [userEmail]);
 
   const handleField = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  // Payment QR upload (2026-09-11: "send them reminder... along with payment
+  // QR code") — downscaled through a canvas before it ever becomes the data:
+  // URL that gets stored, so a multi-MB phone-camera screenshot doesn't turn
+  // into a multi-MB row in `coaches` (see supabase_coach_payment_qr.sql for
+  // why this is a plain text column and not a Storage bucket upload — a
+  // small compressed QR comfortably fits either way, so keeping the simpler
+  // no-bucket path). 640px is comfortably more than a QR needs to stay
+  // scannable at typical WhatsApp-preview size.
+  const handleQrFile = (file) => {
+    setQrError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setQrError('Please choose an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 640;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        handleField('paymentQrUrl', canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => setQrError('Could not read that image. Try a different file.');
+      img.src = reader.result;
+    };
+    reader.onerror = () => setQrError('Could not read that image. Try a different file.');
+    reader.readAsDataURL(file);
+  };
 
   const saveProfile = async () => {
     setSaving(true);
@@ -196,6 +234,48 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
               <div className="cp-field cp-field--border cp-field--last">
                 <label className="cp-field-label">Social Handle <span className="cp-field-unit">(optional)</span></label>
                 <input className="cp-field-input" value={form.socialHandle} onChange={e => handleField('socialHandle', e.target.value)} placeholder="@yourhandle" />
+              </div>
+            </div>
+
+            {/* Payment QR (2026-09-11) — uploaded once here, then attached
+                automatically to every renewal reminder sent from Client
+                Payments so a client can pay without asking "where do I
+                send it". */}
+            <div className="cp-form-section-label">Payment QR Code</div>
+            <div className="cp-form-card">
+              <div className="cp-field cp-field--last" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                <label className="cp-field-label">UPI / GPay / PhonePe QR <span className="cp-field-unit">(sent with renewal reminders)</span></label>
+                {form.paymentQrUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <img
+                      src={form.paymentQrUrl}
+                      alt="Payment QR code"
+                      style={{ width: 96, height: 96, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid var(--border-color)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleField('paymentQrUrl', '')}
+                      style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <label
+                  style={{
+                    display: 'inline-block', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '10px', padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: '#fff'
+                  }}
+                >
+                  {form.paymentQrUrl ? 'Replace QR image' : 'Upload QR image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => { handleQrFile(e.target.files?.[0]); e.target.value = ''; }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                {qrError && <p className="cp-save-error" style={{ margin: 0 }}>{qrError}</p>}
               </div>
             </div>
             {saveMsg === 'error' && <p className="cp-save-error">Failed to save. Check your connection and try again.</p>}

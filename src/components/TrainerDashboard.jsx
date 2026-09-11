@@ -726,37 +726,52 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   };
 
   // Renewal reminder — a subtle, kind nudge rather than a collections
-  // message (2026-09-11: "Very shutle and kind way"), sent over WhatsApp
-  // with the coach's payment QR attached so the client can pay right from
-  // the chat. Prefers the native share sheet (text + QR image together, one
-  // action) and falls back to a text-only WhatsApp deep link — targeted at
-  // the client's own number when we have it — when Web Share with files
-  // isn't available (desktop browsers, mainly); the QR still downloads
-  // there so the coach can attach it manually in the same chat.
-  const handleSendRenewalReminder = async (r) => {
+  // message (2026-09-11: "Very shutle and kind way"). Two variants, both
+  // reachable from the same renewal row's ⋮ menu:
+  //
+  // withQr: true  — "Reminder + QR code": sent over WhatsApp with the
+  //   coach's payment QR attached so the client can pay right from the
+  //   chat. Prefers the native share sheet (text + QR image together, one
+  //   action) and falls back to a text-only WhatsApp deep link — targeted
+  //   at the client's own number when we have it — when Web Share with
+  //   files isn't available (desktop browsers, mainly); the QR still
+  //   downloads there so the coach can attach it manually in the same chat.
+  //
+  // withQr: false — "Gentle reminder": WhatsApp text only, no QR
+  //   involved at all, PLUS a push notification to the client's phone
+  //   (2026-09-11 follow-up: "Just a gentle reminder in whatsapp and
+  //   notification on there phone. With no QR code needed") — for a coach
+  //   who'd rather just nudge without pushing a payment ask front and
+  //   center.
+  const handleSendRenewalReminder = async (r, { withQr }) => {
     setRenewalMenuOpenId(null);
     setSendingReminderId(r.clientId);
     try {
-      let qrUrl = coachPaymentQrUrl;
-      if (qrUrl === null) {
-        qrUrl = (await databaseService.getCoachPaymentQrUrl(resolvedCoachId)) || '';
-        setCoachPaymentQrUrl(qrUrl);
-      }
-
-      let qrFile = null;
-      let canShareWithQr = false;
-      if (qrUrl && typeof navigator !== 'undefined' && navigator.canShare) {
-        try {
-          qrFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg');
-          canShareWithQr = navigator.canShare({ files: [qrFile] });
-        } catch { /* treat as unsupported — falls through to text-only below */ }
-      }
-
       const firstName = (r.clientName || 'there').trim().split(/\s+/)[0];
       const overdue = r.daysOverdue > 0;
+
+      let qrUrl = '';
+      let qrFile = null;
+      let canShareWithQr = false;
+      if (withQr) {
+        qrUrl = coachPaymentQrUrl;
+        if (qrUrl === null) {
+          qrUrl = (await databaseService.getCoachPaymentQrUrl(resolvedCoachId)) || '';
+          setCoachPaymentQrUrl(qrUrl);
+        }
+        if (qrUrl && typeof navigator !== 'undefined' && navigator.canShare) {
+          try {
+            qrFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg');
+            canShareWithQr = navigator.canShare({ files: [qrFile] });
+          } catch { /* treat as unsupported — falls through to text-only below */ }
+        }
+      }
+
       const payLine = canShareWithQr
         ? 'you can renew using the QR code here'
-        : 'you can renew whenever works for you';
+        : withQr
+          ? 'you can renew whenever works for you'
+          : 'no rush at all, just renew whenever it suits you';
       const message = overdue
         ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
         : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`;
@@ -774,12 +789,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       // QR exists but couldn't be shared as a file (desktop browser, mostly)
       // — download it locally so the coach can still attach it by hand in
       // the same WhatsApp chat the line below opens.
-      if (qrUrl && !canShareWithQr) {
+      if (withQr && qrUrl && !canShareWithQr) {
         const link = document.createElement('a');
         link.href = qrUrl;
         link.download = `payment-qr-${firstName.toLowerCase()}.jpg`;
         link.click();
         triggerLiveToast('📥 QR code downloaded — attach it in the chat too.');
+      }
+
+      // The gentle (no-QR) variant also pushes a notification straight to
+      // the client's phone — same wording as the WhatsApp text, via the
+      // 'renewal_reminder' event (api/push.js), so a client who misses the
+      // WhatsApp still sees the nudge in-app. Fire-and-forget: notifyEvent
+      // never throws, so this can't break the WhatsApp hand-off below.
+      if (!withQr) {
+        notifyEvent('renewal_reminder', { clientUserId: r.clientId, message });
       }
 
       // Same whatsapp:// direct-to-app hand-off as shareMuscleMapWithClient
@@ -4162,7 +4186,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           <button
                             type="button"
                             disabled={sendingReminderId === r.clientId}
-                            onClick={() => handleSendRenewalReminder(r)}
+                            onClick={() => handleSendRenewalReminder(r, { withQr: true })}
                             style={{
                               display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
                               borderRadius: '7px', padding: '9px 12px', cursor: sendingReminderId === r.clientId ? 'default' : 'pointer',
@@ -4170,7 +4194,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
                             }}
                           >
-                            {sendingReminderId === r.clientId ? 'Opening WhatsApp…' : '💬 Send reminder'}
+                            {sendingReminderId === r.clientId ? 'Opening WhatsApp…' : '📎 Reminder + QR code'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={sendingReminderId === r.clientId}
+                            onClick={() => handleSendRenewalReminder(r, { withQr: false })}
+                            style={{
+                              display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                              borderRadius: '7px', padding: '9px 12px', cursor: sendingReminderId === r.clientId ? 'default' : 'pointer',
+                              color: '#25D366', opacity: sendingReminderId === r.clientId ? 0.6 : 1,
+                              fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
+                            }}
+                          >
+                            {sendingReminderId === r.clientId ? 'Opening WhatsApp…' : '💬 Gentle reminder (no QR)'}
                           </button>
                           <button
                             type="button"

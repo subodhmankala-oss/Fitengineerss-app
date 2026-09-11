@@ -656,10 +656,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // Collapsed by default — paused clients are the exception, not the common
   // case, so this shouldn't compete for attention with the overdue banner.
   const [pausedSectionOpen, setPausedSectionOpen] = useState(false);
-  // The coach's own payment QR (Business Profile -> Payment QR Code),
-  // attached to every "Send reminder" WhatsApp message below. null until
-  // fetched; '' means fetched but the coach hasn't uploaded one yet.
-  const [coachPaymentQrUrl, setCoachPaymentQrUrl] = useState(null);
+  // The coach's own payment QR + business logo (Business Profile), attached
+  // to every renewal reminder WhatsApp message below. null until fetched;
+  // '' means fetched but the coach hasn't uploaded one yet. Kept as one
+  // object (rather than two separate useState calls) since they're always
+  // fetched together — see getCoachReminderAssets.
+  const [coachReminderAssets, setCoachReminderAssets] = useState(null);
   const [sendingReminderId, setSendingReminderId] = useState(null);
 
   // Pausing a client (2026-09-06: "what if after a month clients dont want
@@ -730,19 +732,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // reachable from the same renewal row's ⋮ menu:
   //
   // withQr: true  — "Reminder + QR code": sent over WhatsApp with the
-  //   coach's payment QR attached so the client can pay right from the
-  //   chat. Prefers the native share sheet (text + QR image together, one
-  //   action) and falls back to a text-only WhatsApp deep link — targeted
-  //   at the client's own number when we have it — when Web Share with
-  //   files isn't available (desktop browsers, mainly); the QR still
-  //   downloads there so the coach can attach it manually in the same chat.
+  //   coach's business logo AND payment QR attached (2026-09-11 follow-up:
+  //   "I need a logo to attached logo also should be there") so the client
+  //   can pay right from the chat and see who it's from. Prefers the native
+  //   share sheet (text + both images together, one action) and falls back
+  //   to a text-only WhatsApp deep link — targeted at the client's own
+  //   number when we have it — when Web Share with files isn't available
+  //   (desktop browsers, mainly); each image still downloads there so the
+  //   coach can attach them manually in the same chat.
   //
-  // withQr: false — "Gentle reminder": WhatsApp text only, no QR
-  //   involved at all, PLUS a push notification to the client's phone
+  // withQr: false — "Gentle reminder": WhatsApp text + the coach's logo
+  //   (no payment QR), PLUS a push notification to the client's phone
   //   (2026-09-11 follow-up: "Just a gentle reminder in whatsapp and
   //   notification on there phone. With no QR code needed") — for a coach
   //   who'd rather just nudge without pushing a payment ask front and
-  //   center.
+  //   center, but still wants the message to read as coming from their
+  //   business rather than a bare text.
   const handleSendRenewalReminder = async (r, { withQr }) => {
     setRenewalMenuOpenId(null);
     setSendingReminderId(r.clientId);
@@ -750,28 +755,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       const firstName = (r.clientName || 'there').trim().split(/\s+/)[0];
       const overdue = r.daysOverdue > 0;
 
-      let qrUrl = '';
-      let qrFile = null;
-      let canShareWithQr = false;
-      if (withQr) {
-        qrUrl = coachPaymentQrUrl;
-        if (qrUrl === null) {
-          qrUrl = (await databaseService.getCoachPaymentQrUrl(resolvedCoachId)) || '';
-          setCoachPaymentQrUrl(qrUrl);
-        }
-        if (qrUrl && typeof navigator !== 'undefined' && navigator.canShare) {
-          try {
-            qrFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg');
-            canShareWithQr = navigator.canShare({ files: [qrFile] });
-          } catch { /* treat as unsupported — falls through to text-only below */ }
-        }
+      let assets = coachReminderAssets;
+      if (assets === null) {
+        assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
+        setCoachReminderAssets(assets);
       }
+      const logoUrl = assets?.logoUrl || '';
+      const qrUrl = withQr ? (assets?.qrUrl || '') : '';
 
-      const payLine = canShareWithQr
-        ? 'you can renew using the QR code here'
-        : withQr
-          ? 'you can renew whenever works for you'
-          : 'no rush at all, just renew whenever it suits you';
+      // Build whichever of {logo, QR} actually exist into one share list —
+      // navigator.share happily takes multiple files in one action, so a
+      // coach with both uploaded gets a single share-sheet tap that sends
+      // logo + QR + text together rather than two separate prompts.
+      const shareFiles = [];
+      if (logoUrl) { try { shareFiles.push(await dataUrlToFile(logoUrl, 'logo.jpg')); } catch { /* skip a corrupt/unreadable logo */ } }
+      if (qrUrl) { try { shareFiles.push(await dataUrlToFile(qrUrl, 'payment-qr.jpg')); } catch { /* skip a corrupt/unreadable QR */ } }
+      const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
+
+      const payLine = qrUrl
+        ? (canShareFiles ? 'you can renew using the QR code here' : 'you can renew whenever works for you')
+        : 'no rush at all, just renew whenever it suits you';
       // Signed off with the coach's own name + brand (2026-09-11: "nothing
       // related to brand over here... no sign off fitengineerss") — same
       // localStorage fields Business Profile already saves (CoachProfile.jsx)
@@ -786,9 +789,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`
       ) + `\n\n— ${signOff}`;
 
-      if (canShareWithQr) {
+      if (canShareFiles) {
         try {
-          await navigator.share({ text: message, files: [qrFile] });
+          await navigator.share({ text: message, files: shareFiles });
           return;
         } catch (e) {
           if (e?.name === 'AbortError') return; // coach cancelled the share sheet
@@ -796,15 +799,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         }
       }
 
-      // QR exists but couldn't be shared as a file (desktop browser, mostly)
-      // — download it locally so the coach can still attach it by hand in
-      // the same WhatsApp chat the line below opens.
-      if (withQr && qrUrl && !canShareWithQr) {
-        const link = document.createElement('a');
-        link.href = qrUrl;
-        link.download = `payment-qr-${firstName.toLowerCase()}.jpg`;
-        link.click();
-        triggerLiveToast('📥 QR code downloaded — attach it in the chat too.');
+      // Couldn't share as files (desktop browser, mostly, or nothing
+      // uploaded) — download whichever images exist locally so the coach
+      // can still attach them by hand in the same WhatsApp chat the line
+      // below opens.
+      if (!canShareFiles && (logoUrl || qrUrl)) {
+        if (logoUrl) {
+          const link = document.createElement('a');
+          link.href = logoUrl;
+          link.download = `logo-${firstName.toLowerCase()}.jpg`;
+          link.click();
+        }
+        if (qrUrl) {
+          const link = document.createElement('a');
+          link.href = qrUrl;
+          link.download = `payment-qr-${firstName.toLowerCase()}.jpg`;
+          link.click();
+        }
+        const what = logoUrl && qrUrl ? 'Logo and QR code' : logoUrl ? 'Logo' : 'QR code';
+        triggerLiveToast(`📥 ${what} downloaded — attach ${logoUrl && qrUrl ? 'them' : 'it'} in the chat too.`);
       }
 
       // The gentle (no-QR) variant also pushes a notification straight to

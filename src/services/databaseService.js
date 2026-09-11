@@ -2033,6 +2033,7 @@ const databaseService = {
             locationCity: coach?.location_city || '',
             socialHandle: coach?.social_media_handle || '',
             paymentQrUrl: coach?.payment_qr_url || '',
+            logoUrl: coach?.logo_url || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -2104,6 +2105,7 @@ const databaseService = {
         locationCity: mCoach?.location_city || '',
         socialHandle: mCoach?.social_media_handle || '',
         paymentQrUrl: mCoach?.payment_qr_url || '',
+        logoUrl: mCoach?.logo_url || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -4545,7 +4547,7 @@ const databaseService = {
   // SELECT) policy to pass for the coach's OWN row, which it does — these
   // calls run under the coach's real session token (resolveBearerToken),
   // not the anon key.
-  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl }) {
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl }) {
     if (!userId) throw new Error('Missing user id — could not save profile.');
     if (isSupabaseConfigured && supabase) {
       const expYears = parseInt(experienceYears, 10);
@@ -4560,10 +4562,11 @@ const databaseService = {
         experience_years: Number.isFinite(expYears) ? expYears : null,
         location_city: locationCity || null,
         social_media_handle: socialHandle || null,
-        // paymentQrUrl is a data: URL (see supabase_coach_payment_qr.sql) —
-        // '' means "removed" (CoachProfile's Remove button), so write null
-        // rather than the empty string.
+        // paymentQrUrl/logoUrl are data: URLs (see supabase_coach_payment_qr.sql
+        // / supabase_coach_logo.sql) — '' means "removed" (CoachProfile's
+        // Remove button), so write null rather than the empty string.
         payment_qr_url: paymentQrUrl || null,
+        logo_url: logoUrl || null,
       });
     }
 
@@ -4579,22 +4582,27 @@ const databaseService = {
     localStorage.setItem('userSocialHandle', socialHandle || '');
     if (paymentQrUrl) localStorage.setItem('userPaymentQrUrl', paymentQrUrl);
     else localStorage.removeItem('userPaymentQrUrl');
+    if (logoUrl) localStorage.setItem('userLogoUrl', logoUrl);
+    else localStorage.removeItem('userLogoUrl');
   },
 
   // Small on-demand read for the renewal-reminder "Send reminder" action
   // (TrainerDashboard's Client Payments view) — that view has no reason to
-  // fetch the coach's whole profile, just this one field, and it needs it
-  // fresh (whichever device last saved it via saveCoachSelfProfile above,
-  // not necessarily this one's localStorage). Same raw-PostgREST shape as
-  // getCoachNameById's brand_name lookup just above.
-  async getCoachPaymentQrUrl(coachId) {
-    if (!isSupabaseConfigured || !coachId) return null;
+  // fetch the coach's whole profile, just these two fields, and it needs
+  // them fresh (whichever device last saved them via saveCoachSelfProfile
+  // above, not necessarily this one's localStorage). Same raw-PostgREST
+  // shape as getCoachNameById's brand_name lookup just above. One query for
+  // both assets (2026-09-11: logo added alongside the existing QR) rather
+  // than two round-trips, since every reminder-send needs both anyway.
+  async getCoachReminderAssets(coachId) {
+    if (!isSupabaseConfigured || !coachId) return { qrUrl: null, logoUrl: null };
     try {
-      const rows = await restSelect(`coaches?select=payment_qr_url&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
-      return (Array.isArray(rows) && rows[0]?.payment_qr_url) || null;
+      const rows = await restSelect(`coaches?select=payment_qr_url,logo_url&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
+      const row = Array.isArray(rows) && rows[0];
+      return { qrUrl: row?.payment_qr_url || null, logoUrl: row?.logo_url || null };
     } catch (e) {
-      console.error('getCoachPaymentQrUrl error:', e);
-      return null;
+      console.error('getCoachReminderAssets error:', e);
+      return { qrUrl: null, logoUrl: null };
     }
   },
 

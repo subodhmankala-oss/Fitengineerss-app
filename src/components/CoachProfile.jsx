@@ -90,12 +90,14 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     locationCity: localStorage.getItem('userLocationCity') || '',
     socialHandle: localStorage.getItem('userSocialHandle') || '',
     paymentQrUrl: localStorage.getItem('userPaymentQrUrl') || '',
+    logoUrl: localStorage.getItem('userLogoUrl') || '',
   });
 
   const [form, setForm] = useState(readProfile);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [qrError, setQrError] = useState('');
+  const [logoError, setLogoError] = useState('');
 
   const userEmail = localStorage.getItem('userEmail') || '';
   const userAvatarUrl = localStorage.getItem('userAvatarUrl') || null;
@@ -119,6 +121,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       if (profile.locationCity) fresh.locationCity = profile.locationCity;
       if (profile.socialHandle) fresh.socialHandle = profile.socialHandle;
       if (profile.paymentQrUrl) fresh.paymentQrUrl = profile.paymentQrUrl;
+      if (profile.logoUrl) fresh.logoUrl = profile.logoUrl;
       if (Object.keys(fresh).length === 0) return;
       setForm(f => ({ ...f, ...fresh }));
     }).catch(() => {});
@@ -127,40 +130,44 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
 
   const handleField = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
-  // Payment QR upload (2026-09-11: "send them reminder... along with payment
-  // QR code") — downscaled through a canvas before it ever becomes the data:
-  // URL that gets stored, so a multi-MB phone-camera screenshot doesn't turn
-  // into a multi-MB row in `coaches` (see supabase_coach_payment_qr.sql for
-  // why this is a plain text column and not a Storage bucket upload — a
-  // small compressed QR comfortably fits either way, so keeping the simpler
-  // no-bucket path). 640px is comfortably more than a QR needs to stay
-  // scannable at typical WhatsApp-preview size.
-  const handleQrFile = (file) => {
-    setQrError('');
+  // Shared image-upload path for both Payment QR (2026-09-11: "send them
+  // reminder... along with payment QR code") and Business Logo (2026-09-11
+  // follow-up: "I need a logo to attached logo also should be there") —
+  // downscaled through a canvas before either ever becomes the data: URL
+  // that gets stored, so a multi-MB phone-camera photo doesn't turn into a
+  // multi-MB row in `coaches` (see supabase_coach_payment_qr.sql /
+  // supabase_coach_logo.sql for why these are plain text columns and not a
+  // Storage bucket upload — a small compressed image comfortably fits
+  // either way, so keeping the simpler no-bucket path). maxDim is
+  // comfortably more than either image needs to stay legible at typical
+  // WhatsApp-preview size.
+  const handleImageUpload = (field, file, setError, maxDim = 640) => {
+    setError('');
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setQrError('Please choose an image file.');
+      setError('Please choose an image file.');
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 640;
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        handleField('paymentQrUrl', canvas.toDataURL('image/jpeg', 0.85));
+        handleField(field, canvas.toDataURL('image/jpeg', 0.85));
       };
-      img.onerror = () => setQrError('Could not read that image. Try a different file.');
+      img.onerror = () => setError('Could not read that image. Try a different file.');
       img.src = reader.result;
     };
-    reader.onerror = () => setQrError('Could not read that image. Try a different file.');
+    reader.onerror = () => setError('Could not read that image. Try a different file.');
     reader.readAsDataURL(file);
   };
+  const handleQrFile = (file) => handleImageUpload('paymentQrUrl', file, setQrError);
+  const handleLogoFile = (file) => handleImageUpload('logoUrl', file, setLogoError);
 
   const saveProfile = async () => {
     setSaving(true);
@@ -234,6 +241,49 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
               <div className="cp-field cp-field--border cp-field--last">
                 <label className="cp-field-label">Social Handle <span className="cp-field-unit">(optional)</span></label>
                 <input className="cp-field-input" value={form.socialHandle} onChange={e => handleField('socialHandle', e.target.value)} placeholder="@yourhandle" />
+              </div>
+            </div>
+
+            {/* Business Logo (2026-09-11 follow-up to Payment QR below:
+                "I need a logo to attached logo also should be there") —
+                attached alongside every renewal reminder sent from Client
+                Payments so the message doesn't just show a QR code with no
+                indication of whose business it's from. */}
+            <div className="cp-form-section-label">Business Logo</div>
+            <div className="cp-form-card">
+              <div className="cp-field cp-field--last" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                <label className="cp-field-label">Logo <span className="cp-field-unit">(sent with renewal reminders)</span></label>
+                {form.logoUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <img
+                      src={form.logoUrl}
+                      alt="Business logo"
+                      style={{ width: 96, height: 96, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid var(--border-color)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleField('logoUrl', '')}
+                      style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <label
+                  style={{
+                    display: 'inline-block', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '10px', padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: '#fff'
+                  }}
+                >
+                  {form.logoUrl ? 'Replace logo' : 'Upload logo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => { handleLogoFile(e.target.files?.[0]); e.target.value = ''; }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                {logoError && <p className="cp-save-error" style={{ margin: 0 }}>{logoError}</p>}
               </div>
             </div>
 

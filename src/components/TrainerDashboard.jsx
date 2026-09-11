@@ -3250,24 +3250,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // always fell to { reps: 10, weight: 20 } for anything that wasn't
     // cardio/timed, which defaulted bodyweight moves (jumping jack, push-up,
     // ...) to a bogus 20kg instead of bodyweight.
+    const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
       newSet = { distanceKm: '', time: '' };
-    } else if (isTimedExercise(name) && isBodyweightExercise(name)) {
+    } else if (isTimedExercise(name) && bodyweight) {
       // Foot Fires: keeps a weight field alongside the time field.
       newSet = { time: '', weight: 0 };
     } else if (isTimedExercise(name)) {
       newSet = { time: '' };
-    } else if (isBodyweightExercise(name) || isWarmupExercise(name)) {
+    } else if (bodyweight || isWarmupExercise(name)) {
       newSet = { reps: 10, weight: 0 };
     } else {
       newSet = { reps: 10, weight: 20 };
     }
     setEditorExercises(prev => [
       ...prev,
-      {
-        name,
-        sets: [newSet]
-      }
+      // bodyweightMode: true mirrors the Live Log's handleLiveAddExercise —
+      // without it, the plan editor showed a plain "🏋️ KG" numeric field
+      // (and no Bodyweight/+Add Weight toggle at all) for bodyweight moves
+      // like Cat Camel, Glute Bridge, Steppers and Squat, instead of the
+      // "BW" label those exercises get everywhere else in the app.
+      bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }
     ]);
   };
 
@@ -3344,6 +3347,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
   const handleRemoveExerciseFromEditor = (exIdx) => {
     setEditorExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+  };
+
+  // Same inference as the Live Log's getLiveExBwMode — an exercise added
+  // before this toggle existed (or loaded from an older plan) has no
+  // bodyweightMode field at all, so fall back to whether any set already
+  // has a nonzero weight typed in.
+  const getEditorExBwMode = (ex) =>
+    ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
+
+  const handleToggleEditorBodyweightMode = (exIdx) => {
+    setEditorExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      const nextMode = !getEditorExBwMode(ex);
+      return {
+        ...ex,
+        bodyweightMode: nextMode,
+        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? 0 : '' }))
+      };
+    }));
   };
 
   const {
@@ -7027,6 +7049,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             // special-cased exercise in the plan builder.
                             const exIsTimed = isTimedExercise(ex.name);
                             const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
+                            // Same Bodyweight/+Add Weight handling as the Live
+                            // Log (see exIsBodyweight/exBwMode below in the
+                            // liveExercises render) — this editor previously
+                            // never checked isBodyweightExercise at all, so
+                            // Cat Camel/Glute Bridge/Steppers/Squat etc. always
+                            // showed a plain numeric "🏋️ KG" field instead of
+                            // the "BW" label the rest of the app gives them.
+                            const exIsBodyweight = isBodyweightExercise(ex.name);
+                            const exBwMode = exIsBodyweight ? getEditorExBwMode(ex) : false;
+                            const exIsWarmup = isWarmupExercise(ex.name);
                             return (
                               <div key={getEditorItemKey(exIdx)} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
                               <div className={`ex-reorder-morph ${isEditorReordering ? 'is-reordering' : ''}`}>
@@ -7064,6 +7096,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   </div>
                                 </div>
 
+                                {/* Bodyweight/+Weight toggle — same as the Live
+                                    Log's (see the matching block below in the
+                                    liveExercises render). */}
+                                {exIsBodyweight && (
+                                  <div className="bw-toggle-row">
+                                    <button
+                                      type="button"
+                                      className={`bw-toggle-btn ${exBwMode ? 'active' : ''}`}
+                                      onClick={() => { if (!exBwMode) handleToggleEditorBodyweightMode(exIdx); }}
+                                    >
+                                      Bodyweight
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`bw-toggle-btn ${!exBwMode ? 'active' : ''}`}
+                                      onClick={() => { if (exBwMode) handleToggleEditorBodyweightMode(exIdx); }}
+                                    >
+                                      + Add Weight
+                                    </button>
+                                  </div>
+                                )}
+
                                 <div className="hevy-sets-table">
                                   <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                                     <span className="col-set">SET</span>
@@ -7071,6 +7125,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     {exIsCardio ? (
                                       <>
                                         <span className="col-weight">KM</span>
+                                        <span className="col-reps">TIME</span>
+                                      </>
+                                    ) : exIsTimed && exIsBodyweight ? (
+                                      <>
+                                        <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                         <span className="col-reps">TIME</span>
                                       </>
                                     ) : exIsTimed ? (
@@ -7082,6 +7141,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       <>
                                         <span className="col-weight">🏋️ KG</span>
                                         <span className="col-reps">METERS</span>
+                                      </>
+                                    ) : exIsWarmup ? (
+                                      <>
+                                        <span className="col-weight"></span>
+                                        <span className="col-reps">REPS</span>
+                                      </>
+                                    ) : exIsBodyweight ? (
+                                      <>
+                                        <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                        <span className="col-reps">REPS</span>
                                       </>
                                     ) : (
                                       <>
@@ -7160,6 +7229,47 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                               </div>
                                             </>
                                           );
+                                        })() : (exIsTimed && exIsBodyweight) ? (() => {
+                                          // Foot Fires: keeps the Bodyweight/+Add Weight toggle, with
+                                          // the time control in the reps column, same as the Live Log.
+                                          const weightKey = `ped-w-${exIdx}-${setIdx}`;
+                                          const timedKey = `ped-timed-${exIdx}-${setIdx}`;
+                                          registerLiveSetField(weightKey, {
+                                            value: set.weight,
+                                            mode: 'decimal',
+                                            label: `${ex.name} · Kg`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'weight', v),
+                                          });
+                                          registerLiveSetField(timedKey, {
+                                            value: set.time,
+                                            mode: 'time',
+                                            label: `${ex.name} · Time`,
+                                            onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'time', maskDigitsToTimeString(v)),
+                                          });
+                                          return (
+                                            <>
+                                              {exBwMode ? (
+                                                <div className="col-weight bw-static-label">BW</div>
+                                              ) : (
+                                                <div className="col-weight set-input-field">
+                                                  <SetValueField
+                                                    value={set.weight}
+                                                    placeholder="0"
+                                                    active={activeLiveSetKey === weightKey}
+                                                    onOpen={() => openLiveSetField(weightKey)}
+                                                  />
+                                                </div>
+                                              )}
+                                              <div className="col-reps set-input-field">
+                                                <SetValueField
+                                                  value={set.time}
+                                                  placeholder="mm:ss"
+                                                  active={activeLiveSetKey === timedKey}
+                                                  onOpen={() => openLiveSetField(timedKey)}
+                                                />
+                                              </div>
+                                            </>
+                                          );
                                         })() : exIsTimed ? (() => {
                                           const timedKey = `ped-timed-${exIdx}-${setIdx}`;
                                           registerLiveSetField(timedKey, {
@@ -7193,18 +7303,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             mode: 'integer',
                                             label: `${ex.name} · Reps`,
                                             onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', v),
-                                            onPrev: () => openLiveSetField(weightKey),
+                                            ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                           });
                                           return (
                                             <>
-                                              <div className="col-weight set-input-field">
-                                                <SetValueField
-                                                  value={set.weight}
-                                                  placeholder="0"
-                                                  active={activeLiveSetKey === weightKey}
-                                                  onOpen={() => openLiveSetField(weightKey)}
-                                                />
-                                              </div>
+                                              {exIsWarmup ? (
+                                                <div className="col-weight" />
+                                              ) : exIsBodyweight && exBwMode ? (
+                                                <div className="col-weight bw-static-label">BW</div>
+                                              ) : (
+                                                <div className="col-weight set-input-field">
+                                                  <SetValueField
+                                                    value={set.weight}
+                                                    placeholder="0"
+                                                    active={activeLiveSetKey === weightKey}
+                                                    onOpen={() => openLiveSetField(weightKey)}
+                                                  />
+                                                </div>
+                                              )}
                                               <div className="col-reps set-input-field">
                                                 <SetValueField
                                                   value={set.reps}

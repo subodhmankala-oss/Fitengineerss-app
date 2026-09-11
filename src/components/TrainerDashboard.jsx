@@ -772,9 +772,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         : withQr
           ? 'you can renew whenever works for you'
           : 'no rush at all, just renew whenever it suits you';
-      const message = overdue
+      // Signed off with the coach's own name + brand (2026-09-11: "nothing
+      // related to brand over here... no sign off fitengineerss") — same
+      // localStorage fields Business Profile already saves (CoachProfile.jsx)
+      // and the same "Hi! I'm {name} from {brand}" convention the invite-code
+      // WhatsApp share further down already uses, just as a closing line
+      // instead of an opener so it doesn't get in the way of the greeting.
+      const coachDisplayName = (localStorage.getItem('userName') || '').trim();
+      const coachBrand = (localStorage.getItem('userBrand') || 'Fitengineers').trim();
+      const signOff = coachDisplayName ? `${coachDisplayName} · ${coachBrand}` : coachBrand;
+      const message = (overdue
         ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
-        : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`;
+        : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`
+      ) + `\n\n— ${signOff}`;
 
       if (canShareWithQr) {
         try {

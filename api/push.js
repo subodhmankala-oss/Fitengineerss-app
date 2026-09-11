@@ -798,6 +798,16 @@ async function handleNotifyUser(req, res) {
       body = left != null
         ? `${left} session${left === 1 ? '' : 's'} left — talk to your coach about renewing`
         : 'Session package running low — talk to your coach about renewing';
+    } else if (event === 'renewal_reminder') {
+      // Coach-triggered from the Client Payments renewal row's "Gentle
+      // reminder (no QR)" action (2026-09-11) — the phone-notification half
+      // of that reminder; the WhatsApp message is sent client-side alongside
+      // this call. message carries the same kind wording shown in WhatsApp
+      // so the two don't say different things.
+      if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for renewal_reminder.' });
+      targetUserId = clientUserId;
+      title = await getCoachDisplayName(client?.coach_id);
+      body = message.trim();
     } else if (event === 'client_disconnected') {
       if (!oldCoachId) return res.status(200).json({ success: true, message: 'No coach to notify.' });
       targetUserId = oldCoachId;

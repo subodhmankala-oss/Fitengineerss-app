@@ -760,7 +760,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
         setCoachReminderAssets(assets);
       }
-      const logoUrl = assets?.logoUrl || '';
+      // Falls back to the app's own bundled Fitengineers logo (public/logo.png
+      // — same file already used as the push-notification icon) when the
+      // coach hasn't uploaded a custom one, so every reminder carries SOME
+      // brand image without requiring that upload step first (2026-09-11:
+      // "No need to upload separated fitengineerss logo everytime"). A coach
+      // who uploads their own under Business Profile still gets that instead.
+      const logoUrl = assets?.logoUrl || '/logo.png';
       const qrUrl = withQr ? (assets?.qrUrl || '') : '';
 
       // Build whichever of {logo, QR} actually exist into one share list —

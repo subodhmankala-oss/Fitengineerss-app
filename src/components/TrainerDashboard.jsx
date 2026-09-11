@@ -716,6 +716,42 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     return new File([blob], filename, { type: blob.type || 'image/jpeg' });
   };
 
+  // Composites the raw logo (whatever size it actually is — public/logo.png
+  // is a full app icon, easily 512×512+) onto a fixed-size card with a name
+  // caption underneath, instead of sharing it full-bleed (2026-09-11: "The
+  // logo is too big over here... Also, Write Fitengineers below the logo").
+  // Bounding the logo to a fixed box keeps every reminder's image the same
+  // modest size in the WhatsApp bubble regardless of the source image's
+  // actual dimensions, and the caption makes clear what the logo even is
+  // when it's just an icon with no text of its own.
+  const buildLogoCardFile = async (logoSrc, captionText) => {
+    const img = new Image();
+    const loaded = new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+    img.src = logoSrc;
+    await loaded;
+
+    const W = 480, H = 380, boxSize = 200, topPad = 40;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    const scale = Math.min(boxSize / img.width, boxSize / img.height);
+    const w = img.width * scale, h = img.height * scale;
+    ctx.drawImage(img, (W - w) / 2, topPad + (boxSize - h) / 2, w, h);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 34px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(captionText, W / 2, topPad + boxSize + 56);
+
+    const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.9))).blob();
+    return new File([blob], 'logo.jpg', { type: 'image/jpeg' });
+  };
+
   // India-only heuristic (₹ is the only currency this app shows anywhere) —
   // a bare 10-digit number is assumed local and gets the country code
   // prefixed; anything already longer is trusted as-is. Good enough to
@@ -760,36 +796,46 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
         setCoachReminderAssets(assets);
       }
-      // Falls back to the app's own bundled Fitengineers logo (public/logo.png
-      // — same file already used as the push-notification icon) when the
-      // coach hasn't uploaded a custom one, so every reminder carries SOME
-      // brand image without requiring that upload step first (2026-09-11:
-      // "No need to upload separated fitengineerss logo everytime"). A coach
-      // who uploads their own under Business Profile still gets that instead.
-      const logoUrl = assets?.logoUrl || '/logo.png';
-      const qrUrl = withQr ? (assets?.qrUrl || '') : '';
-
-      // Build whichever of {logo, QR} actually exist into one share list —
-      // navigator.share happily takes multiple files in one action, so a
-      // coach with both uploaded gets a single share-sheet tap that sends
-      // logo + QR + text together rather than two separate prompts.
-      const shareFiles = [];
-      if (logoUrl) { try { shareFiles.push(await dataUrlToFile(logoUrl, 'logo.jpg')); } catch { /* skip a corrupt/unreadable logo */ } }
-      if (qrUrl) { try { shareFiles.push(await dataUrlToFile(qrUrl, 'payment-qr.jpg')); } catch { /* skip a corrupt/unreadable QR */ } }
-      const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
-
-      const payLine = qrUrl
-        ? (canShareFiles ? 'you can renew using the QR code here' : 'you can renew whenever works for you')
-        : 'no rush at all, just renew whenever it suits you';
       // Signed off with the coach's own name + brand (2026-09-11: "nothing
       // related to brand over here... no sign off fitengineerss") — same
       // localStorage fields Business Profile already saves (CoachProfile.jsx)
       // and the same "Hi! I'm {name} from {brand}" convention the invite-code
       // WhatsApp share further down already uses, just as a closing line
       // instead of an opener so it doesn't get in the way of the greeting.
+      // Computed up front (not just for signOff below) since the logo card's
+      // caption uses coachBrand too.
       const coachDisplayName = (localStorage.getItem('userName') || '').trim();
       const coachBrand = (localStorage.getItem('userBrand') || 'Fitengineers').trim();
       const signOff = coachDisplayName ? `${coachDisplayName} · ${coachBrand}` : coachBrand;
+
+      // Falls back to the app's own bundled Fitengineers logo (public/logo.png
+      // — same file already used as the push-notification icon) when the
+      // coach hasn't uploaded a custom one, so every reminder carries SOME
+      // brand image without requiring that upload step first (2026-09-11:
+      // "No need to upload separated fitengineerss logo everytime"). Caption
+      // is "Fitengineers" for that default logo, or the coach's own brand
+      // name when they've uploaded a custom one.
+      const usingCustomLogo = !!assets?.logoUrl;
+      const logoUrl = assets?.logoUrl || '/logo.png';
+      const logoCaption = usingCustomLogo ? coachBrand : 'Fitengineers';
+      const qrUrl = withQr ? (assets?.qrUrl || '') : '';
+
+      // Build whichever of {logo, QR} actually exist into one share list —
+      // navigator.share happily takes multiple files in one action, so a
+      // coach with both uploaded gets a single share-sheet tap that sends
+      // logo + QR + text together rather than two separate prompts. The logo
+      // goes through buildLogoCardFile (bounded size + caption, see its
+      // comment) rather than being shared raw.
+      let logoFile = null;
+      let qrFile = null;
+      if (logoUrl) { try { logoFile = await buildLogoCardFile(logoUrl, logoCaption); } catch { /* skip a corrupt/unreadable logo */ } }
+      if (qrUrl) { try { qrFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* skip a corrupt/unreadable QR */ } }
+      const shareFiles = [logoFile, qrFile].filter(Boolean);
+      const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
+
+      const payLine = qrUrl
+        ? (canShareFiles ? 'you can renew using the QR code here' : 'you can renew whenever works for you')
+        : 'no rush at all, just renew whenever it suits you';
       const message = (overdue
         ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
         : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`
@@ -806,24 +852,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       }
 
       // Couldn't share as files (desktop browser, mostly, or nothing
-      // uploaded) — download whichever images exist locally so the coach
-      // can still attach them by hand in the same WhatsApp chat the line
-      // below opens.
-      if (!canShareFiles && (logoUrl || qrUrl)) {
-        if (logoUrl) {
+      // uploaded) — download whichever images exist locally (the composited
+      // logo card, not the raw source) so the coach can still attach them by
+      // hand in the same WhatsApp chat the line below opens.
+      if (!canShareFiles && (logoFile || qrFile)) {
+        if (logoFile) {
+          const url = URL.createObjectURL(logoFile);
           const link = document.createElement('a');
-          link.href = logoUrl;
+          link.href = url;
           link.download = `logo-${firstName.toLowerCase()}.jpg`;
           link.click();
+          URL.revokeObjectURL(url);
         }
-        if (qrUrl) {
+        if (qrFile) {
+          const url = URL.createObjectURL(qrFile);
           const link = document.createElement('a');
-          link.href = qrUrl;
+          link.href = url;
           link.download = `payment-qr-${firstName.toLowerCase()}.jpg`;
           link.click();
+          URL.revokeObjectURL(url);
         }
-        const what = logoUrl && qrUrl ? 'Logo and QR code' : logoUrl ? 'Logo' : 'QR code';
-        triggerLiveToast(`📥 ${what} downloaded — attach ${logoUrl && qrUrl ? 'them' : 'it'} in the chat too.`);
+        const what = logoFile && qrFile ? 'Logo and QR code' : logoFile ? 'Logo' : 'QR code';
+        triggerLiveToast(`📥 ${what} downloaded — attach ${logoFile && qrFile ? 'them' : 'it'} in the chat too.`);
       }
 
       // The gentle (no-QR) variant also pushes a notification straight to

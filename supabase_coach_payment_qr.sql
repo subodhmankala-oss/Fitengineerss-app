@@ -1,0 +1,21 @@
+-- ==========================================
+-- COACH PAYMENT QR CODE
+-- Paste this script into the Supabase SQL Editor.
+--
+-- Lets a coach upload their UPI/GPay/PhonePe QR code once (Business Profile
+-- -> Payment QR Code) so it can be attached to the WhatsApp renewal
+-- reminders sent from Client Payments (2026-09-11: "send them reminder...
+-- along with payment QR code").
+--
+-- Single nullable column, same shape as every other coach-profile field
+-- (brand_name, specialization, etc.) — no RPC needed. saveCoachSelfProfile's
+-- existing plain PATCH to `coaches` already runs under the coach's own
+-- session token and is already allowed to update their own row by the
+-- deployed coaches_update RLS policy, so a new column on that same row needs
+-- no new policy. Safe to re-run.
+--
+-- Stored as a data: URL (base64), not a Storage bucket path — this project
+-- has no image-upload/Storage-bucket flow set up anywhere yet, and a
+-- compressed QR screenshot is only a few KB, well within a text column.
+ALTER TABLE public.coaches
+  ADD COLUMN IF NOT EXISTS payment_qr_url TEXT;

@@ -21,7 +21,7 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
 import { useTour } from './context/TourContext';
 import { useCoachTour } from './context/CoachTourContext';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -1048,6 +1048,29 @@ function App() {
         // of a half-broken "logged in" dashboard that can never load data.
         (!session && localStorage.getItem('userEmail'))
       ) {
+        // Before trusting this null/SIGNED_OUT verdict, double-check via the
+        // raw-fetch session recovery path (recoverStoredSession) instead of
+        // ever calling the SDK's own getSession()/setSession() again — those
+        // are the exact calls documented to hang on this project (see
+        // databaseService.js's SDK-hang comments throughout). Reproduced
+        // 2026-09-11: a plain page reload made supabase-js report
+        // INITIAL_SESSION with session:null even though a perfectly valid
+        // (or cheaply refreshable) session was sitting in localStorage —
+        // this branch then ran clearLocalStoragePreservingChats() and
+        // bounced a still-logged-in coach back to the login screen, taking
+        // any in-progress work with it. A real explicit Log Out already
+        // clears the stored session itself (via supabase.auth.signOut())
+        // before this event fires, so recoverStoredSession naturally finds
+        // nothing there and this safely falls through to the normal wipe —
+        // this only ever rescues the false-negative case.
+        const recovered = event !== 'SIGNED_OUT'
+          ? await recoverStoredSession().catch(() => null)
+          : null;
+        if (recovered) {
+          await processSessionUser(recovered.user, recovered.accessToken);
+          return;
+        }
+
         const activeEmail = localStorage.getItem('userEmail') || userEmail;
         if (activeEmail) {
           localStorage.setItem('last_logged_in_email', activeEmail);

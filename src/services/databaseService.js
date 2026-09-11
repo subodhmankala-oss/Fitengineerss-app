@@ -111,6 +111,35 @@ export async function resolveRealAccessToken() {
   return (token && token !== supabaseAnonKey) ? token : null;
 }
 
+// Recovers {user, accessToken} straight from the raw stored session — same
+// safe, never-hangs path as resolveRealAccessToken — for App.jsx's
+// onAuthStateChange to double-check before treating a null/INITIAL_SESSION
+// event as a real sign-out. Added 2026-09-11: on this project, supabase-js's
+// OWN internal session bootstrap (getSession()/its background autoRefresh)
+// hits the exact same SDK-hang class of bug documented throughout this file,
+// and a reload could resolve INITIAL_SESSION with session:null even though a
+// perfectly valid (or cheaply refreshable) session was sitting right there in
+// localStorage. App.jsx's ghost-login branch then ran
+// clearLocalStoragePreservingChats() and bounced the user to the login
+// screen — reported as "refreshing signs me out" while testing the plan-
+// editor-draft-refresh fix, and reproduced end-to-end on a preview
+// deployment. This reuses resolveBearerToken's raw-fetch refresh-or-validate
+// logic (which already has to work correctly for restSelect/restRpc to
+// function at all) instead of ever awaiting the SDK's own getSession()/
+// setSession(), so it can't reintroduce the hang it's working around.
+// Returns null if there's genuinely no recoverable session — in particular,
+// a real signOut() call clears the stored session itself before firing
+// SIGNED_OUT, so this naturally finds nothing to recover on an intentional
+// logout and never fights it.
+export async function recoverStoredSession() {
+  const token = await resolveBearerToken();
+  if (!token || token === supabaseAnonKey) return null;
+  const stored = readStoredSupabaseSession();
+  const user = stored?.session?.user;
+  if (!user) return null;
+  return { user, accessToken: token };
+}
+
 // ─── RAW TOKEN REFRESH (SDK-hang bypass) ───
 // cachedAccessToken above is set once per onAuthStateChange event and never
 // updates itself in between — there's no timer refreshing it, and the SDK's

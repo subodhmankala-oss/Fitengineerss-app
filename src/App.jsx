@@ -193,7 +193,14 @@ const clearLocalStoragePreservingChats = () => {
     // two keys here meant the spotlight tour replayed on every such reopen
     // even though handleLogout's explicit-logout path had already been
     // fixed to preserve them. Confirmed 2026-08-11.
-    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount')) {
+    // coachPlanEditorDraft (the coach's in-progress workout plan, see
+    // TrainerDashboard's plan-editor draft save/restore) also needs to
+    // survive this wipe — otherwise this exact "signed out on refresh"
+    // path deletes the draft before the coach even gets back to a screen
+    // that could restore it, silently defeating that fix. Confirmed
+    // 2026-09-11 reproducing the reported "plan lost on refresh" bug: the
+    // draft was saving fine, but this cleanup ran first and erased it.
+    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
       preserved[key] = localStorage.getItem(key);
     }
   }

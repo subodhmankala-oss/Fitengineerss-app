@@ -1783,6 +1783,18 @@ const WorkoutTracker = () => {
   const getLogExBwMode = (ex) =>
     ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
 
+  // Per-set override — a set explicitly toggled on its own row (the BW cell /
+  // the inline ⇄ icon) carries its own bodyweightMode independent of its
+  // siblings, so switching set 2 to added weight doesn't drag set 1 along
+  // with it. A set that's never been touched this way falls back to the
+  // exercise-level mode above, same as before this per-set control existed.
+  const getSetLogBwMode = (ex, set) =>
+    set.bodyweightMode !== undefined ? set.bodyweightMode : getLogExBwMode(ex);
+
+  // The Bodyweight/+Add Weight pills stay a bulk "reset every set" action —
+  // stamping bodyweightMode onto each set (not just the exercise) so it
+  // overrides any earlier per-set divergence instead of leaving stale
+  // per-set flags behind that would silently un-sync the row from the pill.
   const handleToggleLogBodyweightMode = (exIdx) => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -1790,7 +1802,21 @@ const WorkoutTracker = () => {
       return {
         ...ex,
         bodyweightMode: nextMode,
-        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? '0' : '' }))
+        sets: ex.sets.map(s => ({ ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' }))
+      };
+    }));
+  };
+
+  const handleToggleSetLogBodyweightMode = (exIdx, sIdx) => {
+    setLogExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, i) => {
+          if (i !== sIdx) return s;
+          const nextMode = !getSetLogBwMode(ex, s);
+          return { ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
+        })
       };
     }));
   };
@@ -3837,6 +3863,7 @@ const WorkoutTracker = () => {
                                 // Foot Fires: keeps the Bodyweight/+Add Weight toggle, but the
                                 // second column is the shared time control instead of reps.
                                 const weightKey = `w-${exIdx}-${sIdx}`;
+                                const setBwMode = getSetLogBwMode(ex, set);
                                 registerSetField(weightKey, {
                                   value: set.weight,
                                   mode: 'decimal',
@@ -3845,13 +3872,13 @@ const WorkoutTracker = () => {
                                 });
                                 return (
                                   <>
-                                    {exBwMode ? (
+                                    {setBwMode ? (
                                       <div
                                         className="col-weight bw-static-label bw-static-label--tappable"
                                         role="button"
                                         tabIndex={0}
                                         title="Tap to add weight"
-                                        onClick={() => { handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
+                                        onClick={() => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); }}
                                       >
                                         BW
                                       </div>
@@ -3868,7 +3895,7 @@ const WorkoutTracker = () => {
                                           type="button"
                                           className="bw-inline-toggle"
                                           title="Switch back to bodyweight"
-                                          onClick={(e) => { e.stopPropagation(); handleToggleLogBodyweightMode(exIdx); }}
+                                          onClick={(e) => { e.stopPropagation(); handleToggleSetLogBodyweightMode(exIdx, sIdx); }}
                                         >
                                           ⇄
                                         </button>
@@ -3889,6 +3916,7 @@ const WorkoutTracker = () => {
                               ) : (() => {
                                 const weightKey = `w-${exIdx}-${sIdx}`;
                                 const repsKey = `r-${exIdx}-${sIdx}`;
+                                const setBwMode = exIsBodyweight ? getSetLogBwMode(ex, set) : false;
                                 registerSetField(weightKey, {
                                   value: set.weight,
                                   mode: 'decimal',
@@ -3901,19 +3929,19 @@ const WorkoutTracker = () => {
                                   mode: 'integer',
                                   label: `${ex.name} · Reps`,
                                   onValue: (v) => handleSetChange(exIdx, sIdx, 'reps', v),
-                                  ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openSetField(weightKey) }),
+                                  ...(exIsWarmup || setBwMode ? {} : { onPrev: () => openSetField(weightKey) }),
                                 });
                                 return (
                                   <>
                                     {exIsWarmup ? (
                                       <div className="col-weight" />
-                                    ) : exIsBodyweight && exBwMode ? (
+                                    ) : setBwMode ? (
                                       <div
                                         className="col-weight bw-static-label bw-static-label--tappable"
                                         role="button"
                                         tabIndex={0}
                                         title="Tap to add weight"
-                                        onClick={() => { handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
+                                        onClick={() => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); }}
                                       >
                                         BW
                                       </div>
@@ -3931,7 +3959,7 @@ const WorkoutTracker = () => {
                                             type="button"
                                             className="bw-inline-toggle"
                                             title="Switch back to bodyweight"
-                                            onClick={(e) => { e.stopPropagation(); handleToggleLogBodyweightMode(exIdx); }}
+                                            onClick={(e) => { e.stopPropagation(); handleToggleSetLogBodyweightMode(exIdx, sIdx); }}
                                           >
                                             ⇄
                                           </button>

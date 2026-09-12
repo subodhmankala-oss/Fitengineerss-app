@@ -1837,9 +1837,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const getLiveExBwMode = (ex) =>
     ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
 
+  // Per-set override — a set toggled on its own row (the BW cell / the
+  // inline ⇄ icon) carries its own bodyweightMode independent of its
+  // siblings, so switching set 2 to added weight doesn't drag set 1 along
+  // with it. Falls back to the exercise-level mode for a set that's never
+  // been touched this way, same as before this per-set control existed.
+  const getSetLiveBwMode = (ex, set) =>
+    set.bodyweightMode !== undefined ? set.bodyweightMode : getLiveExBwMode(ex);
+
   // Toggling to "+ Weight" clears the weight field so the coach types the
   // plate/vest load; toggling back to Bodyweight zeroes it out again for
-  // every set.
+  // every set. The pills stay a bulk "reset every set" action — stamping
+  // bodyweightMode onto each set too, overriding any earlier per-set
+  // divergence instead of leaving it stale.
   const handleToggleLiveBodyweightMode = (exIdx) => {
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -1847,7 +1857,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       return {
         ...ex,
         bodyweightMode: nextMode,
-        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? '0' : '' }))
+        sets: ex.sets.map(s => ({ ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' }))
+      };
+    }));
+  };
+
+  const handleToggleSetLiveBodyweightMode = (exIdx, sIdx) => {
+    setLiveExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      return {
+        ...ex,
+        sets: ex.sets.map((s, i) => {
+          if (i !== sIdx) return s;
+          const nextMode = !getSetLiveBwMode(ex, s);
+          return { ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
+        })
       };
     }));
   };
@@ -8176,6 +8200,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   // Foot Fires: keeps the Bodyweight/+Add Weight toggle, with
                                   // the time control moved into the reps column.
                                   const weightKey = `w-${exIdx}-${setIdx}`;
+                                  const setBwMode = getSetLiveBwMode(ex, set);
                                   registerLiveSetField(weightKey, {
                                     value: set.weight,
                                     mode: 'decimal',
@@ -8184,13 +8209,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   });
                                   return (
                                     <>
-                                      {exBwMode ? (
+                                      {setBwMode ? (
                                         <div
                                           className="col-weight bw-static-label bw-static-label--tappable"
                                           role="button"
                                           tabIndex={0}
                                           title="Tap to add weight"
-                                          onClick={() => { handleToggleLiveBodyweightMode(exIdx); openLiveSetField(weightKey); }}
+                                          onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
                                         >
                                           BW
                                         </div>
@@ -8206,7 +8231,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             type="button"
                                             className="bw-inline-toggle"
                                             title="Switch back to bodyweight"
-                                            onClick={(e) => { e.stopPropagation(); handleToggleLiveBodyweightMode(exIdx); }}
+                                            onClick={(e) => { e.stopPropagation(); handleToggleSetLiveBodyweightMode(exIdx, setIdx); }}
                                           >
                                             ⇄
                                           </button>
@@ -8228,6 +8253,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   (() => {
                                     const weightKey = `w-${exIdx}-${setIdx}`;
                                     const repsKey = `r-${exIdx}-${setIdx}`;
+                                    const setBwMode = exIsBodyweight ? getSetLiveBwMode(ex, set) : false;
                                     registerLiveSetField(weightKey, {
                                       value: set.weight,
                                       mode: 'decimal',
@@ -8240,19 +8266,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       mode: 'integer',
                                       label: `${ex.name} · Reps`,
                                       onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'reps', v),
-                                      ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openLiveSetField(weightKey) }),
+                                      ...(exIsWarmup || setBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                     });
                                     return (
                                       <>
                                         {exIsWarmup ? (
                                           <div className="col-weight" />
-                                        ) : exIsBodyweight && exBwMode ? (
+                                        ) : setBwMode ? (
                                           <div
                                             className="col-weight bw-static-label bw-static-label--tappable"
                                             role="button"
                                             tabIndex={0}
                                             title="Tap to add weight"
-                                            onClick={() => { handleToggleLiveBodyweightMode(exIdx); openLiveSetField(weightKey); }}
+                                            onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
                                           >
                                             BW
                                           </div>
@@ -8269,7 +8295,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                 type="button"
                                                 className="bw-inline-toggle"
                                                 title="Switch back to bodyweight"
-                                                onClick={(e) => { e.stopPropagation(); handleToggleLiveBodyweightMode(exIdx); }}
+                                                onClick={(e) => { e.stopPropagation(); handleToggleSetLiveBodyweightMode(exIdx, setIdx); }}
                                               >
                                                 ⇄
                                               </button>

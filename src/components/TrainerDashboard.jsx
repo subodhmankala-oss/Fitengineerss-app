@@ -7445,7 +7445,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           registerLiveSetField(repsKey, {
                                             value: set.reps,
                                             mode: 'integer',
-                                            label: `${ex.name} · Reps`,
+                                            // Farmer Walk etc. store the carried distance in this same
+                                            // field (see the col-reps header above, already labeled
+                                            // METERS) — the number pad's own title still said "Reps"
+                                            // regardless, which read as a mismatch against the visible
+                                            // column header.
+                                            label: `${ex.name} · ${exIsLoadedCarry ? 'Meters' : 'Reps'}`,
                                             onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', v),
                                             ...(exIsWarmup || setBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                           });
@@ -8283,7 +8288,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     registerLiveSetField(repsKey, {
                                       value: set.reps,
                                       mode: 'integer',
-                                      label: `${ex.name} · Reps`,
+                                      // Farmer Walk etc. store the carried distance in this same
+                                      // field (see the col-reps header above, already labeled
+                                      // METERS) — the number pad's own title still said "Reps"
+                                      // regardless, which read as a mismatch against the visible
+                                      // column header.
+                                      label: `${ex.name} · ${isLoadedCarryExercise(ex.name) ? 'Meters' : 'Reps'}`,
                                       onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'reps', v),
                                       ...(exIsWarmup || setBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                     });

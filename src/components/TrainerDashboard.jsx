@@ -8185,15 +8185,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   return (
                                     <>
                                       {exBwMode ? (
-                                        <div className="col-weight bw-static-label">BW</div>
+                                        <div
+                                          className="col-weight bw-static-label bw-static-label--tappable"
+                                          role="button"
+                                          tabIndex={0}
+                                          title="Tap to add weight"
+                                          onClick={() => { handleToggleLiveBodyweightMode(exIdx); openLiveSetField(weightKey); }}
+                                        >
+                                          BW
+                                        </div>
                                       ) : (
-                                        <div className="col-weight set-input-field">
+                                        <div className="col-weight set-input-field bw-input-with-toggle">
                                           <SetValueField
                                             value={set.weight}
                                             placeholder="0"
                                             active={activeLiveSetKey === weightKey}
                                             onOpen={() => openLiveSetField(weightKey)}
                                           />
+                                          <button
+                                            type="button"
+                                            className="bw-inline-toggle"
+                                            title="Switch back to bodyweight"
+                                            onClick={(e) => { e.stopPropagation(); handleToggleLiveBodyweightMode(exIdx); }}
+                                          >
+                                            ⇄
+                                          </button>
                                         </div>
                                       )}
                                       <div className="col-reps" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
@@ -8231,15 +8247,33 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         {exIsWarmup ? (
                                           <div className="col-weight" />
                                         ) : exIsBodyweight && exBwMode ? (
-                                          <div className="col-weight bw-static-label">BW</div>
+                                          <div
+                                            className="col-weight bw-static-label bw-static-label--tappable"
+                                            role="button"
+                                            tabIndex={0}
+                                            title="Tap to add weight"
+                                            onClick={() => { handleToggleLiveBodyweightMode(exIdx); openLiveSetField(weightKey); }}
+                                          >
+                                            BW
+                                          </div>
                                         ) : (
-                                          <div className="col-weight set-input-field">
+                                          <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                             <SetValueField
                                               value={set.weight}
                                               placeholder="0"
                                               active={activeLiveSetKey === weightKey}
                                               onOpen={() => openLiveSetField(weightKey)}
                                             />
+                                            {exIsBodyweight && (
+                                              <button
+                                                type="button"
+                                                className="bw-inline-toggle"
+                                                title="Switch back to bodyweight"
+                                                onClick={(e) => { e.stopPropagation(); handleToggleLiveBodyweightMode(exIdx); }}
+                                              >
+                                                ⇄
+                                              </button>
+                                            )}
                                           </div>
                                         )}
                                         <div className="col-reps set-input-field">

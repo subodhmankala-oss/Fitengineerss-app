@@ -1007,6 +1007,55 @@
   color: var(--text-muted);
 }
 
+.bw-static-label--tappable {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bw-static-label--tappable:hover,
+.bw-static-label--tappable:focus-visible {
+  background: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+}
+
+.bw-static-label--tappable:active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.bw-input-with-toggle {
+  gap: 4px;
+}
+
+.bw-inline-toggle {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.bw-inline-toggle:hover,
+.bw-inline-toggle:focus-visible {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.bw-inline-toggle:active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
 /* Live session timer + calorie bar (Live Log tab) — sticks to the top of
    the scroll area while logging, same as the client's hevy-stopwatch-banner,
    so the running duration + calories stay visible while scrolling through

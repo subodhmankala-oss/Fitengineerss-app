@@ -1397,7 +1397,12 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                             <thead>
                               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                 <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Set</th>
-                                {exIsTimed ? (
+                                {exIsTimed && exIsBodyweight ? (
+                                  <>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Weight</th>
+                                    <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Time</th>
+                                  </>
+                                ) : exIsTimed ? (
                                   <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Time</th>
                                 ) : exIsCardio ? (
                                   <>
@@ -1437,7 +1442,17 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                                         color: visual.color || '#fff'
                                       }}>{visual.label}</span>
                                     </td>
-                                    {exIsTimed ? (
+                                    {exIsTimed && exIsBodyweight ? (
+                                      <>
+                                        {/* Foot Fires etc. — a timed hold that also allows an added
+                                            vest/plate. Bodyweight exercises log weight: 0 when
+                                            nothing was added, so show "BW" like the logger itself
+                                            does, instead of the raw "0 kg" which reads as a logging
+                                            error. */}
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{!(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.time || '00:00'}</td>
+                                      </>
+                                    ) : exIsTimed ? (
                                       <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.time || '00:00'}</td>
                                     ) : exIsCardio ? (
                                       <>

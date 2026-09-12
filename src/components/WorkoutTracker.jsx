@@ -3580,19 +3580,7 @@ const WorkoutTracker = () => {
                           </>
                         ) : isTimedExercise(ex.name) && exIsBodyweight ? (
                           <>
-                            <span
-                              className="col-weight bw-header-toggle"
-                              role="button"
-                              tabIndex={0}
-                              title={exBwMode ? 'Tap to add weight' : 'Tap to switch back to bodyweight'}
-                              onClick={() => handleToggleLogBodyweightMode(exIdx)}
-                            >
-                              {exBwMode ? (
-                                <>BODYWEIGHT <span className="bw-hint-icon">⇄</span></>
-                              ) : (
-                                <>🏋️ {unit} <span className="bw-hint-icon">⇄</span></>
-                              )}
-                            </span>
+                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
                             <span className="col-reps">TIME</span>
                           </>
                         ) : isTimedExercise(ex.name) ? (
@@ -3612,19 +3600,7 @@ const WorkoutTracker = () => {
                           </>
                         ) : exIsBodyweight ? (
                           <>
-                            <span
-                              className="col-weight bw-header-toggle"
-                              role="button"
-                              tabIndex={0}
-                              title={exBwMode ? 'Tap to add weight' : 'Tap to switch back to bodyweight'}
-                              onClick={() => handleToggleLogBodyweightMode(exIdx)}
-                            >
-                              {exBwMode ? (
-                                <>BODYWEIGHT <span className="bw-hint-icon">⇄</span></>
-                              ) : (
-                                <>🏋️ {unit} <span className="bw-hint-icon">⇄</span></>
-                              )}
-                            </span>
+                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
                             <span className="col-reps">REPS</span>
                           </>
                         ) : (
@@ -3880,7 +3856,7 @@ const WorkoutTracker = () => {
                                         BW
                                       </div>
                                     ) : (
-                                      <div className="col-weight set-input-field">
+                                      <div className="col-weight set-input-field bw-input-with-toggle">
                                         <SetValueField
                                           value={set.weight}
                                           placeholder="0"
@@ -3888,6 +3864,14 @@ const WorkoutTracker = () => {
                                           active={activeSetKey === weightKey}
                                           onOpen={() => openSetField(weightKey)}
                                         />
+                                        <button
+                                          type="button"
+                                          className="bw-inline-toggle"
+                                          title="Switch back to bodyweight"
+                                          onClick={(e) => { e.stopPropagation(); handleToggleLogBodyweightMode(exIdx); }}
+                                        >
+                                          ⇄
+                                        </button>
                                       </div>
                                     )}
                                     <div className="col-reps" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
@@ -3934,7 +3918,7 @@ const WorkoutTracker = () => {
                                         BW
                                       </div>
                                     ) : (
-                                      <div className="col-weight set-input-field">
+                                      <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                         <SetValueField
                                           value={set.weight}
                                           placeholder="0"
@@ -3942,6 +3926,16 @@ const WorkoutTracker = () => {
                                           active={activeSetKey === weightKey}
                                           onOpen={() => openSetField(weightKey)}
                                         />
+                                        {exIsBodyweight && (
+                                          <button
+                                            type="button"
+                                            className="bw-inline-toggle"
+                                            title="Switch back to bodyweight"
+                                            onClick={(e) => { e.stopPropagation(); handleToggleLogBodyweightMode(exIdx); }}
+                                          >
+                                            ⇄
+                                          </button>
+                                        )}
                                       </div>
                                     )}
                                     <div className="col-reps set-input-field">

@@ -3452,14 +3452,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const getEditorExBwMode = (ex) =>
     ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
 
-  const handleToggleEditorBodyweightMode = (exIdx) => {
+  // Per-set override — a set explicitly toggled on its own row (the BW cell /
+  // the inline ⇄ icon) carries its own bodyweightMode independent of its
+  // siblings, so switching set 2 to added weight doesn't drag set 1 along
+  // with it. Falls back to the exercise-level mode for a set that's never
+  // been touched this way, same as before this per-set control existed.
+  const getSetEditorBwMode = (ex, set) =>
+    set.bodyweightMode !== undefined ? set.bodyweightMode : getEditorExBwMode(ex);
+
+  const handleToggleSetEditorBodyweightMode = (exIdx, sIdx) => {
     setEditorExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
-      const nextMode = !getEditorExBwMode(ex);
       return {
         ...ex,
-        bodyweightMode: nextMode,
-        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? 0 : '' }))
+        sets: ex.sets.map((s, i) => {
+          if (i !== sIdx) return s;
+          const nextMode = !getSetEditorBwMode(ex, s);
+          return { ...s, bodyweightMode: nextMode, weight: nextMode ? 0 : '' };
+        })
       };
     }));
   };
@@ -7165,7 +7175,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             // showed a plain numeric "🏋️ KG" field instead of
                             // the "BW" label the rest of the app gives them.
                             const exIsBodyweight = isBodyweightExercise(ex.name);
-                            const exBwMode = exIsBodyweight ? getEditorExBwMode(ex) : false;
+                            // The BODYWEIGHT/KG column header reflects the
+                            // real current state of the sets (not the stale
+                            // exercise-level default) — it only says
+                            // BODYWEIGHT when every set actually is, so it
+                            // never contradicts a row underneath showing a KG
+                            // input.
+                            const allSetsEditorBw = exIsBodyweight && ex.sets.every(s => getSetEditorBwMode(ex, s));
                             const exIsWarmup = isWarmupExercise(ex.name);
                             return (
                               <div key={getEditorItemKey(exIdx)} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
@@ -7204,28 +7220,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   </div>
                                 </div>
 
-                                {/* Bodyweight/+Weight toggle — same as the Live
-                                    Log's (see the matching block below in the
-                                    liveExercises render). */}
-                                {exIsBodyweight && (
-                                  <div className="bw-toggle-row">
-                                    <button
-                                      type="button"
-                                      className={`bw-toggle-btn ${exBwMode ? 'active' : ''}`}
-                                      onClick={() => { if (!exBwMode) handleToggleEditorBodyweightMode(exIdx); }}
-                                    >
-                                      Bodyweight
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={`bw-toggle-btn ${!exBwMode ? 'active' : ''}`}
-                                      onClick={() => { if (exBwMode) handleToggleEditorBodyweightMode(exIdx); }}
-                                    >
-                                      + Add Weight
-                                    </button>
-                                  </div>
-                                )}
-
                                 <div className="hevy-sets-table">
                                   <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>
                                     <span className="col-set">SET</span>
@@ -7237,7 +7231,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       </>
                                     ) : exIsTimed && exIsBodyweight ? (
                                       <>
-                                        <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                        <span className="col-weight">{allSetsEditorBw ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                         <span className="col-reps">TIME</span>
                                       </>
                                     ) : exIsTimed ? (
@@ -7257,7 +7251,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       </>
                                     ) : exIsBodyweight ? (
                                       <>
-                                        <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                        <span className="col-weight">{allSetsEditorBw ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                         <span className="col-reps">REPS</span>
                                       </>
                                     ) : (
@@ -7342,6 +7336,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           // the time control in the reps column, same as the Live Log.
                                           const weightKey = `ped-w-${exIdx}-${setIdx}`;
                                           const timedKey = `ped-timed-${exIdx}-${setIdx}`;
+                                          const setBwMode = getSetEditorBwMode(ex, set);
                                           registerLiveSetField(weightKey, {
                                             value: set.weight,
                                             mode: 'decimal',
@@ -7356,16 +7351,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           });
                                           return (
                                             <>
-                                              {exBwMode ? (
-                                                <div className="col-weight bw-static-label">BW</div>
+                                              {setBwMode ? (
+                                                <div
+                                                  className="col-weight bw-static-label bw-static-label--tappable"
+                                                  role="button"
+                                                  tabIndex={0}
+                                                  title="Tap to add weight"
+                                                  onClick={() => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                                >
+                                                  BW <span className="bw-hint-icon">⇄</span>
+                                                </div>
                                               ) : (
-                                                <div className="col-weight set-input-field">
+                                                <div className="col-weight set-input-field bw-input-with-toggle">
                                                   <SetValueField
                                                     value={set.weight}
                                                     placeholder="0"
                                                     active={activeLiveSetKey === weightKey}
                                                     onOpen={() => openLiveSetField(weightKey)}
                                                   />
+                                                  <button
+                                                    type="button"
+                                                    className="bw-inline-toggle"
+                                                    title="Switch back to bodyweight"
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleSetEditorBodyweightMode(exIdx, setIdx); }}
+                                                  >
+                                                    ⇄
+                                                  </button>
                                                 </div>
                                               )}
                                               <div className="col-reps set-input-field">
@@ -7399,6 +7410,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         })() : (() => {
                                           const weightKey = `ped-w-${exIdx}-${setIdx}`;
                                           const repsKey = `ped-r-${exIdx}-${setIdx}`;
+                                          const setBwMode = exIsBodyweight ? getSetEditorBwMode(ex, set) : false;
                                           registerLiveSetField(weightKey, {
                                             value: set.weight,
                                             mode: 'decimal',
@@ -7411,22 +7423,40 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             mode: 'integer',
                                             label: `${ex.name} · Reps`,
                                             onValue: (v) => handleUpdateSetInExercise(exIdx, setIdx, 'reps', v),
-                                            ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openLiveSetField(weightKey) }),
+                                            ...(exIsWarmup || setBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                           });
                                           return (
                                             <>
                                               {exIsWarmup ? (
                                                 <div className="col-weight" />
-                                              ) : exIsBodyweight && exBwMode ? (
-                                                <div className="col-weight bw-static-label">BW</div>
+                                              ) : setBwMode ? (
+                                                <div
+                                                  className="col-weight bw-static-label bw-static-label--tappable"
+                                                  role="button"
+                                                  tabIndex={0}
+                                                  title="Tap to add weight"
+                                                  onClick={() => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                                >
+                                                  BW <span className="bw-hint-icon">⇄</span>
+                                                </div>
                                               ) : (
-                                                <div className="col-weight set-input-field">
+                                                <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                                   <SetValueField
                                                     value={set.weight}
                                                     placeholder="0"
                                                     active={activeLiveSetKey === weightKey}
                                                     onOpen={() => openLiveSetField(weightKey)}
                                                   />
+                                                  {exIsBodyweight && (
+                                                    <button
+                                                      type="button"
+                                                      className="bw-inline-toggle"
+                                                      title="Switch back to bodyweight"
+                                                      onClick={(e) => { e.stopPropagation(); handleToggleSetEditorBodyweightMode(exIdx, setIdx); }}
+                                                    >
+                                                      ⇄
+                                                    </button>
+                                                  )}
                                                 </div>
                                               )}
                                               <div className="col-reps set-input-field">

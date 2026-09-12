@@ -3615,7 +3615,7 @@ const WorkoutTracker = () => {
                           </>
                         ) : isTimedExercise(ex.name) && exIsBodyweight ? (
                           <>
-                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
+                            <span className="col-weight">{allSetsLogBw ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
                             <span className="col-reps">TIME</span>
                           </>
                         ) : isTimedExercise(ex.name) ? (
@@ -3635,7 +3635,7 @@ const WorkoutTracker = () => {
                           </>
                         ) : exIsBodyweight ? (
                           <>
-                            <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
+                            <span className="col-weight">{allSetsLogBw ? 'BODYWEIGHT' : `🏋️ ${unit}`}</span>
                             <span className="col-reps">REPS</span>
                           </>
                         ) : (

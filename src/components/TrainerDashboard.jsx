@@ -8028,7 +8028,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               </>
                             ) : isTimedExercise(ex.name) && exIsBodyweight ? (
                               <>
-                                <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                <span className="col-weight">{allSetsLiveBw ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                 <span className="col-reps">TIME</span>
                               </>
                             ) : isTimedExercise(ex.name) ? (
@@ -8048,7 +8048,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               </>
                             ) : exIsBodyweight ? (
                               <>
-                                <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                <span className="col-weight">{allSetsLiveBw ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                 <span className="col-reps">REPS</span>
                               </>
                             ) : (

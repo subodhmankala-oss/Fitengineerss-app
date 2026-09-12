@@ -1784,13 +1784,9 @@ const WorkoutTracker = () => {
     ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
 
   const handleToggleLogBodyweightMode = (exIdx) => {
-    // eslint-disable-next-line no-console
-    console.log('[BW-DEBUG] handleToggleLogBodyweightMode called for exIdx', exIdx);
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
       const nextMode = !getLogExBwMode(ex);
-      // eslint-disable-next-line no-console
-      console.log('[BW-DEBUG] flipping', ex.name, 'from', getLogExBwMode(ex), 'to', nextMode);
       return {
         ...ex,
         bodyweightMode: nextMode,
@@ -3589,7 +3585,7 @@ const WorkoutTracker = () => {
                               role="button"
                               tabIndex={0}
                               title={exBwMode ? 'Tap to add weight' : 'Tap to switch back to bodyweight'}
-                              onClick={() => { console.log('[BW-DEBUG] header-toggle-A clicked, exIdx=', exIdx); handleToggleLogBodyweightMode(exIdx); }}
+                              onClick={() => handleToggleLogBodyweightMode(exIdx)}
                             >
                               {exBwMode ? (
                                 <>BODYWEIGHT <span className="bw-hint-icon">⇄</span></>
@@ -3621,7 +3617,7 @@ const WorkoutTracker = () => {
                               role="button"
                               tabIndex={0}
                               title={exBwMode ? 'Tap to add weight' : 'Tap to switch back to bodyweight'}
-                              onClick={() => { console.log('[BW-DEBUG] header-toggle-B clicked, exIdx=', exIdx); handleToggleLogBodyweightMode(exIdx); }}
+                              onClick={() => handleToggleLogBodyweightMode(exIdx)}
                             >
                               {exBwMode ? (
                                 <>BODYWEIGHT <span className="bw-hint-icon">⇄</span></>
@@ -3879,7 +3875,7 @@ const WorkoutTracker = () => {
                                         role="button"
                                         tabIndex={0}
                                         title="Tap to add weight"
-                                        onClick={() => { console.log('[BW-DEBUG] bw-cell-A clicked, exIdx=', exIdx); handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
+                                        onClick={() => { handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
                                       >
                                         BW
                                       </div>
@@ -3933,7 +3929,7 @@ const WorkoutTracker = () => {
                                         role="button"
                                         tabIndex={0}
                                         title="Tap to add weight"
-                                        onClick={() => { console.log('[BW-DEBUG] bw-cell-B clicked, exIdx=', exIdx); handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
+                                        onClick={() => { handleToggleLogBodyweightMode(exIdx); openSetField(weightKey); }}
                                       >
                                         BW
                                       </div>

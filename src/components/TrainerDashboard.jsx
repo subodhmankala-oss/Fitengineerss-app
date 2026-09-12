@@ -7931,13 +7931,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
-                    // The pills reflect the real current state of every set,
-                    // not the stale exercise-level default — once sets can
-                    // diverge via the per-row control, "Bodyweight" should
-                    // only look active when every set actually is, same for
-                    // "+ Add Weight". Neither lights up when they disagree.
-                    const allSetsLiveBw = exIsBodyweight && ex.sets.every(s => getSetLiveBwMode(ex, s));
-                    const allSetsLiveWeighted = exIsBodyweight && ex.sets.length > 0 && ex.sets.every(s => !getSetLiveBwMode(ex, s));
+                    // The pills reflect the real current state of the sets,
+                    // not the stale exercise-level default — each one lights
+                    // up when ANY set is currently in that mode (both can be
+                    // lit at once once sets have diverged via the per-row
+                    // control), rather than requiring every set to agree.
+                    const anySetLiveBw = exIsBodyweight && ex.sets.some(s => getSetLiveBwMode(ex, s));
+                    const anySetLiveWeighted = exIsBodyweight && ex.sets.some(s => !getSetLiveBwMode(ex, s));
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
                       <div key={getLiveItemKey(exIdx)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
@@ -8001,14 +8001,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           <div className="bw-toggle-row">
                             <button
                               type="button"
-                              className={`bw-toggle-btn ${allSetsLiveBw ? 'active' : ''}`}
+                              className={`bw-toggle-btn ${anySetLiveBw ? 'active' : ''}`}
                               onClick={() => handleSetAllLiveBodyweightMode(exIdx, true)}
                             >
                               Bodyweight
                             </button>
                             <button
                               type="button"
-                              className={`bw-toggle-btn ${allSetsLiveWeighted ? 'active' : ''}`}
+                              className={`bw-toggle-btn ${anySetLiveWeighted ? 'active' : ''}`}
                               onClick={() => handleSetAllLiveBodyweightMode(exIdx, false)}
                             >
                               + Add Weight

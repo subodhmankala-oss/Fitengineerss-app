@@ -1845,24 +1845,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const getSetLiveBwMode = (ex, set) =>
     set.bodyweightMode !== undefined ? set.bodyweightMode : getLiveExBwMode(ex);
 
-  // Toggling to "+ Weight" clears the weight field so the coach types the
-  // plate/vest load; toggling back to Bodyweight zeroes it out again for
-  // every set. The pills take the target mode explicitly (rather than
-  // flipping the exercise's own current mode) so they behave the same
-  // whether every set already agrees or they've diverged via the per-row
-  // control — stamping bodyweightMode onto each set too, overriding any
-  // earlier per-set divergence instead of leaving it stale.
-  const handleSetAllLiveBodyweightMode = (exIdx, nextMode) => {
-    setLiveExercises(prev => prev.map((ex, idx) => {
-      if (idx !== exIdx) return ex;
-      return {
-        ...ex,
-        bodyweightMode: nextMode,
-        sets: ex.sets.map(s => ({ ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' }))
-      };
-    }));
-  };
-
   const handleToggleSetLiveBodyweightMode = (exIdx, sIdx) => {
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -7931,13 +7913,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
-                    // The pills reflect the real current state of every set,
-                    // not the stale exercise-level default — once sets can
-                    // diverge via the per-row control, "Bodyweight" should
-                    // only look active when every set actually is, same for
-                    // "+ Add Weight". Neither lights up when they disagree.
+                    // The BODYWEIGHT/KG column header reflects the real
+                    // current state of the sets (not the stale exercise-
+                    // level default) — it only says BODYWEIGHT when every
+                    // set actually is, so it never contradicts a row
+                    // underneath showing a KG input.
                     const allSetsLiveBw = exIsBodyweight && ex.sets.every(s => getSetLiveBwMode(ex, s));
-                    const allSetsLiveWeighted = exIsBodyweight && ex.sets.length > 0 && ex.sets.every(s => !getSetLiveBwMode(ex, s));
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
                       <div key={getLiveItemKey(exIdx)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
@@ -7991,30 +7972,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </div>
                         </div>
 
-                        {/* Bodyweight/+Weight toggle — push-ups, mountain
-                            climbers, jumping jacks etc. default to no added
-                            weight, but a client may wear a vest or hold a
-                            plate, so this lets the coach switch the weight
-                            column between a fixed "BW" label and an
-                            editable KG input. */}
-                        {exIsBodyweight && (
-                          <div className="bw-toggle-row">
-                            <button
-                              type="button"
-                              className={`bw-toggle-btn ${allSetsLiveBw ? 'active' : ''}`}
-                              onClick={() => handleSetAllLiveBodyweightMode(exIdx, true)}
-                            >
-                              Bodyweight
-                            </button>
-                            <button
-                              type="button"
-                              className={`bw-toggle-btn ${allSetsLiveWeighted ? 'active' : ''}`}
-                              onClick={() => handleSetAllLiveBodyweightMode(exIdx, false)}
-                            >
-                              + Add Weight
-                            </button>
-                          </div>
-                        )}
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">

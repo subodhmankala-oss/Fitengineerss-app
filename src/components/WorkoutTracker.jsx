@@ -1791,24 +1791,6 @@ const WorkoutTracker = () => {
   const getSetLogBwMode = (ex, set) =>
     set.bodyweightMode !== undefined ? set.bodyweightMode : getLogExBwMode(ex);
 
-  // The Bodyweight/+Add Weight pills are a bulk "set every set to this mode"
-  // action — takes the target mode explicitly (rather than flipping the
-  // exercise's own current mode) so it behaves the same whether every set
-  // already agrees or they've diverged via the per-row control below; it
-  // stamps bodyweightMode onto each set (not just the exercise) so it
-  // overrides any earlier per-set divergence instead of leaving stale
-  // per-set flags behind that would silently un-sync a row from the pill.
-  const handleSetAllLogBodyweightMode = (exIdx, nextMode) => {
-    setLogExercises(prev => prev.map((ex, idx) => {
-      if (idx !== exIdx) return ex;
-      return {
-        ...ex,
-        bodyweightMode: nextMode,
-        sets: ex.sets.map(s => ({ ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' }))
-      };
-    }));
-  };
-
   const handleToggleSetLogBodyweightMode = (exIdx, sIdx) => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -3486,13 +3468,11 @@ const WorkoutTracker = () => {
                 const exIsCardio = isCardioExercise(ex.name);
                 const exIsBodyweight = isBodyweightExercise(ex.name);
                 const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
-                // The pills reflect the real current state of every set, not
-                // the stale exercise-level default — once sets can diverge
-                // via the per-row control, "Bodyweight" should only look
-                // active when every set actually is, same for "+ Add Weight".
-                // Neither pill lights up when they disagree.
+                // The BODYWEIGHT/KG column header reflects the real current
+                // state of the sets (not the stale exercise-level default) —
+                // it only says BODYWEIGHT when every set actually is, so it
+                // never contradicts a row underneath showing a KG input.
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
-                const allSetsLogWeighted = exIsBodyweight && ex.sets.length > 0 && ex.sets.every(s => !getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
                   <div key={getLogItemKey(exIdx)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
@@ -3585,24 +3565,6 @@ const WorkoutTracker = () => {
                       </div>
                     </div>
 
-                    {exIsBodyweight && (
-                      <div className="bw-toggle-row">
-                        <button
-                          type="button"
-                          className={`bw-toggle-btn ${allSetsLogBw ? 'active' : ''}`}
-                          onClick={() => handleSetAllLogBodyweightMode(exIdx, true)}
-                        >
-                          Bodyweight
-                        </button>
-                        <button
-                          type="button"
-                          className={`bw-toggle-btn ${allSetsLogWeighted ? 'active' : ''}`}
-                          onClick={() => handleSetAllLogBodyweightMode(exIdx, false)}
-                        >
-                          + Add Weight
-                        </button>
-                      </div>
-                    )}
 
                     <div className="hevy-sets-table">
                       <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>

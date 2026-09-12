@@ -6787,6 +6787,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                         <td>{set.distanceKm} km</td>
                                                         <td>{set.time || '00:00'}</td>
                                                       </>
+                                                    ) : exIsLoadedCarryHist ? (
+                                                      <>
+                                                        {/* Farmer Walk etc. — logged as weight + reps, but reps
+                                                            holds the distance in metres, not a rep count (see
+                                                            the header above, which already labels this column
+                                                            Meters). The row body had no matching case and fell
+                                                            through to the generic weight+reps branch, showing
+                                                            "10 reps" instead of "10 m". */}
+                                                        <td>{set.weight} kg</td>
+                                                        <td>{set.reps} m</td>
+                                                      </>
                                                     ) : (
                                                       <>
                                                         {/* Bodyweight exercises (jumping jack, push-up, ...) log

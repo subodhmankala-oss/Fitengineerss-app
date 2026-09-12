@@ -6732,7 +6732,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             <thead>
                                               <tr>
                                                 <th style={{ width: '25%' }}>Set</th>
-                                                {exIsTimedHist ? (
+                                                {exIsTimedHist && exIsBodyweightHist ? (
+                                                  <>
+                                                    <th style={{ width: '40%' }}>Weight</th>
+                                                    <th style={{ width: '35%' }}>Time</th>
+                                                  </>
+                                                ) : exIsTimedHist ? (
                                                   <th style={{ width: '75%' }}>Time</th>
                                                 ) : exIsCardioHist ? (
                                                   <>
@@ -6767,7 +6772,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                         {visual.label}
                                                       </span>
                                                     </td>
-                                                    {exIsTimedHist ? (
+                                                    {exIsTimedHist && exIsBodyweightHist ? (
+                                                      <>
+                                                        {/* Foot Fires etc. — a timed hold that also allows an
+                                                            added vest/plate. Same "BW" convention as the
+                                                            plain-bodyweight branch below. */}
+                                                        <td>{!(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
+                                                        <td>{set.time || '00:00'}</td>
+                                                      </>
+                                                    ) : exIsTimedHist ? (
                                                       <td>{set.time || '00:00'}</td>
                                                     ) : exIsCardioHist ? (
                                                       <>

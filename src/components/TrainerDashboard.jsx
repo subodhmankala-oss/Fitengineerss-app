@@ -1837,17 +1837,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const getLiveExBwMode = (ex) =>
     ex.bodyweightMode !== undefined ? ex.bodyweightMode : !ex.sets.some(s => Number(s.weight) > 0);
 
-  // Toggling to "+ Weight" clears the weight field so the coach types the
-  // plate/vest load; toggling back to Bodyweight zeroes it out again for
-  // every set.
-  const handleToggleLiveBodyweightMode = (exIdx) => {
+  // Per-set override — a set toggled on its own row (the BW cell / the
+  // inline ⇄ icon) carries its own bodyweightMode independent of its
+  // siblings, so switching set 2 to added weight doesn't drag set 1 along
+  // with it. Falls back to the exercise-level mode for a set that's never
+  // been touched this way, same as before this per-set control existed.
+  const getSetLiveBwMode = (ex, set) =>
+    set.bodyweightMode !== undefined ? set.bodyweightMode : getLiveExBwMode(ex);
+
+  const handleToggleSetLiveBodyweightMode = (exIdx, sIdx) => {
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
-      const nextMode = !getLiveExBwMode(ex);
       return {
         ...ex,
-        bodyweightMode: nextMode,
-        sets: ex.sets.map(s => ({ ...s, weight: nextMode ? '0' : '' }))
+        sets: ex.sets.map((s, i) => {
+          if (i !== sIdx) return s;
+          const nextMode = !getSetLiveBwMode(ex, s);
+          return { ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
+        })
       };
     }));
   };
@@ -7906,6 +7913,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
+                    // The BODYWEIGHT/KG column header reflects the real
+                    // current state of the sets (not the stale exercise-
+                    // level default) — it only says BODYWEIGHT when every
+                    // set actually is, so it never contradicts a row
+                    // underneath showing a KG input.
+                    const allSetsLiveBw = exIsBodyweight && ex.sets.every(s => getSetLiveBwMode(ex, s));
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
                       <div key={getLiveItemKey(exIdx)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
@@ -7959,30 +7972,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </div>
                         </div>
 
-                        {/* Bodyweight/+Weight toggle — push-ups, mountain
-                            climbers, jumping jacks etc. default to no added
-                            weight, but a client may wear a vest or hold a
-                            plate, so this lets the coach switch the weight
-                            column between a fixed "BW" label and an
-                            editable KG input. */}
-                        {exIsBodyweight && (
-                          <div className="bw-toggle-row">
-                            <button
-                              type="button"
-                              className={`bw-toggle-btn ${exBwMode ? 'active' : ''}`}
-                              onClick={() => { if (!exBwMode) handleToggleLiveBodyweightMode(exIdx); }}
-                            >
-                              Bodyweight
-                            </button>
-                            <button
-                              type="button"
-                              className={`bw-toggle-btn ${!exBwMode ? 'active' : ''}`}
-                              onClick={() => { if (exBwMode) handleToggleLiveBodyweightMode(exIdx); }}
-                            >
-                              + Add Weight
-                            </button>
-                          </div>
-                        )}
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
@@ -7996,7 +7985,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               </>
                             ) : isTimedExercise(ex.name) && exIsBodyweight ? (
                               <>
-                                <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                <span className="col-weight">{allSetsLiveBw ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                 <span className="col-reps">TIME</span>
                               </>
                             ) : isTimedExercise(ex.name) ? (
@@ -8016,7 +8005,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               </>
                             ) : exIsBodyweight ? (
                               <>
-                                <span className="col-weight">{exBwMode ? 'BODYWEIGHT' : '🏋️ KG'}</span>
+                                <span className="col-weight">{allSetsLiveBw ? 'BODYWEIGHT' : '🏋️ KG'}</span>
                                 <span className="col-reps">REPS</span>
                               </>
                             ) : (
@@ -8176,6 +8165,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   // Foot Fires: keeps the Bodyweight/+Add Weight toggle, with
                                   // the time control moved into the reps column.
                                   const weightKey = `w-${exIdx}-${setIdx}`;
+                                  const setBwMode = getSetLiveBwMode(ex, set);
                                   registerLiveSetField(weightKey, {
                                     value: set.weight,
                                     mode: 'decimal',
@@ -8184,16 +8174,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   });
                                   return (
                                     <>
-                                      {exBwMode ? (
-                                        <div className="col-weight bw-static-label">BW</div>
+                                      {setBwMode ? (
+                                        <div
+                                          className="col-weight bw-static-label bw-static-label--tappable"
+                                          role="button"
+                                          tabIndex={0}
+                                          title="Tap to add weight"
+                                          onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                        >
+                                          BW <span className="bw-hint-icon">⇄</span>
+                                        </div>
                                       ) : (
-                                        <div className="col-weight set-input-field">
+                                        <div className="col-weight set-input-field bw-input-with-toggle">
                                           <SetValueField
                                             value={set.weight}
                                             placeholder="0"
                                             active={activeLiveSetKey === weightKey}
                                             onOpen={() => openLiveSetField(weightKey)}
                                           />
+                                          <button
+                                            type="button"
+                                            className="bw-inline-toggle"
+                                            title="Switch back to bodyweight"
+                                            onClick={(e) => { e.stopPropagation(); handleToggleSetLiveBodyweightMode(exIdx, setIdx); }}
+                                          >
+                                            ⇄
+                                          </button>
                                         </div>
                                       )}
                                       <div className="col-reps" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
@@ -8212,6 +8218,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   (() => {
                                     const weightKey = `w-${exIdx}-${setIdx}`;
                                     const repsKey = `r-${exIdx}-${setIdx}`;
+                                    const setBwMode = exIsBodyweight ? getSetLiveBwMode(ex, set) : false;
                                     registerLiveSetField(weightKey, {
                                       value: set.weight,
                                       mode: 'decimal',
@@ -8224,22 +8231,40 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       mode: 'integer',
                                       label: `${ex.name} · Reps`,
                                       onValue: (v) => handleLiveSetChange(exIdx, setIdx, 'reps', v),
-                                      ...(exIsWarmup || (exIsBodyweight && exBwMode) ? {} : { onPrev: () => openLiveSetField(weightKey) }),
+                                      ...(exIsWarmup || setBwMode ? {} : { onPrev: () => openLiveSetField(weightKey) }),
                                     });
                                     return (
                                       <>
                                         {exIsWarmup ? (
                                           <div className="col-weight" />
-                                        ) : exIsBodyweight && exBwMode ? (
-                                          <div className="col-weight bw-static-label">BW</div>
+                                        ) : setBwMode ? (
+                                          <div
+                                            className="col-weight bw-static-label bw-static-label--tappable"
+                                            role="button"
+                                            tabIndex={0}
+                                            title="Tap to add weight"
+                                            onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                          >
+                                            BW <span className="bw-hint-icon">⇄</span>
+                                          </div>
                                         ) : (
-                                          <div className="col-weight set-input-field">
+                                          <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                             <SetValueField
                                               value={set.weight}
                                               placeholder="0"
                                               active={activeLiveSetKey === weightKey}
                                               onOpen={() => openLiveSetField(weightKey)}
                                             />
+                                            {exIsBodyweight && (
+                                              <button
+                                                type="button"
+                                                className="bw-inline-toggle"
+                                                title="Switch back to bodyweight"
+                                                onClick={(e) => { e.stopPropagation(); handleToggleSetLiveBodyweightMode(exIdx, setIdx); }}
+                                              >
+                                                ⇄
+                                              </button>
+                                            )}
                                           </div>
                                         )}
                                         <div className="col-reps set-input-field">

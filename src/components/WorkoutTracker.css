@@ -2268,18 +2268,32 @@
 
 .bw-static-label--tappable {
   cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s ease, color 0.15s ease;
+  gap: 4px;
+  /* A resting-state border/background so this reads as a tappable control
+     even without a hover state to reveal it (touch devices never show
+     hover) — otherwise it's indistinguishable from the plain, non-tappable
+     "BW" label this looked like before the toggle existed. */
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .bw-static-label--tappable:hover,
 .bw-static-label--tappable:focus-visible {
   background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
   color: #3b82f6;
 }
 
 .bw-static-label--tappable:active {
   background: rgba(59, 130, 246, 0.22);
+}
+
+.bw-hint-icon {
+  display: inline-block;
+  font-size: 0.7rem;
+  opacity: 0.7;
 }
 
 .bw-input-with-toggle {

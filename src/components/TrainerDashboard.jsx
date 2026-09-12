@@ -1847,13 +1847,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
   // Toggling to "+ Weight" clears the weight field so the coach types the
   // plate/vest load; toggling back to Bodyweight zeroes it out again for
-  // every set. The pills stay a bulk "reset every set" action — stamping
-  // bodyweightMode onto each set too, overriding any earlier per-set
-  // divergence instead of leaving it stale.
-  const handleToggleLiveBodyweightMode = (exIdx) => {
+  // every set. The pills take the target mode explicitly (rather than
+  // flipping the exercise's own current mode) so they behave the same
+  // whether every set already agrees or they've diverged via the per-row
+  // control — stamping bodyweightMode onto each set too, overriding any
+  // earlier per-set divergence instead of leaving it stale.
+  const handleSetAllLiveBodyweightMode = (exIdx, nextMode) => {
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
-      const nextMode = !getLiveExBwMode(ex);
       return {
         ...ex,
         bodyweightMode: nextMode,
@@ -7930,6 +7931,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);
                     const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
+                    // The pills reflect the real current state of every set,
+                    // not the stale exercise-level default — once sets can
+                    // diverge via the per-row control, "Bodyweight" should
+                    // only look active when every set actually is, same for
+                    // "+ Add Weight". Neither lights up when they disagree.
+                    const allSetsLiveBw = exIsBodyweight && ex.sets.every(s => getSetLiveBwMode(ex, s));
+                    const allSetsLiveWeighted = exIsBodyweight && ex.sets.length > 0 && ex.sets.every(s => !getSetLiveBwMode(ex, s));
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
                       <div key={getLiveItemKey(exIdx)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
@@ -7993,15 +8001,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           <div className="bw-toggle-row">
                             <button
                               type="button"
-                              className={`bw-toggle-btn ${exBwMode ? 'active' : ''}`}
-                              onClick={() => { if (!exBwMode) handleToggleLiveBodyweightMode(exIdx); }}
+                              className={`bw-toggle-btn ${allSetsLiveBw ? 'active' : ''}`}
+                              onClick={() => handleSetAllLiveBodyweightMode(exIdx, true)}
                             >
                               Bodyweight
                             </button>
                             <button
                               type="button"
-                              className={`bw-toggle-btn ${!exBwMode ? 'active' : ''}`}
-                              onClick={() => { if (exBwMode) handleToggleLiveBodyweightMode(exIdx); }}
+                              className={`bw-toggle-btn ${allSetsLiveWeighted ? 'active' : ''}`}
+                              onClick={() => handleSetAllLiveBodyweightMode(exIdx, false)}
                             >
                               + Add Weight
                             </button>
@@ -8217,7 +8225,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           title="Tap to add weight"
                                           onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
                                         >
-                                          BW
+                                          BW <span className="bw-hint-icon">⇄</span>
                                         </div>
                                       ) : (
                                         <div className="col-weight set-input-field bw-input-with-toggle">
@@ -8280,7 +8288,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             title="Tap to add weight"
                                             onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
                                           >
-                                            BW
+                                            BW <span className="bw-hint-icon">⇄</span>
                                           </div>
                                         ) : (
                                           <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>

@@ -3486,13 +3486,13 @@ const WorkoutTracker = () => {
                 const exIsCardio = isCardioExercise(ex.name);
                 const exIsBodyweight = isBodyweightExercise(ex.name);
                 const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
-                // The pills reflect the real current state of the sets, not
-                // the stale exercise-level default — each one lights up when
-                // ANY set is currently in that mode (both can be lit at once
-                // once sets have diverged via the per-row control), rather
-                // than requiring every set to agree.
-                const anySetLogBw = exIsBodyweight && ex.sets.some(s => getSetLogBwMode(ex, s));
-                const anySetLogWeighted = exIsBodyweight && ex.sets.some(s => !getSetLogBwMode(ex, s));
+                // The pills reflect the real current state of every set, not
+                // the stale exercise-level default — once sets can diverge
+                // via the per-row control, "Bodyweight" should only look
+                // active when every set actually is, same for "+ Add Weight".
+                // Neither pill lights up when they disagree.
+                const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
+                const allSetsLogWeighted = exIsBodyweight && ex.sets.length > 0 && ex.sets.every(s => !getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
                   <div key={getLogItemKey(exIdx)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
@@ -3589,14 +3589,14 @@ const WorkoutTracker = () => {
                       <div className="bw-toggle-row">
                         <button
                           type="button"
-                          className={`bw-toggle-btn ${anySetLogBw ? 'active' : ''}`}
+                          className={`bw-toggle-btn ${allSetsLogBw ? 'active' : ''}`}
                           onClick={() => handleSetAllLogBodyweightMode(exIdx, true)}
                         >
                           Bodyweight
                         </button>
                         <button
                           type="button"
-                          className={`bw-toggle-btn ${anySetLogWeighted ? 'active' : ''}`}
+                          className={`bw-toggle-btn ${allSetsLogWeighted ? 'active' : ''}`}
                           onClick={() => handleSetAllLogBodyweightMode(exIdx, false)}
                         >
                           + Add Weight

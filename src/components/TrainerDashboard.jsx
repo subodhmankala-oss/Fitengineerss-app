@@ -6725,6 +6725,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       const exIsCardioHist = isCardioExercise(exercise.name);
                                       const exIsLoadedCarryHist = isLoadedCarryExercise(exercise.name);
                                       const exIsBodyweightHist = isBodyweightExercise(exercise.name);
+                                      const exIsWarmupHist = isWarmupExercise(exercise.name);
                                       return (
                                         <div key={eIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
                                           <div className="ex-title" style={{ marginBottom: '6px' }}>{exercise.name}</div>
@@ -6749,6 +6750,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                     <th style={{ width: '40%' }}>Weight</th>
                                                     <th style={{ width: '35%' }}>Meters</th>
                                                   </>
+                                                ) : exIsWarmupHist ? (
+                                                  <th style={{ width: '75%' }}>Reps</th>
                                                 ) : (
                                                   <>
                                                     <th style={{ width: '40%' }}>Weight</th>
@@ -6798,6 +6801,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                         <td>{set.weight} kg</td>
                                                         <td>{set.reps} m</td>
                                                       </>
+                                                    ) : exIsWarmupHist ? (
+                                                      // Arm Circle/Leg Swing — zero-contribution warm-up filler
+                                                      // (see isWarmupExercise) that never carries a real weight
+                                                      // at all, unlike genuine bodyweight moves. Falling through
+                                                      // to the generic branch below showed a bare "0 kg" next to
+                                                      // the reps, reading as a logging error for an exercise that
+                                                      // was never supposed to have a weight column in the first
+                                                      // place — the live logger itself shows no weight input for
+                                                      // these either.
+                                                      <td>{set.reps} reps</td>
                                                     ) : (
                                                       <>
                                                         {/* Bodyweight exercises (jumping jack, push-up, ...) log

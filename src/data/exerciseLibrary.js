@@ -257,11 +257,19 @@ export function isLoadedCarryExercise(name) {
 // doesn't also catch unrelated future exercise names; 'steppers?\b' is kept
 // as its own separate alternative since 'Steppers' (a stepper-machine
 // cardio exercise) is a different name than 'Step-up'/'Step-Ups'.
+//
+// Crunch/Oblique Crunch/Decline Crunch (added 2026-09-13) are bodyweight-
+// first ab moves, same family as sit-up/leg raise above — reported as
+// missing the toggle entirely, always forcing a plain loaded KG field.
+// '(?<!cable )crunch' excludes Cable Crunch and Kneeling Cable Crunch,
+// which are genuinely always-loaded cable-machine exercises (the word
+// immediately before "crunch" is "cable" in both), so they correctly keep
+// the plain weight+reps fields instead of gaining a nonsensical toggle.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

@@ -148,6 +148,22 @@ export const EXERCISE_LIBRARY = (() => {
   return out.sort((a, b) => a.name.localeCompare(b.name));
 })();
 
+// Names that stay in EXERCISE_LIBRARY (and so still resolve correctly for
+// any client/coach with real logged history under them — see the
+// CLIENT_NAMES comment above) but shouldn't be offered as their own row in
+// the Add Exercise picker going forward, because a specific-equipment
+// sibling already covers the same movement and having both is just
+// confusing duplication:
+//   - 'Bench Press' — 'Bench Press (Barbell)' and 'Bench Press (Dumbbell)'
+//     already exist as the two real distinct options.
+//   - 'Shoulders Press' — a plural/no-equipment near-duplicate of the
+//     Shoulder Press (Barbell)/(Dumbbell)/(Machine) family.
+// Deliberately NOT touching the other near-duplicates found in the same
+// audit (Lat Pull Down/Lat Pulldown, Deadlift, Face Pull, Front Raise,
+// Biceps Curls) — those only have a single named variant, not a full
+// Barbell+Dumbbell split, so hiding the bare name isn't as clear-cut.
+export const PICKER_HIDDEN_NAMES = ['Bench Press', 'Shoulders Press'];
+
 // A cardio exercise is logged as distance (km) + time instead of weight +
 // reps. Checked by category rather than a fixed name list so a custom
 // exercise the client types in (e.g. "Swimming") is also recognized.

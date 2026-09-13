@@ -286,11 +286,18 @@ export function isLoadedCarryExercise(name) {
 //   - superman, dead ?bug — bodyweight core-stability moves, same tier as
 //     Bird Dog/Cat Camel above.
 //   - ab wheel — Ab Wheel Rollout is always bodyweight, no external load.
+//
+// Back Extension/Hyperextension/Russian Twist (added 2026-09-13) are the
+// same "usually bodyweight, sometimes loaded with a plate" pattern as Glute
+// Bridge above — a hyperextension-bench move or a seated twist done with no
+// equipment most of the time, but often held-plate-loaded for more
+// resistance, so they get the same toggle rather than forcing a KG field
+// that reads wrong on every unloaded rep.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

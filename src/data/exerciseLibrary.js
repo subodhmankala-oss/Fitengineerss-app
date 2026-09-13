@@ -304,10 +304,18 @@ export function isLoadedCarryExercise(name) {
 // load) was a real gap, not a deliberate exclusion — unlike Battle
 // Rope/Side Hops just above in isTimedExercise, which genuinely don't have
 // a sensible "add weight" case and stay excluded on purpose.
+//
+// Lunge/Calf Raise (added 2026-09-13) join the Squat exact-name exception
+// above for the same reason Squat needed one: both are commonly done pure
+// bodyweight OR loaded (dumbbells in hand, or a machine), same ambiguity as
+// squat. Exact-name match only, not a substring — 'Reverse Lunge'/'Curtsy
+// Lunge' and 'Calf Raise (Machine)'/'Seated Calf Raise' are specific,
+// genuinely always-loaded variants (the same distinction that keeps
+// 'Barbell Squat'/'Goblet Squat'/etc. excluded from the bare 'squat' match).
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
+  if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises'].includes(n)) return true;
   return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
 }
 

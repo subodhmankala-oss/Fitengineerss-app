@@ -8,7 +8,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
 import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
-import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
+import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { notifyEvent } from '../utils/pushNotify';
@@ -506,6 +506,12 @@ const WorkoutTracker = () => {
   // Generic workout library, filtered by difficulty level (Beginner/Intermediate/Advanced)
   const [genericLevel, setGenericLevel] = useState('beginner');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
+  // Difficulty level of the workout currently being logged, set only when the
+  // session was started from the generic Workout Library (null for empty/
+  // saved-template/coach-plan starts). Beginner-only exercises get an inline
+  // form video next to their name in the logger — intermediate/advanced and
+  // every other entry point stay exactly as they were (Form Guide button only).
+  const [loggingLevel, setLoggingLevel] = useState(savedWorkoutDraft?.loggingLevel ?? null);
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
@@ -1039,6 +1045,9 @@ const WorkoutTracker = () => {
           setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
+          // The DB draft doesn't carry loggingLevel (not persisted server-side) —
+          // reset it rather than leave a stale value from a previous session.
+          setLoggingLevel(null);
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
           if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
             setWorkoutTimerStartedAt(Date.now());
@@ -1077,6 +1086,7 @@ const WorkoutTracker = () => {
           logDate,
           templateName,
           activeTemplateName,
+          loggingLevel,
           saveAsTemplate,
           workoutTimerStatus,
           workoutTimerStartedAt,
@@ -1122,7 +1132,7 @@ const WorkoutTracker = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals, ownUserId, workoutSource]);
+  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, loggingLevel, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals, ownUserId, workoutSource]);
 
   const handlePauseWorkoutTimer = () => {
     if (workoutTimerStatus !== 'running') return;
@@ -2495,7 +2505,10 @@ const WorkoutTracker = () => {
   };
 
   // ─── Start a workout from a generic template ───
-  const handleStartFromTemplate = (template) => {
+  // `level` ('beginner' | 'intermediate' | 'advanced' | undefined) is only
+  // passed when starting from the difficulty-leveled Workout Library — see
+  // loggingLevel above.
+  const handleStartFromTemplate = (template, level = null) => {
     const exercises = template.exercises.map(ex => ({
       name: ex.name,
       sets: Array.from({ length: ex.sets || 3 }, () => ({
@@ -2511,6 +2524,7 @@ const WorkoutTracker = () => {
     setSetTimers({});
     setTemplateName(template.name);
     setActiveTemplateName(template.name);
+    setLoggingLevel(level);
     setLogClient(loggedInUser);
     setLogDate(getLocalDateString());
     resetWorkoutTimer();
@@ -2580,6 +2594,7 @@ const WorkoutTracker = () => {
     setSetTimers({});
     setTemplateName(plan.planName);
     setWorkoutSource(source);
+    setLoggingLevel(null);
     setIsLoggingWorkout(true);
     resetWorkoutTimer();
   };
@@ -3180,7 +3195,7 @@ const WorkoutTracker = () => {
                       key={workout.id}
                       type="button"
                       className={`wt-program-card wt-program-card--${genericLevel}`}
-                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList })}
+                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel)}
                     >
                       <div className={`wt-program-tile wt-program-tile--${genericLevel}`}>
                         {programTileWords(workout.name).map((word, i) => (
@@ -3225,6 +3240,7 @@ const WorkoutTracker = () => {
                 setTemplateName('Custom Session');
                 setLogClient(loggedInUser);
                 setLogDate(getLocalDateString());
+                setLoggingLevel(null);
                 resetWorkoutTimer();
                 setIsLoggingWorkout(true);
                 setActiveView('log');
@@ -3272,6 +3288,7 @@ const WorkoutTracker = () => {
                 setLogDate(getLocalDateString());
                 setLogExercises(getDefaultWarmupExercises());
                 setTemplateName('');
+                setLoggingLevel(null);
                 setIsLoggingWorkout(true);
                 resetWorkoutTimer();
               }}
@@ -3350,6 +3367,7 @@ const WorkoutTracker = () => {
                       if (plan) {
                         setTemplateName(plan.planName);
                         setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
+                        setLoggingLevel(null);
                         setLogExercises(plan.exercises.map(ex => ({
                           name: ex.name,
                           // See startPlan's identical comment above: `time` is
@@ -3565,6 +3583,41 @@ const WorkoutTracker = () => {
                       </div>
                     </div>
 
+                    {loggingLevel === 'beginner' && (() => {
+                      // Beginner-only inline form video, shown right under the
+                      // exercise name without needing a tap — Intermediate/
+                      // Advanced sessions (loggingLevel unset) never render this
+                      // and keep the Form Guide button as their only video entry
+                      // point, unchanged.
+                      const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
+                                      findExerciseGuideMatch(allExerciseOptions, ex.name);
+                      const videoUrl = matched?.video_url || matched?.videoFile || '';
+                      if (!videoUrl) return null;
+                      const embedUrl = getYouTubeEmbedUrl(videoUrl);
+                      return (
+                        <div className="beginner-ex-video">
+                          {embedUrl ? (
+                            <iframe
+                              src={embedUrl}
+                              title={`${ex.name} form video`}
+                              className="beginner-ex-video-frame"
+                              frameBorder="0"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video
+                              src={videoUrl}
+                              className="beginner-ex-video-frame"
+                              muted
+                              loop
+                              playsInline
+                              controls
+                              preload="metadata"
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="hevy-sets-table">
                       <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>

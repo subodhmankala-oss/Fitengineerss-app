@@ -1990,6 +1990,25 @@
   padding: 16px;
 }
 
+/* Beginner-only inline form video under the exercise name (WorkoutTracker.jsx
+   loggingLevel === 'beginner'). Intermediate/Advanced never render this. */
+.beginner-ex-video {
+  margin: 10px 0 14px;
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  max-height: 200px;
+}
+
+.beginner-ex-video-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  object-fit: contain;
+}
+
 .ex-card-title-group {
   display: flex;
   align-items: center;

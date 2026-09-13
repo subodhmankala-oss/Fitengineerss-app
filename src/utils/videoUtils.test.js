@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getYouTubeEmbedUrl, normalizeExerciseForGuide } from './videoUtils';
+import { getYouTubeEmbedUrl, normalizeExerciseForGuide, findExerciseGuideMatch } from './videoUtils';
 
 describe('videoUtils: getYouTubeEmbedUrl', () => {
   it('should parse standard watch URLs', () => {
@@ -95,5 +95,57 @@ describe('videoUtils: normalizeExerciseForGuide', () => {
   it('should return null for invalid inputs', () => {
     expect(normalizeExerciseForGuide(null)).toBeNull();
     expect(normalizeExerciseForGuide(undefined)).toBeNull();
+  });
+});
+
+describe('videoUtils: findExerciseGuideMatch', () => {
+  it('matches exact, case-insensitive names', () => {
+    const list = [{ name: 'Bench Press', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'bench press')).toBe(list[0]);
+  });
+
+  it('matches names differing only by spacing/hyphen/case (squashed)', () => {
+    const list = [{ name: 'Pullover', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Pull-Over')).toBe(list[0]);
+  });
+
+  it('matches a base name against a qualified library entry', () => {
+    const list = [{ name: 'Bench Press (Barbell)', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Bench Press')).toBe(list[0]);
+  });
+
+  // Real mismatches found between the generic workout library (which uses
+  // "<part> (<qualifier>)") and the admin exercise library (some of which
+  // were saved as "<qualifier> <part>") — same movement, different word
+  // order, previously showed no video despite one existing.
+  it('matches the same words in a different order', () => {
+    const list = [{ name: 'Standing Calf Raise', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Calf Raise (Standing)')).toBe(list[0]);
+  });
+
+  it('matches "Side Plank" against "Plank (Side)"', () => {
+    const list = [{ name: 'Side Plank', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Plank (Side)')).toBe(list[0]);
+  });
+
+  it('matches "Seated Leg Curl" against "Leg Curl (Seated)"', () => {
+    const list = [{ name: 'Seated Leg Curl', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Leg Curl (Seated)')).toBe(list[0]);
+  });
+
+  it('matches "Wide-Grip Lat Pulldown" against "Lat Pulldown (Wide Grip)"', () => {
+    const list = [{ name: 'Wide-Grip Lat Pulldown', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Lat Pulldown (Wide Grip)')).toBe(list[0]);
+  });
+
+  it('returns null when nothing matches at any tier', () => {
+    const list = [{ name: 'Bench Press', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Nonexistent Exercise')).toBeNull();
+  });
+
+  it('returns null for invalid inputs', () => {
+    expect(findExerciseGuideMatch([], 'Bench Press')).toBeNull();
+    expect(findExerciseGuideMatch(null, 'Bench Press')).toBeNull();
+    expect(findExerciseGuideMatch([{ name: 'Bench Press' }], '')).toBeNull();
   });
 });

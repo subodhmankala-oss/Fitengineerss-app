@@ -293,11 +293,22 @@ export function isLoadedCarryExercise(name) {
 // equipment most of the time, but often held-plate-loaded for more
 // resistance, so they get the same toggle rather than forcing a KG field
 // that reads wrong on every unloaded rep.
+//
+// Plank/Side Plank/Wall Sit (added 2026-09-13) match BOTH this and
+// isTimedExercise below — same combined case as Foot Fires (see the long
+// comment on isTimedExercise), which already drives a generic, working
+// "duration instead of reps, plus the Bodyweight/+Add Weight toggle" render
+// path with no other code changes needed. A weighted plank (plate on the
+// back) or weighted wall sit (holding dumbbells) is mainstream enough that
+// forcing these to stay pure-bodyweight-only (no way to log the added
+// load) was a real gap, not a deliberate exclusion — unlike Battle
+// Rope/Side Hops just above in isTimedExercise, which genuinely don't have
+// a sensible "add weight" case and stay excluded on purpose.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

@@ -8,7 +8,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
 import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
-import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/videoUtils';
+import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { notifyEvent } from '../utils/pushNotify';
@@ -400,6 +400,25 @@ const WorkoutTracker = () => {
   // timestamps, so elapsed time and calories stay correct across a reload with
   // no extra bookkeeping.
   const workoutDraftKey = `workoutDraft_${localStorage.getItem('userId') || loggedInUser}`;
+  // Remembers which top-level tab (Progress/Log Sets/Workouts) and which
+  // Workout Library level (Beginner/Intermediate/Advanced) the client had
+  // open, so a fresh mount of this component — e.g. switching away and back,
+  // or a workout draft getting cleared from the Home screen's own "discard"
+  // button (a separate component that has no way to reach this one's state) —
+  // restores where they were instead of always resetting to Progress/
+  // Beginner. Intentionally separate from workoutDraftKey: this is UI
+  // navigation state, not session data, so it's never cleared on discard.
+  const lastTabKey = `workoutTrackerLastTab_${localStorage.getItem('userId') || loggedInUser}`;
+  const lastLevelKey = `workoutTrackerLastLevel_${localStorage.getItem('userId') || loggedInUser}`;
+  const loadLastTab = () => {
+    try { return localStorage.getItem(lastTabKey) || null; } catch (e) { return null; }
+  };
+  const loadLastLevel = () => {
+    try {
+      const saved = localStorage.getItem(lastLevelKey);
+      return ['beginner', 'intermediate', 'advanced'].includes(saved) ? saved : null;
+    } catch (e) { return null; }
+  };
   const loadWorkoutDraft = () => {
     try {
       const raw = localStorage.getItem(workoutDraftKey);
@@ -422,7 +441,7 @@ const WorkoutTracker = () => {
   // native mobile keyboard entirely.
   const { activeKey: activeSetKey, registerField: registerSetField, openField: openSetField, closeField: closeSetField, getActiveField: getActiveSetField } = useSetNumberPad();
 
-  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : 'analytics'); // 'analytics', 'log', or 'programs'
+  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
@@ -504,8 +523,14 @@ const WorkoutTracker = () => {
   const [selectedDefaultTemplateId, setSelectedDefaultTemplateId] = useState('');
 
   // Generic workout library, filtered by difficulty level (Beginner/Intermediate/Advanced)
-  const [genericLevel, setGenericLevel] = useState('beginner');
+  const [genericLevel, setGenericLevel] = useState(loadLastLevel() || 'beginner');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
+  // Difficulty level of the workout currently being logged, set only when the
+  // session was started from the generic Workout Library (null for empty/
+  // saved-template/coach-plan starts). Beginner-only exercises get an inline
+  // form video next to their name in the logger — intermediate/advanced and
+  // every other entry point stay exactly as they were (Form Guide button only).
+  const [loggingLevel, setLoggingLevel] = useState(savedWorkoutDraft?.loggingLevel ?? null);
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
@@ -559,6 +584,18 @@ const WorkoutTracker = () => {
     loadLevelWorkouts();
     return () => { cancelled = true; };
   }, [genericLevel]);
+
+  // Persist the Workout Library level so the next mount restores it — see
+  // lastLevelKey above. (activeView itself is NOT mirrored on every change:
+  // it's 'log' for the whole duration of an active session, and blindly
+  // persisting that would make a discard land back on the Log Sets picker
+  // instead of the Workout Library. lastTabKey is written explicitly to
+  // 'templates' only at the moments that should return there — see
+  // handleDiscardWorkout above and the matching write in
+  // WorkoutProgressDashboard's own discard button.)
+  useEffect(() => {
+    try { localStorage.setItem(lastLevelKey, genericLevel); } catch (e) { /* ignore quota/serialization errors */ }
+  }, [genericLevel, lastLevelKey]);
 
   // Coaches pick a client by name from their roster; a client viewing their own workouts
   // should be keyed by their real account id, not a (possibly non-unique) display name —
@@ -1004,7 +1041,17 @@ const WorkoutTracker = () => {
       { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
     ]);
     setSetTimers({});
-    setActiveView('analytics');
+    // Land back on the Workouts tab (where the Workout Library lives),
+    // not Progress — discarding is almost always "let me pick a different
+    // program", and bouncing to Progress made the client re-navigate every
+    // time. The Beginner/Intermediate/Advanced sub-tab (genericLevel) isn't
+    // touched here, so whichever level they were browsing stays selected.
+    // Also written straight to localStorage (not just React state) so a
+    // remount picks it up too — the Home screen's own discard button lives
+    // in a separate component (WorkoutProgressDashboard) that can't reach
+    // this state directly and writes the same key itself.
+    setActiveView('templates');
+    try { localStorage.setItem(lastTabKey, 'templates'); } catch (e) { /* ignore quota/serialization errors */ }
     triggerToast('🗑️ Workout session discarded.');
   };
 
@@ -1039,6 +1086,9 @@ const WorkoutTracker = () => {
           setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
+          // The DB draft doesn't carry loggingLevel (not persisted server-side) —
+          // reset it rather than leave a stale value from a previous session.
+          setLoggingLevel(null);
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
           if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
             setWorkoutTimerStartedAt(Date.now());
@@ -1077,6 +1127,7 @@ const WorkoutTracker = () => {
           logDate,
           templateName,
           activeTemplateName,
+          loggingLevel,
           saveAsTemplate,
           workoutTimerStatus,
           workoutTimerStartedAt,
@@ -1122,7 +1173,7 @@ const WorkoutTracker = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals, ownUserId, workoutSource]);
+  }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, loggingLevel, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals, ownUserId, workoutSource]);
 
   const handlePauseWorkoutTimer = () => {
     if (workoutTimerStatus !== 'running') return;
@@ -2495,7 +2546,10 @@ const WorkoutTracker = () => {
   };
 
   // ─── Start a workout from a generic template ───
-  const handleStartFromTemplate = (template) => {
+  // `level` ('beginner' | 'intermediate' | 'advanced' | undefined) is only
+  // passed when starting from the difficulty-leveled Workout Library — see
+  // loggingLevel above.
+  const handleStartFromTemplate = (template, level = null) => {
     const exercises = template.exercises.map(ex => ({
       name: ex.name,
       sets: Array.from({ length: ex.sets || 3 }, () => ({
@@ -2511,6 +2565,7 @@ const WorkoutTracker = () => {
     setSetTimers({});
     setTemplateName(template.name);
     setActiveTemplateName(template.name);
+    setLoggingLevel(level);
     setLogClient(loggedInUser);
     setLogDate(getLocalDateString());
     resetWorkoutTimer();
@@ -2580,6 +2635,7 @@ const WorkoutTracker = () => {
     setSetTimers({});
     setTemplateName(plan.planName);
     setWorkoutSource(source);
+    setLoggingLevel(null);
     setIsLoggingWorkout(true);
     resetWorkoutTimer();
   };
@@ -3180,7 +3236,7 @@ const WorkoutTracker = () => {
                       key={workout.id}
                       type="button"
                       className={`wt-program-card wt-program-card--${genericLevel}`}
-                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList })}
+                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel)}
                     >
                       <div className={`wt-program-tile wt-program-tile--${genericLevel}`}>
                         {programTileWords(workout.name).map((word, i) => (
@@ -3225,6 +3281,7 @@ const WorkoutTracker = () => {
                 setTemplateName('Custom Session');
                 setLogClient(loggedInUser);
                 setLogDate(getLocalDateString());
+                setLoggingLevel(null);
                 resetWorkoutTimer();
                 setIsLoggingWorkout(true);
                 setActiveView('log');
@@ -3272,6 +3329,7 @@ const WorkoutTracker = () => {
                 setLogDate(getLocalDateString());
                 setLogExercises(getDefaultWarmupExercises());
                 setTemplateName('');
+                setLoggingLevel(null);
                 setIsLoggingWorkout(true);
                 resetWorkoutTimer();
               }}
@@ -3350,6 +3408,7 @@ const WorkoutTracker = () => {
                       if (plan) {
                         setTemplateName(plan.planName);
                         setWorkoutSource(plan.createdBy === 'coach' ? 'coach' : 'self');
+                        setLoggingLevel(null);
                         setLogExercises(plan.exercises.map(ex => ({
                           name: ex.name,
                           // See startPlan's identical comment above: `time` is
@@ -3565,6 +3624,41 @@ const WorkoutTracker = () => {
                       </div>
                     </div>
 
+                    {loggingLevel === 'beginner' && (() => {
+                      // Beginner-only inline form video, shown right under the
+                      // exercise name without needing a tap — Intermediate/
+                      // Advanced sessions (loggingLevel unset) never render this
+                      // and keep the Form Guide button as their only video entry
+                      // point, unchanged.
+                      const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
+                                      findExerciseGuideMatch(allExerciseOptions, ex.name);
+                      const videoUrl = matched?.video_url || matched?.videoFile || '';
+                      if (!videoUrl) return null;
+                      const embedUrl = getYouTubeEmbedUrl(videoUrl);
+                      return (
+                        <div className="beginner-ex-video">
+                          {embedUrl ? (
+                            <iframe
+                              src={embedUrl}
+                              title={`${ex.name} form video`}
+                              className="beginner-ex-video-frame"
+                              frameBorder="0"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video
+                              src={videoUrl}
+                              className="beginner-ex-video-frame"
+                              muted
+                              loop
+                              playsInline
+                              controls
+                              preload="metadata"
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="hevy-sets-table">
                       <div className={`hevy-table-header ${exIsCardio ? 'hevy-set-row--cardio' : ''}`}>

@@ -921,6 +921,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                   // (e.g. the client switches to the Workout tab) and the
                   // "discarded" session reappears as if nothing happened.
                   localStorage.removeItem(`workoutDraft_${userId}`);
+                  // Mirrors WorkoutTracker's own handleDiscardWorkout: land
+                  // the next time it mounts on the Workouts tab (Workout
+                  // Library), not wherever it happened to default to. Same
+                  // key that component reads on mount (workoutTrackerLastTab_
+                  // <userId>) — this is the only way to reach that
+                  // component's navigation state from here, since discarding
+                  // from this Home banner doesn't mount/call it directly.
+                  localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'templates');
                   setActiveDraft(null);
                 }
               }}

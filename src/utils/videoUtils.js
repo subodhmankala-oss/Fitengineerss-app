@@ -30,6 +30,15 @@ export const getYouTubeEmbedUrl = (url) => {
 // "Pull-Over" / "pullover" all squash to the same string).
 const squash = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+// Breaks a name into its lowercase word tokens (dropping punctuation
+// entirely, not just squashing it away) and sorts them, so two names built
+// from the same words in a different order squash to the same key — "Calf
+// Raise (Standing)" and "Standing Calf Raise" are the same movement logged
+// under two different word orders (one in the generic workout library, one
+// in the admin exercise library that owns the video), and plain squash()
+// keeps their original order so it never catches this.
+const tokenSort = (s) => (s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).sort().join(' ');
+
 /**
  * Finds a logged/planned exercise's matching entry in the curated exercise
  * library (the one with real video_url/setup/execution/tip data), used to
@@ -45,6 +54,9 @@ const squash = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
  *   3. Base-name — the logged name has no variant qualifier ("Bench
  *      Press") but the library only has qualified versions ("Bench Press
  *      (Barbell)") — showing *a* real video beats showing none.
+ *   4. Word-order-insensitive — same words, reordered ("Calf Raise
+ *      (Standing)" vs "Standing Calf Raise"). Tried last since it's the
+ *      loosest tier and only kicks in once the tighter ones have failed.
  * Returns null if nothing matches at any tier (still falls through to the
  * generic guide, same as before).
  */
@@ -60,6 +72,10 @@ export function findExerciseGuideMatch(list, name) {
   if (match) return match;
 
   match = list.find(pe => squash((pe.name || '').replace(/\(.*?\)/g, '')) === targetSquashed);
+  if (match) return match;
+
+  const targetTokenSorted = tokenSort(name);
+  match = list.find(pe => tokenSort(pe.name) === targetTokenSorted);
   return match || null;
 }
 

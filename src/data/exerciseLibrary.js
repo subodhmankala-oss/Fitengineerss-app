@@ -265,11 +265,32 @@ export function isLoadedCarryExercise(name) {
 // which are genuinely always-loaded cable-machine exercises (the word
 // immediately before "crunch" is "cable" in both), so they correctly keep
 // the plain weight+reps fields instead of gaining a nonsensical toggle.
+//
+// Pull-up/Dip variants + a handful of core moves (added 2026-09-13) — found
+// via a full sweep of every exercise name against this classifier after the
+// Crunch fix, looking for names that read as bodyweight-first but weren't
+// matching anything above:
+//   - chin-?up / (?<!assisted )pull-?up — Chin-up, Neutral Grip Pull-up,
+//     Wide Grip Pull-up are as fundamentally bodyweight as Push-up (already
+//     matched above), just the opposite direction; often done with an added
+//     weighted vest/belt, exactly the push-up/mountain-climber pattern this
+//     toggle exists for.
+//   - (?<!assisted )\bdip\b — Dip, Chest Dip, Triceps Dip, same reasoning.
+//   - Both pull-up and dip patterns exclude "Assisted " (Assisted Pull-up,
+//     Assisted Dip) on purpose — those use a counterweight machine, so the
+//     number a coach/client enters is how much assistance was subtracted,
+//     not weight added. "Bodyweight / + Add Weight" doesn't map onto that;
+//     they correctly keep the plain weight+reps field.
+//   - hanging knee raise — same movement family as Leg Raise above.
+//   - v[ -]up — same family as Sit-up above.
+//   - superman, dead ?bug — bodyweight core-stability moves, same tier as
+//     Bird Dog/Cat Camel above.
+//   - ab wheel — Ab Wheel Rollout is always bodyweight, no external load.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (n === 'squat' || n === 'squats' || n === 'chair squat' || n === 'chair squats') return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

@@ -4,6 +4,7 @@ import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import WelcomeBanner from './WelcomeBanner';
+import BeginnerNextWorkoutBanner from './BeginnerNextWorkoutBanner';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
@@ -939,6 +940,13 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             </div>
           )}
         </div>
+      )}
+
+      {/* Guides a newer client to the next Beginner Workout Library program
+          — hidden whenever a session is already in progress (the banner
+          above already covers that case) so the two never stack. */}
+      {!activeDraft && (
+        <BeginnerNextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
       )}
 
       {/* Single Prominent Sessions Done Progress Card — belongs to the

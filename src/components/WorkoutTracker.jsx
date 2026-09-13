@@ -400,6 +400,25 @@ const WorkoutTracker = () => {
   // timestamps, so elapsed time and calories stay correct across a reload with
   // no extra bookkeeping.
   const workoutDraftKey = `workoutDraft_${localStorage.getItem('userId') || loggedInUser}`;
+  // Remembers which top-level tab (Progress/Log Sets/Workouts) and which
+  // Workout Library level (Beginner/Intermediate/Advanced) the client had
+  // open, so a fresh mount of this component — e.g. switching away and back,
+  // or a workout draft getting cleared from the Home screen's own "discard"
+  // button (a separate component that has no way to reach this one's state) —
+  // restores where they were instead of always resetting to Progress/
+  // Beginner. Intentionally separate from workoutDraftKey: this is UI
+  // navigation state, not session data, so it's never cleared on discard.
+  const lastTabKey = `workoutTrackerLastTab_${localStorage.getItem('userId') || loggedInUser}`;
+  const lastLevelKey = `workoutTrackerLastLevel_${localStorage.getItem('userId') || loggedInUser}`;
+  const loadLastTab = () => {
+    try { return localStorage.getItem(lastTabKey) || null; } catch (e) { return null; }
+  };
+  const loadLastLevel = () => {
+    try {
+      const saved = localStorage.getItem(lastLevelKey);
+      return ['beginner', 'intermediate', 'advanced'].includes(saved) ? saved : null;
+    } catch (e) { return null; }
+  };
   const loadWorkoutDraft = () => {
     try {
       const raw = localStorage.getItem(workoutDraftKey);
@@ -422,7 +441,7 @@ const WorkoutTracker = () => {
   // native mobile keyboard entirely.
   const { activeKey: activeSetKey, registerField: registerSetField, openField: openSetField, closeField: closeSetField, getActiveField: getActiveSetField } = useSetNumberPad();
 
-  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : 'analytics'); // 'analytics', 'log', or 'programs'
+  const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
@@ -504,7 +523,7 @@ const WorkoutTracker = () => {
   const [selectedDefaultTemplateId, setSelectedDefaultTemplateId] = useState('');
 
   // Generic workout library, filtered by difficulty level (Beginner/Intermediate/Advanced)
-  const [genericLevel, setGenericLevel] = useState('beginner');
+  const [genericLevel, setGenericLevel] = useState(loadLastLevel() || 'beginner');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
   // Difficulty level of the workout currently being logged, set only when the
   // session was started from the generic Workout Library (null for empty/
@@ -565,6 +584,18 @@ const WorkoutTracker = () => {
     loadLevelWorkouts();
     return () => { cancelled = true; };
   }, [genericLevel]);
+
+  // Persist the Workout Library level so the next mount restores it — see
+  // lastLevelKey above. (activeView itself is NOT mirrored on every change:
+  // it's 'log' for the whole duration of an active session, and blindly
+  // persisting that would make a discard land back on the Log Sets picker
+  // instead of the Workout Library. lastTabKey is written explicitly to
+  // 'templates' only at the moments that should return there — see
+  // handleDiscardWorkout above and the matching write in
+  // WorkoutProgressDashboard's own discard button.)
+  useEffect(() => {
+    try { localStorage.setItem(lastLevelKey, genericLevel); } catch (e) { /* ignore quota/serialization errors */ }
+  }, [genericLevel, lastLevelKey]);
 
   // Coaches pick a client by name from their roster; a client viewing their own workouts
   // should be keyed by their real account id, not a (possibly non-unique) display name —
@@ -1010,7 +1041,17 @@ const WorkoutTracker = () => {
       { name: 'Lat Pull Down', sets: [{ reps: 12, weight: '2.0', isCompleted: false }, { reps: 12, weight: '2.0', isCompleted: false }] }
     ]);
     setSetTimers({});
-    setActiveView('analytics');
+    // Land back on the Workouts tab (where the Workout Library lives),
+    // not Progress — discarding is almost always "let me pick a different
+    // program", and bouncing to Progress made the client re-navigate every
+    // time. The Beginner/Intermediate/Advanced sub-tab (genericLevel) isn't
+    // touched here, so whichever level they were browsing stays selected.
+    // Also written straight to localStorage (not just React state) so a
+    // remount picks it up too — the Home screen's own discard button lives
+    // in a separate component (WorkoutProgressDashboard) that can't reach
+    // this state directly and writes the same key itself.
+    setActiveView('templates');
+    try { localStorage.setItem(lastTabKey, 'templates'); } catch (e) { /* ignore quota/serialization errors */ }
     triggerToast('🗑️ Workout session discarded.');
   };
 

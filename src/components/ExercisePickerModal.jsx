@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES } from '../data/exerciseLibrary';
+import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, PICKER_HIDDEN_NAMES } from '../data/exerciseLibrary';
 import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
@@ -116,11 +116,18 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   // fill a name that isn't already in the shared DB catalog, so a coach/
   // client's private exercise never shadows a real catalog entry.
   const customNames = new Set(customExercises.map(e => (e.name || '').toLowerCase()));
+  // PICKER_HIDDEN_NAMES (Bench Press, Shoulders Press) are redundant with a
+  // specific-equipment sibling that already covers the same movement (see
+  // the export's own comment in exerciseLibrary.js) — filtered out of every
+  // source (DB-backed, custom, and static) so a real DB row for one of them
+  // can't slip back in, while the name itself stays fully intact for
+  // anyone's already-logged history under it.
+  const hiddenNames = new Set(PICKER_HIDDEN_NAMES.map(n => n.toLowerCase()));
   const activeLibrary = [
     ...exercises,
     ...customExercises.filter(e => !dbNames.has(e.name.toLowerCase())),
     ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()) && !customNames.has(e.name.toLowerCase()))
-  ];
+  ].filter(e => !hiddenNames.has((e.name || '').toLowerCase()));
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();
   const q = trimmed.toLowerCase();

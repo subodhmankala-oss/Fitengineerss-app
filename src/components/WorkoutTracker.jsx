@@ -2589,6 +2589,33 @@ const WorkoutTracker = () => {
     triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
   };
 
+  // ─── Deep-link auto-start from the Home screen's guidance banner ───
+  // NextWorkoutBanner writes workoutTrackerAutoStart_<userId> (see its
+  // goToProgram) with the exact program it recommended, then switches to
+  // this tab — so the client lands straight in the logger with that program
+  // pre-loaded instead of landing on the Workout Library and having to tap
+  // the card themselves. A ref guard, not a dependency array, since this
+  // must run exactly once per mount regardless of what else changes right
+  // after; silently drops the request instead of clobbering a session
+  // that's already in progress.
+  const autoStartConsumedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartConsumedRef.current) return;
+    autoStartConsumedRef.current = true;
+    const key = `workoutTrackerAutoStart_${localStorage.getItem('userId') || loggedInUser}`;
+    let payload = null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) payload = JSON.parse(raw);
+    } catch { /* ignore malformed payload */ }
+    if (!payload) return;
+    try { localStorage.removeItem(key); } catch { /* ignore quota/serialization errors */ }
+    if (savedWorkoutDraft) return; // already mid-session — don't clobber it
+    if (!payload.name || !Array.isArray(payload.exercises)) return;
+    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Starts a logging session straight from a saved/assigned plan, preserving
   // each set's real reps/weight (and cardio/timed fields) instead of
   // collapsing them to defaults — see handleStartFromTemplate above, which

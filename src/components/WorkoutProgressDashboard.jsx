@@ -4,7 +4,7 @@ import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import WelcomeBanner from './WelcomeBanner';
-import BeginnerNextWorkoutBanner from './BeginnerNextWorkoutBanner';
+import NextWorkoutBanner from './NextWorkoutBanner';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
@@ -942,13 +942,15 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         </div>
       )}
 
-      {/* Guides a newer client to the next Beginner Workout Library program
-          — coach-connected clients only (a generic/unconnected client has no
-          coach relationship for this to support), and hidden whenever a
-          session is already in progress (the banner above already covers
-          that case) so the two never stack. */}
+      {/* Guides a newer client to their next Workout Library program —
+          Beginner through Advanced, Gym or Home (see NextWorkoutBanner /
+          determineWorkoutGuidance) — coach-connected clients only (a
+          generic/unconnected client has no coach relationship for this to
+          support), and hidden whenever a session is already in progress
+          (the banner above already covers that case) so the two never
+          stack. */}
       {isLinkedToCoach && !activeDraft && (
-        <BeginnerNextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
+        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
       )}
 
       {/* Single Prominent Sessions Done Progress Card — belongs to the

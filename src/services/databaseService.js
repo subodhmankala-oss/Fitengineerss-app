@@ -3529,21 +3529,26 @@ const databaseService = {
   },
 
   // ─── GENERIC WORKOUT LIBRARY BY DIFFICULTY LEVEL ───
-  async getGenericWorkoutsByLevel(level) {
+  // `category` ('gym' | 'home') defaults to 'gym' so every existing caller
+  // (the Workout Library before the Home tab existed, BeginnerNextWorkoutBanner,
+  // etc.) keeps seeing exactly what it always has without passing anything new.
+  async getGenericWorkoutsByLevel(level, category = 'gym') {
     if (!['beginner', 'intermediate', 'advanced'].includes(level)) return [];
+    if (!['gym', 'home'].includes(category)) return [];
 
     if (isSupabaseConfigured) {
       try {
         // Raw PostgREST read (bypasses the hanging SDK) — feeds the
         // "Loading {level} workouts..." state on the Workout Library screen.
         const data = await restSelect(
-          `workout_templates?select=*&difficulty_level=eq.${encodeURIComponent(level)}&order=created_at.asc`
+          `workout_templates?select=*&difficulty_level=eq.${encodeURIComponent(level)}&category=eq.${encodeURIComponent(category)}&order=created_at.asc`
         );
         if (data) {
           return data.map(t => ({
             id: t.id,
             name: t.name,
             difficulty_level: t.difficulty_level,
+            category: t.category,
             exercises: Array.isArray(t.exercises) ? t.exercises : JSON.parse(t.exercises || '[]')
           }));
         }

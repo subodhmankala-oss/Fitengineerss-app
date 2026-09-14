@@ -4466,6 +4466,45 @@
 }
 
 /* Level tab buttons */
+/* Gym vs Home category switch — sits directly above .wt-level-tabs, which
+   then filters within whichever category is picked. Deliberately quieter
+   than the level tabs (neutral accent, no per-option color) so the level
+   row stays the primary control. */
+.wt-category-toggle {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 8px;
+}
+
+.wt-category-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: rgba(148, 163, 184, 0.55);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+
+.wt-category-btn:hover:not(.active) {
+  color: rgba(248, 250, 255, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wt-category-btn.active {
+  background: rgba(139, 92, 246, 0.14);
+  color: var(--primary-accent-light, #a78bfa);
+}
+
 .wt-level-tabs {
   display: flex;
   gap: 6px;

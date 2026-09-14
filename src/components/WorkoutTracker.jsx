@@ -410,6 +410,7 @@ const WorkoutTracker = () => {
   // navigation state, not session data, so it's never cleared on discard.
   const lastTabKey = `workoutTrackerLastTab_${localStorage.getItem('userId') || loggedInUser}`;
   const lastLevelKey = `workoutTrackerLastLevel_${localStorage.getItem('userId') || loggedInUser}`;
+  const lastCategoryKey = `workoutTrackerLastCategory_${localStorage.getItem('userId') || loggedInUser}`;
   const loadLastTab = () => {
     try { return localStorage.getItem(lastTabKey) || null; } catch { return null; }
   };
@@ -418,6 +419,12 @@ const WorkoutTracker = () => {
       const saved = localStorage.getItem(lastLevelKey);
       return ['beginner', 'intermediate', 'advanced'].includes(saved) ? saved : null;
     } catch { return null; }
+  };
+  const loadLastCategory = () => {
+    try {
+      const saved = localStorage.getItem(lastCategoryKey);
+      return ['gym', 'home'].includes(saved) ? saved : null;
+    } catch (e) { return null; }
   };
   const loadWorkoutDraft = () => {
     try {
@@ -523,7 +530,9 @@ const WorkoutTracker = () => {
   const [selectedDefaultTemplateId, setSelectedDefaultTemplateId] = useState('');
 
   // Generic workout library, filtered by difficulty level (Beginner/Intermediate/Advanced)
+  // and category (Gym/Home — Home is bodyweight/no-equipment-only programs).
   const [genericLevel, setGenericLevel] = useState(loadLastLevel() || 'beginner');
+  const [genericCategory, setGenericCategory] = useState(loadLastCategory() || 'gym');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
   // Difficulty level of the workout currently being logged, set only when the
   // session was started from the generic Workout Library (null for empty/
@@ -566,13 +575,14 @@ const WorkoutTracker = () => {
     loadDefaultTemplates();
   }, []);
 
-  // Load the difficulty-leveled generic workout library whenever the selected level changes
+  // Load the difficulty-leveled generic workout library whenever the selected
+  // level or category (Gym/Home) changes.
   useEffect(() => {
     let cancelled = false;
     const loadLevelWorkouts = async () => {
       setLoadingLevelWorkouts(true);
       try {
-        const workouts = await databaseService.getGenericWorkoutsByLevel(genericLevel);
+        const workouts = await databaseService.getGenericWorkoutsByLevel(genericLevel, genericCategory);
         if (!cancelled) setLevelWorkouts(workouts || []);
       } catch (e) {
         console.error('Error fetching generic workouts by level:', e);
@@ -583,7 +593,7 @@ const WorkoutTracker = () => {
     };
     loadLevelWorkouts();
     return () => { cancelled = true; };
-  }, [genericLevel]);
+  }, [genericLevel, genericCategory]);
 
   // Persist the Workout Library level so the next mount restores it — see
   // lastLevelKey above. (activeView itself is NOT mirrored on every change:
@@ -596,6 +606,11 @@ const WorkoutTracker = () => {
   useEffect(() => {
     try { localStorage.setItem(lastLevelKey, genericLevel); } catch { /* ignore quota/serialization errors */ }
   }, [genericLevel, lastLevelKey]);
+
+  // Same for the Gym/Home category — see lastCategoryKey above.
+  useEffect(() => {
+    try { localStorage.setItem(lastCategoryKey, genericCategory); } catch (e) { /* ignore quota/serialization errors */ }
+  }, [genericCategory, lastCategoryKey]);
 
   // Coaches pick a client by name from their roster; a client viewing their own workouts
   // should be keyed by their real account id, not a (possibly non-unique) display name —
@@ -3195,13 +3210,29 @@ const WorkoutTracker = () => {
             );
           })()}
 
-          {/* Workout Library — Beginner / Intermediate / Advanced */}
+          {/* Workout Library — Gym/Home × Beginner/Intermediate/Advanced */}
           <div className="wt-section">
             <div className="wt-library-header">
               <div>
                 <h3 className="wt-library-title">Workout Library</h3>
                 <p className="wt-library-sub">Structured programs for every level</p>
               </div>
+            </div>
+
+            {/* Gym vs Home — every level exists in both, so this sits above
+                the level tabs rather than replacing one of them. Home
+                programs are bodyweight/no-equipment only. */}
+            <div className="wt-category-toggle">
+              {[['gym', '🏋️ Gym'], ['home', '🏠 Home']].map(([cat, label]) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`wt-category-btn${genericCategory === cat ? ' active' : ''}`}
+                  onClick={() => { setGenericCategory(cat); setShowAllLevelWorkouts(false); }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             <div className="wt-level-tabs" data-tour="wt-level-tabs">
@@ -3221,11 +3252,11 @@ const WorkoutTracker = () => {
 
             {loadingLevelWorkouts ? (
               <div className="wt-empty-state">
-                <span>⏳</span> Loading {genericLevel} workouts…
+                <span>⏳</span> Loading {genericCategory} {genericLevel} workouts…
               </div>
             ) : levelWorkouts.length === 0 ? (
               <div className="wt-empty-state">
-                <span>📭</span> No {genericLevel} workouts available yet.
+                <span>📭</span> No {genericCategory} {genericLevel} workouts available yet.
               </div>
             ) : (
               <div className="wt-library-grid">

@@ -150,3 +150,95 @@ Rest times are per-set, expressed in seconds.
 | Push-up (Wide Grip) | 4 x 15 | 60s |
 | Box Squat | 4 x 8 | 90s |
 | V Up | 4 x 15 | 45s |
+
+---
+
+# Home Library (bodyweight / no equipment)
+
+Same `workout_templates` table, `category = 'home'` (the Gym library above is
+`category = 'gym'`). Seeded by `supabase_home_workout_library.sql`. Every
+exercise here is achievable with no equipment at all.
+
+## Home — Beginner
+
+### Home Beginner Full Body A
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Squat | 3 x 12 | 60s |
+| Push Up | 3 x 10 | 60s |
+| Glute Bridge | 3 x 15 | 45s |
+| Plank | 3 x 30s | 45s |
+
+### Home Beginner Full Body B
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Split Squat | 3 x 10 | 60s |
+| Incline Push-up | 3 x 12 | 60s |
+| Superman | 3 x 15 | 45s |
+| Dead Bug | 3 x 12 | 45s |
+
+### Home Beginner Core & Mobility
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Bird dog | 3 x 10 | 45s |
+| Cat camel | 3 x 10 | 45s |
+| Crunch | 3 x 15 | 45s |
+| Wall Sit | 3 x 30s | 45s |
+
+## Home — Intermediate
+
+### Home Intermediate Upper Body
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Push Up | 4 x 15 | 60s |
+| Diamond Push-up | 3 x 12 | 60s |
+| Explosive / Plyometric Push-Up | 3 x 10 | 75s |
+| Superman | 3 x 15 | 45s |
+| Plank | 3 x 45s | 45s |
+
+### Home Intermediate Lower Body
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Jump Squat | 4 x 12 | 75s |
+| Bulgarian Split Squat | 3 x 10 | 75s |
+| Reverse Lunge | 3 x 12 | 60s |
+| Glute Bridge | 3 x 15 | 60s |
+| Wall Sit | 3 x 40s | 45s |
+
+### Home Intermediate Core & Cardio
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Russian Twist | 3 x 20 | 45s |
+| V Up | 3 x 15 | 45s |
+| Sit Up | 3 x 20 | 45s |
+| Mountain Climber | 3 x 30s | 45s |
+| Burpee | 3 x 12 | 60s |
+
+## Home — Advanced
+
+### Home Advanced Push
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Diamond Push-up | 4 x 15 | 60s |
+| Explosive / Plyometric Push-Up | 4 x 12 | 75s |
+| Deficit Push-Up | 3 x 12 | 75s |
+| Push-up (Wide Grip) | 3 x 15 | 60s |
+| Plank | 4 x 45s | 45s |
+
+### Home Advanced Legs
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Jump Squat | 5 x 15 | 75s |
+| Bulgarian Split Squat | 4 x 12 | 75s |
+| Curtsy Lunge | 3 x 12 | 60s |
+| Single Leg Deadlift | 3 x 10 | 60s |
+| Wall Sit | 4 x 45s | 45s |
+
+### Home Advanced Conditioning
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Burpee | 5 x 15 | 60s |
+| High Knees | 4 x 30s | 45s |
+| Jumping Jack | 4 x 30s | 45s |
+| Mountain Climber | 4 x 30s | 45s |
+| Foot Fires | 3 x 30s | 45s |

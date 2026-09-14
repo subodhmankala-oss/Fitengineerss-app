@@ -411,13 +411,13 @@ const WorkoutTracker = () => {
   const lastTabKey = `workoutTrackerLastTab_${localStorage.getItem('userId') || loggedInUser}`;
   const lastLevelKey = `workoutTrackerLastLevel_${localStorage.getItem('userId') || loggedInUser}`;
   const loadLastTab = () => {
-    try { return localStorage.getItem(lastTabKey) || null; } catch (e) { return null; }
+    try { return localStorage.getItem(lastTabKey) || null; } catch { return null; }
   };
   const loadLastLevel = () => {
     try {
       const saved = localStorage.getItem(lastLevelKey);
       return ['beginner', 'intermediate', 'advanced'].includes(saved) ? saved : null;
-    } catch (e) { return null; }
+    } catch { return null; }
   };
   const loadWorkoutDraft = () => {
     try {
@@ -594,7 +594,7 @@ const WorkoutTracker = () => {
   // handleDiscardWorkout above and the matching write in
   // WorkoutProgressDashboard's own discard button.)
   useEffect(() => {
-    try { localStorage.setItem(lastLevelKey, genericLevel); } catch (e) { /* ignore quota/serialization errors */ }
+    try { localStorage.setItem(lastLevelKey, genericLevel); } catch { /* ignore quota/serialization errors */ }
   }, [genericLevel, lastLevelKey]);
 
   // Coaches pick a client by name from their roster; a client viewing their own workouts
@@ -1051,7 +1051,7 @@ const WorkoutTracker = () => {
     // in a separate component (WorkoutProgressDashboard) that can't reach
     // this state directly and writes the same key itself.
     setActiveView('templates');
-    try { localStorage.setItem(lastTabKey, 'templates'); } catch (e) { /* ignore quota/serialization errors */ }
+    try { localStorage.setItem(lastTabKey, 'templates'); } catch { /* ignore quota/serialization errors */ }
     triggerToast('🗑️ Workout session discarded.');
   };
 

@@ -943,9 +943,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
       )}
 
       {/* Guides a newer client to the next Beginner Workout Library program
-          — hidden whenever a session is already in progress (the banner
-          above already covers that case) so the two never stack. */}
-      {!activeDraft && (
+          — coach-connected clients only (a generic/unconnected client has no
+          coach relationship for this to support), and hidden whenever a
+          session is already in progress (the banner above already covers
+          that case) so the two never stack. */}
+      {isLinkedToCoach && !activeDraft && (
         <BeginnerNextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
       )}
 

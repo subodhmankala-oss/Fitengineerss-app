@@ -1,10 +1,13 @@
-// Picks which Beginner Workout Library program to recommend next on the
-// client's Home screen — a simple round-robin through the Beginner
-// programs (in the order the library returns them, i.e. created_at asc),
-// based on which one they most recently logged. Deliberately independent
-// of the coaching "Training Level" tenure system (weeks-since-first-
-// session) — that's a separate, bigger piece of work; this only looks at
-// which Beginner-named workout was logged last.
+// Picks which Workout Library program to recommend next on the client's
+// Home screen — a simple round-robin through whichever level's programs
+// (in the order the library returns them, i.e. created_at asc), based on
+// which one they most recently logged. Level itself (Beginner/Intermediate/
+// Advanced) is decided by determineWorkoutGuidance below, on a genuine
+// ~3-month-per-level tenure clock — see WEEKS_PER_LEVEL there. Deliberately
+// a separate clock from the coaching "Training Level" tenure system
+// (WorkoutTracker's skillLevel) — same underlying idea, different
+// boundaries and purpose, kept independent so this never touches
+// coach-facing UI.
 
 // Squash a name down to just its letters/digits, lowercased — same
 // normalization videoUtils.findExerciseGuideMatch uses, so a session saved
@@ -61,11 +64,24 @@ export function pickNextProgramInRotation(programs, sessions) {
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
 
+// Each level is a genuine ~3-month journey, not "done the checklist, move
+// on" — a real beginner needs that long adapting regardless of how quickly
+// they cycle through 3 programs. One continuous clock from the client's
+// very first-ever logged session (any category, any program — this is
+// "how long have they been training", not per-category): weeks 0-12 =
+// Beginner, 12-24 = Intermediate, 24-36 = Advanced, and it stays Advanced
+// after that (nothing higher to reach). Deliberately independent of the
+// coaching "Training Level" bar (WorkoutTracker's skillLevel) — that has
+// its own boundaries and a 0-100 consistency/overload score, for a
+// different purpose (gating which tier a coach sees a client at); kept
+// fully separate on purpose rather than unified, so this doesn't touch
+// coach-facing UI coaches already rely on.
+const WEEKS_PER_LEVEL = 12;
+
 // Distinct program names (squashed) from `programs` that appear anywhere in
-// `sessions` — used to tell whether a level has been fully cleared, so this
-// deliberately checks the client's WHOLE history, not just their most recent
-// session (pickNextProgramInRotation above only needs the most recent match,
-// for "what's next"; this needs "have they done ALL of these, ever").
+// `sessions` — used only for the "never go backward" floor below (has the
+// client EVER actually done a session at a higher level, e.g. coach-
+// assigned Advanced work with no Beginner history at all).
 function completedProgramNames(programs, sessions) {
   const names = new Set((programs || []).map(p => squash(p.name)));
   const completed = new Set();
@@ -76,37 +92,34 @@ function completedProgramNames(programs, sessions) {
   return completed;
 }
 
+// The level the client's tenure alone puts them at — see WEEKS_PER_LEVEL
+// above. `now` is a real Date/timestamp in production, injected in tests
+// for determinism.
+function tenureLevel(sessions, now) {
+  const dates = (sessions || []).map(s => s.date).filter(Boolean).sort();
+  if (dates.length === 0) return 'beginner';
+  const firstDate = new Date(`${dates[0]}T00:00:00`);
+  const nowMs = now instanceof Date ? now.getTime() : now;
+  const weeksActive = Math.max(0, (nowMs - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  if (weeksActive >= WEEKS_PER_LEVEL * 2) return 'advanced';
+  if (weeksActive >= WEEKS_PER_LEVEL) return 'intermediate';
+  return 'beginner';
+}
+
 // Which level a client is currently on, within one category (Gym or Home).
 // Two rules, in order:
-//   1. Advance past any level that's been FULLY cleared (every program in it
-//      logged at least once, ever) — Beginner -> Intermediate -> Advanced.
-//      Capped at Advanced: once that's cleared too there's nowhere higher to
-//      go, so it just keeps recommending Advanced programs (see reason
-//      'rotation' below — no special "you've mastered everything" state).
+//   1. The tenure clock above — the primary gate. Time alone advances a
+//      level; completing every program in it isn't required.
 //   2. Never suggest a level LOWER than the highest level the client has any
 //      completed session in at all — covers a client who jumped straight
-//      into Intermediate/Advanced (e.g. coach-assigned) with no Beginner
-//      history; rule 1 alone would keep nudging them toward Beginner forever
-//      since they never "cleared" it.
-function determineLevel(programsByLevel, sessions) {
-  const completedByLevel = {};
-  LEVELS.forEach(level => {
-    completedByLevel[level] = completedProgramNames(programsByLevel[level], sessions);
-  });
-
-  let level = 'beginner';
-  for (let i = 0; i < LEVELS.length - 1; i++) {
-    const lvl = LEVELS[i];
-    const programs = programsByLevel[lvl] || [];
-    if (programs.length > 0 && completedByLevel[lvl].size >= programs.length) {
-      level = LEVELS[i + 1];
-    } else {
-      break;
-    }
-  }
+//      into Intermediate/Advanced (e.g. coach-assigned) early in their
+//      tenure; rule 1 alone would keep nudging them toward Beginner until
+//      the clock caught up, even though they're demonstrably past it.
+function determineLevel(programsByLevel, sessions, now) {
+  let level = tenureLevel(sessions, now);
 
   LEVELS.forEach(lvl => {
-    if (completedByLevel[lvl].size > 0 && LEVELS.indexOf(lvl) > LEVELS.indexOf(level)) {
+    if (completedProgramNames(programsByLevel[lvl], sessions).size > 0 && LEVELS.indexOf(lvl) > LEVELS.indexOf(level)) {
       level = lvl;
     }
   });
@@ -137,6 +150,8 @@ function categoryActivity(programsByLevel, sessions) {
  *   each a Workout Library programs array (possibly empty).
  * @param {Array<{date: string, planName: string}>} sessions - the client's
  *   logged sessions, any order.
+ * @param {Date|number} [now] - defaults to the real current time; pass a
+ *   fixed Date/timestamp in tests for deterministic tenure calculations.
  * @returns {{ category: 'gym'|'home', level: 'beginner'|'intermediate'|'advanced',
  *   program: object, reason: 'no-sessions'|'no-beginner-session'|'leveled-up'|'rotation',
  *   lastProgram: object|null } | null} `program` is what to suggest next.
@@ -145,13 +160,14 @@ function categoryActivity(programsByLevel, sessions) {
  *     - 'no-sessions': the client has never logged anything, anywhere.
  *     - 'no-beginner-session': still on Beginner, hasn't logged one of its
  *       named programs yet (may have other, unrelated sessions).
- *     - 'leveled-up': this is the first suggestion at a level above Beginner
- *       — the client just cleared every program in the level below.
+ *     - 'leveled-up': this is the first suggestion since the tenure clock
+ *       (or the never-go-backward floor) moved the client to a level above
+ *       Beginner — they haven't logged anything at this new level yet.
  *     - 'rotation': suggest the next program after their most recent match
  *       at this level, wrapping back to the first after the last (this is
- *       also the steady state once Advanced is fully cleared too).
+ *       also the steady state once Advanced's 3 months are reached too).
  */
-export function determineWorkoutGuidance(library, sessions) {
+export function determineWorkoutGuidance(library, sessions, now = Date.now()) {
   const safeLib = {
     gym: library?.gym || {},
     home: library?.home || {}
@@ -174,7 +190,7 @@ export function determineWorkoutGuidance(library, sessions) {
   }
 
   const programsByLevel = safeLib[category];
-  const level = determineLevel(programsByLevel, safeSessions);
+  const level = determineLevel(programsByLevel, safeSessions, now);
   const programs = programsByLevel[level] || [];
   if (programs.length === 0) return null; // this category has no programs at the level it resolved to
 

@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 
-// A client is still considered "new to training" for this nudge while
-// they've logged fewer than this many total sessions. Deliberately simple
-// and independent of the coaching "Training Level" tenure system (which
-// tracks calendar weeks since a client's first session, for a different
-// purpose — gating which difficulty tier a coach sees them at). This is
-// just "have they logged enough workouts that they don't need a starter
-// suggestion anymore" — a rough proxy, not tied to that bigger system.
-const SESSION_CAP = 12;
+// No session-count cutoff: this used to hide itself past 12 sessions (a
+// "new client nudge"), but that no longer fits a genuine ~3-month-per-level
+// journey — a client training 3x/week clears 12 sessions in under a month,
+// long before even reaching Intermediate, and would never see a level-up.
+// The banner is now an ongoing guide for every stage (Beginner through
+// permanent Advanced rotation), so it stays visible indefinitely.
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
@@ -38,11 +36,11 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program) {
 
 // Home-screen guidance for a client who's still new to training: tells them
 // exactly which Workout Library program to do next — starting at Gym or Home
-// Beginner and automatically advancing to Intermediate, then Advanced, once
-// every program at the current level has been logged at least once (see
-// determineWorkoutGuidance in beginnerGuidance.js for the full algorithm,
-// including a client who already has Intermediate/Advanced history with no
-// Beginner sessions at all, and Gym vs Home tracked independently).
+// Beginner and automatically advancing to Intermediate, then Advanced, on a
+// genuine ~3-month-per-level tenure clock (see determineWorkoutGuidance /
+// WEEKS_PER_LEVEL in beginnerGuidance.js for the full algorithm, including a
+// client who already has Intermediate/Advanced history with no Beginner
+// sessions at all, and Gym vs Home tracked independently).
 // Tapping the banner deep-links straight into logging that exact program —
 // see startProgram above — rather than just opening the Workout Library at
 // the right level/category and leaving the client to tap the card
@@ -85,8 +83,6 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     else if (!existing.planName && planName) existing.planName = planName;
   });
   const sessions = Array.from(sessionsByDate.values());
-
-  if (sessions.length >= SESSION_CAP) return null; // past the starter nudge
 
   const guidance = determineWorkoutGuidance(library, sessions);
   if (!guidance) return null;
@@ -159,7 +155,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       : '🌱 New here? Start with this';
 
   const body = reason === 'leveled-up'
-    ? `You've completed every ${categoryLabel} ${lastProgramLevelLabel(level)} program! Time to level up — try ${program.name}.`
+    ? `You've put in your 3 months as a ${categoryLabel} ${lastProgramLevelLabel(level)}! Time to level up — try ${program.name}.`
     : reason === 'rotation'
       ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;

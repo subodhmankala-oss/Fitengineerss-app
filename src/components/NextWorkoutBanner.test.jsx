@@ -108,24 +108,26 @@ describe('NextWorkoutBanner', () => {
     expect(screen.getByText(/Nice work on Beginner Full Body B! Next up: Beginner Lower & Core\./)).not.toBeNull();
   });
 
-  it('renders nothing once the client has logged 12+ sessions', async () => {
+  it('keeps showing guidance even with many sessions logged (no session-count cutoff)', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
-    const logs = Array.from({ length: 12 }, (_, i) => ({
-      log_date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+    const logs = Array.from({ length: 20 }, (_, i) => ({
+      log_date: `2026-09-${String((i % 28) + 1).padStart(2, '0')}`,
       plan_name: 'Beginner Full Body A'
     }));
-    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    await waitFor(() => expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalled());
-    expect(container.firstChild).toBeNull();
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    // Leveling is time-based (see beginnerGuidance.js), not session-count
+    // based, so 20 sessions logged within the same short window stays on
+    // Beginner and keeps recommending the next program — it doesn't vanish.
+    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
   });
 
-  it('announces leveling up once all Beginner programs are cleared', async () => {
+  it('announces leveling up once ~3 months have passed since the first-ever session', async () => {
     mockLibrary({ gym: { beginner: gymBeginner, intermediate: [{ name: 'Intermediate Push', exercises: [] }] } });
-    const logs = [
-      { log_date: '2026-09-01', plan_name: 'Beginner Full Body A' },
-      { log_date: '2026-09-02', plan_name: 'Beginner Full Body B' },
-      { log_date: '2026-09-03', plan_name: 'Beginner Lower & Core' }
-    ];
+    // Leveling is time-based now (see beginnerGuidance.js's WEEKS_PER_LEVEL)
+    // — the component always uses the real clock, so this needs a genuinely
+    // old first-session date rather than a fixed literal one.
+    const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const logs = [{ log_date: daysAgo(100), plan_name: 'Beginner Full Body A' }]; // ~14 weeks ago
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Intermediate unlocked!/)).not.toBeNull();
     expect(screen.getByText(/Intermediate Push/)).not.toBeNull();

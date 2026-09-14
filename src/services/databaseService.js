@@ -688,9 +688,34 @@ async function saveWorkoutDraftViaServer(record) {
 // draft, the completed session still lands.
 const PENDING_LOGS_KEY = 'pendingWorkoutLogs';
 
+// Stable identity for one session's worth of rows, so the same session can't
+// be parked in the queue twice (and so a copy already parked can be dropped
+// once the session does save). Both attempts of a retried save build `records`
+// from the SAME session object, so the serialized rows are byte-identical —
+// no separate id needs to be threaded through. Computed from the stored rows
+// rather than persisted alongside them, so entries queued by an older build
+// still match.
+function pendingLogsSignature(records) {
+  try { return JSON.stringify(records); } catch { return null; }
+}
+
 function queuePendingWorkoutLogs(records) {
   try {
     const queue = JSON.parse(localStorage.getItem(PENDING_LOGS_KEY) || '[]');
+    // A failed save is retried once automatically by the caller
+    // (WorkoutTracker's saveWorkoutSession().catch() path), and BOTH attempts
+    // land here when the failure persists — e.g. offline, or the server-side
+    // fallback endpoint is unreachable. Without this guard the queue held two
+    // identical copies, and flushPendingWorkoutLogs then replayed both,
+    // writing every set of that workout to workout_logs TWICE (confirmed
+    // 2026-09-14: 12 rows at 07:46:19 and the same 12 again at 07:46:21).
+    // Duplicated rows double-count that session's volume/sets in every
+    // analytics read that sums rows.
+    const signature = pendingLogsSignature(records);
+    if (signature && queue.some(entry => pendingLogsSignature(entry?.records) === signature)) {
+      console.warn('Workout save already queued for retry — not queueing a second copy.');
+      return;
+    }
     queue.push({ records, queuedAt: new Date().toISOString() });
     // Keep the queue bounded so a permanently-failing save can't grow without
     // limit and blow the localStorage quota.
@@ -701,7 +726,49 @@ function queuePendingWorkoutLogs(records) {
   }
 }
 
+// Drops any parked copy of a session that has since saved successfully. The
+// other half of the duplicate-write fix above: attempt 1 can fail and park
+// the rows, then the automatic retry (or the service-role fallback within the
+// same attempt) succeeds — leaving a queue entry that would be replayed on the
+// next launch and write the whole session a second time.
+function dropPendingWorkoutLogs(records) {
+  try {
+    const signature = pendingLogsSignature(records);
+    if (!signature) return;
+    const queue = JSON.parse(localStorage.getItem(PENDING_LOGS_KEY) || '[]');
+    if (!Array.isArray(queue) || queue.length === 0) return;
+    const remaining = queue.filter(entry => pendingLogsSignature(entry?.records) !== signature);
+    if (remaining.length === queue.length) return; // nothing parked for this session
+    if (remaining.length) localStorage.setItem(PENDING_LOGS_KEY, JSON.stringify(remaining));
+    else localStorage.removeItem(PENDING_LOGS_KEY);
+  } catch (e) {
+    console.error('Could not clear queued workout after a successful save:', e?.message || e);
+  }
+}
+
+// Guards against two overlapping replays of the same queue. There are two
+// independent triggers — the browser's `online` event (main.jsx) and "a real
+// session is now available" (App.jsx) — and they fire together in exactly the
+// case that matters: connectivity returning at the same moment the session is
+// re-established, with a non-empty queue. Both would read the same entries and
+// replay them before either wrote the shortened queue back, writing every set
+// of those workouts twice. Same in-flight pattern as refreshAccessTokenRaw
+// above: the second caller awaits the first instead of starting its own pass.
+let pendingFlushInFlight = null;
+
 export async function flushPendingWorkoutLogs() {
+  if (pendingFlushInFlight) return pendingFlushInFlight;
+  pendingFlushInFlight = (async () => {
+    try {
+      return await flushPendingWorkoutLogsInner();
+    } finally {
+      pendingFlushInFlight = null;
+    }
+  })();
+  return pendingFlushInFlight;
+}
+
+async function flushPendingWorkoutLogsInner() {
   let queue;
   try {
     queue = JSON.parse(localStorage.getItem(PENDING_LOGS_KEY) || '[]');
@@ -711,11 +778,18 @@ export async function flushPendingWorkoutLogs() {
   if (!Array.isArray(queue) || queue.length === 0) return { attempted: 0, saved: 0 };
 
   const stillPending = [];
+  const replayed = new Set();
   let saved = 0;
   for (const entry of queue) {
     if (!entry?.records?.length) continue;
+    // A queue written by a build from before the duplicate-park fix (see
+    // queuePendingWorkoutLogs) can already hold the same session twice —
+    // replay each distinct session only once, so those existing queues drain
+    // without writing their sets twice.
+    const signature = pendingLogsSignature(entry.records);
+    if (signature && replayed.has(signature)) continue;
     const ok = await saveWorkoutLogsViaServer(entry.records);
-    if (ok) saved++; else stillPending.push(entry);
+    if (ok) { saved++; if (signature) replayed.add(signature); } else stillPending.push(entry);
   }
   try {
     if (stillPending.length) localStorage.setItem(PENDING_LOGS_KEY, JSON.stringify(stillPending));
@@ -1606,6 +1680,12 @@ const databaseService = {
                 throw error;
               }
             }
+            // Reached only when the rows actually landed (direct insert, or
+            // the server fallback above). If an earlier attempt at this same
+            // session parked a copy in the retry queue, drop it now — leaving
+            // it there would replay the whole session on the next launch and
+            // write every set a second time.
+            dropPendingWorkoutLogs(records);
             console.log('Cloud DB: Saved workout session sets.');
           }
         } else {

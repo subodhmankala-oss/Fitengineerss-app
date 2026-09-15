@@ -1063,9 +1063,7 @@ function App() {
         // before this event fires, so recoverStoredSession naturally finds
         // nothing there and this safely falls through to the normal wipe —
         // this only ever rescues the false-negative case.
-        const recovered = event !== 'SIGNED_OUT'
-          ? await recoverStoredSession().catch(() => null)
-          : null;
+        const recovered = await recoverStoredSession().catch(() => null);
         if (recovered) {
           await processSessionUser(recovered.user, recovered.accessToken);
           return;
@@ -1082,7 +1080,15 @@ function App() {
         // flags, and every restSelect/restRpc re-attempts the refresh on its
         // own — and retry in the background so the session repairs itself as
         // soon as the network is usable.
-        if (event !== 'SIGNED_OUT' && storedSessionLooksRecoverable()) {
+        //
+        // This deliberately applies to SIGNED_OUT too: supabase-js fires that
+        // event on its own initiative (a refresh it gave up on, an internal
+        // error), and the requirement is that nothing but the user's own Log
+        // Out ends a session. databaseService.signOut() — which every
+        // intentional sign-out in the app goes through — erases the stored
+        // session and its mirror before this event arrives, so a real logout
+        // still finds nothing to recover and falls through to the wipe below.
+        if (storedSessionLooksRecoverable()) {
           for (const delay of [2000, 6000, 15000]) {
             await new Promise(r => setTimeout(r, delay));
             if (!storedSessionLooksRecoverable()) break;

@@ -196,13 +196,34 @@ let refreshInFlight = null;
 // still presumed good and the session must not be thrown away. See
 // storedSessionLooksRecoverable().
 let storedRefreshTokenRejected = false;
+// Our own mirror of the session, written alongside supabase-js's
+// sb-<ref>-auth-token entry. The SDK owns that entry and will drop it on its
+// own initiative — a refresh it decides has failed hard, an internal
+// SIGNED_OUT — at which point the login is gone and there is nothing left to
+// recover from, which is how a client who never touched Log Out ends up back
+// at the login screen. This copy is removed ONLY by signOut(), i.e. only when
+// the user (or a flow the user chose, like switching accounts) actually meant
+// to end the session. Added 2026-09-15.
+const SESSION_BACKUP_KEY = 'fe_auth_session_backup';
+function storageKeyForSession() {
+  const existing = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+  if (existing) return existing;
+  try { return `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`; } catch { return null; }
+}
 function readStoredSupabaseSession() {
   try {
     const key = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    if (!key) return null;
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    return { key, session: JSON.parse(raw) };
+    const raw = key ? window.localStorage.getItem(key) : null;
+    if (raw) return { key, session: JSON.parse(raw) };
+    // Primary entry gone but we never signed out — restore from our mirror
+    // so the SDK (and everything downstream) sees the session again.
+    const backup = window.localStorage.getItem(SESSION_BACKUP_KEY);
+    if (!backup) return null;
+    const session = JSON.parse(backup);
+    if (!session?.refresh_token) return null;
+    const restoreKey = key || storageKeyForSession();
+    if (restoreKey) window.localStorage.setItem(restoreKey, backup);
+    return { key: restoreKey, session };
   } catch {
     return null;
   }
@@ -227,13 +248,11 @@ function readStoredSupabaseSession() {
 function writeStoredSupabaseSession(session) {
   if (!session?.access_token || !session?.refresh_token) return;
   try {
-    const existingKey = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    const ref = (() => {
-      try { return new URL(supabaseUrl).hostname.split('.')[0]; } catch { return null; }
-    })();
-    const key = existingKey || (ref ? `sb-${ref}-auth-token` : null);
+    const key = storageKeyForSession();
     if (!key) return;
-    window.localStorage.setItem(key, JSON.stringify(session));
+    const raw = JSON.stringify(session);
+    window.localStorage.setItem(key, raw);
+    window.localStorage.setItem(SESSION_BACKUP_KEY, raw);
   } catch { /* storage full/unavailable — best effort only */ }
 }
 async function refreshAccessTokenRaw() {
@@ -278,13 +297,12 @@ async function refreshAccessTokenRaw() {
       // Keep the persisted session in sync too, so a page reload (or the SDK,
       // if it ever does pick a request up) sees the same fresh token instead
       // of immediately re-expiring back to the one that just failed.
-      try {
-        window.localStorage.setItem(stored.key, JSON.stringify({
-          ...stored.session,
-          access_token: data.access_token,
-          refresh_token: data.refresh_token || refreshToken
-        }));
-      } catch { /* best-effort */ }
+      writeStoredSupabaseSession({
+        ...stored.session,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || refreshToken,
+        expires_at: data.expires_at || (Math.floor(Date.now() / 1000) + (data.expires_in || 3600))
+      });
       return data.access_token;
     } catch {
       return null;
@@ -2024,6 +2042,13 @@ const databaseService = {
   },
 
   async signOut() {
+    // Drop our own session mirror FIRST — it exists precisely so that nothing
+    // except a deliberate sign-out can end the session (see
+    // SESSION_BACKUP_KEY), so leaving it behind here would resurrect the
+    // login the user just ended. Every intentional sign-out in the app goes
+    // through this method.
+    try { window.localStorage.removeItem(SESSION_BACKUP_KEY); } catch { /* best effort */ }
+    setCachedAuthToken(null);
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;

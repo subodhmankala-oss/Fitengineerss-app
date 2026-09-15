@@ -200,7 +200,22 @@ const clearLocalStoragePreservingChats = () => {
     // that could restore it, silently defeating that fix. Confirmed
     // 2026-09-11 reproducing the reported "plan lost on refresh" bug: the
     // draft was saving fine, but this cleanup ran first and erased it.
-    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
+    // The Supabase session itself (supabase-js's own sb-<ref>-auth-token and
+    // databaseService's mirror of it) must survive this. THE bug behind
+    // "logged out every time I close the app" (root-caused 2026-09-15 by
+    // reproducing a login on a preview build and finding localStorage held
+    // no session at all afterwards): the login-completion path below calls
+    // this function to reset app state for a newly-logged-in user, and it
+    // was deleting the session token that login had just written. The app
+    // kept working on the in-memory cachedAccessToken, so nothing looked
+    // wrong — until a reload or an app switch, when supabase-js booted,
+    // found no stored session, and dropped the user back at the login
+    // screen. Every single time, on every device.
+    // Ending a session is signOut()'s job (it clears both keys), not this
+    // function's — the one caller that wipes because the session really is
+    // dead removes them explicitly right after calling this.
+    const isAuthSessionKey = key && ((key.startsWith('sb-') && key.endsWith('-auth-token')) || key === 'fe_auth_session_backup');
+    if (key && (isAuthSessionKey || key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
       preserved[key] = localStorage.getItem(key);
     }
   }
@@ -1113,7 +1128,14 @@ function App() {
         
         lastProcessedEmailRef.current = '';
         clearLocalStoragePreservingChats();
-        
+        // Reached only when the session is genuinely over (an explicit Log
+        // Out, or a refresh token the auth server actually rejected), so
+        // clear the stored session too — clearLocalStoragePreservingChats
+        // deliberately keeps it for every other caller.
+        Object.keys(localStorage)
+          .filter(k => (k.startsWith('sb-') && k.endsWith('-auth-token')) || k === 'fe_auth_session_backup')
+          .forEach(k => localStorage.removeItem(k));
+
         if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
         if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
         if (lastUserName) localStorage.setItem('lastUserName', lastUserName);

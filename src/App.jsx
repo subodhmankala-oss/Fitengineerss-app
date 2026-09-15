@@ -21,7 +21,7 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
 import { useTour } from './context/TourContext';
 import { useCoachTour } from './context/CoachTourContext';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -1068,6 +1068,32 @@ function App() {
           : null;
         if (recovered) {
           await processSessionUser(recovered.user, recovered.accessToken);
+          return;
+        }
+
+        // Recovery failed, but the stored refresh token was never actually
+        // rejected by the auth server — so this is a failed *request*
+        // (offline, cold start racing the network coming back, timeout),
+        // not a real sign-out. Wiping here would delete that still-valid
+        // refresh token and make a momentary blip into a permanent logout;
+        // that is exactly the reported "it signs me out every single time I
+        // close the app and come back" (2026-09-15). Keep the user signed in
+        // — React state already initialised from the cached localStorage
+        // flags, and every restSelect/restRpc re-attempts the refresh on its
+        // own — and retry in the background so the session repairs itself as
+        // soon as the network is usable.
+        if (event !== 'SIGNED_OUT' && storedSessionLooksRecoverable()) {
+          for (const delay of [2000, 6000, 15000]) {
+            await new Promise(r => setTimeout(r, delay));
+            if (!storedSessionLooksRecoverable()) break;
+            const retried = await recoverStoredSession().catch(() => null);
+            if (retried) {
+              await processSessionUser(retried.user, retried.accessToken);
+              return;
+            }
+          }
+          // Still unverified and still not rejected: leave the session alone
+          // rather than destroying it. The next reopen tries again.
           return;
         }
 

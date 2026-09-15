@@ -20,7 +20,16 @@ export const supabase = isSupabaseConfigured
       auth: {
         storage: window.localStorage,
         persistSession: true,
-        autoRefreshToken: true,
+        // Off on purpose (2026-09-15). This project refreshes tokens itself
+        // through refreshAccessTokenRaw() because the SDK's own refresh is
+        // the thing that hangs here (see the SDK-hang comments below), so the
+        // background ticker adds nothing but a second refresher competing for
+        // the same single-use refresh token. Supabase rotates that token, so
+        // when the SDK's hung request had already consumed it, our raw
+        // refresh got back invalid_grant and the session looked dead on every
+        // reopen. The SDK still refreshes on demand when something actually
+        // asks it for a session; this only removes the unsupervised timer.
+        autoRefreshToken: false,
         detectSessionInUrl: true
       }
     })
@@ -140,6 +149,27 @@ export async function recoverStoredSession() {
   return { user, accessToken: token };
 }
 
+// True when localStorage still holds a session whose refresh token the auth
+// server has NOT rejected — i.e. recoverStoredSession() just failed because
+// the refresh request couldn't complete (offline, cold-start before the radio
+// is up, timeout, 5xx), not because the login is actually over.
+//
+// Added 2026-09-15 for the reported "logged out every time I close the app".
+// Reopening after the ~1hr access token expires always lands in App.jsx's
+// ghost-login branch, and that branch's only outcome on a failed recovery was
+// clearLocalStoragePreservingChats() — a localStorage.clear() that deletes
+// the sb-<ref>-auth-token entry itself. So a single transient refresh failure
+// on launch (routine on mobile, where the first request after resume often
+// races the network coming back) didn't just fail to restore the session, it
+// destroyed a perfectly valid refresh token and made the logout permanent.
+// Callers should treat `true` as "stay signed in and retry", never as a
+// reason to wipe. A real signOut() clears the stored session before firing
+// SIGNED_OUT, so this correctly returns false there.
+export function storedSessionLooksRecoverable() {
+  if (storedRefreshTokenRejected) return false;
+  return !!readStoredSupabaseSession()?.session?.refresh_token;
+}
+
 // ─── RAW TOKEN REFRESH (SDK-hang bypass) ───
 // cachedAccessToken above is set once per onAuthStateChange event and never
 // updates itself in between — there's no timer refreshing it, and the SDK's
@@ -160,13 +190,40 @@ export async function recoverStoredSession() {
 // "sb-<project-ref>-auth-token" — read by prefix/suffix instead of computing
 // the ref, so this keeps working if the project ref ever changes.
 let refreshInFlight = null;
+// Set only when the auth server explicitly rejects the stored refresh token
+// (400/401 invalid_grant — revoked, reused, or from a deleted user). A
+// network/timeout/5xx failure deliberately leaves this false: the token is
+// still presumed good and the session must not be thrown away. See
+// storedSessionLooksRecoverable().
+let storedRefreshTokenRejected = false;
+// Our own mirror of the session, written alongside supabase-js's
+// sb-<ref>-auth-token entry. The SDK owns that entry and will drop it on its
+// own initiative — a refresh it decides has failed hard, an internal
+// SIGNED_OUT — at which point the login is gone and there is nothing left to
+// recover from, which is how a client who never touched Log Out ends up back
+// at the login screen. This copy is removed ONLY by signOut(), i.e. only when
+// the user (or a flow the user chose, like switching accounts) actually meant
+// to end the session. Added 2026-09-15.
+const SESSION_BACKUP_KEY = 'fe_auth_session_backup';
+function storageKeyForSession() {
+  const existing = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+  if (existing) return existing;
+  try { return `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`; } catch { return null; }
+}
 function readStoredSupabaseSession() {
   try {
     const key = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    if (!key) return null;
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    return { key, session: JSON.parse(raw) };
+    const raw = key ? window.localStorage.getItem(key) : null;
+    if (raw) return { key, session: JSON.parse(raw) };
+    // Primary entry gone but we never signed out — restore from our mirror
+    // so the SDK (and everything downstream) sees the session again.
+    const backup = window.localStorage.getItem(SESSION_BACKUP_KEY);
+    if (!backup) return null;
+    const session = JSON.parse(backup);
+    if (!session?.refresh_token) return null;
+    const restoreKey = key || storageKeyForSession();
+    if (restoreKey) window.localStorage.setItem(restoreKey, backup);
+    return { key: restoreKey, session };
   } catch {
     return null;
   }
@@ -191,13 +248,11 @@ function readStoredSupabaseSession() {
 function writeStoredSupabaseSession(session) {
   if (!session?.access_token || !session?.refresh_token) return;
   try {
-    const existingKey = Object.keys(window.localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    const ref = (() => {
-      try { return new URL(supabaseUrl).hostname.split('.')[0]; } catch { return null; }
-    })();
-    const key = existingKey || (ref ? `sb-${ref}-auth-token` : null);
+    const key = storageKeyForSession();
     if (!key) return;
-    window.localStorage.setItem(key, JSON.stringify(session));
+    const raw = JSON.stringify(session);
+    window.localStorage.setItem(key, raw);
+    window.localStorage.setItem(SESSION_BACKUP_KEY, raw);
   } catch { /* storage full/unavailable — best effort only */ }
 }
 async function refreshAccessTokenRaw() {
@@ -227,20 +282,27 @@ async function refreshAccessTokenRaw() {
         body: JSON.stringify({ refresh_token: refreshToken }),
         signal: controller.signal
       });
-      if (!resp.ok) return null;
+      if (!resp.ok) {
+        // 400/401 here is the auth server saying this refresh token is dead
+        // (revoked/reused/user deleted) — the one case where the stored
+        // session really is unrecoverable. 429/5xx are transient and must
+        // NOT condemn the token.
+        if (resp.status === 400 || resp.status === 401) storedRefreshTokenRejected = true;
+        return null;
+      }
       const data = await resp.json().catch(() => null);
       if (!data?.access_token) return null;
+      storedRefreshTokenRejected = false;
       setCachedAuthToken(data.access_token);
       // Keep the persisted session in sync too, so a page reload (or the SDK,
       // if it ever does pick a request up) sees the same fresh token instead
       // of immediately re-expiring back to the one that just failed.
-      try {
-        window.localStorage.setItem(stored.key, JSON.stringify({
-          ...stored.session,
-          access_token: data.access_token,
-          refresh_token: data.refresh_token || refreshToken
-        }));
-      } catch { /* best-effort */ }
+      writeStoredSupabaseSession({
+        ...stored.session,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || refreshToken,
+        expires_at: data.expires_at || (Math.floor(Date.now() / 1000) + (data.expires_in || 3600))
+      });
       return data.access_token;
     } catch {
       return null;
@@ -1980,6 +2042,13 @@ const databaseService = {
   },
 
   async signOut() {
+    // Drop our own session mirror FIRST — it exists precisely so that nothing
+    // except a deliberate sign-out can end the session (see
+    // SESSION_BACKUP_KEY), so leaving it behind here would resurrect the
+    // login the user just ended. Every intentional sign-out in the app goes
+    // through this method.
+    try { window.localStorage.removeItem(SESSION_BACKUP_KEY); } catch { /* best effort */ }
+    setCachedAuthToken(null);
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;

@@ -21,7 +21,7 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
 import { useTour } from './context/TourContext';
 import { useCoachTour } from './context/CoachTourContext';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -200,7 +200,22 @@ const clearLocalStoragePreservingChats = () => {
     // that could restore it, silently defeating that fix. Confirmed
     // 2026-09-11 reproducing the reported "plan lost on refresh" bug: the
     // draft was saving fine, but this cleanup ran first and erased it.
-    if (key && (key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
+    // The Supabase session itself (supabase-js's own sb-<ref>-auth-token and
+    // databaseService's mirror of it) must survive this. THE bug behind
+    // "logged out every time I close the app" (root-caused 2026-09-15 by
+    // reproducing a login on a preview build and finding localStorage held
+    // no session at all afterwards): the login-completion path below calls
+    // this function to reset app state for a newly-logged-in user, and it
+    // was deleting the session token that login had just written. The app
+    // kept working on the in-memory cachedAccessToken, so nothing looked
+    // wrong — until a reload or an app switch, when supabase-js booted,
+    // found no stored session, and dropped the user back at the login
+    // screen. Every single time, on every device.
+    // Ending a session is signOut()'s job (it clears both keys), not this
+    // function's — the one caller that wipes because the session really is
+    // dead removes them explicitly right after calling this.
+    const isAuthSessionKey = key && ((key.startsWith('sb-') && key.endsWith('-auth-token')) || key === 'fe_auth_session_backup');
+    if (key && (isAuthSessionKey || key.startsWith('local_chat_') || key.startsWith('client_') || key.startsWith('remembered') || key === 'lastUserName' || key === 'last_logged_in_email' || key === 'clientTourSeen' || key === 'coachTourSeen' || key === 'savedLoginAccount' || key === 'coachPlanEditorDraft')) {
       preserved[key] = localStorage.getItem(key);
     }
   }
@@ -577,6 +592,15 @@ function App() {
         // these keys depending on provider/version. Persisted onto the users
         // row below so it survives across devices, not just this browser.
         const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+        // How this session was actually authenticated. Every
+        // saveQuickLoginAccount() call below used to hardcode 'google', but
+        // this handler runs for EVERY resolved session, not just OAuth ones —
+        // so an email/password client got remembered as a Google account.
+        // Tapping "Log in as X" on the next visit then launched a Google sign-in
+        // for an account with no Google identity at all, stranding them on
+        // Google's account chooser (reported 2026-09-15 for a client who had
+        // only ever logged in with a password).
+        const sessionLoginMethod = user.app_metadata?.provider === 'google' ? 'google' : 'email';
         if (googleAvatarUrl) {
           localStorage.setItem('userAvatarUrl', googleAvatarUrl);
           databaseService.updateUserAvatarUrl(email, googleAvatarUrl).catch(() => {});
@@ -734,7 +758,7 @@ function App() {
               email,
               name: profile?.userName || googleName || 'Coach',
               role: profile?.role || (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'),
-              loginMethod: 'google',
+              loginMethod: sessionLoginMethod,
               avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
             });
             return;
@@ -802,7 +826,7 @@ function App() {
                   email,
                   name: autoProfile?.userName || googleName || 'Coach',
                   role: 'coach',
-                  loginMethod: 'google',
+                  loginMethod: sessionLoginMethod,
                   avatarUrl: googleAvatarUrl || autoProfile?.userAvatarUrl || null
                 });
                 return;
@@ -911,7 +935,7 @@ function App() {
           setOnboardingComplete(true);
           saveQuickLoginAccount({
             email,
-            loginMethod: 'google',
+            loginMethod: sessionLoginMethod,
             avatarUrl: googleAvatarUrl || clientProfile?.userAvatarUrl || null
           });
           // Show wizard if onboarding_completed is false (new client)
@@ -956,7 +980,7 @@ function App() {
           setOnboardingComplete(true);
           saveQuickLoginAccount({
             email,
-            loginMethod: 'google',
+            loginMethod: sessionLoginMethod,
             avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
           });
         } else {
@@ -1063,11 +1087,43 @@ function App() {
         // before this event fires, so recoverStoredSession naturally finds
         // nothing there and this safely falls through to the normal wipe —
         // this only ever rescues the false-negative case.
-        const recovered = event !== 'SIGNED_OUT'
-          ? await recoverStoredSession().catch(() => null)
-          : null;
+        const recovered = await recoverStoredSession().catch(() => null);
         if (recovered) {
           await processSessionUser(recovered.user, recovered.accessToken);
+          return;
+        }
+
+        // Recovery failed, but the stored refresh token was never actually
+        // rejected by the auth server — so this is a failed *request*
+        // (offline, cold start racing the network coming back, timeout),
+        // not a real sign-out. Wiping here would delete that still-valid
+        // refresh token and make a momentary blip into a permanent logout;
+        // that is exactly the reported "it signs me out every single time I
+        // close the app and come back" (2026-09-15). Keep the user signed in
+        // — React state already initialised from the cached localStorage
+        // flags, and every restSelect/restRpc re-attempts the refresh on its
+        // own — and retry in the background so the session repairs itself as
+        // soon as the network is usable.
+        //
+        // This deliberately applies to SIGNED_OUT too: supabase-js fires that
+        // event on its own initiative (a refresh it gave up on, an internal
+        // error), and the requirement is that nothing but the user's own Log
+        // Out ends a session. databaseService.signOut() — which every
+        // intentional sign-out in the app goes through — erases the stored
+        // session and its mirror before this event arrives, so a real logout
+        // still finds nothing to recover and falls through to the wipe below.
+        if (storedSessionLooksRecoverable()) {
+          for (const delay of [2000, 6000, 15000]) {
+            await new Promise(r => setTimeout(r, delay));
+            if (!storedSessionLooksRecoverable()) break;
+            const retried = await recoverStoredSession().catch(() => null);
+            if (retried) {
+              await processSessionUser(retried.user, retried.accessToken);
+              return;
+            }
+          }
+          // Still unverified and still not rejected: leave the session alone
+          // rather than destroying it. The next reopen tries again.
           return;
         }
 
@@ -1081,7 +1137,14 @@ function App() {
         
         lastProcessedEmailRef.current = '';
         clearLocalStoragePreservingChats();
-        
+        // Reached only when the session is genuinely over (an explicit Log
+        // Out, or a refresh token the auth server actually rejected), so
+        // clear the stored session too — clearLocalStoragePreservingChats
+        // deliberately keeps it for every other caller.
+        Object.keys(localStorage)
+          .filter(k => (k.startsWith('sb-') && k.endsWith('-auth-token')) || k === 'fe_auth_session_backup')
+          .forEach(k => localStorage.removeItem(k));
+
         if (rememberedEmail) localStorage.setItem('rememberedEmail', rememberedEmail);
         if (rememberedPassword) localStorage.setItem('rememberedPassword', rememberedPassword);
         if (lastUserName) localStorage.setItem('lastUserName', lastUserName);

@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vercel", "dev", "--listen", "5183"],
       "port": 5183
+    },
+    {
+      "name": "fitengineers-vite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5184"],
+      "port": 5184
     }
   ]
 }

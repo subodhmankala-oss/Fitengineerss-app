@@ -6,6 +6,35 @@ import { registerSW } from 'virtual:pwa-register';
 let applyUpdateFn = null;
 let swRegistration = null;
 let updatePending = false;
+let reloadingForUpdate = false;
+
+// Activates a worker that is ALREADY sitting in `waiting` — the case
+// onNeedRefresh cannot see. registerSW only reports an update it watches
+// install during this page's lifetime (it hangs off `updatefound`), so a
+// worker that finished installing on a PREVIOUS visit and is waiting when
+// the page loads fires nothing at all. The browser then keeps serving the
+// old worker — and therefore the old JS bundle — on every reload until every
+// tab/window for the origin is closed at the same moment, which on a phone
+// (where the app is suspended, not closed) can be days or never.
+//
+// Found 2026-09-15 while chasing "your fix didn't change anything on my
+// phone": the deployed preview served index-CkekcBqf.js while the open page
+// was still running index-BhKVFcUv.js, with a waiting worker parked behind
+// it. Every fix shipped in that window was invisible to that device.
+function activateWaitingWorker(registration) {
+  const waiting = registration?.waiting;
+  // No controller means this is a first install — nothing is being replaced,
+  // so there's no stale bundle to escape and no reason to reload.
+  if (!waiting || !navigator.serviceWorker.controller) return;
+  updatePending = true;
+  window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloadingForUpdate) return;
+    reloadingForUpdate = true;
+    window.location.reload();
+  });
+  waiting.postMessage({ type: 'SKIP_WAITING' });
+}
 
 export function initPWA() {
   if (!('serviceWorker' in navigator)) return;
@@ -27,6 +56,10 @@ export function initPWA() {
       // backgrounded tabs) to ever find a pending update. Check the
       // instant the registration itself is ready instead of waiting on an
       // event that may have already fired before this ran.
+      // A build that installed on an earlier visit may already be waiting
+      // right now — take it before anything else, since this page is running
+      // the old bundle until we do.
+      activateWaitingWorker(registration);
       registration.update().catch(() => {});
       // Check for a newer deploy periodically while the app stays open, not
       // just on the initial page load — closes the exact gap above for a
@@ -100,6 +133,10 @@ export async function checkForUpdateOnForeground() {
   try {
     await swRegistration.update();
   } catch { /* offline — next foreground event tries again */ }
+  // update() can leave a worker waiting without onNeedRefresh ever running
+  // (see activateWaitingWorker) — so check the registration itself rather
+  // than trusting the callback to have fired.
+  activateWaitingWorker(swRegistration);
   if (updatePending) {
     window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
   }

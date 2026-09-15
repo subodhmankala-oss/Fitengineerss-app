@@ -950,12 +950,16 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
 
       {/* Guides a newer client to their next Workout Library program —
           Beginner through Advanced, Gym or Home (see NextWorkoutBanner /
-          determineWorkoutGuidance) — coach-connected clients only (a
-          generic/unconnected client has no coach relationship for this to
-          support), and hidden whenever a session is already in progress
-          (the banner above already covers that case) so the two never
-          stack. */}
-      {isLinkedToCoach && !activeDraft && (
+          determineWorkoutGuidance). Shown to EVERY client, connected to a
+          coach or not: the Workout Library it points at is global, needs no
+          coaching relationship, and a client who hasn't connected yet is
+          exactly the one with no idea what to do first (confirmed
+          2026-09-15 — a brand-new client saw an empty Home screen and no
+          Gym/Home choice at all, because this was gated on isLinkedToCoach
+          and their clients.coach_id was still null). Hidden only when a
+          session is already in progress (the banner above already covers
+          that case) so the two never stack. */}
+      {!activeDraft && (
         <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
       )}
 

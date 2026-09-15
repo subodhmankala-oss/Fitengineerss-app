@@ -4277,6 +4277,37 @@ const databaseService = {
     }
   },
 
+  // Whether the client still has the one-time "Turn on notifications?" prompt
+  // (NotificationPrompt.jsx) to see. See sql/supabase_notification_prompt.sql.
+  // Same fail-closed reasoning as getWelcomeSeen: zero rows is ambiguous (no
+  // such client vs. the read racing the auth token right after login), so
+  // never show on anything but a confirmed false.
+  async getNotificationPromptSeen(userId) {
+    if (!isSupabaseConfigured || !userId) return true;
+    try {
+      const rows = await restSelect(`clients?user_id=eq.${encodeURIComponent(userId)}&select=notification_prompt_seen`);
+      if (!Array.isArray(rows) || rows.length === 0) return true;
+      return rows[0]?.notification_prompt_seen !== false;
+    } catch (e) {
+      console.error('Cloud DB Get Notification Prompt Seen Error:', e);
+      return true; // fail closed — never show a stray prompt on a read error
+    }
+  },
+
+  // Answering the prompt (either "Enable" or "Not now") marks it seen
+  // server-side so it stops resurfacing across devices/logins, same reasoning
+  // as markWelcomeSeen.
+  async markNotificationPromptSeen(userId) {
+    if (!isSupabaseConfigured || !userId) return { success: false };
+    try {
+      await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, { notification_prompt_seen: true });
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Mark Notification Prompt Seen Error:', e);
+      return { success: false, error: e.message || 'Update failed' };
+    }
+  },
+
   // Mark a note read once the client has seen it, so it stops resurfacing.
   async markCoachNoteRead(noteId) {
     if (!isSupabaseConfigured || !noteId) return { success: false };

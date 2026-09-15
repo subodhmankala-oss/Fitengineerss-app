@@ -4,6 +4,7 @@ import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
 import WelcomeBanner from './WelcomeBanner';
+import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
@@ -850,6 +851,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           of as a push (a push can be missed/denied/arrive before they've
           even opened the dashboard). Stays until dismissed. */}
       <WelcomeBanner userId={userId} userName={userName} />
+
+      {/* One-time "turn on notifications?" ask for a brand-new client, right
+          after their first login — surfaces the toggle instead of leaving it
+          buried in profile settings until they stumble onto it. */}
+      <NotificationPrompt userId={userId} userName={userName} />
 
       {/* Unread notes from the coach — the fallback if the client missed the
           push notification when the coach sent it. */}

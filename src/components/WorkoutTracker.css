@@ -2812,6 +2812,18 @@
 
 /* Floating Rest Timer — icon+label header, a big centered mm:ss readout,
    then a -15/+15/Skip button row (same stacked layout on coach + client). */
+/* While the on-screen keyboard is open, .app-container shrinks to the
+   visible viewport (see --app-vh in main.jsx/index.css) but this card's
+   own height doesn't, so it can end up overlapping in-flow form fields
+   like Workout Name instead of sitting clear below them — reported as
+   "can't type the workout name, the rest timer is in the way". The
+   `keyboard-open` class main.jsx already toggles on <html> while a text
+   field is focused is the simplest signal to hide it until typing is done;
+   the countdown keeps running underneath and the card reappears on blur. */
+html.keyboard-open .rest-timer-floating-card {
+  display: none;
+}
+
 .rest-timer-floating-card {
   /* Positioned relative to .app-container (position:relative — see
      index.css), NOT .main-content. It's portaled there (see

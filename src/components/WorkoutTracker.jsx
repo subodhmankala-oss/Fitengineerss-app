@@ -25,7 +25,7 @@ import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
-import SetValueField from './SetValueField';
+import SetValueField, { scrollFieldClearOfPad } from './SetValueField';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -4001,7 +4001,7 @@ const WorkoutTracker = () => {
                                         role="button"
                                         tabIndex={0}
                                         title="Tap to add weight"
-                                        onClick={() => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); }}
+                                        onClick={(e) => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
                                       >
                                         BW <span className="bw-hint-icon">⇄</span>
                                       </div>
@@ -4069,7 +4069,7 @@ const WorkoutTracker = () => {
                                         role="button"
                                         tabIndex={0}
                                         title="Tap to add weight"
-                                        onClick={() => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); }}
+                                        onClick={(e) => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
                                       >
                                         BW <span className="bw-hint-icon">⇄</span>
                                       </div>

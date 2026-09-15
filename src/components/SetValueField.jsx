@@ -65,75 +65,81 @@ export function restoreScrollAfterPad() {
   node.scrollTo({ top: Math.min(top, maxScroll), behavior: 'smooth' });
 }
 
+// Bring the row clear of the pad instead of leaving it hidden underneath —
+// the only way to actually see the value you're typing, since the pad
+// itself never shows it, only the field name. `scrollIntoView({block:
+// 'center'})` isn't reliable here: it centers within the WHOLE viewport,
+// including the ~45% of it the pad covers, so a row near the bottom of
+// a long exercise list can still land behind the pad. Instead, measure
+// the pad's real on-screen height and scroll just enough to clear it
+// (plus a margin), the same way you'd account for a fixed footer.
+// Shared by SetValueField's own tap handler and by any other control that
+// opens the pad directly (e.g. the BW/+Add Weight toggle in
+// WorkoutTracker.jsx) — those need the exact same clearing, or the row they
+// live in ends up stranded behind the pad just like this one used to be.
+export function scrollFieldClearOfPad(el) {
+  // How far this row still needs to move to sit clear of the pad. Positive
+  // = row is below the pad's top edge (covered) and must scroll up.
+  const measureDelta = () => {
+    const pad = document.querySelector('.set-number-pad');
+    const padHeight = pad ? pad.getBoundingClientRect().height : 320;
+    const margin = 20;
+    // Bring the whole set row into view, not just the tapped cell — with
+    // several sets logged, clearing only the Kg/Reps box left the set
+    // number, PREV column, and DONE checkbox for that row cut off, making
+    // it hard to tell which set you were actually editing.
+    const row = el.closest('.hevy-set-row') || el;
+    const rect = row.getBoundingClientRect();
+    const visibleBottom = window.innerHeight - padHeight - margin;
+    if (rect.bottom > visibleBottom) return rect.bottom - visibleBottom;
+    if (rect.top < margin) return rect.top - margin;
+    return 0;
+  };
+
+  requestAnimationFrame(() => {
+    const delta = measureDelta();
+    const scrollParent = getScrollParent(el);
+    // Remember where we started ONLY for the first field opened in this
+    // pad session — hopping Kg -> Reps -> next row shouldn't overwrite the
+    // original position with an already-adjusted one, or closing the pad
+    // would restore to a spot that's itself mid-adjustment.
+    if (!pendingScrollRestore || pendingScrollRestore.node !== scrollParent) {
+      pendingScrollRestore = { node: scrollParent, top: scrollParent.scrollTop, scrolledTo: 0 };
+    }
+    // The smooth scroll lands a frame or more later; record where it
+    // actually ended up so restoreScrollAfterPad can tell "still where we
+    // put it" from "the coach scrolled somewhere else".
+    const settle = () => {
+      if (pendingScrollRestore && pendingScrollRestore.node === scrollParent) {
+        pendingScrollRestore.scrolledTo = scrollParent.scrollTop;
+      }
+    };
+
+    if (delta !== 0) scrollParent.scrollBy({ top: delta, behavior: 'smooth' });
+
+    // TOP-UP PASS. The scroll room this move needs is largely supplied by
+    // the pad's own reserved bottom padding (`body:has(.set-number-pad.open)`
+    // in SetNumberPad.css) — but that padding only exists once React has
+    // added `.open` and its 0.28s transition has run, which is AFTER the
+    // scroll above is issued. Until it lands, the container's max scrollTop
+    // is ~340px shorter, so the browser silently CLAMPS the scroll and the
+    // row stops short — still underneath the pad. Measured 2026-08-19 on
+    // Send plan with a short exercise list: asked to scroll to 1097, max was
+    // 1028 without the padding, so the row ended 25px behind the pad.
+    // Re-measure once the room really exists and top up only if the row is
+    // still covered (positive delta) — never yank a row that's already clear.
+    setTimeout(() => {
+      const remaining = measureDelta();
+      if (remaining > 0) scrollParent.scrollBy({ top: remaining, behavior: 'smooth' });
+      setTimeout(settle, 400);
+    }, 380);
+  });
+}
+
 export default function SetValueField({ value, placeholder, disabled, active, onOpen, className = '' }) {
   const handleClick = (e) => {
     onOpen();
-    // Bring the row clear of the pad instead of leaving it hidden underneath
-    // — the only way to actually see the value you're typing, since the pad
-    // itself never shows it, only the field name. `scrollIntoView({block:
-    // 'center'})` isn't reliable here: it centers within the WHOLE viewport,
-    // including the ~45% of it the pad covers, so a row near the bottom of
-    // a long exercise list can still land behind the pad. Instead, measure
-    // the pad's real on-screen height and scroll just enough to clear it
-    // (plus a margin), the same way you'd account for a fixed footer.
-    const el = e.currentTarget;
-
-    // How far this row still needs to move to sit clear of the pad. Positive
-    // = row is below the pad's top edge (covered) and must scroll up.
-    const measureDelta = () => {
-      const pad = document.querySelector('.set-number-pad');
-      const padHeight = pad ? pad.getBoundingClientRect().height : 320;
-      const margin = 20;
-      // Bring the whole set row into view, not just the tapped cell — with
-      // several sets logged, clearing only the Kg/Reps box left the set
-      // number, PREV column, and DONE checkbox for that row cut off, making
-      // it hard to tell which set you were actually editing.
-      const row = el.closest('.hevy-set-row') || el;
-      const rect = row.getBoundingClientRect();
-      const visibleBottom = window.innerHeight - padHeight - margin;
-      if (rect.bottom > visibleBottom) return rect.bottom - visibleBottom;
-      if (rect.top < margin) return rect.top - margin;
-      return 0;
-    };
-
-    requestAnimationFrame(() => {
-      const delta = measureDelta();
-      const scrollParent = getScrollParent(el);
-      // Remember where we started ONLY for the first field opened in this
-      // pad session — hopping Kg -> Reps -> next row shouldn't overwrite the
-      // original position with an already-adjusted one, or closing the pad
-      // would restore to a spot that's itself mid-adjustment.
-      if (!pendingScrollRestore || pendingScrollRestore.node !== scrollParent) {
-        pendingScrollRestore = { node: scrollParent, top: scrollParent.scrollTop, scrolledTo: 0 };
-      }
-      // The smooth scroll lands a frame or more later; record where it
-      // actually ended up so restoreScrollAfterPad can tell "still where we
-      // put it" from "the coach scrolled somewhere else".
-      const settle = () => {
-        if (pendingScrollRestore && pendingScrollRestore.node === scrollParent) {
-          pendingScrollRestore.scrolledTo = scrollParent.scrollTop;
-        }
-      };
-
-      if (delta !== 0) scrollParent.scrollBy({ top: delta, behavior: 'smooth' });
-
-      // TOP-UP PASS. The scroll room this move needs is largely supplied by
-      // the pad's own reserved bottom padding (`body:has(.set-number-pad.open)`
-      // in SetNumberPad.css) — but that padding only exists once React has
-      // added `.open` and its 0.28s transition has run, which is AFTER the
-      // scroll above is issued. Until it lands, the container's max scrollTop
-      // is ~340px shorter, so the browser silently CLAMPS the scroll and the
-      // row stops short — still underneath the pad. Measured 2026-08-19 on
-      // Send plan with a short exercise list: asked to scroll to 1097, max was
-      // 1028 without the padding, so the row ended 25px behind the pad.
-      // Re-measure once the room really exists and top up only if the row is
-      // still covered (positive delta) — never yank a row that's already clear.
-      setTimeout(() => {
-        const remaining = measureDelta();
-        if (remaining > 0) scrollParent.scrollBy({ top: remaining, behavior: 'smooth' });
-        setTimeout(settle, 400);
-      }, 380);
-    });
+    scrollFieldClearOfPad(e.currentTarget);
   };
 
   return (

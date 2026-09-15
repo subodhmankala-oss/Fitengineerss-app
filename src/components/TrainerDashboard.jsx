@@ -33,7 +33,7 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/CoachTourContext';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
-import SetValueField from './SetValueField';
+import SetValueField, { scrollFieldClearOfPad } from './SetValueField';
 import CoachProfile from './CoachProfile';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 
@@ -7394,7 +7394,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                   role="button"
                                                   tabIndex={0}
                                                   title="Tap to add weight"
-                                                  onClick={() => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                                  onClick={(e) => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
                                                 >
                                                   BW <span className="bw-hint-icon">⇄</span>
                                                 </div>
@@ -7477,7 +7477,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                   role="button"
                                                   tabIndex={0}
                                                   title="Tap to add weight"
-                                                  onClick={() => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                                  onClick={(e) => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
                                                 >
                                                   BW <span className="bw-hint-icon">⇄</span>
                                                 </div>
@@ -8252,7 +8252,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           role="button"
                                           tabIndex={0}
                                           title="Tap to add weight"
-                                          onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                          onClick={(e) => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
                                         >
                                           BW <span className="bw-hint-icon">⇄</span>
                                         </div>
@@ -8320,7 +8320,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             role="button"
                                             tabIndex={0}
                                             title="Tap to add weight"
-                                            onClick={() => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); }}
+                                            onClick={(e) => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
                                           >
                                             BW <span className="bw-hint-icon">⇄</span>
                                           </div>

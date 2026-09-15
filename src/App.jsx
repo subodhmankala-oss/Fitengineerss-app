@@ -592,6 +592,15 @@ function App() {
         // these keys depending on provider/version. Persisted onto the users
         // row below so it survives across devices, not just this browser.
         const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+        // How this session was actually authenticated. Every
+        // saveQuickLoginAccount() call below used to hardcode 'google', but
+        // this handler runs for EVERY resolved session, not just OAuth ones —
+        // so an email/password client got remembered as a Google account.
+        // Tapping "Log in as X" on the next visit then launched a Google sign-in
+        // for an account with no Google identity at all, stranding them on
+        // Google's account chooser (reported 2026-09-15 for a client who had
+        // only ever logged in with a password).
+        const sessionLoginMethod = user.app_metadata?.provider === 'google' ? 'google' : 'email';
         if (googleAvatarUrl) {
           localStorage.setItem('userAvatarUrl', googleAvatarUrl);
           databaseService.updateUserAvatarUrl(email, googleAvatarUrl).catch(() => {});
@@ -749,7 +758,7 @@ function App() {
               email,
               name: profile?.userName || googleName || 'Coach',
               role: profile?.role || (email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'),
-              loginMethod: 'google',
+              loginMethod: sessionLoginMethod,
               avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
             });
             return;
@@ -817,7 +826,7 @@ function App() {
                   email,
                   name: autoProfile?.userName || googleName || 'Coach',
                   role: 'coach',
-                  loginMethod: 'google',
+                  loginMethod: sessionLoginMethod,
                   avatarUrl: googleAvatarUrl || autoProfile?.userAvatarUrl || null
                 });
                 return;
@@ -926,7 +935,7 @@ function App() {
           setOnboardingComplete(true);
           saveQuickLoginAccount({
             email,
-            loginMethod: 'google',
+            loginMethod: sessionLoginMethod,
             avatarUrl: googleAvatarUrl || clientProfile?.userAvatarUrl || null
           });
           // Show wizard if onboarding_completed is false (new client)
@@ -971,7 +980,7 @@ function App() {
           setOnboardingComplete(true);
           saveQuickLoginAccount({
             email,
-            loginMethod: 'google',
+            loginMethod: sessionLoginMethod,
             avatarUrl: googleAvatarUrl || profile?.userAvatarUrl || null
           });
         } else {

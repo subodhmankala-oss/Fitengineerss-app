@@ -1,0 +1,114 @@
+.notif-prompt-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  margin-bottom: 14px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  animation: np-slide-in 0.25s ease;
+}
+
+@keyframes np-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.np-icon {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.np-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.np-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.35;
+  margin-bottom: 3px;
+}
+
+.np-message {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted, #a7f3d0);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.np-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.np-enable {
+  background: var(--primary-accent, #10b981);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.np-enable:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.np-later {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted, #9ca3af);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.np-later:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.np-later:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.np-dismiss {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.np-dismiss:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.np-dismiss:disabled {
+  opacity: 0.7;
+  cursor: default;
+}

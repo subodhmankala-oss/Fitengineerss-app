@@ -21,7 +21,7 @@ const rowStyle = {
 };
 const labelStyle = { fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 };
 const selectStyle = {
-  background: 'transparent', border: 'none', color: 'var(--primary-accent-light)',
+  background: 'transparent', border: 'none', color: 'var(--accent-text)',
   fontSize: '0.85rem', fontWeight: 600, padding: 0, outline: 'none', cursor: 'pointer'
 };
 
@@ -144,7 +144,7 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
                     fontSize: '0.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
                     border: otherMuscles.includes(m) ? '1px solid rgba(var(--accent-rgb), 0.5)' : '1px solid var(--border-color)',
                     background: otherMuscles.includes(m) ? 'rgba(var(--accent-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.03)',
-                    color: otherMuscles.includes(m) ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                    color: otherMuscles.includes(m) ? 'var(--accent-text)' : 'var(--text-muted)'
                   }}
                 >{m}</button>
               ))}

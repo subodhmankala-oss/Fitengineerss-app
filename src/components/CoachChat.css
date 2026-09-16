@@ -50,7 +50,7 @@
 }
 
 .coach-info p {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-size: 0.9rem;
   font-weight: 600;
   margin: 0;

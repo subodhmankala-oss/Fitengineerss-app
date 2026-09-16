@@ -100,7 +100,7 @@
 
 /* Specific ring colors with matching neon glow shadows */
 .calorie-radial {
-  stroke: var(--primary-accent-light);
+  stroke: var(--accent-text);
   filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.4));
 }
 
@@ -193,7 +193,7 @@
 }
 
 .math-operand .math-stat.highlight-eaten {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .math-operand .math-stat.highlight-remaining.deficit {

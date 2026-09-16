@@ -3994,7 +3994,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 borderRadius: '10px',
                 border: 'none',
                 background: viewMode === 'coach' ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
-                color: viewMode === 'coach' ? 'var(--primary-accent-light)' : 'rgba(148,163,184,0.55)',
+                color: viewMode === 'coach' ? 'var(--accent-text)' : 'rgba(148,163,184,0.55)',
                 fontSize: '0.88rem',
                 fontWeight: 800,
                 cursor: 'pointer',
@@ -4068,7 +4068,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: viewMode === 'payments' ? 'rgba(var(--accent-rgb), 0.22)' : 'rgba(var(--fg-rgb), 0.06)',
                 border: viewMode === 'payments' ? '1px solid rgba(var(--accent-rgb), 0.4)' : '1px solid rgba(var(--fg-rgb), 0.12)',
-                color: viewMode === 'payments' ? 'var(--primary-accent-light)' : 'var(--text-main)',
+                color: viewMode === 'payments' ? 'var(--accent-text)' : 'var(--text-main)',
                 borderRadius: '50%', padding: '8px',
                 cursor: 'pointer'
               }}
@@ -4084,7 +4084,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: notifOn ? 'rgba(var(--accent-rgb), 0.22)' : 'rgba(var(--fg-rgb), 0.06)',
                 border: notifOn ? '1px solid rgba(var(--accent-rgb), 0.4)' : '1px solid rgba(var(--fg-rgb), 0.12)',
-                color: notifOn ? 'var(--primary-accent-light)' : 'var(--text-main)',
+                color: notifOn ? 'var(--accent-text)' : 'var(--text-main)',
                 boxShadow: notifOn ? '0 4px 14px rgba(var(--accent-rgb), 0.35)' : 'none',
                 borderRadius: '50%', padding: '8px',
                 cursor: 'pointer'
@@ -4365,7 +4365,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{client.email}</div>
                         </div>
                         <span style={{
-                          fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-accent-light)',
+                          fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)',
                           background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)',
                           borderRadius: '12px', padding: '3px 10px'
                         }}>
@@ -4572,7 +4572,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       onClick={() => handleUnpauseClient(p.clientId)}
                       style={{
                         flexShrink: 0, background: 'rgba(var(--accent-rgb), 0.14)', border: 'none', borderRadius: '8px',
-                        color: 'var(--primary-accent-light)', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 700,
+                        color: 'var(--accent-text)', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 700,
                         cursor: unpausingClientId === p.clientId ? 'default' : 'pointer',
                         opacity: unpausingClientId === p.clientId ? 0.6 : 1
                       }}
@@ -4643,7 +4643,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   style={{
                     flex: 1, padding: '9px 6px', borderRadius: '8px', border: 'none',
                     background: paymentFormMethod === m.id ? 'rgba(var(--accent-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
-                    color: paymentFormMethod === m.id ? 'var(--primary-accent-light)' : 'rgba(226,232,240,0.75)',
+                    color: paymentFormMethod === m.id ? 'var(--accent-text)' : 'rgba(226,232,240,0.75)',
                     fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
                   }}
                 >
@@ -4691,7 +4691,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   label: 'Total collection',
                   value: `₹${paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString()}`,
                   sub: `${paymentsList.length} ${paymentsList.length === 1 ? 'payment' : 'payments'}`,
-                  color: 'var(--primary-accent-light)', bg: 'rgba(var(--accent-rgb), 0.15)',
+                  color: 'var(--accent-text)', bg: 'rgba(var(--accent-rgb), 0.15)',
                   icon: <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z M3 10h18" />
                 },
                 {
@@ -4797,7 +4797,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
                           background: 'none', border: 'none', borderRadius: '7px', padding: '9px 10px', cursor: 'pointer',
-                          color: row.key === selectedPaymentMonth ? 'var(--primary-accent-light)' : 'var(--text-main)',
+                          color: row.key === selectedPaymentMonth ? 'var(--accent-text)' : 'var(--text-main)',
                           fontWeight: row.key === selectedPaymentMonth ? 700 : 500, fontSize: '0.85rem', font: 'inherit'
                         }}
                       >
@@ -4832,7 +4832,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '999px',
                     fontSize: '0.74rem', fontWeight: 700, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap',
                     background: selectedMonthData.diff > 0 ? 'rgba(var(--accent-rgb), 0.14)' : selectedMonthData.diff < 0 ? 'rgba(248,113,113,0.14)' : 'rgba(148,163,184,0.14)',
-                    color: selectedMonthData.diff > 0 ? 'var(--primary-accent-light)' : selectedMonthData.diff < 0 ? 'var(--tint-red)' : 'var(--text-muted)'
+                    color: selectedMonthData.diff > 0 ? 'var(--accent-text)' : selectedMonthData.diff < 0 ? 'var(--tint-red)' : 'var(--text-muted)'
                   }}>
                     <span>{selectedMonthData.diff > 0 ? '▲' : selectedMonthData.diff < 0 ? '▼' : '—'}</span>
                     <span>₹{Math.abs(selectedMonthData.diff).toLocaleString()}</span>
@@ -4876,7 +4876,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <g key={m.key} onClick={() => setSelectedPaymentMonth(m.key)} style={{ cursor: 'pointer' }}>
                               <rect x={x} y={0} width={barW} height={H} fill="transparent" />
                               <rect x={x} y={y} width={barW} height={Math.max(barH, 1)} rx="1"
-                                fill={isSelected ? 'var(--primary-accent-light)' : 'rgba(var(--accent-rgb), 0.38)'} />
+                                fill={isSelected ? 'var(--accent-text)' : 'rgba(var(--accent-rgb), 0.38)'} />
                               <text x={x + barW / 2} y={H - 1.5} textAnchor="middle" fontSize="3.6" fill="var(--text-muted)">
                                 {m.label.split(' ')[0].slice(0, 3)}
                               </text>
@@ -4952,7 +4952,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           style={{
                             flex: 1, padding: '7px 4px', borderRadius: '7px', border: 'none',
                             background: editPaymentMethod === m.id ? 'rgba(var(--accent-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
-                            color: editPaymentMethod === m.id ? 'var(--primary-accent-light)' : 'rgba(226,232,240,0.75)',
+                            color: editPaymentMethod === m.id ? 'var(--accent-text)' : 'rgba(226,232,240,0.75)',
                             fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
                           }}
                         >
@@ -5010,7 +5010,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: 'var(--primary-accent-light)', fontWeight: 800, fontSize: '0.95rem' }}>₹{p.amount.toLocaleString()}</span>
+                      <span style={{ color: 'var(--accent-text)', fontWeight: 800, fontSize: '0.95rem' }}>₹{p.amount.toLocaleString()}</span>
                       <button
                         type="button"
                         onClick={() => startEditingPayment(p)}
@@ -5560,7 +5560,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Active Code:</span>
                       <strong style={{
                         fontSize: '1.25rem',
-                        color: 'var(--primary-accent-light)',
+                        color: 'var(--accent-text)',
                         letterSpacing: '0.1em',
                         background: 'rgba(59, 130, 246, 0.1)',
                         padding: '2px 8px',
@@ -5720,7 +5720,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 <span style={{
                                   display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
                                   fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
-                                  background: 'rgba(var(--accent-rgb), 0.14)', color: 'var(--primary-accent-light)',
+                                  background: 'rgba(var(--accent-rgb), 0.14)', color: 'var(--accent-text)',
                                   border: '1px solid rgba(var(--accent-rgb), 0.25)', marginTop: '2px'
                                 }}>
                                   Sample · Tour
@@ -5768,7 +5768,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
                                     fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
                                     background: client.coach_id ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                                    color: client.coach_id ? 'var(--primary-accent-light)' : 'var(--text-muted)',
+                                    color: client.coach_id ? 'var(--accent-text)' : 'var(--text-muted)',
                                     border: `1px solid ${client.coach_id ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(148, 163, 184, 0.2)'}`
                                   }}>
                                     {client.coach_id ? 'Attached' : 'Generic'}
@@ -5870,7 +5870,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'var(--primary-accent-light)',
+                    color: 'var(--accent-text)',
                     cursor: 'pointer',
                     fontWeight: 700,
                     padding: 0,
@@ -5916,7 +5916,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <div className="client-metrics-grid">
                 <div className="metric-mini-card">
                   <div className="metric-mini-label">Fitness Goal</div>
-                  <div className="metric-mini-value" style={{ fontSize: '0.8rem', color: 'var(--primary-accent-light)' }}>
+                  <div className="metric-mini-value" style={{ fontSize: '0.8rem', color: 'var(--accent-text)' }}>
                     {selectedClient.userGoal || 'Not set'}
                   </div>
                 </div>
@@ -6284,7 +6284,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     alignItems: 'center',
                     gap: '2px',
                     borderBottom: detailTab === 'plans' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'plans' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                    color: detailTab === 'plans' ? 'var(--accent-text)' : 'var(--text-muted)'
                   }}
                   onClick={() => { handleTabChange('plans'); coachTour.advanceIfStep(2, 3); }}
                 >
@@ -6328,7 +6328,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     alignItems: 'center',
                     gap: '2px',
                     borderBottom: detailTab === 'workout' ? '2px solid var(--primary-accent-light)' : 'none',
-                    color: detailTab === 'workout' ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                    color: detailTab === 'workout' ? 'var(--accent-text)' : 'var(--text-muted)'
                   }}
                   onClick={() => handleTabChange('workout')}
                 >
@@ -6591,7 +6591,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               request 2026-08-14 (was date+name on top, stats on the
                               right of that same row). */}
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.74rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--accent-text)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.sets} sets
                             </span>
                             <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
@@ -6612,7 +6612,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <span style={{ fontSize: '0.92rem', color: 'var(--text-main)', fontWeight: 700 }}>
                               📋 {session.planName || 'Custom Routine'}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: today ? 'var(--primary-accent-light)' : 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: today ? 'var(--accent-text)' : 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
                               📅 {dateLabel}{today ? ' · Today' : ''}
                             </span>
                           </div>
@@ -6649,7 +6649,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 )}
                                 <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill={val > 0 ? 'url(#coachEmeraldGradient)' : 'rgba(var(--fg-rgb), 0.03)'} className="chart-bar" />
                                 {val > 0 && (
-                                  <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="var(--primary-accent-light)" fontSize="10.5" fontWeight="800">{val}</text>
+                                  <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="var(--accent-text)" fontSize="10.5" fontWeight="800">{val}</text>
                                 )}
                                 <text x={x + barWidth / 2} y="115" textAnchor="middle" fill={val > 0 ? 'var(--text-main)' : 'var(--text-muted)'} fontSize="10.5" fontWeight="600">{day}</text>
                               </g>
@@ -6694,13 +6694,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.08)" strokeWidth="1.5" />
                           {values.some(v => v > 0) && <path d={areaD} fill="url(#coachAreaGradient)" />}
                           {values.some(v => v > 0) ? (
-                            <path d={pathD} fill="none" stroke="var(--primary-accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d={pathD} fill="none" stroke="var(--accent-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           ) : (
                             <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
                           )}
                           {activeNodes.map((node) => {
                             const origIdx = history.findIndex(h => h.date === node.date);
-                            return <circle key={node.date} cx={getX(origIdx)} cy={getY(node.volume)} r="4" fill="var(--primary-accent-light)" stroke="var(--bg-card)" strokeWidth="1" />;
+                            return <circle key={node.date} cx={getX(origIdx)} cy={getY(node.volume)} r="4" fill="var(--accent-text)" stroke="var(--bg-card)" strokeWidth="1" />;
                           })}
                         </svg>
                       );
@@ -7226,7 +7226,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   cursor: assigningAiDraft ? 'default' : 'pointer',
                                   border: idx === activeAiDraftDayIndex ? '1px solid rgba(var(--accent-rgb), 0.5)' : '1px solid var(--border-color)',
                                   background: idx === activeAiDraftDayIndex ? 'rgba(var(--accent-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.03)',
-                                  color: idx === activeAiDraftDayIndex ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                                  color: idx === activeAiDraftDayIndex ? 'var(--accent-text)' : 'var(--text-muted)'
                                 }}
                               >
                                 {day.dayLabel}{day.focus ? ` · ${day.focus}` : ''}
@@ -7298,7 +7298,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <button
                               type="button"
                               onClick={() => setShowClientPickerModal(true)}
-                              style={{ fontSize: '0.75rem', fontWeight: 700, background: 'rgba(var(--accent-rgb), 0.08)', border: '1px dashed rgba(var(--accent-rgb), 0.35)', color: 'var(--primary-accent-light)', borderRadius: '20px', padding: '4px 10px', cursor: 'pointer' }}
+                              style={{ fontSize: '0.75rem', fontWeight: 700, background: 'rgba(var(--accent-rgb), 0.08)', border: '1px dashed rgba(var(--accent-rgb), 0.35)', color: 'var(--accent-text)', borderRadius: '20px', padding: '4px 10px', cursor: 'pointer' }}
                             >
                               + Add clients
                             </button>
@@ -7312,7 +7312,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       )}
 
                       {restoredPlanDraft && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', marginBottom: '12px', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', color: 'var(--primary-accent-light)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', marginBottom: '12px', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', color: 'var(--accent-text)' }}>
                           <span>↩️ Restored your unsaved exercises from before the page refreshed.</span>
                           <button
                             type="button"
@@ -7756,7 +7756,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         <button
                           type="button"
                           onClick={() => setShowCreatePlanChoice(true)}
-                          style={{ padding: '8px 12px', background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--primary-accent-light)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+                          style={{ padding: '8px 12px', background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--accent-text)', fontSize: '0.8rem', fontWeight: 700, borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
                         >
                           ➕ Create Workout Plan
                         </button>
@@ -7831,7 +7831,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             setHistoryDateStr(completedSession.date);
                                             setHistoryTimeframe('daily');
                                           }}
-                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--primary-accent-light)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--accent-text)', fontSize: '0.8rem', cursor: 'pointer' }}
                                         >
                                           More details →
                                         </button>
@@ -8997,7 +8997,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <button
                 type="button"
                 onClick={() => { setShowCreatePlanChoice(false); setShowAIBuilder(true); }}
-                style={{ padding: '14px', textAlign: 'left', background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.3)', borderRadius: 'var(--radius-md)', color: 'var(--primary-accent-light)', cursor: 'pointer' }}
+                style={{ padding: '14px', textAlign: 'left', background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.3)', borderRadius: 'var(--radius-md)', color: 'var(--accent-text)', cursor: 'pointer' }}
               >
                 <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '2px' }}>✨ Create Draft with AI</strong>
                 <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Generate a starting point from the client's profile — you review and edit everything before it's assigned.</span>

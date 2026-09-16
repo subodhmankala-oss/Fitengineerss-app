@@ -432,7 +432,7 @@
 
 .trainer-subtitle {
   font-size: 0.8rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -621,7 +621,7 @@
 }
 
 .client-card:hover .client-card-chevron svg {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   transform: translateX(2px);
 }
 
@@ -648,7 +648,7 @@
 
 .back-btn-trainer:hover {
   background: rgba(var(--fg-rgb), 0.08);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .client-detail-header-info h4 {
@@ -695,7 +695,7 @@
 /* Workout History Sections */
 .history-section-title {
   font-size: 0.85rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -786,7 +786,7 @@
 .exercise-log-name::before {
   content: '⚡';
   font-size: 0.8rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* Reps & Weight sets table */
@@ -931,7 +931,7 @@
   box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.15);
 }
 .dashboard-breadcrumb button:hover {
-  color: var(--primary-accent) !important;
+  color: var(--accent-text) !important;
   text-decoration: underline;
 }
 
@@ -1243,7 +1243,7 @@
 
 .wsum-timeframe-btn.active {
   background: var(--bg-card);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(var(--fg-rgb), 0.02);
 }

@@ -3008,7 +3008,7 @@ const WorkoutTracker = () => {
                       <path 
                         d={pathPoints} 
                         fill="none" 
-                        stroke={chartMetric === 'weight' ? '#3b82f6' : 'var(--primary-accent-light)'}
+                        stroke={chartMetric === 'weight' ? '#3b82f6' : 'var(--accent-text)'}
                         strokeWidth="3" 
                         strokeLinecap="round" 
                         strokeLinejoin="round" 
@@ -3092,7 +3092,7 @@ const WorkoutTracker = () => {
                             cx={px}
                             cy={py}
                             r={active ? "6" : "4"}
-                            fill={chartMetric === 'weight' ? '#3b82f6' : 'var(--primary-accent-light)'}
+                            fill={chartMetric === 'weight' ? '#3b82f6' : 'var(--accent-text)'}
                             stroke="#090e17"
                             strokeWidth={active ? "2" : "1.5"}
                             style={{ transition: 'all 0.2s ease-in-out' }}
@@ -3811,7 +3811,7 @@ const WorkoutTracker = () => {
                             }}
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
-                              color: ex.sets.every(s => s.isCompleted) ? 'var(--primary-accent-light)' : 'rgba(148,163,184,0.5)',
+                              color: ex.sets.every(s => s.isCompleted) ? 'var(--accent-text)' : 'rgba(148,163,184,0.5)',
                               fontSize: '0.85rem', padding: '2px 4px', lineHeight: 1
                             }}
                           >✓ all</button>

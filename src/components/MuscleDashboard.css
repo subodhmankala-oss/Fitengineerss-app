@@ -278,7 +278,7 @@
 }
 
 .text-emerald {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.15);
 }
 
@@ -688,7 +688,7 @@
 }
 
 .water-target-label {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .water-action-btn.limit-reached {
@@ -758,7 +758,7 @@
 .wearable-badge {
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.08);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
   padding: 2px 6px;
@@ -770,7 +770,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 0.65rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   margin-top: 4px;
   font-weight: 500;
   opacity: 0.9;

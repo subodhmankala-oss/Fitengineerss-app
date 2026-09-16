@@ -107,7 +107,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
           borderRadius: 0, padding: '12px 14px', marginBottom: '4px'
         }}
       >
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>🌱 New here? Let's get you started</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>🌱 New here? Let's get you started</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '10px' }}>
           Where will you be training?
         </div>
@@ -118,7 +118,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
               onClick={() => startProgram(userId, onNavigateToWorkouts, 'gym', 'beginner', gymFirst)}
               style={{
                 flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: 'var(--primary-accent-light)', fontSize: '0.78rem',
+                borderRadius: '8px', padding: '8px 10px', color: 'var(--accent-text)', fontSize: '0.78rem',
                 fontWeight: 700, cursor: 'pointer'
               }}
             >
@@ -131,7 +131,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
               onClick={() => startProgram(userId, onNavigateToWorkouts, 'home', 'beginner', homeFirst)}
               style={{
                 flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: 'var(--primary-accent-light)', fontSize: '0.78rem',
+                borderRadius: '8px', padding: '8px 10px', color: 'var(--accent-text)', fontSize: '0.78rem',
                 fontWeight: 700, cursor: 'pointer'
               }}
             >
@@ -175,10 +175,10 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>{title}</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{body}</div>
       </div>
-      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary-accent-light)', whiteSpace: 'nowrap', flexShrink: 0 }}>Go →</span>
+      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap', flexShrink: 0 }}>Go →</span>
     </div>
   );
 }

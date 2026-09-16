@@ -89,7 +89,7 @@
 
 .timeframe-btn.active {
   background: var(--bg-card);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(var(--fg-rgb), 0.02);
 }
@@ -165,7 +165,7 @@
 
 /* Color definitions */
 .text-emerald {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .text-blue {
@@ -197,7 +197,7 @@
 .trend-badge {
   font-size: 0.76rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.08);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
@@ -269,7 +269,7 @@
 }
 
 .heatmap-cell.active .cell-num {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
 }
 
@@ -286,7 +286,7 @@
 
 .cell-dot {
   font-size: 0.45rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   line-height: 1;
   margin-top: 1px;
 }

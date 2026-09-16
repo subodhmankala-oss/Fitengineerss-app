@@ -21,7 +21,7 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   margin-bottom: 6px;
 }
 
@@ -104,7 +104,7 @@
 .wb-progress-pct {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .wb-journey-copy {
@@ -196,7 +196,7 @@
 }
 
 .wb-mood-btn.active .wb-mood-label {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .wb-note-input {
@@ -268,7 +268,7 @@
 .wb-link-btn {
   background: none;
   border: none;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 700;
   font-size: 0.78rem;
   cursor: pointer;
@@ -309,7 +309,7 @@
   display: inline-block;
   font-size: 0.85rem;
   font-weight: 800;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 @media (min-width: 640px) {

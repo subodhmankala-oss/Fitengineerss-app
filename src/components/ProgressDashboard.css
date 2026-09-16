@@ -126,7 +126,7 @@
 .tab-btn.active {
   background: rgba(var(--accent-rgb), 0.1);
   border-color: var(--primary-accent-light);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.15);
 }
 
@@ -152,7 +152,7 @@
 .badge-trend {
   font-size: 0.72rem;
   background: rgba(var(--accent-rgb), 0.1);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   font-weight: 700;
@@ -179,7 +179,7 @@
 }
 
 .highlight-text {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
   font-size: 0.9rem;
 }
@@ -237,7 +237,7 @@
 }
 
 .text-emerald {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* Circular Chart progress styling */
@@ -264,7 +264,7 @@
   fill: none;
   stroke-width: 3.5;
   stroke-linecap: round;
-  stroke: var(--primary-accent-light);
+  stroke: var(--accent-text);
   transition: stroke-dasharray 0.5s ease;
 }
 

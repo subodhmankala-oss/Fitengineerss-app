@@ -651,7 +651,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               />
               {/* Value Label */}
               {val > 0 && (
-                <text x={x + barWidth/2} y={y - 6} textAnchor="middle" fill="var(--primary-accent-light)" fontSize="10.5" fontWeight="800">
+                <text x={x + barWidth/2} y={y - 6} textAnchor="middle" fill="var(--accent-text)" fontSize="10.5" fontWeight="800">
                   {val}
                 </text>
               )}
@@ -726,7 +726,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
 
         {/* Line */}
         {values.some(v => v > 0) ? (
-          <path d={pathD} fill="none" stroke="var(--primary-accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={pathD} fill="none" stroke="var(--accent-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         ) : (
           <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
         )}
@@ -738,7 +738,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           const y = getY(node.volume);
           return (
             <g key={node.date} className="node-group">
-              <circle cx={x} cy={y} r="4" fill="var(--primary-accent-light)" stroke="var(--bg-card)" strokeWidth="1" />
+              <circle cx={x} cy={y} r="4" fill="var(--accent-text)" stroke="var(--bg-card)" strokeWidth="1" />
             </g>
           );
         })}
@@ -1069,7 +1069,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {totalSessionsDone} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
               </h3>
-              <span style={{ fontSize: '0.85rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--accent-text)', fontWeight: 700 }}>
                 {percentComplete}% Completed
               </span>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
@@ -1274,7 +1274,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                               request 2026-08-14 (was date+name on top, stats on the
                               right of that same row). */}
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.74rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--accent-text)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.sets} sets
                             </span>
                             <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
@@ -1295,7 +1295,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                             <span style={{ fontSize: '0.92rem', color: 'var(--text-main)', fontWeight: 700 }}>
                               📋 {session.planName || 'Custom Routine'}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: isToday(day) ? 'var(--primary-accent-light)' : 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: isToday(day) ? 'var(--accent-text)' : 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
                               📅 {dateLabel}{isToday(day) ? ' · Today' : ''}
                             </span>
                           </div>
@@ -1589,7 +1589,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                                 below it — reordered per request 2026-08-14, matching
                                 the Weekly tab's session cards (renderSessionCard). */}
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '0.68rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--accent-text)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.sets} sets
                               </span>
                               <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>

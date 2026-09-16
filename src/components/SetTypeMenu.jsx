@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 // the coach Workout Plan editor, the coach Live Log, and the client Log Sets logger.
 export const SET_TYPE_OPTIONS = [
   { type: 'warmup',   badge: 'W', label: 'Warm Up Set',  desc: 'Light prep — not counted toward progress', color: '#f59e0b' },
-  { type: 'normal',   badge: '1', label: 'Normal Set',   desc: 'Standard working set',                     color: 'var(--primary-accent-light)' },
+  { type: 'normal',   badge: '1', label: 'Normal Set',   desc: 'Standard working set',                     color: 'var(--accent-text)' },
   { type: 'failure',  badge: 'F', label: 'Failure Set',  desc: 'Pushed to muscular failure',               color: '#ef4444' },
   { type: 'drop',     badge: 'D', label: 'Drop Set',     desc: 'Drop the weight, keep repping',            color: '#8b5cf6' },
   { type: 'superset', badge: 'S', label: 'Superset',     desc: 'Paired back-to-back with another exercise',color: '#3b82f6' },

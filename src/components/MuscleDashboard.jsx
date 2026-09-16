@@ -376,7 +376,7 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
             onClick={handleNotificationToggle} 
             title={isAlertActive ? "Coaching Alerts Active 🟢" : "Turn On Coaching Alerts 🟡"}
             style={{
-              color: isAlertActive ? 'var(--primary-accent-light)' : 'var(--tint-amber)',
+              color: isAlertActive ? 'var(--accent-text)' : 'var(--tint-amber)',
               borderColor: isAlertActive ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(251, 191, 36, 0.35)',
               background: isAlertActive ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(251, 191, 36, 0.08)',
               boxShadow: isAlertActive ? '0 0 10px rgba(var(--accent-rgb), 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
@@ -391,8 +391,8 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
                 width="18" 
                 height="18" 
                 viewBox="0 0 24 24" 
-                fill={isAlertActive ? "var(--primary-accent-light)" : "none"} 
-                stroke={isAlertActive ? "var(--primary-accent-light)" : "#fbbf24"} 
+                fill={isAlertActive ? "var(--accent-text)" : "none"} 
+                stroke={isAlertActive ? "var(--accent-text)" : "#fbbf24"} 
                 strokeWidth="2.5" 
                 strokeLinecap="round" 
                 strokeLinejoin="round"

@@ -233,7 +233,7 @@ const ProgressDashboard = () => {
                 <path 
                   d={pathD} 
                   fill="none" 
-                  stroke="var(--primary-accent-light)" 
+                  stroke="var(--accent-text)" 
                   strokeWidth="3" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
@@ -255,7 +255,7 @@ const ProgressDashboard = () => {
                   cx={getX(selectedDayIndex)} 
                   cy={getY(selectedDayData.val)} 
                   r="6" 
-                  fill="var(--primary-accent-light)" 
+                  fill="var(--accent-text)" 
                   stroke="#090e17" 
                   strokeWidth="2" 
                 />

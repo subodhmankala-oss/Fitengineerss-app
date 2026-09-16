@@ -456,7 +456,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                   <span className="cp-row-label">{label}</span>
                   <span className="cp-row-right">
                     {themePreference === val && (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent-light)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     )}

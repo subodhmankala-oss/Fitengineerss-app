@@ -293,7 +293,7 @@
   width: fit-content;
 }
 
-.trend-up { color: var(--primary-accent-light); }
+.trend-up { color: var(--accent-text); }
 .trend-down { color: #ef4444; }
 .trend-flat { color: var(--text-muted); }
 
@@ -316,7 +316,7 @@
 }
 
 .recommendation-bullet {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
   flex-shrink: 0;
 }
@@ -510,7 +510,7 @@
 
 .heatmap-view-toggle button.active {
   background: var(--bg-card);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .muscle-body-wrapper {
@@ -878,7 +878,7 @@
 .detail-growth-score-value {
   font-size: 1.8rem;
   font-weight: 800;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   letter-spacing: -0.02em;
 }
 

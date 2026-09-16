@@ -30,7 +30,7 @@
 
 .status-label {
   font-size: 1.5rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   margin-bottom: 40px;
   font-weight: 700;
   min-height: 2.5rem;

@@ -28,7 +28,7 @@ export default function AdminClientsList({
     return acc;
   }, {});
   const summaryTiles = [
-    { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: 'var(--primary-accent-light)', bg: 'rgba(var(--accent-rgb), 0.08)', border: 'rgba(var(--accent-rgb), 0.2)' },
+    { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: 'var(--accent-text)', bg: 'rgba(var(--accent-rgb), 0.08)', border: 'rgba(var(--accent-rgb), 0.2)' },
     { key: 'inactive-mid', label: '1–5 days inactive', count: activityCounts['inactive-mid'] || 0, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
     { key: 'inactive-long', label: '6+ days inactive', count: activityCounts['inactive-long'] || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' },
     { key: 'never', label: 'Never logged in', count: activityCounts.never || 0, color: 'var(--text-muted)', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)' }
@@ -111,7 +111,7 @@ export default function AdminClientsList({
                           <span style={{
                             background: 'rgba(var(--accent-rgb), 0.08)',
                             border: '1px solid rgba(var(--accent-rgb), 0.15)',
-                            color: 'var(--primary-accent-light)',
+                            color: 'var(--accent-text)',
                             padding: '1px 5px',
                             borderRadius: '4px',
                             fontSize: '0.62rem',

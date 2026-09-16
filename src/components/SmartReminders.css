@@ -87,7 +87,7 @@
 
 .glasses-plus {
   font-size: 0.85rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -376,7 +376,7 @@
 }
 
 .broadcast-card.afternoon .card-header {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .broadcast-card.night .card-header {

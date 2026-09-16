@@ -459,7 +459,7 @@
 }
 
 .progressive-overload-alert.success .alert-badge {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .progressive-overload-alert p {
@@ -536,7 +536,7 @@
 .detail-header .badge {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.08);
   border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 4px 10px;
@@ -775,7 +775,7 @@
 .btn-secondary-sm {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.06);
   border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 6px 12px;
@@ -1120,12 +1120,12 @@
 }
 
 .skill-level-label-item.active {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
 }
 
 .skill-level-label-item.active em {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   opacity: 0.85;
 }
 
@@ -1225,7 +1225,7 @@
 }
 
 .text-emerald {
-  color: var(--primary-accent-light) !important;
+  color: var(--accent-text) !important;
 }
 
 .text-warn {
@@ -1356,7 +1356,7 @@
 }
 
 .active-program-card .difficulty-badge {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.08);
   border-color: rgba(var(--accent-rgb), 0.2);
 }
@@ -1374,7 +1374,7 @@
 .active-program-card .sessions-indicator {
   background: rgba(var(--accent-rgb), 0.1);
   border-color: rgba(var(--accent-rgb), 0.2);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .program-desc {
@@ -1420,7 +1420,7 @@
 
 .btn-select-program-action.disabled {
   background: rgba(var(--accent-rgb), 0.15) !important;
-  color: var(--primary-accent-light) !important;
+  color: var(--accent-text) !important;
   border: 1px solid rgba(var(--accent-rgb), 0.25) !important;
   cursor: not-allowed;
   pointer-events: none;
@@ -1583,7 +1583,7 @@
 .secure-badge {
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   letter-spacing: 0.05em;
   background: rgba(var(--accent-rgb), 0.08);
   padding: 2px 8px;
@@ -1676,7 +1676,7 @@
 }
 
 .invoice-row.total-row strong {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
   text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35);
 }
@@ -2030,7 +2030,7 @@
 
 .ex-name-clickable:hover,
 .ex-name-clickable:focus-visible {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   text-decoration: underline;
   text-decoration-color: rgba(var(--accent-rgb), 0.4);
   text-underline-offset: 3px;
@@ -2083,12 +2083,12 @@
 
 .btn-drag-handle:hover {
   background: rgba(var(--accent-rgb), 0.08);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .btn-drag-handle:active {
   cursor: grabbing;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.12);
 }
 
@@ -2748,7 +2748,7 @@
 }
 
 .hevy-set-row.set-row-completed .set-num-lbl {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .hevy-set-row.set-row-completed .set-prev-lbl {
@@ -2910,7 +2910,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .rest-timer-big-time {
   font-size: 2rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-family: 'Courier New', Courier, monospace;
   font-weight: 800;
   line-height: 1;
@@ -2918,7 +2918,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .rest-timer-finished-msg {
   font-size: 0.95rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .rest-timer-actions {
@@ -3320,7 +3320,7 @@ html.keyboard-open .rest-timer-floating-card {
 .btn-add-preset-action.added {
   background: rgba(var(--accent-rgb), 0.1);
   border: 1px solid rgba(var(--accent-rgb), 0.25);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   /* Tapping an added item removes it again (toggle), so keep it clickable. */
   cursor: pointer;
 }
@@ -3875,7 +3875,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .guide-tab-btn--active {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   border-bottom-color: var(--primary-accent-light);
 }
 
@@ -3957,7 +3957,7 @@ html.keyboard-open .rest-timer-floating-card {
   height: 28px;
   border-radius: 50%;
   background: rgba(var(--accent-rgb), 0.15);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 800;
   display: flex;
@@ -4137,7 +4137,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-row-stats strong {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -4146,7 +4146,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-delta--up {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .ex-history-delta--down {
@@ -4233,7 +4233,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-color: rgba(var(--accent-rgb), 0.35);
   background: rgba(var(--accent-rgb), 0.07);
 }
-.ex-history-status-card--success .ex-history-status-label { color: var(--primary-accent-light); }
+.ex-history-status-card--success .ex-history-status-label { color: var(--accent-text); }
 
 .ex-history-status-card--warning {
   border-color: rgba(234, 179, 8, 0.35);
@@ -4305,7 +4305,7 @@ html.keyboard-open .rest-timer-floating-card {
 .ex-history-rec-cat {
   font-size: 0.66rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.12);
   padding: 3px 8px;
   border-radius: 20px;
@@ -4514,7 +4514,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-category-btn.active {
   background: rgba(139, 92, 246, 0.14);
-  color: var(--primary-accent-light, var(--tint-violet));
+  color: var(--accent-text);
 }
 
 .wt-level-tabs {
@@ -4548,7 +4548,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-level-tab.active.wt-level-tab--beginner {
   background: rgba(var(--accent-rgb), 0.12);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .wt-level-tab.active.wt-level-tab--intermediate {
@@ -4621,7 +4621,7 @@ html.keyboard-open .rest-timer-floating-card {
   white-space: nowrap;
 }
 
-.wt-program-tile--beginner .wt-program-tile-accent { color: var(--primary-accent); }
+.wt-program-tile--beginner .wt-program-tile-accent { color: var(--accent-text); }
 .wt-program-tile--intermediate .wt-program-tile-accent { color: #d97706; }
 .wt-program-tile--advanced .wt-program-tile-accent { color: #dc2626; }
 
@@ -4726,7 +4726,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-blank-btn:hover {
   background: rgba(var(--accent-rgb), 0.1);
   border-color: rgba(var(--accent-rgb), 0.5);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* ── Redesigned routine picker (Log Sets → Start Workout Session) ── */
@@ -4757,7 +4757,7 @@ html.keyboard-open .rest-timer-floating-card {
   height: 34px;
   border-radius: 50%;
   background: rgba(var(--accent-rgb), 0.16);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4774,7 +4774,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-start-empty-text strong {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -4813,7 +4813,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-count-badge {
   font-size: 0.66rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.12);
   border-radius: 20px;
   padding: 2px 9px;
@@ -4822,7 +4822,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-view-all-btn {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: none;
   border: none;
   cursor: pointer;

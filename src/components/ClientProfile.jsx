@@ -537,7 +537,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
               background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.25)',
               borderRadius: '12px', padding: '12px 14px', marginBottom: '14px'
             }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-text)' }}>
                 ✅ Ready for your next update
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
@@ -597,7 +597,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                       borderTop: idx > 0 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none'
                     }}>
                       <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                        {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: 'var(--primary-accent-light)', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
+                        {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: 'var(--accent-text)', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
                         {filled.length > 0
@@ -640,7 +640,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                 <span className="cp-row-label">{label}</span>
                 <span className="cp-row-right">
                   {weightUnit === val && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent-light)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   )}
@@ -689,7 +689,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                 <span className="cp-row-label">{label}</span>
                 <span className="cp-row-right">
                   {themePreference === val && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent-light)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   )}

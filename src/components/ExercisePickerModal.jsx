@@ -226,7 +226,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
               }}
             >
               <div className="preset-info">
-                <strong style={{ color: 'var(--primary-accent-light)' }}>Create "{trimmed}"</strong>
+                <strong style={{ color: 'var(--accent-text)' }}>Create "{trimmed}"</strong>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Custom Exercise</span>
               </div>
               <button

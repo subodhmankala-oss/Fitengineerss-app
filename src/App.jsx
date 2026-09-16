@@ -1411,7 +1411,7 @@ function App() {
           </p>
 
           {resendStatus === 'sent' && (
-            <p style={{ color: 'var(--primary-accent-light)', fontSize: '0.82rem', marginBottom: '16px' }}>✅ Confirmation email resent — check your inbox.</p>
+            <p style={{ color: 'var(--accent-text)', fontSize: '0.82rem', marginBottom: '16px' }}>✅ Confirmation email resent — check your inbox.</p>
           )}
           {resendStatus === 'error' && (
             <p style={{ color: 'var(--danger)', fontSize: '0.82rem', marginBottom: '16px' }}>{resendError}</p>
@@ -1672,7 +1672,7 @@ function App() {
           )}
 
           {resetPasswordSuccess ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--primary-accent-light)', fontWeight: 700, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--accent-text)', fontWeight: 700, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
               <span>✅ Password updated successfully!</span>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Redirecting you to the app...</span>
             </div>

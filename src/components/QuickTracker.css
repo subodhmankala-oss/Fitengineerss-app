@@ -99,12 +99,12 @@
 }
 
 .tracker-title.green-text {
-  color: var(--primary-accent); /* Exact green from Track More */
+  color: var(--accent-text); /* Exact green from Track More */
   font-weight: 500;
 }
 
 .green-plus {
-  color: var(--primary-accent);
+  color: var(--accent-text);
   font-weight: 400;
   font-size: 1.5rem;
   line-height: 1;

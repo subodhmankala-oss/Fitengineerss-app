@@ -547,7 +547,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
 
               {/* Video Configuration */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid var(--border-color)', padding: '14px', borderRadius: '10px', background: 'rgba(var(--shade-rgb), 0.1)' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>FORM GUIDE VIDEO SOURCE</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--accent-text)' }}>FORM GUIDE VIDEO SOURCE</label>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
                   <button

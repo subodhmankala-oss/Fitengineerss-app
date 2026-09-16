@@ -32,7 +32,7 @@ export default function WhatsNewList({ audience }) {
           key={`${entry.date}-${entry.title}`}
           style={{ padding: '14px 16px', borderTop: idx > 0 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}
         >
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary-accent-light)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {fmtDate(entry.date)}
           </div>
           <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>{entry.title}</div>

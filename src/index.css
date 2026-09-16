@@ -28,6 +28,8 @@
   --accent-deep: #4364bd;
   /* Text on a solid accent button: white on the brand blue in both themes. */
   --text-on-accent: #ffffff;
+  /* Accent used as text: lighter than the fill on dark so it clears the near-black bg. */
+  --accent-text: #8aa4ef;
 
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
@@ -100,6 +102,7 @@
   --accent-soft-rgb: 67, 100, 189;
   --accent-deep: #2f4a99;
   --text-on-accent: #ffffff;
+  --accent-text: #3a5ab3;
 
   --text-main: #0f172a;
   --text-muted: #475569;

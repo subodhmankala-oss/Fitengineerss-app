@@ -231,7 +231,7 @@
 }
 
 .dot-green {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   animation: blink-anim 1s infinite alternate;
 }
 
@@ -489,7 +489,7 @@
 }
 
 .hud-instructions p strong {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* Animated laser scanning sweep */
@@ -678,7 +678,7 @@
 
 .result-title-col h4 {
   font-size: 0.72rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 700;
@@ -719,7 +719,7 @@
 }
 
 .portion-label-row strong {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-size: 0.95rem;
 }
 

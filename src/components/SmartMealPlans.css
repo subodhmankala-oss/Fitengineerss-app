@@ -23,7 +23,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   display: block;
   margin-bottom: 6px;
 }
@@ -114,7 +114,7 @@
 
 .badge-veg {
   background: rgba(var(--accent-rgb), 0.08);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
 }
 
@@ -258,7 +258,7 @@
 .protein-color { color: var(--tint-red); }
 .carbs-color   { color: var(--tint-blue); }
 .fats-color    { color: var(--tint-amber); }
-.cals-color    { color: var(--primary-accent-light); }
+.cals-color    { color: var(--accent-text); }
 
 /* ─────────────────────────────────────────────────────────────
    Meals List
@@ -341,7 +341,7 @@
 
 .smp-tag-emerald {
   background: rgba(var(--accent-rgb), 0.12);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
@@ -451,7 +451,7 @@
 .macro-cals {
   background: rgba(var(--accent-rgb), 0.08);
   border: 1px solid rgba(var(--accent-rgb), 0.2);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -518,7 +518,7 @@
 .smp-ing-amount {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.1);
   padding: 3px 8px;
   border-radius: var(--radius-full);
@@ -571,7 +571,7 @@
   cursor: pointer;
   border: 1px solid rgba(var(--accent-rgb), 0.3);
   background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12) 0%, rgba(var(--accent-rgb), 0.06) 100%);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: 0.01em;
 }

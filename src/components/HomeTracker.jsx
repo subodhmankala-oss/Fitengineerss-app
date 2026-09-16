@@ -388,7 +388,7 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
             onClick={handleNotificationToggle} 
             title={isAlertActive ? "Coaching Alerts Active 🟢" : "Turn On Coaching Alerts 🟡"}
             style={{
-              color: isAlertActive ? 'var(--primary-accent-light)' : 'var(--tint-amber)',
+              color: isAlertActive ? 'var(--accent-text)' : 'var(--tint-amber)',
               borderColor: isAlertActive ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(251, 191, 36, 0.35)',
               background: isAlertActive ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(251, 191, 36, 0.08)',
               boxShadow: isAlertActive ? '0 0 10px rgba(var(--accent-rgb), 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
@@ -403,8 +403,8 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
                 width="18" 
                 height="18" 
                 viewBox="0 0 24 24" 
-                fill={isAlertActive ? "var(--primary-accent-light)" : "none"} 
-                stroke={isAlertActive ? "var(--primary-accent-light)" : "#fbbf24"} 
+                fill={isAlertActive ? "var(--accent-text)" : "none"} 
+                stroke={isAlertActive ? "var(--accent-text)" : "#fbbf24"} 
                 strokeWidth="2.5" 
                 strokeLinecap="round" 
                 strokeLinejoin="round"
@@ -442,7 +442,7 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
             onClick={() => setShowConnectModal(true)}
             title={isLinkedToCoach ? 'Connected to Coach ✓' : 'Connect to Coach'}
             style={{
-              color: isLinkedToCoach ? 'var(--primary-accent-light)' : 'var(--tint-violet)',
+              color: isLinkedToCoach ? 'var(--accent-text)' : 'var(--tint-violet)',
               borderColor: isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(139,92,246,0.35)',
               background: isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(139,92,246,0.08)',
               boxShadow: isLinkedToCoach ? '0 0 10px rgba(var(--accent-rgb), 0.12)' : '0 0 10px rgba(139,92,246,0.15)',
@@ -727,7 +727,7 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
           <span className="percentage-badge" style={{
             fontSize: '0.8rem',
             fontWeight: 700,
-            color: 'var(--primary-accent-light)',
+            color: 'var(--accent-text)',
             background: 'rgba(var(--accent-rgb), 0.1)',
             padding: '4px 10px',
             borderRadius: '20px',

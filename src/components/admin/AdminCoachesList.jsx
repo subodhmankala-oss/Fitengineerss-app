@@ -128,7 +128,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                       style={{
                         background: coach.isBlocked ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(239, 68, 68, 0.08)',
                         border: `1px solid ${coach.isBlocked ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                        color: coach.isBlocked ? 'var(--primary-accent-light)' : 'var(--danger)',
+                        color: coach.isBlocked ? 'var(--accent-text)' : 'var(--danger)',
                         padding: '4px 10px',
                         borderRadius: '6px',
                         fontSize: '0.72rem',

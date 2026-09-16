@@ -256,7 +256,7 @@ const ProgressDashboard = () => {
                   cy={getY(selectedDayData.val)} 
                   r="6" 
                   fill="var(--accent-text)" 
-                  stroke="#090e17" 
+                  stroke="var(--bg-card)" 
                   strokeWidth="2" 
                 />
               </svg>

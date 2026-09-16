@@ -3069,7 +3069,7 @@ const WorkoutTracker = () => {
                               textAnchor="middle"
                               fontSize="13"
                               fontWeight="800"
-                              stroke="#090e17"
+                              stroke="var(--bg-card)"
                               strokeWidth="3"
                               strokeLinejoin="round"
                               paintOrder="stroke"
@@ -3093,7 +3093,7 @@ const WorkoutTracker = () => {
                             cy={py}
                             r={active ? "6" : "4"}
                             fill={chartMetric === 'weight' ? '#3b82f6' : 'var(--accent-text)'}
-                            stroke="#090e17"
+                            stroke="var(--bg-card)"
                             strokeWidth={active ? "2" : "1.5"}
                             style={{ transition: 'all 0.2s ease-in-out' }}
                           />

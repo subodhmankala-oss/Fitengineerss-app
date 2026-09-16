@@ -1267,7 +1267,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                             transition: 'all 0.2s ease'
                           }}
                           onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--fg-rgb), 0.04)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.15)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--shade-rgb), 0.15)'}
                         >
                           {/* Sets/Volume/Calories/Time first, then workout name +
                               day/date below it, exercise chips last — reordered per

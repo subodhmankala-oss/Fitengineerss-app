@@ -20,11 +20,11 @@
   --shade-rgb: 0, 0, 0;
 
   --primary-accent: #4364bd; /* Brand blue (logo.png) */
-  --primary-accent-light: #6b8be8;
-  --primary-accent-glow: rgba(107, 139, 232, 0.2);
-  --accent-rgb: 107, 139, 232;
-  --accent-soft: #8fa8ee;
-  --accent-soft-rgb: 143, 168, 238;
+  --primary-accent-light: #4364bd;
+  --primary-accent-glow: rgba(67, 100, 189, 0.25);
+  --accent-rgb: 67, 100, 189;
+  --accent-soft: #4364bd;
+  --accent-soft-rgb: 67, 100, 189;
   --accent-deep: #4364bd;
   /* Text on a solid accent button: white on the brand blue in both themes. */
   --text-on-accent: #ffffff;
@@ -35,7 +35,7 @@
   
   --border-color: #1e293b;
   --border-strong: #334155;
-  --border-focus: #6b8be8;
+  --border-focus: #4364bd;
 
   --danger: #ef4444;
   --warning: #f59e0b;

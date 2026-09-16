@@ -635,6 +635,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // sends it, this is what shows it here if that push was missed/dismissed.
   const [pendingClientReplies, setPendingClientReplies] = useState([]);
 
+  // Clients who redeemed this coach's invite code and haven't been looked at
+  // yet — public.notifications rows (type client_connected) written by the
+  // link RPC itself. Same fallback role as pendingClientReplies: the
+  // client_connected push/email fire the moment the client connects, this is
+  // what shows it in-app until the coach opens that client or dismisses the
+  // card. Also drives the "New" chip on the directory row and the "Used by"
+  // line on the Invite Clients card.
+  const [newClientNotifications, setNewClientNotifications] = useState([]);
+
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
   // informational: no nudge button, no manual "mark renewed" step. Logging
@@ -2352,6 +2361,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     await databaseService.markClientReplySeen(replyId);
   };
 
+  // null (fetch failed) keeps whatever was already on screen — same rule as
+  // refreshRenewalDueClients.
+  const fetchClientsRef = useRef(null);
+  // Latest `clients` for the focus/visibility handlers above, which are
+  // registered once and would otherwise see a stale closure.
+  const clientsRef = useRef(clients);
+  clientsRef.current = clients;
+  const refreshNewClientNotifications = async () => {
+    if (!resolvedCoachId) return;
+    const rows = await databaseService.getUnreadCoachNotifications(resolvedCoachId);
+    if (rows === null) return;
+    const connected = rows.filter(n => n.type === 'client_connected');
+    setNewClientNotifications(connected);
+    // A notified client missing from the directory means the list is stale
+    // (loaded before they connected) — refetch so the row + "New" chip show.
+    if (connected.some(n => n.clientId && !clientsRef.current.some(c => c.id === n.clientId)) && fetchClientsRef.current) {
+      fetchClientsRef.current();
+    }
+  };
+
+  // Coach acknowledged the new client (dismissed the card, or opened them
+  // via handleSelectClient) — mark every unread row for that client read so
+  // the card, the row chip and the invite-card line all clear together.
+  const acknowledgeNewClient = async (clientId) => {
+    const ids = newClientNotifications.filter(n => n.clientId === clientId).map(n => n.id);
+    if (ids.length === 0) return;
+    setNewClientNotifications((prev) => prev.filter((n) => n.clientId !== clientId));
+    await databaseService.markCoachNotificationsRead(ids);
+  };
+
   // localStorage key for finished-workout cards the coach dismissed WITHOUT
   // sending a note. Keyed per session (clientId|date) so a NEW session for the
   // same client resurfaces a fresh card. Scoped per coach.
@@ -2465,10 +2504,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   useEffect(() => {
     refreshCoachActiveDrafts();
     refreshPendingClientReplies();
+    refreshNewClientNotifications();
     refreshSessionsAwaitingNote();
     refreshRenewalDueClients();
     refreshPausedClients();
-    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshSessionsAwaitingNote(); refreshRenewalDueClients(); refreshPausedClients(); };
+    const refreshBoth = () => { refreshCoachActiveDrafts(); refreshPendingClientReplies(); refreshNewClientNotifications(); refreshSessionsAwaitingNote(); refreshRenewalDueClients(); refreshPausedClients(); };
     document.addEventListener('visibilitychange', refreshBoth);
     window.addEventListener('focus', refreshBoth);
     return () => {
@@ -2489,6 +2529,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (viewMode === 'coach' && !selectedClient) {
       refreshCoachActiveDrafts();
       refreshPendingClientReplies();
+      refreshNewClientNotifications();
       refreshSessionsAwaitingNote();
       refreshRenewalDueClients();
       refreshPausedClients();
@@ -2531,6 +2572,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         setLoadingClients(false);
       }
     };
+    // Exposed so refreshNewClientNotifications can pull the directory again
+    // when a just-connected client isn't in `clients` yet — the real-time
+    // channel below never fires in production (no tables in the
+    // supabase_realtime publication), so without this a coach returning to
+    // a backgrounded app would see the 🎉 card but no row for that client.
+    fetchClientsRef.current = fetchClients;
 
     setLoadingClients(true);
     fetchClients();
@@ -2784,6 +2831,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
     setDetailTab('plans');
+    // Opening a freshly-connected client counts as "seen" for the
+    // new-client card / chip (no-op when there's nothing unread for them).
+    acknowledgeNewClient(client.id);
     // Clear any coach-note composer state carried over from a previous client.
     setCoachNoteText('');
     setCoachNoteSentMsg('');
@@ -5096,6 +5146,57 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 </div>
               )}
 
+              {/* A client just redeemed this coach's invite code — the
+                  in-app half of the client_connected notification (push +
+                  email fire from the API). Lives on the directory (home)
+                  screen so a coach who opens the app after sending an invite
+                  sees "it worked" immediately. Tapping opens the client;
+                  either that or the ✕ marks it read (public.notifications). */}
+              {newClientNotifications.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  {newClientNotifications.map(n => {
+                    const joinedClient = clients.find(c => c.id === n.clientId);
+                    const displayName = joinedClient?.userName || n.clientName || (n.clientEmail ? n.clientEmail.split('@')[0] : 'A client');
+                    return (
+                      <div
+                        key={n.id}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px',
+                          background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
+                          borderRadius: '12px', padding: '12px 14px', cursor: joinedClient ? 'pointer' : 'default'
+                        }}
+                        onClick={() => { if (joinedClient) handleSelectClient(joinedClient); }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
+                          <span style={{ fontSize: '1.3rem' }}>🎉</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#34d399' }}>
+                              {n.isNew ? `${displayName} joined via your invite` : `${displayName} reconnected with you`}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              {n.inviteCode ? `Code ${n.inviteCode} · ` : ''}{joinedClient ? 'Tap to set up their plan' : 'Refreshing your client list…'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          title="Dismiss"
+                          onClick={(e) => { e.stopPropagation(); acknowledgeNewClient(n.clientId); }}
+                          style={{
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                            color: 'var(--text-muted)', borderRadius: '50%', width: '26px', height: '26px',
+                            fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', flexShrink: 0
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Renewal-due reminders (Clients on a monthly cadence who
                   haven't paid again in ~25+ days) MOVED to the Client
                   Payments view (2026-08-29: "this should all come in client
@@ -5495,6 +5596,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     </div>
                   </div>
                 )}
+
+                {/* Closes the loop right where the coach generated the code:
+                    the most recent unread redemption(s) of THIS coach's
+                    invites, shown until acknowledged (same rows as the 🎉
+                    card above). */}
+                {newClientNotifications.length > 0 && (
+                  <div style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
+                    {newClientNotifications.slice(0, 3).map(n => {
+                      const joinedClient = clients.find(c => c.id === n.clientId);
+                      const displayName = joinedClient?.userName || n.clientName || (n.clientEmail ? n.clientEmail.split('@')[0] : 'a client');
+                      return (
+                        <span key={n.id}>
+                          ✓ {n.inviteCode ? `${n.inviteCode} used by ` : 'Used by '}{displayName}
+                        </span>
+                      );
+                    })}
+                    {newClientNotifications.length > 3 && (
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>+{newClientNotifications.length - 3} more</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="search-filter-box">
@@ -5646,6 +5768,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       border: '1px solid rgba(148, 163, 184, 0.25)'
                                     }}>
                                       Paused
+                                    </span>
+                                  )}
+                                  {/* Unread client_connected notification for this
+                                      client — clears when the coach opens them. */}
+                                  {newClientNotifications.some(n => n.clientId === client.id) && (
+                                    <span style={{
+                                      display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
+                                      fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
+                                      background: 'rgba(16, 185, 129, 0.16)', color: '#34d399',
+                                      border: '1px solid rgba(16, 185, 129, 0.35)'
+                                    }}>
+                                      New
                                     </span>
                                   )}
                                   {client.userGoal && (

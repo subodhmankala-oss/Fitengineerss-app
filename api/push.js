@@ -737,10 +737,80 @@ async function getCoachDisplayName(coachId) {
   return contact?.full_name || 'Your Coach';
 }
 
+// Email leg of the client_connected notification (2026-09-16). Web Push
+// alone reaches only coaches who enabled the bell — 1 of 12 in production
+// when this was added — so the "your invite worked" moment was invisible
+// to almost every coach. Same Resend setup + sender as the password-reset
+// email (api/password.js); logs to email_events like that path does so
+// delivery is debuggable. Best-effort: never throws, and a missing
+// RESEND_API_KEY just means no email.
+const APP_ORIGIN = 'https://fitengineerss-app.vercel.app';
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function sendClientConnectedEmail({ coachEmail, coachName, clientName, clientUserId, isNew }) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey || !coachEmail) return { emailed: false, reason: 'not_configured' };
+
+  const senderEmail = process.env.SENDER_EMAIL || 'noreply@fitengineerss.com';
+  const senderName = process.env.SENDER_NAME || 'Fitengineers';
+  const openLink = `${APP_ORIGIN}/?viewClient=${encodeURIComponent(clientUserId)}`;
+  const safeClient = escapeHtml(clientName);
+  const safeCoach = escapeHtml(coachName || 'Coach');
+  const subject = isNew
+    ? `${clientName} just joined your coaching program`
+    : `${clientName} reconnected with you on Fitengineers`;
+
+  try {
+    const sendResp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+      body: JSON.stringify({
+        from: `${senderName} <${senderEmail}>`,
+        to: [coachEmail],
+        subject,
+        html: `
+          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <h2 style="color: #6d28d9; margin-top: 0;">🎉 ${isNew ? 'New client' : 'Client reconnected'}</h2>
+            <p>Hi ${safeCoach},</p>
+            <p><strong>${safeClient}</strong> ${isNew ? 'just used your invitation code and is now linked to you as their coach.' : 'just reconnected to you using a fresh invitation code.'}</p>
+            <p>Open Fitengineers to review their profile and set up their first plan:</p>
+            <p style="margin: 24px 0;">
+              <a href="${openLink}" style="background-color: #6d28d9; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">View ${safeClient}</a>
+            </p>
+            <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">You're receiving this because a client redeemed an invitation code you generated in the Fitengineers coach app.</p>
+          </div>
+        `
+      })
+    });
+    const sendData = await sendResp.json().catch(() => ({}));
+    if (!sendResp.ok) {
+      console.error('client_connected email: Resend send failed:', sendResp.status, sendData.message || sendData.name);
+      return { emailed: false, reason: 'resend_error' };
+    }
+    try {
+      await supabase.from('email_events').insert({
+        event_type: 'client_connected.sent',
+        email_id: sendData.id || null,
+        recipient: coachEmail,
+        subject
+      });
+    } catch (e) {
+      console.error('email_events insert failed (non-fatal):', e.message || e);
+    }
+    return { emailed: true };
+  } catch (err) {
+    console.error('client_connected email error:', err);
+    return { emailed: false, reason: 'exception' };
+  }
+}
+
 async function handleNotifyUser(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId, exerciseName, creatorRole, creatorName } = req.body || {};
+  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId, exerciseName, creatorRole, creatorName, isNew } = req.body || {};
   if (!event || !clientUserId || !UUID_RE.test(clientUserId)) {
     return res.status(400).json({ error: 'event and a valid clientUserId are required.' });
   }
@@ -815,19 +885,39 @@ async function handleNotifyUser(req, res) {
       body = 'Package ended — moved to unattached clients';
     } else if (event === 'client_connected') {
       // Fired right after connectClientToCoach's link transaction commits
-      // (WorkoutProgressDashboard.jsx's ConnectCoachModal onSuccess) — covers
-      // both a brand-new client attaching via invite code AND an existing
-      // client reattaching/renewing with the same coach on a fresh code; the
-      // coach just sees "you have this client now" either way. getClientRow
-      // reads the `clients` table, which the link transaction has already
-      // committed to by the time this fires, so client.coach_id here is
-      // already the NEW coach. Previously nothing notified the coach at all
-      // for this event — confirmed missing 2026-08-16.
+      // (databaseService.connectClientToCoach, 2026-09-16 — previously only
+      // one of the two ConnectCoachModal mounts fired it) — covers both a
+      // brand-new client attaching via invite code AND an existing client
+      // reattaching/renewing with the same coach on a fresh code (isNew
+      // false). getClientRow reads the `clients` table, which the link
+      // transaction has already committed to by the time this fires, so
+      // client.coach_id here is already the NEW coach.
+      //
+      // Push AND email: push only reaches coaches who enabled the bell, so
+      // the email is what actually closes the "did my invite work?" loop for
+      // most coaches. The durable in-app copy (public.notifications) is
+      // written by the RPC itself, not here.
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
-      title = '🔗 New client connected';
-      body = `${clientName} just connected to you as their coach.`;
+      const firstTime = isNew !== false;
+      title = firstTime ? '🎉 New client joined' : '🔗 Client reconnected';
+      body = firstTime
+        ? `${clientName} just joined using your invite code.`
+        : `${clientName} reconnected to you with a fresh invite code.`;
       url = `/?viewClient=${clientUserId}`;
+
+      const coachContact = await getUserContact(client.coach_id);
+      const [pushResult, emailResult] = await Promise.all([
+        pushToUser(targetUserId, title, body, event, url),
+        sendClientConnectedEmail({
+          coachEmail: coachContact?.email,
+          coachName: coachContact?.full_name,
+          clientName,
+          clientUserId,
+          isNew: firstTime
+        })
+      ]);
+      return res.status(200).json({ success: true, event, ...pushResult, ...emailResult });
     } else if (event === 'plan_assigned') {
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);

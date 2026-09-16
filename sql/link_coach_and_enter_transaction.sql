@@ -15,6 +15,14 @@
 --
 -- p_client_id is always public.users.id (the app resolves it via
 -- resolveCanonicalUserId before calling — never the auth UID).
+--
+-- 2026-09-16: also writes a public.notifications row for the coach
+-- (type 'client_connected') inside the same transaction, so the coach's
+-- dashboard can show "X joined via your invite" even if the client-side
+-- push/email call that follows never fires. Requires
+-- sql/coach_notifications.sql to have been run first. The response now
+-- also carries is_new (false when the client was already linked to this
+-- same coach — a renewal/reconnect rather than a first-time join).
 
 CREATE OR REPLACE FUNCTION public.link_coach_and_enter_transaction(p_invite_code text, p_client_id uuid)
  RETURNS jsonb
@@ -31,6 +39,8 @@ DECLARE
   v_coach_status TEXT;
   v_client_email TEXT;
   v_client_name TEXT;
+  v_prev_coach_id UUID;
+  v_is_new BOOLEAN;
   v_validation_time TIMESTAMPTZ;
   v_response JSONB;
 BEGIN
@@ -76,10 +86,14 @@ BEGIN
   -- Resolve the client's email + existing REAL name from public.users (the
   -- app's source of truth). NULLIF collapses the 'Warrior' placeholder to NULL
   -- so it is treated as "no name yet".
-  SELECT email, NULLIF(full_name, 'Warrior')
-  INTO v_client_email, v_client_name
+  SELECT email, NULLIF(full_name, 'Warrior'), coach_id
+  INTO v_client_email, v_client_name, v_prev_coach_id
   FROM public.users
   WHERE id = p_client_id;
+
+  -- First-time join vs. reconnect/renewal with the same coach — read BEFORE
+  -- the upsert below overwrites coach_id.
+  v_is_new := (v_prev_coach_id IS DISTINCT FROM v_coach_id);
 
   -- If there is still no real name, try the Google display name from
   -- auth.users — matched by EMAIL (auth.users.id != public.users.id here).
@@ -160,6 +174,22 @@ BEGIN
       used_by = p_client_id
   WHERE id = v_invite_id;
 
+  -- 4c. Durable in-app notification for the coach (see
+  -- sql/coach_notifications.sql). Same transaction as the link itself, so
+  -- it can never be lost the way a fire-and-forget client-side call can.
+  INSERT INTO public.notifications (recipient_user_id, type, actor_user_id, payload)
+  VALUES (
+    v_coach_id,
+    'client_connected',
+    p_client_id,
+    jsonb_build_object(
+      'client_name', v_client_name,
+      'client_email', v_client_email,
+      'invite_code', p_invite_code,
+      'is_new', v_is_new
+    )
+  );
+
   -- 5. Post-transaction internal verification checks
   IF NOT EXISTS (SELECT 1 FROM public.invitations WHERE id = v_invite_id AND used = true) THEN
     RAISE EXCEPTION 'Verification failed: invitation not marked used.';
@@ -178,6 +208,7 @@ BEGIN
     'success', true,
     'coach_id', v_coach_id,
     'client_id', p_client_id,
+    'is_new', v_is_new,
     'code_used', p_invite_code,
     'expires_at', v_expires_at,
     'validation_time', v_validation_time

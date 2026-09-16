@@ -2528,12 +2528,12 @@ const databaseService = {
         }
         try {
           if (!data) data = await restSelect(
-            `clients?select=*,users!clients_user_id_fkey(email,last_login,role)${coachFilter}`
+            `clients?select=*,users!clients_user_id_fkey(email,avatar_url,last_login,role)${coachFilter}`
           );
         } catch (e) {
           if (String(e.message).includes('400')) {
             data = await restSelect(
-              `clients?select=*,users!clients_user_id_fkey(email,role)${coachFilter}`
+              `clients?select=*,users!clients_user_id_fkey(email,avatar_url,role)${coachFilter}`
             );
           } else {
             throw e;
@@ -2580,6 +2580,7 @@ const databaseService = {
             id: c.user_id, // Keep user_id as id for workout_logs/chats compatibility
             client_id: c.id,
             email: c.users?.email || '',
+            avatarUrl: c.users?.avatar_url || null,
             userName: c.full_name,
             userAge: String(c.age || ''),
             userHeight: String(c.height_cm || ''),
@@ -2615,6 +2616,7 @@ const databaseService = {
                 id: c.user_id,
                 client_id: c.id,
                 email: c.users?.email || '',
+                avatarUrl: c.users?.avatar_url || null,
                 userName: c.full_name,
                 userAge: String(c.age || ''),
                 userHeight: String(c.height_cm || ''),
@@ -2708,10 +2710,10 @@ const databaseService = {
         // fallback as getAllUsers.
         let data;
         try {
-          data = await restSelect(`clients?select=*,users!clients_user_id_fkey(email,last_login)&coach_id=eq.${encodeURIComponent(coachId)}`);
+          data = await restSelect(`clients?select=*,users!clients_user_id_fkey(email,avatar_url,last_login)&coach_id=eq.${encodeURIComponent(coachId)}`);
         } catch (e) {
           if (String(e.message || '').includes('42703')) {
-            data = await restSelect(`clients?select=*,users!clients_user_id_fkey(email)&coach_id=eq.${encodeURIComponent(coachId)}`);
+            data = await restSelect(`clients?select=*,users!clients_user_id_fkey(email,avatar_url)&coach_id=eq.${encodeURIComponent(coachId)}`);
           } else {
             throw e;
           }
@@ -2732,6 +2734,7 @@ const databaseService = {
             id: c.user_id,
             client_id: c.id,
             email: c.users?.email || '',
+            avatarUrl: c.users?.avatar_url || null,
             userName: c.full_name,
             userAge: String(c.age || ''),
             userHeight: String(c.height_cm || ''),
@@ -2762,6 +2765,7 @@ const databaseService = {
             id: c.user_id,
             client_id: c.id,
             email: c.users?.email || '',
+            avatarUrl: c.users?.avatar_url || null,
             userName: c.full_name,
             userAge: String(c.age || ''),
             userHeight: String(c.height_cm || ''),
@@ -5886,7 +5890,7 @@ const databaseService = {
       try {
         // Raw PostgREST (restSelect) instead of supabase.from() — same
         // SDK-hang bypass as everywhere else in this file.
-        const data = await restSelect(`coaches?select=*,users(email,full_name)&status=eq.approved`);
+        const data = await restSelect(`coaches?select=*,users(email,full_name,avatar_url)&status=eq.approved`);
 
         if (data) {
           data.forEach(c => {
@@ -5894,6 +5898,7 @@ const databaseService = {
               id: c.id,
               name: c.users?.full_name || c.brand_name || 'Coach',
               email: c.users?.email || '',
+              avatarUrl: c.users?.avatar_url || null,
               brand: c.brand_name || 'Fit Engineers',
               payment_status: 'active',
               signup_date: c.created_at,

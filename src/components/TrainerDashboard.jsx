@@ -5753,23 +5753,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '56px' }}>
                           <td style={{ padding: '8px', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                              <div 
+                              <Avatar
                                 className="client-avatar"
-                                style={{ 
-                                  backgroundColor: getAvatarColor(client.userName),
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '50%',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 'bold',
-                                  color: '#fff'
-                                }}
-                              >
-                                {getAvatarInitials(client.userName)}
-                              </div>
+                                email={client.email}
+                                name={client.userName}
+                                avatarUrl={client.avatarUrl}
+                                size={32}
+                              />
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</span>
@@ -5909,23 +5899,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <div className="client-detail-sidebar">
               {/* Client Profile Title Block */}
               <div className="client-detail-header" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <div 
+                <Avatar
                   className="client-avatar"
-                  style={{ 
-                    backgroundColor: getAvatarColor(selectedClient.userName),
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    color: '#fff'
-                  }}
-                >
-                  {getAvatarInitials(selectedClient.userName)}
-                </div>
+                  email={selectedClient.email}
+                  name={selectedClient.userName}
+                  avatarUrl={selectedClient.avatarUrl}
+                  size={42}
+                />
                 <div className="client-detail-header-info">
                   <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>

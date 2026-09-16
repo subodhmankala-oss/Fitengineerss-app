@@ -5701,13 +5701,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 className="client-avatar"
                                 style={{
                                   backgroundColor: getAvatarColor(DEMO_CLIENT.userName),
-                                  width: '32px',
-                                  height: '32px',
+                                  width: '44px',
+                                  height: '44px',
                                   borderRadius: '50%',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '0.8rem',
+                                  fontSize: '1.05rem',
                                   fontWeight: 'bold',
                                   color: '#fff'
                                 }}
@@ -5758,7 +5758,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 email={client.email}
                                 name={client.userName}
                                 avatarUrl={client.avatarUrl}
-                                size={32}
+                                size={44}
                               />
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>

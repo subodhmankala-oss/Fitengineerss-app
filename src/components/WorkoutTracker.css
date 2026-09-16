@@ -16,10 +16,10 @@
 /* Tab Segmented Control */
 .workouts-segmented-tabs {
   display: flex;
-  background: rgba(21, 29, 44, 0.6);
+  background: rgba(var(--bg-card-rgb), 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   padding: 4px;
   border-radius: var(--radius-md);
   margin-bottom: 8px;
@@ -46,9 +46,9 @@
 }
 
 .tab-item-btn.active {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   color: var(--text-main);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -59,7 +59,7 @@
   /* Subtle athletic-blue-to-green tint (same accent colors as the skill-
      level bar itself) instead of the flat dark card background every other
      section uses — gives this one a bit more sporty presence. */
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(16, 185, 129, 0.08));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(var(--accent-rgb), 0.08));
   border: 1px solid rgba(59, 130, 246, 0.2);
   display: flex;
   flex-direction: column;
@@ -136,16 +136,16 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
   padding-bottom: 16px;
   margin-bottom: 16px;
   width: 100%;
 }
 
 .exercise-select-dropdown {
-  background: rgba(9, 14, 23, 0.5);
+  background: rgba(var(--bg-app-rgb), 0.5);
   color: var(--text-main);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   /* Was locked to 16px to stop iOS Safari auto-zooming the page on focus.
@@ -171,10 +171,10 @@
 
 .timeframe-toggle {
   display: flex;
-  background: rgba(9, 14, 23, 0.4);
+  background: rgba(var(--bg-app-rgb), 0.4);
   padding: 2px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.03);
   /* Sits next to .progression-section-heading in .progression-heading-row
      now, not stacked full-width in .session-filters anymore — size to its
      own content instead of forcing the full row width. */
@@ -195,7 +195,7 @@
 }
 
 .timeframe-toggle .toggle-btn.active {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   color: var(--text-main);
 }
 
@@ -203,8 +203,8 @@
 .overload-chart-card {
   padding: 20px;
   border-radius: var(--radius-lg);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
@@ -233,10 +233,10 @@
      button gets the FULL 30% width to itself, one per row. */
   display: flex;
   flex-direction: column;
-  background: rgba(9, 14, 23, 0.4);
+  background: rgba(var(--bg-app-rgb), 0.4);
   padding: 2px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.03);
   /* 30% of .session-filters' width (.exercise-select-dropdown takes 70%). */
   flex: 3 1 0;
   min-width: 0;
@@ -254,7 +254,7 @@
 }
 
 .metric-btn.active {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   color: var(--text-main);
 }
 
@@ -309,7 +309,7 @@
   width: 28px;
   /* Matches .overload-chart-card's own background so it reads as a fade
      into the card edge, not a visible box. */
-  background: linear-gradient(90deg, transparent, rgba(21, 29, 44, 0.9));
+  background: linear-gradient(90deg, transparent, rgba(var(--bg-card-rgb), 0.9));
   pointer-events: none;
 }
 
@@ -319,7 +319,7 @@
   right: 18px;
   font-size: 0.62rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(var(--fg-rgb), 0.55);
   pointer-events: none;
 }
 
@@ -339,14 +339,14 @@
   padding: 6px 9px;
   font-size: 10px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(var(--fg-rgb), 0.65);
   white-space: nowrap;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 .chart-point-tooltip strong {
   display: block;
-  color: #fff;
+  color: var(--text-main);
   font-size: 11px;
   font-weight: 800;
 }
@@ -377,7 +377,7 @@
   width: 100%;
   height: 6px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   outline: none;
   cursor: pointer;
 }
@@ -418,8 +418,8 @@
 
 .timeline-date-tick:hover,
 .timeline-date-tick:focus-visible {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.06);
   outline: none;
 }
 
@@ -440,16 +440,16 @@
 .progressive-overload-alert {
   padding: 14px 18px;
   border-radius: var(--radius-md);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
 .progressive-overload-alert.success {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .progressive-overload-alert .alert-badge {
@@ -459,7 +459,7 @@
 }
 
 .progressive-overload-alert.success .alert-badge {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .progressive-overload-alert p {
@@ -478,8 +478,8 @@
 .strength-stat-card {
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -513,8 +513,8 @@
 .session-detail-card {
   padding: 20px;
   border-radius: var(--radius-lg);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -524,7 +524,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
   padding-bottom: 12px;
 }
 
@@ -536,9 +536,9 @@
 .detail-header .badge {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 4px 10px;
   border-radius: var(--radius-full);
 }
@@ -555,8 +555,8 @@
   gap: 8px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(9, 14, 23, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  background: rgba(var(--bg-app-rgb), 0.3);
+  border: 1px solid rgba(var(--fg-rgb), 0.02);
   transition: all 0.2s ease-in-out;
 }
 
@@ -603,8 +603,8 @@
 .set-pill-summary {
   font-size: 0.7rem;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   padding: 3px 8px;
   border-radius: var(--radius-sm);
 }
@@ -612,15 +612,15 @@
 .logged-ex-row.highlighted-ex .set-pill-summary {
   background: rgba(59, 130, 246, 0.06);
   border-color: rgba(59, 130, 246, 0.1);
-  color: #a5f3fc;
+  color: var(--tint-cyan);
 }
 
 /* Coach Logging Form CSS */
 .coach-log-form-wrapper {
   padding: 20px;
   border-radius: var(--radius-lg);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -672,8 +672,8 @@
   max-width: 128px;
   padding: 4px 6px;
   font-size: 0.72rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   outline: none;
@@ -719,8 +719,8 @@
 }
 
 .input-group input {
-  background: rgba(9, 14, 23, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   color: var(--text-main);
@@ -737,8 +737,8 @@
 }
 
 .input-group select {
-  background: rgba(9, 14, 23, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   color: var(--text-main);
@@ -757,7 +757,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
   padding-top: 8px;
 }
 
@@ -775,9 +775,9 @@
 .btn-secondary-sm {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -785,9 +785,9 @@
 }
 
 .btn-secondary-sm:hover {
-  background: rgba(16, 185, 129, 0.12);
-  color: #fff;
-  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--text-main);
+  border-color: rgba(var(--accent-rgb), 0.3);
 }
 
 .exercises-input-list {
@@ -803,21 +803,21 @@
 /* Flush, full-width exercise rows (override the floating-card look for the
    logger list only). */
 .exercises-input-list .form-exercise-card {
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(var(--shade-rgb), 0.18);
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: 0;
   box-shadow: none;
   padding: 14px 16px;
 }
 
 .exercises-input-list .form-exercise-card:last-child {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.06);
 }
 
 .form-exercise-card {
-  background: rgba(9, 14, 23, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(var(--bg-app-rgb), 0.4);
+  border: 1px solid rgba(var(--fg-rgb), 0.03);
   border-radius: var(--radius-md);
   padding: 14px 16px;
   display: flex;
@@ -829,7 +829,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.03);
   padding-bottom: 8px;
 }
 
@@ -884,8 +884,8 @@
 .set-field {
   display: flex;
   align-items: center;
-  background: rgba(9, 14, 23, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
   gap: 8px;
@@ -925,7 +925,7 @@
 }
 
 .form-submit-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
   padding-top: 16px;
 }
 
@@ -945,7 +945,7 @@
 
 .btn-primary-lg:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
 }
 
 .btn-primary-lg:active {
@@ -1043,8 +1043,8 @@
 /* Session Accounting Breakdown */
 .sessions-accounting-split {
   display: block;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
   padding: 8px 0;
   margin: 0;
 }
@@ -1066,7 +1066,7 @@
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
 }
 
 .skill-level-segment.filled {
@@ -1095,7 +1095,7 @@
   background: #fff;
   border: 2px solid var(--primary-accent-light);
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.6);
 }
 
 .skill-level-labels {
@@ -1107,7 +1107,7 @@
   display: flex;
   flex-direction: column;
   font-size: 0.58rem;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(var(--fg-rgb), 0.72);
   font-weight: 600;
 }
 
@@ -1115,17 +1115,17 @@
   font-style: normal;
   font-size: 0.55rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(var(--fg-rgb), 0.4);
   margin-top: 1px;
 }
 
 .skill-level-label-item.active {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
 }
 
 .skill-level-label-item.active em {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   opacity: 0.85;
 }
 
@@ -1135,7 +1135,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 0 6px;
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(var(--fg-rgb), 0.04);
 }
 
 .acc-item:last-child {
@@ -1184,8 +1184,8 @@
   gap: 3px;
   padding: 14px 18px;
   border-radius: var(--radius-lg);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
 }
 
 .best-lift-card .acc-lbl {
@@ -1203,7 +1203,7 @@
   flex-direction: column;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
   gap: 6px;
 }
 
@@ -1225,7 +1225,7 @@
 }
 
 .text-emerald {
-  color: var(--primary-accent-light) !important;
+  color: var(--accent-text) !important;
 }
 
 .text-warn {
@@ -1255,8 +1255,8 @@
 .screen-info-intro {
   padding: 20px;
   border-radius: var(--radius-md);
-  background: rgba(21, 29, 44, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.55);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1265,7 +1265,7 @@
 .screen-info-intro h3 {
   font-size: 1.15rem;
   color: var(--text-main);
-  background: linear-gradient(135deg, #ffffff 0%, #10b981 100%);
+  background: linear-gradient(135deg, var(--text-main) 0%, var(--primary-accent-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -1286,8 +1286,8 @@
   position: relative;
   padding: 20px;
   border-radius: var(--radius-lg);
-  background: rgba(21, 29, 44, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(var(--bg-card-rgb), 0.45);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1308,15 +1308,15 @@
 
 .program-glass-card:hover {
   transform: translateY(-2px);
-  background: rgba(21, 29, 44, 0.65);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--bg-card-rgb), 0.65);
+  border-color: rgba(var(--fg-rgb), 0.08);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
 }
 
 .active-program-card {
-  background: rgba(16, 185, 129, 0.04);
-  border-color: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.06), inset 0 0 12px rgba(16, 185, 129, 0.02);
+  background: rgba(var(--accent-rgb), 0.04);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  box-shadow: 0 8px 32px 0 rgba(var(--accent-rgb), 0.06), inset 0 0 12px rgba(var(--accent-rgb), 0.02);
 }
 
 .active-program-card::before {
@@ -1356,25 +1356,25 @@
 }
 
 .active-program-card .difficulty-badge {
-  color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.2);
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .sessions-indicator {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-main);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 4px 10px;
   border-radius: var(--radius-sm);
 }
 
 .active-program-card .sessions-indicator {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.2);
-  color: var(--primary-accent-light);
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent-text);
 }
 
 .program-desc {
@@ -1387,7 +1387,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.03);
   padding-top: 12px;
   gap: 12px;
 }
@@ -1419,23 +1419,23 @@
 }
 
 .btn-select-program-action.disabled {
-  background: rgba(16, 185, 129, 0.15) !important;
-  color: var(--primary-accent-light) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  background: rgba(var(--accent-rgb), 0.15) !important;
+  color: var(--accent-text) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.25) !important;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .btn-select-program-action.renew {
   background: var(--primary-accent) !important;
-  color: var(--text-main) !important;
+  color: #fff !important;
   border: 1px solid var(--primary-accent-light) !important;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2);
 }
 
 .btn-select-program-action.renew:hover {
   background: var(--primary-accent-light) !important;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.4);
   transform: translateY(-1px);
 }
 
@@ -1497,8 +1497,8 @@
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(16, 185, 129, 0.95); /* Semi-transparent Emerald */
-  color: #ffffff;
+  background: rgba(var(--accent-rgb), 0.95); /* Semi-transparent Emerald */
+  color: var(--text-main);
   padding: 12px 24px;
   border-radius: var(--radius-full);
   font-size: 0.85rem;
@@ -1506,12 +1506,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3), 0 0 1px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 25px rgba(var(--accent-rgb), 0.3), 0 0 1px rgba(var(--fg-rgb), 0.2);
   z-index: 9999;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   animation: toastFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -1527,7 +1527,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(9, 14, 23, 0.75);
+  background: rgba(var(--bg-app-rgb), 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -1546,11 +1546,11 @@
 .payment-gateway-modal {
   width: 100%;
   max-width: 400px;
-  background: rgba(21, 29, 44, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--bg-card-rgb), 0.95);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-lg);
   padding: 24px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(16, 185, 129, 0.05);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(var(--accent-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1565,7 +1565,7 @@
   left: 0;
   width: 100%;
   height: 4px;
-  background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%);
+  background: linear-gradient(90deg, var(--primary-accent-light) 0%, #3b82f6 100%);
 }
 
 .payment-modal-header {
@@ -1583,9 +1583,9 @@
 .secure-badge {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--accent-text);
   letter-spacing: 0.05em;
-  background: rgba(16, 185, 129, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   align-self: flex-start;
@@ -1598,7 +1598,7 @@
 }
 
 .btn-close-modal {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text-muted);
   width: 28px;
   height: 28px;
@@ -1609,24 +1609,24 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   font-size: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
 }
 
 .btn-close-modal:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   color: var(--text-main);
 }
 
 .payment-gateway-modal.invoice-modal {
   max-width: 440px;
-  background: rgba(21, 29, 44, 0.95);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 50px rgba(16, 185, 129, 0.1);
+  background: rgba(var(--bg-card-rgb), 0.95);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 50px rgba(var(--accent-rgb), 0.1);
 }
 
 .invoice-client-card {
-  background: rgba(9, 14, 23, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(var(--bg-app-rgb), 0.45);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   padding: 16px;
   border-radius: var(--radius-md);
   display: flex;
@@ -1652,8 +1652,8 @@
 }
 
 .invoice-breakdown-details {
-  border-top: 1px dashed rgba(255, 255, 255, 0.1);
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  border-top: 1px dashed rgba(var(--fg-rgb), 0.1);
+  border-bottom: 1px dashed rgba(var(--fg-rgb), 0.1);
   padding: 16px 0;
   display: flex;
   flex-direction: column;
@@ -1672,18 +1672,18 @@
   font-size: 1.05rem;
   color: var(--text-main);
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.05);
 }
 
 .invoice-row.total-row strong {
-  color: #10b981;
+  color: var(--accent-text);
   font-weight: 800;
-  text-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+  text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35);
 }
 
 .secure-payment-notice {
-  background: rgba(16, 185, 129, 0.04);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.04);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 12px;
   border-radius: var(--radius-sm);
   display: flex;
@@ -1713,13 +1713,13 @@
   width: 100%;
   padding: 12px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: #ffffff;
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.25);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1727,7 +1727,7 @@
 
 .btn-pay-submit:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.4);
   transform: translateY(-1px);
 }
 
@@ -1736,8 +1736,8 @@
 }
 
 .btn-pay-submit:disabled {
-  background: rgba(21, 29, 44, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--bg-card-rgb), 0.6);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   color: var(--text-muted);
   cursor: not-allowed;
   box-shadow: none;
@@ -1753,7 +1753,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid var(--text-muted);
-  border-top-color: #10b981;
+  border-top-color: var(--primary-accent-light);
   border-radius: 50%;
   animation: paySpinner 0.8s infinite linear;
 }
@@ -1770,7 +1770,7 @@
 /* Hevy logger wrapper layout overrides */
 .hevy-logger-wrapper {
   background: rgba(13, 20, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
   /* This form also carries .glass-panel, whose `backdrop-filter: blur(12px)`
      creates a new containing block for any sticky/fixed descendant — that
@@ -1799,7 +1799,7 @@
   flex-wrap: nowrap;
   /* Opaque base under the amber tint so scrolled content doesn't show through
      while the bar is pinned. */
-  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), #141d2c;
+  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), var(--bg-card);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(245, 158, 11, 0.25);
@@ -1837,7 +1837,7 @@
    Pause all sit on one row. */
 .stopwatch-time {
   font-size: 1rem;
-  color: #fbbf24;
+  color: var(--tint-amber);
   font-family: 'Courier New', Courier, monospace;
   letter-spacing: 0.04em;
   font-weight: 700;
@@ -1851,7 +1851,7 @@
 .live-kcal-badge {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #fbbf24;
+  color: var(--tint-amber);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 4px 10px;
@@ -1875,7 +1875,7 @@
 .btn-timer-toggle {
   background: transparent;
   border: none;
-  color: #fbbf24;
+  color: var(--tint-amber);
   padding: 4px 6px;
   cursor: pointer;
   transition: transform var(--transition-fast);
@@ -1945,7 +1945,7 @@
 }
 
 .btn-hevy-finish {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: #fff;
   border: none;
   padding: 8px 16px;
@@ -1953,13 +1953,13 @@
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
   transition: all var(--transition-fast);
 }
 
 .btn-hevy-finish:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.4);
 }
 
 .btn-hevy-finish:active {
@@ -1978,13 +1978,13 @@
 .btn-add-hevy-ex:hover {
   background: rgba(59, 130, 246, 0.16);
   border-color: rgba(59, 130, 246, 0.4);
-  color: #fff;
+  color: var(--text-main);
 }
 
 /* Hevy Exercise Card */
 .hevy-exercise-card {
   background: rgba(13, 20, 35, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   border-radius: var(--radius-lg);
   padding: 16px;
@@ -2030,9 +2030,9 @@
 
 .ex-name-clickable:hover,
 .ex-name-clickable:focus-visible {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   text-decoration: underline;
-  text-decoration-color: rgba(16, 185, 129, 0.4);
+  text-decoration-color: rgba(var(--accent-rgb), 0.4);
   text-underline-offset: 3px;
 }
 
@@ -2082,14 +2082,14 @@
 }
 
 .btn-drag-handle:hover {
-  background: rgba(16, 185, 129, 0.08);
-  color: var(--primary-accent-light);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent-text);
 }
 
 .btn-drag-handle:active {
   cursor: grabbing;
-  color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.12);
 }
 
 /* Reorder mode — useReorderableList (src/hooks/useReorderableList.js).
@@ -2216,9 +2216,9 @@
   margin-bottom: 8px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 10px;
   /* So the lifted "dragging" look (below) eases in on grab and, more
      importantly, eases back out on drop instead of cutting off the instant
@@ -2246,8 +2246,8 @@
 /* The row currently being dragged — subtle lift, not a redesign. */
 .ex-reorder-compact-row.ex-reorder-dragging {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.45);
   position: relative;
 }
 
@@ -2267,8 +2267,8 @@
      even without a hover state to reveal it (touch devices never show
      hover) — otherwise it's indistinguishable from the plain, non-tappable
      "BW" label this looked like before the toggle existed. */
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 5px;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -2304,8 +2304,8 @@
   font-family: inherit;
   font-size: 0.75rem;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 5px;
   cursor: pointer;
   padding: 0;
@@ -2342,7 +2342,7 @@
   color: var(--text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
 }
 
 .hevy-table-header span {
@@ -2360,13 +2360,13 @@
   align-items: center;
   padding: 6px 4px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(var(--fg-rgb), 0.01);
   border: 1px solid transparent;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hevy-set-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
 }
 
 .hevy-set-row .set-num-lbl {
@@ -2444,7 +2444,7 @@
   z-index: 1000;
   background: linear-gradient(180deg, #1b2334 0%, #121826 100%);
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 22px 22px 0 0;
   padding: 8px 14px calc(18px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -14px 44px rgba(0, 0, 0, 0.55);
@@ -2460,7 +2460,7 @@
   width: 40px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(var(--fg-rgb), 0.22);
   margin: 6px auto 10px;
 }
 
@@ -2483,7 +2483,7 @@
 .set-type-menu-divider {
   height: 1px;
   margin: 6px 6px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 
 .set-type-option {
@@ -2502,7 +2502,7 @@
 }
 
 .set-type-option:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 
 .set-type-option:active {
@@ -2541,7 +2541,7 @@
 }
 
 .set-type-option.is-remove .set-type-option-label {
-  color: #f87171;
+  color: var(--tint-red);
 }
 
 .set-type-option-desc {
@@ -2595,11 +2595,11 @@
 .hevy-set-row .set-input-field .set-value-btn {
   width: 100%;
   max-width: 72px;
-  background: rgba(9, 14, 23, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 8px 4px;
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-main);
   font-family: inherit;
   /* Must stay >= 16px: iOS Safari auto-zooms the page on focus for any
      input with a smaller computed font-size, which is hard to undo. */
@@ -2670,7 +2670,7 @@
   flex-shrink: 0;
   background: transparent;
   border: none;
-  color: #60a5fa;
+  color: var(--tint-blue);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2692,11 +2692,11 @@
   width: 100%;
   min-width: 0;
   max-width: 56px;
-  background: rgba(9, 14, 23, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 6px 2px;
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-main);
   font-family: inherit;
   font-size: 16px;
   font-weight: 700;
@@ -2721,7 +2721,7 @@
   flex-shrink: 0;
   font-size: 0.9rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2729,7 +2729,7 @@
   flex-shrink: 0;
   font-size: 0.62rem;
   font-weight: 700;
-  color: #fb923c;
+  color: var(--tint-orange);
   white-space: nowrap;
 }
 
@@ -2742,17 +2742,17 @@
 
 /* Row Completed State (Glowing Emerald Blur) */
 .hevy-set-row.set-row-completed {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.18);
-  box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.04);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.18);
+  box-shadow: inset 0 0 10px rgba(var(--accent-rgb), 0.04);
 }
 
 .hevy-set-row.set-row-completed .set-num-lbl {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .hevy-set-row.set-row-completed .set-prev-lbl {
-  color: rgba(16, 185, 129, 0.7);
+  color: rgba(var(--accent-rgb), 0.7);
 }
 
 /* Circular Checkmark Button */
@@ -2760,8 +2760,8 @@
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   color: transparent;
   font-size: 0.7rem;
   font-weight: 800;
@@ -2773,21 +2773,21 @@
 }
 
 .btn-hevy-check:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(var(--fg-rgb), 0.1);
+  border-color: rgba(var(--fg-rgb), 0.2);
   transform: scale(1.05);
 }
 
 .btn-hevy-check.completed {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--primary-accent-light);
+  border-color: var(--primary-accent-light);
   color: #fff;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5);
 }
 
 .btn-hevy-check.completed:hover {
-  background: #059669;
-  border-color: #059669;
+  background: var(--primary-accent);
+  border-color: var(--primary-accent);
 }
 
 .btn-hevy-row-delete {
@@ -2842,13 +2842,13 @@ html.keyboard-open .rest-timer-floating-card {
   left: 0;
   right: 0;
   width: 100%;
-  background: rgba(9, 14, 23, 0.92);
+  background: rgba(var(--bg-app-rgb), 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(16, 185, 129, 0.25);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 0;
   padding: 14px 20px;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(var(--accent-rgb), 0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2867,7 +2867,7 @@ html.keyboard-open .rest-timer-floating-card {
   right: 8px;
   width: auto;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   border-top: 2px solid #3b82f6;
 }
 
@@ -2881,8 +2881,8 @@ html.keyboard-open .rest-timer-floating-card {
    green tint and smoothly back, 3 times. No box-shadow/border flashing —
    just a gentle, low-contrast background pulse. */
 @keyframes restTimerBoxPulse {
-  0%, 100% { background: rgba(9, 14, 23, 0.92); }
-  50% { background: rgba(16, 185, 129, 0.16); }
+  0%, 100% { background: rgba(var(--bg-app-rgb), 0.92); }
+  50% { background: rgba(var(--accent-rgb), 0.16); }
 }
 
 .rest-timer-pulse-start,
@@ -2910,7 +2910,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .rest-timer-big-time {
   font-size: 2rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-family: 'Courier New', Courier, monospace;
   font-weight: 800;
   line-height: 1;
@@ -2918,7 +2918,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .rest-timer-finished-msg {
   font-size: 0.95rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .rest-timer-actions {
@@ -2929,8 +2929,8 @@ html.keyboard-open .rest-timer-floating-card {
 
 .btn-rest-adjust {
   flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   color: var(--text-main);
   padding: 9px 0;
   border-radius: 8px;
@@ -2941,15 +2941,15 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-rest-adjust:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(var(--fg-rgb), 0.12);
+  border-color: rgba(var(--fg-rgb), 0.2);
 }
 
 .btn-rest-skip {
   flex: 1;
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
+  color: var(--tint-red);
   padding: 9px 0;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -2960,7 +2960,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .btn-rest-skip:hover {
   background: rgba(239, 68, 68, 0.2);
-  color: #fff;
+  color: var(--text-main);
 }
 
 /* Exercise Database Modal Extensions — full-screen edge-to-edge sheet
@@ -3108,11 +3108,11 @@ html.keyboard-open .rest-timer-floating-card {
 
 .exercise-search-input {
   width: 100%;
-  background: rgba(9, 14, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--bg-app-rgb), 0.6);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--text-main);
   font-family: inherit;
   /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
   font-size: 16px;
@@ -3142,7 +3142,7 @@ html.keyboard-open .rest-timer-floating-card {
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   color: var(--text-muted);
   font-size: 0.7rem;
   line-height: 1;
@@ -3151,8 +3151,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .exercise-search-clear-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.16);
+  color: var(--text-main);
 }
 
 .exercise-filter-tags {
@@ -3178,22 +3178,22 @@ html.keyboard-open .rest-timer-floating-card {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-tag-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   color: var(--text-main);
 }
 
 .filter-tag-btn.active {
   background: rgba(59, 130, 246, 0.12);
   border-color: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+  color: var(--tint-blue);
 }
 
 .exercise-presets-list {
@@ -3216,12 +3216,12 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .exercise-presets-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-full);
 }
 
 .exercise-presets-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(var(--fg-rgb), 0.15);
 }
 
 .exercise-preset-item {
@@ -3229,16 +3229,16 @@ html.keyboard-open .rest-timer-floating-card {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  background: rgba(9, 14, 23, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  background: rgba(var(--bg-app-rgb), 0.35);
+  border: 1px solid rgba(var(--fg-rgb), 0.02);
   border-radius: var(--radius-sm);
   transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .exercise-preset-item:hover {
-  background: rgba(9, 14, 23, 0.5);
-  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border-color: rgba(var(--fg-rgb), 0.04);
 }
 
 /* Clickable wrapper around the exercise picker's icon (muscle-diagram
@@ -3270,7 +3270,7 @@ html.keyboard-open .rest-timer-floating-card {
   justify-content: center;
   font-size: 1rem;
   font-weight: 800;
-  color: #93c5fd;
+  color: var(--tint-blue);
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.18);
 }
@@ -3306,29 +3306,28 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  background: #3b82f6;
+  background: var(--primary-accent-light);
   color: #fff;
   transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .btn-add-preset-action:hover {
-  background: #2563eb;
+  background: var(--primary-accent);
   transform: translateY(-1px);
 }
 
 .btn-add-preset-action.added {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: var(--primary-accent-light);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  color: var(--accent-text);
   /* Tapping an added item removes it again (toggle), so keep it clickable. */
   cursor: pointer;
 }
 
 .btn-add-preset-action.added:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: rgba(var(--accent-rgb), 0.16);
+  border-color: rgba(var(--accent-rgb), 0.4);
 }
 
 /* Running count — sits as a small subtitle under the "Add Exercise" title
@@ -3346,7 +3345,7 @@ html.keyboard-open .rest-timer-floating-card {
   border: none;
   border-radius: var(--radius-sm);
   background: var(--primary-accent-light);
-  color: #06281c;
+  color: var(--text-on-accent);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -3364,8 +3363,8 @@ html.keyboard-open .rest-timer-floating-card {
 .summary-modal-card {
   max-width: 440px;
   background: rgba(13, 20, 35, 0.96);
-  border-color: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 50px rgba(16, 185, 129, 0.1);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 50px rgba(var(--accent-rgb), 0.1);
 }
 
 .summary-stats-grid {
@@ -3376,8 +3375,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .summary-stats-grid .stat-card {
-  background: rgba(9, 14, 23, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(var(--bg-app-rgb), 0.45);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   padding: 12px 6px;
   border-radius: var(--radius-md);
   display: flex;
@@ -3404,7 +3403,7 @@ html.keyboard-open .rest-timer-floating-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.05);
   padding-top: 14px;
 }
 
@@ -3457,18 +3456,18 @@ html.keyboard-open .rest-timer-floating-card {
 
 .pr-details span {
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(var(--fg-rgb), 0.7);
 }
 
 .summary-notice-emerald {
-  background: rgba(16, 185, 129, 0.04);
-  border-color: rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.04);
+  border-color: rgba(var(--accent-rgb), 0.15);
 }
 
 .summary-actions-row {
   display: flex;
   gap: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.05);
   padding-top: 16px;
 }
 
@@ -3476,8 +3475,8 @@ html.keyboard-open .rest-timer-floating-card {
   flex: 1;
   padding: 10px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 600;
@@ -3486,7 +3485,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-cancel-summary:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   color: var(--text-main);
 }
 
@@ -3494,19 +3493,19 @@ html.keyboard-open .rest-timer-floating-card {
   flex: 1;
   padding: 10px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.25);
   transition: all 0.2s;
   text-align: center;
 }
 
 .btn-confirm-save-hevy:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 18px rgba(var(--accent-rgb), 0.35);
   transform: translateY(-1px);
 }
 
@@ -3522,8 +3521,8 @@ html.keyboard-open .rest-timer-floating-card {
 /* Add Exercise to Session — labeled box at the bottom of the list, matching the
    coach's Live Log. The picker button is full-width inside it. */
 .live-add-ex-box {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.02);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: var(--radius-md);
   padding: 12px;
 }
@@ -3579,9 +3578,9 @@ html.keyboard-open .rest-timer-floating-card {
   width: 290px;
   max-height: 340px;
   background: rgba(13, 20, 35, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(var(--fg-rgb), 0.15);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -3593,7 +3592,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .dropdown-search-wrapper {
   padding: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.06);
 }
 
 .dropdown-search-input {
@@ -3601,8 +3600,8 @@ html.keyboard-open .rest-timer-floating-card {
   padding: 8px 12px;
   /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
   font-size: 16px;
-  background: rgba(9, 14, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--bg-app-rgb), 0.7);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-sm);
   color: var(--text-main);
   outline: none;
@@ -3611,8 +3610,8 @@ html.keyboard-open .rest-timer-floating-card {
 
 .dropdown-search-input:focus {
   border-color: var(--primary-accent-light);
-  background: rgba(9, 14, 23, 0.9);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+  background: rgba(var(--bg-app-rgb), 0.9);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.15);
 }
 
 .dropdown-presets-list {
@@ -3631,14 +3630,14 @@ html.keyboard-open .rest-timer-floating-card {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
+  border: 1px solid rgba(var(--fg-rgb), 0.02);
   transition: all 0.15s;
 }
 
 .dropdown-preset-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.06);
+  border-color: rgba(var(--fg-rgb), 0.05);
 }
 
 .dropdown-preset-info {
@@ -3668,12 +3667,12 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .dropdown-presets-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-full);
 }
 
 .dropdown-presets-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(var(--fg-rgb), 0.15);
 }
 
 /* Exercise Video & Form Guide */
@@ -3685,7 +3684,7 @@ html.keyboard-open .rest-timer-floating-card {
   cursor: pointer;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.3) 100%);
   border: 1px solid rgba(59, 130, 246, 0.4);
-  color: #93c5fd;
+  color: var(--tint-blue);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3711,9 +3710,9 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  color: #a7f3d0;
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  color: var(--tint-emerald);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -3723,9 +3722,9 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-form-guide-sm:hover {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.2);
   border-color: var(--primary-accent-light);
-  color: #fff;
+  color: var(--text-main);
 }
 
 /* ── Hevy-style Form Guide bottom sheet ─────────────────────────────────── */
@@ -3745,7 +3744,7 @@ html.keyboard-open .rest-timer-floating-card {
 .guide-sheet {
   width: 100%;
   max-width: 520px;
-  background: #1a1d2e;
+  background: var(--bg-card);
   border-radius: 20px 20px 0 0;
   max-height: 90vh;
   height: 90vh;
@@ -3766,7 +3765,7 @@ html.keyboard-open .rest-timer-floating-card {
 .guide-sheet-handle {
   width: 36px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(var(--fg-rgb), 0.2);
   border-radius: 2px;
   margin: 10px auto 0;
   flex-shrink: 0;
@@ -3804,7 +3803,7 @@ html.keyboard-open .rest-timer-floating-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f1219;
+  background: var(--bg-card-active);
 }
 
 .guide-image-placeholder.guide-image-loading {
@@ -3820,8 +3819,8 @@ html.keyboard-open .rest-timer-floating-card {
 .guide-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.08);
-  border-top-color: #10b981;
+  border: 3px solid rgba(var(--fg-rgb), 0.08);
+  border-top-color: var(--primary-accent-light);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -3839,7 +3838,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.55);
   border: none;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(var(--fg-rgb), 0.75);
   font-size: 0.85rem;
   cursor: pointer;
   display: flex;
@@ -3856,7 +3855,7 @@ html.keyboard-open .rest-timer-floating-card {
 /* ── Tab bar ──────────────────────────────────────────────────────────────── */
 .guide-tab-bar {
   display: flex;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.08);
   flex-shrink: 0;
 }
 
@@ -3875,8 +3874,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .guide-tab-btn--active {
-  color: #10b981;
-  border-bottom-color: #10b981;
+  color: var(--accent-text);
+  border-bottom-color: var(--primary-accent-light);
 }
 
 /* ── Tab content ─────────────────────────────────────────────────────────── */
@@ -3892,7 +3891,7 @@ html.keyboard-open .rest-timer-floating-card {
 .guide-ex-name {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin: 0 0 12px;
 }
 
@@ -3911,7 +3910,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .guide-muscle-value {
-  color: #fff;
+  color: var(--text-main);
   font-weight: 700;
 }
 
@@ -3926,7 +3925,7 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 8px;
   margin-top: 16px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   border-radius: 10px;
   font-size: 0.82rem;
   color: var(--text-muted);
@@ -3956,8 +3955,8 @@ html.keyboard-open .rest-timer-floating-card {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 800;
   display: flex;
@@ -4009,7 +4008,7 @@ html.keyboard-open .rest-timer-floating-card {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   border: none;
   color: var(--text-muted);
   font-size: 0.85rem;
@@ -4022,8 +4021,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-close-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.12);
+  color: var(--text-main);
 }
 
 .ex-history-content {
@@ -4052,7 +4051,7 @@ html.keyboard-open .rest-timer-floating-card {
   height: 130px;
   padding: 8px 4px 0;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.08);
 }
 
 .ex-history-bar-col {
@@ -4071,14 +4070,14 @@ html.keyboard-open .rest-timer-floating-card {
   max-width: 22px;
   display: flex;
   align-items: flex-end;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .ex-history-bar-fill {
   width: 100%;
-  background: linear-gradient(180deg, #10b981, #059669);
+  background: linear-gradient(180deg, var(--primary-accent-light), var(--primary-accent));
   border-radius: 4px 4px 0 0;
   transition: height 0.2s ease;
 }
@@ -4100,8 +4099,8 @@ html.keyboard-open .rest-timer-floating-card {
 
 .ex-history-row {
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: 12px;
 }
 
@@ -4115,14 +4114,14 @@ html.keyboard-open .rest-timer-floating-card {
 .ex-history-row-date {
   font-size: 0.88rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .ex-history-row-sessions {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   padding: 2px 8px;
   border-radius: 20px;
 }
@@ -4137,7 +4136,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-row-stats strong {
-  color: #10b981;
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -4146,11 +4145,11 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-delta--up {
-  color: #10b981;
+  color: var(--accent-text);
 }
 
 .ex-history-delta--down {
-  color: #f87171;
+  color: var(--tint-red);
 }
 
 /* ── Summary stats row (PR / last trained / sessions) ─────────────────────── */
@@ -4168,8 +4167,8 @@ html.keyboard-open .rest-timer-floating-card {
   flex-direction: column;
   gap: 3px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: 10px;
 }
 
@@ -4187,7 +4186,7 @@ html.keyboard-open .rest-timer-floating-card {
 .ex-history-stat-value {
   font-size: 0.95rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4205,8 +4204,8 @@ html.keyboard-open .rest-timer-floating-card {
   margin: 12px 20px 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   flex-shrink: 0;
 }
 
@@ -4219,7 +4218,7 @@ html.keyboard-open .rest-timer-floating-card {
 .ex-history-status-label {
   font-size: 0.86rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin-bottom: 2px;
 }
 
@@ -4230,10 +4229,10 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-status-card--success {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.07);
+  border-color: rgba(var(--accent-rgb), 0.35);
+  background: rgba(var(--accent-rgb), 0.07);
 }
-.ex-history-status-card--success .ex-history-status-label { color: #10b981; }
+.ex-history-status-card--success .ex-history-status-label { color: var(--accent-text); }
 
 .ex-history-status-card--warning {
   border-color: rgba(234, 179, 8, 0.35);
@@ -4254,7 +4253,7 @@ html.keyboard-open .rest-timer-floating-card {
 .ex-history-status-card--danger .ex-history-status-label { color: #ef4444; }
 
 .ex-history-status-card--neutral {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(var(--fg-rgb), 0.1);
 }
 .ex-history-status-card--neutral .ex-history-status-label { color: var(--text-muted); }
 
@@ -4262,13 +4261,13 @@ html.keyboard-open .rest-timer-floating-card {
 .ex-history-recs {
   margin-top: 22px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.08);
 }
 
 .ex-history-recs-title {
   font-size: 0.86rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin-bottom: 4px;
 }
 
@@ -4291,22 +4290,22 @@ html.keyboard-open .rest-timer-floating-card {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: 10px;
 }
 
 .ex-history-rec-name {
   font-size: 0.84rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .ex-history-rec-cat {
   font-size: 0.66rem;
   font-weight: 700;
-  color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.12);
   padding: 3px 8px;
   border-radius: 20px;
   flex-shrink: 0;
@@ -4359,7 +4358,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-section-badge.generic {
   background: rgba(139, 92, 246, 0.12);
-  color: #a78bfa;
+  color: var(--tint-violet);
   border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
@@ -4376,7 +4375,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-template-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid rgba(245, 158, 11, 0.18);
   border-radius: 14px;
   padding: 16px;
@@ -4404,7 +4403,7 @@ html.keyboard-open .rest-timer-floating-card {
   display: block;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #f8faff;
+  color: var(--text-main);
 }
 
 .wt-tpl-meta {
@@ -4466,7 +4465,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-library-title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #f8faff;
+  color: var(--text-main);
   letter-spacing: -0.01em;
   margin: 0 0 3px;
 }
@@ -4485,8 +4484,8 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-category-toggle {
   display: flex;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.07);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 8px;
@@ -4509,19 +4508,19 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-category-btn:hover:not(.active) {
   color: rgba(248, 250, 255, 0.7);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 
 .wt-category-btn.active {
   background: rgba(139, 92, 246, 0.14);
-  color: var(--primary-accent-light, #a78bfa);
+  color: var(--accent-text);
 }
 
 .wt-level-tabs {
   display: flex;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.07);
   border-radius: 12px;
   padding: 4px;
 }
@@ -4543,12 +4542,12 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-level-tab:hover:not(.active) {
   color: rgba(248, 250, 255, 0.7);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 
 .wt-level-tab.active.wt-level-tab--beginner {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent-text);
 }
 
 .wt-level-tab.active.wt-level-tab--intermediate {
@@ -4575,8 +4574,8 @@ html.keyboard-open .rest-timer-floating-card {
   align-items: center;
   gap: 14px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: 16px;
   padding: 12px;
   cursor: pointer;
@@ -4586,8 +4585,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-program-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--fg-rgb), 0.06);
+  border-color: rgba(var(--fg-rgb), 0.12);
 }
 
 .wt-program-card:active {
@@ -4621,7 +4620,7 @@ html.keyboard-open .rest-timer-floating-card {
   white-space: nowrap;
 }
 
-.wt-program-tile--beginner .wt-program-tile-accent { color: #059669; }
+.wt-program-tile--beginner .wt-program-tile-accent { color: var(--accent-text); }
 .wt-program-tile--intermediate .wt-program-tile-accent { color: #d97706; }
 .wt-program-tile--advanced .wt-program-tile-accent { color: #dc2626; }
 
@@ -4636,7 +4635,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-program-name {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #f8faff;
+  color: var(--text-main);
   letter-spacing: -0.01em;
 }
 
@@ -4655,7 +4654,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 50%;
 }
 
-.wt-program-dot--beginner { background: #10b981; }
+.wt-program-dot--beginner { background: var(--primary-accent-light); }
 .wt-program-dot--intermediate { background: #f59e0b; }
 .wt-program-dot--advanced { background: #ef4444; }
 
@@ -4679,9 +4678,9 @@ html.keyboard-open .rest-timer-floating-card {
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  color: var(--text-main);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -4690,7 +4689,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-show-all-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
 }
 
 /* ─── Empty state ─── */
@@ -4699,9 +4698,9 @@ html.keyboard-open .rest-timer-floating-card {
   text-align: center;
   color: rgba(148, 163, 184, 0.6);
   font-size: 0.9rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
   border-radius: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border: 1px dashed rgba(var(--fg-rgb), 0.08);
 }
 
 /* ─── Blank workout CTA ─── */
@@ -4713,9 +4712,9 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-blank-btn {
   padding: 12px 28px;
   border-radius: 12px;
-  border: 1px dashed rgba(16, 185, 129, 0.3);
-  background: rgba(16, 185, 129, 0.05);
-  color: rgba(16, 185, 129, 0.8);
+  border: 1px dashed rgba(var(--accent-rgb), 0.3);
+  background: rgba(var(--accent-rgb), 0.05);
+  color: rgba(var(--accent-rgb), 0.8);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -4724,9 +4723,9 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-blank-btn:hover {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent-text);
 }
 
 /* ── Redesigned routine picker (Log Sets → Start Workout Session) ── */
@@ -4738,8 +4737,8 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 12px;
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px dashed rgba(16, 185, 129, 0.35);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px dashed rgba(var(--accent-rgb), 0.35);
   cursor: pointer;
   text-align: left;
   margin-bottom: 22px;
@@ -4747,8 +4746,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-start-empty-card:hover {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.5);
 }
 
 .wt-start-empty-icon {
@@ -4756,8 +4755,8 @@ html.keyboard-open .rest-timer-floating-card {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.16);
-  color: var(--primary-accent-light, #10b981);
+  background: rgba(var(--accent-rgb), 0.16);
+  color: var(--accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4774,7 +4773,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-start-empty-text strong {
-  color: var(--primary-accent-light, #10b981);
+  color: var(--accent-text);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -4807,14 +4806,14 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .wt-count-badge {
   font-size: 0.66rem;
   font-weight: 700;
-  color: var(--primary-accent-light, #10b981);
-  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.12);
   border-radius: 20px;
   padding: 2px 9px;
 }
@@ -4822,7 +4821,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-view-all-btn {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--primary-accent-light, #10b981);
+  color: var(--accent-text);
   background: none;
   border: none;
   cursor: pointer;
@@ -4841,7 +4840,7 @@ html.keyboard-open .rest-timer-floating-card {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
@@ -4895,7 +4894,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-plan-title {
-  color: #fff;
+  color: var(--text-main);
   font-size: 0.88rem;
   font-weight: 700;
   overflow: hidden;
@@ -4934,7 +4933,7 @@ html.keyboard-open .rest-timer-floating-card {
   font-size: 0.64rem;
   font-weight: 600;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   border-radius: 20px;
   padding: 2px 8px 2px 6px;
 }
@@ -4961,7 +4960,7 @@ html.keyboard-open .rest-timer-floating-card {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: var(--radius-sm);
-  color: #f87171;
+  color: var(--tint-red);
   cursor: pointer;
   padding: 7px;
 }
@@ -4971,12 +4970,27 @@ html.keyboard-open .rest-timer-floating-card {
   align-items: center;
   gap: 5px;
   padding: 7px 14px;
-  background: var(--primary-accent-light, #10b981);
-  color: #06251b;
+  background: var(--primary-accent-light);
+  color: var(--text-on-accent);
   font-weight: 700;
   font-size: 0.78rem;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Light theme: surfaces that were tuned as translucent near-black panels on the
+   dark palette. Dark values above are untouched. */
+[data-theme="light"] .hevy-logger-wrapper {
+  background: rgba(var(--bg-card-active-rgb), 0.45);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .hevy-exercise-card,
+[data-theme="light"] .exercise-modal-card,
+[data-theme="light"] .summary-modal-card,
+[data-theme="light"] .add-exercise-dropdown-menu,
+[data-theme="light"] .chart-point-tooltip {
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }

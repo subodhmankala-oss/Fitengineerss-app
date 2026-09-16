@@ -19,9 +19,9 @@ const rowStyle = {
   display: 'flex', flexDirection: 'column', gap: '6px',
   padding: '14px 0', borderBottom: '1px solid var(--border-color)'
 };
-const labelStyle = { fontSize: '0.85rem', color: '#fff', fontWeight: 600 };
+const labelStyle = { fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 };
 const selectStyle = {
-  background: 'transparent', border: 'none', color: 'var(--primary-accent-light)',
+  background: 'transparent', border: 'none', color: 'var(--accent-text)',
   fontSize: '0.85rem', fontWeight: 600, padding: 0, outline: 'none', cursor: 'pointer'
 };
 
@@ -85,13 +85,13 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', borderBottom: '1px solid var(--border-color)' }}>
-          <button type="button" onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', fontSize: '1rem', cursor: 'pointer' }}>←</button>
-          <h3 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, margin: 0 }}>Create Exercise</h3>
+          <button type="button" onClick={onClose} style={{ background: 'rgba(var(--fg-rgb), 0.06)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: 'var(--text-main)', fontSize: '1rem', cursor: 'pointer' }}>←</button>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 800, margin: 0 }}>Create Exercise</h3>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            style={{ background: 'var(--primary-accent)', border: 'none', color: '#0a0a0a', fontWeight: 800, fontSize: '0.85rem', padding: '8px 16px', borderRadius: '20px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
+            style={{ background: 'var(--primary-accent)', border: 'none', color: 'var(--text-on-accent)', fontWeight: 800, fontSize: '0.85rem', padding: '8px 16px', borderRadius: '20px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
           >{saving ? 'Saving…' : 'Save'}</button>
         </div>
 
@@ -110,7 +110,7 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
             placeholder="Exercise Name"
             style={{
               width: '100%', padding: '10px 0', background: 'transparent', border: 'none',
-              borderBottom: '1px solid var(--border-color)', color: '#fff', fontSize: '16px', outline: 'none', boxSizing: 'border-box'
+              borderBottom: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '16px', outline: 'none', boxSizing: 'border-box'
             }}
           />
         </div>
@@ -142,9 +142,9 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
                   onClick={() => toggleOtherMuscle(m)}
                   style={{
                     fontSize: '0.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
-                    border: otherMuscles.includes(m) ? '1px solid rgba(16,185,129,0.5)' : '1px solid var(--border-color)',
-                    background: otherMuscles.includes(m) ? 'rgba(16,185,129,0.14)' : 'rgba(255,255,255,0.03)',
-                    color: otherMuscles.includes(m) ? 'var(--primary-accent-light)' : 'var(--text-muted)'
+                    border: otherMuscles.includes(m) ? '1px solid rgba(var(--accent-rgb), 0.5)' : '1px solid var(--border-color)',
+                    background: otherMuscles.includes(m) ? 'rgba(var(--accent-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.03)',
+                    color: otherMuscles.includes(m) ? 'var(--accent-text)' : 'var(--text-muted)'
                   }}
                 >{m}</button>
               ))}

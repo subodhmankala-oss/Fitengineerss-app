@@ -30,7 +30,7 @@
 
 .widget-card.highlight {
   background: linear-gradient(135deg, var(--bg-card) 0%, #101926 100%);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
 }
 
 .widget-header {
@@ -107,8 +107,8 @@
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.02);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   border-radius: var(--radius-full);
   color: var(--text-muted);
   font-size: 0.88rem;
@@ -119,15 +119,15 @@
 }
 
 .tab-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   color: var(--text-main);
 }
 
 .tab-btn.active {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   border-color: var(--primary-accent-light);
-  color: var(--primary-accent-light);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+  color: var(--accent-text);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.15);
 }
 
 /* SVG Chart details */
@@ -146,13 +146,13 @@
 }
 
 .chart-path {
-  filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(var(--accent-rgb), 0.3));
 }
 
 .badge-trend {
   font-size: 0.72rem;
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--primary-accent-light);
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent-text);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   font-weight: 700;
@@ -162,8 +162,8 @@
 
 /* Interactive slider */
 .slider-container {
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.01);
+  border: 1px solid rgba(var(--fg-rgb), 0.03);
   padding: 12px 16px;
   border-radius: var(--radius-md);
   margin-top: 14px;
@@ -179,7 +179,7 @@
 }
 
 .highlight-text {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 800;
   font-size: 0.9rem;
 }
@@ -187,7 +187,7 @@
 .interactive-day-slider {
   width: 100%;
   height: 4px;
-  background: #1e293b;
+  background: var(--bg-card-hover);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -221,8 +221,8 @@
 .stat-box {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.01);
+  border: 1px solid rgba(var(--fg-rgb), 0.03);
   padding: 12px 16px;
   border-radius: var(--radius-md);
 }
@@ -237,7 +237,7 @@
 }
 
 .text-emerald {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* Circular Chart progress styling */
@@ -256,7 +256,7 @@
 
 .circular-chart .circle-bg {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.03);
+  stroke: rgba(var(--fg-rgb), 0.03);
   stroke-width: 3.5;
 }
 
@@ -264,7 +264,7 @@
   fill: none;
   stroke-width: 3.5;
   stroke-linecap: round;
-  stroke: var(--primary-accent-light);
+  stroke: var(--accent-text);
   transition: stroke-dasharray 0.5s ease;
 }
 
@@ -280,8 +280,8 @@
 
 /* Descriptive Insight widget */
 .desc-widget {
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px dashed rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.01);
+  border: 1px dashed rgba(var(--fg-rgb), 0.06);
   padding: 18px;
 }
 

@@ -10,8 +10,8 @@
   align-items: flex-start;
   gap: 10px;
   padding: 12px 12px 12px 14px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
   border-radius: 12px;
   animation: cnb-slide-in 0.25s ease;
 }
@@ -37,14 +37,14 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--primary-accent-light, #34d399);
+  color: var(--accent-text);
   margin-bottom: 2px;
 }
 
 .cnb-message {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-main);
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
@@ -55,9 +55,9 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  color: var(--text-muted, #9ca3af);
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid var(--border-color, rgba(var(--fg-rgb), 0.1));
+  color: var(--text-muted);
   font-size: 0.8rem;
   line-height: 1;
   cursor: pointer;
@@ -68,8 +68,8 @@
 }
 
 .cnb-dismiss:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.12);
+  color: var(--text-main);
 }
 
 .cnb-reply-row {
@@ -82,23 +82,23 @@
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid var(--border-color, rgba(var(--fg-rgb), 0.14));
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-main);
   /* Must stay >= 16px: iOS Safari auto-zooms the whole page on focus for any
      input with a smaller font-size. */
   font-size: 16px;
 }
 
 .cnb-reply-input::placeholder {
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted);
 }
 
 .cnb-reply-send {
   flex-shrink: 0;
   padding: 7px 14px;
-  background: var(--primary-accent-light, #34d399);
+  background: var(--primary-accent-light, var(--accent-soft));
   border: none;
   border-radius: 8px;
   color: #06281f;
@@ -116,6 +116,6 @@
   margin-top: 8px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted);
   font-style: italic;
 }

@@ -252,8 +252,8 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           <label className="cow-label">Phone number</label>
           <div style={{ display: 'flex', gap: '8px' }}>
             <span style={{
-              padding: '0 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '10px', color: '#fff', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center'
+              padding: '0 12px', background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
+              borderRadius: '10px', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center'
             }}>🇮🇳 +91</span>
             <input
               type="tel"
@@ -306,7 +306,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       </div>
 
       {step1Error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
           {step1Error}
         </div>
       )}
@@ -338,7 +338,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       </div>
 
       {step2Error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
           {step2Error}
         </div>
       )}
@@ -374,7 +374,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       </div>
 
       {step3Error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
           {step3Error}
         </div>
       )}
@@ -410,13 +410,13 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       </div>
 
       {step4Error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
           {step4Error}
         </div>
       )}
 
       {saveError && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.78rem', marginBottom: '12px' }}>
+        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
           {saveError}
         </div>
       )}

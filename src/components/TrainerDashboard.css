@@ -371,13 +371,13 @@
 
   body.admin-wide-frame .admin-shell-nav button:hover,
   body.admin-wide-frame .admin-shell-logout:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    background: rgba(var(--fg-rgb), 0.05);
+    color: var(--text-main);
   }
 
   body.admin-wide-frame .admin-shell-nav button.active {
-    background: rgba(255, 255, 255, 0.07);
-    color: #fff;
+    background: rgba(var(--fg-rgb), 0.07);
+    color: var(--text-main);
   }
 
   /* 2026-08-29: "I want our icons like this design. Not kiddish the one we
@@ -399,7 +399,7 @@
   }
 
   body.admin-wide-frame .admin-shell-logout {
-    color: #f87171;
+    color: var(--tint-red);
   }
 
   /* Room for the fixed sidebar so it doesn't sit on top of the header/
@@ -425,14 +425,14 @@
 .trainer-title-group h3 {
   font-size: 1.2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #ffffff 0%, #a5f3fc 100%);
+  background: linear-gradient(135deg, var(--text-main) 0%, #a5f3fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .trainer-subtitle {
   font-size: 0.8rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -447,7 +447,7 @@
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 50%;
-  color: #fca5a5;
+  color: var(--tint-red);
   transition: all var(--transition-fast);
 }
 
@@ -467,7 +467,7 @@
 .trainer-search-input {
   width: 100%;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-main);
@@ -479,7 +479,7 @@
 
 .trainer-search-input:focus {
   border-color: var(--border-focus);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 
 .filter-tags,
@@ -503,7 +503,7 @@
 .filter-tag {
   padding: 6px 12px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
   font-size: 0.75rem;
@@ -514,14 +514,14 @@
 
 .filter-tag:hover {
   color: var(--text-main);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
 }
 
 .filter-tag.active {
   background: var(--primary-accent);
   border-color: var(--primary-accent-light);
   color: #fff;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3);
 }
 
 /* Directory Listing */
@@ -554,7 +554,7 @@
 
 .client-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(var(--accent-rgb), 0.3);
   background: var(--bg-card-hover);
 }
 
@@ -599,20 +599,20 @@
 
 .client-goal-badge.fat-loss {
   background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
+  color: var(--tint-red);
   border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .client-goal-badge.muscle-building {
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
 .client-goal-badge.gut-fix {
-  background: rgba(16, 185, 129, 0.15);
-  color: #a7f3d0;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--tint-emerald);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
 .client-card-chevron svg {
@@ -621,7 +621,7 @@
 }
 
 .client-card:hover .client-card-chevron svg {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   transform: translateX(2px);
 }
 
@@ -639,7 +639,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
   color: var(--text-main);
@@ -647,8 +647,8 @@
 }
 
 .back-btn-trainer:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--primary-accent-light);
+  background: rgba(var(--fg-rgb), 0.08);
+  color: var(--accent-text);
 }
 
 .client-detail-header-info h4 {
@@ -671,7 +671,7 @@
 
 .metric-mini-card {
   padding: 12px 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   text-align: center;
@@ -695,7 +695,7 @@
 /* Workout History Sections */
 .history-section-title {
   font-size: 0.85rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -721,7 +721,7 @@
 .session-date-header {
   font-size: 0.9rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -741,7 +741,7 @@
 .session-plan-name {
   font-size: 0.95rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .session-date-sub {
@@ -755,7 +755,7 @@
 .session-metrics-sub {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #fbbf24;
+  color: var(--tint-amber);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -767,8 +767,8 @@
 }
 
 .exercise-log-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.02);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   border-radius: var(--radius-md);
   padding: 12px;
 }
@@ -786,7 +786,7 @@
 .exercise-log-name::before {
   content: '⚡';
   font-size: 0.8rem;
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 /* Reps & Weight sets table */
@@ -803,14 +803,14 @@
   text-transform: uppercase;
   color: var(--text-muted);
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.05);
 }
 
 .sets-table td {
   padding: 6px 0;
   font-size: 0.88rem;
   color: var(--text-main);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.02);
 }
 
 .sets-table tr:last-child td {
@@ -823,7 +823,7 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   border-radius: var(--radius-full);
   font-size: 0.72rem;
   font-weight: 700;
@@ -842,7 +842,7 @@
 .trainer-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(16, 185, 129, 0.1);
+  border: 3px solid rgba(var(--accent-rgb), 0.1);
   border-top-color: var(--primary-accent-light);
   border-radius: var(--radius-full);
   animation: trainer-spin 0.8s linear infinite;
@@ -859,7 +859,7 @@
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(var(--fg-rgb), 0.01);
   border: 1px dashed var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-muted);
@@ -885,7 +885,7 @@
 }
 
 .trainer-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
 }
 
 .trainer-chat-panel {
@@ -908,7 +908,7 @@
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.05) transparent;
+  scrollbar-color: rgba(var(--fg-rgb), 0.05) transparent;
 }
 
 .trainer-chat-messages::-webkit-scrollbar {
@@ -916,7 +916,7 @@
 }
 
 .trainer-chat-messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   border-radius: 2px;
 }
 
@@ -926,12 +926,12 @@
 }
 .clickable-card:hover {
   transform: translateY(-2px);
-  background: rgba(16, 185, 129, 0.08) !important;
-  border-color: rgba(16, 185, 129, 0.35) !important;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.35) !important;
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.15);
 }
 .dashboard-breadcrumb button:hover {
-  color: var(--primary-accent) !important;
+  color: var(--accent-text) !important;
   text-decoration: underline;
 }
 
@@ -946,7 +946,7 @@
 }
 
 .live-logger-exercise-card {
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(var(--shade-rgb), 0.18);
   border-top: 1px solid var(--border-color);
   padding: 14px 16px;
 }
@@ -965,7 +965,7 @@
 .live-logger-ex-name {
   font-weight: 800;
   font-size: 0.92rem;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .live-logger-add-set {
@@ -989,8 +989,8 @@
      even without a hover state to reveal it (touch devices never show
      hover) — otherwise it's indistinguishable from the plain, non-tappable
      "BW" label this looked like before the toggle existed. */
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 5px;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -1026,8 +1026,8 @@
   font-family: inherit;
   font-size: 0.75rem;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 5px;
   cursor: pointer;
   padding: 0;
@@ -1059,13 +1059,13 @@
   padding: 10px 14px;
   /* Opaque base under the amber tint so scrolled content doesn't show
      through while the bar is pinned. */
-  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), #141d2c;
+  background: linear-gradient(rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.08)), var(--bg-card);
   /* No backdrop-filter here (unlike other blurred panels in this app) —
      `backdrop-filter` on a `position: sticky` element itself is a known
      mobile Safari/Chrome compositing bug: the browser can freeze the sticky
      element into a stale layer, so it visually stops tracking the scroll
      ("floats" mid-page) even though the CSS position/top is correct. The
-     background above is already fully opaque (#141d2c base), so the blur
+     background above is already fully opaque (var(--bg-card) base), so the blur
      was purely decorative and safe to drop. */
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: var(--radius-md);
@@ -1082,7 +1082,7 @@
   font-family: 'Courier New', monospace;
   font-size: 1rem;
   font-weight: 800;
-  color: #fbbf24;
+  color: var(--tint-amber);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1098,7 +1098,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -1106,7 +1106,7 @@
 .live-timer-kcal {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .live-timer-btn {
@@ -1114,7 +1114,7 @@
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: var(--radius-sm);
-  color: #fbbf24;
+  color: var(--tint-amber);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -1153,10 +1153,10 @@
 
 .live-logging-for-date-input {
   padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--text-main);
   font-size: 0.75rem;
   outline: none;
 }
@@ -1166,7 +1166,7 @@
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--fg-rgb), 0.02);
   border: 1px solid var(--border-color);
   padding: 12px;
   border-radius: var(--radius-md);
@@ -1191,7 +1191,7 @@
 .live-timer-discard-btn:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.5);
-  color: #fff;
+  color: var(--text-main);
 }
 
 .live-timer-discard-btn:active {
@@ -1203,7 +1203,7 @@
    coach's Workout Summary uses the exact same Weekly/Daily/Monthly control. */
 .wsum-timeframe-nav {
   display: flex;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 4px;
@@ -1238,14 +1238,14 @@
 }
 
 .wsum-timeframe-btn:hover {
-  color: #fff;
+  color: var(--text-main);
 }
 
 .wsum-timeframe-btn.active {
   background: var(--bg-card);
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(var(--fg-rgb), 0.02);
 }
 
 /* ── Coach note composer (top of client detail view) ───────────────────── */
@@ -1296,7 +1296,7 @@
 .coach-note-title {
   font-size: 0.9rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .coach-note-lastsession {
@@ -1312,7 +1312,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   border: 1px solid var(--border-color);
   border-radius: 50%;
   color: var(--text-muted);
@@ -1322,8 +1322,8 @@
 }
 
 .coach-note-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.1);
+  color: var(--text-main);
 }
 
 .coach-note-suggestions {
@@ -1336,10 +1336,10 @@
 .coach-note-chip {
   text-align: left;
   padding: 8px 11px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: var(--text-main, #e5e7eb);
+  color: var(--text-main);
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.35;
@@ -1360,10 +1360,10 @@
 .coach-note-textarea {
   width: 100%;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-main);
   /* >= 16px so iOS Safari doesn't auto-zoom the page on focus. */
   font-size: 16px;
   font-family: inherit;
@@ -1390,8 +1390,8 @@
   margin-right: auto;
 }
 
-.coach-note-feedback.ok { color: #34d399; }
-.coach-note-feedback.err { color: #f87171; }
+.coach-note-feedback.ok { color: var(--tint-emerald); }
+.coach-note-feedback.err { color: var(--tint-red); }
 
 .coach-note-send {
   padding: 8px 18px;
@@ -1593,3 +1593,14 @@
   }
 }
 .awaiting-slide-prev { animation: awaitingSlideInPrev 0.3s ease-out; }
+
+/* Light theme: white card instead of the recessed dark tint, so the exercise
+   block reads as a card rather than a grey slab. */
+[data-theme="light"] .live-logger-exercise-card {
+  background: var(--bg-card);
+}
+@media (min-width: 900px) {
+  [data-theme="light"] body.admin-wide-frame .admin-shell-sidebar {
+    background: rgba(var(--bg-card-rgb), 0.95);
+  }
+}

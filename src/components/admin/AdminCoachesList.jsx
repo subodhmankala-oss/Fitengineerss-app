@@ -29,9 +29,9 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
       padding: '16px',
       overflowX: 'auto'
     }}>
-      <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
+      <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
             <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Coach</th>
@@ -44,21 +44,21 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
             const isSuper = coach.email && isSuperAdmin(coach.email);
             const activity = getActivityStatus(coach.last_login);
             return (
-              <tr key={coach.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '64px' }}>
+              <tr key={coach.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '64px' }}>
                 <td style={{ padding: '8px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center' }}>
                       <span style={{ 
                         display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%',
-                        background: coach.isBlocked ? 'var(--danger)' : '#10b981', marginRight: '6px' 
+                        background: coach.isBlocked ? 'var(--danger)' : 'var(--primary-accent-light)', marginRight: '6px' 
                       }} />
                       {coach.name}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{coach.email}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       <span style={{
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'rgba(var(--fg-rgb), 0.04)',
+                        border: '1px solid rgba(var(--fg-rgb), 0.06)',
                         padding: '1px 5px',
                         borderRadius: '4px',
                         fontSize: '0.62rem',
@@ -104,7 +104,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                     style={{
                       background: 'rgba(139, 92, 246, 0.08)',
                       border: '1px solid rgba(139, 92, 246, 0.15)',
-                      color: '#a78bfa',
+                      color: 'var(--tint-violet)',
                       padding: '4px 10px',
                       borderRadius: '6px',
                       cursor: 'pointer',
@@ -126,9 +126,9 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                     <button
                       onClick={() => onToggleBlock(coach)}
                       style={{
-                        background: coach.isBlocked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                        border: `1px solid ${coach.isBlocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                        color: coach.isBlocked ? '#10b981' : 'var(--danger)',
+                        background: coach.isBlocked ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: `1px solid ${coach.isBlocked ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                        color: coach.isBlocked ? 'var(--accent-text)' : 'var(--danger)',
                         padding: '4px 10px',
                         borderRadius: '6px',
                         fontSize: '0.72rem',

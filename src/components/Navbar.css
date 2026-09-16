@@ -65,7 +65,7 @@
 
 .nav-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
 }
 
 .nav-btn.active {
@@ -133,7 +133,7 @@
 }
 
 .mobile-nav-btn.active {
-  color: var(--primary-accent);
+  color: var(--accent-text);
 }
 
 .mobile-nav-btn.active .mobile-nav-icon {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
+import { useTheme } from '../context/ThemeContext';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import './ClientProfile.css';
@@ -44,6 +45,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
   // measurement-reminder push notification's deep link) instead of landing
   // on the plain settings list and leaving the user to find it themselves.
   const [activeSection, setActiveSection] = useState(initialSection);
+  const { preference: themePreference, setTheme } = useTheme();
 
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',
@@ -523,7 +525,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
               background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
               borderRadius: '12px', padding: '12px 14px', marginBottom: '14px'
             }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--tint-amber)' }}>
                 ⏳ Next update in {measDaysUntilNextSave} day{measDaysUntilNextSave === 1 ? '' : 's'}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
@@ -532,10 +534,10 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
             </div>
           ) : previousEntry ? (
             <div style={{
-              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.25)',
               borderRadius: '12px', padding: '12px 14px', marginBottom: '14px'
             }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-text)' }}>
                 ✅ Ready for your next update
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
@@ -562,7 +564,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                     {delta != null && Math.abs(delta) > 0.001 && (
                       <span style={{
                         marginLeft: '7px', fontSize: '0.68rem', fontWeight: 700,
-                        color: delta > 0 ? '#34d399' : '#f87171'
+                        color: delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)'
                       }}>
                         {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}{unit || 'cm'}
                       </span>
@@ -592,10 +594,10 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                   return (
                     <div key={entry.id} style={{
                       padding: '10px 14px',
-                      borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none'
+                      borderTop: idx > 0 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none'
                     }}>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>
-                        {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: 'var(--primary-accent-light)', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: 'var(--accent-text)', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
                       </div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
                         {filled.length > 0
@@ -638,7 +640,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                 <span className="cp-row-label">{label}</span>
                 <span className="cp-row-right">
                   {weightUnit === val && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   )}
@@ -662,6 +664,39 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
         </div>
         <div className="cp-form-scroll">
           <WhatsNewList audience="client" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Sub-section: Theme ──────────────────────────────────────────────────────
+  if (activeSection === 'theme') {
+    return (
+      <div className="cp-container animate-slide-up">
+        <div className="cp-sub-header">
+          <button className="cp-back-btn" onClick={() => setActiveSection(null)}><BackArrow /></button>
+          <h2 className="cp-sub-title">Theme</h2>
+          <span style={{ width: 60 }} />
+        </div>
+        <div className="cp-form-scroll">
+          <div className="cp-form-card">
+            {[['auto', 'Auto (System)'], ['light', 'Light'], ['dark', 'Dark']].map(([val, label], i, arr) => (
+              <button
+                key={val}
+                className={`cp-row${i === arr.length - 1 ? ' cp-row--last' : ''}`}
+                onClick={() => setTheme(val)}
+              >
+                <span className="cp-row-label">{label}</span>
+                <span className="cp-row-right">
+                  {themePreference === val && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -692,7 +727,14 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
       <div className="cp-section-card">
         <SettingsRow icon="🏋️" label="Workouts" onTap={() => setActiveSection('workouts')} />
         <SettingsRow icon="📏" label="Measurements" onTap={() => setActiveSection('measurements')} />
-        <SettingsRow icon="📐" label="Units" value={weightUnit === 'kg' ? 'Metric' : 'Imperial'} onTap={() => setActiveSection('units')} last />
+        <SettingsRow icon="📐" label="Units" value={weightUnit === 'kg' ? 'Metric' : 'Imperial'} onTap={() => setActiveSection('units')} />
+        <SettingsRow
+          icon="🎨"
+          label="Theme"
+          value={themePreference === 'auto' ? 'Auto' : themePreference === 'light' ? 'Light' : 'Dark'}
+          onTap={() => setActiveSection('theme')}
+          last
+        />
       </div>
 
       {/* Updates section */}

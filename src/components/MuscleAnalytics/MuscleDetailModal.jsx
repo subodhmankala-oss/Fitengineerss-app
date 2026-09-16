@@ -41,7 +41,7 @@ const TrendSparkline = ({ weeks }) => {
         const isLatest = i === weeks.length - 1;
         return (
           <g key={w.weekStart}>
-            <rect x={x} y={y} width={barWidth} height={barHeight} rx={3} fill={isLatest ? 'var(--primary-accent-light)' : 'rgba(148,163,184,0.35)'} />
+            <rect x={x} y={y} width={barWidth} height={barHeight} rx={3} fill={isLatest ? 'var(--accent-text)' : 'rgba(148,163,184,0.35)'} />
             <text x={x + barWidth / 2} y={height - barHeight - 4} textAnchor="middle" className="detail-trend-label">{w.sets}</text>
           </g>
         );

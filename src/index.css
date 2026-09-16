@@ -6,21 +6,51 @@
   --bg-card: #151d2c;
   --bg-card-hover: #1e293b;
   --bg-card-active: #0f172a;
-  
-  --primary-accent: #059669; /* Rich Emerald */
-  --primary-accent-light: #10b981;
-  --primary-accent-glow: rgba(16, 185, 129, 0.2);
-  
+  --bg-elevated: #334155;
+
+  /* RGB triplets for rgba() overlays. --fg-rgb is the "ink" tone — light on
+     dark, dark on light — so rgba(var(--fg-rgb), .08) reads as a subtle
+     tint on either theme. */
+  --fg-rgb: 255, 255, 255;
+  --bg-app-rgb: 9, 14, 23;
+  --bg-card-rgb: 21, 29, 44;
+  --bg-card-hover-rgb: 30, 41, 59;
+  --bg-card-active-rgb: 15, 23, 42;
+  /* "Recessed" surface tint (inputs, nested cards): black on dark, soft slate on light. */
+  --shade-rgb: 0, 0, 0;
+
+  --primary-accent: #4364bd; /* Brand blue (logo.png) */
+  --primary-accent-light: #4364bd;
+  --primary-accent-glow: rgba(67, 100, 189, 0.25);
+  --accent-rgb: 67, 100, 189;
+  --accent-soft: #4364bd;
+  --accent-soft-rgb: 67, 100, 189;
+  --accent-deep: #4364bd;
+  /* Text on a solid accent button: white on the brand blue in both themes. */
+  --text-on-accent: #ffffff;
+  /* Accent used as text: lighter than the fill on dark so it clears the near-black bg. */
+  --accent-text: #8aa4ef;
+
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-subtle: #475569;
   
   --border-color: #1e293b;
-  --border-focus: #10b981;
-  
+  --border-strong: #334155;
+  --border-focus: #4364bd;
+
   --danger: #ef4444;
   --warning: #f59e0b;
-  
+
+  /* Colored text on tinted chips/labels: pastel on dark, deep on light. */
+  --tint-emerald: #8fa8ee;
+  --tint-blue: #60a5fa;
+  --tint-red: #f87171;
+  --tint-amber: #fbbf24;
+  --tint-violet: #a78bfa;
+  --tint-orange: #fb923c;
+  --tint-cyan: #a5f3fc;
+
   /* Layout & Spacing */
   --app-max-width: 480px;
   --safe-bottom: 90px; /* Space for bottom nav */
@@ -40,6 +70,58 @@
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-spring: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Light theme — overrides only the color tokens above; layout/spacing/radius/
+   transition tokens are shared. Applied via `data-theme="light"` on <html>,
+   set by ThemeContext.jsx (and mirrored pre-React in index.html to avoid a
+   flash of the wrong theme on load). The auth/login screens, the shareable
+   workout card and the tour overlays deliberately stay dark in both themes
+   (photo backgrounds / dark scrims / exported images). */
+[data-theme="light"] {
+  --bg-app: #f4f6fa;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-card-active: #e8edf3;
+  --bg-elevated: #e2e8f0;
+
+  --fg-rgb: 15, 23, 42;
+  --bg-app-rgb: 244, 246, 250;
+  --bg-card-rgb: 255, 255, 255;
+  --bg-card-hover-rgb: 241, 245, 249;
+  --bg-card-active-rgb: 232, 237, 243;
+  --shade-rgb: 148, 163, 184;
+
+  /* Light accent is the brand blue from the logo (#4364bd) rather than the
+     dark palette's emerald. */
+  --primary-accent: #3a5ab3;
+  --primary-accent-light: #4364bd;
+  --primary-accent-glow: rgba(67, 100, 189, 0.16);
+  --accent-rgb: 67, 100, 189;
+  --accent-soft: #4364bd;
+  --accent-soft-rgb: 67, 100, 189;
+  --accent-deep: #2f4a99;
+  --text-on-accent: #ffffff;
+  --accent-text: #3a5ab3;
+
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #94a3b8;
+
+  --border-color: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #4364bd;
+
+  --danger: #dc2626;
+  --warning: #d97706;
+
+  --tint-emerald: #2f4a99;
+  --tint-blue: #1d4ed8;
+  --tint-red: #b91c1c;
+  --tint-amber: #b45309;
+  --tint-violet: #6d28d9;
+  --tint-orange: #c2410c;
+  --tint-cyan: #0e7490;
 }
 
 * {
@@ -81,6 +163,12 @@ input[type="date"] {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(1.8);
   cursor: pointer;
+}
+[data-theme="light"] input[type="date"] {
+  color-scheme: light;
+}
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
 }
 
 html, body {
@@ -220,7 +308,7 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 40px rgba(16, 185, 129, 0.05); /* Subtle green glow around the app frame */
+  box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.05); /* Subtle accent glow around the app frame */
   /* No top padding, and deliberately no safe-area compensation of any kind.
      With `viewport-fit=cover` removed from index.html the browser insets the
      viewport itself, so the top of this element is already below the status
@@ -310,10 +398,10 @@ html.keyboard-open .trainer-dashboard-container {
   left: 0;
   right: 0;
   height: calc(64px + env(safe-area-inset-bottom, 0px));
-  background: rgba(21, 29, 44, 0.85);
+  background: rgba(var(--bg-card-rgb), 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.05);
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -413,7 +501,7 @@ html.keyboard-open .trainer-dashboard-container {
   font-size: clamp(1.6rem, 7.5vw, 2.1rem);
   letter-spacing: -0.03em;
   font-weight: 800;
-  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  background: linear-gradient(135deg, var(--text-main) 0%, #cbd5e1 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 8px;

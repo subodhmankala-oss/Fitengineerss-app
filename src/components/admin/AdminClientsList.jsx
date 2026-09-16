@@ -28,10 +28,10 @@ export default function AdminClientsList({
     return acc;
   }, {});
   const summaryTiles = [
-    { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.2)' },
+    { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: 'var(--accent-text)', bg: 'rgba(var(--accent-rgb), 0.08)', border: 'rgba(var(--accent-rgb), 0.2)' },
     { key: 'inactive-mid', label: '1–5 days inactive', count: activityCounts['inactive-mid'] || 0, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
     { key: 'inactive-long', label: '6+ days inactive', count: activityCounts['inactive-long'] || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' },
-    { key: 'never', label: 'Never logged in', count: activityCounts.never || 0, color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)' }
+    { key: 'never', label: 'Never logged in', count: activityCounts.never || 0, color: 'var(--text-muted)', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)' }
   ];
 
   return (
@@ -42,7 +42,7 @@ export default function AdminClientsList({
       padding: '16px',
       overflowX: 'auto'
     }}>
-      <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>
+      <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>
         All Clients ({clients.length})
       </h5>
 
@@ -81,7 +81,7 @@ export default function AdminClientsList({
           <p>No client profiles match the current filter.</p>
         </div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
               <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Profile</th>
@@ -93,10 +93,10 @@ export default function AdminClientsList({
               const coachName = coach ? coach.name : (client.coach_id ? 'Attached' : 'Self-Guided');
               const activity = getActivityStatus(client.last_login);
               return (
-                <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '64px' }}>
+                <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '64px' }}>
                   <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{client.userName}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{client.userName}</div>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{client.email}</div>
                       {client.phone && (
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>📞 {client.phone}</div>
@@ -109,9 +109,9 @@ export default function AdminClientsList({
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                         {client.userGoal && (
                           <span style={{
-                            background: 'rgba(16, 185, 129, 0.08)',
-                            border: '1px solid rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
+                            background: 'rgba(var(--accent-rgb), 0.08)',
+                            border: '1px solid rgba(var(--accent-rgb), 0.15)',
+                            color: 'var(--accent-text)',
                             padding: '1px 5px',
                             borderRadius: '4px',
                             fontSize: '0.62rem',
@@ -125,7 +125,7 @@ export default function AdminClientsList({
                           style={{
                             background: client.coach_id ? 'rgba(59, 130, 246, 0.08)' : 'rgba(148, 163, 184, 0.08)',
                             border: `1px solid ${client.coach_id ? 'rgba(59, 130, 246, 0.15)' : 'rgba(148, 163, 184, 0.15)'}`,
-                            color: client.coach_id ? '#60a5fa' : 'var(--text-muted)',
+                            color: client.coach_id ? 'var(--tint-blue)' : 'var(--text-muted)',
                             padding: '1px 5px',
                             borderRadius: '4px',
                             fontSize: '0.62rem',

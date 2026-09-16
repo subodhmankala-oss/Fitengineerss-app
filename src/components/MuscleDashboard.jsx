@@ -376,10 +376,10 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
             onClick={handleNotificationToggle} 
             title={isAlertActive ? "Coaching Alerts Active 🟢" : "Turn On Coaching Alerts 🟡"}
             style={{
-              color: isAlertActive ? '#10b981' : '#fbbf24',
-              borderColor: isAlertActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.35)',
-              background: isAlertActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(251, 191, 36, 0.08)',
-              boxShadow: isAlertActive ? '0 0 10px rgba(16, 185, 129, 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
+              color: isAlertActive ? 'var(--accent-text)' : 'var(--tint-amber)',
+              borderColor: isAlertActive ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(251, 191, 36, 0.35)',
+              background: isAlertActive ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(251, 191, 36, 0.08)',
+              boxShadow: isAlertActive ? '0 0 10px rgba(var(--accent-rgb), 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
               transition: 'all 0.2s ease',
               display: 'flex',
               alignItems: 'center',
@@ -391,14 +391,14 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
                 width="18" 
                 height="18" 
                 viewBox="0 0 24 24" 
-                fill={isAlertActive ? "#10b981" : "none"} 
-                stroke={isAlertActive ? "#10b981" : "#fbbf24"} 
+                fill={isAlertActive ? "var(--accent-text)" : "none"} 
+                stroke={isAlertActive ? "var(--accent-text)" : "#fbbf24"} 
                 strokeWidth="2.5" 
                 strokeLinecap="round" 
                 strokeLinejoin="round"
                 style={{ 
                   transition: 'all 0.2s ease', 
-                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
+                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
                 }}
               >
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -489,21 +489,21 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
         </div>
 
         {/* Remaining Macro Summary Row */}
-        <div className="macro-summary-row mt-3" style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+        <div className="macro-summary-row mt-3" style={{ display: 'flex', gap: '12px', width: '100%', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '12px' }}>
           <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center' }}>
-            <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>🍗 Protein Left</span>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>🍗 Protein Left</span>
             <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffb74d' }}>{Math.max(0, userProteinTarget - loggedMacros.protein)}g</span>
-            <span style={{ display: 'block', fontSize: '0.65rem', color: '#475569' }}>of {userProteinTarget}g</span>
+            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-subtle)' }}>of {userProteinTarget}g</span>
           </div>
-          <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.06)', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-            <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>🌾 Carbs Left</span>
-            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#60a5fa' }}>{Math.max(0, userCarbsTarget - loggedMacros.carbs)}g</span>
-            <span style={{ display: 'block', fontSize: '0.65rem', color: '#475569' }}>of {userCarbsTarget}g</span>
+          <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(var(--fg-rgb), 0.06)', borderRight: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>🌾 Carbs Left</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--tint-blue)' }}>{Math.max(0, userCarbsTarget - loggedMacros.carbs)}g</span>
+            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-subtle)' }}>of {userCarbsTarget}g</span>
           </div>
           <div className="macro-summary-item" style={{ flex: 1, textAlign: 'center' }}>
-            <span style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>🥑 Fats Left</span>
-            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f87171' }}>{Math.max(0, userFatsTarget - loggedMacros.fats)}g</span>
-            <span style={{ display: 'block', fontSize: '0.65rem', color: '#475569' }}>of {userFatsTarget}g</span>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>🥑 Fats Left</span>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--tint-red)' }}>{Math.max(0, userFatsTarget - loggedMacros.fats)}g</span>
+            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-subtle)' }}>of {userFatsTarget}g</span>
           </div>
         </div>
       </div>
@@ -608,7 +608,7 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
         <div className="activity-split-card glass-panel">
           <div className="activity-split-header">
             <span>💧 Water Log</span>
-            <span className="wearable-badge" style={{ color: '#60a5fa', background: 'rgba(96, 165, 250, 0.08)', borderColor: 'rgba(96, 165, 250, 0.2)' }}>⚡ Smart Sync</span>
+            <span className="wearable-badge" style={{ color: 'var(--tint-blue)', background: 'rgba(96, 165, 250, 0.08)', borderColor: 'rgba(96, 165, 250, 0.2)' }}>⚡ Smart Sync</span>
           </div>
           <div className="activity-split-body">
             <div className="giant-stat">
@@ -663,7 +663,7 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
                 className="btn-quick-log manual-btn"
                 onClick={logQuickGlass}
                 disabled={waterGlasses >= recommendedWaterTarget}
-                style={{ flex: 1, minWidth: '40px', padding: '0 8px', background: 'rgba(255, 255, 255, 0.03)' }}
+                style={{ flex: 1, minWidth: '40px', padding: '0 8px', background: 'rgba(var(--fg-rgb), 0.03)' }}
               >
                 {waterGlasses >= recommendedWaterTarget ? '🔒' : '+1'}
               </button>
@@ -714,11 +714,11 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
         <div className="checklist-progress-container" style={{
           width: '100%',
           height: '6px',
-          background: 'rgba(255, 255, 255, 0.05)',
+          background: 'rgba(var(--fg-rgb), 0.05)',
           borderRadius: '3px',
           marginBottom: '16px',
           overflow: 'hidden',
-          border: '1px solid rgba(255, 255, 255, 0.02)'
+          border: '1px solid rgba(var(--fg-rgb), 0.02)'
         }}>
           <div className="checklist-progress-bar" style={{
             width: `${completionPercentage}%`,

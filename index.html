@@ -27,6 +27,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0B1220" />
 
+    <!-- Runs before React mounts (and before first paint) so the correct
+         theme is on the root element from the very first frame — without
+         this, the app would flash the wrong theme for a moment on load
+         whenever the stored/system preference isn't dark. Kept in sync with
+         ThemeContext.jsx's own resolution logic. -->
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem('themePreference') || 'auto';
+          var resolved = pref === 'auto'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : pref;
+          document.documentElement.setAttribute('data-theme', resolved);
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- iOS "Add to Home Screen" behavior -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />

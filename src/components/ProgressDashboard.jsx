@@ -211,9 +211,9 @@ const ProgressDashboard = () => {
             <div className="svg-container">
               <svg viewBox={`0 0 ${width} ${height}`} className="progress-svg-chart">
                 {/* Horizontal Guide Lines */}
-                <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(var(--fg-rgb), 0.03)" strokeWidth="1" />
+                <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(var(--fg-rgb), 0.03)" strokeWidth="1" />
+                <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.06)" strokeWidth="1" />
 
                 {/* Target Guideline */}
                 <line 
@@ -233,7 +233,7 @@ const ProgressDashboard = () => {
                 <path 
                   d={pathD} 
                   fill="none" 
-                  stroke="var(--primary-accent-light)" 
+                  stroke="var(--accent-text)" 
                   strokeWidth="3" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
@@ -246,7 +246,7 @@ const ProgressDashboard = () => {
                   y1={padding} 
                   x2={getX(selectedDayIndex)} 
                   y2={padding + chartHeight} 
-                  stroke="rgba(16, 185, 129, 0.3)" 
+                  stroke="rgba(var(--accent-rgb), 0.3)" 
                   strokeWidth="1.5" 
                 />
 
@@ -255,8 +255,8 @@ const ProgressDashboard = () => {
                   cx={getX(selectedDayIndex)} 
                   cy={getY(selectedDayData.val)} 
                   r="6" 
-                  fill="#10b981" 
-                  stroke="#090e17" 
+                  fill="var(--accent-text)" 
+                  stroke="var(--bg-card)" 
                   strokeWidth="2" 
                 />
               </svg>

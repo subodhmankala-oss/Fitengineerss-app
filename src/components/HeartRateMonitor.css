@@ -32,7 +32,7 @@
 }
 
 .hr-monitor--connect .hr-monitor__icon {
-  color: var(--primary-accent-light);
+  color: var(--accent-text);
 }
 
 .hr-monitor__error {

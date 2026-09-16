@@ -59,7 +59,7 @@
 }
 
 .ai-client-summary-item {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
@@ -77,7 +77,7 @@
 
 .ai-client-summary-item strong {
   font-size: 0.82rem;
-  color: #fff;
+  color: var(--text-main);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -100,11 +100,11 @@
 .ai-text-input {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(9, 14, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--bg-app-rgb), 0.6);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   border-radius: var(--radius-sm);
   padding: 9px 11px;
-  color: #fff;
+  color: var(--text-main);
   font-size: 0.82rem;
   outline: none;
   font-family: inherit;
@@ -118,11 +118,11 @@
 .ai-instructions-textarea {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(9, 14, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--bg-app-rgb), 0.6);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   border-radius: var(--radius-md);
   padding: 12px;
-  color: #fff;
+  color: var(--text-main);
   font-size: 0.85rem;
   font-family: inherit;
   line-height: 1.5;
@@ -131,7 +131,7 @@
 }
 
 .ai-instructions-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: rgba(var(--fg-rgb), 0.28);
 }
 
 .ai-instructions-textarea:focus {
@@ -150,7 +150,7 @@
   display: block;
   font-size: 0.74rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
   margin-bottom: 6px;
 }
 
@@ -161,7 +161,7 @@
 }
 
 .ai-option-chip {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 6px 13px;
@@ -173,14 +173,14 @@
 }
 
 .ai-option-chip:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #fff;
+  border-color: rgba(var(--fg-rgb), 0.25);
+  color: var(--text-main);
 }
 
 .ai-option-chip.active {
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: var(--primary-accent-light);
+  background: rgba(var(--accent-rgb), 0.14);
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent-text);
 }
 
 .ai-builder-error {
@@ -188,7 +188,7 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-sm);
   padding: 9px 12px;
-  color: #fca5a5;
+  color: var(--tint-red);
   font-size: 0.78rem;
 }
 
@@ -197,13 +197,13 @@
   gap: 10px;
   padding-top: 14px;
   margin-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
 }
 
 .ai-builder-cancel-btn {
   flex: 1;
   padding: 11px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
@@ -215,7 +215,7 @@
 .ai-builder-generate-btn {
   flex: 2;
   padding: 11px;
-  background: var(--primary-accent-light, #10b981);
+  background: var(--primary-accent-light);
   border: none;
   border-radius: var(--radius-sm);
   color: #06251b;

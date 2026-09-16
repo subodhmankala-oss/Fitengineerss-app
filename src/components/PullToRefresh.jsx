@@ -158,8 +158,8 @@ export default function PullToRefresh() {
           width: 34,
           height: 34,
           borderRadius: '50%',
-          background: 'rgba(15, 23, 42, 0.92)',
-          border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(var(--bg-card-active-rgb), 0.92)',
+          border: '1px solid rgba(var(--fg-rgb), 0.12)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -179,7 +179,7 @@ export default function PullToRefresh() {
           }}
         >
           <circle cx="12" cy="12" r="9" stroke="rgba(148,163,184,0.35)" strokeWidth="2.5" />
-          <path d="M12 3a9 9 0 0 1 9 9" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M12 3a9 9 0 0 1 9 9" stroke="var(--accent-text)" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
       <style>{'@keyframes ptr-spin { to { transform: rotate(360deg); } }'}</style>

@@ -39,7 +39,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -47,13 +47,13 @@
   font-weight: 800;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
 .cp-user-name {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .cp-user-email {
@@ -99,7 +99,7 @@
 
 .cp-row:hover,
 .cp-row:active {
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 
 .cp-row--last {
@@ -189,7 +189,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid var(--border-color);
   border-radius: 50%;
   color: var(--text-main);
@@ -199,13 +199,13 @@
 }
 
 .cp-back-btn:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(var(--fg-rgb), 0.08);
 }
 
 .cp-sub-title {
   font-size: 1rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin: 0;
 }
 
@@ -213,7 +213,7 @@
   padding: 7px 16px;
   border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent));
   color: #fff;
   font-size: 0.82rem;
   font-weight: 700;
@@ -321,8 +321,8 @@
 }
 
 .cp-field-select option {
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--bg-card);
+  color: var(--text-main);
 }
 
 .cp-field-static {
@@ -380,9 +380,9 @@
 }
 
 .cp-notif-toggle--on {
-  background: rgba(16,185,129,0.2);
-  color: #10b981;
-  border: 1px solid rgba(16,185,129,0.3);
+  background: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 .cp-notif-hint {

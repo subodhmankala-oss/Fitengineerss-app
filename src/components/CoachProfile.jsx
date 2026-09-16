@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
+import { useTheme } from '../context/ThemeContext';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import './ClientProfile.css';
@@ -75,6 +76,7 @@ function SettingsRow({ icon, label, value, onTap, last }) {
 // calls now instead of setActiveSection(null) directly.
 export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose, initialSection = null }) {
   const [activeSection, setActiveSection] = useState(initialSection);
+  const { preference: themePreference, setTheme } = useTheme();
   const goBack = () => {
     if (initialSection) onClose?.();
     else setActiveSection(null);
@@ -263,7 +265,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                     <button
                       type="button"
                       onClick={() => handleField('logoUrl', '')}
-                      style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--tint-red)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
                     >
                       Remove
                     </button>
@@ -271,8 +273,8 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 )}
                 <label
                   style={{
-                    display: 'inline-block', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                    borderRadius: '10px', padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: '#fff'
+                    display: 'inline-block', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '10px', padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'var(--text-main)'
                   }}
                 >
                   {form.logoUrl ? 'Replace logo' : 'Upload logo'}
@@ -305,7 +307,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                     <button
                       type="button"
                       onClick={() => handleField('paymentQrUrl', '')}
-                      style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--tint-red)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
                     >
                       Remove
                     </button>
@@ -313,8 +315,8 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 )}
                 <label
                   style={{
-                    display: 'inline-block', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                    borderRadius: '10px', padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: '#fff'
+                    display: 'inline-block', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '10px', padding: '9px 14px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'var(--text-main)'
                   }}
                 >
                   {form.paymentQrUrl ? 'Replace QR image' : 'Upload QR image'}
@@ -433,6 +435,41 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     );
   }
 
+  // ── Sub-section: Theme ──────────────────────────────────────────────────────
+  if (activeSection === 'theme') {
+    return (
+      <Overlay>
+        <div className="cp-container animate-slide-up">
+          <div className="cp-sub-header">
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
+            <h2 className="cp-sub-title">Theme</h2>
+            <span style={{ width: 60 }} />
+          </div>
+          <div className="cp-form-scroll">
+            <div className="cp-form-card">
+              {[['auto', 'Auto (System)'], ['light', 'Light'], ['dark', 'Dark']].map(([val, label], i, arr) => (
+                <button
+                  key={val}
+                  className={`cp-row${i === arr.length - 1 ? ' cp-row--last' : ''}`}
+                  onClick={() => setTheme(val)}
+                >
+                  <span className="cp-row-label">{label}</span>
+                  <span className="cp-row-right">
+                    {themePreference === val && (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Overlay>
+    );
+  }
+
   // ── Main Settings Page ─────────────────────────────────────────────────────
   return (
     <Overlay>
@@ -450,8 +487,8 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
               aria-label="Close"
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                color: '#fff', borderRadius: '10px', padding: '9px', cursor: 'pointer'
+                background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
+                color: 'var(--text-main)', borderRadius: '10px', padding: '9px', cursor: 'pointer'
               }}
             >
               <CloseIcon />
@@ -468,6 +505,17 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
         <div className="cp-section-label">Business</div>
         <div className="cp-section-card">
           <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} last />
+        </div>
+
+        <div className="cp-section-label">Preferences</div>
+        <div className="cp-section-card">
+          <SettingsRow
+            icon="🎨"
+            label="Theme"
+            value={themePreference === 'auto' ? 'Auto' : themePreference === 'light' ? 'Light' : 'Dark'}
+            onTap={() => setActiveSection('theme')}
+            last
+          />
         </div>
 
         {onOpenPayments && (

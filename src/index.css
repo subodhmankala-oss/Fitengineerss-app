@@ -19,15 +19,15 @@
   /* "Recessed" surface tint (inputs, nested cards): black on dark, soft slate on light. */
   --shade-rgb: 0, 0, 0;
 
-  --primary-accent: #059669; /* Rich Emerald */
-  --primary-accent-light: #10b981;
-  --primary-accent-glow: rgba(16, 185, 129, 0.2);
-  --accent-rgb: 16, 185, 129;
-  --accent-soft: #34d399;
-  --accent-soft-rgb: 52, 211, 153;
-  --accent-deep: #047857;
-  /* Text on a solid accent button: near-black on bright emerald, white on blue. */
-  --text-on-accent: #06251b;
+  --primary-accent: #4364bd; /* Brand blue (logo.png) */
+  --primary-accent-light: #6b8be8;
+  --primary-accent-glow: rgba(107, 139, 232, 0.2);
+  --accent-rgb: 107, 139, 232;
+  --accent-soft: #8fa8ee;
+  --accent-soft-rgb: 143, 168, 238;
+  --accent-deep: #4364bd;
+  /* Text on a solid accent button: white on the brand blue in both themes. */
+  --text-on-accent: #ffffff;
 
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
@@ -35,13 +35,13 @@
   
   --border-color: #1e293b;
   --border-strong: #334155;
-  --border-focus: #10b981;
+  --border-focus: #6b8be8;
 
   --danger: #ef4444;
   --warning: #f59e0b;
 
   /* Colored text on tinted chips/labels: pastel on dark, deep on light. */
-  --tint-emerald: #34d399;
+  --tint-emerald: #8fa8ee;
   --tint-blue: #60a5fa;
   --tint-red: #f87171;
   --tint-amber: #fbbf24;
@@ -305,7 +305,7 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 40px rgba(16, 185, 129, 0.05); /* Subtle green glow around the app frame */
+  box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.05); /* Subtle accent glow around the app frame */
   /* No top padding, and deliberately no safe-area compensation of any kind.
      With `viewport-fit=cover` removed from index.html the browser insets the
      viewport itself, so the top of this element is already below the status

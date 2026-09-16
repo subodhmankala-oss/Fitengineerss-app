@@ -4442,6 +4442,52 @@ const databaseService = {
     }
   },
 
+  // Unread in-app notifications for this coach (public.notifications, see
+  // sql/coach_notifications.sql). Today only 'client_connected' rows exist —
+  // written by link_coach_and_enter_transaction in the same transaction as
+  // the invite redemption itself. RLS scopes the read to
+  // recipient_user_id = current_app_user_id(), so the coachId filter here is
+  // belt-and-braces. Returns null on a failed fetch (caller keeps what's on
+  // screen), [] when there's genuinely nothing.
+  async getUnreadCoachNotifications(coachId) {
+    if (!isSupabaseConfigured || !coachId) return [];
+    try {
+      const rows = await restSelect(
+        `notifications?select=id,type,actor_user_id,payload,created_at&recipient_user_id=eq.${encodeURIComponent(coachId)}&read_at=is.null&order=created_at.desc&limit=20`
+      );
+      return (rows || []).map(r => ({
+        id: r.id,
+        type: r.type,
+        clientId: r.actor_user_id,
+        clientName: r.payload?.client_name || null,
+        clientEmail: r.payload?.client_email || null,
+        inviteCode: r.payload?.invite_code || null,
+        isNew: r.payload?.is_new !== false,
+        createdAt: r.created_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Coach Notifications Error:', e);
+      return null;
+    }
+  },
+
+  // Coach opened the client / dismissed the card — stops it resurfacing.
+  // Accepts one id or a list (e.g. every unread row for one client).
+  async markCoachNotificationsRead(ids) {
+    const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+    if (!isSupabaseConfigured || list.length === 0) return { success: false };
+    try {
+      await restUpdate(
+        `notifications?id=in.(${list.map(encodeURIComponent).join(',')})`,
+        { read_at: new Date().toISOString() }
+      );
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Mark Coach Notifications Read Error:', e);
+      return { success: false, error: e.message || 'Update failed' };
+    }
+  },
+
   // ─── MULTI-COACH & SUPER ADMIN METHODS ───
   // Resolves a coach's display name for client-facing UI (e.g. "Coach: [Name]"
   // after a successful invite-code connection). Prefers the coach's own account
@@ -5648,6 +5694,24 @@ const databaseService = {
         // Update localStorage so the dashboard reflects the new connection immediately
         localStorage.setItem('userCoachId', result.coach_id || '');
         localStorage.setItem('clientLinkedToCoach', 'true');
+
+        // Tell the coach (push + email, see api/push.js's client_connected
+        // branch). Lives HERE, not in the ConnectCoachModal onSuccess
+        // handlers, because that modal is mounted from two screens
+        // (HomeTracker + WorkoutProgressDashboard) and only one of them
+        // ever fired it — a client connecting from the home screen left the
+        // coach with nothing (2026-09-16). The durable in-app copy is
+        // already written by the RPC itself, so this is best-effort only.
+        if (isSupabaseConfigured && supabase) {
+          try {
+            fetch('/api/push?action=notify-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ event: 'client_connected', clientUserId: clientId, isNew: result.is_new !== false })
+            }).catch(() => {});
+          } catch { /* ignore */ }
+        }
+
         return { success: true, coachId: result.coach_id };
       }
       return { success: false, error: 'Connection failed. Please try again.' };

@@ -1665,14 +1665,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             }
             setIsLinkedToCoach(true);
             setShowConnectModal(false);
-            // Coach never got told a client attached (or reattached/renewed)
-            // via invite code — connectClientToCoach only ever updated this
-            // client's own localStorage, nothing notified the coach. Fires
-            // the same way whether this is a brand-new connection or a
-            // returning client renewing with the same coach; the coach-side
-            // handler doesn't need to distinguish the two. Confirmed missing
-            // 2026-08-16 (client: giri.kailasam → coach subodhmankala@gmail.com).
-            if (userId) notifyEvent('client_connected', { clientUserId: userId });
+            // The coach-side 'client_connected' notification (push + email)
+            // is fired from connectClientToCoach itself now — it used to live
+            // here, which meant the HomeTracker mount of this same modal
+            // never sent it (2026-09-16).
           }}
         />
       )}

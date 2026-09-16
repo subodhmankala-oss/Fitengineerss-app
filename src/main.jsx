@@ -218,6 +218,10 @@ window.visualViewport?.addEventListener('resize', () => {
   const { top, bottom } = el.getBoundingClientRect();
   if (top >= offsetTop && bottom <= offsetTop + height) return;
   el.scrollIntoView({ block: 'center', behavior: 'instant' });
+  // The page has moved to show the field; keep it there on close instead of
+  // letting focusout's re-anchor snap back to the pre-keyboard offset, which
+  // read as an abrupt slide when tapping the keyboard's Done tick.
+  kbUserScrolled = true;
 });
 
 // If the coach deliberately scrolls while typing, that new position is the

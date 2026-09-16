@@ -91,7 +91,7 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
             type="button"
             onClick={handleSave}
             disabled={saving}
-            style={{ background: 'var(--primary-accent)', border: 'none', color: '#0a0a0a', fontWeight: 800, fontSize: '0.85rem', padding: '8px 16px', borderRadius: '20px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
+            style={{ background: 'var(--primary-accent)', border: 'none', color: 'var(--text-on-accent)', fontWeight: 800, fontSize: '0.85rem', padding: '8px 16px', borderRadius: '20px', cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
           >{saving ? 'Saving…' : 'Save'}</button>
         </div>
 

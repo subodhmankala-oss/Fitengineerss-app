@@ -4666,7 +4666,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               disabled={savingPayment}
               style={{
                 flex: '0 0 auto', background: 'var(--primary-accent-light)', border: 'none',
-                borderRadius: '8px', color: '#04140f', padding: '9px 18px', fontSize: '0.85rem',
+                borderRadius: '8px', color: 'var(--text-on-accent)', padding: '9px 18px', fontSize: '0.85rem',
                 fontWeight: 800, cursor: savingPayment ? 'default' : 'pointer', opacity: savingPayment ? 0.7 : 1
               }}
             >
@@ -4975,7 +4975,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       disabled={savingPaymentEdit}
                       style={{
                         background: 'var(--primary-accent-light)', border: 'none', borderRadius: '7px',
-                        color: '#04140f', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 800,
+                        color: 'var(--text-on-accent)', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 800,
                         cursor: savingPaymentEdit ? 'default' : 'pointer', opacity: savingPaymentEdit ? 0.7 : 1
                       }}
                     >
@@ -5839,7 +5839,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               style={{
                                 background: client.paused_at ? 'rgba(var(--fg-rgb), 0.06)' : 'var(--primary-accent-light)',
                                 border: 'none',
-                                color: client.paused_at ? 'var(--text-muted)' : 'var(--text-main)',
+                                color: client.paused_at ? 'var(--text-muted)' : '#fff',
                                 padding: '6px 12px',
                                 borderRadius: '6px',
                                 fontSize: '0.78rem',
@@ -6032,7 +6032,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 onClick={() => { setShowTotalSessionsModal(false); setJustSavedTotalSessions(false); }}
                                 style={{
                                   marginTop: '10px', padding: '8px 24px', borderRadius: '9px',
-                                  background: 'var(--accent-soft)', border: 'none', color: '#0b1a12',
+                                  background: 'var(--accent-soft)', border: 'none', color: 'var(--text-on-accent)',
                                   fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer'
                                 }}
                               >
@@ -6122,7 +6122,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   style={{
                                     flex: 1, padding: '9px', borderRadius: '9px',
                                     background: isSaveDisabled ? 'rgba(var(--accent-soft-rgb), 0.3)' : 'var(--accent-soft)',
-                                    border: 'none', color: '#0b1a12', fontWeight: 800, fontSize: '0.8rem',
+                                    border: 'none', color: 'var(--text-on-accent)', fontWeight: 800, fontSize: '0.8rem',
                                     cursor: isSaveDisabled ? 'default' : 'pointer'
                                   }}
                                 >
@@ -7914,7 +7914,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   style={{
                                     position: 'absolute', bottom: '10px', right: '10px',
                                     width: '22px', height: '22px', borderRadius: '50%',
-                                    background: 'var(--primary-accent-light)', color: '#06251b',
+                                    background: 'var(--primary-accent-light)', color: 'var(--text-on-accent)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: '0.72rem', fontWeight: 900
                                   }}
@@ -9070,7 +9070,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             <button
               type="button"
               onClick={() => setShowClientPickerModal(false)}
-              style={{ marginTop: '14px', padding: '10px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: '#06251b', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+              style={{ marginTop: '14px', padding: '10px', background: 'var(--primary-accent-light)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-on-accent)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
             >
               Done ({extraAssignClientIds.length} selected)
             </button>

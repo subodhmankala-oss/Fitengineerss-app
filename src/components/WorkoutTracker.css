@@ -1428,7 +1428,7 @@
 
 .btn-select-program-action.renew {
   background: var(--primary-accent) !important;
-  color: var(--text-main) !important;
+  color: #fff !important;
   border: 1px solid var(--primary-accent-light) !important;
   box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2);
 }
@@ -3346,7 +3346,7 @@ html.keyboard-open .rest-timer-floating-card {
   border: none;
   border-radius: var(--radius-sm);
   background: var(--primary-accent-light);
-  color: #06281c;
+  color: var(--text-on-accent);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -4972,7 +4972,7 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 5px;
   padding: 7px 14px;
   background: var(--primary-accent-light);
-  color: #06251b;
+  color: var(--text-on-accent);
   font-weight: 700;
   font-size: 0.78rem;
   border: none;

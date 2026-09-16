@@ -26,7 +26,9 @@
   --accent-soft: #34d399;
   --accent-soft-rgb: 52, 211, 153;
   --accent-deep: #047857;
-  
+  /* Text on a solid accent button: near-black on bright emerald, white on blue. */
+  --text-on-accent: #06251b;
+
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-subtle: #475569;
@@ -97,6 +99,7 @@
   --accent-soft: #4364bd;
   --accent-soft-rgb: 67, 100, 189;
   --accent-deep: #2f4a99;
+  --text-on-accent: #ffffff;
 
   --text-main: #0f172a;
   --text-muted: #475569;

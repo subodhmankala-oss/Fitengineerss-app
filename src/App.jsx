@@ -1654,7 +1654,7 @@ function App() {
         padding: '20px'
       }}>
         <div style={{
-          background: 'rgba(20, 20, 20, 0.95)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
+          background: 'var(--bg-card)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
           borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '400px',
           boxShadow: '0 20px 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '16px'
         }}>

@@ -1593,3 +1593,14 @@
   }
 }
 .awaiting-slide-prev { animation: awaitingSlideInPrev 0.3s ease-out; }
+
+/* Light theme: white card instead of the recessed dark tint, so the exercise
+   block reads as a card rather than a grey slab. */
+[data-theme="light"] .live-logger-exercise-card {
+  background: var(--bg-card);
+}
+@media (min-width: 900px) {
+  [data-theme="light"] body.admin-wide-frame .admin-shell-sidebar {
+    background: rgba(var(--bg-card-rgb), 0.95);
+  }
+}

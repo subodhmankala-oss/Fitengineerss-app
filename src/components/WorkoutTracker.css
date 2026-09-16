@@ -4980,3 +4980,18 @@ html.keyboard-open .rest-timer-floating-card {
   cursor: pointer;
   white-space: nowrap;
 }
+
+/* Light theme: surfaces that were tuned as translucent near-black panels on the
+   dark palette. Dark values above are untouched. */
+[data-theme="light"] .hevy-logger-wrapper {
+  background: rgba(var(--bg-card-active-rgb), 0.45);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .hevy-exercise-card,
+[data-theme="light"] .exercise-modal-card,
+[data-theme="light"] .summary-modal-card,
+[data-theme="light"] .add-exercise-dropdown-menu,
+[data-theme="light"] .chart-point-tooltip {
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}

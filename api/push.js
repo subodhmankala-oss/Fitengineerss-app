@@ -810,7 +810,7 @@ async function sendClientConnectedEmail({ coachEmail, coachName, clientName, cli
 async function handleNotifyUser(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, message, sessionsLeft, oldCoachId, exerciseName, creatorRole, creatorName, isNew } = req.body || {};
+  const { event, clientUserId, planName, durationSeconds, caloriesBurned, workoutName, workoutDate, message, sessionsLeft, oldCoachId, exerciseName, creatorRole, creatorName, isNew } = req.body || {};
   if (!event || !clientUserId || !UUID_RE.test(clientUserId)) {
     return res.status(400).json({ error: 'event and a valid clientUserId are required.' });
   }
@@ -860,7 +860,19 @@ async function handleNotifyUser(req, res) {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
       title = clientName;
-      body = message.trim();
+      // Prefix the session the reply is about (the note's workout_name /
+      // workout_date, sent by CoachNoteBanner) so a coach reading "Thank
+      // you" on their lock screen knows which workout it refers to.
+      // workoutDate is a YYYY-MM-DD; parse as UTC noon so it can't roll
+      // back a day on the server.
+      let replyContext = '';
+      if (workoutDate && /^\d{4}-\d{2}-\d{2}$/.test(workoutDate)) {
+        const dayLabel = new Date(`${workoutDate}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        replyContext = `Re: ${workoutName ? `${workoutName} · ` : ''}${dayLabel}`;
+      } else if (workoutName) {
+        replyContext = `Re: ${workoutName}`;
+      }
+      body = replyContext ? `${replyContext} — ${message.trim()}` : message.trim();
     } else if (event === 'session_reminder') {
       targetUserId = clientUserId;
       const left = Number.isFinite(sessionsLeft) ? sessionsLeft : null;

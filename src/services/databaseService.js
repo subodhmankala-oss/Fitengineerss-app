@@ -4138,7 +4138,13 @@ const databaseService = {
   // client can still see it if they missed/dismissed the push. Raw REST insert
   // (same SDK-hang bypass as body measurements). clientId is the client's
   // users.id; coachId is the coach's users.id.
-  async saveCoachNote(clientId, coachId, message) {
+  //
+  // context (optional): { workoutName, workoutDate } — the session this note
+  // is responding to. Stored on the row so the coach's pending-replies card
+  // can say WHICH workout/date a client's reply is about (see
+  // sql/supabase_coach_notes_workout_context.sql). Either field may be
+  // missing; nothing here depends on them.
+  async saveCoachNote(clientId, coachId, message, context = {}) {
     if (!isSupabaseConfigured || !clientId || !message?.trim()) {
       return { success: false, error: 'Not configured' };
     }
@@ -4146,11 +4152,13 @@ const databaseService = {
       const data = await restInsert('coach_notes', {
         client_id: clientId,
         coach_id: coachId || null,
-        message: message.trim()
+        message: message.trim(),
+        workout_name: context.workoutName || null,
+        workout_date: context.workoutDate || null
       });
       return {
         success: true,
-        note: { id: data.id, clientId: data.client_id, coachId: data.coach_id, message: data.message, createdAt: data.created_at, readAt: data.read_at }
+        note: { id: data.id, clientId: data.client_id, coachId: data.coach_id, message: data.message, createdAt: data.created_at, readAt: data.read_at, workoutName: data.workout_name, workoutDate: data.workout_date }
       };
     } catch (e) {
       console.error('Cloud DB Save Coach Note Error:', e);
@@ -4174,7 +4182,9 @@ const databaseService = {
         createdAt: r.created_at,
         readAt: r.read_at,
         clientReply: r.client_reply,
-        clientReplyAt: r.client_reply_at
+        clientReplyAt: r.client_reply_at,
+        workoutName: r.workout_name,
+        workoutDate: r.workout_date
       }));
     } catch (e) {
       console.error('Cloud DB Get Coach Notes Error:', e);
@@ -4416,13 +4426,20 @@ const databaseService = {
     if (!isSupabaseConfigured || !coachId) return [];
     try {
       const rows = await restSelect(
-        `coach_notes?select=id,client_id,client_reply,client_reply_at&coach_id=eq.${encodeURIComponent(coachId)}&client_reply_at=not.is.null&coach_seen_reply_at=is.null&order=client_reply_at.desc`
+        `coach_notes?select=id,client_id,client_reply,client_reply_at,message,created_at,workout_name,workout_date&coach_id=eq.${encodeURIComponent(coachId)}&client_reply_at=not.is.null&coach_seen_reply_at=is.null&order=client_reply_at.desc`
       );
       return (rows || []).map(r => ({
         id: r.id,
         clientId: r.client_id,
         message: r.client_reply,
-        repliedAt: r.client_reply_at
+        repliedAt: r.client_reply_at,
+        // What the client is replying TO — the coach's original note and the
+        // session it was about — so the card can show that context instead
+        // of a bare "Reply from X".
+        noteMessage: r.message,
+        noteSentAt: r.created_at,
+        workoutName: r.workout_name,
+        workoutDate: r.workout_date
       }));
     } catch (e) {
       console.error('Cloud DB Get Pending Client Replies Error:', e);

@@ -2251,7 +2251,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       const liveNote = coachNoteText.trim();
       if (liveNote) {
         try {
-          const noteRes = await databaseService.saveCoachNote(selectedClient.id, resolvedCoachId, liveNote);
+          const noteRes = await databaseService.saveCoachNote(selectedClient.id, resolvedCoachId, liveNote, {
+            workoutName: session.planName, workoutDate: session.date
+          });
           if (noteRes.success) {
             notifyEvent('coach_note', { clientUserId: selectedClient.id, message: liveNote });
             setLastCoachNoteSentAt(new Date().toISOString());
@@ -2442,7 +2444,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (!message || sendingNoteFor) return;
     setSendingNoteFor(session.clientId);
     try {
-      const res = await databaseService.saveCoachNote(session.clientId, resolvedCoachId, message);
+      const res = await databaseService.saveCoachNote(session.clientId, resolvedCoachId, message, {
+        workoutName: session.workoutName, workoutDate: session.date
+      });
       if (!res.success) {
         triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`);
         return;
@@ -3610,7 +3614,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setSendingCoachNote(true);
     setCoachNoteSentMsg('');
     try {
-      const res = await databaseService.saveCoachNote(selectedClient.id, resolvedCoachId, message);
+      // The note is about the client's latest logged session (that's what
+      // the card above the tabs is responding to) — record it so the reply
+      // card on the home screen can name that session.
+      const res = await databaseService.saveCoachNote(selectedClient.id, resolvedCoachId, message, latestClientSession ? {
+        workoutName: latestClientSession.planName, workoutDate: latestClientSession.date
+      } : {});
       if (!res.success) {
         setCoachNoteSentMsg(`⚠️ Couldn't send: ${res.error || 'unknown error'}`);
         return;
@@ -5106,6 +5115,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                   {pendingClientReplies.map(reply => {
                     const replyClient = clients.find(c => c.id === reply.clientId);
+                    // Which session this reply is about. Prefer the workout
+                    // the note was sent for (stored on the row); a note sent
+                    // with no session in context falls back to the day the
+                    // note itself went out, so the coach always gets a date.
+                    const fmtDay = (d) => (isLocalToday(d) ? 'Today' : parseLocalDateString(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                    const contextLabel = reply.workoutDate
+                      ? `${reply.workoutName || 'Workout'} · ${fmtDay(reply.workoutDate)}`
+                      : (reply.noteSentAt ? `Note sent ${fmtDay(getLocalDateString(new Date(reply.noteSentAt)))}` : '');
                     return (
                       <div
                         key={reply.id}
@@ -5122,7 +5139,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#a78bfa' }}>
                               Reply from {replyClient?.userName || 'a client'}
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: '#fff', marginTop: '2px', wordBreak: 'break-word' }}>
+                            {contextLabel && (
+                              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {contextLabel}
+                              </div>
+                            )}
+                            {reply.noteMessage && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic', wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                You: “{reply.noteMessage}”
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.8rem', color: '#fff', marginTop: '4px', wordBreak: 'break-word' }}>
                               {reply.message}
                             </div>
                           </div>

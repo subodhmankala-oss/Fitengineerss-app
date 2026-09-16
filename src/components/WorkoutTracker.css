@@ -3326,9 +3326,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-add-preset-action.added:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: var(--tint-red);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-color: rgba(var(--accent-rgb), 0.4);
 }
 
 /* Running count — sits as a small subtitle under the "Add Exercise" title

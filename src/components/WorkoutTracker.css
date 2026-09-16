@@ -3306,14 +3306,14 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  background: #3b82f6;
+  background: var(--primary-accent-light);
   color: #fff;
   transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .btn-add-preset-action:hover {
-  background: #2563eb;
+  background: var(--primary-accent);
   transform: translateY(-1px);
 }
 

@@ -604,9 +604,9 @@
 }
 
 .client-goal-badge.muscle-building {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--tint-blue);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent-text);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
 .client-goal-badge.gut-fix {

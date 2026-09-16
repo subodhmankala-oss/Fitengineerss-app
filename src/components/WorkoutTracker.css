@@ -3745,7 +3745,7 @@ html.keyboard-open .rest-timer-floating-card {
 .guide-sheet {
   width: 100%;
   max-width: 520px;
-  background: #1a1d2e;
+  background: var(--bg-card);
   border-radius: 20px 20px 0 0;
   max-height: 90vh;
   height: 90vh;
@@ -3804,7 +3804,7 @@ html.keyboard-open .rest-timer-floating-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f1219;
+  background: var(--bg-card-active);
 }
 
 .guide-image-placeholder.guide-image-loading {

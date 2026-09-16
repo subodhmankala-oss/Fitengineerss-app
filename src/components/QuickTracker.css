@@ -141,7 +141,7 @@
 }
 
 .action-sync {
-  color: var(--bg-elevated);
+  color: var(--text-muted);
   font-size: 1.2rem;
 }
 
@@ -155,8 +155,8 @@
 .collapse-arrow {
   width: 16px;
   height: 16px;
-  border-top: 2px solid #111827;
-  border-left: 2px solid #111827;
+  border-top: 2px solid var(--text-muted);
+  border-left: 2px solid var(--text-muted);
   transform: rotate(45deg);
   margin-top: 8px;
 }

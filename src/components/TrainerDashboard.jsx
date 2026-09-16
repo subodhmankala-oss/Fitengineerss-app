@@ -3893,7 +3893,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     style={{
                       position: 'absolute', top: -2, right: -4,
                       width: 8, height: 8, borderRadius: '50%',
-                      background: '#ef4444', border: '2px solid #0a0e17'
+                      background: '#ef4444', border: '2px solid var(--bg-app)'
                     }}
                   />
                 )}
@@ -6013,7 +6013,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       >
                         <div onClick={(e) => e.stopPropagation()} style={{
                           width: '280px', padding: '16px', borderRadius: '14px',
-                          background: '#141a26', border: '1px solid rgba(var(--accent-soft-rgb), 0.35)',
+                          background: 'var(--bg-card)', border: '1px solid rgba(var(--accent-soft-rgb), 0.35)',
                           boxShadow: '0 10px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '12px'
                         }}>
                           {justSavedTotalSessions ? (
@@ -7817,7 +7817,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   {openPlanCardMenuId === plan.id && (
                                     <div
                                       onClick={(e) => e.stopPropagation()}
-                                      style={{ position: 'absolute', top: '32px', right: 0, background: '#141b28', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', zIndex: 5, minWidth: '150px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                                      style={{ position: 'absolute', top: '32px', right: 0, background: 'var(--bg-card)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', zIndex: 5, minWidth: '150px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
                                     >
                                       {completedSession && (
                                         <button

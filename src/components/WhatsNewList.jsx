@@ -30,12 +30,12 @@ export default function WhatsNewList({ audience }) {
       {entries.map((entry, idx) => (
         <div
           key={`${entry.date}-${entry.title}`}
-          style={{ padding: '14px 16px', borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+          style={{ padding: '14px 16px', borderTop: idx > 0 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}
         >
           <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary-accent-light)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {fmtDate(entry.date)}
           </div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff', marginTop: '4px' }}>{entry.title}</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>{entry.title}</div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.5 }}>{entry.description}</div>
         </div>
       ))}

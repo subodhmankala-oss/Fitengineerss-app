@@ -13,10 +13,10 @@
      app's Home/Workout/Profile bar sits on top of the pad's own bottom row,
      covering '.', '0', and backspace on the client side. */
   z-index: 1100;
-  background: rgba(15, 20, 32, 0.98);
+  background: rgba(var(--bg-card-active-rgb), 0.98);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: 16px 16px 0 0;
   /* Was reusing the app's --safe-bottom (90px — reserved for the bottom nav
      bar's own height), which padded a huge empty gap under the grid on top
@@ -100,8 +100,8 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   height: 32px;
   border-radius: 8px;
   border: none;
-  background: rgba(255, 255, 255, 0.06);
-  color: #e5e7eb;
+  background: rgba(var(--fg-rgb), 0.06);
+  color: var(--text-main);
   font-size: 0.7rem;
   line-height: 1;
   display: flex;
@@ -130,8 +130,8 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   height: 32px;
   border-radius: 8px;
   border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e5e7eb;
+  background: rgba(var(--fg-rgb), 0.08);
+  color: var(--text-main);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -150,8 +150,8 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
   padding: 12px 0 10px;
   border-radius: 14px;
   border: none;
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.07);
+  color: var(--text-main);
   cursor: pointer;
   transition: background 0.15s;
   display: flex;
@@ -166,7 +166,7 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 }
 
 .set-number-pad-key:active {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(var(--fg-rgb), 0.16);
 }
 
 .set-number-pad-key--disabled {
@@ -182,5 +182,5 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 }
 
 .set-number-pad-key--plain:active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
 }

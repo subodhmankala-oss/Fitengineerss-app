@@ -363,8 +363,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
   })();
 
   const weekNavBtnStyle = {
-    background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-    color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
+    background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+    color: 'var(--text-main)', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
     fontSize: '0.9rem', lineHeight: 1, cursor: 'pointer', display: 'flex',
     alignItems: 'center', justifyContent: 'center', padding: 0
   };
@@ -614,9 +614,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
     return (
       <svg viewBox={`0 0 ${width} ${height}`} className="weekly-bar-chart-svg">
         {/* Grid lines */}
-        <line x1="20" y1="20" x2={width} y2="20" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-        <line x1="20" y1="60" x2={width} y2="60" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-        <line x1="20" y1="100" x2={width} y2="100" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+        <line x1="20" y1="20" x2={width} y2="20" stroke="rgba(var(--fg-rgb), 0.03)" strokeWidth="1" />
+        <line x1="20" y1="60" x2={width} y2="60" stroke="rgba(var(--fg-rgb), 0.03)" strokeWidth="1" />
+        <line x1="20" y1="100" x2={width} y2="100" stroke="rgba(var(--fg-rgb), 0.08)" strokeWidth="1.5" />
 
         {keys.map((day, idx) => {
           const val = weeklyStats.dailySets[day];
@@ -646,7 +646,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                 width={barWidth} 
                 height={barHeight} 
                 rx="4" 
-                fill={val > 0 ? 'url(#emeraldGradient)' : 'rgba(255,255,255,0.03)'} 
+                fill={val > 0 ? 'url(#emeraldGradient)' : 'rgba(var(--fg-rgb), 0.03)'} 
                 className="chart-bar"
               />
               {/* Value Label */}
@@ -656,7 +656,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                 </text>
               )}
               {/* Day Label */}
-              <text x={x + barWidth/2} y="115" textAnchor="middle" fill={val > 0 ? '#fff' : 'var(--text-muted)'} fontSize="10.5" fontWeight="600">
+              <text x={x + barWidth/2} y="115" textAnchor="middle" fill={val > 0 ? 'var(--text-main)' : 'var(--text-muted)'} fontSize="10.5" fontWeight="600">
                 {day}
               </text>
             </g>
@@ -715,9 +715,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         </defs>
 
         {/* Grid line guides */}
-        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-        <line x1={padding} y1={padding + chartHeight/2} x2={width - padding} y2={padding + chartHeight/2} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-        <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
+        <line x1={padding} y1={padding + chartHeight/2} x2={width - padding} y2={padding + chartHeight/2} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
+        <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.08)" strokeWidth="1.5" />
 
         {/* Fill Area */}
         {values.some(v => v > 0) && (
@@ -728,7 +728,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         {values.some(v => v > 0) ? (
           <path d={pathD} fill="none" stroke="var(--primary-accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         ) : (
-          <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
+          <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
         )}
 
         {/* Highlight points on active days */}
@@ -828,9 +828,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: coachStatusPending ? 'rgba(255,255,255,0.03)' : (isLinkedToCoach ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)'),
-              border: coachStatusPending ? '1px solid rgba(255,255,255,0.06)' : (isLinkedToCoach ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(255,255,255,0.12)'),
-              color: coachStatusPending ? 'rgba(255,255,255,0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : '#fff'),
+              background: coachStatusPending ? 'rgba(var(--fg-rgb), 0.03)' : (isLinkedToCoach ? 'rgba(16,185,129,0.12)' : 'rgba(var(--fg-rgb), 0.06)'),
+              border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
+              color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : '#fff'),
               borderRadius: '20px', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
               cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap'
             }}
@@ -880,18 +880,18 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
             <span style={{ fontSize: '1.4rem' }}>⏱️</span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fbbf24' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-amber)' }}>
                 {activeDraft.source === 'coach' ? 'Your coach is logging a session for you' : 'Workout in progress'}
               </div>
               {/* Live duration + calories, recomputed from the draft's timer
                   timestamps (idle = timer not started yet, so no clock shown). */}
               {activeDraft.timerStatus !== 'idle' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '3px 0 2px' }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24', fontFamily: "'Courier New', monospace" }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--tint-amber)', fontFamily: "'Courier New', monospace" }}>
                     {formatDuration(computeElapsedSeconds(activeDraft.timerStartedAt, activeDraft.pauseIntervals || []))}
                     {activeDraft.timerStatus === 'paused' && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '5px' }}>PAUSED</span>}
                   </span>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 7px', borderRadius: '20px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-amber)', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 7px', borderRadius: '20px' }}>
                     🔥 {computeLiveCalories(activeDraft.exercises || [], activeDraft.timerStartedAt, activeDraft.pauseIntervals || []).totalKcal} kcal
                   </span>
                 </div>
@@ -904,7 +904,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           {activeDraft.source !== 'coach' && (
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
               <button type="button" style={{
-                background: 'transparent', color: '#fbbf24',
+                background: 'transparent', color: 'var(--tint-amber)',
                 border: 'none', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
               }}
               onClick={() => onNavigateToWorkouts && onNavigateToWorkouts()}
@@ -1066,7 +1066,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 1 }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
-              <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
+              <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {totalSessionsDone} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
               </h3>
               <span style={{ fontSize: '0.85rem', color: 'var(--primary-accent-light)', fontWeight: 700 }}>
@@ -1087,7 +1087,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                   cy="50"
                   r="40"
                   fill="transparent"
-                  stroke="rgba(255, 255, 255, 0.05)"
+                  stroke="rgba(var(--fg-rgb), 0.05)"
                   strokeWidth="8"
                 />
                 <circle
@@ -1109,7 +1109,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                   </linearGradient>
                 </defs>
               </svg>
-              <div style={{ position: 'absolute', fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>
+              <div style={{ position: 'absolute', fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {percentComplete}%
               </div>
             </div>
@@ -1121,21 +1121,21 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             {(startedOnLabel || estCompletionLabel) && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap',
-                paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)', zIndex: 1
+                paddingTop: '14px', borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', zIndex: 1
               }}>
                 {startedOnLabel && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontSize: '0.85rem' }}>🚩</span>
                     <div>
                       <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
-                      <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{startedOnLabel}</div>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{startedOnLabel}</div>
                     </div>
                   </div>
                 )}
                 {estCompletionLabel && (
                   <div>
                     <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
-                    <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{estCompletionLabel}</div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{estCompletionLabel}</div>
                   </div>
                 )}
               </div>
@@ -1259,14 +1259,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                           key={day}
                           onClick={() => { setSelectedDateStr(day); setTimeframe('daily'); }}
                           style={{
-                            background: 'rgba(0,0,0,0.15)',
-                            border: isToday(day) ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(var(--shade-rgb), 0.15)',
+                            border: isToday(day) ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(var(--fg-rgb), 0.06)',
                             borderRadius: 'var(--radius-md)',
                             padding: '12px',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--fg-rgb), 0.04)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.15)'}
                         >
                           {/* Sets/Volume/Calories/Time first, then workout name +
@@ -1277,25 +1277,25 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                             <span style={{ fontSize: '0.74rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.sets} sets
                             </span>
-                            <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.volume.toLocaleString('en-IN')} kg
                             </span>
                             {session.caloriesBurned != null && (
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--tint-amber)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 🔥 {session.caloriesBurned} kcal
                               </span>
                             )}
                             {session.durationSeconds != null && (
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.12)', color: 'var(--text-main)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 ⏱ {formatDuration(session.durationSeconds)}
                               </span>
                             )}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.92rem', color: '#fff', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.92rem', color: 'var(--text-main)', fontWeight: 700 }}>
                               📋 {session.planName || 'Custom Routine'}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: isToday(day) ? 'var(--primary-accent-light)' : '#60a5fa', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: isToday(day) ? 'var(--primary-accent-light)' : 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
                               📅 {dateLabel}{isToday(day) ? ' · Today' : ''}
                             </span>
                           </div>
@@ -1303,8 +1303,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                             {exercises.map(([exName, sets], exIdx) => (
                               <span key={exIdx} style={{
                                 fontSize: '0.76rem',
-                                background: 'rgba(255,255,255,0.04)',
-                                border: '1px solid rgba(255,255,255,0.08)',
+                                background: 'rgba(var(--fg-rgb), 0.04)',
+                                border: '1px solid rgba(var(--fg-rgb), 0.08)',
                                 padding: '2px 8px',
                                 borderRadius: '20px',
                                 color: 'var(--text-muted)'
@@ -1331,7 +1331,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                   onClick={() => {
                     setSelectedDateStr(shiftLocalDateString(selectedDateStr, -1));
                   }}
-                  style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                  style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
                 >
                   ‹
                 </button>
@@ -1349,7 +1349,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                       setSelectedDateStr(next);
                     }
                   }}
-                  style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                  style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
                 >
                   ›
                 </button>
@@ -1382,19 +1382,19 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                   </div>
                   <div className="stat-card inline">
                     <span className="lbl">Workouts:</span>
-                    <strong className="val" style={{ color: '#a78bfa' }}>{dailyStats.exercises.length}</strong>
+                    <strong className="val" style={{ color: 'var(--tint-violet)' }}>{dailyStats.exercises.length}</strong>
                   </div>
                   {/* No `!= null` guard — Volume/Sets/Exercises above all show
                       a plain 0 on a rest day instead of disappearing, this
                       should read the same way instead of just vanishing. */}
                   <div className="stat-card inline">
                     <span className="lbl">Calories:</span>
-                    <strong className="val" style={{ color: '#fbbf24' }}>{dailyStats.calories || 0} kcal</strong>
+                    <strong className="val" style={{ color: 'var(--tint-amber)' }}>{dailyStats.calories || 0} kcal</strong>
                   </div>
                   {dailyStats.durationSeconds != null && (
                     <div className="stat-card inline">
                       <span className="lbl">⏱ Time:</span>
-                      <strong className="val" style={{ color: '#e5e7eb' }}>{formatDuration(dailyStats.durationSeconds)}</strong>
+                      <strong className="val" style={{ color: 'var(--text-main)' }}>{formatDuration(dailyStats.durationSeconds)}</strong>
                     </div>
                   )}
                 </div>
@@ -1421,7 +1421,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                           <div className="ex-title" style={{ marginBottom: '6px' }}>{ex.name}</div>
                           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                              <tr style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
                                 <th style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', padding: '3px 0', textAlign: 'left'}}>Set</th>
                                 {exIsTimed && exIsBodyweight ? (
                                   <>
@@ -1459,11 +1459,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                                   .filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                                 const visual = getSetTypeVisual(set, workingNum);
                                 return (
-                                  <tr key={sIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                  <tr key={sIdx} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)' }}>
                                     <td style={{ padding: '5px 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                                       <span style={{
                                         display:'inline-flex', alignItems:'center', justifyContent:'center', width:'20px', height:'20px', borderRadius:'50%',
-                                        background: visual.color ? `${visual.color}22` : 'rgba(255,255,255,0.06)',
+                                        background: visual.color ? `${visual.color}22` : 'rgba(var(--fg-rgb), 0.06)',
                                         fontSize:'0.72rem', fontWeight:800,
                                         color: visual.color || '#fff'
                                       }}>{visual.label}</span>
@@ -1475,30 +1475,30 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                                             nothing was added, so show "BW" like the logger itself
                                             does, instead of the raw "0 kg" which reads as a logging
                                             error. */}
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{!(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.time || '00:00'}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600}}>{!(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)'}}>{set.time || '00:00'}</td>
                                       </>
                                     ) : exIsTimed ? (
-                                      <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.time || '00:00'}</td>
+                                      <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600}}>{set.time || '00:00'}</td>
                                     ) : exIsCardio ? (
                                       <>
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.distanceKm ?? 0} km</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.time || '00:00'}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600}}>{set.distanceKm ?? 0} km</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)'}}>{set.time || '00:00'}</td>
                                       </>
                                     ) : exIsLoadedCarry ? (
                                       <>
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.weight} kg</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.reps} m</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600}}>{set.weight} kg</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)'}}>{set.reps} m</td>
                                       </>
                                     ) : exIsWarmup ? (
-                                      <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{set.reps} reps</td>
+                                      <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600}}>{set.reps} reps</td>
                                     ) : (
                                       <>
                                         {/* Bodyweight exercises log weight: 0 when no plate/vest was
                                             added — show "BW" like the logger itself does, instead of
                                             the raw "0 kg" which reads as a logging error. */}
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff', fontWeight: 600}}>{exIsBodyweight && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
-                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: '#fff'}}>{set.reps} reps</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 600}}>{exIsBodyweight && !(Number(set.weight) > 0) ? 'BW' : `${set.weight} kg`}</td>
+                                        <td style={{ padding: '5px 0', fontSize: '0.88rem', color: 'var(--text-main)'}}>{set.reps} reps</td>
                                         <td style={{ padding: '5px 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(set.weight * set.reps).toFixed(0)} kg</td>
                                       </>
                                     )}
@@ -1541,7 +1541,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                 </div>
                 <div className="stat-card inline">
                   <span className="lbl">Calories:</span>
-                  <strong className="val" style={{ color: '#fbbf24' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} kcal</strong>
+                  <strong className="val" style={{ color: 'var(--tint-amber)' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} kcal</strong>
                 </div>
               </div>
 
@@ -1580,8 +1580,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                         const exercises = Object.entries(session.exercises);
                         return (
                           <div key={date} style={{
-                            background: 'rgba(0,0,0,0.15)',
-                            border: '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(var(--shade-rgb), 0.15)',
+                            border: '1px solid rgba(var(--fg-rgb), 0.06)',
                             borderRadius: 'var(--radius-md)',
                             padding: '12px'
                           }}>
@@ -1592,20 +1592,20 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                               <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.sets} sets
                               </span>
-                              <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.volume.toLocaleString('en-IN')} kg
                               </span>
                               {session.caloriesBurned != null && (
-                                <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                                <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--tint-amber)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                   🔥 {session.caloriesBurned} kcal
                                 </span>
                               )}
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 700 }}>
                                 📋 {session.planName || 'Custom Routine'}
                               </span>
-                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#60a5fa', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
                                 📅 {parseLocalDateString(date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
                             </div>
@@ -1615,8 +1615,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                                 return (
                                   <span key={exIdx} style={{
                                     fontSize: '0.7rem',
-                                    background: 'rgba(255,255,255,0.04)',
-                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    background: 'rgba(var(--fg-rgb), 0.04)',
+                                    border: '1px solid rgba(var(--fg-rgb), 0.08)',
                                     padding: '3px 10px',
                                     borderRadius: '20px',
                                     color: 'var(--text-muted)'

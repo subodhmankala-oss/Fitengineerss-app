@@ -93,7 +93,7 @@
 
 .tracker-subtitle {
   font-size: 0.85rem;
-  color: #6b7280; /* Gray-500 */
+  color: var(--text-subtle); /* Gray-500 */
   margin-top: 4px;
   font-weight: 400;
 }
@@ -121,7 +121,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1.5px solid #374151; /* Dark gray border */
+  border: 1.5px solid var(--border-strong); /* Dark gray border */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,7 +141,7 @@
 }
 
 .action-sync {
-  color: #374151;
+  color: var(--bg-elevated);
   font-size: 1.2rem;
 }
 

@@ -2972,9 +2972,9 @@ const WorkoutTracker = () => {
                     className="analytics-svg-graph"
                     style={{ width: `${width}px` }}
                   >
-                    <line x1={paddingX} y1={padding} x2={width - paddingX} y2={padding} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-                    <line x1={paddingX} y1={padding + chartHeight / 2} x2={width - paddingX} y2={padding + chartHeight / 2} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-                    <line x1={paddingX} y1={padding + chartHeight} x2={width - paddingX} y2={padding + chartHeight} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                    <line x1={paddingX} y1={padding} x2={width - paddingX} y2={padding} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
+                    <line x1={paddingX} y1={padding + chartHeight / 2} x2={width - paddingX} y2={padding + chartHeight / 2} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
+                    <line x1={paddingX} y1={padding + chartHeight} x2={width - paddingX} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.06)" strokeWidth="1" />
 
                     {/* Gradient fill under the line — was gated to only the
                         Volume metric before, so the Weight chart (the one in
@@ -3021,7 +3021,7 @@ const WorkoutTracker = () => {
                         y1={padding} 
                         x2={getPointX(activeSessionData.index)} 
                         y2={padding + chartHeight} 
-                        stroke="rgba(255,255,255,0.1)" 
+                        stroke="rgba(var(--fg-rgb), 0.1)" 
                         strokeWidth="1.5" 
                         strokeDasharray="3 3"
                       />
@@ -3044,7 +3044,7 @@ const WorkoutTracker = () => {
                         textAnchor="middle"
                         fontSize="11"
                         fontWeight="600"
-                        fill={d.index === selectedSessionIndex ? '#fff' : 'var(--text-muted)'}
+                        fill={d.index === selectedSessionIndex ? 'var(--text-main)' : 'var(--text-muted)'}
                         style={{ cursor: 'pointer' }}
                         onClick={() => setSelectedSessionIndex(d.index)}
                       >
@@ -3073,7 +3073,7 @@ const WorkoutTracker = () => {
                               strokeWidth="3"
                               strokeLinejoin="round"
                               paintOrder="stroke"
-                              fill="rgba(255,255,255,0.85)"
+                              fill="rgba(var(--fg-rgb), 0.85)"
                             >
                               {chartMetric === 'weight' ? `${val}${getExerciseUnit(selectedExercise)}` : val}
                             </text>
@@ -3374,7 +3374,7 @@ const WorkoutTracker = () => {
         return (
           <div className="routines-launcher-wrapper glass-panel" style={{ padding: '20px', width: '100%' }}>
             <div className="launcher-header" style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 800 }}>🏋️‍♂️ Start Workout Session</h3>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 800 }}>🏋️‍♂️ Start Workout Session</h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Select a coach plan, a saved template, or start empty.</p>
             </div>
 
@@ -3832,7 +3832,7 @@ const WorkoutTracker = () => {
                           const renderTimeControl = () => {
                             if (set.isCompleted) {
                               return (
-                                <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: 'var(--text-main)' }}>
                                   {set.time || formatSecondsToTimeString(0)}
                                 </span>
                               );
@@ -3862,7 +3862,7 @@ const WorkoutTracker = () => {
                                   {isRunning ? '⏸' : '▶'}
                                 </button>
                                 {isRunning ? (
-                                  <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                  <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: 'var(--text-main)' }}>
                                     {timeStr}
                                   </span>
                                 ) : (
@@ -3955,7 +3955,7 @@ const WorkoutTracker = () => {
                                       <button
                                         type="button"
                                         className="btn-cardio-stopwatch"
-                                        style={{ color: cardioRunning ? '#e5e7eb' : '#fb923c' }}
+                                        style={{ color: cardioRunning ? '#e5e7eb' : 'var(--tint-orange)' }}
                                         onClick={() => (cardioRunning ? handleCardioStopwatchPause(exIdx, sIdx) : handleCardioStopwatchStart(exIdx, sIdx))}
                                         disabled={set.isCompleted}
                                         title={cardioRunning ? 'Pause' : 'Start'}
@@ -4226,7 +4226,7 @@ const WorkoutTracker = () => {
       {showDiscardConfirmModal && (
         <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowDiscardConfirmModal(false)}>
           <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-            <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+            <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
               <div className="modal-title-box">
                 <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ DISCARD SESSION</span>
                 <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Discard this workout?</h3>
@@ -4247,7 +4247,7 @@ const WorkoutTracker = () => {
               </p>
             </div>
 
-            <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+            <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>
               <button
                 type="button"
                 className="btn-cancel-summary"
@@ -4458,7 +4458,7 @@ const WorkoutTracker = () => {
               </div>
             )}
 
-            <div className="template-save-option-box" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', marginTop: '12px', textAlign: 'left', width: '100%' }}>
+            <div className="template-save-option-box" style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '12px', marginTop: '12px', textAlign: 'left', width: '100%' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)' }}>
                 <input 
                   type="checkbox" 
@@ -4479,8 +4479,8 @@ const WorkoutTracker = () => {
                     placeholder={templateName || 'e.g. Push Day, My Leg Routine…'}
                     style={{
                       width: '100%', boxSizing: 'border-box',
-                      background: 'rgba(9,14,23,0.6)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 'var(--radius-sm)', padding: '9px 11px', color: '#fff',
+                      background: 'rgba(var(--bg-app-rgb), 0.6)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
+                      borderRadius: 'var(--radius-sm)', padding: '9px 11px', color: 'var(--text-main)',
                       fontSize: '16px', outline: 'none'
                     }}
                   />
@@ -4611,7 +4611,7 @@ const WorkoutTracker = () => {
       {showUntickedFinishModal && (
         <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowUntickedFinishModal(false)}>
           <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+            <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
               <div className="modal-title-box">
                 <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ EMPTY LIFT LOGS</span>
                 <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Empty Workout Session</h3>
@@ -4641,7 +4641,7 @@ const WorkoutTracker = () => {
               </p>
             </div>
 
-            <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+            <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>
               <button 
                 type="button" 
                 className="btn-cancel-summary"

@@ -41,10 +41,10 @@
 }
 
 .muscle-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(var(--fg-rgb), 0.07);
   border-radius: var(--radius-md);
   padding: 12px;
   display: flex;
@@ -61,7 +61,7 @@
 
 .muscle-card-tappable:hover,
 .muscle-card-tappable:focus-visible {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(var(--fg-rgb), 0.16);
   transform: translateY(-1px);
   outline: none;
 }
@@ -140,7 +140,7 @@
 .muscle-card-title strong {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -179,7 +179,7 @@
   width: 100%;
   height: 5px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   overflow: hidden;
 }
 
@@ -205,7 +205,7 @@
   color: var(--text-muted);
   margin-top: 14px;
   padding-bottom: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
 }
 
 .legend-item {
@@ -231,10 +231,10 @@
 
 .insight-item {
   font-size: 0.8rem;
-  color: #e2e8f0;
+  color: var(--text-main);
   line-height: 1.45;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.02);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   opacity: 0;
@@ -253,7 +253,7 @@
   flex-direction: column;
   gap: 3px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
 }
 
 .comparison-row:last-child {
@@ -278,7 +278,7 @@
 .comparison-curr {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .comparison-prev {
@@ -309,7 +309,7 @@
   gap: 8px;
   align-items: flex-start;
   font-size: 0.8rem;
-  color: #e2e8f0;
+  color: var(--text-main);
   line-height: 1.45;
   opacity: 0;
   animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
@@ -330,7 +330,7 @@
 
 .recovery-row {
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
 }
 
 .recovery-row:last-child {
@@ -348,7 +348,7 @@
 .recovery-muscle-name {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .recovery-badge {
@@ -378,7 +378,7 @@
   flex: 1;
   height: 5px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   overflow: hidden;
 }
 
@@ -452,7 +452,7 @@
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #f87171;
+  color: var(--tint-red);
 }
 
 .neglected-days-badge {
@@ -484,8 +484,8 @@
 .neglected-rec-chip {
   font-size: 0.7rem;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   padding: 3px 9px;
   border-radius: var(--radius-full);
 }
@@ -493,8 +493,8 @@
 /* ── Section 2: Muscle Heat Map ── */
 .heatmap-view-toggle {
   display: flex;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: var(--radius-full);
   padding: 2px;
   gap: 2px;
@@ -666,7 +666,7 @@
 .muscle-detail-handle {
   width: 36px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--fg-rgb), 0.18);
   border-radius: 2px;
   margin: 10px auto 4px;
   flex-shrink: 0;
@@ -677,7 +677,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 18px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.05);
   flex-shrink: 0;
 }
 
@@ -707,7 +707,7 @@
 .muscle-detail-title-group h3 {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin: 0;
 }
 
@@ -715,9 +715,9 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  color: var(--text-main);
   font-size: 0.85rem;
   flex-shrink: 0;
 }
@@ -737,8 +737,8 @@
 }
 
 .detail-stat-block {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: var(--radius-md);
   padding: 10px 12px;
   display: flex;
@@ -757,7 +757,7 @@
 .detail-stat-value {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .detail-meta-line {
@@ -818,7 +818,7 @@
 .detail-exercise-name {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .detail-exercise-sets {
@@ -831,7 +831,7 @@
   width: 100%;
   height: 4px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
   overflow: hidden;
 }
 
@@ -849,7 +849,7 @@
 .detail-best-lift {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
   margin: 0;
 }
 
@@ -862,7 +862,7 @@
 
 .detail-pr-chip {
   font-size: 0.68rem;
-  color: #fbbf24;
+  color: var(--tint-amber);
   background: rgba(245, 158, 11, 0.08);
   border: 1px solid rgba(245, 158, 11, 0.22);
   padding: 4px 9px;

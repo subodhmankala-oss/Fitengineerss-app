@@ -10,8 +10,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--bg-card, #151d2c);
-  border: 1px solid var(--border-color, #1e293b);
+  background: var(--bg-card, var(--bg-card));
+  border: 1px solid var(--border-color, var(--border-color));
   border-radius: var(--radius-lg, 24px);
   padding: 14px 16px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
@@ -31,12 +31,12 @@
 }
 
 .pwa-update-toast__text strong {
-  color: var(--text-main, #f8fafc);
+  color: var(--text-main, var(--text-main));
   font-size: 0.9rem;
 }
 
 .pwa-update-toast__text span {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, var(--text-muted));
   font-size: 0.78rem;
 }
 

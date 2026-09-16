@@ -241,8 +241,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
             padding: '11px 16px',
             borderRadius: '10px',
             border: '1px solid var(--border-color)',
-            background: 'rgba(255,255,255,0.03)',
-            color: '#fff',
+            background: 'rgba(var(--fg-rgb), 0.03)',
+            color: 'var(--text-main)',
             fontSize: '0.85rem',
             fontFamily: 'inherit'
           }}
@@ -278,8 +278,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
               padding: '6px 14px',
               borderRadius: '20px',
               border: '1px solid',
-              borderColor: selectedCategory === cat ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.08)',
-              background: selectedCategory === cat ? 'rgba(139, 92, 246, 0.12)' : 'rgba(255,255,255,0.02)',
+              borderColor: selectedCategory === cat ? 'var(--primary-accent-light)' : 'rgba(var(--fg-rgb), 0.08)',
+              background: selectedCategory === cat ? 'rgba(139, 92, 246, 0.12)' : 'rgba(var(--fg-rgb), 0.02)',
               color: selectedCategory === cat ? '#c084fc' : 'var(--text-muted)',
               fontSize: '0.78rem',
               fontWeight: 700,
@@ -326,14 +326,14 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                 const hasVideo = !!ex.video_url;
                 const isPossibleDuplicate = duplicateGroupCounts[normalizeForDuplicateCheck(ex.name)] > 1;
                 return (
-                  <tr key={ex.id || ex.name} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '64px' }}>
+                  <tr key={ex.id || ex.name} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '64px' }}>
                     <td style={{ padding: '8px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.88rem' }}>{ex.name}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.88rem' }}>{ex.name}</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                           <span style={{
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(var(--fg-rgb), 0.04)',
+                            border: '1px solid rgba(var(--fg-rgb), 0.06)',
                             padding: '1px 6px',
                             borderRadius: '4px',
                             fontSize: '0.68rem',
@@ -361,7 +361,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                               borderRadius: '4px',
                               fontSize: '0.68rem',
                               fontWeight: 700,
-                              color: '#fbbf24'
+                              color: 'var(--tint-amber)'
                             }}>
                               ⚠️ Possible duplicate
                             </span>
@@ -373,7 +373,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                       {hasVideo ? (
                         <span style={{
                           background: isYouTube ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                          color: isYouTube ? '#f87171' : '#34d399',
+                          color: isYouTube ? 'var(--tint-red)' : 'var(--tint-emerald)',
                           border: isYouTube ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
                           padding: '3px 8px',
                           borderRadius: '12px',
@@ -394,9 +394,9 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                         <button
                           onClick={() => handleOpenEdit(ex)}
                           style={{
-                            background: 'rgba(255,255,255,0.05)',
+                            background: 'rgba(var(--fg-rgb), 0.05)',
                             border: '1px solid var(--border-color)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             padding: '6px 12px',
                             borderRadius: '6px',
                             cursor: 'pointer',
@@ -414,7 +414,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                           style={{
                             background: 'rgba(239,68,68,0.1)',
                             border: '1px solid rgba(239,68,68,0.3)',
-                            color: '#f87171',
+                            color: 'var(--tint-red)',
                             padding: '6px 12px',
                             borderRadius: '6px',
                             cursor: (deletingId === ex.id || !ex.id) ? 'default' : 'pointer',
@@ -450,8 +450,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
           zIndex: 1000, padding: '16px', boxSizing: 'border-box'
         }}>
           <div className="glass-panel animate-scale-in" style={{
-            background: 'var(--bg-modal, #1e293b)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--bg-modal, var(--bg-card-hover))',
+            border: '1px solid rgba(var(--fg-rgb), 0.1)',
             borderRadius: '16px',
             width: '100%',
             maxWidth: '410px',
@@ -462,7 +462,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', fontWeight: 800 }}>
+              <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.25rem', fontWeight: 800 }}>
                 {editingExercise ? '⚙️ Edit Exercise' : '🏋️ Add New Exercise'}
               </h3>
               <button
@@ -489,8 +489,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   required
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit'
                   }}
                 />
               </div>
@@ -503,12 +503,12 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   onChange={(e) => setCategory(e.target.value)}
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit'
                   }}
                 >
                   {CATEGORIES.filter(c => c !== 'All').map(cat => (
-                    <option key={cat} value={cat} style={{ background: '#1e293b' }}>{cat}</option>
+                    <option key={cat} value={cat} style={{ background: 'var(--bg-card-hover)' }}>{cat}</option>
                   ))}
                 </select>
               </div>
@@ -523,8 +523,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   placeholder="e.g. Upper Chest"
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit'
                   }}
                 />
               </div>
@@ -539,14 +539,14 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   placeholder="e.g. Front Deltoids, Triceps"
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit'
                   }}
                 />
               </div>
 
               {/* Video Configuration */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid var(--border-color)', padding: '14px', borderRadius: '10px', background: 'rgba(0,0,0,0.1)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid var(--border-color)', padding: '14px', borderRadius: '10px', background: 'rgba(var(--shade-rgb), 0.1)' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>FORM GUIDE VIDEO SOURCE</label>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
@@ -584,8 +584,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                     placeholder="Paste direct MP4 link, or YouTube video URL"
                     style={{
                       padding: '10px 14px', borderRadius: '8px',
-                      background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                      color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit'
+                      background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit'
                     }}
                   />
                 ) : (
@@ -618,7 +618,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                         title="Youtube Form Preview"
                         frameBorder="0"
                         allowFullScreen
-                        style={{ width: '100%', height: '180px', borderRadius: '8px', background: '#000' }}
+                        style={{ width: '100%', height: '180px', borderRadius: '8px', background: 'var(--bg-app)' }}
                       />
                     ) : (
                       <video
@@ -626,7 +626,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                         controls
                         playsInline
                         muted
-                        style={{ width: '100%', height: '180px', borderRadius: '8px', background: '#000' }}
+                        style={{ width: '100%', height: '180px', borderRadius: '8px', background: 'var(--bg-app)' }}
                       />
                     )}
                   </div>
@@ -643,8 +643,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   rows={2}
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical'
                   }}
                 />
               </div>
@@ -658,8 +658,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   rows={2}
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical'
                   }}
                 />
               </div>
@@ -673,8 +673,8 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                   rows={2}
                   style={{
                     padding: '10px 14px', borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)',
-                    color: '#fff', fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical'
+                    background: 'rgba(var(--shade-rgb), 0.2)', border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)', fontSize: '0.85rem', fontFamily: 'inherit', resize: 'vertical'
                   }}
                 />
               </div>
@@ -685,7 +685,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                 disabled={saving}
                 style={{
                   background: saving ? 'rgba(139, 92, 246, 0.4)' : 'var(--primary-accent-light)',
-                  color: '#fff',
+                  color: 'var(--text-main)',
                   border: 'none',
                   padding: '12px',
                   borderRadius: '10px',

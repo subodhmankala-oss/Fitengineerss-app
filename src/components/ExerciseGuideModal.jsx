@@ -61,7 +61,7 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
                 title="Exercise Form Guide"
                 frameBorder="0"
                 allowFullScreen
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' }}
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: 'var(--bg-app)' }}
               />
             ) : videoTapped ? (
               <>
@@ -97,7 +97,7 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
                 style={{
                   width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
                   alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  background: '#000', color: '#fff', border: 'none', cursor: 'pointer'
+                  background: 'var(--bg-app)', color: '#fff', border: 'none', cursor: 'pointer'
                 }}
               >
                 <span style={{ fontSize: '2rem' }}>▶️</span>

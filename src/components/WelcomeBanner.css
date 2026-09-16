@@ -29,7 +29,7 @@
 .wb-title {
   font-size: 0.88rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   line-height: 1.35;
   margin-bottom: 3px;
 }
@@ -37,7 +37,7 @@
 .wb-message {
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--text-muted, #c4b5fd);
+  color: var(--text-muted, var(--tint-violet));
   line-height: 1.45;
 }
 
@@ -46,9 +46,9 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  color: var(--text-muted, #9ca3af);
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid var(--border-color, rgba(var(--fg-rgb), 0.1));
+  color: var(--text-muted, var(--text-muted));
   font-size: 0.8rem;
   line-height: 1;
   cursor: pointer;
@@ -59,6 +59,6 @@
 }
 
 .wb-dismiss:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: rgba(var(--fg-rgb), 0.12);
+  color: var(--text-main);
 }

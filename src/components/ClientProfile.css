@@ -53,7 +53,7 @@
 .cp-user-name {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .cp-user-email {
@@ -99,7 +99,7 @@
 
 .cp-row:hover,
 .cp-row:active {
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 
 .cp-row--last {
@@ -189,7 +189,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid var(--border-color);
   border-radius: 50%;
   color: var(--text-main);
@@ -199,13 +199,13 @@
 }
 
 .cp-back-btn:hover {
-  background: rgba(255,255,255,0.08);
+  background: rgba(var(--fg-rgb), 0.08);
 }
 
 .cp-sub-title {
   font-size: 1rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
   margin: 0;
 }
 
@@ -321,8 +321,8 @@
 }
 
 .cp-field-select option {
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--bg-card);
+  color: var(--text-main);
 }
 
 .cp-field-static {

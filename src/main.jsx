@@ -8,19 +8,22 @@ import UpdateToast from './components/UpdateToast.jsx'
 import PullToRefresh from './components/PullToRefresh.jsx'
 import { TourProvider } from './context/TourContext.jsx'
 import { CoachTourProvider } from './context/CoachTourContext.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
 import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <TourProvider>
-      <CoachTourProvider>
-        <App />
-      </CoachTourProvider>
-    </TourProvider>
-    <InstallBanner />
-    <IOSInstallBanner />
-    <UpdateToast />
-    <PullToRefresh />
+    <ThemeProvider>
+      <TourProvider>
+        <CoachTourProvider>
+          <App />
+        </CoachTourProvider>
+      </TourProvider>
+      <InstallBanner />
+      <IOSInstallBanner />
+      <UpdateToast />
+      <PullToRefresh />
+    </ThemeProvider>
   </StrictMode>,
 )
 

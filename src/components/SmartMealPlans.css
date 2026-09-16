@@ -41,8 +41,8 @@
 .smp-diet-toggle {
   display: flex;
   gap: 0;
-  background: rgba(9, 14, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(var(--bg-app-rgb), 0.6);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: var(--radius-lg);
   padding: 5px;
 }
@@ -70,7 +70,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.15);
+  background: rgba(var(--fg-rgb), 0.15);
   transition: background 0.25s ease;
 }
 
@@ -120,7 +120,7 @@
 
 .badge-nonveg {
   background: rgba(248, 113, 113, 0.08);
-  color: #f87171;
+  color: var(--tint-red);
   border: 1px solid rgba(248, 113, 113, 0.2);
 }
 
@@ -131,7 +131,7 @@
 .smp-daily-summary {
   margin: 0 24px 20px 24px;
   padding: 18px 20px;
-  background: rgba(21, 29, 44, 0.7);
+  background: rgba(var(--bg-card-rgb), 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(16, 185, 129, 0.18);
@@ -183,7 +183,7 @@
 .smp-cal-progress-track {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   border-radius: var(--radius-full);
   overflow: hidden;
   margin-bottom: 16px;
@@ -240,7 +240,7 @@
 .smp-summary-divider {
   width: 1px;
   height: 32px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
 }
 
 .smp-summary-note {
@@ -248,16 +248,16 @@
   color: var(--text-muted);
   text-align: center;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
   line-height: 1.4;
 }
 
 /* ─────────────────────────────────────────────────────────────
    Color tokens for macros
 ──────────────────────────────────────────────────────────────── */
-.protein-color { color: #f87171; }
-.carbs-color   { color: #60a5fa; }
-.fats-color    { color: #fbbf24; }
+.protein-color { color: var(--tint-red); }
+.carbs-color   { color: var(--tint-blue); }
+.fats-color    { color: var(--tint-amber); }
 .cals-color    { color: #10b981; }
 
 /* ─────────────────────────────────────────────────────────────
@@ -274,10 +274,10 @@
    Individual Meal Card (uses .glass-panel from global)
 ──────────────────────────────────────────────────────────────── */
 .smp-card {
-  background: rgba(21, 29, 44, 0.6);
+  background: rgba(var(--bg-card-rgb), 0.6);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
@@ -347,25 +347,25 @@
 
 .smp-tag-blue {
   background: rgba(96, 165, 250, 0.12);
-  color: #60a5fa;
+  color: var(--tint-blue);
   border: 1px solid rgba(96, 165, 250, 0.25);
 }
 
 .smp-tag-amber {
   background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  color: var(--tint-amber);
   border: 1px solid rgba(251, 191, 36, 0.25);
 }
 
 .smp-tag-purple {
   background: rgba(167, 139, 250, 0.12);
-  color: #a78bfa;
+  color: var(--tint-violet);
   border: 1px solid rgba(167, 139, 250, 0.25);
 }
 
 .smp-tag-swapped {
   background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  color: var(--tint-red);
   border: 1px solid rgba(248, 113, 113, 0.25);
 }
 
@@ -433,19 +433,19 @@
 .macro-protein {
   background: rgba(248, 113, 113, 0.08);
   border: 1px solid rgba(248, 113, 113, 0.2);
-  color: #f87171;
+  color: var(--tint-red);
 }
 
 .macro-carbs {
   background: rgba(96, 165, 250, 0.08);
   border: 1px solid rgba(96, 165, 250, 0.2);
-  color: #60a5fa;
+  color: var(--tint-blue);
 }
 
 .macro-fats {
   background: rgba(251, 191, 36, 0.08);
   border: 1px solid rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
+  color: var(--tint-amber);
 }
 
 .macro-cals {
@@ -486,15 +486,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(9, 14, 23, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(var(--bg-app-rgb), 0.45);
+  border: 1px solid rgba(var(--fg-rgb), 0.04);
   border-radius: var(--radius-md);
   padding: 10px 14px;
   transition: background 0.15s ease;
 }
 
 .smp-ingredient-chip:hover {
-  background: rgba(9, 14, 23, 0.65);
+  background: rgba(var(--bg-app-rgb), 0.65);
 }
 
 .smp-ing-icon {
@@ -588,14 +588,14 @@
 }
 
 .smp-swap-btn-revert {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.03);
+  border-color: rgba(var(--fg-rgb), 0.08);
   color: var(--text-muted);
 }
 
 .smp-swap-btn-revert:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--fg-rgb), 0.06);
+  border-color: rgba(var(--fg-rgb), 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -640,9 +640,9 @@
    Glass Panel Global Override for compatibility
 ──────────────────────────────────────────────────────────────── */
 .glass-panel {
-  background: rgba(21, 29, 44, 0.55);
+  background: rgba(var(--bg-card-rgb), 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }

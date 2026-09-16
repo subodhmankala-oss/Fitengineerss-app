@@ -48,8 +48,8 @@ const ShareIconButton = ({ onClick, title }) => (
       width: '26px',
       height: '26px',
       borderRadius: '50%',
-      background: 'rgba(255, 255, 255, 0.06)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'rgba(var(--fg-rgb), 0.06)',
+      border: '1px solid rgba(var(--fg-rgb), 0.1)',
       color: 'var(--text-muted)',
       cursor: 'pointer',
       flexShrink: 0

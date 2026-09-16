@@ -4,7 +4,7 @@
   left: 50%;
   transform: translateX(-50%);
   background-color: #10b981;
-  color: #0f172a;
+  color: var(--bg-card-active);
   padding: 16px 24px;
   border-radius: 100px;
   font-weight: 600;

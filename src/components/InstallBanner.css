@@ -23,8 +23,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--bg-card, #151d2c);
-  border: 1px solid var(--border-color, #1e293b);
+  background: var(--bg-card, var(--bg-card));
+  border: 1px solid var(--border-color, var(--border-color));
   border-radius: var(--radius-lg, 24px);
   padding: 12px 14px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
@@ -52,13 +52,13 @@
 }
 
 .install-banner__text strong {
-  color: var(--text-main, #f8fafc);
+  color: var(--text-main, var(--text-main));
   font-size: 0.88rem;
   white-space: nowrap;
 }
 
 .install-banner__text span {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, var(--text-muted));
   font-size: 0.76rem;
   white-space: nowrap;
   overflow: hidden;
@@ -101,7 +101,7 @@
 
 .install-banner__dismiss {
   background: transparent;
-  color: var(--text-subtle, #475569);
+  color: var(--text-subtle, var(--text-subtle));
   border: none;
   font-size: 0.9rem;
   padding: 6px;

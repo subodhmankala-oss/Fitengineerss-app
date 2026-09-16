@@ -11,7 +11,7 @@
   left: 0;
   right: 0;
   height: 350px;
-  background: linear-gradient(160deg, #1f2937 0%, #374151 40%, #f3f4f6 100%);
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-elevated) 40%, #f3f4f6 100%);
   z-index: 0;
   border-bottom-left-radius: 40px;
   border-bottom-right-radius: 40px;
@@ -31,7 +31,7 @@
 }
 
 .greeting-large.dark-text {
-  color: #ffffff;
+  color: var(--text-main);
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 0;

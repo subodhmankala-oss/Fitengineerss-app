@@ -29,7 +29,7 @@
   margin: 0 0 6px;
   font-size: 1.5rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .wb-hero-sub {
@@ -39,10 +39,10 @@
 }
 
 .wb-card {
-  background: rgba(21, 29, 44, 0.55);
+  background: rgba(var(--bg-card-rgb), 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: var(--radius-md);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   padding: 20px;
@@ -74,7 +74,7 @@
 .wb-journey-fraction {
   font-size: 1.8rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .wb-journey-label {
@@ -89,7 +89,7 @@
   width: 100%;
   height: 8px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   overflow: hidden;
   margin-top: 4px;
 }
@@ -119,7 +119,7 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .wb-actions {
@@ -144,7 +144,7 @@
   margin: 0 0 2px;
   font-size: 1rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .wb-card-sub {
@@ -166,8 +166,8 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-sm);
   padding: 10px 4px;
   cursor: pointer;
@@ -175,7 +175,7 @@
 }
 
 .wb-mood-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 
 .wb-mood-btn.active {
@@ -202,11 +202,11 @@
 .wb-note-input {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--shade-rgb), 0.2);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
-  color: #fff;
+  color: var(--text-main);
   font-size: 0.85rem;
   margin-bottom: 12px;
 }
@@ -246,7 +246,7 @@
   border-radius: var(--radius-sm);
   padding: 12px;
   font-size: 0.82rem;
-  color: #e5e7eb;
+  color: var(--text-main);
 }
 
 .wb-checkin-done-emoji {
@@ -287,7 +287,7 @@
 }
 
 .wb-progress-card:hover {
-  background: rgba(21, 29, 44, 0.75);
+  background: rgba(var(--bg-card-rgb), 0.75);
 }
 
 .wb-progress-card:active {
@@ -302,7 +302,7 @@
   color: var(--text-muted);
   margin-bottom: 12px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
 }
 
 .wb-progress-cta {

@@ -360,7 +360,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   if (userRole === 'coach_pending' && !superAdmin) {
     return (
       <div className="trainer-dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
-        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '40px', borderRadius: '16px', maxWidth: '500px' }}>
+        <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', padding: '40px', borderRadius: '16px', maxWidth: '500px' }}>
           <h2 style={{ color: '#f59e0b', marginBottom: '16px' }}>⏳ Application Pending</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
             Thank you for applying to be a Fitengineers Coach. Your application is currently under review by our administration team.
@@ -3982,8 +3982,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             display: 'flex',
             gap: '8px',
             padding: '4px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(var(--fg-rgb), 0.04)',
+            border: '1px solid rgba(var(--fg-rgb), 0.08)',
             borderRadius: '14px',
           }}>
             <button
@@ -4014,7 +4014,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 borderRadius: '10px',
                 border: 'none',
                 background: viewMode === 'admin' ? 'rgba(139,92,246,0.14)' : 'transparent',
-                color: viewMode === 'admin' ? '#a78bfa' : 'rgba(148,163,184,0.55)',
+                color: viewMode === 'admin' ? 'var(--tint-violet)' : 'rgba(148,163,184,0.55)',
                 fontSize: '0.88rem',
                 fontWeight: 800,
                 cursor: 'pointer',
@@ -4045,9 +4045,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 aria-label="Watch app tutorial"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  color: '#fff',
+                  background: 'rgba(var(--fg-rgb), 0.06)',
+                  border: '1px solid rgba(var(--fg-rgb), 0.12)',
+                  color: 'var(--text-main)',
                   borderRadius: '50%', padding: '8px',
                   cursor: 'pointer'
                 }}
@@ -4066,9 +4066,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               aria-label={viewMode === 'payments' ? 'Back to Clients' : 'Client Payments'}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: viewMode === 'payments' ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
-                border: viewMode === 'payments' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
-                color: viewMode === 'payments' ? 'var(--primary-accent-light)' : '#fff',
+                background: viewMode === 'payments' ? 'rgba(16,185,129,0.22)' : 'rgba(var(--fg-rgb), 0.06)',
+                border: viewMode === 'payments' ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(var(--fg-rgb), 0.12)',
+                color: viewMode === 'payments' ? 'var(--primary-accent-light)' : 'var(--text-main)',
                 borderRadius: '50%', padding: '8px',
                 cursor: 'pointer'
               }}
@@ -4082,9 +4082,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               aria-label={notifOn ? 'Turn off notifications' : 'Enable notifications'}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: notifOn ? 'rgba(16,185,129,0.22)' : 'rgba(255,255,255,0.06)',
-                border: notifOn ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.12)',
-                color: notifOn ? 'var(--primary-accent-light)' : '#fff',
+                background: notifOn ? 'rgba(16,185,129,0.22)' : 'rgba(var(--fg-rgb), 0.06)',
+                border: notifOn ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(var(--fg-rgb), 0.12)',
+                color: notifOn ? 'var(--primary-accent-light)' : 'var(--text-main)',
                 boxShadow: notifOn ? '0 4px 14px rgba(16,185,129,0.35)' : 'none',
                 borderRadius: '50%', padding: '8px',
                 cursor: 'pointer'
@@ -4107,7 +4107,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               aria-label="Profile & Settings"
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
                 borderRadius: '20px', padding: '2px 8px 2px 2px', cursor: 'pointer'
               }}
             >
@@ -4120,7 +4120,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {/* Signals this circle opens a menu (2026-08-29: "add the down
                   arrow right side besides here") rather than reading as a
                   plain static profile photo. */}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(var(--fg-rgb), 0.6)', flexShrink: 0 }}>
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
@@ -4146,7 +4146,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             aria-expanded={mobileHeaderMenuOpen}
             style={{
               display: 'none', alignItems: 'center', justifyContent: 'center', gap: '4px',
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
               borderRadius: '20px', padding: '2px 9px 2px 2px', cursor: 'pointer'
             }}
           >
@@ -4156,7 +4156,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               avatarUrl={localStorage.getItem('userAvatarUrl')}
               size={30}
             />
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(var(--fg-rgb), 0.6)', flexShrink: 0 }}>
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
@@ -4197,10 +4197,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       {viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h4 className="admin-overview-title" style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>Super-Admin Overview</h4>
+            <h4 className="admin-overview-title" style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800 }}>Super-Admin Overview</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {refreshToast && (
-                <div style={{ color: '#fff', fontSize: '0.85rem', background: 'rgba(0,0,0,0.35)', padding: '6px 10px', borderRadius: '8px', display: 'inline-block' }}>
+                <div style={{ color: 'var(--text-main)', fontSize: '0.85rem', background: 'rgba(var(--shade-rgb), 0.35)', padding: '6px 10px', borderRadius: '8px', display: 'inline-block' }}>
                   {refreshToast}
                 </div>
               )}
@@ -4208,9 +4208,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 onClick={handleRefresh}
                 disabled={refreshing}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'rgba(var(--fg-rgb), 0.05)',
                   border: '1px solid var(--border-color)',
-                  color: '#fff',
+                  color: 'var(--text-main)',
                   padding: '8px 16px',
                   borderRadius: '8px',
                   fontSize: '0.85rem',
@@ -4241,7 +4241,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start',
                   textAlign: 'left', padding: '16px 18px', borderRadius: '10px', cursor: 'pointer',
                   fontFamily: 'inherit', transition: 'background 0.15s, border-color 0.15s',
-                  background: adminSubTab === card.key ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)',
+                  background: adminSubTab === card.key ? 'rgba(var(--fg-rgb), 0.05)' : 'rgba(var(--fg-rgb), 0.02)',
                   border: '1px solid var(--border-color)',
                   borderLeftWidth: '2px',
                   borderLeftColor: adminSubTab === card.key ? 'var(--primary-accent-light)' : 'transparent'
@@ -4250,7 +4250,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 <span className="admin-kpi-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(148,163,184,0.7)', letterSpacing: '0.02em' }}>
                   {card.icon} {card.label}
                 </span>
-                <span className="admin-kpi-value" style={{ fontSize: '1.7rem', fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+                <span className="admin-kpi-value" style={{ fontSize: '1.7rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1 }}>
                   {card.value}
                 </span>
               </button>
@@ -4278,7 +4278,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left',
                     padding: '9px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
                     fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, transition: 'background 0.15s, color 0.15s',
-                    background: adminSubTab === nav.key ? 'rgba(255,255,255,0.06)' : 'transparent',
+                    background: adminSubTab === nav.key ? 'rgba(var(--fg-rgb), 0.06)' : 'transparent',
                     color: adminSubTab === nav.key ? '#fff' : 'rgba(148,163,184,0.65)'
                   }}
                 >
@@ -4330,7 +4330,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1.05rem', fontWeight: 800 }}>{drilldownCoach.name}'s Clients</h4>
+                  <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: 800 }}>{drilldownCoach.name}'s Clients</h4>
                   <button
                     type="button"
                     onClick={() => setDrilldownCoach(null)}
@@ -4356,12 +4356,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         key={client.id}
                         style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)',
+                          background: 'rgba(var(--fg-rgb), 0.02)', border: '1px solid var(--border-color)',
                           borderRadius: '10px', padding: '10px 14px'
                         }}
                       >
                         <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>{client.userName}</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{client.userName}</div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{client.email}</div>
                         </div>
                         <span style={{
@@ -4395,15 +4395,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               aria-label="Back to Clients"
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                color: '#fff', borderRadius: '10px', padding: '8px', cursor: 'pointer', flexShrink: 0
+                background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
+                color: 'var(--text-main)', borderRadius: '10px', padding: '8px', cursor: 'pointer', flexShrink: 0
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <h4 style={{ margin: 0, color: '#fff', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+            <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
           </div>
           {/* Subtitle (2026-08-28: "the better version of this should be
               written there" — the page opened with just the icon+heading and
@@ -4424,7 +4424,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           {renewalDueClients.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {pauseError && (
-                <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{pauseError}</div>
+                <div style={{ color: 'var(--tint-red)', fontSize: '0.8rem' }}>{pauseError}</div>
               )}
               {renewalDueClients.map(r => {
                 const overdue = r.daysOverdue > 0;
@@ -4466,7 +4466,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         disabled={pausingClientId === r.clientId}
                         onClick={() => setRenewalMenuOpenId(id => id === r.clientId ? null : r.clientId)}
                         style={{
-                          background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '8px',
+                          background: 'rgba(var(--fg-rgb), 0.06)', border: 'none', borderRadius: '8px',
                           color: 'rgba(226,232,240,0.75)', width: '30px', height: '30px', fontSize: '1rem',
                           fontWeight: 800, cursor: pausingClientId === r.clientId ? 'default' : 'pointer',
                           opacity: pausingClientId === r.clientId ? 0.6 : 1
@@ -4477,7 +4477,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       {renewalMenuOpenId === r.clientId && (
                         <div style={{
                           position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 5,
-                          background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '10px',
+                          background: 'var(--bg-card-hover)', border: '1px solid var(--border-color)', borderRadius: '10px',
                           padding: '4px', boxShadow: '0 12px 28px rgba(0,0,0,0.45)', whiteSpace: 'nowrap'
                         }}>
                           <button
@@ -4511,7 +4511,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             onClick={() => handlePauseClient(r.clientId, r.clientName)}
                             style={{
                               display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                              borderRadius: '7px', padding: '9px 12px', cursor: 'pointer', color: '#fff',
+                              borderRadius: '7px', padding: '9px 12px', cursor: 'pointer', color: 'var(--text-main)',
                               fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
                             }}
                           >
@@ -4537,7 +4537,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 onClick={() => setPausedSectionOpen(o => !o)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                  background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
                   borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
                 }}
               >
@@ -4556,12 +4556,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     key={p.clientId}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                      background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
                       borderRadius: '12px', padding: '12px 14px'
                     }}
                   >
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff' }}>{p.clientName}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>{p.clientName}</div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                         Paused {daysPaused === 0 ? 'today' : `${daysPaused} day${daysPaused === 1 ? '' : 's'} ago`}
                       </div>
@@ -4596,7 +4596,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             onSubmit={handleLogPayment}
             style={{
               display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)',
+              background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid var(--border-color)',
               borderRadius: '12px', padding: '12px'
             }}
           >
@@ -4605,8 +4605,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               onChange={(e) => setPaymentFormClientId(e.target.value)}
               required
               style={{
-                flex: '1 1 180px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                borderRadius: '8px', color: '#fff', padding: '9px 10px', fontSize: '0.85rem'
+                flex: '1 1 180px', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                borderRadius: '8px', color: 'var(--text-main)', padding: '9px 10px', fontSize: '0.85rem'
               }}
             >
               <option value="" disabled>Select client…</option>
@@ -4624,8 +4624,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               onChange={(e) => setPaymentFormAmount(e.target.value)}
               required
               style={{
-                flex: '1 1 110px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                borderRadius: '8px', color: '#fff', padding: '9px 10px', fontSize: '0.85rem'
+                flex: '1 1 110px', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                borderRadius: '8px', color: 'var(--text-main)', padding: '9px 10px', fontSize: '0.85rem'
               }}
             />
             <div style={{ display: 'flex', gap: '4px', flex: '2 1 260px' }}>
@@ -4642,7 +4642,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   onClick={() => setPaymentFormMethod(m.id)}
                   style={{
                     flex: 1, padding: '9px 6px', borderRadius: '8px', border: 'none',
-                    background: paymentFormMethod === m.id ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.06)',
+                    background: paymentFormMethod === m.id ? 'rgba(16,185,129,0.18)' : 'rgba(var(--fg-rgb), 0.06)',
                     color: paymentFormMethod === m.id ? '#10b981' : 'rgba(226,232,240,0.75)',
                     fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
                   }}
@@ -4657,8 +4657,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               onChange={(e) => setPaymentFormDate(e.target.value)}
               required
               style={{
-                flex: '1 1 140px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                borderRadius: '8px', color: '#fff', padding: '9px 10px', fontSize: '0.85rem'
+                flex: '1 1 140px', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                borderRadius: '8px', color: 'var(--text-main)', padding: '9px 10px', fontSize: '0.85rem'
               }}
             />
             <button
@@ -4674,7 +4674,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
             </button>
           </form>
           {paymentSaveError && (
-            <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{paymentSaveError}</div>
+            <div style={{ color: 'var(--tint-red)', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
 
           {/* Summary tiles: Total Collection / This Month / Overdue Amount /
@@ -4705,19 +4705,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   label: 'Overdue amount',
                   value: `₹${overdueAmount.total.toLocaleString()}`,
                   sub: `${overdueAmount.count} ${overdueAmount.count === 1 ? 'payment' : 'payments'}`,
-                  color: '#f87171', bg: 'rgba(248,113,113,0.15)',
+                  color: 'var(--tint-red)', bg: 'rgba(248,113,113,0.15)',
                   icon: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></>
                 },
                 {
                   label: 'Avg payment value',
                   value: `₹${Math.round(avgPaymentValue).toLocaleString()}`,
                   sub: 'per payment',
-                  color: '#a78bfa', bg: 'rgba(167,139,250,0.15)',
+                  color: 'var(--tint-violet)', bg: 'rgba(167,139,250,0.15)',
                   icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
                 },
               ].map(tile => (
                 <div key={tile.label} style={{
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                  background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
                   borderRadius: '12px', padding: '12px 14px', minWidth: 0
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -4733,7 +4733,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </svg>
                     </span>
                   </div>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ color: 'var(--text-main)', fontWeight: 800, fontSize: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {tile.value}
                   </div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
@@ -4753,7 +4753,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
           {!loadingPayments && selectedMonthData && (
             <div style={{
               display: 'flex', flexDirection: 'column', gap: '14px',
-              background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+              background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
               borderRadius: '14px', padding: '14px'
             }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -4768,12 +4768,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   onClick={() => setPaymentMonthMenuOpen(o => !o)}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                    width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
+                    width: '100%', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)',
                     borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0 }}>
-                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{selectedMonthData.label}</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.9rem' }}>{selectedMonthData.label}</span>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
                       {selectedMonthData.count} payment{selectedMonthData.count === 1 ? '' : 's'}
                     </span>
@@ -4786,7 +4786,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                 {paymentMonthMenuOpen && (
                   <div style={{
                     position: 'absolute', left: 0, right: 0, top: 'calc(100% + 6px)', zIndex: 5,
-                    background: '#1e293b', border: '1px solid var(--border-color)', borderRadius: '10px',
+                    background: 'var(--bg-card-hover)', border: '1px solid var(--border-color)', borderRadius: '10px',
                     padding: '4px', boxShadow: '0 12px 28px rgba(0,0,0,0.45)', maxHeight: '240px', overflowY: 'auto'
                   }}>
                     {monthlyPaymentBreakdown.map(row => (
@@ -4797,7 +4797,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
                           background: 'none', border: 'none', borderRadius: '7px', padding: '9px 10px', cursor: 'pointer',
-                          color: row.key === selectedPaymentMonth ? '#10b981' : '#fff',
+                          color: row.key === selectedPaymentMonth ? '#10b981' : 'var(--text-main)',
                           fontWeight: row.key === selectedPaymentMonth ? 700 : 500, fontSize: '0.85rem', font: 'inherit'
                         }}
                       >
@@ -4817,7 +4817,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   payment count). */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ flexShrink: 0 }}>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.4rem' }}>₹{selectedMonthData.total.toLocaleString()}</div>
+                  <div style={{ color: 'var(--text-main)', fontWeight: 800, fontSize: '1.4rem' }}>₹{selectedMonthData.total.toLocaleString()}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>collected that month</div>
                 </div>
                 {selectedMonthData.diff === null ? (
@@ -4832,7 +4832,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '999px',
                     fontSize: '0.74rem', fontWeight: 700, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap',
                     background: selectedMonthData.diff > 0 ? 'rgba(16,185,129,0.14)' : selectedMonthData.diff < 0 ? 'rgba(248,113,113,0.14)' : 'rgba(148,163,184,0.14)',
-                    color: selectedMonthData.diff > 0 ? '#10b981' : selectedMonthData.diff < 0 ? '#f87171' : 'var(--text-muted)'
+                    color: selectedMonthData.diff > 0 ? '#10b981' : selectedMonthData.diff < 0 ? 'var(--tint-red)' : 'var(--text-muted)'
                   }}>
                     <span>{selectedMonthData.diff > 0 ? '▲' : selectedMonthData.diff < 0 ? '▼' : '—'}</span>
                     <span>₹{Math.abs(selectedMonthData.diff).toLocaleString()}</span>
@@ -4924,7 +4924,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       borderRadius: '10px', padding: '10px 14px'
                     }}
                   >
-                    <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85rem', flex: '1 1 120px' }}>{p.clientName}</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.85rem', flex: '1 1 120px' }}>{p.clientName}</span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -4933,8 +4933,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       value={editPaymentAmount}
                       onChange={(e) => setEditPaymentAmount(e.target.value)}
                       style={{
-                        flex: '1 1 90px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                        borderRadius: '8px', color: '#fff', padding: '7px 8px', fontSize: '0.8rem'
+                        flex: '1 1 90px', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                        borderRadius: '8px', color: 'var(--text-main)', padding: '7px 8px', fontSize: '0.8rem'
                       }}
                     />
                     <div style={{ display: 'flex', gap: '4px', flex: '2 1 220px' }}>
@@ -4951,7 +4951,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           onClick={() => setEditPaymentMethod(m.id)}
                           style={{
                             flex: 1, padding: '7px 4px', borderRadius: '7px', border: 'none',
-                            background: editPaymentMethod === m.id ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.06)',
+                            background: editPaymentMethod === m.id ? 'rgba(16,185,129,0.18)' : 'rgba(var(--fg-rgb), 0.06)',
                             color: editPaymentMethod === m.id ? '#10b981' : 'rgba(226,232,240,0.75)',
                             fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
                           }}
@@ -4965,8 +4965,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       value={editPaymentDate}
                       onChange={(e) => setEditPaymentDate(e.target.value)}
                       style={{
-                        flex: '1 1 130px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                        borderRadius: '8px', color: '#fff', padding: '7px 8px', fontSize: '0.8rem'
+                        flex: '1 1 130px', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                        borderRadius: '8px', color: 'var(--text-main)', padding: '7px 8px', fontSize: '0.8rem'
                       }}
                     />
                     <button
@@ -4985,7 +4985,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       type="button"
                       onClick={cancelEditingPayment}
                       style={{
-                        background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', borderRadius: '7px',
+                        background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)', borderRadius: '7px',
                         color: 'rgba(226,232,240,0.75)', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
                       }}
                     >
@@ -4997,12 +4997,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     key={p.id}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                      background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
                       borderRadius: '10px', padding: '10px 14px'
                     }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>{p.clientName}</span>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '0.9rem' }}>{p.clientName}</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
                         {new Date(p.paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
                         {' · '}
@@ -5027,7 +5027,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         title="Delete payment"
                         aria-label="Delete payment"
                         style={{
-                          background: 'none', border: 'none', color: '#f87171', cursor: deletingPaymentId === p.id ? 'default' : 'pointer',
+                          background: 'none', border: 'none', color: 'var(--tint-red)', cursor: deletingPaymentId === p.id ? 'default' : 'pointer',
                           fontSize: '0.9rem', padding: '4px', opacity: deletingPaymentId === p.id ? 0.5 : 1
                         }}
                       >
@@ -5071,7 +5071,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                           <span style={{ fontSize: '1.4rem' }}>⏱️</span>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fbbf24' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-amber)' }}>
                               Live Log in progress — {draftClient?.userName || 'a client'}
                             </div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -5081,7 +5081,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <button type="button" title="Resume" style={{
-                            background: 'transparent', color: '#fbbf24',
+                            background: 'transparent', color: 'var(--tint-amber)',
                             border: 'none', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
                           }}>
                             <PlayIcon size={22} />
@@ -5136,7 +5136,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
                           <span style={{ fontSize: '1.3rem' }}>💬</span>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#a78bfa' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-violet)' }}>
                               Reply from {replyClient?.userName || 'a client'}
                             </div>
                             {contextLabel && (
@@ -5149,7 +5149,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 You: “{reply.noteMessage}”
                               </div>
                             )}
-                            <div style={{ fontSize: '0.8rem', color: '#fff', marginTop: '4px', wordBreak: 'break-word' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', marginTop: '4px', wordBreak: 'break-word' }}>
                               {reply.message}
                             </div>
                           </div>
@@ -5159,7 +5159,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           title="Dismiss"
                           onClick={(e) => { e.stopPropagation(); handleDismissClientReply(reply.id); }}
                           style={{
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
                             color: 'var(--text-muted)', borderRadius: '50%', width: '26px', height: '26px',
                             fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
                             justifyContent: 'center', flexShrink: 0
@@ -5197,7 +5197,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
                           <span style={{ fontSize: '1.3rem' }}>🎉</span>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#34d399' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-emerald)' }}>
                               {n.isNew ? `${displayName} joined via your invite` : `${displayName} reconnected with you`}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -5210,7 +5210,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           title="Dismiss"
                           onClick={(e) => { e.stopPropagation(); acknowledgeNewClient(n.clientId); }}
                           style={{
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
                             color: 'var(--text-muted)', borderRadius: '50%', width: '26px', height: '26px',
                             fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
                             justifyContent: 'center', flexShrink: 0
@@ -5243,7 +5243,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   padding: '10px 14px', marginBottom: '16px',
                   background: liveToast.startsWith('✅') ? 'rgba(16,185,129,0.15)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
                   border: `1px solid ${liveToast.startsWith('✅') ? 'rgba(16,185,129,0.3)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                  borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', color: '#fff', fontWeight: 600
+                  borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 600
                 }}>{liveToast}</div>
               )}
 
@@ -5319,7 +5319,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           {(peekSession.workoutName || buildAwaitingStatBits(peekSession)) && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
                               {peekSession.workoutName && (
-                                <div style={{ fontSize: '0.95rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
+                                <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', fontWeight: 700, lineHeight: 1.3 }}>
                                   {peekSession.workoutName}
                                 </div>
                               )}
@@ -5364,7 +5364,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             title="Dismiss"
                             onClick={() => handleDismissSessionNote(session)}
                             style={{
-                              background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
+                              background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
                               color: 'var(--text-muted)', borderRadius: '50%', width: '24px', height: '24px',
                               fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
                               justifyContent: 'center', flexShrink: 0
@@ -5382,7 +5382,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         {(session.workoutName || statBits) && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', marginBottom: '24px' }}>
                             {session.workoutName && (
-                              <div style={{ fontSize: '0.95rem', color: '#fff', fontWeight: 700, lineHeight: 1.3 }}>
+                              <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', fontWeight: 700, lineHeight: 1.3 }}>
                                 {session.workoutName}
                               </div>
                             )}
@@ -5439,7 +5439,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     style={{
                                       width: i === activeIndex ? '16px' : '6px', height: '6px', borderRadius: '3px',
                                       border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s ease',
-                                      background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(255,255,255,0.18)'
+                                      background: i === activeIndex ? 'var(--primary-accent-light)' : 'rgba(var(--fg-rgb), 0.18)'
                                     }}
                                   />
                                 ))}
@@ -5453,8 +5453,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 title="Previous"
                                 onClick={() => goToAwaitingSlide((activeIndex - 1 + sessionsAwaitingNote.length) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
                                 style={{
-                                  background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
-                                  color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
+                                  background: 'rgba(var(--bg-card-active-rgb), 0.75)', border: '1px solid var(--border-color)',
+                                  color: 'var(--text-main)', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
                                   fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}
                               >
@@ -5468,8 +5468,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 title="Next"
                                 onClick={() => goToAwaitingSlide((activeIndex + 1) % sessionsAwaitingNote.length, sessionsAwaitingNote.length)}
                                 style={{
-                                  background: 'rgba(15,23,42,0.75)', border: '1px solid var(--border-color)',
-                                  color: '#fff', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
+                                  background: 'rgba(var(--bg-card-active-rgb), 0.75)', border: '1px solid var(--border-color)',
+                                  color: 'var(--text-main)', borderRadius: '50%', width: '22px', height: '22px', flexShrink: 0,
                                   fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}
                               >
@@ -5491,7 +5491,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h5 style={{ margin: '0 0 8px 0', color: '#fff' }}>Invite Clients</h5>
+                    <h5 style={{ margin: '0 0 8px 0', color: 'var(--text-main)' }}>Invite Clients</h5>
                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Generate a unique code for your clients to link their accounts to you during sign up.</p>
                   </div>
                   <button
@@ -5551,8 +5551,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     justifyContent: 'space-between',
                     gap: '12px',
                     padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(var(--fg-rgb), 0.02)',
+                    border: '1px dashed rgba(var(--fg-rgb), 0.1)',
                     borderRadius: '8px',
                     marginTop: '4px'
                   }}>
@@ -5576,9 +5576,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           alert('Code copied to clipboard!');
                         }}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.1)',
+                          background: 'rgba(var(--fg-rgb), 0.1)',
                           border: 'none',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           padding: '6px 12px',
                           borderRadius: '6px',
                           fontSize: '0.8rem',
@@ -5601,7 +5601,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         rel="noopener noreferrer"
                         style={{
                           background: '#25D366',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           padding: '6px 12px',
                           borderRadius: '6px',
                           fontSize: '0.8rem',
@@ -5629,7 +5629,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     invites, shown until acknowledged (same rows as the 🎉
                     card above). */}
                 {newClientNotifications.length > 0 && (
-                  <div style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--tint-emerald)', fontWeight: 700, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
                     {newClientNotifications.slice(0, 3).map(n => {
                       const joinedClient = clients.find(c => c.id === n.clientId);
                       const displayName = joinedClient?.userName || n.clientName || (n.clientEmail ? n.clientEmail.split('@')[0] : 'a client');
@@ -5685,7 +5685,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   padding: '16px 0',
                   overflowX: 'auto'
                 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#fff', tableLayout: 'fixed' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)', tableLayout: 'fixed' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
                         <th style={{ padding: '10px 8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Client Name ({filteredClients.length})</th>
@@ -5694,7 +5694,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     </thead>
                     <tbody>
                       {showDemoClientRow && (
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '56px', background: 'rgba(16, 185, 129, 0.05)' }}>
+                        <tr style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '56px', background: 'rgba(16, 185, 129, 0.05)' }}>
                           <td style={{ padding: '8px', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                               <div
@@ -5709,7 +5709,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   justifyContent: 'center',
                                   fontSize: '1.05rem',
                                   fontWeight: 'bold',
-                                  color: '#fff'
+                                  color: 'var(--text-main)'
                                 }}
                               >
                                 {getAvatarInitials(DEMO_CLIENT.userName)}
@@ -5750,7 +5750,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         </tr>
                       )}
                       {filteredClients.map(client => (
-                        <tr key={client.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', height: '56px' }}>
+                        <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '56px' }}>
                           <td style={{ padding: '8px', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                               <Avatar
@@ -5793,7 +5793,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     <span style={{
                                       display: 'inline-block', width: 'fit-content', padding: '1px 7px', borderRadius: '10px',
                                       fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em',
-                                      background: 'rgba(16, 185, 129, 0.16)', color: '#34d399',
+                                      background: 'rgba(16, 185, 129, 0.16)', color: 'var(--tint-emerald)',
                                       border: '1px solid rgba(16, 185, 129, 0.35)'
                                     }}>
                                       New
@@ -5837,9 +5837,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               disabled={!!client.paused_at}
                               title={client.paused_at ? 'Unpause this client (Client Payments) to manage them again' : undefined}
                               style={{
-                                background: client.paused_at ? 'rgba(255,255,255,0.06)' : 'var(--primary-accent-light)',
+                                background: client.paused_at ? 'rgba(var(--fg-rgb), 0.06)' : 'var(--primary-accent-light)',
                                 border: 'none',
-                                color: client.paused_at ? 'var(--text-muted)' : '#fff',
+                                color: client.paused_at ? 'var(--text-muted)' : 'var(--text-main)',
                                 padding: '6px 12px',
                                 borderRadius: '6px',
                                 fontSize: '0.78rem',
@@ -5887,7 +5887,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   Dashboard
                 </button>
                 <span style={{ color: 'var(--text-muted)' }}>/</span>
-                <span style={{ color: '#fff', fontWeight: 600 }}>Manage Client</span>
+                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Manage Client</span>
               </div>
 
               {/* Desktop split: profile/metrics sidebar (left) + tabs and
@@ -5995,9 +5995,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     position: 'relative',
                     padding: '18px',
                     marginBottom: '20px',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(var(--fg-rgb), 0.08)',
                     borderRadius: '16px',
-                    background: 'rgba(255,255,255,0.03)'
+                    background: 'rgba(var(--fg-rgb), 0.03)'
                   }}>
                     {/* "Edit Total Sessions" popup — kept top-right, opened by
                         the Edit button below instead of an always-visible
@@ -6021,7 +6021,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             // in place of the input/buttons. Stays up until the
                             // coach dismisses it — no auto-close to miss.
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '8px 0' }}>
-                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--tint-emerald)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 ✓ Saved
                               </div>
                               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
@@ -6041,7 +6041,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             </div>
                           ) : (
                             <>
-                              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff', textAlign: 'center' }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)', textAlign: 'center' }}>
                                 Edit Total Sessions
                               </div>
                               <input
@@ -6058,8 +6058,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 disabled={savingTotalSessions}
                                 style={{
                                   width: '100%', padding: '10px', textAlign: 'center',
-                                  background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(52, 211, 153, 0.45)',
-                                  borderRadius: '10px', color: '#fff',
+                                  background: 'rgba(var(--shade-rgb), 0.3)', border: '1px solid rgba(52, 211, 153, 0.45)',
+                                  borderRadius: '10px', color: 'var(--text-main)',
                                   // Must stay >= 16px: iOS Safari auto-zooms the whole page
                                   // on focus for any input with a smaller font-size.
                                   fontSize: '1.3rem', fontWeight: 800
@@ -6078,8 +6078,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     onChange={(e) => setProgramStartedOnInput(e.target.value)}
                                     disabled={savingTotalSessions}
                                     style={{
-                                      padding: '6px 6px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)',
-                                      border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.72rem'
+                                      padding: '6px 6px', borderRadius: '8px', background: 'rgba(var(--shade-rgb), 0.25)',
+                                      border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.72rem'
                                     }}
                                   />
                                 </label>
@@ -6091,8 +6091,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     onChange={(e) => setProgramEstCompletionInput(e.target.value)}
                                     disabled={savingTotalSessions}
                                     style={{
-                                      padding: '6px 6px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)',
-                                      border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.72rem'
+                                      padding: '6px 6px', borderRadius: '8px', background: 'rgba(var(--shade-rgb), 0.25)',
+                                      border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.72rem'
                                     }}
                                   />
                                 </label>
@@ -6108,8 +6108,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     setProgramEstCompletionInput(selectedClient.program_est_completion || '');
                                   }}
                                   style={{
-                                    flex: 1, padding: '9px', borderRadius: '9px', background: 'rgba(255,255,255,0.08)',
-                                    border: 'none', color: '#fff', fontWeight: 700, fontSize: '0.8rem',
+                                    flex: 1, padding: '9px', borderRadius: '9px', background: 'rgba(var(--fg-rgb), 0.08)',
+                                    border: 'none', color: 'var(--text-main)', fontWeight: 700, fontSize: '0.8rem',
                                     cursor: savingTotalSessions ? 'default' : 'pointer'
                                   }}
                                 >
@@ -6148,14 +6148,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           📅
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
                             Program Sessions
                           </div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            Client <strong style={{ color: '#fff' }}>{selectedClient.userName}</strong>
+                            Client <strong style={{ color: 'var(--text-main)' }}>{selectedClient.userName}</strong>
                             <span style={{
                               padding: '1px 8px', borderRadius: '10px', fontSize: '0.62rem', fontWeight: 700,
-                              background: 'rgba(52, 211, 153, 0.14)', color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.3)'
+                              background: 'rgba(52, 211, 153, 0.14)', color: 'var(--tint-emerald)', border: '1px solid rgba(52, 211, 153, 0.3)'
                             }}>
                               Active
                             </span>
@@ -6170,7 +6170,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0,
                           padding: '6px 12px', borderRadius: '20px',
                           background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.35)',
-                          fontSize: '0.72rem', fontWeight: 700, color: '#34d399', cursor: 'pointer'
+                          fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-emerald)', cursor: 'pointer'
                         }}
                       >
                         ✏️ Edit
@@ -6186,7 +6186,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     {/* Linear progress bar + captions. */}
                     {total != null && (
                       <div style={{ marginTop: '16px' }}>
-                        <div style={{ height: '8px', borderRadius: '5px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                        <div style={{ height: '8px', borderRadius: '5px', background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${percent}%`, borderRadius: '5px', background: '#34d399', transition: 'width 0.3s ease' }} />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
@@ -6207,25 +6207,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         above (Started on / Est. completion fields there),
                         not here — this row just reflects whatever was saved. */}
                     <div style={{
-                      marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)',
+                      marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(var(--fg-rgb), 0.08)',
                       display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '0.85rem' }}>🚩</span>
                         <div>
                           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
-                          <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{formatDate(selectedClient.program_started_on) || '--'}</div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{formatDate(selectedClient.program_started_on) || '--'}</div>
                         </div>
                       </div>
                       <div>
                         <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
-                        <div style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700 }}>{formatDate(selectedClient.program_est_completion) || '--'}</div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{formatDate(selectedClient.program_est_completion) || '--'}</div>
                       </div>
                     </div>
                     {programDatesSaveMsg && (
                       <div style={{
                         fontSize: '0.76rem', fontWeight: 700, marginTop: '8px',
-                        color: programDatesSaveMsg.startsWith('✅') ? '#34d399' : '#f87171'
+                        color: programDatesSaveMsg.startsWith('✅') ? 'var(--tint-emerald)' : 'var(--tint-red)'
                       }}>
                         {programDatesSaveMsg}
                       </div>
@@ -6241,7 +6241,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         style={{
                           marginTop: '10px', padding: '6px 12px', borderRadius: '20px',
                           background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
-                          color: '#fbbf24', fontSize: '0.72rem', fontWeight: 700,
+                          color: 'var(--tint-amber)', fontSize: '0.72rem', fontWeight: 700,
                           cursor: sendingSessionReminder ? 'default' : 'pointer'
                         }}
                       >
@@ -6249,14 +6249,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </button>
                     )}
                     {sessionReminderSentMsg && (
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#34d399', marginTop: '5px' }}>{sessionReminderSentMsg}</div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-emerald)', marginTop: '5px' }}>{sessionReminderSentMsg}</div>
                     )}
                     {totalSessionsSaveMsg && (
                       <div style={{
                         fontSize: '0.78rem',
                         fontWeight: 700,
                         marginTop: '10px',
-                        color: totalSessionsSaveMsg.startsWith('✅') ? '#34d399' : totalSessionsSaveMsg.startsWith('⚠️') ? '#f59e0b' : '#f87171'
+                        color: totalSessionsSaveMsg.startsWith('✅') ? 'var(--tint-emerald)' : totalSessionsSaveMsg.startsWith('⚠️') ? '#f59e0b' : 'var(--tint-red)'
                       }}>
                         {totalSessionsSaveMsg}
                       </div>
@@ -6519,8 +6519,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     })();
 
                     const weekNavBtnStyle = {
-                      background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                      color: '#fff', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
+                      background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)', borderRadius: '50%', width: '26px', height: '26px', flexShrink: 0,
                       fontSize: '0.9rem', lineHeight: 1, cursor: 'pointer', display: 'flex',
                       alignItems: 'center', justifyContent: 'center', padding: 0
                     };
@@ -6579,8 +6579,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           key={dateKey}
                           onClick={() => { setHistoryDateStr(dateKey); setHistoryTimeframe('daily'); }}
                           style={{
-                            background: 'rgba(0,0,0,0.15)',
-                            border: today ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(var(--shade-rgb), 0.15)',
+                            border: today ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(var(--fg-rgb), 0.06)',
                             borderRadius: 'var(--radius-md)',
                             padding: '12px',
                             cursor: 'pointer'
@@ -6594,31 +6594,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <span style={{ fontSize: '0.74rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.sets} sets
                             </span>
-                            <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.volume.toLocaleString('en-IN')} kg
                             </span>
                             {session.caloriesBurned != null && (
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--tint-amber)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 🔥 {session.caloriesBurned} kcal
                               </span>
                             )}
                             {session.durationSeconds != null && (
-                              <span style={{ fontSize: '0.74rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.74rem', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.12)', color: 'var(--text-main)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 ⏱ {formatDuration(session.durationSeconds)}
                               </span>
                             )}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.92rem', color: '#fff', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.92rem', color: 'var(--text-main)', fontWeight: 700 }}>
                               📋 {session.planName || 'Custom Routine'}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: today ? 'var(--primary-accent-light)' : '#60a5fa', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: today ? 'var(--primary-accent-light)' : 'var(--tint-blue)', whiteSpace: 'nowrap' }}>
                               📅 {dateLabel}{today ? ' · Today' : ''}
                             </span>
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                             {session.exercises.map((ex, exIdx) => (
-                              <span key={exIdx} style={{ fontSize: '0.76rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
+                              <span key={exIdx} style={{ fontSize: '0.76rem', background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.08)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
                                 {ex.name} · {ex.sets.length}s
                               </span>
                             ))}
@@ -6634,9 +6634,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       const height = 120, width = 320, barWidth = 24, gap = 16, paddingLeft = 25;
                       return (
                         <svg viewBox={`0 0 ${width} ${height}`} className="weekly-bar-chart-svg">
-                          <line x1="20" y1="20" x2={width} y2="20" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                          <line x1="20" y1="60" x2={width} y2="60" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                          <line x1="20" y1="100" x2={width} y2="100" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+                          <line x1="20" y1="20" x2={width} y2="20" stroke="rgba(var(--fg-rgb), 0.03)" strokeWidth="1" />
+                          <line x1="20" y1="60" x2={width} y2="60" stroke="rgba(var(--fg-rgb), 0.03)" strokeWidth="1" />
+                          <line x1="20" y1="100" x2={width} y2="100" stroke="rgba(var(--fg-rgb), 0.08)" strokeWidth="1.5" />
                           {keys.map((day, idx) => {
                             const val = dailySets[day];
                             const barHeight = (val / maxVal) * 80;
@@ -6647,11 +6647,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 {val > 0 && (
                                   <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill="url(#coachEmeraldGradient)" opacity="0.15" style={{ filter: 'blur(4px)' }} />
                                 )}
-                                <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill={val > 0 ? 'url(#coachEmeraldGradient)' : 'rgba(255,255,255,0.03)'} className="chart-bar" />
+                                <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" fill={val > 0 ? 'url(#coachEmeraldGradient)' : 'rgba(var(--fg-rgb), 0.03)'} className="chart-bar" />
                                 {val > 0 && (
                                   <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="var(--primary-accent-light)" fontSize="10.5" fontWeight="800">{val}</text>
                                 )}
-                                <text x={x + barWidth / 2} y="115" textAnchor="middle" fill={val > 0 ? '#fff' : 'var(--text-muted)'} fontSize="10.5" fontWeight="600">{day}</text>
+                                <text x={x + barWidth / 2} y="115" textAnchor="middle" fill={val > 0 ? 'var(--text-main)' : 'var(--text-muted)'} fontSize="10.5" fontWeight="600">{day}</text>
                               </g>
                             );
                           })}
@@ -6689,14 +6689,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                             </linearGradient>
                           </defs>
-                          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-                          <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-                          <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" />
+                          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
+                          <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
+                          <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.08)" strokeWidth="1.5" />
                           {values.some(v => v > 0) && <path d={areaD} fill="url(#coachAreaGradient)" />}
                           {values.some(v => v > 0) ? (
                             <path d={pathD} fill="none" stroke="var(--primary-accent-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           ) : (
-                            <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
+                            <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
                           )}
                           {activeNodes.map((node) => {
                             const origIdx = history.findIndex(h => h.date === node.date);
@@ -6790,7 +6790,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <button
                                 onClick={() => setHistoryDateStr(shiftLocalDateString(historyDateStr, -1))}
-                                style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                                style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
                               >
                                 ‹
                               </button>
@@ -6806,7 +6806,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   const next = shiftLocalDateString(historyDateStr, 1);
                                   if (next <= getLocalDateString()) setHistoryDateStr(next);
                                 }}
-                                style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
+                                style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
                               >
                                 ›
                               </button>
@@ -6838,7 +6838,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 </div>
                                 <div className="stat-card inline">
                                   <span className="lbl">Workouts:</span>
-                                  <strong className="val" style={{ color: '#a78bfa' }}>{daySession?.exercises.length || 0}</strong>
+                                  <strong className="val" style={{ color: 'var(--tint-violet)' }}>{daySession?.exercises.length || 0}</strong>
                                 </div>
                                 {/* No `!= null` guard — Volume/Sets/Workouts
                                     above all show a plain 0 on a rest day
@@ -6847,12 +6847,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     Matches the client-side fix. */}
                                 <div className="stat-card inline">
                                   <span className="lbl">Calories:</span>
-                                  <strong className="val" style={{ color: '#fbbf24' }}>{daySession?.caloriesBurned || 0} kcal</strong>
+                                  <strong className="val" style={{ color: 'var(--tint-amber)' }}>{daySession?.caloriesBurned || 0} kcal</strong>
                                 </div>
                                 {daySession?.durationSeconds != null && (
                                   <div className="stat-card inline">
                                     <span className="lbl">⏱ Time:</span>
-                                    <strong className="val" style={{ color: '#e5e7eb' }}>{formatDuration(daySession.durationSeconds)}</strong>
+                                    <strong className="val" style={{ color: 'var(--text-main)' }}>{formatDuration(daySession.durationSeconds)}</strong>
                                   </div>
                                 )}
                               </div>
@@ -7004,7 +7004,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               </div>
                               <div className="stat-card inline">
                                 <span className="lbl">Calories:</span>
-                                <strong className="val" style={{ color: '#fbbf24' }}>{monthlyTotalCalories.toLocaleString('en-IN')} kcal</strong>
+                                <strong className="val" style={{ color: 'var(--tint-amber)' }}>{monthlyTotalCalories.toLocaleString('en-IN')} kcal</strong>
                               </div>
                             </div>
 
@@ -7109,7 +7109,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </button>
                     </div>
                     {measurementReminderSentMsg && (
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#34d399', marginTop: '-8px' }}>{measurementReminderSentMsg}</div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-emerald)', marginTop: '-8px' }}>{measurementReminderSentMsg}</div>
                     )}
                     {loadingMeasurements ? (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading measurements…</p>
@@ -7128,7 +7128,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </div>
                           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                              <tr style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.08)' }}>
                                 <th style={{ textAlign: 'left', fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 700, padding: '4px 0', textTransform: 'uppercase' }}>Part</th>
                                 <th style={{ textAlign: 'right', fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 700, padding: '4px 0', textTransform: 'uppercase' }}>Current</th>
                                 {previous && <th style={{ textAlign: 'right', fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 700, padding: '4px 0', textTransform: 'uppercase' }}>Change</th>}
@@ -7141,11 +7141,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 const prev = previous?.measurements?.[key];
                                 const delta = (prev != null && prev !== '') ? (parseFloat(cur) - parseFloat(prev)) : null;
                                 return (
-                                  <tr key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                    <td style={{ fontSize: '0.8rem', color: '#e5e7eb', padding: '6px 0' }}>{label}</td>
-                                    <td style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 700, textAlign: 'right', padding: '6px 0' }}>{cur}{unit || 'cm'}</td>
+                                  <tr key={key} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)' }}>
+                                    <td style={{ fontSize: '0.8rem', color: 'var(--text-main)', padding: '6px 0' }}>{label}</td>
+                                    <td style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 700, textAlign: 'right', padding: '6px 0' }}>{cur}{unit || 'cm'}</td>
                                     {previous && (
-                                      <td style={{ textAlign: 'right', padding: '6px 0', fontSize: '0.76rem', fontWeight: 700, color: delta == null ? 'var(--text-muted)' : Math.abs(delta) < 0.001 ? 'var(--text-muted)' : delta > 0 ? '#34d399' : '#f87171' }}>
+                                      <td style={{ textAlign: 'right', padding: '6px 0', fontSize: '0.76rem', fontWeight: 700, color: delta == null ? 'var(--text-muted)' : Math.abs(delta) < 0.001 ? 'var(--text-muted)' : delta > 0 ? 'var(--tint-emerald)' : 'var(--tint-red)' }}>
                                         {delta == null ? '—' : Math.abs(delta) < 0.001 ? '±0' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}`}
                                       </td>
                                     )}
@@ -7163,9 +7163,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             {clientMeasurements.map((entry, idx) => {
                               const filled = measFields.filter(f => entry.measurements?.[f.key] != null && entry.measurements[f.key] !== '');
                               return (
-                                <div key={entry.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                                <div key={entry.id} style={{ background: 'rgba(var(--fg-rgb), 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                                   <div>
-                                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>
+                                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-main)' }}>
                                       {fmtDate(entry.measuredAt)}{idx === 0 && <span style={{ color: '#38bdf8', fontWeight: 700, marginLeft: '6px', fontSize: '0.66rem' }}>LATEST</span>}
                                     </div>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.6 }}>
@@ -7175,7 +7175,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   <button
                                     onClick={() => handleDeleteMeasurementEntry(entry.id, fmtDate(entry.measuredAt))}
                                     title="Delete this entry"
-                                    style={{ flexShrink: 0, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: '#f87171', fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', cursor: 'pointer' }}
+                                    style={{ flexShrink: 0, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', cursor: 'pointer' }}
                                   >
                                     🗑
                                   </button>
@@ -7195,7 +7195,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   {showPlanEditor ? (
                     /* PLAN EDITOR VIEW */
                     <div className="plan-editor-card glass-panel" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
+                      <h4 style={{ color: 'var(--text-main)', fontSize: '1rem', fontWeight: 800, marginBottom: '16px' }}>
                         {isAiDraftMode ? '✨ Review AI Draft' : editingPlan ? '✏️ Edit Workout Plan' : '📋 Create Workout Plan'}
                       </h4>
 
@@ -7225,7 +7225,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   fontWeight: 700,
                                   cursor: assigningAiDraft ? 'default' : 'pointer',
                                   border: idx === activeAiDraftDayIndex ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid var(--border-color)',
-                                  background: idx === activeAiDraftDayIndex ? 'rgba(16, 185, 129, 0.14)' : 'rgba(255,255,255,0.03)',
+                                  background: idx === activeAiDraftDayIndex ? 'rgba(16, 185, 129, 0.14)' : 'rgba(var(--fg-rgb), 0.03)',
                                   color: idx === activeAiDraftDayIndex ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                                 }}
                               >
@@ -7253,10 +7253,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           placeholder="e.g. Week 1 - Day 1: Push Day"
                           style={{
                             padding: '10px 14px',
-                            background: 'rgba(255,255,255,0.02)',
+                            background: 'rgba(var(--fg-rgb), 0.02)',
                             border: '1px solid var(--border-color)',
                             borderRadius: 'var(--radius-sm)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             // Must stay >= 16px -- see the Plan / Routine Name
                             // input in the Live Log tab. 0.85rem resolved to
                             // 13.6px here, which triggered iOS Safari's
@@ -7276,14 +7276,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             Also assign to
                           </label>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.75rem', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', color: '#c4b5fd', borderRadius: '20px', padding: '4px 10px' }}>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--tint-violet)', borderRadius: '20px', padding: '4px 10px' }}>
                               {selectedClient.userName}
                             </span>
                             {extraAssignClientIds.map(id => {
                               const c = clients.find(cl => cl.id === id);
                               if (!c) return null;
                               return (
-                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '20px', padding: '4px 6px 4px 10px' }}>
+                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', color: 'var(--text-main)', borderRadius: '20px', padding: '4px 6px 4px 10px' }}>
                                   {c.userName}
                                   <button
                                     type="button"
@@ -7702,7 +7702,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       </div>
 
                       {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
-                      <div className="add-exercise-selector-box" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', marginBottom: '24px' }}>
+                      <div className="add-exercise-selector-box" style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.05)', paddingTop: '16px', marginBottom: '24px' }}>
                         <button
                           type="button"
                           className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"
@@ -7730,7 +7730,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             setRestoredPlanDraft(false);
                             clearPlanEditorDraft();
                           }}
-                          style={{ flex: 1, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.5 : 1 }}
+                          style={{ flex: 1, padding: '10px 16px', background: 'rgba(var(--fg-rgb), 0.05)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem', cursor: assigningAiDraft ? 'default' : 'pointer', opacity: assigningAiDraft ? 0.5 : 1 }}
                         >
                           Cancel
                         </button>
@@ -7791,7 +7791,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               className="plan-summary-card glass-panel"
                               style={{
                                 padding: '14px 14px 36px',
-                                background: completedSession ? 'rgba(16,185,129,0.05)' : 'rgba(255,255,255,0.01)',
+                                background: completedSession ? 'rgba(16,185,129,0.05)' : 'rgba(var(--fg-rgb), 0.01)',
                                 border: completedSession ? '1px solid rgba(16,185,129,0.35)' : '1px solid var(--border-color)',
                                 borderRadius: 'var(--radius-md)',
                                 position: 'relative'
@@ -7799,7 +7799,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             >
                               <div className="plan-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
-                                  <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block' }}>{plan.planName}</strong>
+                                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)', display: 'block' }}>{plan.planName}</strong>
                                   <span style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700, display: 'block', marginTop: '3px' }}>
                                     📋 Assigned to: {selectedClient.userName}
                                     {assignedDateLabel && ` · ${assignedDateLabel}`}
@@ -7810,14 +7810,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     type="button"
                                     aria-label="Plan options"
                                     onClick={(e) => { e.stopPropagation(); setOpenPlanCardMenuId(openPlanCardMenuId === plan.id ? null : plan.id); }}
-                                    style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: '#fff', fontSize: '1rem', lineHeight: 1, cursor: 'pointer' }}
+                                    style={{ padding: '4px 8px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-main)', fontSize: '1rem', lineHeight: 1, cursor: 'pointer' }}
                                   >
                                     ⋮
                                   </button>
                                   {openPlanCardMenuId === plan.id && (
                                     <div
                                       onClick={(e) => e.stopPropagation()}
-                                      style={{ position: 'absolute', top: '32px', right: 0, background: '#141b28', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', zIndex: 5, minWidth: '150px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                                      style={{ position: 'absolute', top: '32px', right: 0, background: '#141b28', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', zIndex: 5, minWidth: '150px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
                                     >
                                       {completedSession && (
                                         <button
@@ -7848,7 +7848,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           setShowPlanEditor(true);
                                           setRestoredPlanDraft(false);
                                         }}
-                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '0.8rem', cursor: 'pointer' }}
                                       >
                                         Edit
                                       </button>
@@ -7878,7 +7878,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           }
                                           fetchClientPlans(selectedClient.id);
                                         }}
-                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: '#fff', fontSize: '0.8rem', cursor: 'pointer' }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '0.8rem', cursor: 'pointer' }}
                                       >
                                         Duplicate
                                       </button>
@@ -7902,7 +7902,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
                               <div className="plan-exercises-preview" style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                 {plan.exercises.map((ex, idx) => (
-                                  <span key={idx} style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
+                                  <span key={idx} style={{ fontSize: '0.72rem', background: 'rgba(var(--fg-rgb), 0.02)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '20px', color: 'var(--text-muted)' }}>
                                     {ex.name} ({ex.sets?.length || 0}s)
                                   </span>
                                 ))}
@@ -7926,7 +7926,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   style={{
                                     position: 'absolute', bottom: '10px', right: '10px',
                                     fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)',
-                                    background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)',
+                                    background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid var(--border-color)',
                                     borderRadius: '20px', padding: '2px 8px'
                                   }}
                                 >
@@ -7965,7 +7965,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       border: `1px solid ${liveToast.startsWith('✅') ? 'rgba(16,185,129,0.3)' : liveToast.startsWith('⚠️') ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
                       borderRadius: 'var(--radius-sm)',
                       fontSize: '0.82rem',
-                      color: '#fff',
+                      color: 'var(--text-main)',
                       fontWeight: 600
                     }}>{liveToast}</div>
                   )}
@@ -8038,10 +8038,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           // against.
                           style={{
                             padding: '8px 12px',
-                            background: 'rgba(255,255,255,0.04)',
+                            background: 'rgba(var(--fg-rgb), 0.04)',
                             border: '1px solid var(--border-color)',
                             borderRadius: 'var(--radius-sm)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             // Must stay >= 16px: iOS Safari auto-zooms the whole
                             // page on focus for any input with a smaller
                             // font-size, and does not zoom back out on blur --
@@ -8095,10 +8095,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                             }}
                             style={{
                               padding: '8px 12px',
-                              background: 'rgba(255,255,255,0.04)',
+                              background: 'rgba(var(--fg-rgb), 0.04)',
                               border: '1px solid var(--border-color)',
                               borderRadius: 'var(--radius-sm)',
-                              color: '#fff',
+                              color: 'var(--text-main)',
                               fontSize: '0.78rem',
                               outline: 'none'
                             }}
@@ -8239,7 +8239,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               const renderLiveTimeControl = () => {
                                 if (set.isCompleted) {
                                   return (
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: 'var(--text-main)' }}>
                                       {set.time || formatSecondsToTimeString(0)}
                                     </span>
                                   );
@@ -8269,7 +8269,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       {isRunning ? '⏸' : '▶'}
                                     </button>
                                     {isRunning ? (
-                                      <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: '#fff' }}>
+                                      <span style={{ fontSize: '0.9rem', fontWeight: 500, minWidth: '50px', textAlign: 'center', color: 'var(--text-main)' }}>
                                         {timeStr}
                                       </span>
                                     ) : (
@@ -8354,7 +8354,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         <button
                                           type="button"
                                           className="btn-cardio-stopwatch"
-                                          style={{ color: cardioRunning ? '#e5e7eb' : '#fb923c' }}
+                                          style={{ color: cardioRunning ? '#e5e7eb' : 'var(--tint-orange)' }}
                                           onClick={() => (cardioRunning ? handleLiveCardioStopwatchPause(exIdx, setIdx) : handleLiveCardioStopwatchStart(exIdx, setIdx))}
                                           title={cardioRunning ? 'Pause' : 'Start'}
                                         >
@@ -8577,9 +8577,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     onClick={() => setShowLiveCoachNote(v => !v)}
                     style={{
                       marginTop: '16px',
-                      background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(255,255,255,0.05)',
-                      border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(255,255,255,0.12)',
-                      color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : '#fff'
+                      background: showLiveCoachNote ? 'rgba(139,92,246,0.16)' : 'rgba(var(--fg-rgb), 0.05)',
+                      border: showLiveCoachNote ? '1px solid rgba(139,92,246,0.45)' : '1px solid rgba(var(--fg-rgb), 0.12)',
+                      color: showLiveCoachNote ? 'var(--primary-accent-light, #a78bfa)' : 'var(--text-main)'
                     }}
                   >
                     💬 Coach note{coachNoteText.trim() ? ' ✓' : ''} {showLiveCoachNote ? '▲' : '▼'}
@@ -8755,7 +8755,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         background: liveSaving ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
                         border: 'none',
                         borderRadius: 'var(--radius-md)',
-                        color: '#fff',
+                        color: 'var(--text-main)',
                         fontWeight: 800,
                         fontSize: '0.9rem',
                         cursor: liveSaving ? 'default' : 'pointer',
@@ -8792,7 +8792,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <button
                 onClick={() => setShowDiscardLiveModal(false)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.04)',
+                  background: 'rgba(var(--fg-rgb), 0.04)',
                   color: 'var(--text-muted)',
                   width: '28px',
                   height: '28px',
@@ -8801,7 +8801,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(var(--fg-rgb), 0.05)',
                   transition: 'all 0.2s',
                   flexShrink: 0,
                   marginLeft: '12px'
@@ -8817,8 +8817,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   flex: 1,
                   padding: '10px',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'rgba(var(--fg-rgb), 0.06)',
+                  border: '1px solid rgba(var(--fg-rgb), 0.1)',
                   color: 'var(--text-main)',
                   fontSize: '0.85rem',
                   fontWeight: 700,
@@ -8836,7 +8836,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   borderRadius: 'var(--radius-sm)',
                   background: 'rgba(239, 68, 68, 0.2)',
                   border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#f87171',
+                  color: 'var(--tint-red)',
                   fontSize: '0.85rem',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -8874,7 +8874,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <button
                 onClick={() => setDiscardDraftTarget(null)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.04)',
+                  background: 'rgba(var(--fg-rgb), 0.04)',
                   color: 'var(--text-muted)',
                   width: '28px',
                   height: '28px',
@@ -8883,7 +8883,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(var(--fg-rgb), 0.05)',
                   transition: 'all 0.2s',
                   flexShrink: 0,
                   marginLeft: '12px'
@@ -8899,8 +8899,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   flex: 1,
                   padding: '10px',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'rgba(var(--fg-rgb), 0.06)',
+                  border: '1px solid rgba(var(--fg-rgb), 0.1)',
                   color: 'var(--text-main)',
                   fontSize: '0.85rem',
                   fontWeight: 700,
@@ -8918,7 +8918,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   borderRadius: 'var(--radius-sm)',
                   background: 'rgba(239, 68, 68, 0.2)',
                   border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#f87171',
+                  color: 'var(--tint-red)',
                   fontSize: '0.85rem',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -8989,7 +8989,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               <button
                 type="button"
                 onClick={openManualPlanEditor}
-                style={{ padding: '14px', textAlign: 'left', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: '#fff', cursor: 'pointer' }}
+                style={{ padding: '14px', textAlign: 'left', background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-main)', cursor: 'pointer' }}
               >
                 <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '2px' }}>Build Manually</strong>
                 <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Add exercises yourself, exactly as before.</span>
@@ -9044,7 +9044,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               placeholder="Search clients..."
               value={clientPickerSearch}
               onChange={(e) => setClientPickerSearch(e.target.value)}
-              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: 'rgba(9,14,23,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', color: '#fff', fontSize: '0.85rem', outline: 'none', marginBottom: '10px' }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: 'rgba(var(--bg-app-rgb), 0.6)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none', marginBottom: '10px' }}
             />
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {clients
@@ -9055,14 +9055,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   return (
                     <label
                       key={c.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)', border: checked ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(16,185,129,0.08)' : 'rgba(var(--fg-rgb), 0.02)', border: checked ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--border-color)', cursor: 'pointer' }}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => setExtraAssignClientIds(prev => checked ? prev.filter(id => id !== c.id) : [...prev, c.id])}
                       />
-                      <span style={{ fontSize: '0.85rem', color: '#fff' }}>{c.userName}</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>{c.userName}</span>
                     </label>
                   );
                 })}

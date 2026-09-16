@@ -33,7 +33,7 @@
 }
 .comic-placeholder::after {
   content: 'Fe. Comic Illustration';
-  color: rgba(255,255,255,0.3);
+  color: rgba(var(--fg-rgb), 0.3);
   font-weight: 800;
   font-size: 1.5rem;
 }
@@ -47,7 +47,7 @@
 }
 .article-placeholder::after {
   content: 'Fe. Article';
-  color: rgba(255,255,255,0.3);
+  color: rgba(var(--fg-rgb), 0.3);
   font-weight: 800;
   font-size: 1.5rem;
 }
@@ -55,7 +55,7 @@
 .play-button {
   width: 60px;
   height: 60px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(var(--fg-rgb), 0.1);
   backdrop-filter: blur(4px);
   border: 2px solid #fff;
   border-radius: 50%;
@@ -63,7 +63,7 @@
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  color: #fff;
+  color: var(--text-main);
   cursor: pointer;
   transition: transform var(--transition-fast), background var(--transition-fast);
 }
@@ -88,7 +88,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  background: rgba(255,255,255,0.1);
+  background: rgba(var(--fg-rgb), 0.1);
   padding: 4px 8px;
   border-radius: 4px;
   color: var(--primary-accent);

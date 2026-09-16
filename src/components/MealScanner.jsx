@@ -384,9 +384,9 @@ const MealScanner = ({ onClose }) => {
                       className="scan-trigger-btn" 
                       onClick={() => fileInputRef.current?.click()}
                       style={{
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: '#ffffff',
+                        background: 'rgba(var(--fg-rgb), 0.06)',
+                        border: '1px solid rgba(var(--fg-rgb), 0.12)',
+                        color: 'var(--text-main)',
                         boxShadow: 'none'
                       }}
                     >
@@ -408,7 +408,7 @@ const MealScanner = ({ onClose }) => {
                   </button>
                   
                   <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.03)', border: '1px solid rgba(16, 185, 129, 0.12)', borderRadius: '14px', textAlign: 'center' }}>
-                    <p style={{ color: '#34d399', fontSize: '0.78rem', margin: 0, fontWeight: 500, lineHeight: 1.4 }}>
+                    <p style={{ color: 'var(--tint-emerald)', fontSize: '0.78rem', margin: 0, fontWeight: 500, lineHeight: 1.4 }}>
                       ⚡ Simulated targeting represents our offline Computer Vision HUD. Click any target in the viewfinder box to simulate live meal identification instantly!
                     </p>
                   </div>

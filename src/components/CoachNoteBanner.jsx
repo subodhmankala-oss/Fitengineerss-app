@@ -41,7 +41,10 @@ export default function CoachNoteBanner({ userId }) {
     try {
       const res = await databaseService.saveClientReplyToNote(note.id, message);
       if (res.success) {
-        notifyEvent('client_reply', { clientUserId: userId, message });
+        // workoutName/workoutDate tell the coach's push WHICH session this
+        // reply is about (api/push.js client_reply) — same context the
+        // in-app pending-replies card shows.
+        notifyEvent('client_reply', { clientUserId: userId, message, workoutName: note.workoutName, workoutDate: note.workoutDate });
         setNotes((prev) => prev.map((n) => (
           n.id === note.id ? { ...n, clientReply: message, clientReplyAt: new Date().toISOString() } : n
         )));

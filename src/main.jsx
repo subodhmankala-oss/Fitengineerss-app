@@ -203,6 +203,23 @@ document.addEventListener('focusin', (e) => {
   document.documentElement.classList.add('keyboard-open');
 });
 
+// The one case WebKit's own scroll-into-view can't cover: on an installed
+// iOS PWA the focus (and its scroll-into-view decision) fires BEFORE the
+// keyboard's visualViewport resize, against the still-full-height shell, so
+// a field in the lower half of the screen (Plan/Routine Name, Send Plan's
+// Plan Name) is judged "already visible", nothing scrolls, and then the
+// shell shrinks and leaves it under the keyboard. Re-check once the resize
+// has actually landed, and only nudge if the field is genuinely off-screen
+// -- never on every resize, so it can't feed the loop round 7 removed.
+window.visualViewport?.addEventListener('resize', () => {
+  const el = document.activeElement;
+  if (!isTextField(el) || !document.documentElement.classList.contains('keyboard-open')) return;
+  const { offsetTop, height } = window.visualViewport;
+  const { top, bottom } = el.getBoundingClientRect();
+  if (top >= offsetTop && bottom <= offsetTop + height) return;
+  el.scrollIntoView({ block: 'center', behavior: 'instant' });
+});
+
 // If the coach deliberately scrolls while typing, that new position is the
 // one they want kept -- don't yank them back to where they started.
 const markUserScroll = () => {

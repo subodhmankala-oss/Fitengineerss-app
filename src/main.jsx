@@ -211,13 +211,23 @@ document.addEventListener('focusin', (e) => {
 // shell shrinks and leaves it under the keyboard. Re-check once the resize
 // has actually landed, and only nudge if the field is genuinely off-screen
 // -- never on every resize, so it can't feed the loop round 7 removed.
+// Scrolls ONLY the app's own container by the minimum delta. Not
+// scrollIntoView: that walks every scrollable ancestor until the field is
+// where it asked, and when the container can't move far enough it pans the
+// iOS window itself, which left a blank band under the shell.
 window.visualViewport?.addEventListener('resize', () => {
   const el = document.activeElement;
   if (!isTextField(el) || !document.documentElement.classList.contains('keyboard-open')) return;
-  const { offsetTop, height } = window.visualViewport;
-  const { top, bottom } = el.getBoundingClientRect();
-  if (top >= offsetTop && bottom <= offsetTop + height) return;
-  el.scrollIntoView({ block: 'center', behavior: 'instant' });
+  // Re-resolved here, not taken from focusin: a container that only becomes
+  // scrollable once the shell shrinks (the Add Exercise modal panel) has no
+  // overflow to measure at focus time.
+  const owner = scrollOwnerOf(el);
+  if (!owner) return;
+  const { bottom } = el.getBoundingClientRect();
+  const visibleBottom = window.visualViewport.height;
+  if (bottom <= visibleBottom) return;
+  const max = owner.scrollHeight - owner.clientHeight;
+  owner.scrollTop = Math.min(max, owner.scrollTop + (bottom - visibleBottom) + 16);
   // The page has moved to show the field; keep it there on close instead of
   // letting focusout's re-anchor snap back to the pre-keyboard offset, which
   // read as an abrupt slide when tapping the keyboard's Done tick.

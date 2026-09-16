@@ -341,9 +341,9 @@ const styles = {
     width: '56px',
     height: '56px',
     borderRadius: '50%',
-    background: 'rgba(16, 185, 129, 0.15)',
-    border: '2px solid #10b981',
-    color: '#10b981',
+    background: 'rgba(67, 100, 189, 0.15)',
+    border: '2px solid #4364bd',
+    color: '#4364bd',
     fontSize: '1.8rem',
     display: 'flex',
     alignItems: 'center',
@@ -361,7 +361,7 @@ const styles = {
   progressBar: {
     height: '100%',
     width: '100%',
-    background: 'linear-gradient(to right, #10b981, #34d399)',
+    background: 'linear-gradient(to right, #4364bd, #6b8be8)',
     animation: 'progressFill 2.5s linear forwards'
   }
 };

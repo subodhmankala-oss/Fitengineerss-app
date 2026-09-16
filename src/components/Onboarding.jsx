@@ -41,7 +41,7 @@ const googleAccounts = [
     name: 'Subodh M',
     email: 'subodh.m@gmail.com',
     avatarLetter: 'S',
-    avatarColor: '#3b82f6',
+    avatarColor: '#4364bd',
     profile: {
       name: 'Subodh M',
       age: '26',
@@ -57,7 +57,7 @@ const googleAccounts = [
     name: 'Subodh Guest',
     email: 'subodh.guest@gmail.com',
     avatarLetter: 'G',
-    avatarColor: '#10b981',
+    avatarColor: '#4364bd',
     profile: {
       name: 'Subodh Guest',
       age: '30',
@@ -357,7 +357,7 @@ const Onboarding = ({ onComplete }) => {
           if (profile && profile.name && !profilesSeen.has(profile.name)) {
             profilesSeen.add(profile.name);
             const initials = profile.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b'];
+            const colors = ['#4364bd', '#4364bd', '#8b5cf6', '#ec4899', '#f59e0b'];
             const colorIdx = profile.name.charCodeAt(0) % colors.length;
             accounts.push({
               type: 'client-local',
@@ -1342,7 +1342,7 @@ const Onboarding = ({ onComplete }) => {
               </div>
 
               {coachApplyHasSession ? (
-                <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', color: '#a7f3d0', fontSize: '0.75rem' }}>
+                <div style={{ padding: '8px 12px', background: 'rgba(67, 100, 189, 0.08)', border: '1px solid rgba(67, 100, 189, 0.2)', borderRadius: '8px', color: '#a7f3d0', fontSize: '0.75rem' }}>
                   ✓ Signed in with Google — no password needed.
                 </div>
               ) : (
@@ -1382,7 +1382,7 @@ const Onboarding = ({ onComplete }) => {
                 <input name="location" type="text" placeholder="City, Country" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
               
-              <button type="submit" disabled={authLoading} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)', transition: 'all 0.2s ease' }}>
+              <button type="submit" disabled={authLoading} style={{ background: 'linear-gradient(135deg, #4364bd, #3552a3)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(67, 100, 189, 0.25)', transition: 'all 0.2s ease' }}>
                 {authLoading ? 'Creating account...' : 'Create Coach Account'}
               </button>
             </form>
@@ -1643,10 +1643,10 @@ const Onboarding = ({ onComplete }) => {
               {authSuccessMsg && (
                 <div style={{
                   padding: '10px 12px',
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  background: 'rgba(67, 100, 189, 0.12)',
+                  border: '1px solid rgba(67, 100, 189, 0.3)',
                   borderRadius: '8px',
-                  color: '#34d399',
+                  color: '#6b8be8',
                   fontSize: '0.82rem',
                   fontWeight: 500,
                   marginBottom: '14px',
@@ -1819,7 +1819,7 @@ const Onboarding = ({ onComplete }) => {
                   </div>
 
                   {forgotPasswordSuccessMsg && (
-                    <div style={{ padding: '8px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', color: '#34d399', fontSize: '0.78rem' }}>
+                    <div style={{ padding: '8px 12px', background: 'rgba(67, 100, 189, 0.15)', border: '1px solid rgba(67, 100, 189, 0.3)', borderRadius: '8px', color: '#6b8be8', fontSize: '0.78rem' }}>
                       {forgotPasswordSuccessMsg}
                     </div>
                   )}
@@ -1898,7 +1898,7 @@ const Onboarding = ({ onComplete }) => {
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
-                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >
                       Sign up
                     </button>
@@ -1973,7 +1973,7 @@ const Onboarding = ({ onComplete }) => {
                             setAuthLoading(false);
                           }
                         }}
-                        style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                       >
                         Forgot password?
                       </button>
@@ -1992,7 +1992,7 @@ const Onboarding = ({ onComplete }) => {
                   <button 
                     type="submit" 
                     className="gmail-login-btn"
-                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+                    style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #4364bd, #3552a3)', border: 'none', color: '#fff' }}
                     disabled={authLoading}
                   >
                     {authLoading ? 'Logging In...' : 'Log In as Coach'}
@@ -2006,7 +2006,7 @@ const Onboarding = ({ onComplete }) => {
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
-                      style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >
                       Sign up
                     </button>

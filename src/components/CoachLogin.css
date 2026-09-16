@@ -31,7 +31,7 @@
   right: -10%;
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(67, 100, 189, 0.15) 0%, transparent 70%);
   border-radius: 50%;
   animation: float 6s ease-in-out infinite;
 }
@@ -104,8 +104,8 @@
 
 /* Green theme update */
 .coach-login-back-button:hover {
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.1);
+  color: #6b8be8;
+  background: rgba(67, 100, 189, 0.1);
   padding: 6px 10px;
   margin: -10px 0 0 -10px;
 }
@@ -240,9 +240,9 @@
 }
 
 .coach-login-input-group input:focus {
-  border-color: #10b981;
+  border-color: #4364bd;
   background: rgba(0, 0, 0, 0.3);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 2px rgba(67, 100, 189, 0.15);
 }
 
 .coach-login-input-group input::placeholder {
@@ -256,15 +256,15 @@
   justify-content: center;
   gap: 10px;
   padding: 14px 18px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: linear-gradient(135deg, #4364bd 0%, #3552a3 100%);
+  border: 1px solid rgba(67, 100, 189, 0.3);
   border-radius: 12px;
   color: #fff;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 15px rgba(67, 100, 189, 0.2);
   position: relative;
   overflow: hidden;
   width: 100%;
@@ -287,8 +287,8 @@
 
 .coach-login-submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
-  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 6px 20px rgba(67, 100, 189, 0.3);
+  border-color: rgba(67, 100, 189, 0.5);
 }
 
 .coach-login-submit-btn:active:not(:disabled) {
@@ -378,7 +378,7 @@
 .coach-login-apply-link {
   background: none;
   border: none;
-  color: #10b981;
+  color: #4364bd;
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
@@ -395,7 +395,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, #10b981, transparent);
+  background: linear-gradient(90deg, #4364bd, transparent);
   transform: scaleX(0);
   transform-origin: right;
   transition: transform 0.3s ease;
@@ -407,7 +407,7 @@
 }
 
 .coach-login-apply-link:hover:not(:disabled) {
-  color: #34d399;
+  color: #6b8be8;
 }
 
 .coach-login-apply-link:disabled {
@@ -517,7 +517,7 @@
 
 /* Dark mode and consistency with app theme */
 :root {
-  --primary-accent: #3b82f6;
+  --primary-accent: #4364bd;
   --primary-accent-light: #60a5fa;
   --text-primary: #f1f5f9;
   --text-muted: rgba(226, 232, 240, 0.7);
@@ -537,7 +537,7 @@
   }
 
   .coach-login-submit-btn {
-    background: #10b981;
+    background: #4364bd;
     color: white;
   }
 }

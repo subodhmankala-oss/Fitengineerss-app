@@ -202,8 +202,8 @@ const AuthConfirm = () => {
   );
 };
 
-const btnPurple = { width: '100%', padding: '13px', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '1rem', cursor: 'pointer' };
-const btnGreen  = { width: '100%', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' };
+const btnPurple = { width: '100%', padding: '13px', background: 'linear-gradient(135deg, #4364bd, #8b5cf6)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '1rem', cursor: 'pointer' };
+const btnGreen  = { width: '100%', padding: '12px', background: 'linear-gradient(135deg, #4364bd, #3552a3)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' };
 const errBox    = { padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.8rem', marginBottom: '10px' };
 
 export default AuthConfirm;

@@ -50,7 +50,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center' }}>
                       <span style={{ 
                         display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%',
-                        background: coach.isBlocked ? 'var(--danger)' : '#10b981', marginRight: '6px' 
+                        background: coach.isBlocked ? 'var(--danger)' : 'var(--primary-accent-light)', marginRight: '6px' 
                       }} />
                       {coach.name}
                     </div>
@@ -126,9 +126,9 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                     <button
                       onClick={() => onToggleBlock(coach)}
                       style={{
-                        background: coach.isBlocked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                        border: `1px solid ${coach.isBlocked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                        color: coach.isBlocked ? '#10b981' : 'var(--danger)',
+                        background: coach.isBlocked ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: `1px solid ${coach.isBlocked ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                        color: coach.isBlocked ? 'var(--primary-accent-light)' : 'var(--danger)',
                         padding: '4px 10px',
                         borderRadius: '6px',
                         fontSize: '0.72rem',

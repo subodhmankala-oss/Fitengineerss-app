@@ -92,7 +92,7 @@ const programTileWords = (name) => {
 // categorization Section 3 of Weekly Muscle Analytics uses (MUSCLE_TO_PPLC),
 // so a "Push Strength" plan's thumbnail/chips read the same warm-red family
 // a client already associates with chest/shoulders/triceps elsewhere.
-const PPLC_COLOR = { Push: '#ef4444', Pull: '#3b82f6', Legs: '#10b981', Core: '#a855f7' };
+const PPLC_COLOR = { Push: '#ef4444', Pull: '#3b82f6', Legs: 'var(--primary-accent-light)', Core: '#a855f7' };
 
 // Derives the routine-picker card's display data from a plan's exercise list
 // — muscle groups trained, a representative body region + color for its
@@ -3085,7 +3085,7 @@ const WorkoutTracker = () => {
                               cx={px}
                               cy={py}
                               r="11"
-                              fill={chartMetric === 'weight' ? 'rgba(59,130,246,0.18)' : 'rgba(16,185,129,0.18)'}
+                              fill={chartMetric === 'weight' ? 'rgba(59,130,246,0.18)' : 'rgba(var(--accent-rgb), 0.18)'}
                             />
                           )}
                           <circle
@@ -3811,7 +3811,7 @@ const WorkoutTracker = () => {
                             }}
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
-                              color: ex.sets.every(s => s.isCompleted) ? '#10b981' : 'rgba(148,163,184,0.5)',
+                              color: ex.sets.every(s => s.isCompleted) ? 'var(--primary-accent-light)' : 'rgba(148,163,184,0.5)',
                               fontSize: '0.85rem', padding: '2px 4px', lineHeight: 1
                             }}
                           >✓ all</button>

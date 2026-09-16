@@ -100,8 +100,8 @@
 
 /* Specific ring colors with matching neon glow shadows */
 .calorie-radial {
-  stroke: #10b981;
-  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.4));
+  stroke: var(--primary-accent-light);
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.4));
 }
 
 .protein-radial {
@@ -193,7 +193,7 @@
 }
 
 .math-operand .math-stat.highlight-eaten {
-  color: #10b981;
+  color: var(--primary-accent-light);
 }
 
 .math-operand .math-stat.highlight-remaining.deficit {
@@ -227,8 +227,8 @@
 }
 
 .budget-status-banner.deficit {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   color: var(--tint-emerald);
 }
 
@@ -392,16 +392,16 @@
 }
 
 .alert-card.success {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(var(--bg-card-rgb), 0.5) 100%);
-  border-color: #10b981;
-  border-top: 1px solid rgba(16, 185, 129, 0.08);
-  border-right: 1px solid rgba(16, 185, 129, 0.08);
-  border-bottom: 1px solid rgba(16, 185, 129, 0.08);
-  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.03);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.06) 0%, rgba(var(--bg-card-rgb), 0.5) 100%);
+  border-color: var(--primary-accent-light);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.08);
+  border-right: 1px solid rgba(var(--accent-rgb), 0.08);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
+  box-shadow: 0 8px 32px rgba(var(--accent-rgb), 0.03);
 }
 
 .btn-auto-log-coach {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -409,7 +409,7 @@
   font-weight: 700;
   border-radius: var(--radius-lg);
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.3);
   transition: all var(--transition-fast) ease;
   display: inline-flex;
   align-items: center;
@@ -418,8 +418,8 @@
 
 .btn-auto-log-coach:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
-  background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.45);
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--primary-accent) 100%);
 }
 
 .btn-auto-log-coach:active {

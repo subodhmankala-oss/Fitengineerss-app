@@ -521,7 +521,7 @@
   background: var(--primary-accent);
   border-color: var(--primary-accent-light);
   color: #fff;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3);
 }
 
 /* Directory Listing */
@@ -554,7 +554,7 @@
 
 .client-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(var(--accent-rgb), 0.3);
   background: var(--bg-card-hover);
 }
 
@@ -610,9 +610,9 @@
 }
 
 .client-goal-badge.gut-fix {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   color: var(--tint-emerald);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
 .client-card-chevron svg {
@@ -842,7 +842,7 @@
 .trainer-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(16, 185, 129, 0.1);
+  border: 3px solid rgba(var(--accent-rgb), 0.1);
   border-top-color: var(--primary-accent-light);
   border-radius: var(--radius-full);
   animation: trainer-spin 0.8s linear infinite;
@@ -926,9 +926,9 @@
 }
 .clickable-card:hover {
   transform: translateY(-2px);
-  background: rgba(16, 185, 129, 0.08) !important;
-  border-color: rgba(16, 185, 129, 0.35) !important;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.08) !important;
+  border-color: rgba(var(--accent-rgb), 0.35) !important;
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.15);
 }
 .dashboard-breadcrumb button:hover {
   color: var(--primary-accent) !important;
@@ -1339,7 +1339,7 @@
   background: rgba(var(--fg-rgb), 0.05);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: var(--text-main, var(--text-main));
+  color: var(--text-main);
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.35;

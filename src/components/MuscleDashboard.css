@@ -279,7 +279,7 @@
 
 .text-emerald {
   color: var(--primary-accent-light);
-  text-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+  text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.15);
 }
 
 .text-amber {
@@ -665,8 +665,8 @@
 }
 
 .water-progress-bar.success-glow {
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+  background: linear-gradient(90deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.6);
 }
 
 .water-progress-bar.danger-glow {
@@ -725,10 +725,10 @@
 }
 
 .water-coaching-banner.success {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.25);
   color: var(--tint-emerald);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.05);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.05);
 }
 
 .water-coaching-banner.danger {
@@ -759,8 +759,8 @@
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   letter-spacing: 0.02em;
@@ -770,7 +770,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 0.65rem;
-  color: #10b981;
+  color: var(--primary-accent-light);
   margin-top: 4px;
   font-weight: 500;
   opacity: 0.9;

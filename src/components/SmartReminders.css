@@ -236,8 +236,8 @@
 }
 
 .checkbox-card.checked {
-  background: rgba(16, 185, 129, 0.04);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.04);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .checkbox-card .icon {
@@ -312,7 +312,7 @@
   max-width: 400px;
   background: rgba(var(--bg-card-active-rgb), 0.95);
   border: 1px solid var(--primary-accent-light);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(var(--accent-rgb), 0.15);
   border-radius: 12px;
   padding: 16px;
   z-index: 9999;
@@ -346,11 +346,11 @@
 }
 
 .broadcast-card.afternoon {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(var(--bg-card-rgb), 0.4) 100%);
-  border-color: #10b981;
-  border-top: 1px solid rgba(16, 185, 129, 0.1);
-  border-right: 1px solid rgba(16, 185, 129, 0.1);
-  border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(var(--bg-card-rgb), 0.4) 100%);
+  border-color: var(--primary-accent-light);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.1);
+  border-right: 1px solid rgba(var(--accent-rgb), 0.1);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.1);
 }
 
 .broadcast-card.night {
@@ -376,7 +376,7 @@
 }
 
 .broadcast-card.afternoon .card-header {
-  color: #10b981;
+  color: var(--primary-accent-light);
 }
 
 .broadcast-card.night .card-header {

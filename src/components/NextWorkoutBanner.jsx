@@ -103,11 +103,11 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     return (
       <div
         style={{
-          background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
+          background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
           borderRadius: 0, padding: '12px 14px', marginBottom: '4px'
         }}
       >
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>🌱 New here? Let's get you started</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>🌱 New here? Let's get you started</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '10px' }}>
           Where will you be training?
         </div>
@@ -117,8 +117,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
               type="button"
               onClick={() => startProgram(userId, onNavigateToWorkouts, 'gym', 'beginner', gymFirst)}
               style={{
-                flex: 1, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: '#10b981', fontSize: '0.78rem',
+                flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
+                borderRadius: '8px', padding: '8px 10px', color: 'var(--primary-accent-light)', fontSize: '0.78rem',
                 fontWeight: 700, cursor: 'pointer'
               }}
             >
@@ -130,8 +130,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
               type="button"
               onClick={() => startProgram(userId, onNavigateToWorkouts, 'home', 'beginner', homeFirst)}
               style={{
-                flex: 1, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: '#10b981', fontSize: '0.78rem',
+                flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
+                borderRadius: '8px', padding: '8px 10px', color: 'var(--primary-accent-light)', fontSize: '0.78rem',
                 fontWeight: 700, cursor: 'pointer'
               }}
             >
@@ -170,15 +170,15 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToProgram(); } }}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-        background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
+        background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
         borderRadius: 0, padding: '12px 14px', marginBottom: '4px', cursor: 'pointer'
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#10b981' }}>{title}</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>{title}</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{body}</div>
       </div>
-      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap', flexShrink: 0 }}>Go →</span>
+      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary-accent-light)', whiteSpace: 'nowrap', flexShrink: 0 }}>Go →</span>
     </div>
   );
 }

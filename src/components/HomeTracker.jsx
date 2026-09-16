@@ -388,10 +388,10 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
             onClick={handleNotificationToggle} 
             title={isAlertActive ? "Coaching Alerts Active 🟢" : "Turn On Coaching Alerts 🟡"}
             style={{
-              color: isAlertActive ? '#10b981' : 'var(--tint-amber)',
-              borderColor: isAlertActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.35)',
-              background: isAlertActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(251, 191, 36, 0.08)',
-              boxShadow: isAlertActive ? '0 0 10px rgba(16, 185, 129, 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
+              color: isAlertActive ? 'var(--primary-accent-light)' : 'var(--tint-amber)',
+              borderColor: isAlertActive ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(251, 191, 36, 0.35)',
+              background: isAlertActive ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(251, 191, 36, 0.08)',
+              boxShadow: isAlertActive ? '0 0 10px rgba(var(--accent-rgb), 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
               transition: 'all 0.2s ease',
               display: 'flex',
               alignItems: 'center',
@@ -403,14 +403,14 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
                 width="18" 
                 height="18" 
                 viewBox="0 0 24 24" 
-                fill={isAlertActive ? "#10b981" : "none"} 
-                stroke={isAlertActive ? "#10b981" : "#fbbf24"} 
+                fill={isAlertActive ? "var(--primary-accent-light)" : "none"} 
+                stroke={isAlertActive ? "var(--primary-accent-light)" : "#fbbf24"} 
                 strokeWidth="2.5" 
                 strokeLinecap="round" 
                 strokeLinejoin="round"
                 style={{ 
                   transition: 'all 0.2s ease', 
-                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
+                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
                 }}
               >
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -442,10 +442,10 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
             onClick={() => setShowConnectModal(true)}
             title={isLinkedToCoach ? 'Connected to Coach ✓' : 'Connect to Coach'}
             style={{
-              color: isLinkedToCoach ? '#10b981' : 'var(--tint-violet)',
-              borderColor: isLinkedToCoach ? 'rgba(16,185,129,0.3)' : 'rgba(139,92,246,0.35)',
-              background: isLinkedToCoach ? 'rgba(16,185,129,0.08)' : 'rgba(139,92,246,0.08)',
-              boxShadow: isLinkedToCoach ? '0 0 10px rgba(16,185,129,0.12)' : '0 0 10px rgba(139,92,246,0.15)',
+              color: isLinkedToCoach ? 'var(--primary-accent-light)' : 'var(--tint-violet)',
+              borderColor: isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(139,92,246,0.35)',
+              background: isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(139,92,246,0.08)',
+              boxShadow: isLinkedToCoach ? '0 0 10px rgba(var(--accent-rgb), 0.12)' : '0 0 10px rgba(139,92,246,0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.2s ease'
             }}
@@ -727,13 +727,13 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
           <span className="percentage-badge" style={{
             fontSize: '0.8rem',
             fontWeight: 700,
-            color: '#10b981',
-            background: 'rgba(16, 185, 129, 0.1)',
+            color: 'var(--primary-accent-light)',
+            background: 'rgba(var(--accent-rgb), 0.1)',
             padding: '4px 10px',
             borderRadius: '20px',
-            border: '1px solid rgba(16, 185, 129, 0.2)',
+            border: '1px solid rgba(var(--accent-rgb), 0.2)',
             transition: 'all 0.3s ease',
-            boxShadow: '0 0 10px rgba(16, 185, 129, 0.05)'
+            boxShadow: '0 0 10px rgba(var(--accent-rgb), 0.05)'
           }}>
             {completionPercentage}% Complete
           </span>
@@ -752,9 +752,9 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
           <div className="checklist-progress-bar" style={{
             width: `${completionPercentage}%`,
             height: '100%',
-            background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+            background: 'linear-gradient(90deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%)',
             borderRadius: '3px',
-            boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)',
+            boxShadow: '0 0 12px rgba(var(--accent-rgb), 0.5)',
             transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
           }} />
         </div>

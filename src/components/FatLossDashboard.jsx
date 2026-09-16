@@ -377,10 +377,10 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
             onClick={handleNotificationToggle} 
             title={isAlertActive ? "Coaching Alerts Active 🟢" : "Turn On Coaching Alerts 🟡"}
             style={{
-              color: isAlertActive ? '#10b981' : 'var(--tint-amber)',
-              borderColor: isAlertActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.35)',
-              background: isAlertActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(251, 191, 36, 0.08)',
-              boxShadow: isAlertActive ? '0 0 10px rgba(16, 185, 129, 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
+              color: isAlertActive ? 'var(--primary-accent-light)' : 'var(--tint-amber)',
+              borderColor: isAlertActive ? 'rgba(var(--accent-rgb), 0.3)' : 'rgba(251, 191, 36, 0.35)',
+              background: isAlertActive ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(251, 191, 36, 0.08)',
+              boxShadow: isAlertActive ? '0 0 10px rgba(var(--accent-rgb), 0.15)' : '0 0 10px rgba(251, 191, 36, 0.15)',
               transition: 'all 0.2s ease',
               display: 'flex',
               alignItems: 'center',
@@ -392,14 +392,14 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
                 width="18" 
                 height="18" 
                 viewBox="0 0 24 24" 
-                fill={isAlertActive ? "#10b981" : "none"} 
-                stroke={isAlertActive ? "#10b981" : "#fbbf24"} 
+                fill={isAlertActive ? "var(--primary-accent-light)" : "none"} 
+                stroke={isAlertActive ? "var(--primary-accent-light)" : "#fbbf24"} 
                 strokeWidth="2.5" 
                 strokeLinecap="round" 
                 strokeLinejoin="round"
                 style={{ 
                   transition: 'all 0.2s ease', 
-                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
+                  filter: isAlertActive ? 'drop-shadow(0 0 4px rgba(var(--accent-rgb), 0.4))' : 'drop-shadow(0 0 4px rgba(251, 191, 36, 0.4))'
                 }}
               >
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -413,10 +413,10 @@ const FatLossDashboard = ({ setActiveTab, handleLogout }) => {
             onClick={() => setShowScanner(true)} 
             title="Scan Meal & Calories"
             style={{
-              color: '#10b981',
-              borderColor: 'rgba(16, 185, 129, 0.3)',
-              background: 'rgba(16, 185, 129, 0.08)',
-              boxShadow: '0 0 10px rgba(16, 185, 129, 0.15)',
+              color: 'var(--primary-accent-light)',
+              borderColor: 'rgba(var(--accent-rgb), 0.3)',
+              background: 'rgba(var(--accent-rgb), 0.08)',
+              boxShadow: '0 0 10px rgba(var(--accent-rgb), 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

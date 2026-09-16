@@ -15,7 +15,7 @@
   padding: 20px;
   background:
     radial-gradient(ellipse at top left, rgba(139, 92, 246, 0.18) 0%, transparent 55%),
-    radial-gradient(ellipse at bottom right, rgba(16, 185, 129, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(var(--accent-rgb), 0.12) 0%, transparent 55%),
     #060611;
   font-family: 'Inter', sans-serif;
 }
@@ -96,7 +96,7 @@
 }
 
 .cow-progress-segment.filled {
-  background: linear-gradient(90deg, #8b5cf6, #10b981);
+  background: linear-gradient(90deg, #8b5cf6, var(--primary-accent-light));
 }
 
 .cow-progress-segment.active {
@@ -366,7 +366,7 @@
 
 .cow-row-check {
   font-size: 1rem;
-  color: #10b981;
+  color: var(--primary-accent-light);
   font-weight: 800;
   opacity: 0;
   transition: opacity 0.2s;
@@ -409,15 +409,15 @@
 }
 
 .cow-finish-btn {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent));
   color: #fff;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
 }
 
 .cow-finish-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669, #047857);
+  background: linear-gradient(135deg, var(--primary-accent), var(--accent-deep));
   transform: translateY(-1px);
-  box-shadow: 0 6px 28px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 6px 28px rgba(var(--accent-rgb), 0.45);
 }
 
 .cow-finish-btn.loading {

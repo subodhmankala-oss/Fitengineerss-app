@@ -372,9 +372,9 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                     <td style={{ padding: '8px', textAlign: 'center' }}>
                       {hasVideo ? (
                         <span style={{
-                          background: isYouTube ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                          background: isYouTube ? 'rgba(239, 68, 68, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
                           color: isYouTube ? 'var(--tint-red)' : 'var(--tint-emerald)',
-                          border: isYouTube ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
+                          border: isYouTube ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(var(--accent-rgb), 0.2)',
                           padding: '3px 8px',
                           borderRadius: '12px',
                           fontSize: '0.72rem',

@@ -9,7 +9,7 @@ import {
 const LEGEND = [
   { key: 'not_trained', color: 'var(--text-subtle)', label: 'Not Trained' },
   { key: 'low', color: '#3b82f6', label: 'Low' },
-  { key: 'optimal', color: '#10b981', label: 'Optimal' },
+  { key: 'optimal', color: 'var(--primary-accent-light)', label: 'Optimal' },
   { key: 'high', color: '#f97316', label: 'High' },
   { key: 'very_high', color: '#ef4444', label: 'Very High' },
 ];

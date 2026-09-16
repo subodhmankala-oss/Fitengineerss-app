@@ -10,8 +10,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--bg-card, var(--bg-card));
-  border: 1px solid var(--border-color, var(--border-color));
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg, 24px);
   padding: 14px 16px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
@@ -31,18 +31,18 @@
 }
 
 .pwa-update-toast__text strong {
-  color: var(--text-main, var(--text-main));
+  color: var(--text-main);
   font-size: 0.9rem;
 }
 
 .pwa-update-toast__text span {
-  color: var(--text-muted, var(--text-muted));
+  color: var(--text-muted);
   font-size: 0.78rem;
 }
 
 .pwa-update-toast__btn {
   flex-shrink: 0;
-  background: var(--primary-accent, #059669);
+  background: var(--primary-accent);
   color: #fff;
   border: none;
   border-radius: var(--radius-full, 9999px);

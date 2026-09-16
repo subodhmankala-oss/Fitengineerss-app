@@ -45,7 +45,7 @@ import './index.css';
 // first time a given chunk is needed, since the browser caches it after.
 const LazyScreenFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', width: '100%' }}>
-    <div style={{ width: '34px', height: '34px', border: '3px solid rgba(var(--fg-rgb), 0.12)', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ width: '34px', height: '34px', border: '3px solid rgba(var(--fg-rgb), 0.12)', borderTopColor: 'var(--primary-accent-light)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
   </div>
 );
 
@@ -257,7 +257,7 @@ const saveQuickLoginAccount = (override) => {
   const loginMethod = override?.loginMethod || localStorage.getItem('lastLoginMethod') ||
     ((role === 'coach' || role === 'super-admin') ? 'google' : 'email');
   const initials = name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || email[0].toUpperCase();
-  const colors = ['#ea4335', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b'];
+  const colors = ['#ea4335', '#3b82f6', 'var(--primary-accent-light)', '#8b5cf6', '#ec4899', '#f59e0b'];
   const color = colors[email.charCodeAt(0) % colors.length];
   localStorage.setItem('savedLoginAccount', JSON.stringify({ name, email, role, loginMethod, initials, color, avatarUrl }));
 };
@@ -1360,7 +1360,7 @@ function App() {
           </p>
           <button
             onClick={backToLogin}
-            style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent))', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
           >
             Back to login
           </button>
@@ -1411,7 +1411,7 @@ function App() {
           </p>
 
           {resendStatus === 'sent' && (
-            <p style={{ color: '#10b981', fontSize: '0.82rem', marginBottom: '16px' }}>✅ Confirmation email resent — check your inbox.</p>
+            <p style={{ color: 'var(--primary-accent-light)', fontSize: '0.82rem', marginBottom: '16px' }}>✅ Confirmation email resent — check your inbox.</p>
           )}
           {resendStatus === 'error' && (
             <p style={{ color: 'var(--danger)', fontSize: '0.82rem', marginBottom: '16px' }}>{resendError}</p>
@@ -1419,7 +1419,7 @@ function App() {
 
           <button
             onClick={() => window.location.reload()}
-            style={{ width: '100%', padding: '12px', marginBottom: '10px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '12px', marginBottom: '10px', background: 'linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent))', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
           >
             ✓ I've confirmed — Refresh
           </button>
@@ -1672,7 +1672,7 @@ function App() {
           )}
 
           {resetPasswordSuccess ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: '#10b981', fontWeight: 700, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--primary-accent-light)', fontWeight: 700, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
               <span>✅ Password updated successfully!</span>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Redirecting you to the app...</span>
             </div>

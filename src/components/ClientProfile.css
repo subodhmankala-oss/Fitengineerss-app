@@ -39,7 +39,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -47,7 +47,7 @@
   font-weight: 800;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
 .cp-user-name {
@@ -213,7 +213,7 @@
   padding: 7px 16px;
   border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent));
   color: #fff;
   font-size: 0.82rem;
   font-weight: 700;
@@ -380,9 +380,9 @@
 }
 
 .cp-notif-toggle--on {
-  background: rgba(16,185,129,0.2);
-  color: #10b981;
-  border: 1px solid rgba(16,185,129,0.3);
+  background: rgba(var(--accent-rgb), 0.2);
+  color: var(--primary-accent-light);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
 .cp-notif-hint {

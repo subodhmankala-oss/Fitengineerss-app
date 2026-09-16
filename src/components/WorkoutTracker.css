@@ -59,7 +59,7 @@
   /* Subtle athletic-blue-to-green tint (same accent colors as the skill-
      level bar itself) instead of the flat dark card background every other
      section uses — gives this one a bit more sporty presence. */
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(16, 185, 129, 0.08));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(var(--accent-rgb), 0.08));
   border: 1px solid rgba(59, 130, 246, 0.2);
   display: flex;
   flex-direction: column;
@@ -448,8 +448,8 @@
 }
 
 .progressive-overload-alert.success {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .progressive-overload-alert .alert-badge {
@@ -537,8 +537,8 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 4px 10px;
   border-radius: var(--radius-full);
 }
@@ -776,8 +776,8 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -785,9 +785,9 @@
 }
 
 .btn-secondary-sm:hover {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   color: var(--text-main);
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(var(--accent-rgb), 0.3);
 }
 
 .exercises-input-list {
@@ -945,7 +945,7 @@
 
 .btn-primary-lg:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
 }
 
 .btn-primary-lg:active {
@@ -1095,7 +1095,7 @@
   background: #fff;
   border: 2px solid var(--primary-accent-light);
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.6);
 }
 
 .skill-level-labels {
@@ -1265,7 +1265,7 @@
 .screen-info-intro h3 {
   font-size: 1.15rem;
   color: var(--text-main);
-  background: linear-gradient(135deg, var(--text-main) 0%, #10b981 100%);
+  background: linear-gradient(135deg, var(--text-main) 0%, var(--primary-accent-light) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -1314,9 +1314,9 @@
 }
 
 .active-program-card {
-  background: rgba(16, 185, 129, 0.04);
-  border-color: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.06), inset 0 0 12px rgba(16, 185, 129, 0.02);
+  background: rgba(var(--accent-rgb), 0.04);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  box-shadow: 0 8px 32px 0 rgba(var(--accent-rgb), 0.06), inset 0 0 12px rgba(var(--accent-rgb), 0.02);
 }
 
 .active-program-card::before {
@@ -1357,8 +1357,8 @@
 
 .active-program-card .difficulty-badge {
   color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.2);
 }
 
 .sessions-indicator {
@@ -1372,8 +1372,8 @@
 }
 
 .active-program-card .sessions-indicator {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.2);
   color: var(--primary-accent-light);
 }
 
@@ -1419,9 +1419,9 @@
 }
 
 .btn-select-program-action.disabled {
-  background: rgba(16, 185, 129, 0.15) !important;
+  background: rgba(var(--accent-rgb), 0.15) !important;
   color: var(--primary-accent-light) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.25) !important;
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -1430,12 +1430,12 @@
   background: var(--primary-accent) !important;
   color: var(--text-main) !important;
   border: 1px solid var(--primary-accent-light) !important;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2);
 }
 
 .btn-select-program-action.renew:hover {
   background: var(--primary-accent-light) !important;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.4);
   transform: translateY(-1px);
 }
 
@@ -1497,7 +1497,7 @@
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(16, 185, 129, 0.95); /* Semi-transparent Emerald */
+  background: rgba(var(--accent-rgb), 0.95); /* Semi-transparent Emerald */
   color: var(--text-main);
   padding: 12px 24px;
   border-radius: var(--radius-full);
@@ -1506,7 +1506,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3), 0 0 1px rgba(var(--fg-rgb), 0.2);
+  box-shadow: 0 10px 25px rgba(var(--accent-rgb), 0.3), 0 0 1px rgba(var(--fg-rgb), 0.2);
   z-index: 9999;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1550,7 +1550,7 @@
   border: 1px solid rgba(var(--fg-rgb), 0.08);
   border-radius: var(--radius-lg);
   padding: 24px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(16, 185, 129, 0.05);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px rgba(var(--accent-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1565,7 +1565,7 @@
   left: 0;
   width: 100%;
   height: 4px;
-  background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%);
+  background: linear-gradient(90deg, var(--primary-accent-light) 0%, #3b82f6 100%);
 }
 
 .payment-modal-header {
@@ -1583,9 +1583,9 @@
 .secure-badge {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--primary-accent-light);
   letter-spacing: 0.05em;
-  background: rgba(16, 185, 129, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   align-self: flex-start;
@@ -1620,8 +1620,8 @@
 .payment-gateway-modal.invoice-modal {
   max-width: 440px;
   background: rgba(var(--bg-card-rgb), 0.95);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 50px rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 50px rgba(var(--accent-rgb), 0.1);
 }
 
 .invoice-client-card {
@@ -1676,14 +1676,14 @@
 }
 
 .invoice-row.total-row strong {
-  color: #10b981;
+  color: var(--primary-accent-light);
   font-weight: 800;
-  text-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+  text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35);
 }
 
 .secure-payment-notice {
-  background: rgba(16, 185, 129, 0.04);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.04);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   padding: 12px;
   border-radius: var(--radius-sm);
   display: flex;
@@ -1713,13 +1713,13 @@
   width: 100%;
   padding: 12px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: #ffffff;
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.25);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1727,7 +1727,7 @@
 
 .btn-pay-submit:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.4);
   transform: translateY(-1px);
 }
 
@@ -1753,7 +1753,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid var(--text-muted);
-  border-top-color: #10b981;
+  border-top-color: var(--primary-accent-light);
   border-radius: 50%;
   animation: paySpinner 0.8s infinite linear;
 }
@@ -1945,7 +1945,7 @@
 }
 
 .btn-hevy-finish {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: #fff;
   border: none;
   padding: 8px 16px;
@@ -1953,13 +1953,13 @@
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
   transition: all var(--transition-fast);
 }
 
 .btn-hevy-finish:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.4);
 }
 
 .btn-hevy-finish:active {
@@ -2032,7 +2032,7 @@
 .ex-name-clickable:focus-visible {
   color: var(--primary-accent-light);
   text-decoration: underline;
-  text-decoration-color: rgba(16, 185, 129, 0.4);
+  text-decoration-color: rgba(var(--accent-rgb), 0.4);
   text-underline-offset: 3px;
 }
 
@@ -2082,14 +2082,14 @@
 }
 
 .btn-drag-handle:hover {
-  background: rgba(16, 185, 129, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--primary-accent-light);
 }
 
 .btn-drag-handle:active {
   cursor: grabbing;
   color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
 }
 
 /* Reorder mode — useReorderableList (src/hooks/useReorderableList.js).
@@ -2246,8 +2246,8 @@
 /* The row currently being dragged — subtle lift, not a redesign. */
 .ex-reorder-compact-row.ex-reorder-dragging {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.45);
   position: relative;
 }
 
@@ -2742,9 +2742,9 @@
 
 /* Row Completed State (Glowing Emerald Blur) */
 .hevy-set-row.set-row-completed {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.18);
-  box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.04);
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.18);
+  box-shadow: inset 0 0 10px rgba(var(--accent-rgb), 0.04);
 }
 
 .hevy-set-row.set-row-completed .set-num-lbl {
@@ -2752,7 +2752,7 @@
 }
 
 .hevy-set-row.set-row-completed .set-prev-lbl {
-  color: rgba(16, 185, 129, 0.7);
+  color: rgba(var(--accent-rgb), 0.7);
 }
 
 /* Circular Checkmark Button */
@@ -2779,15 +2779,15 @@
 }
 
 .btn-hevy-check.completed {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--primary-accent-light);
+  border-color: var(--primary-accent-light);
   color: #fff;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5);
 }
 
 .btn-hevy-check.completed:hover {
-  background: #059669;
-  border-color: #059669;
+  background: var(--primary-accent);
+  border-color: var(--primary-accent);
 }
 
 .btn-hevy-row-delete {
@@ -2845,10 +2845,10 @@ html.keyboard-open .rest-timer-floating-card {
   background: rgba(var(--bg-app-rgb), 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(16, 185, 129, 0.25);
+  border-top: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 0;
   padding: 14px 20px;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(var(--accent-rgb), 0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2867,7 +2867,7 @@ html.keyboard-open .rest-timer-floating-card {
   right: 8px;
   width: auto;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   border-top: 2px solid #3b82f6;
 }
 
@@ -2882,7 +2882,7 @@ html.keyboard-open .rest-timer-floating-card {
    just a gentle, low-contrast background pulse. */
 @keyframes restTimerBoxPulse {
   0%, 100% { background: rgba(var(--bg-app-rgb), 0.92); }
-  50% { background: rgba(16, 185, 129, 0.16); }
+  50% { background: rgba(var(--accent-rgb), 0.16); }
 }
 
 .rest-timer-pulse-start,
@@ -3318,8 +3318,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-add-preset-action.added {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   color: var(--primary-accent-light);
   /* Tapping an added item removes it again (toggle), so keep it clickable. */
   cursor: pointer;
@@ -3364,8 +3364,8 @@ html.keyboard-open .rest-timer-floating-card {
 .summary-modal-card {
   max-width: 440px;
   background: rgba(13, 20, 35, 0.96);
-  border-color: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 50px rgba(16, 185, 129, 0.1);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 50px rgba(var(--accent-rgb), 0.1);
 }
 
 .summary-stats-grid {
@@ -3461,8 +3461,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .summary-notice-emerald {
-  background: rgba(16, 185, 129, 0.04);
-  border-color: rgba(16, 185, 129, 0.15);
+  background: rgba(var(--accent-rgb), 0.04);
+  border-color: rgba(var(--accent-rgb), 0.15);
 }
 
 .summary-actions-row {
@@ -3494,19 +3494,19 @@ html.keyboard-open .rest-timer-floating-card {
   flex: 1;
   padding: 10px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--primary-accent-light) 0%, var(--primary-accent) 100%);
   color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.25);
   transition: all 0.2s;
   text-align: center;
 }
 
 .btn-confirm-save-hevy:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 18px rgba(var(--accent-rgb), 0.35);
   transform: translateY(-1px);
 }
 
@@ -3612,7 +3612,7 @@ html.keyboard-open .rest-timer-floating-card {
 .dropdown-search-input:focus {
   border-color: var(--primary-accent-light);
   background: rgba(var(--bg-app-rgb), 0.9);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.15);
 }
 
 .dropdown-presets-list {
@@ -3711,8 +3711,8 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   color: var(--tint-emerald);
   display: inline-flex;
   align-items: center;
@@ -3723,7 +3723,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .btn-form-guide-sm:hover {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(var(--accent-rgb), 0.2);
   border-color: var(--primary-accent-light);
   color: var(--text-main);
 }
@@ -3821,7 +3821,7 @@ html.keyboard-open .rest-timer-floating-card {
   width: 32px;
   height: 32px;
   border: 3px solid rgba(var(--fg-rgb), 0.08);
-  border-top-color: #10b981;
+  border-top-color: var(--primary-accent-light);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -3875,8 +3875,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .guide-tab-btn--active {
-  color: #10b981;
-  border-bottom-color: #10b981;
+  color: var(--primary-accent-light);
+  border-bottom-color: var(--primary-accent-light);
 }
 
 /* ── Tab content ─────────────────────────────────────────────────────────── */
@@ -3956,8 +3956,8 @@ html.keyboard-open .rest-timer-floating-card {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--primary-accent-light);
   font-size: 0.78rem;
   font-weight: 800;
   display: flex;
@@ -4078,7 +4078,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .ex-history-bar-fill {
   width: 100%;
-  background: linear-gradient(180deg, #10b981, #059669);
+  background: linear-gradient(180deg, var(--primary-accent-light), var(--primary-accent));
   border-radius: 4px 4px 0 0;
   transition: height 0.2s ease;
 }
@@ -4137,7 +4137,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-row-stats strong {
-  color: #10b981;
+  color: var(--primary-accent-light);
   font-weight: 700;
 }
 
@@ -4146,7 +4146,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-delta--up {
-  color: #10b981;
+  color: var(--primary-accent-light);
 }
 
 .ex-history-delta--down {
@@ -4230,10 +4230,10 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-status-card--success {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.07);
+  border-color: rgba(var(--accent-rgb), 0.35);
+  background: rgba(var(--accent-rgb), 0.07);
 }
-.ex-history-status-card--success .ex-history-status-label { color: #10b981; }
+.ex-history-status-card--success .ex-history-status-label { color: var(--primary-accent-light); }
 
 .ex-history-status-card--warning {
   border-color: rgba(234, 179, 8, 0.35);
@@ -4306,7 +4306,7 @@ html.keyboard-open .rest-timer-floating-card {
   font-size: 0.66rem;
   font-weight: 700;
   color: var(--primary-accent-light);
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   padding: 3px 8px;
   border-radius: 20px;
   flex-shrink: 0;
@@ -4547,8 +4547,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-level-tab.active.wt-level-tab--beginner {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--primary-accent-light);
 }
 
 .wt-level-tab.active.wt-level-tab--intermediate {
@@ -4621,7 +4621,7 @@ html.keyboard-open .rest-timer-floating-card {
   white-space: nowrap;
 }
 
-.wt-program-tile--beginner .wt-program-tile-accent { color: #059669; }
+.wt-program-tile--beginner .wt-program-tile-accent { color: var(--primary-accent); }
 .wt-program-tile--intermediate .wt-program-tile-accent { color: #d97706; }
 .wt-program-tile--advanced .wt-program-tile-accent { color: #dc2626; }
 
@@ -4655,7 +4655,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 50%;
 }
 
-.wt-program-dot--beginner { background: #10b981; }
+.wt-program-dot--beginner { background: var(--primary-accent-light); }
 .wt-program-dot--intermediate { background: #f59e0b; }
 .wt-program-dot--advanced { background: #ef4444; }
 
@@ -4713,9 +4713,9 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-blank-btn {
   padding: 12px 28px;
   border-radius: 12px;
-  border: 1px dashed rgba(16, 185, 129, 0.3);
-  background: rgba(16, 185, 129, 0.05);
-  color: rgba(16, 185, 129, 0.8);
+  border: 1px dashed rgba(var(--accent-rgb), 0.3);
+  background: rgba(var(--accent-rgb), 0.05);
+  color: rgba(var(--accent-rgb), 0.8);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -4724,9 +4724,9 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-blank-btn:hover {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: #10b981;
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--primary-accent-light);
 }
 
 /* ── Redesigned routine picker (Log Sets → Start Workout Session) ── */
@@ -4738,8 +4738,8 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 12px;
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px dashed rgba(16, 185, 129, 0.35);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px dashed rgba(var(--accent-rgb), 0.35);
   cursor: pointer;
   text-align: left;
   margin-bottom: 22px;
@@ -4747,8 +4747,8 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-start-empty-card:hover {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: rgba(var(--accent-rgb), 0.5);
 }
 
 .wt-start-empty-icon {
@@ -4756,8 +4756,8 @@ html.keyboard-open .rest-timer-floating-card {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.16);
-  color: var(--primary-accent-light, #10b981);
+  background: rgba(var(--accent-rgb), 0.16);
+  color: var(--primary-accent-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4774,7 +4774,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-start-empty-text strong {
-  color: var(--primary-accent-light, #10b981);
+  color: var(--primary-accent-light);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -4813,8 +4813,8 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-count-badge {
   font-size: 0.66rem;
   font-weight: 700;
-  color: var(--primary-accent-light, #10b981);
-  background: rgba(16, 185, 129, 0.12);
+  color: var(--primary-accent-light);
+  background: rgba(var(--accent-rgb), 0.12);
   border-radius: 20px;
   padding: 2px 9px;
 }
@@ -4822,7 +4822,7 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-view-all-btn {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--primary-accent-light, #10b981);
+  color: var(--primary-accent-light);
   background: none;
   border: none;
   cursor: pointer;
@@ -4971,7 +4971,7 @@ html.keyboard-open .rest-timer-floating-card {
   align-items: center;
   gap: 5px;
   padding: 7px 14px;
-  background: var(--primary-accent-light, #10b981);
+  background: var(--primary-accent-light);
   color: #06251b;
   font-weight: 700;
   font-size: 0.78rem;

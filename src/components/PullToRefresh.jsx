@@ -179,7 +179,7 @@ export default function PullToRefresh() {
           }}
         >
           <circle cx="12" cy="12" r="9" stroke="rgba(148,163,184,0.35)" strokeWidth="2.5" />
-          <path d="M12 3a9 9 0 0 1 9 9" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M12 3a9 9 0 0 1 9 9" stroke="var(--primary-accent-light)" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
       <style>{'@keyframes ptr-spin { to { transform: rotate(360deg); } }'}</style>

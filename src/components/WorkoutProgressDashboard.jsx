@@ -665,8 +665,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         
         <defs>
           <linearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#059669" />
+            <stop offset="0%" stopColor="var(--primary-accent-light)" />
+            <stop offset="100%" stopColor="var(--primary-accent)" />
           </linearGradient>
         </defs>
       </svg>
@@ -709,8 +709,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
       <svg viewBox={`0 0 ${width} ${height}`} className="monthly-chart-svg">
         <defs>
           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="var(--primary-accent-light)" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="var(--primary-accent-light)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
@@ -828,8 +828,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: coachStatusPending ? 'rgba(var(--fg-rgb), 0.03)' : (isLinkedToCoach ? 'rgba(16,185,129,0.12)' : 'rgba(var(--fg-rgb), 0.06)'),
-              border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
+              background: coachStatusPending ? 'rgba(var(--fg-rgb), 0.03)' : (isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)'),
+              border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(var(--accent-rgb), 0.3)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
               color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : '#fff'),
               borderRadius: '20px', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
               cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap'
@@ -989,7 +989,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           // show an honest waiting state instead of fake numbers.
           return (
             <div className="sessions-progress-card glass-panel animate-scale-in" style={{
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(var(--accent-rgb), 0.05))',
               border: '1px solid rgba(139, 92, 246, 0.25)',
               borderRadius: 0,
               padding: '24px',
@@ -1026,7 +1026,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         const estCompletionLabel = formatProgramDate(programEstCompletion);
         return (
           <div className="sessions-progress-card glass-panel animate-scale-in" style={{
-            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(16, 185, 129, 0.05))',
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(var(--accent-rgb), 0.05))',
             border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: 0,
             padding: '24px',
@@ -1105,7 +1105,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                 <defs>
                   <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="var(--primary-accent-light)" />
-                    <stop offset="100%" stopColor="#10b981" />
+                    <stop offset="100%" stopColor="var(--primary-accent-light)" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -1260,7 +1260,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                           onClick={() => { setSelectedDateStr(day); setTimeframe('daily'); }}
                           style={{
                             background: 'rgba(var(--shade-rgb), 0.15)',
-                            border: isToday(day) ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(var(--fg-rgb), 0.06)',
+                            border: isToday(day) ? '1px solid rgba(var(--accent-rgb), 0.4)' : '1px solid rgba(var(--fg-rgb), 0.06)',
                             borderRadius: 'var(--radius-md)',
                             padding: '12px',
                             cursor: 'pointer',
@@ -1274,7 +1274,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                               request 2026-08-14 (was date+name on top, stats on the
                               right of that same row). */}
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.74rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.74rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                               {session.sets} sets
                             </span>
                             <span style={{ fontSize: '0.74rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
@@ -1589,7 +1589,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                                 below it — reordered per request 2026-08-14, matching
                                 the Weekly tab's session cards (renderSessionCard). */}
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.68rem', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)', color: 'var(--primary-accent-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>
                                 {session.sets} sets
                               </span>
                               <span style={{ fontSize: '0.68rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--tint-blue)', padding: '2px 8px', borderRadius: '20px', fontWeight: 700 }}>

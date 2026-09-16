@@ -30,7 +30,7 @@
 
 .widget-card.highlight {
   background: linear-gradient(135deg, var(--bg-card) 0%, #101926 100%);
-  border: 1px solid rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
 }
 
 .widget-header {
@@ -124,10 +124,10 @@
 }
 
 .tab-btn.active {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   border-color: var(--primary-accent-light);
   color: var(--primary-accent-light);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.15);
 }
 
 /* SVG Chart details */
@@ -146,12 +146,12 @@
 }
 
 .chart-path {
-  filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(var(--accent-rgb), 0.3));
 }
 
 .badge-trend {
   font-size: 0.72rem;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   color: var(--primary-accent-light);
   padding: 4px 8px;
   border-radius: var(--radius-sm);

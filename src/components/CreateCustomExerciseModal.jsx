@@ -142,8 +142,8 @@ export default function CreateCustomExerciseModal({ open, onClose, initialName, 
                   onClick={() => toggleOtherMuscle(m)}
                   style={{
                     fontSize: '0.72rem', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', cursor: 'pointer',
-                    border: otherMuscles.includes(m) ? '1px solid rgba(16,185,129,0.5)' : '1px solid var(--border-color)',
-                    background: otherMuscles.includes(m) ? 'rgba(16,185,129,0.14)' : 'rgba(var(--fg-rgb), 0.03)',
+                    border: otherMuscles.includes(m) ? '1px solid rgba(var(--accent-rgb), 0.5)' : '1px solid var(--border-color)',
+                    background: otherMuscles.includes(m) ? 'rgba(var(--accent-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.03)',
                     color: otherMuscles.includes(m) ? 'var(--primary-accent-light)' : 'var(--text-muted)'
                   }}
                 >{m}</button>

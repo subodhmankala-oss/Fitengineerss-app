@@ -246,7 +246,7 @@ const ProgressDashboard = () => {
                   y1={padding} 
                   x2={getX(selectedDayIndex)} 
                   y2={padding + chartHeight} 
-                  stroke="rgba(16, 185, 129, 0.3)" 
+                  stroke="rgba(var(--accent-rgb), 0.3)" 
                   strokeWidth="1.5" 
                 />
 
@@ -255,7 +255,7 @@ const ProgressDashboard = () => {
                   cx={getX(selectedDayIndex)} 
                   cy={getY(selectedDayData.val)} 
                   r="6" 
-                  fill="#10b981" 
+                  fill="var(--primary-accent-light)" 
                   stroke="#090e17" 
                   strokeWidth="2" 
                 />

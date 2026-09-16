@@ -117,7 +117,7 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
               <div
                 key={`${muscle}-${i}`}
                 className="muscle-thumb-layer"
-                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || '#10b981', false) }}
+                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false) }}
               />
             ))
           )}
@@ -129,6 +129,6 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
 // Same Push/Pull/Legs/Core palette PlanCard uses for its muscle chips — kept
 // local (not imported from WorkoutTracker.jsx) to avoid a circular import;
 // this is a fixed design-system mapping, not client-specific state.
-const FULL_BODY_PPLC_COLOR = { Push: '#ef4444', Pull: '#3b82f6', Legs: '#10b981', Core: '#a855f7' };
+const FULL_BODY_PPLC_COLOR = { Push: '#ef4444', Pull: '#3b82f6', Legs: 'var(--primary-accent-light)', Core: '#a855f7' };
 
 export default MuscleThumbnail;

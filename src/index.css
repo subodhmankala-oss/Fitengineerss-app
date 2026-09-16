@@ -22,6 +22,10 @@
   --primary-accent: #059669; /* Rich Emerald */
   --primary-accent-light: #10b981;
   --primary-accent-glow: rgba(16, 185, 129, 0.2);
+  --accent-rgb: 16, 185, 129;
+  --accent-soft: #34d399;
+  --accent-soft-rgb: 52, 211, 153;
+  --accent-deep: #047857;
   
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
@@ -84,9 +88,15 @@
   --bg-card-active-rgb: 232, 237, 243;
   --shade-rgb: 148, 163, 184;
 
-  --primary-accent: #059669;
-  --primary-accent-light: #059669;
-  --primary-accent-glow: rgba(5, 150, 105, 0.14);
+  /* Light accent is the brand blue from the logo (#4364bd) rather than the
+     dark palette's emerald. */
+  --primary-accent: #3a5ab3;
+  --primary-accent-light: #4364bd;
+  --primary-accent-glow: rgba(67, 100, 189, 0.16);
+  --accent-rgb: 67, 100, 189;
+  --accent-soft: #4364bd;
+  --accent-soft-rgb: 67, 100, 189;
+  --accent-deep: #2f4a99;
 
   --text-main: #0f172a;
   --text-muted: #475569;
@@ -94,12 +104,12 @@
 
   --border-color: #e2e8f0;
   --border-strong: #cbd5e1;
-  --border-focus: #059669;
+  --border-focus: #4364bd;
 
   --danger: #dc2626;
   --warning: #d97706;
 
-  --tint-emerald: #047857;
+  --tint-emerald: #2f4a99;
   --tint-blue: #1d4ed8;
   --tint-red: #b91c1c;
   --tint-amber: #b45309;

@@ -178,8 +178,8 @@
 }
 
 .ai-option-chip.active {
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(var(--accent-rgb), 0.14);
+  border-color: rgba(var(--accent-rgb), 0.5);
   color: var(--primary-accent-light);
 }
 
@@ -215,7 +215,7 @@
 .ai-builder-generate-btn {
   flex: 2;
   padding: 11px;
-  background: var(--primary-accent-light, #10b981);
+  background: var(--primary-accent-light);
   border: none;
   border-radius: var(--radius-sm);
   color: #06251b;

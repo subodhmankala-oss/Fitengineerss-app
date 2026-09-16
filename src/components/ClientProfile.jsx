@@ -534,7 +534,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
             </div>
           ) : previousEntry ? (
             <div style={{
-              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.25)',
               borderRadius: '12px', padding: '12px 14px', marginBottom: '14px'
             }}>
               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--primary-accent-light)' }}>
@@ -640,7 +640,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                 <span className="cp-row-label">{label}</span>
                 <span className="cp-row-right">
                   {weightUnit === val && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent-light)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   )}
@@ -689,7 +689,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
                 <span className="cp-row-label">{label}</span>
                 <span className="cp-row-right">
                   {themePreference === val && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent-light)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   )}

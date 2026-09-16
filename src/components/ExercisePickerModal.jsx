@@ -218,8 +218,8 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
             <div
               className="exercise-preset-item custom-exercise-add-row"
               style={{
-                border: '1px dashed rgba(16, 185, 129, 0.4)',
-                background: 'rgba(16, 185, 129, 0.03)',
+                border: '1px dashed rgba(var(--accent-rgb), 0.4)',
+                background: 'rgba(var(--accent-rgb), 0.03)',
                 marginBottom: '8px',
                 borderRadius: 'var(--radius-sm)',
                 padding: '10px 12px'

@@ -10,8 +10,8 @@
   align-items: flex-start;
   gap: 10px;
   padding: 12px 12px 12px 14px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
   border-radius: 12px;
   animation: cnb-slide-in 0.25s ease;
 }
@@ -57,7 +57,7 @@
   border-radius: 50%;
   background: rgba(var(--fg-rgb), 0.06);
   border: 1px solid var(--border-color, rgba(var(--fg-rgb), 0.1));
-  color: var(--text-muted, var(--text-muted));
+  color: var(--text-muted);
   font-size: 0.8rem;
   line-height: 1;
   cursor: pointer;
@@ -92,13 +92,13 @@
 }
 
 .cnb-reply-input::placeholder {
-  color: var(--text-muted, var(--text-muted));
+  color: var(--text-muted);
 }
 
 .cnb-reply-send {
   flex-shrink: 0;
   padding: 7px 14px;
-  background: var(--primary-accent-light, #34d399);
+  background: var(--primary-accent-light, var(--accent-soft));
   border: none;
   border-radius: 8px;
   color: #06281f;
@@ -116,6 +116,6 @@
   margin-top: 8px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-muted, var(--text-muted));
+  color: var(--text-muted);
   font-style: italic;
 }

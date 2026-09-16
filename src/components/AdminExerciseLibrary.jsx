@@ -439,10 +439,15 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
       {/* Add/Edit Modal */}
       {showModal && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          // Sized to the visible viewport (--app-vh, main.jsx) rather than
+          // bottom:0 / 90vh: those track the layout viewport, which iOS does
+          // NOT shrink when the on-screen keyboard opens, so a focused field
+          // in the lower half of this modal ended up underneath the keyboard.
+          position: 'fixed', top: 0, left: 0, right: 0,
+          height: 'calc(var(--app-vh, 1vh) * 100)',
           background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000, padding: '16px'
+          zIndex: 1000, padding: '16px', boxSizing: 'border-box'
         }}>
           <div className="glass-panel animate-scale-in" style={{
             background: 'var(--bg-modal, #1e293b)',
@@ -450,8 +455,9 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
             borderRadius: '16px',
             width: '100%',
             maxWidth: '410px',
-            maxHeight: '90vh',
+            maxHeight: '100%',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             padding: '20px',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
           }}>

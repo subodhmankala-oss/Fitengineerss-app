@@ -108,11 +108,11 @@ async function handleCoachClients(req, res) {
 
     let rows;
     try {
-      rows = await readRoster('*,users!clients_user_id_fkey(email,last_login)');
+      rows = await readRoster('*,users!clients_user_id_fkey(email,avatar_url,last_login)');
     } catch (firstErr) {
       console.error('get-coach-clients read failed, retrying without last_login:', firstErr.status, firstErr.detail);
       try {
-        rows = await readRoster('*,users!clients_user_id_fkey(email)');
+        rows = await readRoster('*,users!clients_user_id_fkey(email,avatar_url)');
       } catch (secondErr) {
         console.error('get-coach-clients read failed:', secondErr.status, secondErr.detail);
         return res.status(502).json({ error: 'Failed to read client roster.' });
@@ -628,10 +628,10 @@ async function handleAdminClients(req, res) {
     // Same last_login-might-not-be-migrated retry as the browser-side read.
     let clients;
     try {
-      clients = await svcSelect('clients?select=*,users!clients_user_id_fkey(email,last_login,role)', 'admin-clients');
+      clients = await svcSelect('clients?select=*,users!clients_user_id_fkey(email,avatar_url,last_login,role)', 'admin-clients');
     } catch (e) {
       console.error('admin-clients retrying without last_login:', e.detail);
-      clients = await svcSelect('clients?select=*,users!clients_user_id_fkey(email,role)', 'admin-clients');
+      clients = await svcSelect('clients?select=*,users!clients_user_id_fkey(email,avatar_url,role)', 'admin-clients');
     }
     return res.status(200).json({ clients });
   } catch (err) {

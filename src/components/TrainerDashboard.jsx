@@ -672,6 +672,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // fetched together — see getCoachReminderAssets.
   const [coachReminderAssets, setCoachReminderAssets] = useState(null);
   const [sendingReminderId, setSendingReminderId] = useState(null);
+  // "Send payment request" to someone outside the app — see
+  // handleSendExternalPaymentRequest. Collapsed behind a toggle by default.
+  const [externalRequest, setExternalRequest] = useState({ name: '', amount: '' });
+  const [externalRequestOpen, setExternalRequestOpen] = useState(false);
+  const [sendingExternalRequest, setSendingExternalRequest] = useState(false);
 
   // Pausing a client (2026-09-06: "what if after a month clients dont want
   // to continue" — until now, a client who stopped renewing just aged
@@ -809,6 +814,137 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     return digits.length === 10 ? `91${digits}` : digits;
   };
 
+  // Shared sender for every branded WhatsApp message the coach fires from
+  // Client Payments (renewal reminders below, and the "outside the app"
+  // payment request). Resolves the coach's logo/QR, builds ONE image, and
+  // hands off to WhatsApp:
+  //
+  //   1. Prefers the native share sheet (text + image together, one action).
+  //   2. Otherwise downloads the image locally (desktop browsers, mostly)
+  //      so the coach can attach it by hand, then…
+  //   3. …opens whatsapp://send with the text, targeted at `phone` when we
+  //      have one so it lands straight in that chat instead of a contact
+  //      picker. Same direct-to-app scheme as shareMuscleMapWithClient (see
+  //      its comment for why not wa.me / a synthetic <a> click).
+  //
+  // buildMessage({ payLine, qrUrl, canShareFiles }) returns the body text;
+  // the brand sign-off is appended here so every caller gets it. beforeSend
+  // (optional) runs with the final text before any share attempt — for
+  // side effects like a push notification that must fire regardless of
+  // which of the three paths above ends up being taken.
+  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, buildMessage, beforeSend, verb = 'pay' }) => {
+    let assets = coachReminderAssets;
+    if (assets === null) {
+      assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
+      setCoachReminderAssets(assets);
+    }
+    // Signed off with the coach's own name + brand (2026-09-11: "nothing
+    // related to brand over here... no sign off fitengineerss") — same
+    // localStorage fields Business Profile already saves (CoachProfile.jsx)
+    // and the same "Hi! I'm {name} from {brand}" convention the invite-code
+    // WhatsApp share further down already uses, just as a closing line
+    // instead of an opener so it doesn't get in the way of the greeting.
+    const coachDisplayName = (localStorage.getItem('userName') || '').trim();
+    const coachBrand = (localStorage.getItem('userBrand') || 'Fitengineers').trim();
+    const signOff = coachDisplayName ? `${coachDisplayName} · ${coachBrand}` : coachBrand;
+
+    // Falls back to the app's own bundled Fitengineers logo (public/logo.png
+    // — same file already used as the push-notification icon) when the
+    // coach hasn't uploaded a custom one, so every message carries SOME
+    // brand image without requiring that upload step first (2026-09-11:
+    // "No need to upload separated fitengineerss logo everytime"). Caption
+    // is "Fitengineers" for that default logo, or the coach's own brand
+    // name when they've uploaded a custom one.
+    const usingCustomLogo = !!assets?.logoUrl;
+    const logoUrl = assets?.logoUrl || '/logo.png';
+    const logoCaption = usingCustomLogo ? coachBrand : 'Fitengineers';
+    const qrUrl = withQr ? (assets?.qrUrl || '') : '';
+
+    // Exactly ONE image file, never two (2026-09-11: "QR is completely
+    // coming separate. Which is off the beat" — WhatsApp posts each shared
+    // file as its own bubble, so logo + QR as separate files always read
+    // as two unrelated messages). The QR variant gets one combined
+    // logo-caption-QR card (buildBrandQrCardFile); the no-QR variant gets
+    // just the logo card.
+    let mediaFile = null;
+    if (qrUrl) {
+      try { mediaFile = await buildBrandQrCardFile(logoUrl, logoCaption, qrUrl); }
+      catch { /* combined card failed (e.g. unreadable QR) — fall back to the QR alone so payment is still the priority */
+        try { mediaFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* give up on an image entirely */ }
+      }
+    } else if (logoUrl) {
+      try { mediaFile = await buildLogoCardFile(logoUrl, logoCaption); } catch { /* skip a corrupt/unreadable logo */ }
+    }
+    const shareFiles = mediaFile ? [mediaFile] : [];
+    const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
+
+    const payLine = qrUrl
+      ? (canShareFiles ? `you can ${verb} using the QR code here` : `you can ${verb} whenever works for you`)
+      : `no rush at all, just ${verb} whenever it suits you`;
+    const message = buildMessage({ payLine, qrUrl, canShareFiles }) + `\n\n— ${signOff}`;
+    beforeSend?.(message);
+
+    if (canShareFiles) {
+      try {
+        await navigator.share({ text: message, files: shareFiles });
+        return;
+      } catch (e) {
+        if (e?.name === 'AbortError') return; // coach cancelled the share sheet
+        // Any other failure falls through to the text-only path below.
+      }
+    }
+
+    // Couldn't share as a file (desktop browser, mostly, or nothing to
+    // send) — download the one combined image locally (the composited
+    // card, not a raw source) so the coach can still attach it by hand in
+    // the same WhatsApp chat the line below opens.
+    if (!canShareFiles && mediaFile) {
+      const url = URL.createObjectURL(mediaFile);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
+      link.click();
+      URL.revokeObjectURL(url);
+      triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
+    }
+
+    const waNumber = toWhatsappNumber(phone);
+    const qs = new URLSearchParams({ text: message });
+    if (waNumber) qs.set('phone', waNumber);
+    window.location.href = `whatsapp://send?${qs.toString()}`;
+  };
+
+  // Payment request to someone who ISN'T a client in the app (2026-09-17:
+  // "if any client is there out of the app.. Need to send the payment link
+  // via app") — a coach can still take on people who never signed up, and
+  // this lets them send the same branded logo + QR card to any name/number
+  // they type in. Purely a WhatsApp send: no client row, no payment ledger
+  // entry, no push (there's no app account to push to). Wording is a plain
+  // request rather than a "renewal" nudge, since there's no payment history
+  // to refer to; the optional amount goes in when given so the recipient
+  // knows what to pay without asking. No phone number is taken: the
+  // recipient is chosen in WhatsApp's own picker (see the form's comment
+  // for why), so `phone` is deliberately left off the call below.
+  const handleSendExternalPaymentRequest = async (e) => {
+    e?.preventDefault?.();
+    const name = externalRequest.name.trim();
+    const amount = Number(externalRequest.amount);
+    if (!name) return;
+    setSendingExternalRequest(true);
+    try {
+      const firstName = name.split(/\s+/)[0];
+      const amountLine = amount > 0 ? ` for ₹${amount.toLocaleString('en-IN')}` : '';
+      await sendBrandedWhatsapp({
+        firstName,
+        withQr: true,
+        buildMessage: ({ payLine }) =>
+          `Hi ${firstName}! Hope you're doing well 🙂 Sharing the payment details${amountLine} for your training — ${payLine}. Let me know if you have any questions, happy to help! 🙌`
+      });
+    } finally {
+      setSendingExternalRequest(false);
+    }
+  };
+
   // Renewal reminder — a subtle, kind nudge rather than a collections
   // message (2026-09-11: "Very shutle and kind way"). Two variants, both
   // reachable from the same renewal row's ⋮ menu:
@@ -830,109 +966,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   //   who'd rather just nudge without pushing a payment ask front and
   //   center, but still wants the message to read as coming from their
   //   business rather than a bare text.
+  //
+  // The actual sending (brand media + share sheet / download fallback /
+  // whatsapp:// hand-off) lives in sendBrandedWhatsapp below, shared with
+  // handleSendExternalPaymentRequest — the same flow pointed at someone who
+  // isn't a client in the app at all.
   const handleSendRenewalReminder = async (r, { withQr }) => {
     setRenewalMenuOpenId(null);
     setSendingReminderId(r.clientId);
     try {
       const firstName = (r.clientName || 'there').trim().split(/\s+/)[0];
       const overdue = r.daysOverdue > 0;
-
-      let assets = coachReminderAssets;
-      if (assets === null) {
-        assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
-        setCoachReminderAssets(assets);
-      }
-      // Signed off with the coach's own name + brand (2026-09-11: "nothing
-      // related to brand over here... no sign off fitengineerss") — same
-      // localStorage fields Business Profile already saves (CoachProfile.jsx)
-      // and the same "Hi! I'm {name} from {brand}" convention the invite-code
-      // WhatsApp share further down already uses, just as a closing line
-      // instead of an opener so it doesn't get in the way of the greeting.
-      // Computed up front (not just for signOff below) since the logo card's
-      // caption uses coachBrand too.
-      const coachDisplayName = (localStorage.getItem('userName') || '').trim();
-      const coachBrand = (localStorage.getItem('userBrand') || 'Fitengineers').trim();
-      const signOff = coachDisplayName ? `${coachDisplayName} · ${coachBrand}` : coachBrand;
-
-      // Falls back to the app's own bundled Fitengineers logo (public/logo.png
-      // — same file already used as the push-notification icon) when the
-      // coach hasn't uploaded a custom one, so every reminder carries SOME
-      // brand image without requiring that upload step first (2026-09-11:
-      // "No need to upload separated fitengineerss logo everytime"). Caption
-      // is "Fitengineers" for that default logo, or the coach's own brand
-      // name when they've uploaded a custom one.
-      const usingCustomLogo = !!assets?.logoUrl;
-      const logoUrl = assets?.logoUrl || '/logo.png';
-      const logoCaption = usingCustomLogo ? coachBrand : 'Fitengineers';
-      const qrUrl = withQr ? (assets?.qrUrl || '') : '';
-
-      // Exactly ONE image file, never two (2026-09-11: "QR is completely
-      // coming separate. Which is off the beat" — WhatsApp posts each shared
-      // file as its own bubble, so logo + QR as separate files always read
-      // as two unrelated messages). The QR variant gets one combined
-      // logo-caption-QR card (buildBrandQrCardFile); the no-QR variant gets
-      // just the logo card.
-      let mediaFile = null;
-      if (qrUrl) {
-        try { mediaFile = await buildBrandQrCardFile(logoUrl, logoCaption, qrUrl); }
-        catch { /* combined card failed (e.g. unreadable QR) — fall back to the QR alone so payment is still the priority */
-          try { mediaFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* give up on an image entirely */ }
-        }
-      } else if (logoUrl) {
-        try { mediaFile = await buildLogoCardFile(logoUrl, logoCaption); } catch { /* skip a corrupt/unreadable logo */ }
-      }
-      const shareFiles = mediaFile ? [mediaFile] : [];
-      const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
-
-      const payLine = qrUrl
-        ? (canShareFiles ? 'you can renew using the QR code here' : 'you can renew whenever works for you')
-        : 'no rush at all, just renew whenever it suits you';
-      const message = (overdue
-        ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
-        : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`
-      ) + `\n\n— ${signOff}`;
-
-      if (canShareFiles) {
-        try {
-          await navigator.share({ text: message, files: shareFiles });
-          return;
-        } catch (e) {
-          if (e?.name === 'AbortError') return; // coach cancelled the share sheet
-          // Any other failure falls through to the text-only path below.
-        }
-      }
-
-      // Couldn't share as a file (desktop browser, mostly, or nothing to
-      // send) — download the one combined image locally (the composited
-      // card, not a raw source) so the coach can still attach it by hand in
-      // the same WhatsApp chat the line below opens.
-      if (!canShareFiles && mediaFile) {
-        const url = URL.createObjectURL(mediaFile);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
-        link.click();
-        URL.revokeObjectURL(url);
-        triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
-      }
-
-      // The gentle (no-QR) variant also pushes a notification straight to
-      // the client's phone — same wording as the WhatsApp text, via the
-      // 'renewal_reminder' event (api/push.js), so a client who misses the
-      // WhatsApp still sees the nudge in-app. Fire-and-forget: notifyEvent
-      // never throws, so this can't break the WhatsApp hand-off below.
-      if (!withQr) {
-        notifyEvent('renewal_reminder', { clientUserId: r.clientId, message });
-      }
-
-      // Same whatsapp:// direct-to-app hand-off as shareMuscleMapWithClient
-      // below (see its comment for why not wa.me/a synthetic <a> click).
-      // Targets the client's own number when we have one, so this opens
-      // straight into their chat instead of a contact picker.
-      const waNumber = toWhatsappNumber(r.clientPhone);
-      const qs = new URLSearchParams({ text: message });
-      if (waNumber) qs.set('phone', waNumber);
-      window.location.href = `whatsapp://send?${qs.toString()}`;
+      await sendBrandedWhatsapp({
+        firstName,
+        phone: r.clientPhone,
+        withQr,
+        verb: 'renew',
+        buildMessage: ({ payLine }) => overdue
+          ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
+          : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`,
+        // The gentle (no-QR) variant also pushes a notification straight to
+        // the client's phone — same wording as the WhatsApp text, via the
+        // 'renewal_reminder' event (api/push.js), so a client who misses the
+        // WhatsApp still sees the nudge in-app. Fire-and-forget: notifyEvent
+        // never throws, so this can't break the WhatsApp hand-off.
+        // BUG FIX 2026-09-17: this used to sit AFTER the navigator.share()
+        // early-return, so on any phone where the share sheet worked (i.e.
+        // the normal case) the push never fired at all. Now it runs before
+        // any share attempt.
+        beforeSend: (message) => { if (!withQr) notifyEvent('renewal_reminder', { clientUserId: r.clientId, message }); }
+      });
     } finally {
       setSendingReminderId(null);
     }
@@ -4584,6 +4647,89 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               })}
             </div>
           )}
+
+          {/* Payment request to someone outside the app (2026-09-17: "if any
+              client is there out of the app.. Need to send the payment link
+              via app") — see handleSendExternalPaymentRequest. Collapsed by
+              default, same treatment as the paused-clients toggle above: it's
+              the occasional case, and shouldn't compete with the renewal rows
+              that ARE the everyday reason a coach opens this screen. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setExternalRequestOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)',
+                borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+              }}
+            >
+              <span style={{ color: '#25D366', fontSize: '0.8rem', fontWeight: 700 }}>
+                💬 Send payment QR to someone outside the app
+              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {externalRequestOpen && (
+              <form
+                onSubmit={handleSendExternalPaymentRequest}
+                style={{
+                  display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center',
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
+                  borderRadius: '12px', padding: '12px 14px'
+                }}
+              >
+                {/* No phone field (2026-09-17: "what is point of name phone
+                    number and amount when nothing is going on") — the share
+                    sheet that sends image + text in one tap can't target a
+                    number; WhatsApp shows its own contact picker instead, so
+                    a typed number was dead weight on the device this is
+                    actually used on. Name and amount both land in the note.
+                    Inputs use the same theme tokens as the log-payment form
+                    below (hard-coded #fff text was invisible on the light
+                    theme). */}
+                <div style={{ width: '100%', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  For someone who hasn't signed up in the app — opens WhatsApp with your logo + payment QR and a friendly note. WhatsApp will ask you to pick the contact.
+                </div>
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={externalRequest.name}
+                  onChange={(e) => setExternalRequest(r => ({ ...r, name: e.target.value }))}
+                  required
+                  style={{
+                    flex: '1 1 140px', minWidth: 0, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', padding: '9px 10px', color: 'var(--text-main)', fontSize: '0.85rem', font: 'inherit'
+                  }}
+                />
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="₹ Amount (optional)"
+                  value={externalRequest.amount}
+                  onChange={(e) => setExternalRequest(r => ({ ...r, amount: e.target.value }))}
+                  style={{
+                    flex: '1 1 130px', minWidth: 0, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', padding: '9px 10px', color: 'var(--text-main)', fontSize: '0.85rem', font: 'inherit'
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={sendingExternalRequest || !externalRequest.name.trim()}
+                  style={{
+                    flex: '0 0 auto', background: '#25D366', border: 'none', borderRadius: '8px', color: '#fff',
+                    padding: '9px 16px', fontSize: '0.85rem', fontWeight: 800, font: 'inherit',
+                    cursor: sendingExternalRequest ? 'default' : 'pointer',
+                    opacity: (sendingExternalRequest || !externalRequest.name.trim()) ? 0.6 : 1
+                  }}
+                >
+                  {sendingExternalRequest ? 'Opening WhatsApp…' : 'Send via WhatsApp'}
+                </button>
+              </form>
+            )}
+          </div>
 
           {/* One-step logging row: client + amount + method pill + date, all
               on one row, defaulted to today — no separate modal/wizard (coach

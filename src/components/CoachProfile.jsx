@@ -130,7 +130,12 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     return () => { cancelled = true; };
   }, [userEmail]);
 
-  const handleField = (key, val) => setForm(f => ({ ...f, [key]: val }));
+  // Any edit clears the last save's status — "✓ Saved" now means "what's on
+  // screen is what's in the DB", and stays until that stops being true.
+  const handleField = (key, val) => {
+    setSaveMsg('');
+    setForm(f => ({ ...f, [key]: val }));
+  };
 
   // Shared image-upload path for both Payment QR (2026-09-11: "send them
   // reminder... along with payment QR code") and Business Logo (2026-09-11
@@ -171,6 +176,13 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
   const handleQrFile = (file) => handleImageUpload('paymentQrUrl', file, setQrError);
   const handleLogoFile = (file) => handleImageUpload('logoUrl', file, setLogoError);
 
+  // BUG FIX 2026-09-17: "The banner doesnt say its saved" — the '✓ Saved'
+  // state (and the failure message) used to self-clear after 2.5s, so a
+  // coach who glanced away for a moment saw a plain "Save" button again and
+  // had no way to tell whether it had gone through. Now both persist until
+  // the coach edits something (handleField clears them) or saves again; a
+  // status line under the header repeats it in words so it isn't only the
+  // button label that changes.
   const saveProfile = async () => {
     setSaving(true);
     setSaveMsg('');
@@ -181,7 +193,6 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       setSaveMsg('error');
     } finally {
       setSaving(false);
-      setTimeout(() => setSaveMsg(''), 2500);
     }
   };
 
@@ -207,6 +218,25 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
             </button>
           </div>
           <div className="cp-form-scroll">
+            {saveMsg === 'saved' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+                color: '#10b981', fontSize: '0.85rem', fontWeight: 700
+              }}>
+                ✓ Profile saved — logo and QR will go out with your renewal reminders.
+              </div>
+            )}
+            {saveMsg === 'error' && (
+              <div style={{
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+                color: '#f87171', fontSize: '0.85rem', fontWeight: 700
+              }}>
+                ✕ Couldn't save. Check your connection and tap Save again.
+              </div>
+            )}
             <div className="cp-form-section-label">Personal Info</div>
             <div className="cp-form-card">
               <div className="cp-field">
@@ -330,7 +360,6 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 {qrError && <p className="cp-save-error" style={{ margin: 0 }}>{qrError}</p>}
               </div>
             </div>
-            {saveMsg === 'error' && <p className="cp-save-error">Failed to save. Check your connection and try again.</p>}
           </div>
         </div>
       </Overlay>

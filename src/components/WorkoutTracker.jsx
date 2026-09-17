@@ -1291,34 +1291,42 @@ const WorkoutTracker = () => {
     ].filter(Boolean).join(':');
   };
 
-  const getPreviousSessionSet = (exName, setIdx) => {
+  // Raw lookup shared by getPreviousSessionSet (display) and
+  // handleStartFromTemplate (pre-fill) — walks the client's history newest
+  // first and returns the actual logged set for this exercise/set index, or
+  // null when nothing's ever been logged for it.
+  const findPreviousLoggedSet = (exName, setIdx) => {
     const clientHistory = sessions
       .filter(s => s.clientName.toLowerCase() === selectedClient.toLowerCase())
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (clientHistory.length > 0) {
-      for (const session of clientHistory) {
-        const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
-        if (exercise && exercise.sets && exercise.sets[setIdx]) {
-          const set = exercise.sets[setIdx];
-          if (isCardioExercise(exName)) {
-            if (!set.distanceKm) return '—';
-            return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
-          }
-          if (isTimedExercise(exName)) {
-            return set.time || '—';
-          }
-          // Bodyweight exercises log weight: 0 when no plate/vest was added —
-          // show "BW" like the live logger's own column does, instead of the
-          // raw "0kg" which reads as a logging error.
-          const weightLabel = isBodyweightExercise(exName) && !(Number(set.weight) > 0)
-            ? 'BW'
-            : `${set.weight}${getExerciseUnit(exName)}`;
-          return `${weightLabel} x ${set.reps}`;
-        }
+    for (const session of clientHistory) {
+      const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
+      if (exercise && exercise.sets && exercise.sets[setIdx]) {
+        return exercise.sets[setIdx];
       }
     }
-    return '—';
+    return null;
+  };
+
+  const getPreviousSessionSet = (exName, setIdx) => {
+    const set = findPreviousLoggedSet(exName, setIdx);
+    if (!set) return '—';
+
+    if (isCardioExercise(exName)) {
+      if (!set.distanceKm) return '—';
+      return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
+    }
+    if (isTimedExercise(exName)) {
+      return set.time || '—';
+    }
+    // Bodyweight exercises log weight: 0 when no plate/vest was added —
+    // show "BW" like the live logger's own column does, instead of the
+    // raw "0kg" which reads as a logging error.
+    const weightLabel = isBodyweightExercise(exName) && !(Number(set.weight) > 0)
+      ? 'BW'
+      : `${set.weight}${getExerciseUnit(exName)}`;
+    return `${weightLabel} x ${set.reps}`;
   };
 
   // Shared by every action that represents "the client has started doing
@@ -2522,17 +2530,28 @@ const WorkoutTracker = () => {
   // passed when starting from the difficulty-leveled Workout Library — see
   // loggingLevel above.
   const handleStartFromTemplate = (template, level = null) => {
-    const exercises = template.exercises.map(ex => ({
-      name: ex.name,
-      sets: Array.from({ length: ex.sets || 3 }, () => ({
-        reps: parseInt(String(ex.reps).split('–')[0]) || 10,
-        weight: '0',
-        isCompleted: false,
-        // Kept so the reps input can show the plan's target range as a
-        // placeholder hint once the lifter clears the pre-filled number.
-        targetReps: ex.reps ? String(ex.reps) : null
-      }))
-    }));
+    const exercises = template.exercises.map(ex => {
+      const targetReps = parseInt(String(ex.reps).split('–')[0]) || 10;
+      return {
+        name: ex.name,
+        // Pre-fill each set with what the client actually lifted last time
+        // instead of a flat 0 — set 1 gets set 1's last weight/reps, set 3
+        // gets set 3's, etc., so PREV and the editable fields agree instead
+        // of looking unrelated. Falls back to the template's target reps
+        // and 0 weight when nothing's been logged for that set before.
+        sets: Array.from({ length: ex.sets || 3 }, (_, setIdx) => {
+          const prevSet = findPreviousLoggedSet(ex.name, setIdx);
+          return {
+            reps: prevSet?.reps || targetReps,
+            weight: prevSet?.weight || '0',
+            isCompleted: false,
+            // Kept so the reps input can show the plan's target range as a
+            // placeholder hint once the lifter clears the pre-filled number.
+            targetReps: ex.reps ? String(ex.reps) : null
+          };
+        })
+      };
+    });
     setLogExercises(exercises);
     setSetTimers({});
     setTemplateName(template.name);

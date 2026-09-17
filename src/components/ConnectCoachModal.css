@@ -103,7 +103,7 @@
 .ccm-label {
   font-size: 0.78rem;
   font-weight: 700;
-  color: rgba(203, 213, 225, 0.85);
+  color: rgba(var(--fg-rgb), 0.85);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }

@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+  /* Tells the browser which native chrome to draw — on-screen keyboard,
+     date/select pickers, scrollbars. Without it, mobile browsers follow the
+     OS setting, so a phone in dark mode showed a black keyboard inside the
+     light theme. Overridden per theme below. */
+  color-scheme: dark;
+
   /* Premium Dark Palette */
   --bg-app: #090e17; /* Very dark slate, almost black */
   --bg-card: #151d2c;
@@ -79,6 +85,8 @@
    workout card and the tour overlays deliberately stay dark in both themes
    (photo backgrounds / dark scrims / exported images). */
 [data-theme="light"] {
+  color-scheme: light;
+
   --bg-app: #f4f6fa;
   --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9;

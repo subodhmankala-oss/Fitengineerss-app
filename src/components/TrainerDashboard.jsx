@@ -4467,7 +4467,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         onClick={() => setRenewalMenuOpenId(id => id === r.clientId ? null : r.clientId)}
                         style={{
                           background: 'rgba(var(--fg-rgb), 0.06)', border: 'none', borderRadius: '8px',
-                          color: 'rgba(226,232,240,0.75)', width: '30px', height: '30px', fontSize: '1rem',
+                          color: 'rgba(var(--fg-rgb), 0.75)', width: '30px', height: '30px', fontSize: '1rem',
                           fontWeight: 800, cursor: pausingClientId === r.clientId ? 'default' : 'pointer',
                           opacity: pausingClientId === r.clientId ? 0.6 : 1
                         }}
@@ -4643,7 +4643,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   style={{
                     flex: 1, padding: '9px 6px', borderRadius: '8px', border: 'none',
                     background: paymentFormMethod === m.id ? 'rgba(var(--accent-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
-                    color: paymentFormMethod === m.id ? 'var(--accent-text)' : 'rgba(226,232,240,0.75)',
+                    color: paymentFormMethod === m.id ? 'var(--accent-text)' : 'rgba(var(--fg-rgb), 0.75)',
                     fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
                   }}
                 >
@@ -4952,7 +4952,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           style={{
                             flex: 1, padding: '7px 4px', borderRadius: '7px', border: 'none',
                             background: editPaymentMethod === m.id ? 'rgba(var(--accent-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
-                            color: editPaymentMethod === m.id ? 'var(--accent-text)' : 'rgba(226,232,240,0.75)',
+                            color: editPaymentMethod === m.id ? 'var(--accent-text)' : 'rgba(var(--fg-rgb), 0.75)',
                             fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
                           }}
                         >
@@ -4986,7 +4986,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       onClick={cancelEditingPayment}
                       style={{
                         background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)', borderRadius: '7px',
-                        color: 'rgba(226,232,240,0.75)', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+                        color: 'rgba(var(--fg-rgb), 0.75)', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
                       }}
                     >
                       Cancel
@@ -5016,7 +5016,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         onClick={() => startEditingPayment(p)}
                         title="Edit payment"
                         aria-label="Edit payment"
-                        style={{ background: 'none', border: 'none', color: 'rgba(226,232,240,0.55)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
+                        style={{ background: 'none', border: 'none', color: 'rgba(var(--fg-rgb), 0.55)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
                       >
                         ✎
                       </button>

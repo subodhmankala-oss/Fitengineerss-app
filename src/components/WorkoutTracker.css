@@ -4507,7 +4507,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-category-btn:hover:not(.active) {
-  color: rgba(248, 250, 255, 0.7);
+  color: rgba(var(--fg-rgb), 0.7);
   background: rgba(var(--fg-rgb), 0.04);
 }
 
@@ -4541,7 +4541,7 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-level-tab:hover:not(.active) {
-  color: rgba(248, 250, 255, 0.7);
+  color: rgba(var(--fg-rgb), 0.7);
   background: rgba(var(--fg-rgb), 0.04);
 }
 

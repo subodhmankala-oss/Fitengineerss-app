@@ -4917,13 +4917,9 @@ const databaseService = {
         // platform. Deriving both from one filtered query means they can't
         // disagree again. See getAllUsers' matching comment for the full
         // story (confirmed 2026-08-12).
-        const clients = await restSelect(`clients?select=id,paused_at,users!clients_user_id_fkey(role)`);
+        const clients = await restSelect(`clients?select=id,users!clients_user_id_fkey(role)`);
         if (clients) {
-          // Excludes paused clients (2026-09-17: "Pause subscription" hid a
-          // client from the renewal list but this count still included them
-          // — a coach pausing a client saw "Total Clients" stay put, which
-          // read as the pause not having worked).
-          totalActiveClients = clients.filter((c) => (!c.users?.role || c.users.role === 'client') && !c.paused_at).length;
+          totalActiveClients = clients.filter((c) => !c.users?.role || c.users.role === 'client').length;
         }
 
         const startOfWeek = new Date();

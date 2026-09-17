@@ -877,6 +877,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     return digits.length === 10 ? `91${digits}` : digits;
   };
 
+  // whatsapp://send only has anything listening on it when an actual
+  // WhatsApp app is installed and registered for the scheme — true on
+  // phones, essentially never true on desktop Windows/Mac (2026-09-17: a
+  // desktop coach hit "Save As" for the downloaded image and then simply
+  // nothing, since the whatsapp:// navigation had nowhere to go). Desktop
+  // gets web.whatsapp.com instead — same wa.me-style pattern the invite-code
+  // WhatsApp share elsewhere in this file already uses.
+  const isMobileDevice = () => typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
   // Shared sender for every branded WhatsApp message the coach fires from
   // Client Payments (renewal reminders below, and the "outside the app"
   // payment request). Resolves the coach's logo/QR, builds ONE image, and
@@ -974,7 +983,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       const waNumber = toWhatsappNumber(phone);
       const qs = new URLSearchParams({ text: message });
       if (waNumber) qs.set('phone', waNumber);
-      window.location.href = `whatsapp://send?${qs.toString()}`;
+      if (isMobileDevice()) {
+        // Direct-to-app hand-off — see shareMuscleMapWithClient's comment
+        // (same scheme) for why not wa.me/a synthetic <a> click on mobile.
+        window.location.href = `whatsapp://send?${qs.toString()}`;
+      } else {
+        // Desktop: open WhatsApp Web in a new tab (there's no custom-scheme
+        // handler to navigate to instead — see this function's own comment).
+        window.open(`https://web.whatsapp.com/send?${qs.toString()}`, '_blank', 'noopener,noreferrer');
+      }
     };
 
     if (canActuallyShareFiles) {

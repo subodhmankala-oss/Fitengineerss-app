@@ -118,7 +118,7 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 .set-number-pad-label {
   flex: 1;
   text-align: center;
-  color: rgba(226, 232, 240, 0.6);
+  color: rgba(var(--fg-rgb), 0.6);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -177,10 +177,12 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 /* '.' and backspace are utility keys, not digits — no filled box, just the
    glyph, so they read as secondary to the numeric keys. */
 .set-number-pad-key--plain {
-  background: transparent;
-  color: rgba(226, 232, 240, 0.75);
+  /* A faint box (not fully transparent) so the tap target is visible — a
+     blank gap here was read as "no key", and taps drifted onto the 9 above. */
+  background: rgba(var(--fg-rgb), 0.035);
+  color: rgba(var(--fg-rgb), 0.75);
 }
 
 .set-number-pad-key--plain:active {
-  background: rgba(var(--fg-rgb), 0.08);
+  background: rgba(var(--fg-rgb), 0.1);
 }

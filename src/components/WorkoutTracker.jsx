@@ -3558,22 +3558,6 @@ const WorkoutTracker = () => {
             </div>
           </div>
 
-          {/* Package status is only relevant to a connected client when their
-              sessions are nearly used up — surface it (with the renewal action)
-              only at ≤3 remaining, otherwise keep the logger clean. */}
-          {hasCoachAssigned && hasAssignedSessions && remainingSessionsCount <= 3 && (
-            <div className="coach-billing-status-box">
-              <div className="status-meta">
-                <strong>⚠️ Only {remainingSessionsCount} session{remainingSessionsCount === 1 ? '' : 's'} left</strong>
-                <p>You've completed {completedSessionsCount} of {activeProfile.totalSessions}. Renew to keep training with your coach.</p>
-              </div>
-              <button type="button" className="btn-renew-action-sm" onClick={renewSessionPackage}>
-                💳 Renew Package (+12 Sessions)
-              </button>
-            </div>
-          )}
-
-
           <div className="exercises-form-section">
             <div className="section-title-row" style={{ position: 'relative' }}>
               <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>

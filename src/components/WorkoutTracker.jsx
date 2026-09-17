@@ -1545,22 +1545,40 @@ const WorkoutTracker = () => {
     const distinctDays = new Set(clientSessions.map(s => s.date)).size;
     const consistencyPct = Math.min(1, distinctDays / (weeksActive * 3));
 
+    // "Load" for overload comparison purposes — weight for normal lifts, but
+    // distance for cardio (Cycling, Running, ...) and duration for timed
+    // holds (Plank, Wall Sit, ...), since those never carry a weight_kg
+    // value at all (see saveWorkoutSession). Comparing only on weight meant
+    // a client who trains exclusively cardio/timed work had zero eligible
+    // comparisons ever, permanently zeroing out half of their score — Best
+    // Lift's own "no sessions yet" default is a similar weight-only
+    // assumption, but here it silently capped the whole Training Level tier
+    // instead of just one card.
+    const getExerciseLoad = (ex) => {
+      if (isCardioExercise(ex.name)) {
+        return Math.max(0, ...(ex.sets || []).map(s => parseFloat(s.distanceKm) || 0));
+      }
+      if (isTimedExercise(ex.name)) {
+        return Math.max(0, ...(ex.sets || []).map(s => parseTimeStringToSeconds(s.time) || 0));
+      }
+      return Math.max(0, ...(ex.sets || []).map(s => parseFloat(s.weight) || 0));
+    };
     let comparisons = 0;
     let maintainedOrUp = 0;
     clientSessions.forEach((session, idx) => {
       if (idx === 0) return; // nothing earlier to compare against
       (session.exercises || []).forEach(ex => {
-        const maxWeight = Math.max(0, ...(ex.sets || []).map(s => parseFloat(s.weight) || 0));
-        if (maxWeight <= 0) return; // bodyweight/cardio — no weight to compare
+        const load = getExerciseLoad(ex);
+        if (load <= 0) return; // nothing logged for this exercise this session
         // Most recent EARLIER session (anywhere in their history) that also
-        // logged this exercise with a real weight.
+        // logged this exercise with a real load.
         for (let back = idx - 1; back >= 0; back--) {
           const prevEx = (clientSessions[back].exercises || []).find(e => e.name.toLowerCase() === ex.name.toLowerCase());
           if (!prevEx) continue;
-          const prevMax = Math.max(0, ...prevEx.sets.map(s => parseFloat(s.weight) || 0));
-          if (prevMax <= 0) break;
+          const prevLoad = getExerciseLoad(prevEx);
+          if (prevLoad <= 0) break;
           comparisons += 1;
-          if (maxWeight >= prevMax) maintainedOrUp += 1;
+          if (load >= prevLoad) maintainedOrUp += 1;
           break;
         }
       });
@@ -1592,9 +1610,21 @@ const WorkoutTracker = () => {
 
   // Exercise unit helper
   const getExerciseUnit = (exName) => {
+    if (isCardioExercise(exName)) return 'km';
+    if (isTimedExercise(exName)) return 's';
     if (exName.toLowerCase().includes('lat pull') || exName.toLowerCase().includes('plate')) {
       return 'plates';
     }
+    return 'kg';
+  };
+
+  // Volume-metric unit — separate from getExerciseUnit (the weight-metric
+  // unit) because cardio/timed exercises use different units for their two
+  // metrics (peak distance in km vs total time in minutes), unlike weighted
+  // exercises where both the peak-weight and volume metrics are in kg.
+  const getExerciseVolumeUnit = (exName) => {
+    if (isCardioExercise(exName)) return 'min';
+    if (isTimedExercise(exName)) return 's';
     return 'kg';
   };
 
@@ -1606,6 +1636,39 @@ const WorkoutTracker = () => {
 
     if (!exercise || exercise.sets.length === 0) {
       return { date: session.date, weight: 0, volume: 0, sets: [], index };
+    }
+
+    // Cardio (Cycling, Running, ...) and timed holds (Plank, Wall Sit, ...)
+    // don't carry weight/reps at all — those columns are unused/0 for them
+    // (see saveWorkoutSession). Computing "weight"/"volume" from weight/reps
+    // for these always produced 0, which the filter below then dropped
+    // entirely — every real cardio/timed session silently vanished from the
+    // chart. Use their actual logged metrics (distance/duration) instead so
+    // real progress still plots.
+    if (isCardioExercise(selectedExercise)) {
+      const distances = exercise.sets.map(s => parseFloat(s.distanceKm) || 0);
+      const maxDistanceKm = Math.max(...distances);
+      const totalMinutes = exercise.sets.reduce((sum, s) => sum + (parseTimeStringToSeconds(s.time) || 0), 0) / 60;
+      return {
+        date: session.date,
+        weight: parseFloat(maxDistanceKm.toFixed(2)),
+        volume: parseFloat(totalMinutes.toFixed(2)),
+        sets: exercise.sets,
+        index
+      };
+    }
+
+    if (isTimedExercise(selectedExercise)) {
+      const durations = exercise.sets.map(s => parseTimeStringToSeconds(s.time) || 0);
+      const maxDurationSeconds = Math.max(...durations);
+      const totalDurationSeconds = durations.reduce((sum, d) => sum + d, 0);
+      return {
+        date: session.date,
+        weight: maxDurationSeconds,
+        volume: totalDurationSeconds,
+        sets: exercise.sets,
+        index
+      };
     }
 
     const weights = exercise.sets.map(s => parseFloat(s.weight) || 0);
@@ -3031,7 +3094,7 @@ const WorkoutTracker = () => {
                       const val = chartMetric === 'weight' ? activeSessionData.weight : activeSessionData.volume;
                       const label = chartMetric === 'weight'
                         ? `Weight: ${val}${getExerciseUnit(selectedExercise)}`
-                        : `Volume: ${val}kg`;
+                        : `Volume: ${val}${getExerciseVolumeUnit(selectedExercise)}`;
                       const dateLabel = new Date(activeSessionData.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                       const boxWidth = 118;
                       const boxHeight = 40;

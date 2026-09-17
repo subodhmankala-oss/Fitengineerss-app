@@ -737,70 +737,133 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     img.src = src;
   });
 
-  // Composites the raw logo (whatever size it actually is — public/logo.png
-  // is a full app icon, easily 512×512+) onto a fixed-size card with a name
-  // caption underneath, instead of sharing it full-bleed (2026-09-11: "The
-  // logo is too big over here... Also, Write Fitengineers below the logo").
-  // Bounding the logo to a fixed box keeps every reminder's image the same
-  // modest size in the WhatsApp bubble regardless of the source image's
-  // actual dimensions, and the caption makes clear what the logo even is
-  // when it's just an icon with no text of its own. Used for the no-QR
-  // "Gentle reminder" variant, where this is the only image being sent.
-  const buildLogoCardFile = async (logoSrc, captionText) => {
-    const img = await loadImage(logoSrc);
-    const W = 480, H = 380, boxSize = 200, topPad = 40;
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, W, H);
-    const scale = Math.min(boxSize / img.width, boxSize / img.height);
-    const w = img.width * scale, h = img.height * scale;
-    ctx.drawImage(img, (W - w) / 2, topPad + (boxSize - h) / 2, w, h);
-    ctx.fillStyle = '#111111';
-    ctx.font = 'bold 34px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(captionText, W / 2, topPad + boxSize + 56);
-
-    const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.9))).blob();
-    return new File([blob], 'logo.jpg', { type: 'image/jpeg' });
+  // Greedy word-wrap for canvas text — canvas has no native wrapping, and
+  // the message body's length varies a lot between callers (a short "no
+  // rush" nudge vs. a longer one with an amount line), so the card's height
+  // has to be computed from the actual text rather than fixed.
+  const wrapCanvasText = (ctx, text, maxWidth) => {
+    const words = text.split(/\s+/);
+    const lines = [];
+    let line = '';
+    for (const word of words) {
+      const attempt = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(attempt).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = attempt;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
   };
 
-  // One combined card — logo + brand caption stacked above the payment QR —
-  // instead of sharing them as two separate images (2026-09-11: "QR is
-  // completely coming separate. Which is off the beat."). WhatsApp posts
-  // each shared file as its own bubble, so two files always looked like two
-  // unrelated messages; a single composited image reads as one thing. The
-  // QR itself is drawn undistorted with a generous white quiet zone around
-  // it (the actual scannable pattern is untouched pixels, just surrounded by
-  // more canvas), so WhatsApp's own "this looks like a payment QR" card
-  // detection still has a clean, standard QR to recognize.
-  const buildBrandQrCardFile = async (logoSrc, captionText, qrSrc) => {
-    const [logoImg, qrImg] = await Promise.all([loadImage(logoSrc), loadImage(qrSrc)]);
-    const W = 480, topPad = 32, logoBox = 110, qrBox = 300, gap = 24;
-    const H = topPad + logoBox + 12 + 40 + gap + qrBox + 28;
-    const canvas = document.createElement('canvas');
+  // The whole message rendered onto ONE image — greeting, body text, an
+  // optional amount, the QR (if any), and the sign-off — not just the logo.
+  // 2026-09-17: a coach sent a reminder and WhatsApp's compose box showed
+  // "Add a message..." completely empty; navigator.share's `text` silently
+  // gets dropped by WhatsApp on some Android/WhatsApp versions when files
+  // are attached at the same time (a known platform quirk, not something
+  // this app controls) — so the message can't be allowed to depend on that
+  // field arriving at all. Baking it into the image instead means the
+  // recipient sees it no matter what.
+  //
+  // Also fixes 2026-09-17's "why the logo has black background": public/
+  // logo.png is a maskable PWA icon with an opaque black square baked into
+  // the source file itself (not something this code drew) — floating that
+  // square in the middle of a white card looked like a rendering bug. This
+  // card instead gives the logo a matching dark header band on purpose, so
+  // it reads as a deliberate header instead of a stray black patch.
+  const buildMessageCardFile = async ({ logoSrc, logoCaption, greeting, bodyText, amountLine, qrSrc, signOff }) => {
+    const [logoImg, qrImg] = await Promise.all([
+      loadImage(logoSrc),
+      qrSrc ? loadImage(qrSrc) : Promise.resolve(null)
+    ]);
+
+    const W = 560, pad = 32;
+    const canvas = document.createElement('canvas'); // throwaway, just for text measurement before real sizing
+    const mctx = canvas.getContext('2d');
+
+    const headerH = 190, logoBox = 100;
+    const greetingFont = 'bold 26px Arial, sans-serif';
+    const bodyFont = '19px Arial, sans-serif';
+    const bodyLineHeight = 27;
+    mctx.font = bodyFont;
+    const bodyLines = wrapCanvasText(mctx, bodyText, W - pad * 2);
+
+    const amountH = amountLine ? 60 : 0;
+    const qrGapTop = 24, qrSize = 260, qrGapBottom = 22;
+    const qrH = qrImg ? qrGapTop + qrSize + qrGapBottom : 0;
+    const signOffH = 40;
+
+    const bodyTop = headerH + pad;
+    const greetingH = 40;
+    const contentH = greetingH + bodyLines.length * bodyLineHeight + 14 + amountH + qrH + signOffH;
+    const H = bodyTop + contentH + pad;
+
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, W, H);
 
+    // Header — dark, matching the logo's own baked-in background, with the
+    // brand caption underneath.
+    ctx.fillStyle = '#0b1120';
+    ctx.fillRect(0, 0, W, headerH);
     const logoScale = Math.min(logoBox / logoImg.width, logoBox / logoImg.height);
     const lw = logoImg.width * logoScale, lh = logoImg.height * logoScale;
-    ctx.drawImage(logoImg, (W - lw) / 2, topPad + (logoBox - lh) / 2, lw, lh);
-    ctx.fillStyle = '#111111';
-    ctx.font = 'bold 30px Arial, sans-serif';
+    ctx.drawImage(logoImg, (W - lw) / 2, 22 + (logoBox - lh) / 2, lw, lh);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 26px Arial, sans-serif';
     ctx.textAlign = 'center';
-    const captionY = topPad + logoBox + 34;
-    ctx.fillText(captionText, W / 2, captionY);
+    ctx.fillText(logoCaption, W / 2, 22 + logoBox + 36);
 
-    const qrTop = captionY + gap;
-    ctx.drawImage(qrImg, (W - qrBox) / 2, qrTop, qrBox, qrBox);
+    // Body — white, everything the recipient actually needs to read.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, headerH, W, H - headerH);
+
+    let y = bodyTop + 30;
+    ctx.fillStyle = '#111111';
+    ctx.font = greetingFont;
+    ctx.fillText(greeting, W / 2, y);
+    y += greetingH;
+
+    ctx.font = bodyFont;
+    ctx.fillStyle = '#333333';
+    for (const line of bodyLines) {
+      ctx.fillText(line, W / 2, y);
+      y += bodyLineHeight;
+    }
+    y += 14;
+
+    if (amountLine) {
+      ctx.font = 'bold 22px Arial, sans-serif';
+      const boxW = Math.min(W - pad * 2, ctx.measureText(amountLine).width + 56);
+      const boxH = 44;
+      const boxX = (W - boxW) / 2, boxY = y - 30;
+      ctx.fillStyle = '#f0e9ff';
+      ctx.beginPath();
+      // roundRect isn't in every WebView this share sheet runs in — plain
+      // fillRect still communicates the amount, just square-cornered.
+      if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxW, boxH, 10);
+      else ctx.rect(boxX, boxY, boxW, boxH);
+      ctx.fill();
+      ctx.fillStyle = '#6d28d9';
+      ctx.fillText(amountLine, W / 2, boxY + 30);
+      y += amountH;
+    }
+
+    if (qrImg) {
+      y += qrGapTop - 14;
+      ctx.drawImage(qrImg, (W - qrSize) / 2, y, qrSize, qrSize);
+      y += qrSize + qrGapBottom;
+    }
+
+    ctx.font = 'italic 16px Arial, sans-serif';
+    ctx.fillStyle = '#888888';
+    ctx.fillText(`— ${signOff}`, W / 2, y + 20);
 
     const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.92))).blob();
-    return new File([blob], 'payment-qr.jpg', { type: 'image/jpeg' });
+    return new File([blob], 'message.jpg', { type: 'image/jpeg' });
   };
 
   // India-only heuristic (₹ is the only currency this app shows anywhere) —
@@ -813,6 +876,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     if (!digits) return '';
     return digits.length === 10 ? `91${digits}` : digits;
   };
+
+  // whatsapp://send only has anything listening on it when an actual
+  // WhatsApp app is installed and registered for the scheme — true on
+  // phones, essentially never true on desktop Windows/Mac (2026-09-17: a
+  // desktop coach hit "Save As" for the downloaded image and then simply
+  // nothing, since the whatsapp:// navigation had nowhere to go). Desktop
+  // gets web.whatsapp.com instead — same wa.me-style pattern the invite-code
+  // WhatsApp share elsewhere in this file already uses.
+  const isMobileDevice = () => typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
   // Shared sender for every branded WhatsApp message the coach fires from
   // Client Payments (renewal reminders below, and the "outside the app"
@@ -827,12 +899,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   //      picker. Same direct-to-app scheme as shareMuscleMapWithClient (see
   //      its comment for why not wa.me / a synthetic <a> click).
   //
-  // buildMessage({ payLine, qrUrl, canShareFiles }) returns the body text;
-  // the brand sign-off is appended here so every caller gets it. beforeSend
-  // (optional) runs with the final text before any share attempt — for
-  // side effects like a push notification that must fire regardless of
-  // which of the three paths above ends up being taken.
-  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, buildMessage, beforeSend, verb = 'pay' }) => {
+  // greeting is the opening line ("Hi Mahalsa!"); buildBody({ payLine })
+  // returns just the sentence after it (no greeting, no sign-off) — kept
+  // separate from greeting because the image card (see buildMessageCardFile)
+  // lays them out as distinct lines rather than one wrapped paragraph.
+  // amountLine (optional) renders as a highlighted pill on the card. The
+  // brand sign-off is appended to the plain-text message here so every
+  // caller gets it. beforeSend (optional) runs with the final text before
+  // any share attempt — for side effects like a push notification that
+  // must fire regardless of which send path ends up being taken.
+  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, greeting, buildBody, amountLine, beforeSend, verb = 'pay' }) => {
     let assets = coachReminderAssets;
     if (assets === null) {
       assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
@@ -860,58 +936,94 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     const logoCaption = usingCustomLogo ? coachBrand : 'Fitengineers';
     const qrUrl = withQr ? (assets?.qrUrl || '') : '';
 
-    // Exactly ONE image file, never two (2026-09-11: "QR is completely
-    // coming separate. Which is off the beat" — WhatsApp posts each shared
-    // file as its own bubble, so logo + QR as separate files always read
-    // as two unrelated messages). The QR variant gets one combined
-    // logo-caption-QR card (buildBrandQrCardFile); the no-QR variant gets
-    // just the logo card.
-    let mediaFile = null;
-    if (qrUrl) {
-      try { mediaFile = await buildBrandQrCardFile(logoUrl, logoCaption, qrUrl); }
-      catch { /* combined card failed (e.g. unreadable QR) — fall back to the QR alone so payment is still the priority */
-        try { mediaFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* give up on an image entirely */ }
-      }
-    } else if (logoUrl) {
-      try { mediaFile = await buildLogoCardFile(logoUrl, logoCaption); } catch { /* skip a corrupt/unreadable logo */ }
-    }
-    const shareFiles = mediaFile ? [mediaFile] : [];
-    const canShareFiles = shareFiles.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: shareFiles });
-
+    // canShareFiles is decided up front from image support alone (not
+    // whether a file actually built yet) since the payLine wording below
+    // depends on it and has to be settled before building the message —
+    // the actual mediaFile is built after, using that same message.
+    const canShareFiles = typeof navigator !== 'undefined' && !!navigator.canShare;
     const payLine = qrUrl
       ? (canShareFiles ? `you can ${verb} using the QR code here` : `you can ${verb} whenever works for you`)
       : `no rush at all, just ${verb} whenever it suits you`;
-    const message = buildMessage({ payLine, qrUrl, canShareFiles }) + `\n\n— ${signOff}`;
+    const bodyText = buildBody({ payLine });
+    const message = `${greeting} ${bodyText}` + `\n\n— ${signOff}`;
     beforeSend?.(message);
 
-    if (canShareFiles) {
-      try {
-        await navigator.share({ text: message, files: shareFiles });
-        return;
-      } catch (e) {
-        if (e?.name === 'AbortError') return; // coach cancelled the share sheet
-        // Any other failure falls through to the text-only path below.
+    // Exactly ONE image file, carrying the WHOLE message (not just the
+    // logo/QR) — 2026-09-17: "There is no text here!!" / an empty "Add a
+    // message..." box — WhatsApp silently drops navigator.share's `text`
+    // alongside a file on some Android/WhatsApp versions, so the message
+    // can't be allowed to depend on that field arriving. Baking greeting +
+    // body + amount + sign-off onto the image itself means the recipient
+    // sees it regardless. See buildMessageCardFile's comment for the same
+    // fix to the black-square-logo complaint.
+    let mediaFile = null;
+    try {
+      mediaFile = await buildMessageCardFile({ logoSrc: logoUrl, logoCaption, greeting, bodyText, amountLine, qrSrc: qrUrl || null, signOff });
+    } catch {
+      // Full card failed (e.g. unreadable QR/logo) — fall back to just the
+      // QR alone so the payment ask still gets through visually.
+      if (qrUrl) { try { mediaFile = await dataUrlToFile(qrUrl, 'payment-qr.jpg'); } catch { /* give up on an image entirely */ } }
+    }
+    const shareFiles = mediaFile ? [mediaFile] : [];
+    const canActuallyShareFiles = shareFiles.length > 0 && canShareFiles && navigator.canShare({ files: shareFiles });
+
+    // The path used whenever the share sheet isn't an option, and as the
+    // background fallback if it fails outright (not just cancelled).
+    // 2026-09-17: "I dont want download.. I want whatsapp web only direct
+    // open and send the card" — on desktop this now just opens WhatsApp Web
+    // with the text, no download at all. The image download only still
+    // happens on mobile, where there's no share-sheet support to fall back
+    // FROM in the first place (an older browser/WhatsApp version) — there,
+    // downloading at least gets the file into the phone's own gallery so it
+    // can be attached inside the WhatsApp app itself. On desktop there's no
+    // way to auto-attach a file into WhatsApp Web at all (its send link only
+    // accepts text — see this function's own web.whatsapp.com branch), so a
+    // forced download there was pure friction with no path to actually
+    // using it for anything.
+    const fallbackToDeepLink = () => {
+      const waNumber = toWhatsappNumber(phone);
+      const qs = new URLSearchParams({ text: message });
+      if (waNumber) qs.set('phone', waNumber);
+      if (isMobileDevice()) {
+        if (mediaFile) {
+          const url = URL.createObjectURL(mediaFile);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
+          link.click();
+          URL.revokeObjectURL(url);
+          triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
+        }
+        // Direct-to-app hand-off — see shareMuscleMapWithClient's comment
+        // (same scheme) for why not wa.me/a synthetic <a> click on mobile.
+        window.location.href = `whatsapp://send?${qs.toString()}`;
+      } else {
+        // Desktop: WhatsApp Web in a new tab, text only — no download (see
+        // this block's comment above).
+        window.open(`https://web.whatsapp.com/send?${qs.toString()}`, '_blank', 'noopener,noreferrer');
       }
+    };
+
+    if (canActuallyShareFiles) {
+      // NOT awaited (2026-09-17: "Got stuck") — on mobile, this promise
+      // only settles once control returns to THIS browser tab, i.e. after
+      // the coach leaves WhatsApp again. Blocking the caller's "Sending…"
+      // button state on that left it stuck indefinitely whenever they
+      // stayed in WhatsApp, which is the normal, expected thing to do after
+      // sending. Firing it and returning immediately lets the UI reset the
+      // moment the OS hand-off begins; the deep-link fallback still runs in
+      // the background if the share genuinely fails (not just cancelled).
+      // text is still passed for whatever platform/version DOES honor it
+      // (desktop share targets, some WhatsApp versions) — it's just no
+      // longer the only place the message lives, per the comment above.
+      navigator.share({ text: message, files: shareFiles }).catch((e) => {
+        if (e?.name === 'AbortError') return; // coach cancelled the share sheet
+        fallbackToDeepLink();
+      });
+      return;
     }
 
-    // Couldn't share as a file (desktop browser, mostly, or nothing to
-    // send) — download the one combined image locally (the composited
-    // card, not a raw source) so the coach can still attach it by hand in
-    // the same WhatsApp chat the line below opens.
-    if (!canShareFiles && mediaFile) {
-      const url = URL.createObjectURL(mediaFile);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
-      link.click();
-      URL.revokeObjectURL(url);
-      triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
-    }
-
-    const waNumber = toWhatsappNumber(phone);
-    const qs = new URLSearchParams({ text: message });
-    if (waNumber) qs.set('phone', waNumber);
-    window.location.href = `whatsapp://send?${qs.toString()}`;
+    fallbackToDeepLink();
   };
 
   // Payment request to someone who ISN'T a client in the app (2026-09-17:
@@ -933,12 +1045,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setSendingExternalRequest(true);
     try {
       const firstName = name.split(/\s+/)[0];
-      const amountLine = amount > 0 ? ` for ₹${amount.toLocaleString('en-IN')}` : '';
+      const amountSuffix = amount > 0 ? ` for ₹${amount.toLocaleString('en-IN')}` : '';
       await sendBrandedWhatsapp({
         firstName,
         withQr: true,
-        buildMessage: ({ payLine }) =>
-          `Hi ${firstName}! Hope you're doing well 🙂 Sharing the payment details${amountLine} for your training — ${payLine}. Let me know if you have any questions, happy to help! 🙌`
+        greeting: `Hi ${firstName}! Hope you're doing well 🙂`,
+        amountLine: amount > 0 ? `Amount: ₹${amount.toLocaleString('en-IN')}` : null,
+        buildBody: ({ payLine }) =>
+          `Sharing the payment details${amountSuffix} for your training — ${payLine}. Let me know if you have any questions, happy to help! 🙌`
       });
     } finally {
       setSendingExternalRequest(false);
@@ -982,9 +1096,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         phone: r.clientPhone,
         withQr,
         verb: 'renew',
-        buildMessage: ({ payLine }) => overdue
-          ? `Hi ${firstName}! Hope training's going well 🙂 Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
-          : `Hi ${firstName}! Hope you're doing great 💪 Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`,
+        greeting: overdue ? `Hi ${firstName}! Hope training's going well 🙂` : `Hi ${firstName}! Hope you're doing great 💪`,
+        buildBody: ({ payLine }) => overdue
+          ? `Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
+          : `Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`,
         // The gentle (no-QR) variant also pushes a notification straight to
         // the client's phone — same wording as the WhatsApp text, via the
         // 'renewal_reminder' event (api/push.js), so a client who misses the

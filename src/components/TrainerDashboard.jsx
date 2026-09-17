@@ -967,29 +967,39 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     const shareFiles = mediaFile ? [mediaFile] : [];
     const canActuallyShareFiles = shareFiles.length > 0 && canShareFiles && navigator.canShare({ files: shareFiles });
 
-    // Downloads the image + opens the whatsapp:// deep link — the path used
-    // whenever the share sheet isn't an option, and as the background
-    // fallback if it fails outright (not just cancelled).
+    // The path used whenever the share sheet isn't an option, and as the
+    // background fallback if it fails outright (not just cancelled).
+    // 2026-09-17: "I dont want download.. I want whatsapp web only direct
+    // open and send the card" — on desktop this now just opens WhatsApp Web
+    // with the text, no download at all. The image download only still
+    // happens on mobile, where there's no share-sheet support to fall back
+    // FROM in the first place (an older browser/WhatsApp version) — there,
+    // downloading at least gets the file into the phone's own gallery so it
+    // can be attached inside the WhatsApp app itself. On desktop there's no
+    // way to auto-attach a file into WhatsApp Web at all (its send link only
+    // accepts text — see this function's own web.whatsapp.com branch), so a
+    // forced download there was pure friction with no path to actually
+    // using it for anything.
     const fallbackToDeepLink = () => {
-      if (mediaFile) {
-        const url = URL.createObjectURL(mediaFile);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
-        link.click();
-        URL.revokeObjectURL(url);
-        triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
-      }
       const waNumber = toWhatsappNumber(phone);
       const qs = new URLSearchParams({ text: message });
       if (waNumber) qs.set('phone', waNumber);
       if (isMobileDevice()) {
+        if (mediaFile) {
+          const url = URL.createObjectURL(mediaFile);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
+          link.click();
+          URL.revokeObjectURL(url);
+          triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
+        }
         // Direct-to-app hand-off — see shareMuscleMapWithClient's comment
         // (same scheme) for why not wa.me/a synthetic <a> click on mobile.
         window.location.href = `whatsapp://send?${qs.toString()}`;
       } else {
-        // Desktop: open WhatsApp Web in a new tab (there's no custom-scheme
-        // handler to navigate to instead — see this function's own comment).
+        // Desktop: WhatsApp Web in a new tab, text only — no download (see
+        // this block's comment above).
         window.open(`https://web.whatsapp.com/send?${qs.toString()}`, '_blank', 'noopener,noreferrer');
       }
     };

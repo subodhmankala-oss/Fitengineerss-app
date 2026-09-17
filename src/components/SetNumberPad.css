@@ -22,7 +22,11 @@
      bar's own height), which padded a huge empty gap under the grid on top
      of the pad's own bottom padding. This only needs the device's actual
      safe-area inset (notch/home-indicator), not nav-bar clearance. */
-  padding: 8px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  /* The bottom row ('.', '0', backspace) used to sit ~6px off the screen
+     edge, right under Android's gesture bar — backspace had almost no
+     reachable height and taps drifted up onto the 9. Lift the grid clear of
+     the edge. */
+  padding: 8px 10px calc(18px + env(safe-area-inset-bottom, 0px));
   transform: translateY(100%);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
@@ -141,13 +145,14 @@ body:has(.set-number-pad.open) .trainer-dashboard-container {
 .set-number-pad-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
 /* Numeric keys in the app's own dark palette, not a light/white key —
    matches the rest of the UI instead of standing out against it. */
 .set-number-pad-key {
-  padding: 12px 0 10px;
+  padding: 0;
+  min-height: 54px;
   border-radius: 14px;
   border: none;
   background: rgba(var(--fg-rgb), 0.07);

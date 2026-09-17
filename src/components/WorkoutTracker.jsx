@@ -468,13 +468,9 @@ const WorkoutTracker = () => {
   });
   // DB-backed completed-session dates (distinct workout_logs dates) for the
   // logged-in client — same source as the home progress card, so the two
-  // surfaces agree on "Completed". Kept as the raw distinct dates (not a
-  // pre-reduced count) so completedSessionsCount below can scope them to the
-  // current program period, same as WorkoutProgressDashboard's
-  // getTotalSessionsDone — see completedSessionsCount's comment.
+  // surfaces agree on "Completed".
   const [dbLogDates, setDbLogDates] = useState(null);
-  // Coach-set renewal date (clients.program_started_on) — scopes
-  // completedSessionsCount to the CURRENT program period. Same
+  // Coach-set renewal date (clients.program_started_on). Same
   // localStorage-seed reasoning as coachSetTotalSessions above.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
@@ -1471,19 +1467,6 @@ const WorkoutTracker = () => {
     setTimeout(() => setToastMessage(''), 4000);
   };
 
-  // Get active client profile
-  const baseProfile = clientProfiles.find(
-    p => p.clientName.toLowerCase() === selectedClient.toLowerCase()
-  ) || { clientName: selectedClient, activeProgram: 'Custom Program', totalSessions: 12 };
-
-  // For the logged-in client's own profile, the coach-set total_sessions is
-  // authoritative — override the legacy mock count so Billing Tracker and the
-  // Client Profile summary show the same total as the home progress card.
-  const isOwnProfile = selectedClient.toLowerCase() === loggedInUser.toLowerCase();
-  const activeProfile = (isOwnProfile && coachSetTotalSessions != null)
-    ? { ...baseProfile, totalSessions: coachSetTotalSessions }
-    : baseProfile;
-
   // Sessions count calculations
   const clientSessions = sessions
     .filter(s => s.clientName.toLowerCase() === selectedClient.toLowerCase())
@@ -1596,33 +1579,7 @@ const WorkoutTracker = () => {
     return { score, tier: tiers[tierIndex], tierIndex, withinTierPct };
   })();
 
-  // For the logged-in client, "Completed" mirrors the home card's DB-backed
-  // distinct-date count, scoped to sessions logged on/after the coach's
-  // program_started_on — same as WorkoutProgressDashboard's
-  // getTotalSessionsDone — so a renewed client's "sessions left" here
-  // matches the home card instead of counting their full lifetime history
-  // against the new package. Without this scoping, a client who had already
-  // logged 12+ lifetime sessions before a renewal read "0 sessions left" /
-  // "Renew Package" here even while the home card correctly showed
-  // "4 of 12" for the current period. Other (coach-viewed) profiles keep the
-  // local count.
-  const completedSessionsCount = (isOwnProfile && dbLogDates != null)
-    ? (programStartedOn ? dbLogDates.filter(d => d >= programStartedOn).length : dbLogDates.length)
-    : clientSessions.length;
-  const remainingSessionsCount = Math.max(0, activeProfile.totalSessions - completedSessionsCount);
-  // A connected client's session package total is only real once the coach has
-  // actually assigned one (clients.total_sessions). Until then we must NOT show
-  // the legacy mock number (12/20/24…) as if it were the coach's plan — the
-  // count is "Unassigned". Coach-viewed roster profiles keep their own total.
-  const hasAssignedSessions = isOwnProfile
-    ? (coachSetTotalSessions != null && coachSetTotalSessions > 0)
-    : true;
-  // Renewal warning is coaching-package specific — only for connected clients
-  // (or a coach viewing one) who actually have an assigned package running low,
-  // never a generic/unconnected client or one with no coach-set count yet.
-  const showPaymentAlert = (hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && hasAssignedSessions && remainingSessionsCount <= 3;
-
-  const displayedSessions = timeframe === 'weekly' 
+  const displayedSessions = timeframe === 'weekly'
     ? clientSessions.slice(-3) 
     : clientSessions;
 
@@ -2682,21 +2639,6 @@ const WorkoutTracker = () => {
     resetWorkoutTimer();
   };
 
-  // Renew client sessions package
-  const renewSessionPackage = () => {
-    const updatedProfiles = clientProfiles.map(p => {
-      if (p.clientName.toLowerCase() === selectedClient.toLowerCase()) {
-        return {
-          ...p,
-          totalSessions: (p.totalSessions || 12) + 12
-        };
-      }
-      return p;
-    });
-    saveProfilesToLocal(updatedProfiles);
-    triggerToast(`Package renewed! Appended +12 sessions for ${selectedClient}.`);
-  };
-
   // Live calorie readout for the client's own "Log Sets" stopwatch banner —
   // identical mechanism to the coach Live Log: each completed set's own
   // completedAt timestamp drives the work + rest-interval calc, recomputed
@@ -2790,27 +2732,6 @@ const WorkoutTracker = () => {
 
       {activeView === 'analytics' && (
         <div className="analytics-view-wrapper">
-          {/* Payment Warning Banner */}
-          {showPaymentAlert && (
-            <div className="billing-warning-alert-card animate-scale-in">
-              <div className="billing-content">
-                <span className="warning-icon">⚠️</span>
-                <div className="billing-text">
-                  <h4>Renew Session Package</h4>
-                  <p>
-                    {remainingSessionsCount === 0 
-                      ? `${selectedClient} has finished all purchased sessions! Please renew now.`
-                      : `Only ${remainingSessionsCount} sessions left in your "${activeProfile.activeProgram}" package!`
-                    }
-                  </p>
-                </div>
-              </div>
-              <button className="btn-renew-action" onClick={renewSessionPackage}>
-                💳 Renew Now (+12 Sessions)
-              </button>
-            </div>
-          )}
-
           {/* Header area */}
           <div className="tracker-top-summary glass-panel">
             {/* Only rendered for a coach/trainer — for a client, this used to

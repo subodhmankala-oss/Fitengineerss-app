@@ -218,6 +218,21 @@ document.addEventListener('focusin', (e) => {
 // scrollIntoView: that walks every scrollable ancestor until the field is
 // where it asked, and when the container can't move far enough it pans the
 // iOS window itself, which left a blank band under the shell.
+// iOS reveals a focused field it can't scroll a container for by panning
+// the visual viewport over the (unshrunk) layout viewport. The shell is
+// already sized to the visible area, so any pan just exposes blank canvas
+// below it -- seen as the bottom nav pinned to the top of the screen with a
+// white page underneath. Undo the pan the moment it happens; the field is
+// then brought into view by the container nudge below instead.
+function undoWindowPan() {
+  if (!document.documentElement.classList.contains('keyboard-open')) return;
+  if ((window.visualViewport?.offsetTop || 0) > 0 || window.scrollY > 0) {
+    window.scrollTo(0, 0);
+  }
+}
+window.visualViewport?.addEventListener('scroll', undoWindowPan);
+window.visualViewport?.addEventListener('resize', undoWindowPan);
+
 window.visualViewport?.addEventListener('resize', () => {
   const el = document.activeElement;
   if (!isTextField(el) || !document.documentElement.classList.contains('keyboard-open')) return;

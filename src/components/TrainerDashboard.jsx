@@ -3886,7 +3886,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // unscoped), which for a super-admin is a totally different, much larger
   // number than what clicking the tab actually shows — 35 vs. this coach's
   // real 17 attached clients. Confirmed 2026-08-12.
-  const myClientsCount = loggedInUserId ? clients.filter(c => c.coach_id === loggedInUserId).length : 0;
+  const myClientsCount = loggedInUserId ? clients.filter(c => c.coach_id === loggedInUserId && !c.paused_at).length : 0;
   // Same ownership scope as myClientsCount — the Payments tab's client
   // picker, sorted alphabetically so a long client list stays scannable.
   const myClients = loggedInUserId

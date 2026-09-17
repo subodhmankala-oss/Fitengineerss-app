@@ -958,37 +958,45 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     const shareFiles = mediaFile ? [mediaFile] : [];
     const canActuallyShareFiles = shareFiles.length > 0 && canShareFiles && navigator.canShare({ files: shareFiles });
 
-    if (canActuallyShareFiles) {
-      try {
-        // text is still passed for whatever platform/version DOES honor it
-        // (desktop share targets, some WhatsApp versions) — it's just no
-        // longer the only place the message lives, per the comment above.
-        await navigator.share({ text: message, files: shareFiles });
-        return;
-      } catch (e) {
-        if (e?.name === 'AbortError') return; // coach cancelled the share sheet
-        // Any other failure falls through to the text-only path below.
+    // Downloads the image + opens the whatsapp:// deep link — the path used
+    // whenever the share sheet isn't an option, and as the background
+    // fallback if it fails outright (not just cancelled).
+    const fallbackToDeepLink = () => {
+      if (mediaFile) {
+        const url = URL.createObjectURL(mediaFile);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
+        link.click();
+        URL.revokeObjectURL(url);
+        triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
       }
+      const waNumber = toWhatsappNumber(phone);
+      const qs = new URLSearchParams({ text: message });
+      if (waNumber) qs.set('phone', waNumber);
+      window.location.href = `whatsapp://send?${qs.toString()}`;
+    };
+
+    if (canActuallyShareFiles) {
+      // NOT awaited (2026-09-17: "Got stuck") — on mobile, this promise
+      // only settles once control returns to THIS browser tab, i.e. after
+      // the coach leaves WhatsApp again. Blocking the caller's "Sending…"
+      // button state on that left it stuck indefinitely whenever they
+      // stayed in WhatsApp, which is the normal, expected thing to do after
+      // sending. Firing it and returning immediately lets the UI reset the
+      // moment the OS hand-off begins; the deep-link fallback still runs in
+      // the background if the share genuinely fails (not just cancelled).
+      // text is still passed for whatever platform/version DOES honor it
+      // (desktop share targets, some WhatsApp versions) — it's just no
+      // longer the only place the message lives, per the comment above.
+      navigator.share({ text: message, files: shareFiles }).catch((e) => {
+        if (e?.name === 'AbortError') return; // coach cancelled the share sheet
+        fallbackToDeepLink();
+      });
+      return;
     }
 
-    // Couldn't share as a file (desktop browser, mostly, or nothing to
-    // send) — download the one combined image locally (the composited
-    // card, not a raw source) so the coach can still attach it by hand in
-    // the same WhatsApp chat the line below opens.
-    if (!canActuallyShareFiles && mediaFile) {
-      const url = URL.createObjectURL(mediaFile);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = qrUrl ? `payment-qr-${firstName.toLowerCase()}.jpg` : `logo-${firstName.toLowerCase()}.jpg`;
-      link.click();
-      URL.revokeObjectURL(url);
-      triggerLiveToast(`📥 ${qrUrl ? 'QR code' : 'Logo'} downloaded — attach it in the chat too.`);
-    }
-
-    const waNumber = toWhatsappNumber(phone);
-    const qs = new URLSearchParams({ text: message });
-    if (waNumber) qs.set('phone', waNumber);
-    window.location.href = `whatsapp://send?${qs.toString()}`;
+    fallbackToDeepLink();
   };
 
   // Payment request to someone who ISN'T a client in the app (2026-09-17:

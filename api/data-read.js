@@ -661,8 +661,8 @@ async function handlePlatformStats(req, res) {
     // Same stale-row filter as getAllUsers/getPlatformStats: count from
     // `clients`, ignoring rows whose owner is no longer a client, so this
     // can never disagree with the "All Clients" list built from the same table.
-    const clients = await svcSelect('clients?select=id,users!clients_user_id_fkey(role)', 'platform-stats clients');
-    const totalActiveClients = clients.filter((c) => !c.users?.role || c.users.role === 'client').length;
+    const clients = await svcSelect('clients?select=id,paused_at,users!clients_user_id_fkey(role)', 'platform-stats clients');
+    const totalActiveClients = clients.filter((c) => (!c.users?.role || c.users.role === 'client') && !c.paused_at).length;
 
     const logs = await svcSelect(
       `workout_logs?select=log_date,user_id&log_date=gte.${encodeURIComponent(weekStart)}`,

@@ -674,7 +674,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [sendingReminderId, setSendingReminderId] = useState(null);
   // "Send payment request" to someone outside the app — see
   // handleSendExternalPaymentRequest. Collapsed behind a toggle by default.
-  const [externalRequest, setExternalRequest] = useState({ name: '', phone: '', amount: '' });
+  const [externalRequest, setExternalRequest] = useState({ name: '', amount: '' });
   const [externalRequestOpen, setExternalRequestOpen] = useState(false);
   const [sendingExternalRequest, setSendingExternalRequest] = useState(false);
 
@@ -922,20 +922,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // entry, no push (there's no app account to push to). Wording is a plain
   // request rather than a "renewal" nudge, since there's no payment history
   // to refer to; the optional amount goes in when given so the recipient
-  // knows what to pay without asking.
+  // knows what to pay without asking. No phone number is taken: the
+  // recipient is chosen in WhatsApp's own picker (see the form's comment
+  // for why), so `phone` is deliberately left off the call below.
   const handleSendExternalPaymentRequest = async (e) => {
     e?.preventDefault?.();
     const name = externalRequest.name.trim();
-    const phone = externalRequest.phone.trim();
     const amount = Number(externalRequest.amount);
-    if (!name || !phone) return;
+    if (!name) return;
     setSendingExternalRequest(true);
     try {
       const firstName = name.split(/\s+/)[0];
       const amountLine = amount > 0 ? ` for ₹${amount.toLocaleString('en-IN')}` : '';
       await sendBrandedWhatsapp({
         firstName,
-        phone,
         withQr: true,
         buildMessage: ({ payLine }) =>
           `Hi ${firstName}! Hope you're doing well 🙂 Sharing the payment details${amountLine} for your training — ${payLine}. Let me know if you have any questions, happy to help! 🙌`
@@ -4681,8 +4681,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   borderRadius: '12px', padding: '12px 14px'
                 }}
               >
+                {/* No phone field (2026-09-17: "what is point of name phone
+                    number and amount when nothing is going on") — the share
+                    sheet that sends image + text in one tap can't target a
+                    number; WhatsApp shows its own contact picker instead, so
+                    a typed number was dead weight on the device this is
+                    actually used on. Name and amount both land in the note.
+                    Inputs use the same theme tokens as the log-payment form
+                    below (hard-coded #fff text was invisible on the light
+                    theme). */}
                 <div style={{ width: '100%', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  For someone who hasn't signed up in the app — opens WhatsApp with your logo + payment QR and a friendly note.
+                  For someone who hasn't signed up in the app — opens WhatsApp with your logo + payment QR and a friendly note. WhatsApp will ask you to pick the contact.
                 </div>
                 <input
                   type="text"
@@ -4691,19 +4700,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   onChange={(e) => setExternalRequest(r => ({ ...r, name: e.target.value }))}
                   required
                   style={{
-                    flex: '1 1 140px', minWidth: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                    borderRadius: '8px', padding: '9px 10px', color: '#fff', fontSize: '0.85rem', font: 'inherit'
-                  }}
-                />
-                <input
-                  type="tel"
-                  placeholder="WhatsApp number"
-                  value={externalRequest.phone}
-                  onChange={(e) => setExternalRequest(r => ({ ...r, phone: e.target.value }))}
-                  required
-                  style={{
-                    flex: '1 1 150px', minWidth: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                    borderRadius: '8px', padding: '9px 10px', color: '#fff', fontSize: '0.85rem', font: 'inherit'
+                    flex: '1 1 140px', minWidth: 0, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', padding: '9px 10px', color: 'var(--text-main)', fontSize: '0.85rem', font: 'inherit'
                   }}
                 />
                 <input
@@ -4713,18 +4711,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   value={externalRequest.amount}
                   onChange={(e) => setExternalRequest(r => ({ ...r, amount: e.target.value }))}
                   style={{
-                    flex: '1 1 130px', minWidth: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)',
-                    borderRadius: '8px', padding: '9px 10px', color: '#fff', fontSize: '0.85rem', font: 'inherit'
+                    flex: '1 1 130px', minWidth: 0, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', padding: '9px 10px', color: 'var(--text-main)', fontSize: '0.85rem', font: 'inherit'
                   }}
                 />
                 <button
                   type="submit"
-                  disabled={sendingExternalRequest || !externalRequest.name.trim() || !externalRequest.phone.trim()}
+                  disabled={sendingExternalRequest || !externalRequest.name.trim()}
                   style={{
                     flex: '0 0 auto', background: '#25D366', border: 'none', borderRadius: '8px', color: '#fff',
                     padding: '9px 16px', fontSize: '0.85rem', fontWeight: 800, font: 'inherit',
                     cursor: sendingExternalRequest ? 'default' : 'pointer',
-                    opacity: (sendingExternalRequest || !externalRequest.name.trim() || !externalRequest.phone.trim()) ? 0.6 : 1
+                    opacity: (sendingExternalRequest || !externalRequest.name.trim()) ? 0.6 : 1
                   }}
                 >
                   {sendingExternalRequest ? 'Opening WhatsApp…' : 'Send via WhatsApp'}

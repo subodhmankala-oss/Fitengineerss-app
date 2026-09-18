@@ -83,7 +83,12 @@ export function scrollFieldClearOfPad(el) {
   const measureDelta = () => {
     const pad = document.querySelector('.set-number-pad');
     const padHeight = pad ? pad.getBoundingClientRect().height : 320;
-    const margin = 20;
+    // Was 20 — measured 2026-09-19 on the coach Live Log (a plain, non-BW
+    // Reps field, several rows down a short list): even after the top-up
+    // pass below ran and settled, the row still sat ~26-30px behind the
+    // pad's top edge. A slightly larger margin gives the scroll a buffer
+    // beyond that observed shortfall instead of landing right on the edge.
+    const margin = 36;
     // Bring the whole set row into view, not just the tapped cell — with
     // several sets logged, clearing only the Kg/Reps box left the set
     // number, PREV column, and DONE checkbox for that row cut off, making
@@ -131,7 +136,20 @@ export function scrollFieldClearOfPad(el) {
     setTimeout(() => {
       const remaining = measureDelta();
       if (remaining > 0) scrollParent.scrollBy({ top: remaining, behavior: 'smooth' });
-      setTimeout(settle, 400);
+      // SECOND TOP-UP PASS. The first one can itself land short — it's
+      // issued while the initial `smooth` scrollBy above may still be
+      // animating, so `remaining` here can be measured mid-transition and
+      // the correction it fires is, in turn, still animating when
+      // `settle` records the "final" position 400ms later. Measured
+      // 2026-09-19: a row was still ~26-30px behind the pad after this
+      // single top-up. One more re-check once that correction has had
+      // time to land closes the gap instead of accepting whatever the
+      // first pass happened to land on.
+      setTimeout(() => {
+        const stillRemaining = measureDelta();
+        if (stillRemaining > 0) scrollParent.scrollBy({ top: stillRemaining, behavior: 'smooth' });
+        setTimeout(settle, 400);
+      }, 350);
     }, 380);
   });
 }

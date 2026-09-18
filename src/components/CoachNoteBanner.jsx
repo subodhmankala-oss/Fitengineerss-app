@@ -14,6 +14,14 @@ import './CoachNoteBanner.css';
 // THAT note locks — sending again requires a fresh note from the coach. The
 // reply is pushed to the coach immediately (client_reply event) and also
 // surfaces as a card on the coach's client-directory screen if they miss it.
+// workout_date is a plain DATE column (e.g. "2026-01-05"); parse it as local
+// (not UTC midnight) so the day shown always matches the day the coach picked.
+function formatNoteDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export default function CoachNoteBanner({ userId }) {
   const [notes, setNotes] = useState([]);
   const [replyDrafts, setReplyDrafts] = useState({}); // { [noteId]: text }
@@ -64,6 +72,12 @@ export default function CoachNoteBanner({ userId }) {
           <div className="cnb-icon">💬</div>
           <div className="cnb-body">
             <div className="cnb-label">Note from your coach</div>
+            {(note.workoutName || note.workoutDate) && (
+              <div className="cnb-context">
+                {note.workoutName || 'Workout'}
+                {note.workoutDate ? ` · ${formatNoteDate(note.workoutDate)}` : ''}
+              </div>
+            )}
             <div className="cnb-message">{note.message}</div>
 
             {note.clientReplyAt ? (

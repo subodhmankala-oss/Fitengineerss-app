@@ -41,6 +41,13 @@
   margin-bottom: 2px;
 }
 
+.cnb-context {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
 .cnb-message {
   font-size: 0.88rem;
   font-weight: 600;

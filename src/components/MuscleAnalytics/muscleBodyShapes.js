@@ -39,24 +39,31 @@ import bodyBackFillUrl from './assets/body-back-fill.png'; // Gap-filled backdro
 //
 // This rescales every grey fill from the file's own range into a band that
 // still reads as pale muscle overall (bright highlights, outMax=252) but
-// keeps real shadow depth (outMin=90) instead of crushing everything into a
-// narrow bright band — a first pass at outMin=152 made every shading
-// transition low-contrast, so the muscle separations (pecs, abs, deltoid)
-// read as flat/washed-out instead of defined. The artwork's transparent
-// gaps read as the darkest separations between muscle groups — the artwork
-// was drawn for a light background, so those gaps are its line work.
+// keeps real shadow depth instead of crushing everything into a narrow
+// bright band — an outMin=152 first pass made every shading transition
+// low-contrast, so the muscle separations (pecs, abs, deltoid) read as
+// flat/washed-out instead of defined. The artwork's transparent gaps read
+// as the darkest separations between muscle groups — the artwork was drawn
+// for a light background, so those gaps are its line work.
 //
 // A per-file LEVELS remap rather than a fixed gamma curve, since the two
 // files have different input ranges (front starts at 48, back at 25);
 // normalising each into the same output band keeps the two views
-// consistent.
+// consistent — except the floor itself, which is NOT the same for both
+// (see BODY_TONE_OUT_MIN below): front only has 7 distinct shading steps
+// vendored (back has 11), so the same floor that reads as fine, smooth
+// shading on the back's finer gradient reads as bigger, blockier dark
+// patches on the front's coarser one — the same darkness value covers more
+// visible area per step. Front's floor sits higher purely to compensate for
+// having fewer steps to spread that darkness across, not because the front
+// SHOULD look lighter than the back.
 //
 // Applied once at module load (not per render) to the raw SVG text; the
 // vendored files themselves stay untouched on disk.
-const BODY_TONE_OUT_MIN = 90; // darkest shading
+const BODY_TONE_OUT_MIN = { front: 130, back: 90 }; // darkest shading, per view — see comment above
 const BODY_TONE_OUT_MAX = 252; // brightest highlight
 
-function lightenGreys(svgText, outMin = BODY_TONE_OUT_MIN, outMax = BODY_TONE_OUT_MAX) {
+function lightenGreys(svgText, outMin, outMax = BODY_TONE_OUT_MAX) {
   const GREY_FILL = /fill:#([0-9a-fA-F]{6})/g;
   // Only neutral greys are touched — never the muscle-overlay placeholder red
   // or any other hue that might exist in the artwork.
@@ -85,8 +92,8 @@ function lightenGreys(svgText, outMin = BODY_TONE_OUT_MIN, outMax = BODY_TONE_OU
   });
 }
 
-export const BODY_FRONT_SVG = lightenGreys(bodyFrontRaw);
-export const BODY_BACK_SVG = lightenGreys(bodyBackRaw);
+export const BODY_FRONT_SVG = lightenGreys(bodyFrontRaw, BODY_TONE_OUT_MIN.front);
+export const BODY_BACK_SVG = lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back);
 
 // ── Gap-filled backdrop ──
 // The artwork was drawn for a LIGHT background: its muscle-definition lines

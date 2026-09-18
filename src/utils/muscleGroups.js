@@ -26,9 +26,11 @@ export const MUSCLE_TO_PPLC = {
 };
 
 // Which body-diagram view (Section 2 heat map) each muscle is most
-// recognizable/visible on. Each muscle appears on exactly one view — no
-// duplication — even though a few (e.g. shoulders, forearms) are partially
-// visible on both in reality; this keeps the diagram clean and unambiguous.
+// recognizable/visible on. Drives the heat map's chip row and the per-muscle
+// thumbnail (MuscleThumbnail), each of which shows a muscle on exactly one
+// view. The diagram overlays themselves (muscleBodyShapes.js) are allowed to
+// draw a muscle on both views — Shoulders renders the anterior delt on the
+// front and the rear delt on the back.
 export const MUSCLE_BODY_VIEW = {
   Chest: 'front', Shoulders: 'front', Biceps: 'front', Forearms: 'front', Core: 'front', Quads: 'front',
   Back: 'back', Triceps: 'back', Glutes: 'back', Hamstrings: 'back', Calves: 'back'

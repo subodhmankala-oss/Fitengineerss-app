@@ -53,3 +53,10 @@ silhouette, 0% overlap the biceps overlay, and it covers ~60% of the arm in
 the y=142–172 band — in line with how the vendored overlays sit on the body.
 Being derived from this artwork, it is specific to it: if `body-front.svg`
 is ever replaced, re-run the generator against the new art.
+
+**Rear delt and teres** likewise have no wger file. `muscle-rear-delt.svg`
+(posterior deltoid → Shoulders on the back view) and `muscle-teres.svg`
+(infraspinatus + teres major/minor → Back, alongside lats and traps) are
+traced from `body-back.svg` on a labelled grid and mirrored about x=100 by
+`tools/gen-back-shoulder-overlays.mjs`. Same caveat: re-trace if
+`body-back.svg` changes.

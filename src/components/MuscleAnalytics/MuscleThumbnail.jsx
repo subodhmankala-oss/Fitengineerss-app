@@ -2,8 +2,25 @@ import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  MUSCLE_CROP, HOLE_PATCHES, HOLE_PATCH_GRADIENT, recolorSvg
+  MUSCLE_CROP, HOLE_PATCHES, HOLE_PATCH_GRADIENT, FACE_MASK, FACE_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
+
+// Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
+// FACE_MASK there for why. Front-view crops (Chest, Shoulders, Biceps, Core,
+// Forearms) and the full-body thumbnail all include the head, so they'd
+// otherwise show the same hollow-eyed vendored face, just more zoomed in.
+const FaceMaskLayer = ({ gradientId }) => (
+  <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
+    <defs>
+      <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={FACE_MASK_GRADIENT.center} stopOpacity="1" />
+        <stop offset="70%" stopColor={FACE_MASK_GRADIENT.mid} stopOpacity="1" />
+        <stop offset="100%" stopColor={FACE_MASK_GRADIENT.edge} stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    <ellipse cx={FACE_MASK.cx} cy={FACE_MASK.cy} rx={FACE_MASK.rx} ry={FACE_MASK.ry} fill={`url(#${gradientId})`} />
+  </svg>
+);
 
 const CANVAS_W = 200, CANVAS_H = 369;
 
@@ -59,6 +76,8 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
 
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
 
+        {view === 'front' && <FaceMaskLayer gradientId={`thumbFace-${muscle}`} />}
+
         {rawFiles.map((rawSvg, i) => (
           <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
         ))}
@@ -109,6 +128,8 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
         </svg>
 
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: BODY_FRONT_SVG }} />
+
+        <FaceMaskLayer gradientId="thumbFace-fullbody" />
 
         {Object.entries(FRONT_MUSCLE_LAYERS)
           .filter(([muscle]) => trainedSet.has(muscle))

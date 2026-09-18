@@ -120,6 +120,28 @@ export const HOLE_PATCH_GRADIENT = {
   back: { top: '#e7e7e7', bottom: '#d9d9d9' },
 };
 
+// ── Face ──
+// The vendored artwork draws real facial anatomy (eyes, nose, mouth,
+// wrinkles) meant for a life-size muscular-system poster. At this app's
+// scale, and after lightenGreys() above brightens the rest of the body, the
+// eye/nose shading — the darkest tones in the source file — reads as hollow
+// black sockets rather than a shaded face, which is unsettling rather than
+// "realistic". The face carries no muscle data (Section 2 is a heat map,
+// not a portrait), so this app follows the same convention most fitness/
+// anatomy apps use: a smooth, featureless head.
+//
+// Rendered as its own layer ON TOP of the body (unlike HOLE_PATCHES, which
+// sit behind it) — a soft-edged ellipse over just the eyes/nose/mouth,
+// leaving the hairline, ears, jaw outline and neck shading untouched so the
+// head still reads as a real head, just without the features that looked
+// wrong. The edge fades out via the gradient's own alpha stops (radial,
+// opaque center → transparent rim) rather than a blur filter, so it renders
+// identically across browsers at small sizes. Colors are sampled from this
+// same region's own lightened forehead/cheek tone, not guessed, so the
+// patch matches its surroundings instead of sitting on top as a flat sticker.
+export const FACE_MASK = { cx: 98, cy: 29, rx: 16.5, ry: 20 };
+export const FACE_MASK_GRADIENT = { center: '#d8d8d8', mid: '#c7c7c7', edge: '#c7c7c7' };
+
 // Every source file uses this same placeholder fill — swapped for the live
 // heat-tier color at render time (see recolorSvg below).
 export const SOURCE_FILL_PLACEHOLDER = '#fc0000';

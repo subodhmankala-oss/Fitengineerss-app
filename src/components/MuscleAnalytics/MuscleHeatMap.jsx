@@ -3,7 +3,7 @@ import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  HOLE_PATCHES, HOLE_PATCH_GRADIENT, recolorSvg
+  HOLE_PATCHES, HOLE_PATCH_GRADIENT, FACE_MASK, FACE_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -53,6 +53,26 @@ const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
       </svg>
 
       <div className="muscle-svg-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
+
+      {/* Featureless-face patch (front view only) — see FACE_MASK in
+          muscleBodyShapes.js for why the vendored face is masked instead of
+          shown as-is. Sits on TOP of the body, unlike the hole-patch layer
+          above, and never intercepts taps (aria-hidden, no click handler). */}
+      {view === 'front' && (
+        <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
+          <defs>
+            <radialGradient id="faceMask" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={FACE_MASK_GRADIENT.center} stopOpacity="1" />
+              <stop offset="65%" stopColor={FACE_MASK_GRADIENT.mid} stopOpacity="1" />
+              <stop offset="100%" stopColor={FACE_MASK_GRADIENT.edge} stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <ellipse
+            cx={FACE_MASK.cx} cy={FACE_MASK.cy} rx={FACE_MASK.rx} ry={FACE_MASK.ry}
+            fill="url(#faceMask)"
+          />
+        </svg>
+      )}
 
       {Object.entries(layerMap).map(([muscle, rawFiles]) => {
         const stat = statByMuscle[muscle];

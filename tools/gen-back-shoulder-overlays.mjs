@@ -8,8 +8,8 @@ import { join } from 'path';
 // rendered body-back.svg on a labelled grid in the shared 200x369 display
 // space; the artwork is symmetric about x=100 so the other side is mirrored.
 const REAR_DELT = [
-  [64, 70], [58, 66.5], [51, 66], [45, 68.5], [41, 74], [39.5, 82], [40, 90],
-  [43, 95.5], [49, 97], [55, 96], [60, 91], [63, 84], [65, 77],
+  [64, 70.5], [58, 68.5], [51.5, 68.5], [46.5, 70.5], [43.5, 75], [42.5, 82],
+  [42.5, 90], [44.5, 95.5], [49, 97], [55, 96], [60, 91], [63, 84], [65, 77],
 ];
 const TERES = [
   [66, 76], [70, 72], [75, 74], [80, 84], [84, 95], [82, 101], [72, 102],

@@ -3920,15 +3920,38 @@ const WorkoutTracker = () => {
                                 return (
                                   <>
                                     {setBwMode ? (
-                                      <div
-                                        className="col-weight bw-static-label bw-static-label--tappable"
-                                        role="button"
-                                        tabIndex={0}
-                                        title="Tap to add weight"
-                                        onClick={(e) => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
-                                      >
-                                        BW <span className="bw-hint-icon">⇄</span>
-                                      </div>
+                                      set.isCompleted ? (
+                                        <div className="col-weight bw-static-label">BW</div>
+                                      ) : (
+                                        <div
+                                          className="col-weight bw-static-label bw-static-label--tappable"
+                                          role="button"
+                                          tabIndex={0}
+                                          title="Tap to add weight"
+                                          onClick={() => {
+                                            // The toggle below doesn't just swap this div's
+                                            // content — the whole .hevy-set-row remounts (even a
+                                            // reference captured before the toggle goes stale/
+                                            // disconnected by the time scrollFieldClearOfPad's
+                                            // rAF callback reads it), so getBoundingClientRect
+                                            // reports a zero-size, detached rect and the scroll
+                                            // math sees "already clear" and never moves — the
+                                            // weight field opens hidden behind the pad. Deferring
+                                            // to the next frame and re-querying the now-active
+                                            // field's button (openSetField already marked it
+                                            // active, so it's the only one on the page) picks up
+                                            // the fresh node instead of a stale one.
+                                            handleToggleSetLogBodyweightMode(exIdx, sIdx);
+                                            openSetField(weightKey);
+                                            setTimeout(() => {
+                                              const freshEl = document.querySelector('.set-value-btn.is-active');
+                                              if (freshEl) scrollFieldClearOfPad(freshEl);
+                                            }, 60);
+                                          }}
+                                        >
+                                          BW <span className="bw-hint-icon">⇄</span>
+                                        </div>
+                                      )
                                     ) : (
                                       <div className="col-weight set-input-field bw-input-with-toggle">
                                         <SetValueField
@@ -3938,14 +3961,16 @@ const WorkoutTracker = () => {
                                           active={activeSetKey === weightKey}
                                           onOpen={() => openSetField(weightKey)}
                                         />
-                                        <button
-                                          type="button"
-                                          className="bw-inline-toggle"
-                                          title="Switch back to bodyweight"
-                                          onClick={(e) => { e.stopPropagation(); handleToggleSetLogBodyweightMode(exIdx, sIdx); }}
-                                        >
-                                          ⇄
-                                        </button>
+                                        {!set.isCompleted && (
+                                          <button
+                                            type="button"
+                                            className="bw-inline-toggle"
+                                            title="Switch back to bodyweight"
+                                            onClick={(e) => { e.stopPropagation(); handleToggleSetLogBodyweightMode(exIdx, sIdx); }}
+                                          >
+                                            ⇄
+                                          </button>
+                                        )}
                                       </div>
                                     )}
                                     <div className="col-reps" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0 8px' }}>
@@ -3988,15 +4013,26 @@ const WorkoutTracker = () => {
                                     {exIsWarmup ? (
                                       <div className="col-weight" />
                                     ) : setBwMode ? (
-                                      <div
-                                        className="col-weight bw-static-label bw-static-label--tappable"
-                                        role="button"
-                                        tabIndex={0}
-                                        title="Tap to add weight"
-                                        onClick={(e) => { handleToggleSetLogBodyweightMode(exIdx, sIdx); openSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
-                                      >
-                                        BW <span className="bw-hint-icon">⇄</span>
-                                      </div>
+                                      set.isCompleted ? (
+                                        <div className="col-weight bw-static-label">BW</div>
+                                      ) : (
+                                        <div
+                                          className="col-weight bw-static-label bw-static-label--tappable"
+                                          role="button"
+                                          tabIndex={0}
+                                          title="Tap to add weight"
+                                          onClick={() => {
+                                            handleToggleSetLogBodyweightMode(exIdx, sIdx);
+                                            openSetField(weightKey);
+                                            setTimeout(() => {
+                                              const freshEl = document.querySelector('.set-value-btn.is-active');
+                                              if (freshEl) scrollFieldClearOfPad(freshEl);
+                                            }, 60);
+                                          }}
+                                        >
+                                          BW <span className="bw-hint-icon">⇄</span>
+                                        </div>
+                                      )
                                     ) : (
                                       <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                         <SetValueField
@@ -4006,7 +4042,7 @@ const WorkoutTracker = () => {
                                           active={activeSetKey === weightKey}
                                           onOpen={() => openSetField(weightKey)}
                                         />
-                                        {exIsBodyweight && (
+                                        {exIsBodyweight && !set.isCompleted && (
                                           <button
                                             type="button"
                                             className="bw-inline-toggle"

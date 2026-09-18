@@ -7799,7 +7799,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                   role="button"
                                                   tabIndex={0}
                                                   title="Tap to add weight"
-                                                  onClick={(e) => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
+                                                  onClick={() => {
+                                                    handleToggleSetEditorBodyweightMode(exIdx, setIdx);
+                                                    openLiveSetField(weightKey);
+                                                    setTimeout(() => {
+                                                      const freshEl = document.querySelector('.set-value-btn.is-active');
+                                                      if (freshEl) scrollFieldClearOfPad(freshEl);
+                                                    }, 60);
+                                                  }}
                                                 >
                                                   BW <span className="bw-hint-icon">⇄</span>
                                                 </div>
@@ -7882,7 +7889,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                                   role="button"
                                                   tabIndex={0}
                                                   title="Tap to add weight"
-                                                  onClick={(e) => { handleToggleSetEditorBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
+                                                  onClick={() => {
+                                                    handleToggleSetEditorBodyweightMode(exIdx, setIdx);
+                                                    openLiveSetField(weightKey);
+                                                    setTimeout(() => {
+                                                      const freshEl = document.querySelector('.set-value-btn.is-active');
+                                                      if (freshEl) scrollFieldClearOfPad(freshEl);
+                                                    }, 60);
+                                                  }}
                                                 >
                                                   BW <span className="bw-hint-icon">⇄</span>
                                                 </div>
@@ -8657,7 +8671,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           role="button"
                                           tabIndex={0}
                                           title="Tap to add weight"
-                                          onClick={(e) => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
+                                          onClick={() => {
+                                            handleToggleSetLiveBodyweightMode(exIdx, setIdx);
+                                            openLiveSetField(weightKey);
+                                            setTimeout(() => {
+                                              const freshEl = document.querySelector('.set-value-btn.is-active');
+                                              if (freshEl) scrollFieldClearOfPad(freshEl);
+                                            }, 60);
+                                          }}
                                         >
                                           BW <span className="bw-hint-icon">⇄</span>
                                         </div>
@@ -8725,7 +8746,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                             role="button"
                                             tabIndex={0}
                                             title="Tap to add weight"
-                                            onClick={(e) => { handleToggleSetLiveBodyweightMode(exIdx, setIdx); openLiveSetField(weightKey); scrollFieldClearOfPad(e.currentTarget); }}
+                                            onClick={() => {
+                                            handleToggleSetLiveBodyweightMode(exIdx, setIdx);
+                                            openLiveSetField(weightKey);
+                                            setTimeout(() => {
+                                              const freshEl = document.querySelector('.set-value-btn.is-active');
+                                              if (freshEl) scrollFieldClearOfPad(freshEl);
+                                            }, 60);
+                                          }}
                                           >
                                             BW <span className="bw-hint-icon">⇄</span>
                                           </div>

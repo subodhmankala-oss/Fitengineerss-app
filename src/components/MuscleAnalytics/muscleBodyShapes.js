@@ -115,22 +115,32 @@ export const BODY_BACK_SVG = lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back);
 // natural linework that reads fine and should stay exactly as the artwork
 // drew it. Only the blobby ones (the sternum/neck patch this replaces, but
 // also dozens more the old two rects missed: collarbone, shoulder blade,
-// palm, knee, and the toe/finger crevices — see step 2) read as broken
+// palm, knee, and the toe/finger crevices — see step 2b) read as broken
 // scribbles and needed fixing. So the generator tells them apart by shape,
 // not by hand-picked coordinates:
 //   1. Rasterize the (already lightened) SVG to a canvas.
-//   2. Build the candidate set: (a) transparent pixels unreachable from the
-//      canvas border through other transparent pixels ("interior" gaps —
-//      flood-fill from the border first), UNION (b) any transparent pixel
-//      within ~3 native units of a real painted pixel, even if it IS
-//      border-reachable. (b) exists because the space between separated
-//      fingers/toes is topologically "outside" (open air, correctly left
-//      alone) exactly the same way a tight crevice near the base of two
-//      adjacent fingers/toes is (also technically reaches the same open
-//      air, just through a narrow channel) — border-reachability alone
-//      can't tell those two apart, but proximity to real geometry can: the
-//      open part of a finger gap is far from any painted pixel once you're
-//      more than a couple units out, while a tight crevice never is.
+//   2. Build the candidate set as the UNION of two independent tests, each
+//      bounded in a different way so neither can run away and swallow the
+//      whole silhouette:
+//      (a) transparent pixels unreachable from the canvas border through
+//          other transparent pixels ("interior" gaps, via border flood-
+//          fill) — catches wide enclosed holes (sternum/collarbone) at any
+//          size, but by definition never includes anything touching the
+//          open background beside a limb.
+//      (b) transparent pixels recovered by a morphological CLOSING of the
+//          painted-pixel mask (dilate by 11px at the 3x working resolution,
+//          ~3.7 native units, then erode by the same amount) — this bridges
+//          small pinches regardless of orientation (finger/toe crevices)
+//          while leaving the outer silhouette edge exactly where it was:
+//          closing can't extend a boundary outward along an open stretch,
+//          only fill concavities narrower than twice the radius. An
+//          earlier version of (b) tested "transparent AND within N units of
+//          a painted pixel" instead — that test is true continuously along
+//          the ENTIRE open silhouette edge (every pixel just outside the
+//          arm is "close to" the arm), not just at pockets, so it produced
+//          one giant fillable ring hugging the whole body. Closing doesn't
+//          have that failure mode because dilate-then-erode provably
+//          returns to the original boundary wherever it wasn't concave.
 //   3. Distance-transform the candidate set (distance to the nearest
 //      non-candidate pixel) and connected-component it. A thin line's max
 //      distance stays low regardless of length; a blobby hole's — or a

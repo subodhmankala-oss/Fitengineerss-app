@@ -47,7 +47,7 @@ const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
           shown as-is. Sits on TOP of the body, unlike the hole-patch layer
           above, and never intercepts taps (aria-hidden, no click handler). */}
       {view === 'front' && (
-        <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
+        <svg viewBox="0 0 200 369.03" className="muscle-svg-layer" aria-hidden="true" focusable="false">
           <defs>
             <radialGradient id="faceMask" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor={FACE_MASK_GRADIENT.center} stopOpacity="1" />
@@ -67,7 +67,7 @@ const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
           highlight AND the gap-fill beneath it together without needing to
           tell those two apart. */}
       {view === 'back' && (
-        <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
+        <svg viewBox="0 0 200 369.03" className="muscle-svg-layer" aria-hidden="true" focusable="false">
           <defs>
             <radialGradient id="scalpMask" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor={SCALP_MASK_GRADIENT.center} />

@@ -610,6 +610,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const [loadingClients, setLoadingClients] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [goalFilter, setGoalFilter] = useState('All');
+  const [activityFilter, setActivityFilter] = useState(null);
   // Deliberately NOT restored from localStorage/DB on mount (see the removed
   // loadActiveInviteCode effect above this state) — the coach asked for the
   // "Active Code" panel to only ever show a code that was generated in the
@@ -4481,6 +4482,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                   clients={clients}
                   goalFilter={goalFilter}
                   setGoalFilter={setGoalFilter}
+                  activityFilter={activityFilter}
+                  setActivityFilter={setActivityFilter}
                   loadingClients={loadingClients}
                   coachesList={coachesList}
                   onSelectCoachDetails={handleViewCoachClients}

@@ -5,6 +5,8 @@ export default function AdminClientsList({
   clients = [],
   goalFilter = 'All',
   setGoalFilter,
+  activityFilter = null,
+  setActivityFilter,
   loadingClients,
   coachesList = [],
   onSelectCoachDetails
@@ -18,7 +20,11 @@ export default function AdminClientsList({
     );
   }
 
-  const filteredClients = clients.filter(c => goalFilter === 'All' || c.userGoal === goalFilter);
+  const filteredClients = clients.filter(c => {
+    const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
+    const matchesActivity = !activityFilter || getActivityStatus(c.last_login).key === activityFilter;
+    return matchesGoal && matchesActivity;
+  });
 
   // Activity summary across ALL clients (not just the goal-filtered subset)
   // so the counts don't shift when someone flips the filter pills.
@@ -46,20 +52,38 @@ export default function AdminClientsList({
         All Clients ({clients.length})
       </h5>
 
-      {/* Activity summary — who's logged in today vs. gone quiet */}
+      {/* Activity summary — who's logged in today vs. gone quiet. Click a tile to filter the list below. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
-        {summaryTiles.map(tile => (
-          <div key={tile.key} style={{
-            flex: '1 1 120px',
-            padding: '8px 10px',
-            borderRadius: '8px',
-            background: tile.bg,
-            border: `1px solid ${tile.border}`
-          }}>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: tile.color }}>{tile.count}</div>
-            <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600 }}>{tile.label}</div>
-          </div>
-        ))}
+        {summaryTiles.map(tile => {
+          const isActive = activityFilter === tile.key;
+          return (
+            <div
+              key={tile.key}
+              onClick={() => setActivityFilter && setActivityFilter(isActive ? null : tile.key)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActivityFilter && setActivityFilter(isActive ? null : tile.key);
+                }
+              }}
+              style={{
+                flex: '1 1 120px',
+                padding: '8px 10px',
+                borderRadius: '8px',
+                background: tile.bg,
+                border: `1px solid ${isActive ? tile.color : tile.border}`,
+                boxShadow: isActive ? `0 0 0 1px ${tile.color}` : 'none',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }}
+            >
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: tile.color }}>{tile.count}</div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 600 }}>{tile.label}</div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Goal filter pills */}

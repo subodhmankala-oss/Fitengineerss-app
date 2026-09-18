@@ -97,4 +97,67 @@ describe('AdminClientsList component', () => {
     expect(selectCoachSpy).toHaveBeenCalledTimes(1);
     expect(selectCoachSpy).toHaveBeenCalledWith(mockCoaches[0]);
   });
+
+  it('should toggle activityFilter when a summary tile is clicked', () => {
+    const setActivityFilterSpy = vi.fn();
+    render(
+      <AdminClientsList
+        clients={mockClients}
+        goalFilter="All"
+        setGoalFilter={() => {}}
+        activityFilter={null}
+        setActivityFilter={setActivityFilterSpy}
+        loadingClients={false}
+        coachesList={mockCoaches}
+        onSelectCoachDetails={() => {}}
+      />
+    );
+
+    const neverTile = screen.getByText('Never logged in');
+    fireEvent.click(neverTile);
+
+    expect(setActivityFilterSpy).toHaveBeenCalledTimes(1);
+    expect(setActivityFilterSpy).toHaveBeenCalledWith('never');
+  });
+
+  it('should un-set activityFilter when the active tile is clicked again', () => {
+    const setActivityFilterSpy = vi.fn();
+    render(
+      <AdminClientsList
+        clients={mockClients}
+        goalFilter="All"
+        setGoalFilter={() => {}}
+        activityFilter="never"
+        setActivityFilter={setActivityFilterSpy}
+        loadingClients={false}
+        coachesList={mockCoaches}
+        onSelectCoachDetails={() => {}}
+      />
+    );
+
+    const neverTile = screen.getByText('Never logged in');
+    fireEvent.click(neverTile);
+
+    expect(setActivityFilterSpy).toHaveBeenCalledTimes(1);
+    expect(setActivityFilterSpy).toHaveBeenCalledWith(null);
+  });
+
+  it('should filter the client list by activity status', () => {
+    render(
+      <AdminClientsList
+        clients={mockClients}
+        goalFilter="All"
+        setGoalFilter={() => {}}
+        activityFilter="never"
+        setActivityFilter={() => {}}
+        loadingClients={false}
+        coachesList={mockCoaches}
+        onSelectCoachDetails={() => {}}
+      />
+    );
+
+    // Neither mock client has a last_login, so both fall under "never" and both should render.
+    expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
+    expect(screen.getByText('Subodh Guest')).toBeTruthy();
+  });
 });

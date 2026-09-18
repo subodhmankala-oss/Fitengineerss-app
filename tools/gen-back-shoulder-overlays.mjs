@@ -53,13 +53,40 @@ const TERES = [
   [80.8, 86.8],
   [79.5, 81.3],
 ];
-// Semitendinosus + semimembranosus: wger's hamstring file (muscle-11) is
-// biceps femoris only, so the inner two-thirds of the back of the thigh
-// stayed grey. Sits between muscle-11's inner edge and the inner thigh line,
-// from just below the glute overlay to just above the calf overlay.
-const INNER_HAMSTRING = [
-  [81, 210], [86, 207], [92, 208], [95, 215], [96, 230], [95, 245], [93, 257],
-  [90, 262], [85, 263], [82, 260], [82, 250], [81, 235], [81, 222],
+// Whole back of the thigh, hand-traced by the coach in the browser tracer.
+// Replaces wger's muscle-11 (biceps femoris only) on the heat map.
+const HAMSTRINGS = [
+  [96, 196.8],
+  [91.5, 198],
+  [85, 202],
+  [81.8, 204.8],
+  [75.5, 209.8],
+  [70.5, 213.8],
+  [67.5, 217.8],
+  [66, 222.8],
+  [66, 227.8],
+  [67.3, 236.3],
+  [69.3, 243.8],
+  [72.5, 252.3],
+  [73.5, 255.3],
+  [74.3, 267.8],
+  [74.3, 271.8],
+  [78.3, 268.8],
+  [79.5, 264.3],
+  [81.5, 260.5],
+  [84, 262.8],
+  [89.3, 262.8],
+  [91, 261.3],
+  [92.8, 262.8],
+  [95, 266],
+  [96.5, 267.5],
+  [97.5, 262.8],
+  [98, 254.8],
+  [97.8, 244],
+  [97.8, 228.8],
+  [98.5, 211.8],
+  [99.3, 199.8],
+  [99.5, 196.3],
 ];
 
 const mirror = pts => pts.map(([x, y]) => [200 - x, y]);
@@ -112,7 +139,7 @@ function file(id, pts) {
 }
 
 const outDir = process.argv[2];
-for (const [name, pts] of [['rear-delt', REAR_DELT], ['teres', TERES], ['inner-hamstring', INNER_HAMSTRING]]) {
+for (const [name, pts] of [['rear-delt', REAR_DELT], ['teres', TERES], ['hamstrings', HAMSTRINGS]]) {
   const out = join(outDir, `muscle-${name}.svg`);
   writeFileSync(out, file(name, pts));
   console.log('wrote', out);

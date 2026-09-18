@@ -115,22 +115,32 @@ export const BODY_BACK_SVG = lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back);
 // natural linework that reads fine and should stay exactly as the artwork
 // drew it. Only the blobby ones (the sternum/neck patch this replaces, but
 // also dozens more the old two rects missed: collarbone, shoulder blade,
-// palm, knee) read as broken scribbles and needed fixing. So the generator
-// tells them apart by shape, not by hand-picked coordinates:
+// palm, knee, and the toe/finger crevices — see step 2) read as broken
+// scribbles and needed fixing. So the generator tells them apart by shape,
+// not by hand-picked coordinates:
 //   1. Rasterize the (already lightened) SVG to a canvas.
-//   2. Flood-fill "outside" from the canvas border through transparent
-//      pixels, so gaps that genuinely connect to the outside — between
-//      fingers/toes, under the arms — are correctly left transparent.
-//   3. Distance-transform the remaining "interior" transparent pixels
-//      (distance to the nearest non-gap pixel) and connected-component them.
-//      A thin line's max distance stays low regardless of length; a blobby
-//      hole's grows with its width. Threshold: 4px at the 3x working
-//      resolution (~1.3 native units radius) — only components that reach
-//      it anywhere get filled; thin ones are left fully alone rather than
-//      partially chewed into.
-//   4. Fill eligible interior pixels with the color of their nearest real
-//      painted neighbour (multi-source flood fill), so each gap blends into
-//      its own local shading instead of one flat tone for the whole body.
+//   2. Build the candidate set: (a) transparent pixels unreachable from the
+//      canvas border through other transparent pixels ("interior" gaps —
+//      flood-fill from the border first), UNION (b) any transparent pixel
+//      within ~3 native units of a real painted pixel, even if it IS
+//      border-reachable. (b) exists because the space between separated
+//      fingers/toes is topologically "outside" (open air, correctly left
+//      alone) exactly the same way a tight crevice near the base of two
+//      adjacent fingers/toes is (also technically reaches the same open
+//      air, just through a narrow channel) — border-reachability alone
+//      can't tell those two apart, but proximity to real geometry can: the
+//      open part of a finger gap is far from any painted pixel once you're
+//      more than a couple units out, while a tight crevice never is.
+//   3. Distance-transform the candidate set (distance to the nearest
+//      non-candidate pixel) and connected-component it. A thin line's max
+//      distance stays low regardless of length; a blobby hole's — or a
+//      tight crevice's — grows with its width. Threshold: 4px at the 3x
+//      working resolution (~1.3 native units radius) — only components
+//      that reach it anywhere get filled; thin ones (by width, not length)
+//      are left fully alone rather than partially chewed into.
+//   4. Fill eligible pixels with the color of their nearest real painted
+//      neighbour (multi-source flood fill), so each gap blends into its
+//      own local shading instead of one flat tone for the whole body.
 //
 // Regenerate (no CLI tool — needs a real browser canvas to rasterize the
 // SVG): ask Claude to re-run the gap-fill script against the current

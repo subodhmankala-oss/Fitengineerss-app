@@ -11,7 +11,7 @@ import {
 // Forearms) and the full-body thumbnail all include the head, so they'd
 // otherwise show the same hollow-eyed vendored face, just more zoomed in.
 const FaceMaskLayer = ({ gradientId }) => (
-  <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
+  <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} className="muscle-thumb-layer">
     <defs>
       <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
         <stop offset="0%" stopColor={FACE_MASK_GRADIENT.center} stopOpacity="1" />
@@ -26,7 +26,7 @@ const FaceMaskLayer = ({ gradientId }) => (
 // Same scalp-dim wash as the full heat map — see SCALP_MASK there for why.
 // Only the "Back" crop (Latissimus dorsi + Trapezius) includes the head.
 const ScalpMaskLayer = ({ gradientId }) => (
-  <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
+  <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} className="muscle-thumb-layer">
     <defs>
       <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
         <stop offset="0%" stopColor={SCALP_MASK_GRADIENT.center} />

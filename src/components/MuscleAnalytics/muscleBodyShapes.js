@@ -92,8 +92,42 @@ function lightenGreys(svgText, outMin, outMax = BODY_TONE_OUT_MAX) {
   });
 }
 
-export const BODY_FRONT_SVG = lightenGreys(bodyFrontRaw, BODY_TONE_OUT_MIN.front);
-export const BODY_BACK_SVG = lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back);
+// ── viewBox ──
+// None of the vendored/generated files declare a viewBox — they only carry
+// width="200" height="369"(.03) attributes. Per the SVG spec, a root <svg>
+// with explicit width/height but NO viewBox does NOT rescale its content
+// when CSS later overrides that width/height to something else (e.g. this
+// app's own `.muscle-svg-layer svg { width:100%; height:100% }`) — the
+// content stays at native 1-unit-per-px scale, anchored top-left inside
+// whatever box CSS gives the element, which can be smaller than that box.
+// Measured on this app's own card size: content rendered at ~200×369 real
+// px inside a 220×406 box — about 10% short of filling it, worst at the
+// bottom-right (the top-left corner is the anchor, so it's exact there and
+// the gap grows with distance from it).
+//
+// Every one of this app's several SVG layers shares that exact same quirk,
+// so historically they've all been consistently ~10% "too small" together
+// — invisible, because every layer was wrong by the same amount in the
+// same direction. BODY_FRONT_FILL_URL/BODY_BACK_FILL_URL broke that
+// invisibility: it's a plain <img>, which DOES scale its content to fill
+// 100% (standard raster behavior, no viewBox concept applies), so it's
+// correctly sized while every SVG layer on top of it still isn't — a ~10%
+// drift between the backdrop and the real artwork, worst at whichever body
+// part sits farthest from the top-left origin (hands hanging at the sides
+// showed it as a visible ghosted double image; the torso near the anchor
+// barely showed it at all, which is why this went unnoticed until now).
+//
+// Fix: give every layer an explicit viewBox matching its native canvas, so
+// CSS width/height scaling behaves the standards-defined way (uniformly
+// rescale content to fit) instead of the no-viewBox fallback — the same
+// way the <img> already does it, so every layer finally agrees.
+function ensureViewBox(svgText, viewBox = '0 0 200 369.03') {
+  if (/\sviewBox=/.test(svgText)) return svgText;
+  return svgText.replace('<svg', `<svg viewBox="${viewBox}"`);
+}
+
+export const BODY_FRONT_SVG = ensureViewBox(lightenGreys(bodyFrontRaw, BODY_TONE_OUT_MIN.front));
+export const BODY_BACK_SVG = ensureViewBox(lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back));
 
 // ── Gap-filled backdrop ──
 // The artwork was drawn for a LIGHT background: its muscle-definition lines
@@ -235,7 +269,7 @@ export function recolorSvg(rawSvg, color, isActive) {
   } else if (byColor.has(cacheKey)) {
     return byColor.get(cacheKey);
   }
-  let svg = rawSvg.split(SOURCE_FILL_PLACEHOLDER).join(color);
+  let svg = ensureViewBox(rawSvg.split(SOURCE_FILL_PLACEHOLDER).join(color));
   // Every shape gets a thin seam, not just the active one — bilateral pairs
   // (Quads, Glutes) sit close enough in the vendored artwork that their own
   // gap is only a few px wide at this app's render size, and a flat fill

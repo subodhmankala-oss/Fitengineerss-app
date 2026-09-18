@@ -145,9 +145,17 @@ export const BODY_BACK_SVG = lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back);
 //      non-candidate pixel) and connected-component it. A thin line's max
 //      distance stays low regardless of length; a blobby hole's — or a
 //      tight crevice's — grows with its width. Threshold: 4px at the 3x
-//      working resolution (~1.3 native units radius) — only components
-//      that reach it anywhere get filled; thin ones (by width, not length)
-//      are left fully alone rather than partially chewed into.
+//      working resolution (~1.3 native units radius) — components that
+//      reach it anywhere get filled outright. Below that, a SECOND check:
+//      a component under 24px (~8 native units) in its longest dimension
+//      gets filled regardless of how elongated its ratio looks — width-to-
+//      length ratio alone can't tell a short stubby scribble (e.g. the
+//      glute-cleft mark this was added for) from a genuinely long groove
+//      (calf/hamstring midline) that just happens to be similarly thin;
+//      both can cross the same elongation threshold, but only one of them
+//      is actually long enough to read as a real anatomical line. Only
+//      components that are BOTH thin AND long are left fully alone, rather
+//      than partially chewed into.
 //   4. Fill eligible pixels with the color of their nearest real painted
 //      neighbour (multi-source flood fill), so each gap blends into its
 //      own local shading instead of one flat tone for the whole body.

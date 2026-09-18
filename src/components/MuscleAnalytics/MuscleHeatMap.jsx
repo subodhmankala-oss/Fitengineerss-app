@@ -3,7 +3,8 @@ import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  HOLE_PATCHES, HOLE_PATCH_GRADIENT, recolorSvg
+  BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
+  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -28,31 +29,58 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
 
 const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
   const bodySvg = view === 'front' ? BODY_FRONT_SVG : BODY_BACK_SVG;
+  const bodyFillUrl = view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL;
   const layerMap = view === 'front' ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS;
 
   return (
     <div className="muscle-body-stack">
-      {/* Behind the body: fills the artwork's large centreline gaps so they
-          read as pale skin / soft shadow instead of the dark card showing
-          through. Masked by the body artwork itself — see HOLE_PATCHES.
-          IMPORTANT: deliberately NO viewBox, matching the vendored assets —
-          none of them declare one, so every layer draws at native user units
-          and they align exactly. Adding a viewBox here made this layer scale
-          to the container (~10% larger) while the body did not, which pushed
-          the patch out past the silhouette beside the head. */}
-      <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id={`holePatch-${view}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={HOLE_PATCH_GRADIENT[view].top} />
-            <stop offset="100%" stopColor={HOLE_PATCH_GRADIENT[view].bottom} />
-          </linearGradient>
-        </defs>
-        {HOLE_PATCHES[view].map((r, i) => (
-          <rect key={i} x={r.x} y={r.y} width={r.width} height={r.height} fill={`url(#holePatch-${view})`} />
-        ))}
-      </svg>
+      {/* Behind the body: fills the artwork's gaps (see BODY_FRONT_FILL_URL
+          in muscleBodyShapes.js) so they read as pale skin instead of the
+          dark card showing through. Masked by the body artwork itself, same
+          as the SVG layers below it. */}
+      <img src={bodyFillUrl} alt="" className="muscle-svg-layer" aria-hidden="true" />
 
       <div className="muscle-svg-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
+
+      {/* Featureless-face patch (front view only) — see FACE_MASK in
+          muscleBodyShapes.js for why the vendored face is masked instead of
+          shown as-is. Sits on TOP of the body, unlike the hole-patch layer
+          above, and never intercepts taps (aria-hidden, no click handler). */}
+      {view === 'front' && (
+        <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
+          <defs>
+            <radialGradient id="faceMask" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={FACE_MASK_GRADIENT.center} stopOpacity="1" />
+              <stop offset="65%" stopColor={FACE_MASK_GRADIENT.mid} stopOpacity="1" />
+              <stop offset="100%" stopColor={FACE_MASK_GRADIENT.edge} stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <ellipse
+            cx={FACE_MASK.cx} cy={FACE_MASK.cy} rx={FACE_MASK.rx} ry={FACE_MASK.ry}
+            fill="url(#faceMask)"
+          />
+        </svg>
+      )}
+
+      {/* Scalp dim (back view only) — see SCALP_MASK in muscleBodyShapes.js.
+          A translucent wash, not a color swap, so it dims the real painted
+          highlight AND the gap-fill beneath it together without needing to
+          tell those two apart. */}
+      {view === 'back' && (
+        <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
+          <defs>
+            <radialGradient id="scalpMask" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={SCALP_MASK_GRADIENT.center} />
+              <stop offset="70%" stopColor={SCALP_MASK_GRADIENT.mid} />
+              <stop offset="100%" stopColor={SCALP_MASK_GRADIENT.edge} />
+            </radialGradient>
+          </defs>
+          <ellipse
+            cx={SCALP_MASK.cx} cy={SCALP_MASK.cy} rx={SCALP_MASK.rx} ry={SCALP_MASK.ry}
+            fill="url(#scalpMask)"
+          />
+        </svg>
+      )}
 
       {Object.entries(layerMap).map(([muscle, rawFiles]) => {
         const stat = statByMuscle[muscle];

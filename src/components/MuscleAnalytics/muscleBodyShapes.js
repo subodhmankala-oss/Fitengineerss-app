@@ -28,6 +28,8 @@ import forearmRaw from './assets/muscle-forearm.svg?raw'; // Forearms (generated
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw'; // Posterior deltoid (generated — see below)
 import teresRaw from './assets/muscle-teres.svg?raw'; // Infraspinatus / teres major+minor (generated — see below)
 import hamstringsRaw from './assets/muscle-hamstrings.svg?raw'; // Whole hamstring group (generated — see below)
+import bodyFrontFillUrl from './assets/body-front-fill.png'; // Gap-filled backdrop (generated — see below)
+import bodyBackFillUrl from './assets/body-back-fill.png'; // Gap-filled backdrop (generated — see below)
 
 // ── Body tone ──
 // The vendored artwork is a dark greyscale ramp (front: #303030→#cfcfcf,
@@ -35,25 +37,33 @@ import hamstringsRaw from './assets/muscle-hamstrings.svg?raw'; // Whole hamstri
 // figure — the face especially, whose features use the darkest tones and
 // merge into one dark mass at phone size.
 //
-// This rescales every grey fill from the file's own range into a bright band,
-// so the figure reads as pale near-white muscle with grey shading (and the
-// artwork's transparent gaps reading as the dark separations between muscle
-// groups — the artwork was drawn for a light background, so those gaps are
-// its line work).
+// This rescales every grey fill from the file's own range into a band that
+// still reads as pale muscle overall (bright highlights, outMax=252) but
+// keeps real shadow depth instead of crushing everything into a narrow
+// bright band — an outMin=152 first pass made every shading transition
+// low-contrast, so the muscle separations (pecs, abs, deltoid) read as
+// flat/washed-out instead of defined. The artwork's transparent gaps read
+// as the darkest separations between muscle groups — the artwork was drawn
+// for a light background, so those gaps are its line work.
 //
-// A per-file LEVELS remap rather than a fixed gamma curve, for two reasons:
-// the two files have different input ranges (front starts at 48, back at 25),
-// so normalising each into the same output band keeps the two views
-// consistent — a gamma curve left the back view's darkest tone at 116, still
-// murky, while the front's floor was 145. It also keeps brighter highlights
-// (252 vs gamma's 238) for the near-white look.
+// A per-file LEVELS remap rather than a fixed gamma curve, since the two
+// files have different input ranges (front starts at 48, back at 25);
+// normalising each into the same output band keeps the two views
+// consistent — except the floor itself, which is NOT the same for both
+// (see BODY_TONE_OUT_MIN below): front only has 7 distinct shading steps
+// vendored (back has 11), so the same floor that reads as fine, smooth
+// shading on the back's finer gradient reads as bigger, blockier dark
+// patches on the front's coarser one — the same darkness value covers more
+// visible area per step. Front's floor sits higher purely to compensate for
+// having fewer steps to spread that darkness across, not because the front
+// SHOULD look lighter than the back.
 //
 // Applied once at module load (not per render) to the raw SVG text; the
 // vendored files themselves stay untouched on disk.
-const BODY_TONE_OUT_MIN = 152; // darkest shading
+const BODY_TONE_OUT_MIN = { front: 130, back: 90 }; // darkest shading, per view — see comment above
 const BODY_TONE_OUT_MAX = 252; // brightest highlight
 
-function lightenGreys(svgText, outMin = BODY_TONE_OUT_MIN, outMax = BODY_TONE_OUT_MAX) {
+function lightenGreys(svgText, outMin, outMax = BODY_TONE_OUT_MAX) {
   const GREY_FILL = /fill:#([0-9a-fA-F]{6})/g;
   // Only neutral greys are touched — never the muscle-overlay placeholder red
   // or any other hue that might exist in the artwork.
@@ -82,43 +92,119 @@ function lightenGreys(svgText, outMin = BODY_TONE_OUT_MIN, outMax = BODY_TONE_OU
   });
 }
 
-export const BODY_FRONT_SVG = lightenGreys(bodyFrontRaw);
-export const BODY_BACK_SVG = lightenGreys(bodyBackRaw);
+export const BODY_FRONT_SVG = lightenGreys(bodyFrontRaw, BODY_TONE_OUT_MIN.front);
+export const BODY_BACK_SVG = lightenGreys(bodyBackRaw, BODY_TONE_OUT_MIN.back);
 
-// ── Hole patches ──
+// ── Gap-filled backdrop ──
 // The artwork was drawn for a LIGHT background: its muscle-definition lines
-// are transparent GAPS, not dark strokes. On this app's dark card most of
-// those gaps still read fine as fine linework, but the large ones down the
-// body's centreline read as solid black blobs — the sternum/chest gap on the
-// front, and the back of the head plus the neck on the back view.
+// are transparent GAPS, not dark strokes. On this app's dark card, every one
+// of those gaps — not just the large sternum/neck ones this used to patch
+// with two fixed rects, but dozens of smaller ones across the collarbone,
+// underarm, forearm, hand, knee etc. — shows the card's own dark background
+// through, reading as scattered black scribbles/holes rather than skin.
 //
-// One rect per view, rendered BEHIND the body: the artwork itself masks it,
-// so only the parts showing through an actual gap are ever visible. That
-// means a plain rectangle suffices and can never distort the silhouette.
+// body-front-fill.png / body-back-fill.png are a full-body version of the
+// same idea as the old two-rect patch, generalized: a solid backdrop,
+// rendered BEHIND the real vendored SVG, that fills gaps at once instead of
+// enumerating each one by hand. Because the real SVG still draws on top
+// unchanged, this can only ever show through an actual gap — it can't
+// distort the silhouette.
 //
-// Each rect was derived from the artwork, not guessed: interior holes were
-// found by flood-filling transparency from the canvas border (so gaps that
-// connect to the outside — between fingers, under the arms — are correctly
-// excluded), then the widest span around the centreline containing zero
-// "outside" pixels was measured per row and merged. The result was verified
-// pixel-by-pixel to contain 0 outside pixels with a 1-unit safety inset, so
-// no edge can poke past the figure. Coordinates are the shared 200x369 canvas.
-export const HOLE_PATCHES = {
-  front: [{ x: 85.5, y: 9, width: 25.5, height: 120.5 }],
-  back: [{ x: 87, y: 9, width: 28, height: 110.5 }],
-};
+// Not every gap gets filled, though: some "gaps" are real anatomy — the
+// midline groove down the back of the thigh/calf, the ab striations — thin
+// natural linework that reads fine and should stay exactly as the artwork
+// drew it. Only the blobby ones (the sternum/neck patch this replaces, but
+// also dozens more the old two rects missed: collarbone, shoulder blade,
+// palm, knee, and the toe/finger crevices — see step 2b) read as broken
+// scribbles and needed fixing. So the generator tells them apart by shape,
+// not by hand-picked coordinates:
+//   1. Rasterize the (already lightened) SVG to a canvas.
+//   2. Build the candidate set as the UNION of two independent tests, each
+//      bounded in a different way so neither can run away and swallow the
+//      whole silhouette:
+//      (a) transparent pixels unreachable from the canvas border through
+//          other transparent pixels ("interior" gaps, via border flood-
+//          fill) — catches wide enclosed holes (sternum/collarbone) at any
+//          size, but by definition never includes anything touching the
+//          open background beside a limb.
+//      (b) transparent pixels recovered by a morphological CLOSING of the
+//          painted-pixel mask (dilate by 11px at the 3x working resolution,
+//          ~3.7 native units, then erode by the same amount) — this bridges
+//          small pinches regardless of orientation (finger/toe crevices)
+//          while leaving the outer silhouette edge exactly where it was:
+//          closing can't extend a boundary outward along an open stretch,
+//          only fill concavities narrower than twice the radius. An
+//          earlier version of (b) tested "transparent AND within N units of
+//          a painted pixel" instead — that test is true continuously along
+//          the ENTIRE open silhouette edge (every pixel just outside the
+//          arm is "close to" the arm), not just at pockets, so it produced
+//          one giant fillable ring hugging the whole body. Closing doesn't
+//          have that failure mode because dilate-then-erode provably
+//          returns to the original boundary wherever it wasn't concave.
+//   3. Distance-transform the candidate set (distance to the nearest
+//      non-candidate pixel) and connected-component it. A thin line's max
+//      distance stays low regardless of length; a blobby hole's — or a
+//      tight crevice's — grows with its width. Threshold: 4px at the 3x
+//      working resolution (~1.3 native units radius) — components that
+//      reach it anywhere get filled outright. Below that, a SECOND check:
+//      a component under 24px (~8 native units) in its longest dimension
+//      gets filled regardless of how elongated its ratio looks — width-to-
+//      length ratio alone can't tell a short stubby scribble (e.g. the
+//      glute-cleft mark this was added for) from a genuinely long groove
+//      (calf/hamstring midline) that just happens to be similarly thin;
+//      both can cross the same elongation threshold, but only one of them
+//      is actually long enough to read as a real anatomical line. Only
+//      components that are BOTH thin AND long are left fully alone, rather
+//      than partially chewed into.
+//   4. Fill eligible pixels with the color of their nearest real painted
+//      neighbour (multi-source flood fill), so each gap blends into its
+//      own local shading instead of one flat tone for the whole body.
+//
+// Regenerate (no CLI tool — needs a real browser canvas to rasterize the
+// SVG): ask Claude to re-run the gap-fill script against the current
+// body-front.svg/body-back.svg and replace these two files.
+export const BODY_FRONT_FILL_URL = bodyFrontFillUrl;
+export const BODY_BACK_FILL_URL = bodyBackFillUrl;
 
-// Vertical gradient rather than a flat tone, with stops taken from the actual
-// mean body luminance measured behind each rect (top third → bottom third) so
-// the fill blends with whatever it sits behind:
-//   front  173 → 189 → 230   (head/neck is shaded; abs are bright)
-//   back   231 → 226 → 217   (fairly even, easing off slightly downward)
-// Note the front runs DARK-to-LIGHT downward — the opposite of the intuitive
-// "pale head, shadowed torso" guess, which is why these are measured.
-export const HOLE_PATCH_GRADIENT = {
-  front: { top: '#adadad', bottom: '#e6e6e6' },
-  back: { top: '#e7e7e7', bottom: '#d9d9d9' },
-};
+// ── Face ──
+// The vendored artwork draws real facial anatomy (eyes, nose, mouth,
+// wrinkles) meant for a life-size muscular-system poster. At this app's
+// scale, and after lightenGreys() above brightens the rest of the body, the
+// eye/nose shading — the darkest tones in the source file — reads as hollow
+// black sockets rather than a shaded face, which is unsettling rather than
+// "realistic". The face carries no muscle data (Section 2 is a heat map,
+// not a portrait), so this app follows the same convention most fitness/
+// anatomy apps use: a smooth, featureless head.
+//
+// Rendered as its own layer ON TOP of the body (unlike the gap-fill backdrop
+// below, which sits behind it) — a soft-edged ellipse over just the eyes/nose/mouth,
+// leaving the hairline, ears, jaw outline and neck shading untouched so the
+// head still reads as a real head, just without the features that looked
+// wrong. The edge fades out via the gradient's own alpha stops (radial,
+// opaque center → transparent rim) rather than a blur filter, so it renders
+// identically across browsers at small sizes. Colors are sampled from this
+// same region's own lightened forehead/cheek tone, not guessed, so the
+// patch matches its surroundings instead of sitting on top as a flat sticker.
+export const FACE_MASK = { cx: 98, cy: 29, rx: 16.5, ry: 20 };
+export const FACE_MASK_GRADIENT = { center: '#d8d8d8', mid: '#c7c7c7', edge: '#c7c7c7' };
+
+// ── Scalp (back view) ──
+// The crown of the head, on the back view, is genuinely painted near-white
+// in the vendored artwork (a highlight dome on the bald skull) — that part
+// isn't this app's doing. What IS this app's doing: the enclosed hole right
+// at that same spot (see the gap-fill backdrop above) used to be patched
+// with a fixed, fairly dark two-stop gradient; the new shape-aware backdrop
+// instead blends it toward the hole's own real neighbours, which near the
+// crown means the same near-white highlight — so a spot that was always
+// bright now has no darker patch breaking it up, and reads as a stark flat
+// "cap". Unlike FACE_MASK, this isn't replacing anything that looks wrong
+// on its own — the highlight and the fill are each individually correct —
+// it's toning down their combined brightness a bit so the area reads as
+// scalp, not a headband. A translucent dark radial wash (not an opaque
+// swap) on TOP of the body, so it dims whatever is underneath — real paint
+// and fill alike — without caring which pixels are which.
+export const SCALP_MASK = { cx: 100, cy: 35, rx: 35, ry: 35 };
+export const SCALP_MASK_GRADIENT = { center: 'rgba(0,0,0,0.28)', mid: 'rgba(0,0,0,0.16)', edge: 'rgba(0,0,0,0)' };
 
 // Every source file uses this same placeholder fill — swapped for the live
 // heat-tier color at render time (see recolorSvg below).
@@ -157,7 +243,7 @@ export function recolorSvg(rawSvg, color, isActive) {
   return svg;
 }
 
-// Crop window (shared 200×369 canvas, same as HOLE_PATCHES) used to render
+// Crop window (shared 200×369 canvas) used to render
 // each muscle as a small zoomed-in body icon (MuscleThumbnail) instead of a
 // tiny full-body diagram or a plain text badge. Each rect is centered on the
 // real measured bounding box of that muscle's overlay path(s) — via

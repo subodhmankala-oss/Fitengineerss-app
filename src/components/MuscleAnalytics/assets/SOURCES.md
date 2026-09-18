@@ -62,3 +62,9 @@ hand-traced over the rendered `body-back.svg` and mirrored about x=100 by
 `muscle-hamstrings.svg` (the whole hamstring group → Hamstrings), which the
 heat map uses instead of wger's muscle-11 (biceps femoris only). Same caveat:
 re-trace if `body-back.svg` changes.
+
+**`body-front-fill.png` / `body-back-fill.png`** are a derived, gap-filled
+raster backdrop for the same two vendored SVGs — see `BODY_FRONT_FILL_URL`
+in `muscleBodyShapes.js` for how they're generated and why. As modified
+derivatives of the CC BY-SA artwork above, they carry the same license and
+attribution/share-alike obligations.

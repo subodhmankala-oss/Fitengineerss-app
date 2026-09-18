@@ -2,8 +2,41 @@ import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  MUSCLE_CROP, HOLE_PATCHES, HOLE_PATCH_GRADIENT, recolorSvg
+  MUSCLE_CROP, BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
+  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
+
+// Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
+// FACE_MASK there for why. Front-view crops (Chest, Shoulders, Biceps, Core,
+// Forearms) and the full-body thumbnail all include the head, so they'd
+// otherwise show the same hollow-eyed vendored face, just more zoomed in.
+const FaceMaskLayer = ({ gradientId }) => (
+  <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
+    <defs>
+      <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={FACE_MASK_GRADIENT.center} stopOpacity="1" />
+        <stop offset="70%" stopColor={FACE_MASK_GRADIENT.mid} stopOpacity="1" />
+        <stop offset="100%" stopColor={FACE_MASK_GRADIENT.edge} stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    <ellipse cx={FACE_MASK.cx} cy={FACE_MASK.cy} rx={FACE_MASK.rx} ry={FACE_MASK.ry} fill={`url(#${gradientId})`} />
+  </svg>
+);
+
+// Same scalp-dim wash as the full heat map — see SCALP_MASK there for why.
+// Only the "Back" crop (Latissimus dorsi + Trapezius) includes the head.
+const ScalpMaskLayer = ({ gradientId }) => (
+  <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
+    <defs>
+      <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={SCALP_MASK_GRADIENT.center} />
+        <stop offset="70%" stopColor={SCALP_MASK_GRADIENT.mid} />
+        <stop offset="100%" stopColor={SCALP_MASK_GRADIENT.edge} />
+      </radialGradient>
+    </defs>
+    <ellipse cx={SCALP_MASK.cx} cy={SCALP_MASK.cy} rx={SCALP_MASK.rx} ry={SCALP_MASK.ry} fill={`url(#${gradientId})`} />
+  </svg>
+);
 
 const CANVAS_W = 200, CANVAS_H = 369;
 
@@ -45,19 +78,16 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
           transform: `scale(${scale}) translate(${-crop.x}px, ${-crop.y}px)`,
         }}
       >
-        <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
-          <defs>
-            <linearGradient id={`thumbHolePatch-${muscle}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={HOLE_PATCH_GRADIENT[view].top} />
-              <stop offset="100%" stopColor={HOLE_PATCH_GRADIENT[view].bottom} />
-            </linearGradient>
-          </defs>
-          {HOLE_PATCHES[view].map((r, i) => (
-            <rect key={i} x={r.x} y={r.y} width={r.width} height={r.height} fill={`url(#thumbHolePatch-${muscle})`} />
-          ))}
-        </svg>
+        <img
+          src={view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL}
+          alt=""
+          className="muscle-thumb-layer"
+        />
 
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
+
+        {view === 'front' && <FaceMaskLayer gradientId={`thumbFace-${muscle}`} />}
+        {view === 'back' && <ScalpMaskLayer gradientId={`thumbScalp-${muscle}`} />}
 
         {rawFiles.map((rawSvg, i) => (
           <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
@@ -96,19 +126,11 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
           transformOrigin: 'top left',
         }}
       >
-        <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
-          <defs>
-            <linearGradient id="thumbHolePatch-fullbody" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={HOLE_PATCH_GRADIENT.front.top} />
-              <stop offset="100%" stopColor={HOLE_PATCH_GRADIENT.front.bottom} />
-            </linearGradient>
-          </defs>
-          {HOLE_PATCHES.front.map((r, i) => (
-            <rect key={i} x={r.x} y={r.y} width={r.width} height={r.height} fill="url(#thumbHolePatch-fullbody)" />
-          ))}
-        </svg>
+        <img src={BODY_FRONT_FILL_URL} alt="" className="muscle-thumb-layer" />
 
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: BODY_FRONT_SVG }} />
+
+        <FaceMaskLayer gradientId="thumbFace-fullbody" />
 
         {Object.entries(FRONT_MUSCLE_LAYERS)
           .filter(([muscle]) => trainedSet.has(muscle))

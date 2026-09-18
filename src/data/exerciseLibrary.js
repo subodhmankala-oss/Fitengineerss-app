@@ -117,8 +117,11 @@ export function inferPrimary(name) {
   // must-check-before-Back reasoning applies here.
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$/.test(n)) return 'Triceps';
+  // Checked before the generic "curl" rule below — "Wrist Curl" and
+  // "Reverse Curl" both contain "curl" and would otherwise be mislabeled
+  // Biceps. Matches the Forearms classification in muscleGroups.js.
+  if (/wrist|reverse curl/.test(n)) return 'Forearms';
   if (/(curl|preacher|concentration)/.test(n)) return 'Biceps';
-  if (/wrist/.test(n)) return 'Forearms';
   if (/calf/.test(n)) return 'Calves';
   if (/(glute|hip thrust|glute bridge|kickback)/.test(n)) return 'Glutes';
   if (/(hamstring|romanian|stiff leg|leg curl|good morning|single leg deadlift)/.test(n)) return 'Hamstrings';

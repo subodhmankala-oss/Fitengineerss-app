@@ -44,9 +44,12 @@ export const LARGE_MUSCLES = new Set(['Chest', 'Back', 'Shoulders', 'Quads', 'Ha
 const RULES = [
   // ── Isolation arms (checked before compound "press"/"row" rules) ──
   { test: n => /(triceps|tricep|skullcrusher|pushdown|kickback|close.?grip)/.test(n) && !/(chest dip|^dip$|bench)/.test(n), muscles: ['Triceps'] },
-  // Checked before the generic "curl" rule below — "Wrist Curl" contains
-  // "curl" and would otherwise be misclassified as Biceps.
-  { test: n => /wrist/.test(n), muscles: ['Forearms'] },
+  // Checked before the generic "curl" rule below — "Wrist Curl" and
+  // "Reverse Curl" both contain "curl" and would otherwise be misclassified
+  // as Biceps. Reverse Curl (pronated/overhand grip) is brachioradialis/
+  // forearm-dominant, not a biceps move — matches this module's own
+  // RECOMMENDED_EXERCISES, which already lists Reverse Curl under Forearms.
+  { test: n => /wrist|reverse curl/.test(n), muscles: ['Forearms'] },
   // Loaded carries (Farmer Walk, suitcase/sandbag carry, yoke walk). Grip is
   // the limiting factor (Forearms), with the traps/delts holding the load —
   // matching this module's own RECOMMENDED_EXERCISES, which already lists

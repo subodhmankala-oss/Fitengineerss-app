@@ -58,5 +58,7 @@ is ever replaced, re-run the generator against the new art.
 (posterior deltoid → Shoulders on the back view) and `muscle-teres.svg`
 (infraspinatus + teres major/minor → Back, alongside lats and traps) are
 traced from `body-back.svg` on a labelled grid and mirrored about x=100 by
-`tools/gen-back-shoulder-overlays.mjs`. Same caveat: re-trace if
+`tools/gen-back-shoulder-overlays.mjs`. The same generator also emits
+`muscle-inner-hamstring.svg` (semitendinosus + semimembranosus → Hamstrings),
+since wger's muscle-11 covers biceps femoris only. Same caveat: re-trace if
 `body-back.svg` changes.

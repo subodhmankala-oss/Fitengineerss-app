@@ -28,6 +28,7 @@ import muscle14Raw from './assets/muscle-14.svg?raw'; // Obliquus externus abdom
 import forearmRaw from './assets/muscle-forearm.svg?raw'; // Forearms (generated — see below)
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw'; // Posterior deltoid (generated — see below)
 import teresRaw from './assets/muscle-teres.svg?raw'; // Infraspinatus / teres major+minor (generated — see below)
+import innerHamstringRaw from './assets/muscle-inner-hamstring.svg?raw'; // Semitendinosus / semimembranosus (generated — see below)
 
 // ── Body tone ──
 // The vendored artwork is a dark greyscale ramp (front: #303030→#cfcfcf,
@@ -198,7 +199,7 @@ export const BACK_MUSCLE_LAYERS = {
   Shoulders: [rearDeltRaw],
   Triceps: [muscle5Raw],
   Glutes: [muscle8Raw],
-  Hamstrings: [muscle11Raw],
+  Hamstrings: [muscle11Raw, innerHamstringRaw],
   Calves: [muscle7Raw],
 };
 
@@ -218,5 +219,8 @@ export const BACK_MUSCLE_LAYERS = {
 // traced from body-back.svg on a labelled grid and mirrored about x=100.
 // Rear delt feeds Shoulders (so Shoulders now renders on both views, unlike
 // the one-view rule in MUSCLE_BODY_VIEW, which only drives the chip row);
-// teres feeds Back alongside lats + traps.
+// teres feeds Back alongside lats + traps. Same story for the inner
+// hamstrings: wger's muscle-11 is biceps femoris only, so
+// muscle-inner-hamstring.svg (semitendinosus/semimembranosus) fills the
+// rest of the back of the thigh under Hamstrings.
 // Regenerate with: node tools/gen-back-shoulder-overlays.mjs <assets-dir>

@@ -1,9 +1,10 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
-// Two back-view overlays wger's asset set lacks: the posterior deltoid
-// (shoulder cap) and the infraspinatus / teres major+minor block between the
-// delt, the trapezius overlay (muscle-9) and the lats overlay (muscle-12).
+// Back-view overlays wger's asset set lacks: the posterior deltoid (shoulder
+// cap), the infraspinatus / teres major+minor block between the delt, the
+// trapezius overlay (muscle-9) and the lats overlay (muscle-12), and the
+// inner hamstrings.
 // Points are the figure's right side (image left), traced against the
 // rendered body-back.svg on a labelled grid in the shared 200x369 display
 // space; the artwork is symmetric about x=100 so the other side is mirrored.
@@ -14,6 +15,14 @@ const REAR_DELT = [
 const TERES = [
   [66, 76], [70, 72], [75, 74], [80, 84], [84, 95], [82, 101], [72, 102],
   [63, 100], [58, 96.5], [61, 91], [64, 84],
+];
+// Semitendinosus + semimembranosus: wger's hamstring file (muscle-11) is
+// biceps femoris only, so the inner two-thirds of the back of the thigh
+// stayed grey. Sits between muscle-11's inner edge and the inner thigh line,
+// from just below the glute overlay to just above the calf overlay.
+const INNER_HAMSTRING = [
+  [81, 210], [86, 207], [92, 208], [95, 215], [96, 230], [95, 245], [93, 257],
+  [90, 262], [85, 263], [82, 260], [82, 250], [81, 235], [81, 222],
 ];
 
 const mirror = pts => pts.map(([x, y]) => [200 - x, y]);
@@ -66,7 +75,7 @@ function file(id, pts) {
 }
 
 const outDir = process.argv[2];
-for (const [name, pts] of [['rear-delt', REAR_DELT], ['teres', TERES]]) {
+for (const [name, pts] of [['rear-delt', REAR_DELT], ['teres', TERES], ['inner-hamstring', INNER_HAMSTRING]]) {
   const out = join(outDir, `muscle-${name}.svg`);
   writeFileSync(out, file(name, pts));
   console.log('wrote', out);

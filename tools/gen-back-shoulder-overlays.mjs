@@ -8,20 +8,37 @@ import { join } from 'path';
 // Points are the figure's right side (image left), traced against the
 // rendered body-back.svg on a labelled grid in the shared 200x369 display
 // space; the artwork is symmetric about x=100 so the other side is mirrored.
-// Covers the whole shoulder cap: outer edge follows the silhouette (~0.5
-// inside it), top runs along the shoulder line up to where the trapezius
-// overlay starts, bottom follows the delt/triceps seam.
+// Hand-traced by the coach in the browser tracer (scratch tool) over the
+// lightened back artwork; covers the full shoulder cap down to the triceps.
 const REAR_DELT = [
-  [66, 71.5], [65.5, 68.5], [62, 67], [58, 67.4], [55.5, 69.8], [52.5, 73.3],
-  [50.5, 75.6], [48.5, 78.3], [46.8, 81], [45.5, 84.3], [44.5, 87.5], [44, 91],
-  [43.8, 94.5], [45, 97], [50, 97], [55, 96], [60, 91], [63, 84], [65, 77],
+  [44.8, 102.8],
+  [51.3, 96.8],
+  [60.8, 90.8],
+  [66.5, 85.5],
+  [69.5, 83.3],
+  [73.3, 80],
+  [76.5, 77.8],
+  [75.5, 74.5],
+  [74.3, 71],
+  [71.3, 68.3],
+  [68.3, 65.8],
+  [66.3, 64.5],
+  [64, 64.8],
+  [58.8, 66.5],
+  [53.5, 68.8],
+  [50.5, 71.8],
+  [47.3, 75],
+  [44.8, 79.8],
+  [43.5, 84.8],
+  [43.5, 91],
+  [43.5, 96],
 ];
 // Kept clear of its neighbours: ~1.5 units off the delt's inner seam, and
 // stopping short of the lat (muscle-12) and triceps (muscle-5) top edges so
 // no two overlays stack.
 const TERES = [
-  [67.5, 77], [70, 74], [75, 75.5], [79.5, 84], [83.3, 95], [81, 98],
-  [72, 98.3], [63, 97.5], [62, 95.5], [62.5, 91.5], [65.5, 84.5],
+  [77.5, 79.5], [79.5, 84], [83.3, 95], [81, 98], [72, 98.3], [63, 97.5],
+  [62, 95.5], [62.5, 92], [67, 87.5], [70.5, 84.5], [74, 82],
 ];
 // Semitendinosus + semimembranosus: wger's hamstring file (muscle-11) is
 // biceps femoris only, so the inner two-thirds of the back of the thigh

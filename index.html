@@ -30,15 +30,17 @@
     <!-- Runs before React mounts (and before first paint) so the correct
          theme is on the root element from the very first frame — without
          this, the app would flash the wrong theme for a moment on load
-         whenever the stored/system preference isn't dark. Kept in sync with
-         ThemeContext.jsx's own resolution logic. -->
+         whenever the stored/computed preference isn't dark. Kept in sync
+         with ThemeContext.jsx's own resolution logic (light 6am-6pm). -->
     <script>
       (function () {
         try {
           var pref = localStorage.getItem('themePreference') || 'auto';
-          var resolved = pref === 'auto'
-            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-            : pref;
+          var resolved = pref;
+          if (pref === 'auto') {
+            var hour = new Date().getHours();
+            resolved = (hour >= 6 && hour < 18) ? 'light' : 'dark';
+          }
           document.documentElement.setAttribute('data-theme', resolved);
         } catch (e) {}
       })();

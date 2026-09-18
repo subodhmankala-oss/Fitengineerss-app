@@ -476,7 +476,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
           </div>
           <div className="cp-form-scroll">
             <div className="cp-form-card">
-              {[['auto', 'Auto (System)'], ['light', 'Light'], ['dark', 'Dark']].map(([val, label], i, arr) => (
+              {[['auto', 'Auto (6am-6pm)'], ['light', 'Light'], ['dark', 'Dark']].map(([val, label], i, arr) => (
                 <button
                   key={val}
                   className={`cp-row${i === arr.length - 1 ? ' cp-row--last' : ''}`}

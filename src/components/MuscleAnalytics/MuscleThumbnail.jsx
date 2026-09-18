@@ -2,7 +2,8 @@ import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  MUSCLE_CROP, BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT, recolorSvg
+  MUSCLE_CROP, BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
+  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 // Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
@@ -19,6 +20,21 @@ const FaceMaskLayer = ({ gradientId }) => (
       </radialGradient>
     </defs>
     <ellipse cx={FACE_MASK.cx} cy={FACE_MASK.cy} rx={FACE_MASK.rx} ry={FACE_MASK.ry} fill={`url(#${gradientId})`} />
+  </svg>
+);
+
+// Same scalp-dim wash as the full heat map — see SCALP_MASK there for why.
+// Only the "Back" crop (Latissimus dorsi + Trapezius) includes the head.
+const ScalpMaskLayer = ({ gradientId }) => (
+  <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
+    <defs>
+      <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor={SCALP_MASK_GRADIENT.center} />
+        <stop offset="70%" stopColor={SCALP_MASK_GRADIENT.mid} />
+        <stop offset="100%" stopColor={SCALP_MASK_GRADIENT.edge} />
+      </radialGradient>
+    </defs>
+    <ellipse cx={SCALP_MASK.cx} cy={SCALP_MASK.cy} rx={SCALP_MASK.rx} ry={SCALP_MASK.ry} fill={`url(#${gradientId})`} />
   </svg>
 );
 
@@ -71,6 +87,7 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
 
         {view === 'front' && <FaceMaskLayer gradientId={`thumbFace-${muscle}`} />}
+        {view === 'back' && <ScalpMaskLayer gradientId={`thumbScalp-${muscle}`} />}
 
         {rawFiles.map((rawSvg, i) => (
           <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />

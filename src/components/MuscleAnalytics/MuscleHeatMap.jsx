@@ -3,7 +3,8 @@ import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT, recolorSvg
+  BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
+  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -57,6 +58,26 @@ const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
           <ellipse
             cx={FACE_MASK.cx} cy={FACE_MASK.cy} rx={FACE_MASK.rx} ry={FACE_MASK.ry}
             fill="url(#faceMask)"
+          />
+        </svg>
+      )}
+
+      {/* Scalp dim (back view only) — see SCALP_MASK in muscleBodyShapes.js.
+          A translucent wash, not a color swap, so it dims the real painted
+          highlight AND the gap-fill beneath it together without needing to
+          tell those two apart. */}
+      {view === 'back' && (
+        <svg width="200" height="369" className="muscle-svg-layer" aria-hidden="true" focusable="false">
+          <defs>
+            <radialGradient id="scalpMask" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={SCALP_MASK_GRADIENT.center} />
+              <stop offset="70%" stopColor={SCALP_MASK_GRADIENT.mid} />
+              <stop offset="100%" stopColor={SCALP_MASK_GRADIENT.edge} />
+            </radialGradient>
+          </defs>
+          <ellipse
+            cx={SCALP_MASK.cx} cy={SCALP_MASK.cy} rx={SCALP_MASK.rx} ry={SCALP_MASK.ry}
+            fill="url(#scalpMask)"
           />
         </svg>
       )}

@@ -180,6 +180,24 @@ export const BODY_BACK_FILL_URL = bodyBackFillUrl;
 export const FACE_MASK = { cx: 98, cy: 29, rx: 16.5, ry: 20 };
 export const FACE_MASK_GRADIENT = { center: '#d8d8d8', mid: '#c7c7c7', edge: '#c7c7c7' };
 
+// ── Scalp (back view) ──
+// The crown of the head, on the back view, is genuinely painted near-white
+// in the vendored artwork (a highlight dome on the bald skull) — that part
+// isn't this app's doing. What IS this app's doing: the enclosed hole right
+// at that same spot (see the gap-fill backdrop above) used to be patched
+// with a fixed, fairly dark two-stop gradient; the new shape-aware backdrop
+// instead blends it toward the hole's own real neighbours, which near the
+// crown means the same near-white highlight — so a spot that was always
+// bright now has no darker patch breaking it up, and reads as a stark flat
+// "cap". Unlike FACE_MASK, this isn't replacing anything that looks wrong
+// on its own — the highlight and the fill are each individually correct —
+// it's toning down their combined brightness a bit so the area reads as
+// scalp, not a headband. A translucent dark radial wash (not an opaque
+// swap) on TOP of the body, so it dims whatever is underneath — real paint
+// and fill alike — without caring which pixels are which.
+export const SCALP_MASK = { cx: 100, cy: 35, rx: 35, ry: 35 };
+export const SCALP_MASK_GRADIENT = { center: 'rgba(0,0,0,0.28)', mid: 'rgba(0,0,0,0.16)', edge: 'rgba(0,0,0,0)' };
+
 // Every source file uses this same placeholder fill — swapped for the live
 // heat-tier color at render time (see recolorSvg below).
 export const SOURCE_FILL_PLACEHOLDER = '#fc0000';

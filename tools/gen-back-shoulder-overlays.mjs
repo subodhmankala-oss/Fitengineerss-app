@@ -1,19 +1,92 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
-// Two back-view overlays wger's asset set lacks: the posterior deltoid
-// (shoulder cap) and the infraspinatus / teres major+minor block between the
-// delt, the trapezius overlay (muscle-9) and the lats overlay (muscle-12).
+// Back-view overlays wger's asset set lacks: the posterior deltoid (shoulder
+// cap), the infraspinatus / teres major+minor block between the delt, the
+// trapezius overlay (muscle-9) and the lats overlay (muscle-12), and the
+// inner hamstrings.
 // Points are the figure's right side (image left), traced against the
 // rendered body-back.svg on a labelled grid in the shared 200x369 display
 // space; the artwork is symmetric about x=100 so the other side is mirrored.
+// Hand-traced by the coach in the browser tracer (scratch tool) over the
+// lightened back artwork; covers the full shoulder cap down to the triceps.
 const REAR_DELT = [
-  [64, 70], [58, 66.5], [51, 66], [45, 68.5], [41, 74], [39.5, 82], [40, 90],
-  [43, 95.5], [49, 97], [55, 96], [60, 91], [63, 84], [65, 77],
+  [44.8, 102.8],
+  [51.3, 96.8],
+  [60.8, 90.8],
+  [66.5, 85.5],
+  [69.5, 83.3],
+  [73.3, 80],
+  [76.5, 77.8],
+  [75.5, 74.5],
+  [74.3, 71],
+  [71.3, 68.3],
+  [68.3, 65.8],
+  [66.3, 64.5],
+  [64, 64.8],
+  [58.8, 66.5],
+  [53.5, 68.8],
+  [50.5, 71.8],
+  [47.3, 75],
+  [44.8, 79.8],
+  [43.5, 84.8],
+  [43.5, 91],
+  [43.5, 96],
 ];
+// Hand-traced by the coach in the browser tracer, same as REAR_DELT.
 const TERES = [
-  [66, 76], [70, 72], [75, 74], [80, 84], [84, 95], [82, 101], [72, 102],
-  [63, 100], [58, 96.5], [61, 91], [64, 84],
+  [77.5, 78],
+  [74.3, 79.3],
+  [70.5, 82.8],
+  [66.8, 85.8],
+  [63.5, 89.8],
+  [62, 91.8],
+  [62.5, 94.5],
+  [65, 96.8],
+  [68, 98.8],
+  [71, 100],
+  [74.8, 100.5],
+  [80, 99.8],
+  [83.5, 99.3],
+  [84.3, 97.8],
+  [82.3, 92.5],
+  [80.8, 86.8],
+  [79.5, 81.3],
+];
+// Whole back of the thigh, hand-traced by the coach in the browser tracer.
+// Replaces wger's muscle-11 (biceps femoris only) on the heat map.
+const HAMSTRINGS = [
+  [96, 196.8],
+  [91.5, 198],
+  [85, 202],
+  [81.8, 204.8],
+  [75.5, 209.8],
+  [70.5, 213.8],
+  [67.5, 217.8],
+  [66, 222.8],
+  [66, 227.8],
+  [67.3, 236.3],
+  [69.3, 243.8],
+  [72.5, 252.3],
+  [73.5, 255.3],
+  [74.3, 267.8],
+  [74.3, 271.8],
+  [78.3, 268.8],
+  [79.5, 264.3],
+  [81.5, 260.5],
+  [84, 262.8],
+  [89.3, 262.8],
+  [91, 261.3],
+  [92.8, 262.8],
+  [95, 266],
+  [96.5, 267.5],
+  [97.5, 262.8],
+  [98, 254.8],
+  [97.8, 244],
+  [97.8, 228.8],
+  [98.5, 211.8],
+  [99.3, 199.8],
+  [99.5, 196.3],
 ];
 
 const mirror = pts => pts.map(([x, y]) => [200 - x, y]);
@@ -66,7 +139,7 @@ function file(id, pts) {
 }
 
 const outDir = process.argv[2];
-for (const [name, pts] of [['rear-delt', REAR_DELT], ['teres', TERES]]) {
+for (const [name, pts] of [['rear-delt', REAR_DELT], ['teres', TERES], ['hamstrings', HAMSTRINGS]]) {
   const out = join(outDir, `muscle-${name}.svg`);
   writeFileSync(out, file(name, pts));
   console.log('wrote', out);

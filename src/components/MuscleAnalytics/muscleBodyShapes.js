@@ -21,13 +21,13 @@ import muscle7Raw from './assets/muscle-7.svg?raw';   // Gastrocnemius
 import muscle8Raw from './assets/muscle-8.svg?raw';   // Gluteus maximus
 import muscle9Raw from './assets/muscle-9.svg?raw';   // Trapezius
 import muscle10Raw from './assets/muscle-10.svg?raw'; // Quadriceps femoris
-import muscle11Raw from './assets/muscle-11.svg?raw'; // Biceps femoris
 import muscle12Raw from './assets/muscle-12.svg?raw'; // Latissimus dorsi
 import muscle13Raw from './assets/muscle-13.svg?raw'; // Brachialis
 import muscle14Raw from './assets/muscle-14.svg?raw'; // Obliquus externus abdominis
 import forearmRaw from './assets/muscle-forearm.svg?raw'; // Forearms (generated — see below)
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw'; // Posterior deltoid (generated — see below)
 import teresRaw from './assets/muscle-teres.svg?raw'; // Infraspinatus / teres major+minor (generated — see below)
+import hamstringsRaw from './assets/muscle-hamstrings.svg?raw'; // Whole hamstring group (generated — see below)
 
 // ── Body tone ──
 // The vendored artwork is a dark greyscale ramp (front: #303030→#cfcfcf,
@@ -198,7 +198,7 @@ export const BACK_MUSCLE_LAYERS = {
   Shoulders: [rearDeltRaw],
   Triceps: [muscle5Raw],
   Glutes: [muscle8Raw],
-  Hamstrings: [muscle11Raw],
+  Hamstrings: [hamstringsRaw],
   Calves: [muscle7Raw],
 };
 
@@ -218,5 +218,7 @@ export const BACK_MUSCLE_LAYERS = {
 // traced from body-back.svg on a labelled grid and mirrored about x=100.
 // Rear delt feeds Shoulders (so Shoulders now renders on both views, unlike
 // the one-view rule in MUSCLE_BODY_VIEW, which only drives the chip row);
-// teres feeds Back alongside lats + traps.
+// teres feeds Back alongside lats + traps. Hamstrings likewise uses a
+// traced whole-thigh shape (muscle-hamstrings.svg) instead of wger's
+// muscle-11, which is biceps femoris only and left the inner hamstrings grey.
 // Regenerate with: node tools/gen-back-shoulder-overlays.mjs <assets-dir>

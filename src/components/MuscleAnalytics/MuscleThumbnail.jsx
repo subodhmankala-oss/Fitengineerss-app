@@ -2,7 +2,7 @@ import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
   BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  MUSCLE_CROP, HOLE_PATCHES, HOLE_PATCH_GRADIENT, FACE_MASK, FACE_MASK_GRADIENT, recolorSvg
+  MUSCLE_CROP, BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 // Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
@@ -62,17 +62,11 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
           transform: `scale(${scale}) translate(${-crop.x}px, ${-crop.y}px)`,
         }}
       >
-        <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
-          <defs>
-            <linearGradient id={`thumbHolePatch-${muscle}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={HOLE_PATCH_GRADIENT[view].top} />
-              <stop offset="100%" stopColor={HOLE_PATCH_GRADIENT[view].bottom} />
-            </linearGradient>
-          </defs>
-          {HOLE_PATCHES[view].map((r, i) => (
-            <rect key={i} x={r.x} y={r.y} width={r.width} height={r.height} fill={`url(#thumbHolePatch-${muscle})`} />
-          ))}
-        </svg>
+        <img
+          src={view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL}
+          alt=""
+          className="muscle-thumb-layer"
+        />
 
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
 
@@ -115,17 +109,7 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
           transformOrigin: 'top left',
         }}
       >
-        <svg width={CANVAS_W} height={CANVAS_H} className="muscle-thumb-layer">
-          <defs>
-            <linearGradient id="thumbHolePatch-fullbody" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={HOLE_PATCH_GRADIENT.front.top} />
-              <stop offset="100%" stopColor={HOLE_PATCH_GRADIENT.front.bottom} />
-            </linearGradient>
-          </defs>
-          {HOLE_PATCHES.front.map((r, i) => (
-            <rect key={i} x={r.x} y={r.y} width={r.width} height={r.height} fill="url(#thumbHolePatch-fullbody)" />
-          ))}
-        </svg>
+        <img src={BODY_FRONT_FILL_URL} alt="" className="muscle-thumb-layer" />
 
         <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: BODY_FRONT_SVG }} />
 

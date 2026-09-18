@@ -1,18 +1,36 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 // User-facing choice is one of 'light' | 'dark' | 'auto'; 'auto' follows the
-// OS/browser prefers-color-scheme setting and updates live if that changes
-// (e.g. system switches to dark at sunset) without needing a reload.
+// time of day on the device's own clock — light 6am-6pm, dark otherwise —
+// and flips live at each boundary without needing a reload. Kept in sync
+// with the identical LIGHT_START_HOUR/LIGHT_END_HOUR + resolution logic
+// duplicated in index.html's pre-paint script.
 const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'themePreference';
-const DARK_MEDIA_QUERY = '(prefers-color-scheme: dark)';
+const LIGHT_START_HOUR = 6; // 6am
+const LIGHT_END_HOUR = 18; // 6pm
 
 function resolveTheme(preference) {
   if (preference === 'auto') {
-    return window.matchMedia(DARK_MEDIA_QUERY).matches ? 'dark' : 'light';
+    const hour = new Date().getHours();
+    return hour >= LIGHT_START_HOUR && hour < LIGHT_END_HOUR ? 'light' : 'dark';
   }
   return preference;
+}
+
+// Milliseconds until the next light/dark boundary (today's remaining one,
+// or tomorrow's first one), so "auto" can flip exactly on time instead of
+// polling.
+function msUntilNextBoundary() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setMinutes(0, 0, 0);
+  const hour = now.getHours();
+  if (hour < LIGHT_START_HOUR) next.setHours(LIGHT_START_HOUR);
+  else if (hour < LIGHT_END_HOUR) next.setHours(LIGHT_END_HOUR);
+  else { next.setDate(next.getDate() + 1); next.setHours(LIGHT_START_HOUR); }
+  return Math.max(1000, next.getTime() - now.getTime());
 }
 
 // Keeps the browser/OS chrome (status bar, task switcher card) matching the
@@ -33,11 +51,31 @@ export function ThemeProvider({ children }) {
     applyResolvedTheme(resolveTheme(preference));
     if (preference !== 'auto') return;
 
-    // Live-follow the OS setting while "Auto" is selected.
-    const mql = window.matchMedia(DARK_MEDIA_QUERY);
-    const onChange = () => applyResolvedTheme(resolveTheme('auto'));
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
+    // Flip exactly at the next 6am/6pm boundary while "Auto" is selected.
+    // Re-checks (not just re-schedules) on each firing and on regaining
+    // visibility/focus, so a laptop asleep across a boundary — or a clock
+    // change — still lands on the correct theme instead of a stale timer.
+    let cancelled = false;
+    let timeoutId;
+    const scheduleNext = () => {
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        applyResolvedTheme(resolveTheme('auto'));
+        scheduleNext();
+      }, msUntilNextBoundary());
+    };
+    scheduleNext();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') applyResolvedTheme(resolveTheme('auto'));
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [preference]);
 
   const setTheme = useCallback((next) => {

@@ -33,12 +33,25 @@ const REAR_DELT = [
   [43.5, 91],
   [43.5, 96],
 ];
-// Kept clear of its neighbours: ~1.5 units off the delt's inner seam, and
-// stopping short of the lat (muscle-12) and triceps (muscle-5) top edges so
-// no two overlays stack.
+// Hand-traced by the coach in the browser tracer, same as REAR_DELT.
 const TERES = [
-  [77.5, 79.5], [79.5, 84], [83.3, 95], [81, 98], [72, 98.3], [63, 97.5],
-  [62, 95.5], [62.5, 92], [67, 87.5], [70.5, 84.5], [74, 82],
+  [77.5, 78],
+  [74.3, 79.3],
+  [70.5, 82.8],
+  [66.8, 85.8],
+  [63.5, 89.8],
+  [62, 91.8],
+  [62.5, 94.5],
+  [65, 96.8],
+  [68, 98.8],
+  [71, 100],
+  [74.8, 100.5],
+  [80, 99.8],
+  [83.5, 99.3],
+  [84.3, 97.8],
+  [82.3, 92.5],
+  [80.8, 86.8],
+  [79.5, 81.3],
 ];
 // Semitendinosus + semimembranosus: wger's hamstring file (muscle-11) is
 // biceps femoris only, so the inner two-thirds of the back of the thigh

@@ -8,9 +8,13 @@ import { join } from 'path';
 // Points are the figure's right side (image left), traced against the
 // rendered body-back.svg on a labelled grid in the shared 200x369 display
 // space; the artwork is symmetric about x=100 so the other side is mirrored.
+// Outer edge stays ~3 units inside the silhouette: the artwork's rim there
+// is a near-white highlight band that reads as background once the body is
+// lightened, so an overlay touching the true edge looks like it's leaking.
 const REAR_DELT = [
-  [64, 70.5], [58, 68.5], [51.5, 68.5], [46.5, 70.5], [43.5, 75], [42.5, 82],
-  [42.5, 90], [44.5, 95.5], [49, 97], [55, 96], [60, 91], [63, 84], [65, 77],
+  [64, 71], [59, 69.5], [54, 69.5], [50, 71.5], [47.5, 74.5], [46, 79],
+  [45.5, 85], [46.5, 91], [48.5, 95], [52, 96.5], [56, 95.5], [60, 91],
+  [63, 84], [65, 77],
 ];
 const TERES = [
   [66, 76], [70, 72], [75, 74], [80, 84], [84, 95], [82, 101], [72, 102],

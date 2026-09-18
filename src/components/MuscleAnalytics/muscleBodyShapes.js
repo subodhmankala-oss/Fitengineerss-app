@@ -236,9 +236,20 @@ export function recolorSvg(rawSvg, color, isActive) {
     return byColor.get(cacheKey);
   }
   let svg = rawSvg.split(SOURCE_FILL_PLACEHOLDER).join(color);
-  if (isActive) {
-    svg = svg.split('stroke:none').join('stroke:#ffffff;stroke-width:2.5;stroke-opacity:0.95');
-  }
+  // Every shape gets a thin seam, not just the active one — bilateral pairs
+  // (Quads, Glutes) sit close enough in the vendored artwork that their own
+  // gap is only a few px wide at this app's render size, and a flat fill
+  // with no edge at all made both sides of the pair read as one connected
+  // blob once solid-colored (worse once compressed, e.g. in a screenshot).
+  // A permanent dark seam matching the card background guarantees a visible
+  // split between adjacent same-colored shapes regardless of how much of
+  // the real anatomical gap survives at small sizes. isActive still gets
+  // its own brighter, thicker highlight on top of that.
+  svg = svg.split('stroke:none').join(
+    isActive
+      ? 'stroke:#ffffff;stroke-width:2.5;stroke-opacity:0.95'
+      : 'stroke:#0f1420;stroke-width:1.2;stroke-opacity:0.9'
+  );
   byColor.set(cacheKey, svg);
   return svg;
 }

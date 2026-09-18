@@ -37,22 +37,23 @@ import bodyBackFillUrl from './assets/body-back-fill.png'; // Gap-filled backdro
 // figure — the face especially, whose features use the darkest tones and
 // merge into one dark mass at phone size.
 //
-// This rescales every grey fill from the file's own range into a bright band,
-// so the figure reads as pale near-white muscle with grey shading (and the
-// artwork's transparent gaps reading as the dark separations between muscle
-// groups — the artwork was drawn for a light background, so those gaps are
-// its line work).
+// This rescales every grey fill from the file's own range into a band that
+// still reads as pale muscle overall (bright highlights, outMax=252) but
+// keeps real shadow depth (outMin=90) instead of crushing everything into a
+// narrow bright band — a first pass at outMin=152 made every shading
+// transition low-contrast, so the muscle separations (pecs, abs, deltoid)
+// read as flat/washed-out instead of defined. The artwork's transparent
+// gaps read as the darkest separations between muscle groups — the artwork
+// was drawn for a light background, so those gaps are its line work.
 //
-// A per-file LEVELS remap rather than a fixed gamma curve, for two reasons:
-// the two files have different input ranges (front starts at 48, back at 25),
-// so normalising each into the same output band keeps the two views
-// consistent — a gamma curve left the back view's darkest tone at 116, still
-// murky, while the front's floor was 145. It also keeps brighter highlights
-// (252 vs gamma's 238) for the near-white look.
+// A per-file LEVELS remap rather than a fixed gamma curve, since the two
+// files have different input ranges (front starts at 48, back at 25);
+// normalising each into the same output band keeps the two views
+// consistent.
 //
 // Applied once at module load (not per render) to the raw SVG text; the
 // vendored files themselves stay untouched on disk.
-const BODY_TONE_OUT_MIN = 152; // darkest shading
+const BODY_TONE_OUT_MIN = 90; // darkest shading
 const BODY_TONE_OUT_MAX = 252; // brightest highlight
 
 function lightenGreys(svgText, outMin = BODY_TONE_OUT_MIN, outMax = BODY_TONE_OUT_MAX) {

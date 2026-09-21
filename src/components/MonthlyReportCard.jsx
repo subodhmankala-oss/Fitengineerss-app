@@ -130,43 +130,62 @@ export function MonthlyReportStats({ stats, compact = false }) {
   const tier = consistencyTier(c.sessionsPerWeek);
   const equiv = volumeEquivalent(c.totalVolumeKg);
 
+  // Everything that swaps with the selected month is keyed by it, so React
+  // remounts the block and the .mrc-swap CSS animation crossfades it in —
+  // a hard value flip read as "abrupt" (2026-09-21). The "Showing …" strip
+  // is ALWAYS rendered (its copy changes) so switching months never shifts
+  // the layout below it, and the detail panel animates open/closed via a
+  // grid-rows transition instead of mounting/unmounting.
   return (
     <div className={`mrc-stats ${compact ? 'mrc-stats--compact' : ''}`}>
-      <div className="mrc-headline">
-        <span className="mrc-headline-text">{reportHeadline({ current: c, deltas: d })}</span>
-        <span className={`mrc-tier mrc-tier--${tier.tone}`}>{tier.emoji} {tier.label}</span>
-      </div>
-
-      {!isReported && (
-        <div className="mrc-viewing">
-          Showing <strong>{formatMonthKey(viewMonth)}</strong>
-          <button type="button" className="mrc-viewing-back" onClick={reset}>Back to {formatMonthKey(month, { withYear: false })}</button>
+      <div key={`top-${viewMonth}`} className="mrc-swap">
+        <div className="mrc-headline">
+          <span className="mrc-headline-text">{reportHeadline({ current: c, deltas: d })}</span>
+          <span className={`mrc-tier mrc-tier--${tier.tone}`}>{tier.emoji} {tier.label}</span>
         </div>
-      )}
 
-      <div className="mrc-tiles">
-        <div className="mrc-tile mrc-tile--blue"><span className="mrc-tile-l">🏋️ Sessions</span><span className="mrc-tile-v">{c.sessions} <DeltaTag delta={d.sessions} /></span></div>
-        <div className="mrc-tile mrc-tile--emerald"><span className="mrc-tile-l">🔥 Calories</span><span className="mrc-tile-v">{Math.round(c.totalCalories || 0).toLocaleString('en-IN')} <small>kcal</small> <DeltaTag delta={d.totalCalories} pct /></span></div>
-        <div className="mrc-tile mrc-tile--amber"><span className="mrc-tile-l">⏱ Training time</span><span className="mrc-tile-v">{formatDurationShort(c.totalDurationSec)} <DeltaTag delta={d.totalDurationSec} pct /></span></div>
-        <div className="mrc-tile mrc-tile--violet"><span className="mrc-tile-l">🏆 PRs</span><span className="mrc-tile-v">{c.prCount} <DeltaTag delta={d.prCount} /></span></div>
+        <div className={`mrc-viewing ${isReported ? 'mrc-viewing--home' : ''}`}>
+          {isReported ? (
+            <span>Showing <strong>{formatMonthKey(viewMonth)}</strong> · tap a bar below to compare</span>
+          ) : (
+            <span>Showing <strong>{formatMonthKey(viewMonth)}</strong></span>
+          )}
+          {!isReported && (
+            <button type="button" className="mrc-viewing-back" onClick={reset}>Back to {formatMonthKey(month, { withYear: false })}</button>
+          )}
+        </div>
+
+        <div className="mrc-tiles">
+          <div className="mrc-tile mrc-tile--blue"><span className="mrc-tile-l">🏋️ Sessions</span><span className="mrc-tile-v">{c.sessions} <DeltaTag delta={d.sessions} /></span></div>
+          <div className="mrc-tile mrc-tile--emerald"><span className="mrc-tile-l">🔥 Calories</span><span className="mrc-tile-v">{Math.round(c.totalCalories || 0).toLocaleString('en-IN')} <small>kcal</small> <DeltaTag delta={d.totalCalories} pct /></span></div>
+          <div className="mrc-tile mrc-tile--amber"><span className="mrc-tile-l">⏱ Training time</span><span className="mrc-tile-v">{formatDurationShort(c.totalDurationSec)} <DeltaTag delta={d.totalDurationSec} pct /></span></div>
+          <div className="mrc-tile mrc-tile--violet"><span className="mrc-tile-l">🏆 PRs</span><span className="mrc-tile-v">{c.prCount} <DeltaTag delta={d.prCount} /></span></div>
+        </div>
+
+        <div className="mrc-fact">
+          {equiv
+            ? <>💡 {formatVolume(c.totalVolumeKg)} lifted in {formatMonthKey(viewMonth, { withYear: false })} — {equiv}</>
+            : <>💡 No volume logged in {formatMonthKey(viewMonth, { withYear: false })}</>}
+        </div>
       </div>
-
-      {equiv && (
-        <div className="mrc-fact">💡 {formatVolume(c.totalVolumeKg)} lifted in {formatMonthKey(viewMonth, { withYear: false })} — {equiv}</div>
-      )}
 
       <div className="mrc-trends">
         <TrendBars label="Sessions" cols={cols} values={series('sessions')} fmt={(v) => v} selected={selected} onSelect={pick} />
         <TrendBars label="Volume" cols={cols} values={series('totalVolumeKg')} fmt={formatVolume} selected={selected} onSelect={pick} />
       </div>
-      {!showDetail && <div className="mrc-trend-hint">Tap a month for details</div>}
-      {showDetail && (
-        <MonthDetail monthKey={viewMonth} m={monthAt(selected)} onClose={reset} />
-      )}
+      <div className="mrc-trend-hint">{showDetail ? 'Tap another month, or ✕ to go back' : 'Tap a month for details'}</div>
 
-      {c.topLifts && c.topLifts.length > 0 && (
-        <>
-          <div className="mrc-section-label">Top lifts in {formatMonthKey(viewMonth, { withYear: false })}</div>
+      <div className={`mrc-detail-wrap ${showDetail ? 'mrc-detail-wrap--open' : ''}`} aria-hidden={!showDetail}>
+        <div className="mrc-detail-inner">
+          <div key={`detail-${viewMonth}`} className="mrc-swap">
+            <MonthDetail monthKey={viewMonth} m={monthAt(selected)} onClose={reset} />
+          </div>
+        </div>
+      </div>
+
+      <div key={`lifts-${viewMonth}`} className="mrc-swap">
+        <div className="mrc-section-label">Top lifts in {formatMonthKey(viewMonth, { withYear: false })}</div>
+        {c.topLifts && c.topLifts.length > 0 ? (
           <div className="mrc-chips">
             {c.topLifts.map((t, i) => (
               <span key={t.exercise} className="mrc-chip">
@@ -177,8 +196,10 @@ export function MonthlyReportStats({ stats, compact = false }) {
               </span>
             ))}
           </div>
-        </>
-      )}
+        ) : (
+          <div className="mrc-chips-empty">No lifts logged</div>
+        )}
+      </div>
     </div>
   );
 }

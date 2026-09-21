@@ -405,6 +405,66 @@
   margin-top: 6px;
 }
 
+.mrc-month-detail {
+  margin-top: 8px;
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  animation: mrc-slide-in 0.2s ease;
+}
+
+.mrc-month-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mrc-month-detail-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.mrc-month-detail-close {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mrc-month-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+.mrc-month-detail-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.76rem;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.06);
+}
+
+.mrc-month-detail-item .l { color: var(--text-muted); }
+.mrc-month-detail-item .v { color: var(--text-main); font-weight: 800; white-space: nowrap; }
+
+.mrc-month-detail-empty {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .mrc-viewing {
   display: flex;
   align-items: center;

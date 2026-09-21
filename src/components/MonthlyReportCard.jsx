@@ -60,6 +60,38 @@ function TrendBars({ label, cols, values, fmt, selected, onSelect }) {
   );
 }
 
+// The tapped month's full numbers — the on-demand version of the comparison
+// table that used to sit under the bars.
+function MonthDetail({ monthKey, m, onClose }) {
+  const items = m && m.hasData ? [
+    ['Sessions', m.sessions],
+    ['Active days', m.activeDays],
+    ['Sets', m.totalSets],
+    ['Volume', formatVolume(m.totalVolumeKg)],
+    ['Training time', formatDurationShort(m.totalDurationSec)],
+    ['Calories', `${Math.round(m.totalCalories || 0).toLocaleString('en-IN')} kcal`],
+    ['Sessions / week', m.sessionsPerWeek],
+    ['PRs', m.prCount]
+  ] : null;
+  return (
+    <div className="mrc-month-detail">
+      <div className="mrc-month-detail-head">
+        <span className="mrc-month-detail-title">{formatMonthKey(monthKey)}</span>
+        <button type="button" className="mrc-month-detail-close" onClick={onClose} aria-label="Close">✕</button>
+      </div>
+      {items ? (
+        <div className="mrc-month-detail-grid">
+          {items.map(([l, v]) => (
+            <div key={l} className="mrc-month-detail-item"><span className="l">{l}</span><span className="v">{v}</span></div>
+          ))}
+        </div>
+      ) : (
+        <div className="mrc-month-detail-empty">No workouts logged in {formatMonthKey(monthKey, { withYear: false })}.</div>
+      )}
+    </div>
+  );
+}
+
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 /**
@@ -70,7 +102,13 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 export function MonthlyReportStats({ stats, compact = false }) {
   // Which of the three months the cards above the charts are showing:
   // 2 = the reported month (default), 1 = last month, 0 = two months back.
+  // Tapping a bar switches everything above to that month AND opens the
+  // detail panel under the charts; ✕ closes the panel and returns to the
+  // reported month.
   const [selected, setSelected] = useState(2);
+  const [showDetail, setShowDetail] = useState(false);
+  const pick = (i) => { setSelected(i); setShowDetail(true); };
+  const reset = () => { setSelected(2); setShowDetail(false); };
   if (!stats || !stats.current) return null;
   const month = stats.month || stats.current.month;
   const cols = [shiftMonthKey(month, -2), shiftMonthKey(month, -1), month];
@@ -102,7 +140,7 @@ export function MonthlyReportStats({ stats, compact = false }) {
       {!isReported && (
         <div className="mrc-viewing">
           Showing <strong>{formatMonthKey(viewMonth)}</strong>
-          <button type="button" className="mrc-viewing-back" onClick={() => setSelected(2)}>Back to {formatMonthKey(month, { withYear: false })}</button>
+          <button type="button" className="mrc-viewing-back" onClick={reset}>Back to {formatMonthKey(month, { withYear: false })}</button>
         </div>
       )}
 
@@ -118,10 +156,13 @@ export function MonthlyReportStats({ stats, compact = false }) {
       )}
 
       <div className="mrc-trends">
-        <TrendBars label="Sessions" cols={cols} values={series('sessions')} fmt={(v) => v} selected={selected} onSelect={setSelected} />
-        <TrendBars label="Volume" cols={cols} values={series('totalVolumeKg')} fmt={formatVolume} selected={selected} onSelect={setSelected} />
+        <TrendBars label="Sessions" cols={cols} values={series('sessions')} fmt={(v) => v} selected={selected} onSelect={pick} />
+        <TrendBars label="Volume" cols={cols} values={series('totalVolumeKg')} fmt={formatVolume} selected={selected} onSelect={pick} />
       </div>
-      <div className="mrc-trend-hint">Tap a month to view it above</div>
+      {!showDetail && <div className="mrc-trend-hint">Tap a month for details</div>}
+      {showDetail && (
+        <MonthDetail monthKey={viewMonth} m={monthAt(selected)} onClose={reset} />
+      )}
 
       {c.topLifts && c.topLifts.length > 0 && (
         <>

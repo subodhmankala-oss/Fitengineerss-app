@@ -1237,6 +1237,23 @@ const isPastTimestamp = (value) => {
  * if configured in environment variables (.env), otherwise falls back
  * to high-performance local storage (localStorage) for seamless local-only testing.
  */
+// monthly_progress_reports row → camelCase shape used by MonthlyReportCard /
+// the coach composer. report_month is a DATE ("2026-08-01"); month is the
+// "YYYY-MM" key the stats engine works in.
+function mapMonthlyReportRow(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    coachId: r.coach_id,
+    month: String(r.report_month || '').slice(0, 7),
+    stats: r.stats || {},
+    coachMessage: r.coach_message || '',
+    sentAt: r.sent_at,
+    readAt: r.read_at
+  };
+}
+
 const databaseService = {
   supabase,
   // Helper for mock DB
@@ -4212,6 +4229,68 @@ const databaseService = {
     } catch (e) {
       console.error('Cloud DB Get Latest Coach Note Error:', e);
       return null;
+    }
+  },
+
+  // ─── MONTHLY PROGRESS REPORTS ───
+  // One coach → client report per calendar month (see
+  // sql/supabase_monthly_progress_reports.sql). `stats` is the snapshot from
+  // buildMonthlyReport (src/utils/monthlyProgress.js) — stored as sent, never
+  // recomputed on read. Upsert on (client_id, report_month): re-sending a
+  // month replaces the earlier report and clears read_at so it resurfaces on
+  // the client's home screen as new. clientId/coachId are users.id, same
+  // convention as coach_notes.
+  async sendMonthlyReport(clientId, coachId, monthKey, stats, coachMessage) {
+    if (!isSupabaseConfigured || !clientId || !/^\d{4}-\d{2}$/.test(monthKey || '')) {
+      return { success: false, error: 'Not configured' };
+    }
+    try {
+      const data = await restUpsert('monthly_progress_reports', {
+        client_id: clientId,
+        coach_id: coachId || null,
+        report_month: `${monthKey}-01`,
+        stats: stats || {},
+        coach_message: (coachMessage || '').trim() || null,
+        sent_at: new Date().toISOString(),
+        read_at: null
+      }, 'client_id,report_month');
+      return { success: true, report: mapMonthlyReportRow(data) };
+    } catch (e) {
+      console.error('Cloud DB Send Monthly Report Error:', e);
+      return { success: false, error: e.message || 'Send failed' };
+    }
+  },
+
+  // Every report ever sent to a client, newest month first — the "Monthly
+  // reports" history list. Unread ones (read_at null) are also what the
+  // home-screen card shows; callers filter.
+  async getMonthlyReports(clientId) {
+    if (!isSupabaseConfigured || !clientId) return [];
+    try {
+      const rows = await restSelect(
+        `monthly_progress_reports?select=*&client_id=eq.${encodeURIComponent(clientId)}&order=report_month.desc`
+      );
+      return (rows || []).map(mapMonthlyReportRow);
+    } catch (e) {
+      console.error('Cloud DB Get Monthly Reports Error:', e);
+      return [];
+    }
+  },
+
+  // Months a coach has already sent for a client — lets the composer show
+  // "Sent 2 Sep" and offer "Re-send" instead of a fresh "Send".
+  async getMonthlyReportsSentForClient(clientId) {
+    return this.getMonthlyReports(clientId);
+  },
+
+  async markMonthlyReportRead(reportId) {
+    if (!isSupabaseConfigured || !reportId) return { success: false };
+    try {
+      await restUpdate(`monthly_progress_reports?id=eq.${encodeURIComponent(reportId)}`, { read_at: new Date().toISOString() });
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Mark Monthly Report Read Error:', e);
+      return { success: false, error: e.message };
     }
   },
 

@@ -35,6 +35,7 @@ import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField, { scrollFieldClearOfPad } from './SetValueField';
 import CoachProfile from './CoachProfile';
+import MonthlyReportComposer from './MonthlyReportComposer';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 
 // Sample client shown only while the coach spotlight tour is running, so a
@@ -6698,6 +6699,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
               {/* Condition tab rendering */}
               {detailTab === 'workout' && (
                 <div className="workout-history-content">
+                  {/* Monthly progress report — coach reviews last month vs the
+                      two before it (computed from the same rawWorkoutLogs
+                      this tab already shows), adds a message, sends. Lives
+                      at the top of History because that's where the coach is
+                      already looking at this client's numbers. */}
+                  {!loadingLogs && (
+                    <MonthlyReportComposer
+                      clientId={selectedClient.id}
+                      clientName={selectedClient.userName}
+                      coachId={resolvedCoachId}
+                      logs={rawWorkoutLogs}
+                    />
+                  )}
                   <h4 className="history-section-title">Workout History</h4>
 
                   {/* Timeframe segmented control — order matches the

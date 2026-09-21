@@ -24,6 +24,10 @@ export default function MonthlyReportComposer({ clientId, clientName, coachId, l
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [sentReports, setSentReports] = useState({}); // { [monthKey]: sentAt }
+  // Collapsed by default — same accordion row as the client's Monthly
+  // reports list, so the History tab isn't dominated by the composer when
+  // the coach just wants to scroll the session log.
+  const [open, setOpen] = useState(false);
 
   const firstName = (clientName || '').trim().split(/\s+/)[0] || 'there';
 
@@ -90,10 +94,28 @@ export default function MonthlyReportComposer({ clientId, clientName, coachId, l
     ? new Date(alreadySentAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
     : null;
 
+  const c = report.current;
+  const rowSummary = c.hasData
+    ? `${formatMonthKey(monthKey)} · ${c.sessions} session${c.sessions === 1 ? '' : 's'} · ${formatVolume(c.totalVolumeKg)}${sentLabel ? ` · sent ${sentLabel}` : ''}`
+    : `${formatMonthKey(monthKey)} · no workouts logged${sentLabel ? ` · sent ${sentLabel}` : ''}`;
+
   return (
-    <div className="mrcomp-card">
+    <div className={`mrcomp-card ${open ? 'mrcomp-card--open' : ''}`}>
+      <button type="button" className="mrcomp-row" onClick={() => setOpen(v => !v)} aria-expanded={open}>
+        <span className="mrcomp-row-main">
+          <span className="mrcomp-title">📈 Monthly report</span>
+          <span className="mrcomp-row-sub">{rowSummary}</span>
+        </span>
+        <span className="mrcomp-row-side">
+          {!sentLabel && c.hasData && <span className="mrcomp-pill">Ready to send</span>}
+          <span className="mrcomp-chev" aria-hidden="true">›</span>
+        </span>
+      </button>
+
+      {open && (
+      <div className="mrcomp-body">
       <div className="mrcomp-head">
-        <span className="mrcomp-title">📈 Monthly report</span>
+        <span className="mrcomp-label" style={{ margin: 0 }}>Report month</span>
         <select className="mrcomp-month" value={monthKey} onChange={handleMonthChange} disabled={sending} aria-label="Report month">
           {monthOptions.map(m => (
             <option key={m} value={m}>{formatMonthKey(m)}{m === currentMonth ? ' (so far)' : ''}{sentReports[m] ? ' ✓' : ''}</option>
@@ -136,6 +158,8 @@ export default function MonthlyReportComposer({ clientId, clientName, coachId, l
           {sending ? 'Sending…' : (alreadySentAt ? 'Re-send report' : 'Send report')}
         </button>
       </div>
+      </div>
+      )}
     </div>
   );
 }

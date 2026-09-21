@@ -2,10 +2,83 @@
 
 .mrcomp-card {
   margin: 0 var(--screen-gutter, 16px) 16px;
-  padding: 14px;
   background: rgba(var(--accent-rgb), 0.06);
   border: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Collapsed header row — mirrors .mrc-row on the client's reports list. */
+.mrcomp-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.mrcomp-row:hover {
+  background: rgba(var(--accent-rgb), 0.06);
+}
+
+.mrcomp-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mrcomp-row-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mrcomp-row-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mrcomp-pill {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-radius: 20px;
+  padding: 3px 9px;
+}
+
+.mrcomp-chev {
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.mrcomp-card--open .mrcomp-chev {
+  transform: rotate(90deg);
+}
+
+.mrcomp-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid rgba(var(--accent-rgb), 0.18);
+}
+
+.mrcomp-body .mrcomp-head {
+  margin-top: 12px;
 }
 
 .mrcomp-head {

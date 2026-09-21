@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import {
   formatMonthKey, shiftMonthKey, formatVolume, formatDurationShort, formatDelta,
-  consistencyTier, volumeEquivalent, reportHeadline
+  consistencyTier, volumeEquivalent, reportHeadline, computeDeltas
 } from '../utils/monthlyProgress';
 import './MonthlyReportCard.css';
 
@@ -28,7 +28,7 @@ const DeltaTag = ({ delta, pct, suffix, size = 'sm' }) => {
 // metric. Heights are relative to the tallest of the three; an empty month
 // gets a stub bar so the axis still reads as three slots. Each bar is a
 // button: tapping selects that month (shared across both charts) and the
-// parent shows its full numbers in MonthDetail below.
+// headline, tiles, fact line and top lifts above all switch to it.
 function TrendBars({ label, cols, values, fmt, selected, onSelect }) {
   const max = Math.max(...values.map(v => v || 0), 0);
   return (
@@ -45,7 +45,7 @@ function TrendBars({ label, cols, values, fmt, selected, onSelect }) {
               type="button"
               key={m}
               className={`mrc-bar-col ${i === 2 ? 'mrc-bar-col--cur' : ''} ${isSel ? 'mrc-bar-col--sel' : ''}`}
-              onClick={() => onSelect(isSel ? null : i)}
+              onClick={() => onSelect(i)}
               aria-pressed={isSel}
               aria-label={`${formatMonthKey(m)}: ${has ? fmt(v) : 'no data'}`}
             >
@@ -60,38 +60,6 @@ function TrendBars({ label, cols, values, fmt, selected, onSelect }) {
   );
 }
 
-// The tapped month's full numbers — the on-demand version of the comparison
-// table that used to sit under the bars.
-function MonthDetail({ monthKey, m, onClose }) {
-  const items = m && m.hasData ? [
-    ['Sessions', m.sessions],
-    ['Active days', m.activeDays],
-    ['Sets', m.totalSets],
-    ['Volume', formatVolume(m.totalVolumeKg)],
-    ['Training time', formatDurationShort(m.totalDurationSec)],
-    ['Calories', `${Math.round(m.totalCalories || 0).toLocaleString('en-IN')} kcal`],
-    ['Sessions / week', m.sessionsPerWeek],
-    ['PRs', m.prCount]
-  ] : null;
-  return (
-    <div className="mrc-month-detail">
-      <div className="mrc-month-detail-head">
-        <span className="mrc-month-detail-title">{formatMonthKey(monthKey)}</span>
-        <button type="button" className="mrc-month-detail-close" onClick={onClose} aria-label="Close">✕</button>
-      </div>
-      {items ? (
-        <div className="mrc-month-detail-grid">
-          {items.map(([l, v]) => (
-            <div key={l} className="mrc-month-detail-item"><span className="l">{l}</span><span className="v">{v}</span></div>
-          ))}
-        </div>
-      ) : (
-        <div className="mrc-month-detail-empty">No workouts logged in {formatMonthKey(monthKey, { withYear: false })}.</div>
-      )}
-    </div>
-  );
-}
-
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 /**
@@ -100,25 +68,43 @@ const MEDALS = ['🥇', '🥈', '🥉'];
  *   sides share the same layout; kept for the compact card styling hook).
  */
 export function MonthlyReportStats({ stats, compact = false }) {
-  const [selected, setSelected] = useState(null); // 0 | 1 | 2 | null
+  // Which of the three months the cards above the charts are showing:
+  // 2 = the reported month (default), 1 = last month, 0 = two months back.
+  const [selected, setSelected] = useState(2);
   if (!stats || !stats.current) return null;
-  const { current: c, deltas: d = {} } = stats;
-  const month = stats.month || c.month;
+  const month = stats.month || stats.current.month;
   const cols = [shiftMonthKey(month, -2), shiftMonthKey(month, -1), month];
-  const monthAt = (i) => (i === 0 ? stats.prevPrevious : i === 1 ? stats.previous : c);
+  const monthAt = (i) => (i === 0 ? stats.prevPrevious : i === 1 ? stats.previous : stats.current);
   const series = (key) => cols.map((_, i) => {
     const m = monthAt(i);
     return m && m.hasData ? m[key] : null;
   });
+
+  // The month on display. Its deltas are vs the month before IT — the
+  // stored deltas only cover reported-vs-previous, so the middle column is
+  // recomputed and the oldest column has nothing to compare against.
+  const c = monthAt(selected) || { hasData: false, sessions: 0, totalCalories: 0, totalDurationSec: 0, prCount: 0, totalVolumeKg: 0, sessionsPerWeek: 0, topLifts: [] };
+  const d = selected === 2 ? (stats.deltas || {})
+    : selected === 1 ? computeDeltas(stats.previous, stats.prevPrevious)
+    : {};
+  const viewMonth = cols[selected];
+  const isReported = selected === 2;
   const tier = consistencyTier(c.sessionsPerWeek);
   const equiv = volumeEquivalent(c.totalVolumeKg);
 
   return (
     <div className={`mrc-stats ${compact ? 'mrc-stats--compact' : ''}`}>
       <div className="mrc-headline">
-        <span className="mrc-headline-text">{reportHeadline(stats)}</span>
+        <span className="mrc-headline-text">{reportHeadline({ current: c, deltas: d })}</span>
         <span className={`mrc-tier mrc-tier--${tier.tone}`}>{tier.emoji} {tier.label}</span>
       </div>
+
+      {!isReported && (
+        <div className="mrc-viewing">
+          Showing <strong>{formatMonthKey(viewMonth)}</strong>
+          <button type="button" className="mrc-viewing-back" onClick={() => setSelected(2)}>Back to {formatMonthKey(month, { withYear: false })}</button>
+        </div>
+      )}
 
       <div className="mrc-tiles">
         <div className="mrc-tile mrc-tile--blue"><span className="mrc-tile-l">🏋️ Sessions</span><span className="mrc-tile-v">{c.sessions} <DeltaTag delta={d.sessions} /></span></div>
@@ -128,21 +114,18 @@ export function MonthlyReportStats({ stats, compact = false }) {
       </div>
 
       {equiv && (
-        <div className="mrc-fact">💡 {formatVolume(c.totalVolumeKg)} lifted this month — {equiv}</div>
+        <div className="mrc-fact">💡 {formatVolume(c.totalVolumeKg)} lifted in {formatMonthKey(viewMonth, { withYear: false })} — {equiv}</div>
       )}
 
       <div className="mrc-trends">
         <TrendBars label="Sessions" cols={cols} values={series('sessions')} fmt={(v) => v} selected={selected} onSelect={setSelected} />
         <TrendBars label="Volume" cols={cols} values={series('totalVolumeKg')} fmt={formatVolume} selected={selected} onSelect={setSelected} />
       </div>
-      {selected == null && <div className="mrc-trend-hint">Tap a month for details</div>}
-      {selected != null && (
-        <MonthDetail monthKey={cols[selected]} m={monthAt(selected)} onClose={() => setSelected(null)} />
-      )}
+      <div className="mrc-trend-hint">Tap a month to view it above</div>
 
       {c.topLifts && c.topLifts.length > 0 && (
         <>
-          <div className="mrc-section-label">Top lifts in {formatMonthKey(month, { withYear: false })}</div>
+          <div className="mrc-section-label">Top lifts in {formatMonthKey(viewMonth, { withYear: false })}</div>
           <div className="mrc-chips">
             {c.topLifts.map((t, i) => (
               <span key={t.exercise} className="mrc-chip">

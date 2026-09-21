@@ -865,6 +865,10 @@ async function handleNotifyUser(req, res) {
       targetUserId = clientUserId;
       title = `${await getCoachDisplayName(client?.coach_id)} · ${workoutName || 'Monthly report'}`;
       body = (message && message.trim()) || 'Your monthly progress report is ready';
+      // Same "force Home" deep link as openMuscleMap/openMeasurements below —
+      // without it, a client who last left the app on Workouts/Profile taps
+      // the notification and lands wherever they were, not on the card.
+      url = '/?openMonthlyReport=1';
     } else if (event === 'client_reply') {
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for client_reply.' });
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });

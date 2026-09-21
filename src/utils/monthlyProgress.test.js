@@ -94,7 +94,7 @@ describe('buildMonthlyReport', () => {
 
 describe('formatting', () => {
   it('formats volume, duration and deltas', () => {
-    expect(formatVolume(48600)).toBe('48.6t');
+    expect(formatVolume(48600)).toBe('48,600 kg');
     expect(formatVolume(950)).toBe('950 kg');
     expect(formatVolume(null)).toBe('—');
     expect(formatDurationShort(33600)).toBe('9h 20m');

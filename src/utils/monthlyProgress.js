@@ -219,9 +219,11 @@ export function buildMonthlyReport(logs, monthKey) {
 
 // ── Formatting helpers shared by the coach composer and client card ──
 
+// Always plain kilograms — a "44.8t" tonne abbreviation read as a mystery
+// number to a coach on the History tab (2026-09-21), and kg with thousands
+// separators is what the rest of the app shows for volume anyway.
 export function formatVolume(kg) {
   if (kg == null) return '—';
-  if (kg >= 10000) return `${(kg / 1000).toFixed(1)}t`;
   return `${Math.round(kg).toLocaleString('en-IN')} kg`;
 }
 
@@ -322,5 +324,5 @@ export function reportHeadline(report) {
   if (c.prCount === 1 && c.topLifts[0]) return `New PR: ${c.topLifts[0].exercise} ${c.topLifts[0].bestWeightKg} kg 🏆`;
   if (d.totalVolumeKg && d.totalVolumeKg.pct != null && d.totalVolumeKg.pct >= 10) return `Volume up ${d.totalVolumeKg.pct}% on last month 📈`;
   if (d.sessions && d.sessions.abs != null && d.sessions.abs > 0) return `${d.sessions.abs} more session${d.sessions.abs === 1 ? '' : 's'} than last month 💪`;
-  return `${c.sessions} session${c.sessions === 1 ? '' : 's'} · ${formatVolume(c.totalVolumeKg)} moved`;
+  return `${c.sessions} session${c.sessions === 1 ? '' : 's'} · ${formatVolume(c.totalVolumeKg)} lifted`;
 }

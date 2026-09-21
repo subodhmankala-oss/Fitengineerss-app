@@ -454,10 +454,17 @@ function App() {
   // card the coach actually meant to share (Heat Map is the SECOND card
   // down). Read once, same lifetime as deepLinkOpenMuscleMap itself.
   const [deepLinkMuscleSection] = useState(() => new URLSearchParams(window.location.search).get('section') || null);
+  // ?openMonthlyReport=1 — the monthly_report push (api/push.js, sent from
+  // MonthlyReportComposer's Send report). The report card itself renders
+  // unconditionally at the top of Home for any unread report, so this only
+  // has to force the tab open: a client who last left the app on
+  // Workouts/Profile would otherwise land back there instead of Home, never
+  // seeing the card land.
+  const [deepLinkOpenMonthlyReport] = useState(() => new URLSearchParams(window.location.search).get('openMonthlyReport') === '1');
   useEffect(() => {
     if (deepLinkOpenMeasurements) setActiveTab('profile');
-    if (deepLinkOpenMuscleMap) setActiveTab('home');
-    if (deepLinkOpenMeasurements || deepLinkClientId || deepLinkOpenMuscleMap) {
+    if (deepLinkOpenMuscleMap || deepLinkOpenMonthlyReport) setActiveTab('home');
+    if (deepLinkOpenMeasurements || deepLinkClientId || deepLinkOpenMuscleMap || deepLinkOpenMonthlyReport) {
       // Strip the query params so a later refresh/share of this URL doesn't
       // re-trigger the same deep link forever.
       window.history.replaceState(null, '', window.location.pathname);

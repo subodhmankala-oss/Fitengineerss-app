@@ -236,7 +236,11 @@ export function MonthlyReportCard({ report, coachName, isNew = false, onDismiss 
   if (!report || !report.stats) return null;
 
   const monthLabel = formatMonthKey(report.month);
+  // "Coach Subodh" when we have a real name, "your coach" otherwise — never
+  // "Coach your coach". coachLabel is the bare display form (used wherever
+  // the surrounding sentence already supplies "Coach"/"From"/"Sent by").
   const coachLabel = coachName || 'your coach';
+  const coachFull = coachName ? `Coach ${coachName}` : 'your coach';
 
   // Same share flow as WorkoutShareCard: native share sheet with the PNG on
   // mobile, plain download everywhere else.
@@ -270,9 +274,9 @@ export function MonthlyReportCard({ report, coachName, isNew = false, onDismiss 
       <div ref={cardRef} className="mrc-capture">
         <div className="mrc-head">
           {isNew ? (
-            <span className="mrc-badge">New from {coachLabel}</span>
+            <span className="mrc-badge">New from {coachFull}</span>
           ) : (
-            <span className="mrc-badge mrc-badge--muted">From {coachLabel}</span>
+            <span className="mrc-badge mrc-badge--muted">From {coachFull}</span>
           )}
           {isNew && onDismiss && (
             <button type="button" className="mrc-close" onClick={onDismiss} aria-label="Dismiss" title="Got it">✕</button>
@@ -286,12 +290,12 @@ export function MonthlyReportCard({ report, coachName, isNew = false, onDismiss 
           <div className="mrc-message">
             <span className="mrc-message-avatar" aria-hidden="true">{(coachLabel || 'C').trim().charAt(0).toUpperCase()}</span>
             <div className="mrc-message-bubble">
-              <div className="mrc-message-from">{coachLabel}</div>
+              <div className="mrc-message-from">{coachFull}</div>
               <div>{report.coachMessage}</div>
             </div>
           </div>
         )}
-        <div className="mrc-sent">Sent by {coachLabel}{report.sentAt ? ` · ${formatSentAt(report.sentAt)}` : ''}</div>
+        <div className="mrc-sent">Sent by {coachFull}{report.sentAt ? ` · ${formatSentAt(report.sentAt)}` : ''}</div>
       </div>
 
       <div className="mrc-actions">

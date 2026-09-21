@@ -1585,7 +1585,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               {monthlyReports.length > 0 && (
                 <div className="chart-widget-card glass-panel">
                   <div className="widget-header justify-between">
-                    <h4>📬 Monthly reports from {coachName || 'your coach'}</h4>
+                    <h4>📬 Monthly reports from {coachName ? `Coach ${coachName}` : 'your coach'}</h4>
                   </div>
                   <MonthlyReportsList reports={monthlyReports} coachName={coachName} />
                 </div>

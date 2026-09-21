@@ -84,7 +84,7 @@ export function MonthlyReportStats({ stats, compact = false }) {
       </div>
 
       {equiv && (
-        <div className="mrc-fact">💡 {formatVolume(c.totalVolumeKg)} moved — {equiv}</div>
+        <div className="mrc-fact">💡 {formatVolume(c.totalVolumeKg)} lifted this month — {equiv}</div>
       )}
 
       <div className="mrc-trends">
@@ -235,7 +235,7 @@ export function MonthlyReportsList({ reports, coachName }) {
         const d = r.stats && r.stats.deltas;
         const open = openId === r.id;
         const summary = c
-          ? [`${c.sessions} session${c.sessions === 1 ? '' : 's'}`, formatVolume(c.totalVolumeKg), `${c.prCount} PR${c.prCount === 1 ? '' : 's'}`].join(' · ')
+          ? [`${c.sessions} session${c.sessions === 1 ? '' : 's'}`, `${formatVolume(c.totalVolumeKg)} lifted`, `${c.prCount} PR${c.prCount === 1 ? '' : 's'}`].join(' · ')
           : '';
         return (
           <div key={r.id} className={`mrc-item ${open ? 'mrc-item--open' : ''}`}>

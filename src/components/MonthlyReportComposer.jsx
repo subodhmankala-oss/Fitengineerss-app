@@ -96,7 +96,7 @@ export default function MonthlyReportComposer({ clientId, clientName, coachId, l
 
   const c = report.current;
   const rowSummary = c.hasData
-    ? `${formatMonthKey(monthKey)} · ${c.sessions} session${c.sessions === 1 ? '' : 's'} · ${formatVolume(c.totalVolumeKg)}${sentLabel ? ` · sent ${sentLabel}` : ''}`
+    ? `${formatMonthKey(monthKey)} · ${c.sessions} session${c.sessions === 1 ? '' : 's'} · ${formatVolume(c.totalVolumeKg)} lifted${sentLabel ? ` · sent ${sentLabel}` : ''}`
     : `${formatMonthKey(monthKey)} · no workouts logged${sentLabel ? ` · sent ${sentLabel}` : ''}`;
 
   return (

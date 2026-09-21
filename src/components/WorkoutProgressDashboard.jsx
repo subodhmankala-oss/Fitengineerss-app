@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
+import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
@@ -52,6 +53,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
   // while (backgrounded, switched apps, closed the browser).
   const [activeDraft, setActiveDraft] = useState(null);
   const [, forceDraftTick] = useState(0);
+  // Coach-sent monthly progress reports (monthly_progress_reports), newest
+  // first. Fetched once here and shared by the home-screen "new report" card
+  // (unread only) and the Monthly tab's history list (all of them).
+  const [monthlyReports, setMonthlyReports] = useState([]);
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
@@ -108,6 +113,22 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
   // no active plan — silently swallowing the deep link's target tab behind
   // an extra "Show my progress" tap the client had no reason to expect.
   const [bypassWelcomeBack, setBypassWelcomeBack] = useState(() => initialTimeframe === 'muscles');
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    databaseService.getMonthlyReports(userId).then(rows => {
+      if (!cancelled) setMonthlyReports(rows || []);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  // "Got it" on a new report: hide it from the home screen everywhere
+  // (read_at persisted) — it stays in the Monthly tab history.
+  const dismissMonthlyReport = (report) => {
+    setMonthlyReports(prev => prev.map(r => (r.id === report.id ? { ...r, readAt: new Date().toISOString() } : r)));
+    if (report.id) databaseService.markMonthlyReportRead(report.id);
+  };
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
@@ -861,6 +882,13 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           push notification when the coach sent it. */}
       <CoachNoteBanner userId={userId} />
 
+      {/* Unread monthly progress reports from the coach — the missed-push
+          fallback, same idea as the coach note banner above. "Got it"
+          marks it read; it remains in the Monthly tab's history. */}
+      {monthlyReports.filter(r => !r.readAt).map(r => (
+        <MonthlyReportCard key={r.id} report={r} coachName={coachName} isNew onDismiss={() => dismissMonthlyReport(r)} />
+      ))}
+
       {/* Resume in-progress workout — a draft survives being away from the
           app/device (backgrounded, closed the tab, switched apps) via
           workout_drafts, so it's never silently lost. A 'coach' draft means
@@ -1549,6 +1577,19 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               <div className="heatmap-widget-card glass-panel">
                 {renderCalendarHeatmap()}
               </div>
+
+              {/* Coach's monthly reports — every month ever sent, newest
+                  first; tap a month to open its full card. Only shown once
+                  a coach has sent at least one (a client with no coach, or
+                  a coach who hasn't sent any, sees nothing extra here). */}
+              {monthlyReports.length > 0 && (
+                <div className="chart-widget-card glass-panel">
+                  <div className="widget-header justify-between">
+                    <h4>📬 Monthly reports from {coachName || 'your coach'}</h4>
+                  </div>
+                  <MonthlyReportsList reports={monthlyReports} coachName={coachName} />
+                </div>
+              )}
 
               {/* Monthly Volume progression Line Chart */}
               <div className="chart-widget-card glass-panel">

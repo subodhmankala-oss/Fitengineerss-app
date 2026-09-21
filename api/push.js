@@ -855,6 +855,16 @@ async function handleNotifyUser(req, res) {
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);
       body = message.trim();
+    } else if (event === 'monthly_report') {
+      // Coach sent a monthly progress report (TrainerDashboard's
+      // MonthlyReportComposer → databaseService.sendMonthlyReport). The full
+      // report is stored in monthly_progress_reports; this push just gets the
+      // client to open the app, where MonthlyReportCard shows it. `message`
+      // carries a one-line summary ("12 sessions · 48.6t · 2 PRs") and
+      // workoutName the month label ("August 2026").
+      targetUserId = clientUserId;
+      title = `${await getCoachDisplayName(client?.coach_id)} · ${workoutName || 'Monthly report'}`;
+      body = (message && message.trim()) || 'Your monthly progress report is ready';
     } else if (event === 'client_reply') {
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for client_reply.' });
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });

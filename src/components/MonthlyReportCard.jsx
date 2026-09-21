@@ -12,12 +12,11 @@ import './MonthlyReportCard.css';
 // matches what the coach reviewed and sent.
 //
 // Three pieces, all driven by the same snapshot:
-//   MonthlyReportStats  — tiles + 3-column table + top lifts (also used by
-//                         the coach's composer as the live preview)
+//   MonthlyReportStats  — headline, tiles, trend bars, top lifts (also used
+//                         by the coach's composer as the live preview — same
+//                         layout on both sides, no separate breakdown table)
 //   MonthlyReportCard   — the full card with badge, coach message, actions
 //   MonthlyReportsList  — accordion history on the Monthly tab
-
-const num = (v) => (v == null ? '—' : v);
 
 const DeltaTag = ({ delta, pct, suffix, size = 'sm' }) => {
   const d = formatDelta(delta, { pct, suffix });
@@ -55,31 +54,20 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 
 /**
  * @param {object} stats - buildMonthlyReport() output
- * @param {boolean} compact - client phone layout: tiles + trend bars only,
- *   no comparison table (the trend bars already carry the 3-month story).
- *   The coach's preview (compact=false) shows the full table.
+ * @param {boolean} compact - client phone layout (unused now that both
+ *   sides share the same layout; kept for the compact card styling hook).
  */
 export function MonthlyReportStats({ stats, compact = false }) {
-  const showTable = !compact;
   if (!stats || !stats.current) return null;
-  const { current: c, previous: p, prevPrevious: pp, deltas: d = {}, liftRows = [] } = stats;
+  const { current: c, deltas: d = {} } = stats;
   const month = stats.month || c.month;
   const cols = [shiftMonthKey(month, -2), shiftMonthKey(month, -1), month];
-  const cell = (m, key, fmt = num) => (m && m.hasData ? fmt(m[key]) : '—');
-  const series = (key) => [pp, p, c].map(m => (m && m.hasData ? m[key] : null));
+  const series = (key) => cols.map((_, i) => {
+    const m = i === 0 ? stats.prevPrevious : i === 1 ? stats.previous : c;
+    return m && m.hasData ? m[key] : null;
+  });
   const tier = consistencyTier(c.sessionsPerWeek);
   const equiv = volumeEquivalent(c.totalVolumeKg);
-
-  const rows = [
-    { label: 'Sessions', key: 'sessions' },
-    { label: 'Active days', key: 'activeDays' },
-    { label: 'Sets logged', key: 'totalSets' },
-    { label: 'Total volume', key: 'totalVolumeKg', fmt: formatVolume, pct: true },
-    { label: 'Training time', key: 'totalDurationSec', fmt: formatDurationShort, pct: true },
-    { label: 'Calories', key: 'totalCalories', fmt: (v) => `${Math.round(v).toLocaleString('en-IN')} kcal`, pct: true },
-    { label: 'Sessions / week', key: 'sessionsPerWeek' },
-    { label: 'Personal records', key: 'prCount' }
-  ];
 
   return (
     <div className={`mrc-stats ${compact ? 'mrc-stats--compact' : ''}`}>
@@ -118,44 +106,6 @@ export function MonthlyReportStats({ stats, compact = false }) {
             ))}
           </div>
         </>
-      )}
-
-      {showTable && (
-        <table className="mrc-table">
-          <thead>
-            <tr>
-              <th></th>
-              {cols.map((m, i) => (
-                <th key={m} className={i === 2 ? 'mrc-col-cur' : ''}>{formatMonthKey(m, { withYear: false })}</th>
-              ))}
-              {!compact && <th className="mrc-col-delta">vs {formatMonthKey(cols[1], { withYear: false })}</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.key}>
-                <td>{r.label}</td>
-                <td>{cell(pp, r.key, r.fmt)}</td>
-                <td>{cell(p, r.key, r.fmt)}</td>
-                <td className="mrc-col-cur">{cell(c, r.key, r.fmt)}</td>
-                {!compact && <td className="mrc-col-delta"><DeltaTag delta={d[r.key]} pct={r.pct} /></td>}
-              </tr>
-            ))}
-            {liftRows.map(l => (
-              <tr key={`lift-${l.exercise}`} className="mrc-lift-row">
-                <td>{l.exercise} best</td>
-                <td>{num(l.prevPrevious)}</td>
-                <td>{num(l.previous)}</td>
-                <td className="mrc-col-cur">{l.current} kg</td>
-                {!compact && (
-                  <td className="mrc-col-delta">
-                    <DeltaTag delta={l.previous != null ? { abs: Math.round((l.current - l.previous) * 10) / 10 } : null} />
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
     </div>
   );

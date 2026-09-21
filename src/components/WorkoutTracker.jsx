@@ -1667,7 +1667,7 @@ const WorkoutTracker = () => {
   // start. Split them: paddingX stays tight, padding (vertical) unchanged.
   const padding = 35;
   const paddingX = 14;
-  const chartWidth = pointSpacing * Math.max(graphData.length - 1, 0);
+  const chartWidth = pointSpacing * Math.max((graphData[graphData.length - 1]?.index ?? 0), 0);
   const width = Math.max(paddingX * 2 + pointSpacing * (VISIBLE_POINTS - 1), paddingX * 2 + chartWidth);
   const height = 200;
   const chartHeight = height - padding * 2;
@@ -1681,7 +1681,7 @@ const WorkoutTracker = () => {
   if (graphData.length > 0) {
     graphData.forEach((d, idx) => {
       const val = chartMetric === 'weight' ? d.weight : d.volume;
-      const x = paddingX + idx * pointSpacing;
+      const x = paddingX + d.index * pointSpacing;
       const y = padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
 
       if (idx === 0) {
@@ -2905,7 +2905,7 @@ const WorkoutTracker = () => {
                     fit — a client had no way to know there was more to see.
                     Edge fade (CSS) + this small caption only appear when the
                     chart is actually wider than its box. */}
-                <div className={`svg-scroll-wrap ${graphData.length > VISIBLE_POINTS ? 'scrollable' : ''}`}>
+                <div className={`svg-scroll-wrap ${width > paddingX * 2 + pointSpacing * (VISIBLE_POINTS - 1) ? 'scrollable' : ''}`}>
                   <div className="svg-container-box" ref={chartScrollRef}>
                   <svg
                     viewBox={`0 0 ${width} ${height}`}

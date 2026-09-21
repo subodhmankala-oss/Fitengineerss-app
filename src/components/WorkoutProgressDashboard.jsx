@@ -1020,21 +1020,20 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(var(--accent-rgb), 0.05))',
               border: '1px solid rgba(139, 92, 246, 0.25)',
               borderRadius: 0,
-              padding: '24px',
+              padding: '12px 14px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
+              gap: '4px',
               // This card used to sit inside a `.flex-col.gap-4` container
               // (16px auto-gap between children) — now that it's rendered
               // directly in .workout-progress-container (a plain flex column
               // with no gap), it needs its own bottom margin or it overlaps
               // the tab switcher right below it.
-              marginBottom: '20px',
-              flexShrink: 0,
-              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
+              marginBottom: '4px',
+              flexShrink: 0
             }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-subtle)' }}>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
                 Your coach hasn't set your program length yet. Your session progress will appear here once they do. 🗓️
               </p>
             </div>
@@ -1057,13 +1056,13 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(var(--accent-rgb), 0.05))',
             border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: 0,
-            padding: '24px',
+            padding: '12px 14px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px',
+            gap: '8px',
             // See the "no configured total" branch above for why this
             // needs an explicit bottom margin now.
-            marginBottom: '20px',
+            marginBottom: '4px',
             // Now a DIRECT child of the height-bounded, overflow-y:auto flex
             // column .workout-progress-container (previously nested two
             // flex-columns deeper, which didn't squeeze it). This card's own
@@ -1074,7 +1073,6 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             // overflow:hidden instead of ever showing them. Confirmed via
             // getBoundingClientRect() on the live page.
             flexShrink: 0,
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
             position: 'relative',
             overflow: 'hidden'
           }}>
@@ -1083,24 +1081,24 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
               position: 'absolute',
               top: '-50%',
               right: '-10%',
-              width: '180px',
-              height: '180px',
+              width: '120px',
+              height: '120px',
               borderRadius: '50%',
               background: 'rgba(139, 92, 246, 0.25)',
               filter: 'blur(40px)',
               pointerEvents: 'none'
             }}></div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', zIndex: 1 }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coaching Program Progress</span>
-              <h3 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                {totalSessionsDone} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                {totalSessionsDone} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>of</span> {sessionsTotal}
               </h3>
-              <span style={{ fontSize: '0.85rem', color: 'var(--accent-text)', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--accent-text)', fontWeight: 700 }}>
                 {percentComplete}% Completed
               </span>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-subtle)' }}>
                 {totalSessionsDone >= sessionsTotal
                   ? 'Congratulations! You have completed your coaching package! 🎉'
                   : `${sessionsTotal - totalSessionsDone} sessions remaining in your active program.`}
@@ -1108,8 +1106,8 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
             </div>
 
             {/* Circular Progress Ring */}
-            <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
-              <svg width="90" height="90" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+            <div style={{ position: 'relative', width: '54px', height: '54px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
+              <svg width="54" height="54" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
                 <circle
                   cx="50"
                   cy="50"
@@ -1137,7 +1135,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                   </linearGradient>
                 </defs>
               </svg>
-              <div style={{ position: 'absolute', fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              <div style={{ position: 'absolute', fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {percentComplete}%
               </div>
             </div>
@@ -1148,22 +1146,22 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
                 coach set is visible here too, not just to them. */}
             {(startedOnLabel || estCompletionLabel) && (
               <div style={{
-                display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap',
-                paddingTop: '14px', borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', zIndex: 1
+                display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+                paddingTop: '8px', borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', zIndex: 1
               }}>
                 {startedOnLabel && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.85rem' }}>🚩</span>
+                    <span style={{ fontSize: '0.8rem' }}>🚩</span>
                     <div>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{startedOnLabel}</div>
+                      <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-main)', fontWeight: 700 }}>{startedOnLabel}</div>
                     </div>
                   </div>
                 )}
                 {estCompletionLabel && (
                   <div>
-                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{estCompletionLabel}</div>
+                    <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-main)', fontWeight: 700 }}>{estCompletionLabel}</div>
                   </div>
                 )}
               </div>

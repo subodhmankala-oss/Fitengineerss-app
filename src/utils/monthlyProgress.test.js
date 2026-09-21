@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeMonthStats, buildMonthlyReport, computeDeltas, shiftMonthKey, defaultReportMonth,
-  formatVolume, formatDurationShort, formatDelta, suggestCoachMessage, formatMonthKey
+  formatVolume, formatDurationShort, formatDelta, suggestCoachMessage, formatMonthKey,
+  consistencyTier, volumeEquivalent, reportHeadline
 } from './monthlyProgress';
 
 const log = (overrides) => ({
@@ -116,5 +117,28 @@ describe('formatting', () => {
   it('handles a month with no workouts', () => {
     const r = buildMonthlyReport(LOGS, '2026-06');
     expect(suggestCoachMessage(r, 'Priya')).toContain("didn't see any logged workouts in Jun");
+  });
+});
+
+describe('flavour', () => {
+  it('tiers consistency by sessions per week', () => {
+    expect(consistencyTier(0).label).toBe('Rest month');
+    expect(consistencyTier(0.7).label).toBe('Warming up');
+    expect(consistencyTier(2).label).toBe('Building');
+    expect(consistencyTier(3).label).toBe('Consistent');
+    expect(consistencyTier(4.2).label).toBe('On fire');
+  });
+
+  it('picks a readable volume equivalent', () => {
+    expect(volumeEquivalent(1800)).toBe("that's like lifting 1.8 small cars");
+    expect(volumeEquivalent(1000)).toBe("that's like lifting a small car");
+    expect(volumeEquivalent(48600)).toBe("that's like lifting 1.2 loaded trucks");
+    expect(volumeEquivalent(20)).toBeNull();
+  });
+
+  it('leads with the most flattering true headline', () => {
+    const r = buildMonthlyReport(LOGS, '2026-08');
+    expect(reportHeadline(r)).toBe('New PR: Squat 100 kg 🏆');
+    expect(reportHeadline(buildMonthlyReport(LOGS, '2026-06'))).toContain('quiet month');
   });
 });

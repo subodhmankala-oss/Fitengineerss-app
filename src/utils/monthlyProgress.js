@@ -271,3 +271,56 @@ export function suggestCoachMessage(report, clientFirstName = 'there') {
   const topBit = top ? ` ${top.exercise} moved to ${top.bestWeightKg} kg.` : '';
   return `${lead}, ${clientFirstName}. ${parts.join(', ')}.${topBit} Let's keep building next month.`;
 }
+
+// ── Flavour: the bits that make the client card feel like a highlight reel
+// rather than a ledger. Pure functions of the snapshot; tested alongside the
+// numbers so the copy can't drift out of sync with them.
+
+// Consistency tier from sessions/week — the number every coach actually
+// cares about. Thresholds are deliberately generous at the bottom so a
+// client's first report never opens with a scolding.
+export function consistencyTier(sessionsPerWeek) {
+  const n = sessionsPerWeek || 0;
+  if (n >= 4) return { label: 'On fire', emoji: '🔥', tone: 'hot' };
+  if (n >= 2.5) return { label: 'Consistent', emoji: '💪', tone: 'good' };
+  if (n >= 1.5) return { label: 'Building', emoji: '📈', tone: 'ok' };
+  if (n > 0) return { label: 'Warming up', emoji: '🌱', tone: 'start' };
+  return { label: 'Rest month', emoji: '😴', tone: 'none' };
+}
+
+// "1,800 kg — that's like lifting 1.8 small cars". Largest unit that fits at
+// least once, so the multiplier stays readable (1.8 cars, not 0.36 rhinos).
+const VOLUME_UNITS = [
+  { kg: 150000, one: 'a blue whale', many: 'blue whales' },
+  { kg: 40000, one: 'a loaded truck', many: 'loaded trucks' },
+  { kg: 12000, one: 'a school bus', many: 'school buses' },
+  { kg: 5000, one: 'an elephant', many: 'elephants' },
+  { kg: 2000, one: 'a rhino', many: 'rhinos' },
+  { kg: 1000, one: 'a small car', many: 'small cars' },
+  { kg: 400, one: 'a grizzly bear', many: 'grizzly bears' },
+  { kg: 150, one: 'a grand piano', many: 'grand pianos' },
+  { kg: 60, one: 'a fridge', many: 'fridges' }
+];
+export function volumeEquivalent(kg) {
+  if (!kg || kg < 60) return null;
+  const unit = VOLUME_UNITS.find(u => kg >= u.kg);
+  if (!unit) return null;
+  const n = Math.round((kg / unit.kg) * 10) / 10;
+  if (n < 1.05) return `that's like lifting ${unit.one}`;
+  const shown = Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return `that's like lifting ${shown} ${unit.many}`;
+}
+
+// One punchy headline for the card. Picks the single most flattering true
+// statement, in priority order: PRs > big volume jump > more sessions >
+// plain summary.
+export function reportHeadline(report) {
+  const c = report.current;
+  const d = report.deltas || {};
+  if (!c || !c.hasData) return 'A quiet month — next one starts fresh';
+  if (c.prCount >= 2) return `${c.prCount} personal records this month 🏆`;
+  if (c.prCount === 1 && c.topLifts[0]) return `New PR: ${c.topLifts[0].exercise} ${c.topLifts[0].bestWeightKg} kg 🏆`;
+  if (d.totalVolumeKg && d.totalVolumeKg.pct != null && d.totalVolumeKg.pct >= 10) return `Volume up ${d.totalVolumeKg.pct}% on last month 📈`;
+  if (d.sessions && d.sessions.abs != null && d.sessions.abs > 0) return `${d.sessions.abs} more session${d.sessions.abs === 1 ? '' : 's'} than last month 💪`;
+  return `${c.sessions} session${c.sessions === 1 ? '' : 's'} · ${formatVolume(c.totalVolumeKg)} moved`;
+}

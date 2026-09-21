@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { formatMonthKey, shiftMonthKey, formatVolume, formatDurationShort, formatDelta } from '../utils/monthlyProgress';
+import {
+  formatMonthKey, shiftMonthKey, formatVolume, formatDurationShort, formatDelta,
+  consistencyTier, volumeEquivalent, reportHeadline
+} from '../utils/monthlyProgress';
 import './MonthlyReportCard.css';
 
 // Client-side rendering of a coach's monthly progress report (see
@@ -22,80 +25,91 @@ const DeltaTag = ({ delta, pct, suffix, size = 'sm' }) => {
   return <span className={`mrc-delta mrc-delta--${d.dir} mrc-delta--${size}`}>{d.text}</span>;
 };
 
+// Three-bar mini chart (two months back / last month / this month) for one
+// metric. Heights are relative to the tallest of the three; an empty month
+// gets a stub bar so the axis still reads as three slots.
+function TrendBars({ label, cols, values, fmt }) {
+  const max = Math.max(...values.map(v => v || 0), 0);
+  return (
+    <div className="mrc-trend">
+      <div className="mrc-trend-label">{label}</div>
+      <div className="mrc-trend-bars">
+        {cols.map((m, i) => {
+          const v = values[i];
+          const has = v != null;
+          const h = has && max > 0 ? Math.max(6, Math.round((v / max) * 100)) : 4;
+          return (
+            <div key={m} className={`mrc-bar-col ${i === 2 ? 'mrc-bar-col--cur' : ''}`}>
+              <div className="mrc-bar-val">{has ? fmt(v) : '—'}</div>
+              <div className="mrc-bar-track"><div className={`mrc-bar ${has ? '' : 'mrc-bar--empty'}`} style={{ height: `${h}%` }} /></div>
+              <div className="mrc-bar-m">{formatMonthKey(m, { withYear: false })}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
 /**
  * @param {object} stats - buildMonthlyReport() output
- * @param {boolean} compact - client phone layout (4 tiles first, table second)
+ * @param {boolean} compact - client phone layout: table starts collapsed
+ *   behind "See full breakdown"; the coach's preview always shows it.
  */
 export function MonthlyReportStats({ stats, compact = false }) {
+  const [showTable, setShowTable] = useState(!compact);
   if (!stats || !stats.current) return null;
   const { current: c, previous: p, prevPrevious: pp, deltas: d = {}, liftRows = [] } = stats;
   const month = stats.month || c.month;
   const cols = [shiftMonthKey(month, -2), shiftMonthKey(month, -1), month];
   const cell = (m, key, fmt = num) => (m && m.hasData ? fmt(m[key]) : '—');
+  const series = (key) => [pp, p, c].map(m => (m && m.hasData ? m[key] : null));
+  const tier = consistencyTier(c.sessionsPerWeek);
+  const equiv = volumeEquivalent(c.totalVolumeKg);
 
   const rows = [
     { label: 'Sessions', key: 'sessions' },
+    { label: 'Active days', key: 'activeDays' },
     { label: 'Sets logged', key: 'totalSets' },
     { label: 'Total volume', key: 'totalVolumeKg', fmt: formatVolume, pct: true },
     { label: 'Training time', key: 'totalDurationSec', fmt: formatDurationShort, pct: true },
+    { label: 'Calories', key: 'totalCalories', fmt: (v) => `${Math.round(v).toLocaleString('en-IN')} kcal`, pct: true },
     { label: 'Sessions / week', key: 'sessionsPerWeek' },
     { label: 'Personal records', key: 'prCount' }
   ];
 
   return (
     <div className={`mrc-stats ${compact ? 'mrc-stats--compact' : ''}`}>
-      {compact && (
-        <div className="mrc-tiles">
-          <div className="mrc-tile"><span className="mrc-tile-l">Sessions</span><span className="mrc-tile-v">{c.sessions} <DeltaTag delta={d.sessions} /></span></div>
-          <div className="mrc-tile"><span className="mrc-tile-l">Volume</span><span className="mrc-tile-v">{formatVolume(c.totalVolumeKg)} <DeltaTag delta={d.totalVolumeKg} pct /></span></div>
-          <div className="mrc-tile"><span className="mrc-tile-l">Training time</span><span className="mrc-tile-v">{formatDurationShort(c.totalDurationSec)} <DeltaTag delta={d.totalDurationSec} pct /></span></div>
-          <div className="mrc-tile"><span className="mrc-tile-l">PRs</span><span className="mrc-tile-v">{c.prCount} <DeltaTag delta={d.prCount} /></span></div>
-        </div>
+      <div className="mrc-headline">
+        <span className="mrc-headline-text">{reportHeadline(stats)}</span>
+        <span className={`mrc-tier mrc-tier--${tier.tone}`}>{tier.emoji} {tier.label}</span>
+      </div>
+
+      <div className="mrc-tiles">
+        <div className="mrc-tile mrc-tile--blue"><span className="mrc-tile-l">🏋️ Sessions</span><span className="mrc-tile-v">{c.sessions} <DeltaTag delta={d.sessions} /></span></div>
+        <div className="mrc-tile mrc-tile--emerald"><span className="mrc-tile-l">📦 Volume</span><span className="mrc-tile-v">{formatVolume(c.totalVolumeKg)} <DeltaTag delta={d.totalVolumeKg} pct /></span></div>
+        <div className="mrc-tile mrc-tile--amber"><span className="mrc-tile-l">⏱ Training time</span><span className="mrc-tile-v">{formatDurationShort(c.totalDurationSec)} <DeltaTag delta={d.totalDurationSec} pct /></span></div>
+        <div className="mrc-tile mrc-tile--violet"><span className="mrc-tile-l">🏆 PRs</span><span className="mrc-tile-v">{c.prCount} <DeltaTag delta={d.prCount} /></span></div>
+      </div>
+
+      {equiv && (
+        <div className="mrc-fact">💡 {formatVolume(c.totalVolumeKg)} moved — {equiv}</div>
       )}
 
-      <table className="mrc-table">
-        <thead>
-          <tr>
-            <th></th>
-            {cols.map((m, i) => (
-              <th key={m} className={i === 2 ? 'mrc-col-cur' : ''}>{formatMonthKey(m, { withYear: false })}</th>
-            ))}
-            {!compact && <th className="mrc-col-delta">vs {formatMonthKey(cols[1], { withYear: false })}</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.key}>
-              <td>{r.label}</td>
-              <td>{cell(pp, r.key, r.fmt)}</td>
-              <td>{cell(p, r.key, r.fmt)}</td>
-              <td className="mrc-col-cur">{cell(c, r.key, r.fmt)}</td>
-              {!compact && <td className="mrc-col-delta"><DeltaTag delta={d[r.key]} pct={r.pct} /></td>}
-            </tr>
-          ))}
-          {liftRows.map(l => (
-            <tr key={`lift-${l.exercise}`} className="mrc-lift-row">
-              <td>{l.exercise} best</td>
-              <td>{num(l.prevPrevious)}</td>
-              <td>{num(l.previous)}</td>
-              <td className="mrc-col-cur">{l.current} kg</td>
-              {!compact && (
-                <td className="mrc-col-delta">
-                  <DeltaTag delta={l.previous != null ? { abs: Math.round((l.current - l.previous) * 10) / 10 } : null} />
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="mrc-trends">
+        <TrendBars label="Sessions" cols={cols} values={series('sessions')} fmt={(v) => v} />
+        <TrendBars label="Volume" cols={cols} values={series('totalVolumeKg')} fmt={formatVolume} />
+      </div>
 
-      {!compact && c.topLifts && c.topLifts.length > 0 && (
+      {c.topLifts && c.topLifts.length > 0 && (
         <>
           <div className="mrc-section-label">Top lifts in {formatMonthKey(month, { withYear: false })}</div>
           <div className="mrc-chips">
-            {c.topLifts.map(t => (
+            {c.topLifts.map((t, i) => (
               <span key={t.exercise} className="mrc-chip">
-                {t.exercise} {t.bestWeightKg} kg × {t.bestReps}
+                <span aria-hidden="true">{MEDALS[i]}</span> {t.exercise} <strong>{t.bestWeightKg} kg</strong> × {t.bestReps}
                 {t.prevBestWeightKg != null && t.bestWeightKg !== t.prevBestWeightKg && (
                   <DeltaTag delta={{ abs: Math.round((t.bestWeightKg - t.prevBestWeightKg) * 10) / 10 }} />
                 )}
@@ -103,6 +117,50 @@ export function MonthlyReportStats({ stats, compact = false }) {
             ))}
           </div>
         </>
+      )}
+
+      {compact && (
+        <button type="button" className="mrc-toggle" onClick={() => setShowTable(v => !v)} aria-expanded={showTable}>
+          {showTable ? 'Hide full breakdown ▴' : 'See full breakdown ▾'}
+        </button>
+      )}
+
+      {showTable && (
+        <table className="mrc-table">
+          <thead>
+            <tr>
+              <th></th>
+              {cols.map((m, i) => (
+                <th key={m} className={i === 2 ? 'mrc-col-cur' : ''}>{formatMonthKey(m, { withYear: false })}</th>
+              ))}
+              {!compact && <th className="mrc-col-delta">vs {formatMonthKey(cols[1], { withYear: false })}</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.key}>
+                <td>{r.label}</td>
+                <td>{cell(pp, r.key, r.fmt)}</td>
+                <td>{cell(p, r.key, r.fmt)}</td>
+                <td className="mrc-col-cur">{cell(c, r.key, r.fmt)}</td>
+                {!compact && <td className="mrc-col-delta"><DeltaTag delta={d[r.key]} pct={r.pct} /></td>}
+              </tr>
+            ))}
+            {liftRows.map(l => (
+              <tr key={`lift-${l.exercise}`} className="mrc-lift-row">
+                <td>{l.exercise} best</td>
+                <td>{num(l.prevPrevious)}</td>
+                <td>{num(l.previous)}</td>
+                <td className="mrc-col-cur">{l.current} kg</td>
+                {!compact && (
+                  <td className="mrc-col-delta">
+                    <DeltaTag delta={l.previous != null ? { abs: Math.round((l.current - l.previous) * 10) / 10 } : null} />
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -188,8 +246,11 @@ export function MonthlyReportCard({ report, coachName, isNew = false, onDismiss 
 
         {report.coachMessage && (
           <div className="mrc-message">
-            <span className="mrc-message-icon" aria-hidden="true">💬</span>
-            <span>{report.coachMessage}</span>
+            <span className="mrc-message-avatar" aria-hidden="true">{(coachLabel || 'C').trim().charAt(0).toUpperCase()}</span>
+            <div className="mrc-message-bubble">
+              <div className="mrc-message-from">{coachLabel}</div>
+              <div>{report.coachMessage}</div>
+            </div>
           </div>
         )}
         <div className="mrc-sent">Sent by {coachLabel}{report.sentAt ? ` · ${formatSentAt(report.sentAt)}` : ''}</div>

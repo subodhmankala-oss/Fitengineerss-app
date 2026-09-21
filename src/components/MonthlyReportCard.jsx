@@ -55,11 +55,12 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 
 /**
  * @param {object} stats - buildMonthlyReport() output
- * @param {boolean} compact - client phone layout: table starts collapsed
- *   behind "See full breakdown"; the coach's preview always shows it.
+ * @param {boolean} compact - client phone layout: tiles + trend bars only,
+ *   no comparison table (the trend bars already carry the 3-month story).
+ *   The coach's preview (compact=false) shows the full table.
  */
 export function MonthlyReportStats({ stats, compact = false }) {
-  const [showTable, setShowTable] = useState(!compact);
+  const showTable = !compact;
   if (!stats || !stats.current) return null;
   const { current: c, previous: p, prevPrevious: pp, deltas: d = {}, liftRows = [] } = stats;
   const month = stats.month || c.month;
@@ -89,7 +90,7 @@ export function MonthlyReportStats({ stats, compact = false }) {
 
       <div className="mrc-tiles">
         <div className="mrc-tile mrc-tile--blue"><span className="mrc-tile-l">🏋️ Sessions</span><span className="mrc-tile-v">{c.sessions} <DeltaTag delta={d.sessions} /></span></div>
-        <div className="mrc-tile mrc-tile--emerald"><span className="mrc-tile-l">📦 Volume</span><span className="mrc-tile-v">{formatVolume(c.totalVolumeKg)} <DeltaTag delta={d.totalVolumeKg} pct /></span></div>
+        <div className="mrc-tile mrc-tile--emerald"><span className="mrc-tile-l">🔥 Calories</span><span className="mrc-tile-v">{Math.round(c.totalCalories || 0).toLocaleString('en-IN')} <small>kcal</small> <DeltaTag delta={d.totalCalories} pct /></span></div>
         <div className="mrc-tile mrc-tile--amber"><span className="mrc-tile-l">⏱ Training time</span><span className="mrc-tile-v">{formatDurationShort(c.totalDurationSec)} <DeltaTag delta={d.totalDurationSec} pct /></span></div>
         <div className="mrc-tile mrc-tile--violet"><span className="mrc-tile-l">🏆 PRs</span><span className="mrc-tile-v">{c.prCount} <DeltaTag delta={d.prCount} /></span></div>
       </div>
@@ -117,12 +118,6 @@ export function MonthlyReportStats({ stats, compact = false }) {
             ))}
           </div>
         </>
-      )}
-
-      {compact && (
-        <button type="button" className="mrc-toggle" onClick={() => setShowTable(v => !v)} aria-expanded={showTable}>
-          {showTable ? 'Hide full breakdown ▴' : 'See full breakdown ▾'}
-        </button>
       )}
 
       {showTable && (

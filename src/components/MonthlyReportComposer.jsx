@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
 import {
-  buildMonthlyReport, defaultReportMonth, shiftMonthKey, formatMonthKey,
+  buildMonthlyReport, defaultReportMonth, monthKeyOf, shiftMonthKey, formatMonthKey,
   formatVolume, suggestCoachMessage
 } from '../utils/monthlyProgress';
 import { MonthlyReportStats } from './MonthlyReportCard';
@@ -27,12 +27,13 @@ export default function MonthlyReportComposer({ clientId, clientName, coachId, l
 
   const firstName = (clientName || '').trim().split(/\s+/)[0] || 'there';
 
-  // Month options: the last 12 completed months (never the current one —
-  // a report for a month still in progress would be misleading).
+  // Month options: the in-progress month (labelled "so far" so nobody reads
+  // a half month as a full one) plus the 12 completed months before it.
+  // Default stays the last completed month.
+  const currentMonth = monthKeyOf(new Date());
   const monthOptions = useMemo(() => {
-    const last = defaultReportMonth();
-    return Array.from({ length: 12 }, (_, i) => shiftMonthKey(last, -i));
-  }, []);
+    return Array.from({ length: 13 }, (_, i) => shiftMonthKey(currentMonth, -i));
+  }, [currentMonth]);
 
   const report = useMemo(() => buildMonthlyReport(logs || [], monthKey), [logs, monthKey]);
 
@@ -95,7 +96,7 @@ export default function MonthlyReportComposer({ clientId, clientName, coachId, l
         <span className="mrcomp-title">📈 Monthly report</span>
         <select className="mrcomp-month" value={monthKey} onChange={handleMonthChange} disabled={sending} aria-label="Report month">
           {monthOptions.map(m => (
-            <option key={m} value={m}>{formatMonthKey(m)}{sentReports[m] ? ' ✓' : ''}</option>
+            <option key={m} value={m}>{formatMonthKey(m)}{m === currentMonth ? ' (so far)' : ''}{sentReports[m] ? ' ✓' : ''}</option>
           ))}
         </select>
       </div>

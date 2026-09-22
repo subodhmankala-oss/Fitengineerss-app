@@ -1658,9 +1658,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // pause, or after a complete/uncomplete round trip) can safely resume
     // from it — see handleLiveSetStopwatchStart's timeIsLive check.
     handleLiveSetChange(exIdx, setIdx, 'timeIsLive', true);
+    // Keep whatever else was on the entry (autoKm, a cardio set's
+    // targetSeconds) — a bare replace here used to drop them on every pause,
+    // which would reset a cardio countdown back to plain count-up the
+    // moment it's resumed. See handleLiveCardioStopwatchStart's
+    // targetSeconds comment.
     setLiveSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
+      [key]: { ...prev[key], isRunning: false, startedAt: null, pausedDuration: elapsed }
     }));
   };
 
@@ -1720,13 +1725,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // reasoning); otherwise it could be a template/plan default or an
     // "+Add Set" suggestion, and resuming from it would bake a phantom head
     // start into the displayed time and live calorie total.
-    const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
+    const existingTimer = liveSetTimers[key];
+    const existingPausedDuration = existingTimer?.pausedDuration;
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
+    // The coach's suggested duration (e.g. a 00:30 interval), captured only
+    // on the very first Start — pausing overwrites set.time with the ticked
+    // elapsed value (handleLiveCardioStopwatchPause below), so re-reading
+    // set.time on a later resume would mistake "how far we'd gotten" for
+    // "how long we're meant to go". Once captured it rides along in the
+    // timer entry itself across pause/resume instead. Same set.timeIsLive
+    // guard as pausedDuration above: a value that's actually a
+    // live-recorded elapsed time (post-uncomplete) isn't a target either,
+    // so that case just falls back to 0 — plain count-up, same as today.
+    const targetSeconds = existingTimer?.targetSeconds != null
+      ? existingTimer.targetSeconds
+      : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
     setLiveSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true, targetSeconds }
     }));
   };
 
@@ -8650,6 +8668,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   const cardioTimer = liveSetTimers[cardioTimerKey];
                                   const cardioRunning = cardioTimer?.isRunning || false;
                                   const liveSeconds = cardioRunning ? getLiveSetElapsedSeconds(exIdx, setIdx) : (parseTimeStringToSeconds(set.time) || 0);
+                                  // A target set in the plan editor (e.g. "Interval
+                                  // running" logged as 00:30) makes the live display
+                                  // count DOWN toward it instead of up from 0, clamped
+                                  // at 00:00 rather than going negative once the
+                                  // interval's up. No target (typical open-ended
+                                  // cardio like Jogging left blank) keeps the plain
+                                  // count-up behavior unchanged.
+                                  const cardioTargetSeconds = cardioTimer?.targetSeconds || 0;
+                                  const cardioDisplaySeconds = cardioRunning && cardioTargetSeconds > 0
+                                    ? Math.max(0, cardioTargetSeconds - liveSeconds)
+                                    : liveSeconds;
                                   // No GPS/sensor behind this — while running (and until the coach
                                   // types their own number), KM shows an estimate from a typical
                                   // pace for this exercise, ticking up alongside the live time.
@@ -8692,7 +8721,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           {cardioRunning ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
                                         </button>
                                         {cardioRunning ? (
-                                          <span className="cardio-live-time">{formatSecondsToTimeString(liveSeconds)}</span>
+                                          <span className="cardio-live-time">{formatSecondsToTimeString(cardioDisplaySeconds)}</span>
                                         ) : (
                                           <SetValueField
                                             value={set.time}

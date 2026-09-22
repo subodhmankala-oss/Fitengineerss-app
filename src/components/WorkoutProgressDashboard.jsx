@@ -73,6 +73,10 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
     () => localStorage.getItem('clientLinkedToCoach') !== 'true'
   );
   const [selectedDateStr, setSelectedDateStr] = useState(getLocalDateString());
+  // Which calendar month the Monthly tab's heatmap/stats show. 0 = current
+  // month, -1 = previous month, etc. Never lets the user navigate past the
+  // current month (no "future" data to show).
+  const [monthOffset, setMonthOffset] = useState(0);
   // Coach-set program length (clients.total_sessions). null = not configured
   // yet — the progress card shows a "waiting on your coach" state, never a
   // fake default denominator. localStorage is only a fast-paint cache; the
@@ -529,19 +533,28 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
 
   const dailyStats = getDailyStats();
 
-  // 3. Monthly stats (last 30 days)
+  // 3. Monthly stats for the calendar month selected via monthOffset (0 =
+  // current month). Days after "today" (only possible in the current month)
+  // are excluded from totals but still included in dailyVolumeHistory so the
+  // chart/grid can render the full month.
   const getMonthlyStats = () => {
     let totalVolume = 0;
     let totalSets = 0;
     let workoutsCount = 0;
     let totalCalories = 0;
-    const dailyVolumeHistory = []; // list of last 30 days volumes for graph
+    const dailyVolumeHistory = [];
     const activeDates = new Set();
 
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+    const today = new Date();
+    const viewedMonth = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    const daysInMonth = new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1, 0).getDate();
+    const todayStr = getLocalDateString();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(viewedMonth.getFullYear(), viewedMonth.getMonth(), day);
       const dateStr = getLocalDateString(d);
+      if (dateStr > todayStr) break; // don't render/count future days
+
       const volume = groupedLogs[dateStr] ? groupedLogs[dateStr].volume : 0;
       const sets = groupedLogs[dateStr] ? groupedLogs[dateStr].sets : 0;
 
@@ -560,7 +573,15 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
       });
     }
 
-    return { totalVolume, totalSets, workoutsCount, dailyVolumeHistory, activeDates, totalCalories: Math.round(totalCalories * 10) / 10 };
+    return {
+      totalVolume,
+      totalSets,
+      workoutsCount,
+      dailyVolumeHistory,
+      activeDates,
+      totalCalories: Math.round(totalCalories * 10) / 10,
+      viewedMonth
+    };
   };
 
   const monthlyStats = getMonthlyStats();
@@ -706,11 +727,12 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
-    const getX = (idx) => padding + (idx / 29) * chartWidth;
+    const lastIdx = Math.max(history.length - 1, 1);
+    const getX = (idx) => padding + (idx / lastIdx) * chartWidth;
     const getY = (val) => padding + chartHeight - (val / maxVal) * chartHeight;
 
     let pathD = '';
-    let areaD = `M ${getX(0)} ${padding + chartHeight}`;
+    let areaD = history.length ? `M ${getX(0)} ${padding + chartHeight}` : '';
 
     history.forEach((h, idx) => {
       const x = getX(idx);
@@ -722,7 +744,9 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
       }
       areaD += ` L ${x} ${y}`;
     });
-    areaD += ` L ${getX(29)} ${padding + chartHeight} Z`;
+    if (history.length) {
+      areaD += ` L ${getX(history.length - 1)} ${padding + chartHeight} Z`;
+    }
 
     const activeNodes = history.filter(h => h.volume > 0);
 
@@ -767,28 +791,40 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
     );
   };
 
-  // 3. Calendar Grid (Hevy style)
+  // 3. Calendar Grid (Hevy style) — a real weekday-aligned month grid, with
+  // ‹ › nav so past months (including the previous one) can be reviewed.
+  // Navigating forward is capped at the current month (no future data).
   const renderCalendarHeatmap = () => {
     const cells = [];
     const activeDates = monthlyStats.activeDates;
+    const viewedMonth = monthlyStats.viewedMonth;
+    const year = viewedMonth.getFullYear();
+    const month = viewedMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const leadingBlanks = new Date(year, month, 1).getDay(); // 0 = Sunday
+    const todayStr = getLocalDateString();
 
-    // Draw grid of last 30 days
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+    for (let i = 0; i < leadingBlanks; i++) {
+      cells.push(<div key={`blank-${i}`} className="heatmap-cell blank" />);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
       const dateStr = getLocalDateString(d);
+      const isFuture = dateStr > todayStr;
       const isActive = activeDates.has(dateStr);
       const isSelected = dateStr === selectedDateStr;
 
       cells.push(
-        <div 
+        <div
           key={dateStr}
-          className={`heatmap-cell ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+          className={`heatmap-cell ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isFuture ? 'future' : ''}`}
           onClick={() => {
+            if (isFuture) return;
             setSelectedDateStr(dateStr);
             setTimeframe('daily');
           }}
-          title={`${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${isActive ? 'Workout logged 🏋️‍♂️' : 'Rest day ☕'}`}
+          title={isFuture ? '' : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${isActive ? 'Workout logged 🏋️‍♂️' : 'Rest day ☕'}`}
         >
           <span className="cell-num">{d.getDate()}</span>
           {isActive && <span className="cell-dot">●</span>}
@@ -798,7 +834,31 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
 
     return (
       <div className="heatmap-grid-wrapper">
-        <h4 className="heatmap-title">📅 30-Day Workout Frequency</h4>
+        <div className="heatmap-header">
+          <button
+            type="button"
+            className="heatmap-nav-btn"
+            onClick={() => setMonthOffset(monthOffset - 1)}
+            aria-label="Previous month"
+          >
+            ‹
+          </button>
+          <h4 className="heatmap-title">📅 {viewedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
+          <button
+            type="button"
+            className="heatmap-nav-btn"
+            onClick={() => setMonthOffset(Math.min(monthOffset + 1, 0))}
+            disabled={monthOffset >= 0}
+            aria-label="Next month"
+          >
+            ›
+          </button>
+        </div>
+        <div className="heatmap-weekdays">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((wd, idx) => (
+            <span key={idx}>{wd}</span>
+          ))}
+        </div>
         <div className="heatmap-grid">
           {cells}
         </div>

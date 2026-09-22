@@ -232,14 +232,71 @@
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-main);
-  margin-bottom: 14px;
+  margin: 0;
+}
+
+.heatmap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.heatmap-nav-btn {
+  padding: 4px 10px;
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.heatmap-nav-btn:hover:not(:disabled) {
+  background: rgba(var(--fg-rgb), 0.1);
+}
+
+.heatmap-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.heatmap-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.heatmap-weekdays span {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
 .heatmap-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   width: 100%;
+}
+
+.heatmap-cell.blank {
+  visibility: hidden;
+}
+
+.heatmap-cell.future {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.heatmap-cell.future:hover {
+  background: rgba(var(--fg-rgb), 0.02);
+  border-color: var(--border-color);
+  transform: none;
 }
 
 .heatmap-cell {

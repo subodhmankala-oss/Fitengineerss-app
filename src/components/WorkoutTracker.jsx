@@ -1890,9 +1890,15 @@ const WorkoutTracker = () => {
     // later Play (this pause, or after a complete/uncomplete round trip) to
     // resume from — see handleSetStopwatchStart's timeIsLive check.
     handleSetChange(exIdx, sIdx, 'timeIsLive', true);
+    // Keep whatever else was on the entry (autoKm, a cardio set's
+    // targetSeconds) — a bare replace here used to drop them on every pause,
+    // which happened not to matter before autoKm/targetSeconds existed (both
+    // are only read while running, and this always sets isRunning: false)
+    // but would otherwise reset a cardio countdown back to plain count-up
+    // the moment it's resumed.
     setSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: false, startedAt: null, pausedDuration: elapsed }
+      [key]: { ...prev[key], isRunning: false, startedAt: null, pausedDuration: elapsed }
     }));
   };
 
@@ -1957,13 +1963,26 @@ const WorkoutTracker = () => {
     // otherwise it could be a template/plan default or an "+Add Set"
     // suggestion, and resuming from it would bake a phantom head start into
     // the displayed time and live calorie total.
-    const existingPausedDuration = setTimers[key]?.pausedDuration;
+    const existingTimer = setTimers[key];
+    const existingPausedDuration = existingTimer?.pausedDuration;
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
+    // The coach's suggested duration (e.g. a 00:30 interval), captured only
+    // on the very first Start — pausing overwrites set.time with the ticked
+    // elapsed value (see handleCardioStopwatchPause below), so re-reading
+    // set.time on a later resume would mistake "how far we'd gotten" for
+    // "how long we're meant to go". Once captured it rides along in the
+    // timer entry itself across pause/resume instead. Same
+    // set.timeIsLive guard as pausedDuration above: a value that's actually
+    // a live-recorded elapsed time (post-uncomplete) isn't a target either,
+    // so that case just falls back to 0 — plain count-up, same as today.
+    const targetSeconds = existingTimer?.targetSeconds != null
+      ? existingTimer.targetSeconds
+      : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
     setSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true, targetSeconds }
     }));
   };
 
@@ -3842,6 +3861,17 @@ const WorkoutTracker = () => {
                                 // set.time is the source of truth again and stays freely editable
                                 // (e.g. to correct a time typed before the client hit play).
                                 const liveSeconds = cardioRunning ? getSetElapsedSeconds(exIdx, sIdx) : (parseTimeStringToSeconds(set.time) || 0);
+                                // A target set in the plan editor (e.g. "Interval
+                                // running" logged as 00:30) makes the live display
+                                // count DOWN toward it instead of up from 0, clamped
+                                // at 00:00 rather than going negative once the
+                                // interval's up. No target (typical open-ended
+                                // cardio like Jogging left blank) keeps the plain
+                                // count-up behavior unchanged.
+                                const cardioTargetSeconds = cardioTimer?.targetSeconds || 0;
+                                const cardioDisplaySeconds = cardioRunning && cardioTargetSeconds > 0
+                                  ? Math.max(0, cardioTargetSeconds - liveSeconds)
+                                  : liveSeconds;
                                 // No GPS/sensor behind this — while running (and until the client
                                 // types their own number), KM shows an estimate from a typical pace
                                 // for this exercise, ticking up alongside the live time instead of
@@ -3892,7 +3922,7 @@ const WorkoutTracker = () => {
                                         // what frees up room to show time + calories together on
                                         // one line instead of the calorie readout getting pushed to
                                         // a second line underneath.
-                                        <span className="cardio-live-time">{formatSecondsToTimeString(liveSeconds)}</span>
+                                        <span className="cardio-live-time">{formatSecondsToTimeString(cardioDisplaySeconds)}</span>
                                       ) : (
                                         <SetValueField
                                           value={set.time}

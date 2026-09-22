@@ -164,6 +164,42 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
     }
   };
 
+  // Desktop support: the pad is a custom on-screen control built for touch
+  // (see the file-level comment), so a real <input> never exists for the OS/
+  // physical keyboard to feed into. On a desktop browser there's no reason
+  // to block typing just because the value happens to render through this
+  // component instead of a text field, so mirror the physical keyboard onto
+  // the same `press` handler the on-screen buttons use.
+  React.useEffect(() => {
+    if (!activeKey) return undefined;
+    const handleKeyDown = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        press(e.key);
+      } else if (e.key === '.') {
+        e.preventDefault();
+        press('.');
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        press('back');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (active?.onPrev) active.onPrev();
+      } else if (e.key === 'ArrowDown' || e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        if (active?.onNext) active.onNext();
+        else if (e.key === 'Enter') onClose();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey, active]);
+
   const field = active || shown;
 
   // Portaled out to .app-container rather than rendered in place. The pad is

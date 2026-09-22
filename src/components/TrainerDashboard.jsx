@@ -1351,6 +1351,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   // 0 = current week, -1 = last week, etc. — same week navigation the client
   // has on their own weekly chart.
   const [historyWeekOffset, setHistoryWeekOffset] = useState(0);
+  // Which calendar month the Monthly tab's heatmap/stats show — same
+  // navigable-month fix as the client's WorkoutProgressDashboard.
+  const [historyMonthOffset, setHistoryMonthOffset] = useState(0);
 
   // Selected client's body-measurement history (read-only for the coach) —
   // loaded when the Measurements tab is opened.
@@ -6823,14 +6826,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                     const weeklyTotalCalories = Math.round(weekCaloriesRaw * 10) / 10;
                     const muscleAnalyticsWeeklyStats = { workoutsCount: weekWorkoutsCount, totalSets: weekTotalSets, totalVolume: weekTotalVolume, totalCalories: weeklyTotalCalories, dailySets };
 
-                    // Monthly aggregation (last 30 days)
+                    // Monthly aggregation for the calendar month selected via
+                    // historyMonthOffset (0 = current month) — same navigable-month
+                    // fix as the client's WorkoutProgressDashboard. Days after
+                    // "today" (only possible in the current month) are excluded
+                    // from totals but still rendered as disabled cells.
                     const dailyVolumeHistory = [];
                     const activeDates = new Set();
                     let monthVolume = 0, monthSets = 0, monthWorkouts = 0, monthCaloriesRaw = 0;
-                    for (let i = 29; i >= 0; i--) {
-                      const d = new Date();
-                      d.setDate(d.getDate() - i);
+                    const today = new Date();
+                    const viewedMonth = new Date(today.getFullYear(), today.getMonth() + historyMonthOffset, 1);
+                    const daysInViewedMonth = new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1, 0).getDate();
+                    const todayStr = getLocalDateString();
+                    for (let day = 1; day <= daysInViewedMonth; day++) {
+                      const d = new Date(viewedMonth.getFullYear(), viewedMonth.getMonth(), day);
                       const dateStr = getLocalDateString(d);
+                      if (dateStr > todayStr) break;
                       const s = groupedByDate[dateStr];
                       if (s) {
                         monthVolume += s.volume;
@@ -6949,15 +6960,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       const maxVal = Math.max(...values, 100);
                       const width = 320, height = 120, padding = 20;
                       const chartWidth = width - padding * 2, chartHeight = height - padding * 2;
-                      const getX = (idx) => padding + (idx / 29) * chartWidth;
+                      const lastIdx = Math.max(history.length - 1, 1);
+                      const getX = (idx) => padding + (idx / lastIdx) * chartWidth;
                       const getY = (val) => padding + chartHeight - (val / maxVal) * chartHeight;
-                      let pathD = '', areaD = `M ${getX(0)} ${padding + chartHeight}`;
+                      let pathD = '', areaD = history.length ? `M ${getX(0)} ${padding + chartHeight}` : '';
                       history.forEach((h, idx) => {
                         const x = getX(idx), y = getY(h.volume);
                         pathD += idx === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
                         areaD += ` L ${x} ${y}`;
                       });
-                      areaD += ` L ${getX(29)} ${padding + chartHeight} Z`;
+                      if (history.length) {
+                        areaD += ` L ${getX(history.length - 1)} ${padding + chartHeight} Z`;
+                      }
                       const activeNodes = history.filter(h => h.volume > 0);
                       return (
                         <svg viewBox={`0 0 ${width} ${height}`} className="monthly-chart-svg">
@@ -6986,18 +7000,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
 
                     const renderCalendarHeatmap = () => {
                       const cells = [];
-                      for (let i = 29; i >= 0; i--) {
-                        const d = new Date();
-                        d.setDate(d.getDate() - i);
+                      const year = viewedMonth.getFullYear();
+                      const month = viewedMonth.getMonth();
+                      const leadingBlanks = new Date(year, month, 1).getDay();
+                      for (let i = 0; i < leadingBlanks; i++) {
+                        cells.push(<div key={`blank-${i}`} className="heatmap-cell blank" />);
+                      }
+                      for (let day = 1; day <= daysInViewedMonth; day++) {
+                        const d = new Date(year, month, day);
                         const dateStr = getLocalDateString(d);
+                        const isFuture = dateStr > todayStr;
                         const isActive = activeDates.has(dateStr);
                         const isSelected = dateStr === historyDateStr;
                         cells.push(
                           <div
                             key={dateStr}
-                            className={`heatmap-cell ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
-                            onClick={() => { setHistoryDateStr(dateStr); setHistoryTimeframe('daily'); }}
-                            title={`${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${isActive ? 'Workout logged 🏋️‍♂️' : 'Rest day ☕'}`}
+                            className={`heatmap-cell ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isFuture ? 'future' : ''}`}
+                            onClick={() => {
+                              if (isFuture) return;
+                              setHistoryDateStr(dateStr);
+                              setHistoryTimeframe('daily');
+                            }}
+                            title={isFuture ? '' : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${isActive ? 'Workout logged 🏋️‍♂️' : 'Rest day ☕'}`}
                           >
                             <span className="cell-num">{d.getDate()}</span>
                             {isActive && <span className="cell-dot">●</span>}
@@ -7006,7 +7030,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                       }
                       return (
                         <div className="heatmap-grid-wrapper">
-                          <h4 className="heatmap-title">📅 30-Day Workout Frequency</h4>
+                          <div className="heatmap-header">
+                            <button
+                              type="button"
+                              className="heatmap-nav-btn"
+                              onClick={() => setHistoryMonthOffset(historyMonthOffset - 1)}
+                              aria-label="Previous month"
+                            >
+                              ‹
+                            </button>
+                            <h4 className="heatmap-title">📅 {viewedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
+                            <button
+                              type="button"
+                              className="heatmap-nav-btn"
+                              onClick={() => setHistoryMonthOffset(Math.min(historyMonthOffset + 1, 0))}
+                              disabled={historyMonthOffset >= 0}
+                              aria-label="Next month"
+                            >
+                              ›
+                            </button>
+                          </div>
+                          <div className="heatmap-weekdays">
+                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((wd, idx) => (
+                              <span key={idx}>{wd}</span>
+                            ))}
+                          </div>
                           <div className="heatmap-grid">{cells}</div>
                         </div>
                       );

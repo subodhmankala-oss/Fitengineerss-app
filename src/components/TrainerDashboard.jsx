@@ -1739,8 +1739,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // guard as pausedDuration above: a value that's actually a
     // live-recorded elapsed time (post-uncomplete) isn't a target either,
     // so that case just falls back to 0 — plain count-up, same as today.
+    //
+    // `targetTime` (set by the "Load from Existing Plan" dropdown above, see
+    // its own comment) is checked FIRST — it's the coach's saved duration
+    // surviving the deliberate `time: ''` wipe, and is the real-world source
+    // for a plan actually loaded into this session. Falling back to
+    // `set.time` covers an exercise added ad hoc straight into this Live
+    // Log, with no separate `targetTime` ever set, where a typed-but-never-
+    // run `time` IS the target.
     const targetSeconds = existingTimer?.targetSeconds != null
       ? existingTimer.targetSeconds
+      : set?.targetTime
+      ? (parseTimeStringToSeconds(set.targetTime) || 0)
       : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
     setLiveSetTimers(prev => ({
       ...prev,
@@ -8423,7 +8433,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                   // included a stale duration before the coach touched
                                   // anything. Reported 2026-08-28 for Plank/Air Rowing.
                                   sets: ex.sets.map(s => isCardioExercise(ex.name)
-                                    ? { distanceKm: s.distanceKm ?? '', time: '', isCompleted: false }
+                                    // targetTime carries the coach's saved duration through
+                                    // as a reusable TARGET (read by
+                                    // handleLiveCardioStopwatchStart to drive the countdown
+                                    // display) without reintroducing the stale-elapsed-time
+                                    // bug above — `time` itself still always starts blank.
+                                    ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
                                     : isTimedExercise(ex.name)
                                     ? { time: '', isCompleted: false }
                                     : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
@@ -8725,7 +8740,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         ) : (
                                           <SetValueField
                                             value={set.time}
-                                            placeholder="mm:ss"
+                                            // Shows the coach's saved target duration as a
+                                            // hint before Start is pressed — see the matching
+                                            // comment in WorkoutTracker.jsx.
+                                            placeholder={set.targetTime || 'mm:ss'}
                                             active={activeLiveSetKey === timeKey}
                                             onOpen={() => openLiveSetField(timeKey)}
                                             className="cardio-time-input"

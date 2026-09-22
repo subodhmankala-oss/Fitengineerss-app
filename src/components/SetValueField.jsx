@@ -1,4 +1,5 @@
 import React from 'react';
+import { isTouchPrimaryDevice } from '../utils/setInputUtils';
 
 // Walks up from `el` to find the nearest actually-scrollable ancestor —
 // generic (checks computed overflow + real scroll room) rather than
@@ -78,6 +79,12 @@ export function restoreScrollAfterPad() {
 // WorkoutTracker.jsx) — those need the exact same clearing, or the row they
 // live in ends up stranded behind the pad just like this one used to be.
 export function scrollFieldClearOfPad(el) {
+  // Desktop never shows the pad (SetNumberPad.jsx bails out of rendering it
+  // for a non-touch-primary device) — no on-screen panel means no bottom
+  // real estate for a row to be hidden behind, so there's nothing to scroll
+  // clear of.
+  if (!isTouchPrimaryDevice()) return;
+
   // How far this row still needs to move to sit clear of the pad. Positive
   // = row is below the pad's top edge (covered) and must scroll up.
   const measureDelta = () => {

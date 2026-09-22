@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { restoreScrollAfterPad } from './SetValueField';
+import { isTouchPrimaryDevice } from '../utils/setInputUtils';
 import './SetNumberPad.css';
 
 // Custom on-screen numeric pad for the set-logging tables' Kg/Reps/Km/Time
@@ -199,6 +200,17 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
     return () => document.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey, active]);
+
+  // Desktop: no visible pad at all. It exists purely to stand in for the
+  // phone's own on-screen keyboard (see the file-level comment), which
+  // desktop browsers never pop up in the first place — a mouse/keyboard
+  // user just needs the field to be typeable, not a second on-screen keypad
+  // covering a third of the page. The keydown effect above still routes a
+  // real keyboard into `press()` regardless, so typing keeps working; this
+  // only withholds the visual panel (and, since no `.set-number-pad.open`
+  // element exists for CSS's `:has()` bottom-padding rule to match, the
+  // reserved scroll room that panel would otherwise claim).
+  if (!isTouchPrimaryDevice()) return null;
 
   const field = active || shown;
 

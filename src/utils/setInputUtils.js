@@ -20,6 +20,30 @@
 // never a snapshot frozen from whenever the field was first opened.
 import { useCallback, useRef, useState } from 'react';
 
+// Whether this device's PRIMARY pointer is a finger rather than a mouse/
+// trackpad. Drives whether SetNumberPad shows its on-screen pad at all: the
+// pad exists to replace the OS's own mobile keyboard (see the file header
+// comment above), which desktop browsers never show in the first place, so
+// there's nothing for it to replace there — typing should just go straight
+// into the field via a real keyboard, with no pad UI covering the screen.
+// `pointer: coarse` (not viewport width, which a resized desktop window or a
+// half-screen split can shrink well into "mobile" range) is the actual
+// signal for "the primary input is imprecise/touch", and matches even on
+// touch-enabled laptops as long as the mouse/trackpad is what the OS treats
+// as primary.
+export function isTouchPrimaryDevice() {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.matchMedia === 'function') {
+    try {
+      return window.matchMedia('(pointer: coarse)').matches;
+    } catch {
+      // matchMedia can throw in some embedded WebViews with a restricted
+      // media-query engine — fall through to the touch-support check below.
+    }
+  }
+  return 'ontouchstart' in window && (navigator.maxTouchPoints || 0) > 0;
+}
+
 export function useSetNumberPad() {
   const [activeKey, setActiveKey] = useState(null);
   const registry = useRef({});

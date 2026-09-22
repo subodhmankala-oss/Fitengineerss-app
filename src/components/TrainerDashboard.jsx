@@ -8194,29 +8194,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={async () => {
+                                        onClick={() => {
+                                          // Opens the copy in the same "new plan" editor state
+                                          // used for a fresh plan (editingPlan stays null) so
+                                          // the coach can tweak it and use "+ Add clients" to
+                                          // send the duplicate to other clients too, instead of
+                                          // silently re-saving it for just this one client.
                                           setOpenPlanCardMenuId(null);
-                                          const duplicated = {
-                                            planName: `${plan.planName} (Copy)`,
-                                            exercises: plan.exercises,
-                                            userId: selectedClient.id,
-                                            createdBy: 'coach',
-                                            // Duplicating a not-yet-assigned plan shouldn't
-                                            // silently assign + notify the client — the
-                                            // copy starts in the same state as the original.
-                                            isAssigned: plan.isAssigned !== false
-                                          };
-                                          try {
-                                            // Duplicating an already-empty plan used to mint
-                                            // another empty one; saveWorkoutPlan now rejects
-                                            // that, so surface why instead of failing silently.
-                                            await databaseService.saveWorkoutPlan(duplicated);
-                                          } catch (err) {
-                                            console.error('Failed to duplicate workout plan:', err);
-                                            alert(err.message || 'Could not duplicate this plan.');
-                                            return;
-                                          }
-                                          fetchClientPlans(selectedClient.id);
+                                          setIsAiDraftMode(false);
+                                          setEditingPlan(null);
+                                          setEditorPlanName(`${plan.planName} (Copy)`);
+                                          setEditorExercises(plan.exercises);
+                                          setExtraAssignClientIds([]);
+                                          setShowPlanEditor(true);
+                                          setRestoredPlanDraft(false);
                                         }}
                                         style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '0.8rem', cursor: 'pointer' }}
                                       >

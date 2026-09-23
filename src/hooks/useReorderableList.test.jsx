@@ -222,15 +222,15 @@ describe('useReorderableList', () => {
     pointerMove(100 + ROW_HEIGHT * 2); // drag row 0 down two slots
     pointerUp(100 + ROW_HEIGHT * 2);
 
-    // Real 280ms settle timeout (endDrag) — past it, the commit + anchor
+    // Real settle timeout (endDrag) — past it, the commit + anchor
     // capture has fired.
     await new Promise((resolve) => setTimeout(resolve, 320));
     expect(onReorder).toHaveBeenCalledTimes(1);
     expect(scroller.scrollTop).toBe(0);
 
-    // Simulate another row's compact-card morph (WorkoutTracker.css's
-    // .ex-reorder-morph max-height transition) pushing this row down by
-    // 120px while the anchor-correction window is still open.
+    // Simulate a late layout shift (e.g. an image loading in a re-expanded
+    // card) pushing this row down by 120px while the anchor-correction
+    // window is still open.
     moveRow(0, 120);
 
     await new Promise((resolve) => {
@@ -246,6 +246,26 @@ describe('useReorderableList', () => {
     // The correction should have scrolled exactly enough to cancel the
     // 120px drift and hold — not under-corrected, not runaway.
     expect(scroller.scrollTop).toBe(120);
+  });
+
+  it('hides everything but the exercise rows while dragging, and restores it on release', () => {
+    vi.useFakeTimers();
+    const onReorder = vi.fn();
+    const items = ['A', 'B', 'C'];
+    const { getByTestId } = render(<Harness items={items} onReorder={onReorder} />);
+    stubGeometry({ scroller: getByTestId('scroller') });
+
+    pointerDown(getByTestId('handle-1'), 100);
+    expect(getByTestId('status').hasAttribute('data-reorder-hidden')).toBe(true);
+    expect(getByTestId('row-0').hasAttribute('data-reorder-hidden')).toBe(false);
+    expect(getByTestId('row-1').classList.contains('ex-reorder-row--dragging')).toBe(true);
+
+    pointerUp(100);
+    act(() => { vi.advanceTimersByTime(300); });
+
+    expect(getByTestId('status').hasAttribute('data-reorder-hidden')).toBe(false);
+    expect(getByTestId('row-1').classList.contains('ex-reorder-row--dragging')).toBe(false);
+    expect(onReorder).not.toHaveBeenCalled(); // released in place — nothing to commit
   });
 
   it('lets a new drag start immediately after a previous one ends', () => {

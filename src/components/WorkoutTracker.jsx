@@ -1309,6 +1309,28 @@ const WorkoutTracker = () => {
     return null;
   };
 
+  // A plan's kg/BW box starts from what the PREV column shows, not from
+  // whatever number happens to be stored in the plan (a leftover editor
+  // default, a weight duplicated in from another week, ...) — same rule as
+  // the coach side's applyPrevWeights in TrainerDashboard. Reported
+  // 2026-09-23 as "random numbers in kg and bodyweight". Sets the client
+  // has never logged, and cardio / plain timed sets (no weight at all),
+  // are returned unchanged. Bodyweight exercises also get a per-set
+  // bodyweightMode so a set PREV logged as BW shows "BW" even when a
+  // sibling set carries a plate (see getSetLogBwMode).
+  const withPrevWeight = (exName, setIdx, set) => {
+    if (isCardioExercise(exName)) return set;
+    if (isTimedExercise(exName) && !isBodyweightExercise(exName)) return set;
+    const prev = findPreviousLoggedSet(exName, setIdx);
+    if (!prev || prev.weight == null || prev.weight === '') return set;
+    const weight = String(Number(prev.weight) || 0);
+    return {
+      ...set,
+      weight,
+      ...(isBodyweightExercise(exName) ? { bodyweightMode: !(Number(weight) > 0) } : {})
+    };
+  };
+
   const getPreviousSessionSet = (exName, setIdx) => {
     const set = findPreviousLoggedSet(exName, setIdx);
     if (!set) return '—';
@@ -2657,7 +2679,7 @@ const WorkoutTracker = () => {
         // client had touched the stopwatch. Reported 2026-08-28 for Plank/
         // Air Rowing. Always start these blank; only an explicit "resume"
         // flow should ever restore a real in-progress time.
-        sets: ex.sets.map(s => isCardioExercise(ex.name)
+        sets: ex.sets.map((s, setIdx) => withPrevWeight(ex.name, setIdx, isCardioExercise(ex.name)
           // targetTime carries the coach's saved duration through as a
           // reusable TARGET (read by handleCardioStopwatchStart to drive the
           // countdown display) without reintroducing the stale-elapsed-time
@@ -2673,7 +2695,7 @@ const WorkoutTracker = () => {
           // "undefined" in the input box instead of leaving it blank, same
           // bug the cardio/timed branches above already guard against with
           // `?? ''`. This branch never got that guard.
-          : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
+          : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false }))
       })),
     ]);
     // setTimers is keyed purely by "exIdx,sIdx" (getSetTimerKey), not by

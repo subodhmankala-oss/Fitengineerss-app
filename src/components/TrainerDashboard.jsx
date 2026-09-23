@@ -3637,21 +3637,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
   const handleAddSetToExercise = (exIdx) => {
     setEditorExercises(prev => prev.map((ex, idx) => {
       if (idx === exIdx) {
+        // In the plan editor `time` is the coach's TARGET duration (it becomes
+        // targetTime when the client starts the plan), so it carries over to
+        // the new set just like reps/weight/distance do — unlike the live
+        // log, where `time` is an elapsed stopwatch reading and starts blank.
+        const lastSet = ex.sets[ex.sets.length - 1];
         if (isCardioExercise(ex.name)) {
-          const lastSet = ex.sets[ex.sets.length - 1];
-          return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: '' }] };
+          return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: lastSet?.time || '' }] };
         }
         if (isTimedExercise(ex.name) && isBodyweightExercise(ex.name)) {
-          const lastSet = ex.sets[ex.sets.length - 1];
-          return { ...ex, sets: [...ex.sets, { time: '', weight: lastSet?.weight || 0 }] };
+          return { ...ex, sets: [...ex.sets, { time: lastSet?.time || '', weight: lastSet?.weight || 0 }] };
         }
         if (isTimedExercise(ex.name)) {
-          return { ...ex, sets: [...ex.sets, { time: '' }] };
+          return { ...ex, sets: [...ex.sets, { time: lastSet?.time || '' }] };
         }
-        const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: (isBodyweightExercise(ex.name) || isWarmupExercise(ex.name)) ? 0 : 20 };
+        const baseSet = lastSet || { reps: 10, weight: (isBodyweightExercise(ex.name) || isWarmupExercise(ex.name)) ? 0 : 20 };
         return {
           ...ex,
-          sets: [...ex.sets, { reps: lastSet.reps, weight: lastSet.weight }]
+          sets: [...ex.sets, { reps: baseSet.reps, weight: baseSet.weight }]
         };
       }
       return ex;

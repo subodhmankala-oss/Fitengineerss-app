@@ -8494,7 +8494,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     // bug above — `time` itself still always starts blank.
                                     ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
                                     : isTimedExercise(ex.name)
-                                    ? { time: '', isCompleted: false }
+                                    ? { time: '', targetTime: s.time || '', isCompleted: false }
                                     : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false, ...(s.bodyweightMode !== undefined ? { bodyweightMode: s.bodyweightMode } : {}) })
                                 })));
                                 // liveSetTimers is keyed purely by "exIdx,setIdx" (see
@@ -8702,7 +8702,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                         return (
                                           <SetValueField
                                             value={set.time || ''}
-                                            placeholder="mm:ss"
+                                            placeholder={set.targetTime || 'mm:ss'}
                                             active={activeLiveSetKey === timedKey}
                                             onOpen={() => openLiveSetField(timedKey)}
                                             className="cardio-time-input"

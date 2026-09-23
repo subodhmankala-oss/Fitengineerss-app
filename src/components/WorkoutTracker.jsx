@@ -2685,10 +2685,13 @@ const WorkoutTracker = () => {
           // countdown display) without reintroducing the stale-elapsed-time
           // bug above — `time` itself still always starts blank.
           ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
+          // Timed holds (Plank, Side Hops, ...) get the same targetTime —
+          // only cardio had it, so a coach's prescribed mm:ss never reached
+          // the client and the field just read "mm:ss".
           : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-          ? { time: '', weight: String(s.weight ?? '0'), isCompleted: false }
+          ? { time: '', targetTime: s.time || '', weight: String(s.weight ?? '0'), isCompleted: false }
           : isTimedExercise(ex.name)
-          ? { time: '', isCompleted: false }
+          ? { time: '', targetTime: s.time || '', isCompleted: false }
           // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
           // exercise like Farmer Walk saved from a source that didn't fill
           // both fields) — String(undefined) renders as the literal text
@@ -3471,11 +3474,13 @@ const WorkoutTracker = () => {
                           // into liveRunningCardioKcal's calorie total before
                           // the client touched anything.
                           sets: ex.sets.map(s => isCardioExercise(ex.name)
-                            ? { distanceKm: s.distanceKm ?? '', time: '', isCompleted: false }
+                            // targetTime: see startPlan — keeps the coach's
+                            // prescribed duration as a hint/countdown target.
+                            ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
                             : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-                            ? { time: '', weight: String(s.weight ?? '0'), isCompleted: false }
+                            ? { time: '', targetTime: s.time || '', weight: String(s.weight ?? '0'), isCompleted: false }
                             : isTimedExercise(ex.name)
-                            ? { time: '', isCompleted: false }
+                            ? { time: '', targetTime: s.time || '', isCompleted: false }
                             // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
                 // exercise like Farmer Walk saved from a source that didn't fill
                 // both fields) — String(undefined) renders as the literal text
@@ -3856,7 +3861,9 @@ const WorkoutTracker = () => {
                                     return (
                                       <SetValueField
                                         value={set.time || ''}
-                                        placeholder="mm:ss"
+                                        // Coach's prescribed hold time as a hint,
+                                        // same as the cardio TIME field below.
+                                        placeholder={set.targetTime || 'mm:ss'}
                                         active={activeSetKey === timedKey}
                                         onOpen={() => openSetField(timedKey)}
                                         className="cardio-time-input"

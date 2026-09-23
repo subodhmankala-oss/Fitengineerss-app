@@ -3329,32 +3329,72 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     return sortedDatesList;
   };
 
-  // "PREVIOUS" column lookup for the Live Log / Plan editor set tables — same
-  // idea as the client's own getPreviousSessionSet, but workoutLogs here is
-  // already scoped to the one selected client, so no name filtering needed.
-  const getPreviousSessionSet = (exName, setIdx) => {
+  // Raw lookup shared by getPreviousSessionSet (the PREV column) and
+  // getPrevWeight (the kg pre-fill) — the selected client's most recent
+  // logged set for this exercise at this set index, or null when they've
+  // never logged it. workoutLogs is already scoped to the one selected
+  // client, so no name filtering needed.
+  const findPreviousLoggedSet = (exName, setIdx) => {
     const history = [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
     for (const session of history) {
       const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
       if (exercise && exercise.sets && exercise.sets[setIdx]) {
-        const set = exercise.sets[setIdx];
-        if (isCardioExercise(exName)) {
-          if (!set.distanceKm) return '—';
-          return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
-        }
-        if (isTimedExercise(exName)) {
-          return set.time || '—';
-        }
-        // Bodyweight exercises log weight: 0 when no plate/vest was added —
-        // show "BW" like the live logger's own column does, instead of the
-        // raw "0kg" which reads as a logging error.
-        const weightLabel = isBodyweightExercise(exName) && !(Number(set.weight) > 0)
-          ? 'BW'
-          : `${set.weight}kg`;
-        return `${weightLabel} x ${set.reps}`;
+        return exercise.sets[setIdx];
       }
     }
-    return '—';
+    return null;
+  };
+
+  // The kg/BW box should start from what the PREV column shows, not from
+  // whatever number happens to be stored in the plan — a leftover 20 kg
+  // editor default, a weight duplicated in from another week or another
+  // client's plan, etc. Reported 2026-09-23 as "random numbers in kg and
+  // bodyweight" when opening a plan. Returns null (keep the plan's own
+  // value) when the client has never logged this set, and for cardio /
+  // plain timed exercises, which have no weight at all.
+  const getPrevWeight = (exName, setIdx) => {
+    if (isCardioExercise(exName)) return null;
+    if (isTimedExercise(exName) && !isBodyweightExercise(exName)) return null;
+    const prev = findPreviousLoggedSet(exName, setIdx);
+    if (!prev || prev.weight == null || prev.weight === '') return null;
+    return Number(prev.weight) || 0;
+  };
+
+  // Applies getPrevWeight to every set of a plan's exercises. Bodyweight
+  // exercises also get a per-set bodyweightMode so a set PREV logged as BW
+  // shows "BW" and one logged with a plate shows its kg — otherwise the
+  // exercise-level fallback (getEditorExBwMode / getLiveExBwMode) flips
+  // every set to a kg box as soon as any one of them has weight.
+  const applyPrevWeights = (exercises) => exercises.map(ex => {
+    let changed = false;
+    const sets = ex.sets.map((s, setIdx) => {
+      const w = getPrevWeight(ex.name, setIdx);
+      if (w == null) return s;
+      changed = true;
+      return { ...s, weight: w, ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !(w > 0) } : {}) };
+    });
+    return changed ? { ...ex, sets } : ex;
+  });
+
+  // "PREVIOUS" column lookup for the Live Log / Plan editor set tables — same
+  // idea as the client's own getPreviousSessionSet.
+  const getPreviousSessionSet = (exName, setIdx) => {
+    const set = findPreviousLoggedSet(exName, setIdx);
+    if (!set) return '—';
+    if (isCardioExercise(exName)) {
+      if (!set.distanceKm) return '—';
+      return `${set.distanceKm}km${set.time ? ` · ${set.time}` : ''}`;
+    }
+    if (isTimedExercise(exName)) {
+      return set.time || '—';
+    }
+    // Bodyweight exercises log weight: 0 when no plate/vest was added —
+    // show "BW" like the live logger's own column does, instead of the
+    // raw "0kg" which reads as a logging error.
+    const weightLabel = isBodyweightExercise(exName) && !(Number(set.weight) > 0)
+      ? 'BW'
+      : `${set.weight}kg`;
+    return `${weightLabel} x ${set.reps}`;
   };
 
   const fetchClientChat = async (clientId) => {
@@ -3447,9 +3487,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     setAiDraftSummary('');
     setEditingPlan(null);
     setEditorPlanName('');
-    setEditorExercises([
-      { name: 'Bench Press', sets: [{ reps: 10, weight: 40 }] }
-    ]);
+    setEditorExercises(applyPrevWeights([
+      { name: 'Bench Press', sets: [{ reps: 10, weight: '' }] }
+    ]));
     setExtraAssignClientIds([]);
     setShowCreatePlanChoice(false);
     setShowPlanEditor(true);
@@ -3621,7 +3661,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     } else if (bodyweight || isWarmupExercise(name)) {
       newSet = { reps: 10, weight: 0 };
     } else {
-      newSet = { reps: 10, weight: 20 };
+      // Blank rather than a made-up 20 kg — an untouched default got saved
+      // into the plan and then showed up in the client's kg box as if the
+      // coach had prescribed it. applyPrevWeights below fills in the
+      // client's real last weight when there is one.
+      newSet = { reps: 10, weight: '' };
     }
     setEditorExercises(prev => [
       ...prev,
@@ -3630,28 +3674,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
       // (and no Bodyweight/+Add Weight toggle at all) for bodyweight moves
       // like Cat Camel, Glute Bridge, Steppers and Squat, instead of the
       // "BW" label those exercises get everywhere else in the app.
-      bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }
+      ...applyPrevWeights([bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }])
     ]);
   };
 
   const handleAddSetToExercise = (exIdx) => {
     setEditorExercises(prev => prev.map((ex, idx) => {
       if (idx === exIdx) {
+        // In the plan editor `time` is the coach's TARGET duration (it becomes
+        // targetTime when the client starts the plan), so it carries over to
+        // the new set just like reps/weight/distance do — unlike the live
+        // log, where `time` is an elapsed stopwatch reading and starts blank.
+        const lastSet = ex.sets[ex.sets.length - 1];
         if (isCardioExercise(ex.name)) {
-          const lastSet = ex.sets[ex.sets.length - 1];
-          return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: '' }] };
+          return { ...ex, sets: [...ex.sets, { distanceKm: lastSet?.distanceKm || '', time: lastSet?.time || '' }] };
         }
-        if (isTimedExercise(ex.name) && isBodyweightExercise(ex.name)) {
-          const lastSet = ex.sets[ex.sets.length - 1];
-          return { ...ex, sets: [...ex.sets, { time: '', weight: lastSet?.weight || 0 }] };
+        if (isTimedExercise(ex.name) && !isBodyweightExercise(ex.name)) {
+          return { ...ex, sets: [...ex.sets, { time: lastSet?.time || '' }] };
         }
-        if (isTimedExercise(ex.name)) {
-          return { ...ex, sets: [...ex.sets, { time: '' }] };
-        }
-        const lastSet = ex.sets[ex.sets.length - 1] || { reps: 10, weight: (isBodyweightExercise(ex.name) || isWarmupExercise(ex.name)) ? 0 : 20 };
+        const newSet = isTimedExercise(ex.name)
+          ? { time: lastSet?.time || '', weight: lastSet?.weight || 0 }
+          : { reps: lastSet?.reps ?? 10, weight: lastSet ? lastSet.weight : ((isBodyweightExercise(ex.name) || isWarmupExercise(ex.name)) ? 0 : '') };
+        // The new set's own PREV weight wins over copying the set above —
+        // set 3 should start at what the client actually did on set 3.
+        const prevWeight = getPrevWeight(ex.name, ex.sets.length);
         return {
           ...ex,
-          sets: [...ex.sets, { reps: lastSet.reps, weight: lastSet.weight }]
+          sets: [...ex.sets, prevWeight == null
+            ? newSet
+            : { ...newSet, weight: prevWeight, ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !(prevWeight > 0) } : {}) }]
         };
       }
       return ex;
@@ -8212,7 +8263,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           setIsAiDraftMode(false);
                                           setEditingPlan(plan);
                                           setEditorPlanName(plan.planName);
-                                          setEditorExercises(plan.exercises);
+                                          setEditorExercises(applyPrevWeights(plan.exercises));
                                           setExtraAssignClientIds([]);
                                           setShowPlanEditor(true);
                                           setRestoredPlanDraft(false);
@@ -8233,7 +8284,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                           setIsAiDraftMode(false);
                                           setEditingPlan(null);
                                           setEditorPlanName(`${plan.planName} (Copy)`);
-                                          setEditorExercises(plan.exercises);
+                                          setEditorExercises(applyPrevWeights(plan.exercises));
                                           setExtraAssignClientIds([]);
                                           setShowPlanEditor(true);
                                           setRestoredPlanDraft(false);
@@ -8422,7 +8473,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                               const plan = clientPlans.find(p => p.id === e.target.value);
                               if (plan) {
                                 setLivePlanName(plan.planName);
-                                setLiveExercises(plan.exercises.map(ex => ({
+                                // Weights start from the client's PREV values (see
+                                // applyPrevWeights), not whatever the saved plan holds.
+                                setLiveExercises(applyPrevWeights(plan.exercises).map(ex => ({
                                   name: ex.name,
                                   ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
                                   // `time` is deliberately NOT carried over from the saved
@@ -8442,7 +8495,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                     ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
                                     : isTimedExercise(ex.name)
                                     ? { time: '', isCompleted: false }
-                                    : { reps: s.reps.toString(), weight: s.weight.toString(), isCompleted: false })
+                                    : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false, ...(s.bodyweightMode !== undefined ? { bodyweightMode: s.bodyweightMode } : {}) })
                                 })));
                                 // liveSetTimers is keyed purely by "exIdx,setIdx" (see
                                 // getSetTimerKey), not by exercise identity — loading a

@@ -1876,6 +1876,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
         delete updated[key];
         return updated;
       });
+    } else {
+      // Nothing run or typed: log the plan's targetTime (plus a KM estimate
+      // if KM is blank) — see WorkoutTracker's handleCardioSetComplete.
+      const set = liveExercises[exIdx]?.sets[setIdx];
+      const targetSeconds = !set?.time ? parseTimeStringToSeconds(set?.targetTime) : null;
+      if (targetSeconds) {
+        handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(targetSeconds));
+        if (!set.distanceKm) {
+          handleLiveSetChange(exIdx, setIdx, 'distanceKm', String(estimateCardioDistanceKm(liveExercises[exIdx].name, targetSeconds)));
+        }
+      }
     }
     handleLiveToggleSet(exIdx, setIdx);
   };

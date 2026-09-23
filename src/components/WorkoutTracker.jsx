@@ -2111,6 +2111,18 @@ const WorkoutTracker = () => {
         delete updated[key];
         return updated;
       });
+    } else {
+      // Ticked with no time run or typed: log the coach's target (and a KM
+      // estimate for it, if KM is blank too) instead of a blank time — same
+      // as handleSetStopwatchComplete does for timed holds.
+      const set = logExercises[exIdx]?.sets[sIdx];
+      const targetSeconds = !set?.time ? parseTimeStringToSeconds(set?.targetTime) : null;
+      if (targetSeconds) {
+        handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(targetSeconds));
+        if (!set.distanceKm) {
+          handleSetChange(exIdx, sIdx, 'distanceKm', String(estimateCardioDistanceKm(logExercises[exIdx].name, targetSeconds)));
+        }
+      }
     }
     handleToggleSetCompleted(exIdx, sIdx);
   };
@@ -3799,19 +3811,27 @@ const WorkoutTracker = () => {
                                   return updated;
                                 });
                               }
-                              // A timed set that was never run or typed saves the
-                              // coach's target, same as handleSetStopwatchComplete.
-                              const fillTimedTarget = isTimedExercise(ex.name) && !exIsCardio;
+                              // A timed/cardio set that was never run or typed saves
+                              // the coach's target, same as handleSetStopwatchComplete
+                              // / handleCardioSetComplete (cardio also gets a KM
+                              // estimate for it when KM is blank).
+                              const fillTarget = exIsCardio || isTimedExercise(ex.name);
                               setLogExercises(prev => prev.map((e, i) => i === exIdx
-                                ? { ...e, sets: e.sets.map((s, sIdx) => ({
-                                    ...s,
-                                    ...(fillTimedTarget && !s.isCompleted && !s.time && s.targetTime
+                                ? { ...e, sets: e.sets.map((s, sIdx) => {
+                                    const targetSeconds = fillTarget && !s.isCompleted && !s.time
                                       && !runningKeysToClear.includes(getSetTimerKey(exIdx, sIdx))
-                                      ? { time: formatSecondsToTimeString(parseTimeStringToSeconds(s.targetTime) || 0) }
-                                      : {}),
-                                    isCompleted: true,
-                                    completedAt: s.completedAt || now,
-                                  })) }
+                                      ? parseTimeStringToSeconds(s.targetTime)
+                                      : null;
+                                    return {
+                                      ...s,
+                                      ...(targetSeconds ? { time: formatSecondsToTimeString(targetSeconds) } : {}),
+                                      ...(targetSeconds && exIsCardio && !s.distanceKm
+                                        ? { distanceKm: String(estimateCardioDistanceKm(ex.name, targetSeconds)) }
+                                        : {}),
+                                      isCompleted: true,
+                                      completedAt: s.completedAt || now,
+                                    };
+                                  }) }
                                 : e
                               ));
                             }}

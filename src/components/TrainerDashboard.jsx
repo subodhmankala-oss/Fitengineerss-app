@@ -3503,12 +3503,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     }
 
     // Bulk-assign targets: the currently selected client plus any extras
-    // picked via "Assign to more clients" — editing an existing plan stays
-    // single-client (that plan already belongs to one client's row), so
-    // extras are only honored when creating a fresh plan/AI draft.
-    const targetClientIds = editingPlan
-      ? [selectedClient.id]
-      : Array.from(new Set([selectedClient.id, ...extraAssignClientIds]));
+    // picked via "+ Add clients" — this applies whether the editor opened
+    // fresh or via Edit on an existing plan. The existing plan's own id is
+    // only reused for selectedClient (see the `id:` line below); every extra
+    // client always gets a brand-new plan row, never a shared/linked one.
+    const targetClientIds = Array.from(new Set([selectedClient.id, ...extraAssignClientIds]));
 
     if (isAiDraftMode) {
       // Batch-assign every reviewed day, to every target client — this is
@@ -7622,10 +7621,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                         />
                       </div>
 
-                      {/* Bulk-assign — only for a fresh plan/AI draft, not
-                          while editing one that already belongs to a client. */}
-                      {!editingPlan && (
-                        <div style={{ marginBottom: '16px' }}>
+                      {/* Bulk-assign — available for a fresh plan/AI draft
+                          and while editing an existing plan too: the extras
+                          each get their own new copy, selectedClient's plan
+                          is the one actually being edited (or created). */}
+                      <div style={{ marginBottom: '16px' }}>
                           <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
                             Also assign to
                           </label>
@@ -7659,11 +7659,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                           </div>
                           {extraAssignClientIds.length > 0 && (
                             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                              This plan will be created for {1 + extraAssignClientIds.length} clients, each as their own copy.
+                              {editingPlan
+                                ? `${selectedClient.userName}'s plan will be updated; ${extraAssignClientIds.length} other ${extraAssignClientIds.length === 1 ? 'client' : 'clients'} will get a new copy of it.`
+                                : `This plan will be created for ${1 + extraAssignClientIds.length} clients, each as their own copy.`}
                             </p>
                           )}
-                        </div>
-                      )}
+                      </div>
 
                       {restoredPlanDraft && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 12px', marginBottom: '12px', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', color: 'var(--accent-text)' }}>

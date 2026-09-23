@@ -1895,9 +1895,16 @@ const WorkoutTracker = () => {
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
+    // The coach's prescribed hold (startPlan's targetTime) makes the live
+    // display count DOWN to 00:00, same as a cardio interval — see
+    // handleCardioStopwatchStart. Kept on the timer entry so it survives
+    // pause/resume; only targetTime counts, never a typed/prefilled `time`.
+    const targetSeconds = setTimers[key]?.targetSeconds != null
+      ? setTimers[key].targetSeconds
+      : (parseTimeStringToSeconds(set?.targetTime) || 0);
     setSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
     }));
   };
 
@@ -2104,6 +2111,18 @@ const WorkoutTracker = () => {
         delete updated[key];
         return updated;
       });
+    } else {
+      // Ticked with no time run or typed: log the coach's target (and a KM
+      // estimate for it, if KM is blank too) instead of a blank time — same
+      // as handleSetStopwatchComplete does for timed holds.
+      const set = logExercises[exIdx]?.sets[sIdx];
+      const targetSeconds = !set?.time ? parseTimeStringToSeconds(set?.targetTime) : null;
+      if (targetSeconds) {
+        handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(targetSeconds));
+        if (!set.distanceKm) {
+          handleSetChange(exIdx, sIdx, 'distanceKm', String(estimateCardioDistanceKm(logExercises[exIdx].name, targetSeconds)));
+        }
+      }
     }
     handleToggleSetCompleted(exIdx, sIdx);
   };
@@ -2116,10 +2135,14 @@ const WorkoutTracker = () => {
     // moment the set gets ticked. Only fall back to the live timer's
     // elapsed time when a timer entry actually exists; otherwise keep
     // whatever's already in set.time.
+    // Ticked with nothing timed or typed at all: log the coach's target
+    // (targetTime) instead of 00:00 — the client did the prescribed hold,
+    // they just didn't run the stopwatch for it.
     const hadRealTimer = !!setTimers[key];
+    const set = logExercises[exIdx]?.sets[sIdx];
     const elapsed = hadRealTimer
       ? getSetElapsedSeconds(exIdx, sIdx)
-      : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
+      : (parseTimeStringToSeconds(set?.time || set?.targetTime) || 0);
     handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
     // Only mark it "live" (safe for a later Play, after an uncomplete, to
     // resume from — see handleSetStopwatchStart) when it actually came from
@@ -2685,10 +2708,13 @@ const WorkoutTracker = () => {
           // countdown display) without reintroducing the stale-elapsed-time
           // bug above — `time` itself still always starts blank.
           ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
+          // Timed holds (Plank, Side Hops, ...) get the same targetTime —
+          // only cardio had it, so a coach's prescribed mm:ss never reached
+          // the client and the field just read "mm:ss".
           : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-          ? { time: '', weight: String(s.weight ?? '0'), isCompleted: false }
+          ? { time: '', targetTime: s.time || '', weight: String(s.weight ?? '0'), isCompleted: false }
           : isTimedExercise(ex.name)
-          ? { time: '', isCompleted: false }
+          ? { time: '', targetTime: s.time || '', isCompleted: false }
           // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
           // exercise like Farmer Walk saved from a source that didn't fill
           // both fields) — String(undefined) renders as the literal text
@@ -3471,11 +3497,13 @@ const WorkoutTracker = () => {
                           // into liveRunningCardioKcal's calorie total before
                           // the client touched anything.
                           sets: ex.sets.map(s => isCardioExercise(ex.name)
-                            ? { distanceKm: s.distanceKm ?? '', time: '', isCompleted: false }
+                            // targetTime: see startPlan — keeps the coach's
+                            // prescribed duration as a hint/countdown target.
+                            ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
                             : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
-                            ? { time: '', weight: String(s.weight ?? '0'), isCompleted: false }
+                            ? { time: '', targetTime: s.time || '', weight: String(s.weight ?? '0'), isCompleted: false }
                             : isTimedExercise(ex.name)
-                            ? { time: '', isCompleted: false }
+                            ? { time: '', targetTime: s.time || '', isCompleted: false }
                             // s.reps/s.weight can genuinely be missing (e.g. a loaded-carry
                 // exercise like Farmer Walk saved from a source that didn't fill
                 // both fields) — String(undefined) renders as the literal text
@@ -3783,8 +3811,27 @@ const WorkoutTracker = () => {
                                   return updated;
                                 });
                               }
+                              // A timed/cardio set that was never run or typed saves
+                              // the coach's target, same as handleSetStopwatchComplete
+                              // / handleCardioSetComplete (cardio also gets a KM
+                              // estimate for it when KM is blank).
+                              const fillTarget = exIsCardio || isTimedExercise(ex.name);
                               setLogExercises(prev => prev.map((e, i) => i === exIdx
-                                ? { ...e, sets: e.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now })) }
+                                ? { ...e, sets: e.sets.map((s, sIdx) => {
+                                    const targetSeconds = fillTarget && !s.isCompleted && !s.time
+                                      && !runningKeysToClear.includes(getSetTimerKey(exIdx, sIdx))
+                                      ? parseTimeStringToSeconds(s.targetTime)
+                                      : null;
+                                    return {
+                                      ...s,
+                                      ...(targetSeconds ? { time: formatSecondsToTimeString(targetSeconds) } : {}),
+                                      ...(targetSeconds && exIsCardio && !s.distanceKm
+                                        ? { distanceKm: String(estimateCardioDistanceKm(ex.name, targetSeconds)) }
+                                        : {}),
+                                      isCompleted: true,
+                                      completedAt: s.completedAt || now,
+                                    };
+                                  }) }
                                 : e
                               ));
                             }}
@@ -3820,7 +3867,12 @@ const WorkoutTracker = () => {
                             const timer = setTimers[timerKey];
                             const isRunning = timer?.isRunning || false;
                             const elapsedSeconds = getSetElapsedSeconds(exIdx, sIdx);
-                            const timeStr = formatSecondsToTimeString(elapsedSeconds);
+                            // Counts down to the coach's target when there is one
+                            // (clamped at 00:00); the saved time is still elapsed.
+                            const timedTargetSeconds = timer?.targetSeconds || 0;
+                            const timeStr = formatSecondsToTimeString(timedTargetSeconds > 0
+                              ? Math.max(0, timedTargetSeconds - elapsedSeconds)
+                              : elapsedSeconds);
                             return (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
                                 <button
@@ -3856,7 +3908,9 @@ const WorkoutTracker = () => {
                                     return (
                                       <SetValueField
                                         value={set.time || ''}
-                                        placeholder="mm:ss"
+                                        // Coach's prescribed hold time as a hint,
+                                        // same as the cardio TIME field below.
+                                        placeholder={set.targetTime || 'mm:ss'}
                                         active={activeSetKey === timedKey}
                                         onOpen={() => openSetField(timedKey)}
                                         className="cardio-time-input"

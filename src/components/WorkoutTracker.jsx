@@ -1895,9 +1895,16 @@ const WorkoutTracker = () => {
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
+    // The coach's prescribed hold (startPlan's targetTime) makes the live
+    // display count DOWN to 00:00, same as a cardio interval — see
+    // handleCardioStopwatchStart. Kept on the timer entry so it survives
+    // pause/resume; only targetTime counts, never a typed/prefilled `time`.
+    const targetSeconds = setTimers[key]?.targetSeconds != null
+      ? setTimers[key].targetSeconds
+      : (parseTimeStringToSeconds(set?.targetTime) || 0);
     setSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
     }));
   };
 
@@ -2116,10 +2123,14 @@ const WorkoutTracker = () => {
     // moment the set gets ticked. Only fall back to the live timer's
     // elapsed time when a timer entry actually exists; otherwise keep
     // whatever's already in set.time.
+    // Ticked with nothing timed or typed at all: log the coach's target
+    // (targetTime) instead of 00:00 — the client did the prescribed hold,
+    // they just didn't run the stopwatch for it.
     const hadRealTimer = !!setTimers[key];
+    const set = logExercises[exIdx]?.sets[sIdx];
     const elapsed = hadRealTimer
       ? getSetElapsedSeconds(exIdx, sIdx)
-      : (parseTimeStringToSeconds(logExercises[exIdx]?.sets[sIdx]?.time) || 0);
+      : (parseTimeStringToSeconds(set?.time || set?.targetTime) || 0);
     handleSetChange(exIdx, sIdx, 'time', formatSecondsToTimeString(elapsed));
     // Only mark it "live" (safe for a later Play, after an uncomplete, to
     // resume from — see handleSetStopwatchStart) when it actually came from
@@ -3788,8 +3799,19 @@ const WorkoutTracker = () => {
                                   return updated;
                                 });
                               }
+                              // A timed set that was never run or typed saves the
+                              // coach's target, same as handleSetStopwatchComplete.
+                              const fillTimedTarget = isTimedExercise(ex.name) && !exIsCardio;
                               setLogExercises(prev => prev.map((e, i) => i === exIdx
-                                ? { ...e, sets: e.sets.map(s => ({ ...s, isCompleted: true, completedAt: s.completedAt || now })) }
+                                ? { ...e, sets: e.sets.map((s, sIdx) => ({
+                                    ...s,
+                                    ...(fillTimedTarget && !s.isCompleted && !s.time && s.targetTime
+                                      && !runningKeysToClear.includes(getSetTimerKey(exIdx, sIdx))
+                                      ? { time: formatSecondsToTimeString(parseTimeStringToSeconds(s.targetTime) || 0) }
+                                      : {}),
+                                    isCompleted: true,
+                                    completedAt: s.completedAt || now,
+                                  })) }
                                 : e
                               ));
                             }}
@@ -3825,7 +3847,12 @@ const WorkoutTracker = () => {
                             const timer = setTimers[timerKey];
                             const isRunning = timer?.isRunning || false;
                             const elapsedSeconds = getSetElapsedSeconds(exIdx, sIdx);
-                            const timeStr = formatSecondsToTimeString(elapsedSeconds);
+                            // Counts down to the coach's target when there is one
+                            // (clamped at 00:00); the saved time is still elapsed.
+                            const timedTargetSeconds = timer?.targetSeconds || 0;
+                            const timeStr = formatSecondsToTimeString(timedTargetSeconds > 0
+                              ? Math.max(0, timedTargetSeconds - elapsedSeconds)
+                              : elapsedSeconds);
                             return (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
                                 <button

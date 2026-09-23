@@ -1641,9 +1641,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     const pausedDuration = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
+    // Count down to the plan's targetTime — see WorkoutTracker's
+    // handleSetStopwatchStart.
+    const targetSeconds = liveSetTimers[key]?.targetSeconds != null
+      ? liveSetTimers[key].targetSeconds
+      : (parseTimeStringToSeconds(set?.targetTime) || 0);
     setLiveSetTimers(prev => ({
       ...prev,
-      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration }
+      [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
     }));
   };
 
@@ -1826,10 +1831,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     // typed value the moment the set gets ticked. Only fall back to the
     // live timer's elapsed time when a timer entry actually exists;
     // otherwise keep whatever's already in set.time.
+    // Nothing timed or typed: log the plan's targetTime instead of 00:00.
     const hadRealTimer = !!liveSetTimers[key];
+    const set = liveExercises[exIdx]?.sets[setIdx];
     const elapsed = hadRealTimer
       ? getLiveSetElapsedSeconds(exIdx, setIdx)
-      : (parseTimeStringToSeconds(liveExercises[exIdx]?.sets[setIdx]?.time) || 0);
+      : (parseTimeStringToSeconds(set?.time || set?.targetTime) || 0);
     handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
     // Only mark it "live" (safe for a later Play, after an uncomplete, to
     // resume from — see handleLiveSetStopwatchStart) when it actually came
@@ -8666,7 +8673,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
                                 const timer = liveSetTimers[timerKey];
                                 const isRunning = timer?.isRunning || false;
                                 const elapsedSeconds = getLiveSetElapsedSeconds(exIdx, setIdx);
-                                const timeStr = formatSecondsToTimeString(elapsedSeconds);
+                                const timedTargetSeconds = timer?.targetSeconds || 0;
+                                const timeStr = formatSecondsToTimeString(timedTargetSeconds > 0
+                                  ? Math.max(0, timedTargetSeconds - elapsedSeconds)
+                                  : elapsedSeconds);
                                 return (
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
                                     <button

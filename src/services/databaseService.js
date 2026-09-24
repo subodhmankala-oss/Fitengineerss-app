@@ -3,6 +3,7 @@ import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONC
 import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 import { adaptiveTimeout } from '../utils/networkQuality';
+import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -371,6 +372,24 @@ async function restSelect(pathAndQuery, { timeoutMs = adaptiveTimeout(8000) } = 
   }
   if (!res.ok) throw new Error(`PostgREST ${res.status} ${res.statusText}`);
   return await res.json();
+}
+
+// PostgREST silently caps every response at 1000 rows (this project's
+// db-max-rows) — no error, just a 206 with the first page. A plain
+// restSelect of a heavy user's workout_logs therefore returned only their
+// newest ~1000 rows, and WorkoutTracker's resync took every older date as
+// "never saved" and uploaded it again (see utils/workoutLogDedupe.js).
+// Pages until a short page comes back. `pathAndQuery` must carry an order
+// with a unique tiebreaker (e.g. id), or pages can overlap or skip rows.
+const REST_PAGE_SIZE = 1000;
+async function restSelectAll(pathAndQuery) {
+  const all = [];
+  for (let offset = 0; ; offset += REST_PAGE_SIZE) {
+    const page = await restSelect(`${pathAndQuery}&limit=${REST_PAGE_SIZE}&offset=${offset}`);
+    if (!Array.isArray(page)) return all;
+    all.push(...page);
+    if (page.length < REST_PAGE_SIZE) return all;
+  }
 }
 
 // Authoritative, RLS-proof profile read via our own serverless function (see
@@ -1007,6 +1026,15 @@ async function restInsert(pathAndQuery, body, { timeoutMs = adaptiveTimeout(8000
   return Array.isArray(data) ? data[0] : data;
 }
 
+// True when an insert was rejected only because this workout's rows are
+// already stored — workout_logs_session_row_key (sql/
+// supabase_workout_logs_session_id.sql) on (user_id, session_id,
+// session_row). Matched by index name so an unrelated unique violation still
+// surfaces as a real failure.
+function isDuplicateSessionError(error) {
+  return !!error && error.code === '23505' && /workout_logs_session_row_key/.test(error.message || '');
+}
+
 // Same SDK-hang bypass, for a PostgREST upsert (supabase.from().upsert()).
 // onConflict is passed as the `on_conflict` query param and
 // `Prefer: resolution=merge-duplicates` makes PostgREST do an upsert instead
@@ -1621,6 +1649,15 @@ const databaseService = {
 
         if (user) {
           const records = [];
+          // Idempotency key for this workout: the local session id
+          // ('session-<ms>' / 'coach-live-<ms>') is fixed from the moment the
+          // workout is finished, so every later attempt to write the SAME
+          // workout — the automatic retry, the offline queue replay,
+          // WorkoutTracker's resync — carries the same (session_id,
+          // session_row) pairs, and workout_logs_session_row_key rejects the
+          // repeat instead of storing a second copy (see isDuplicateSessionError).
+          const sessionId = session.id ? String(session.id) : null;
+          let sessionRow = 0;
           session.exercises.forEach(ex => {
             ex.sets.forEach((set, sIdx) => {
               // Cardio sets carry distanceKm/time instead of reps/weight (see
@@ -1684,7 +1721,9 @@ const databaseService = {
                 // duration_seconds/calories_burned above. NULL when no
                 // monitor was connected.
                 avg_heart_rate_bpm: session.avgHeartRate != null ? session.avgHeartRate : null,
-                max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null
+                max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null,
+                session_id: sessionId,
+                session_row: sessionId ? sessionRow++ : null
               });
             });
           });
@@ -1722,12 +1761,20 @@ const databaseService = {
               // attempt is exhausted without success, lastError carries the
               // final failure out to the outer catch below.
               let lastError = null;
-              for (let attempt = 0; attempt < 7; attempt++) {
+              for (let attempt = 0; attempt < 10; attempt++) {
                 try {
                   await restInsert('workout_logs', recordsToSend);
                   lastError = null;
                   break;
                 } catch (error) {
+                  // This exact workout is already in workout_logs (an earlier
+                  // attempt landed even though it looked failed, or this is a
+                  // resync/replay). Nothing left to write — that's a success.
+                  if (isDuplicateSessionError(error)) {
+                    console.warn('Workout already saved — skipped writing a duplicate copy.');
+                    lastError = null;
+                    break;
+                  }
                   lastError = error;
                   const missingCol = error && (error.code === '42703' || error.code === 'PGRST204')
                     ? error.message?.match(/'([a-z_]+)' column/)?.[1]
@@ -3194,21 +3241,23 @@ const databaseService = {
     if (isSupabaseConfigured) {
       try {
         // Raw PostgREST read (bypasses the hanging SDK).
-        const data = await restSelect(
+        // restSelectAll, not restSelect: see its comment — a single read
+        // stops at 1000 rows. id.asc is the unique tiebreaker paging needs.
+        const data = await restSelectAll(
           `workout_logs?select=*&user_id=eq.${encodeURIComponent(userId)}` +
-          `&order=log_date.desc,exercise_name.asc,set_number.asc`
+          `&order=log_date.desc,exercise_name.asc,set_number.asc,id.asc`
         );
-        if (Array.isArray(data) && data.length > 0) return data;
+        if (Array.isArray(data) && data.length > 0) return dropDuplicateSessionBatches(data);
         // Empty is ambiguous — genuinely zero logs, or the session token
         // wasn't ready/valid when this fired (same RLS-vs-anon-key gap as
         // getUserProfileByEmail, on this table). Confirm with the
         // service-role-backed endpoint before believing "no history".
         const serverLogs = await getWorkoutLogsViaServer(userId);
-        return serverLogs ?? [];
+        return dropDuplicateSessionBatches(serverLogs ?? []);
       } catch (e) {
         console.error('Cloud DB Fetch workout logs error:', e);
         const serverLogs = await getWorkoutLogsViaServer(userId);
-        if (serverLogs) return serverLogs;
+        if (serverLogs) return dropDuplicateSessionBatches(serverLogs);
       }
     }
 

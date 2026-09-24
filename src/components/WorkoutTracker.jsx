@@ -978,9 +978,26 @@ const WorkoutTracker = () => {
       // exclusion just meant a client's finished coach-assigned workout
       // could never self-heal into the DB even after the underlying bug was
       // fixed for new sessions.
-      if (ownKey) {
+      //
+      // This resync was also the main source of duplicate workouts in
+      // workout_logs (see utils/workoutLogDedupe.js): the history read was
+      // capped at 1000 rows, so every older date looked "absent" and was
+      // uploaded again on every app open. Three guards now:
+      // - rows.length > 0: only trust "absent" when the read demonstrably
+      //   worked. An empty read is just as often RLS/token timing as a
+      //   genuinely empty history, and re-uploading everything on a bad
+      //   read is how whole histories got copied in one go.
+      // - no 'db-' ids: those sessions were REBUILT from workout_logs
+      //   (dbSessions above) and only reached localStorage because
+      //   saveSessionsToLocal persists the merged list. They are already in
+      //   the DB by definition — and a rebuild from duplicated rows carries
+      //   every set twice, so re-uploading one doubled the workout.
+      // - saveWorkoutSession is idempotent per session id, so any repeat that
+      //   still slips through is rejected by the DB instead of stored.
+      if (ownKey && rows.length > 0) {
         allSessions
           .filter(s =>
+            !String(s.id || '').startsWith('db-') &&
             s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === loggedInKey &&
             !dbDates.has(s.date) &&
             (s.exercises || []).some(ex => (ex.sets || []).length > 0)

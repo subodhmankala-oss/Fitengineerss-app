@@ -62,6 +62,25 @@ function cardioMET(exerciseName, speedKmh) {
     if (speedKmh < 30.6) return 12.0; // racing pace
     return 15.8; // >30.6 km/h, competitive
   }
+  // Rowing Machine and swimming used to fall through to the running ladder
+  // below — a normal 2:30/500m erg pace (12 km/h) priced as an 11.0 MET run,
+  // ~50% high, and every realistic swim (all < 8 km/h) got the running
+  // floor of 6.0 whatever the effort. Own brackets from the Compendium
+  // instead. Rowing by erg split (watts ~ 2.8 / pace^3): slower than ~2:51/
+  // 500m light (4.8), ~100 W moderate (7.0), ~150 W vigorous (8.5), ~200 W
+  // very vigorous (12.0). Swimming by lap pace: slow/moderate freestyle
+  // (5.8), ~50 yd/min (8.3), ~75 yd/min and faster (9.8).
+  if (/rowing machine/.test(n)) {
+    if (speedKmh < 10.5) return 4.8;  // slower than ~2:51/500m
+    if (speedKmh < 12.5) return 7.0;  // to ~2:24/500m
+    if (speedKmh < 14.6) return 8.5;  // to ~2:03/500m
+    return 12.0;
+  }
+  if (/\bswim/.test(n)) {
+    if (speedKmh < 2.7) return 5.8;
+    if (speedKmh < 4.1) return 8.3;
+    return 9.8;
+  }
   if (/cross trainer|elliptical/.test(n)) return 5.0;
   if (/incline walk/.test(n)) return 6.0;
   // "Treadmill" has no case of its own before this point, so a treadmill
@@ -140,6 +159,10 @@ export function estimateCardioKcal(exerciseName, distanceKm, durationSeconds, bo
 const AVERAGE_CARDIO_SPEED_KMH = {
   cycling: 18,
   crossTrainer: 6,
+  // 2:30/500m — a steady, moderate erg pace.
+  rowingMachine: 12,
+  // Recreational lap swimming including short wall rests.
+  swimming: 2,
   inclineWalk: 4.5,
   walk: 5,
   runningDefault: 9,
@@ -148,6 +171,8 @@ const AVERAGE_CARDIO_SPEED_KMH = {
 function averageCardioSpeedKmh(exerciseName) {
   const n = (exerciseName || '').toLowerCase();
   if (/cycl|bik/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.cycling;
+  if (/rowing machine/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.rowingMachine;
+  if (/\bswim/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.swimming;
   if (/cross trainer|elliptical/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.crossTrainer;
   if (/incline walk/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.inclineWalk;
   if (/\bwalk/.test(n)) return AVERAGE_CARDIO_SPEED_KMH.walk;

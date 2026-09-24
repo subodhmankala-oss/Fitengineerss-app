@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal } from './liveWorkoutTimer';
+import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm } from './liveWorkoutTimer';
 
 describe('computeRestSecondsRemaining', () => {
   it('returns 0 when there is no end timestamp', () => {
@@ -98,5 +98,38 @@ describe('loaded carry calories (reps field holds meters)', () => {
   it('leaves regular strength sets unchanged', () => {
     // 10 reps x 3 s at 6.0 MET, 70 kg body + 50 kg bar: 6 x 3.5 x 120 / 200 x 0.5 = 6.3
     expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(6.3, 1);
+  });
+});
+
+describe('rowing machine and swimming calories', () => {
+  const done = (set) => ({ isCompleted: true, completedAt: 1, ...set });
+  const kcalFor = (name, set, kg = 70) =>
+    computeLiveCalories([{ name, sets: [done(set)] }], 1, [], kg).totalKcal;
+  // kcal = MET x 3.5 x kg / 200 x minutes; 70 kg -> 1.225 x MET per minute
+  const perMin = (met) => met * 3.5 * 70 / 200;
+
+  it('prices a 2:30/500m erg (5 km in 25 min) at 7.0 MET, not as an 11.0 MET run', () => {
+    expect(kcalFor('Rowing Machine', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(7.0) * 25, 1);
+  });
+
+  it('steps rowing intensity up with pace', () => {
+    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '12:00' })).toBeCloseTo(perMin(4.8) * 12, 1); // 10 km/h
+    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '09:00' })).toBeCloseTo(perMin(8.5) * 9, 1);  // 13.3 km/h
+    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '08:00' })).toBeCloseTo(perMin(12.0) * 8, 1); // 15 km/h
+  });
+
+  it('prices swimming by swim pace, not the running floor', () => {
+    expect(kcalFor('Swimming', { distanceKm: '1', time: '30:00' })).toBeCloseTo(perMin(5.8) * 30, 1); // 2 km/h
+    expect(kcalFor('Swimming', { distanceKm: '1', time: '20:00' })).toBeCloseTo(perMin(8.3) * 20, 1); // 3 km/h
+    expect(kcalFor('Swimming', { distanceKm: '1', time: '14:00' })).toBeCloseTo(perMin(9.8) * 14, 1); // 4.3 km/h
+  });
+
+  it('auto-fills km from swim and erg pace, not running pace', () => {
+    expect(estimateCardioDistanceKm('Swimming', 1800)).toBe(1);        // 30 min at 2 km/h
+    expect(estimateCardioDistanceKm('Rowing Machine', 1500)).toBe(5);  // 25 min at 12 km/h
+  });
+
+  it('leaves running unchanged', () => {
+    expect(kcalFor('Running', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(11.0) * 25, 1); // 12 km/h
   });
 });

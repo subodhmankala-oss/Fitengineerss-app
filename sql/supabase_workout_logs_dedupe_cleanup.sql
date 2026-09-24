@@ -1,6 +1,7 @@
 -- One-time cleanup: removes workouts that were saved more than once.
 --
--- One saved workout = the set rows sharing a created_at (one bulk INSERT).
+-- One saved workout = the set rows sharing a created_at (one bulk INSERT),
+-- date and plan (a few old bulk writes mixed several workouts in one INSERT).
 -- A batch is a duplicate when an EARLIER batch has the same user, date, plan,
 -- session calories/duration and the same set of distinct set rows (distinct,
 -- and ignoring set_number, so a copy rebuilt with every set doubled still
@@ -24,6 +25,8 @@ with batches as (
   select
     user_id,
     created_at,
+    log_date,
+    plan_name,
     concat_ws('#',
       log_date::text,
       trim(coalesce(plan_name, '')),
@@ -39,19 +42,21 @@ with batches as (
   group by user_id, created_at, log_date, plan_name
 ),
 ranked as (
-  select user_id, created_at,
+  select user_id, created_at, log_date, plan_name,
          row_number() over (partition by user_id, sig order by created_at) as rn
   from batches
 )
-select user_id, created_at from ranked where rn > 1;
+select user_id, created_at, log_date, plan_name from ranked where rn > 1;
 
 insert into public.workout_logs_duplicates_backup
 select l.* from public.workout_logs l
-join dup_batches d on d.user_id = l.user_id and d.created_at = l.created_at;
+join dup_batches d on d.user_id = l.user_id and d.created_at = l.created_at
+  and d.log_date = l.log_date and d.plan_name is not distinct from l.plan_name;
 
 delete from public.workout_logs l
 using dup_batches d
-where d.user_id = l.user_id and d.created_at = l.created_at;
+where d.user_id = l.user_id and d.created_at = l.created_at
+  and d.log_date = l.log_date and d.plan_name is not distinct from l.plan_name;
 
 commit;
 

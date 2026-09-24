@@ -21,9 +21,13 @@
 // renumbered), so it must still match the original. set_number is ignored for
 // the same reason.
 
+// created_at alone isn't enough: a few older bulk writes put more than one
+// date/plan into a single INSERT, and those must stay separate batches, or
+// a unique session would be dropped along with a duplicate it shared an
+// INSERT with.
 function batchKey(row) {
   if (row.session_id) return `sid:${row.session_id}`;
-  return row.created_at ? `at:${row.created_at}` : null;
+  return row.created_at ? `at:${row.created_at}|${row.log_date || ''}|${row.plan_name || ''}` : null;
 }
 
 function num(v) {

@@ -60,6 +60,17 @@ describe('dropDuplicateSessionBatches', () => {
     expect(dropDuplicateSessionBatches([...a, ...b])).toHaveLength(4);
   });
 
+  it('keeps a unique session that shared one INSERT with a duplicate', () => {
+    const original = session('2026-08-27T05:00:00Z');
+    const bulk = [
+      ...session('2026-09-02T11:29:07Z'),
+      row({ created_at: '2026-09-02T11:29:07Z', log_date: '2026-08-28', plan_name: 'Leg day', exercise_name: 'Squat' })
+    ];
+    const out = dropDuplicateSessionBatches([...original, ...bulk]);
+    expect(out).toHaveLength(4);
+    expect(out.some(r => r.plan_name === 'Leg day')).toBe(true);
+  });
+
   it('never drops rows it cannot group', () => {
     const rows = [row({ created_at: null }), row({ created_at: null })];
     expect(dropDuplicateSessionBatches(rows)).toHaveLength(2);

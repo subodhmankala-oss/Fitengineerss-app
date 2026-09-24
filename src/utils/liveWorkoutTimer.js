@@ -95,9 +95,23 @@ function cardioMET(exerciseName, speedKmh) {
 // Standard MET calorie formula: kcal = MET x 3.5 x weightKg / 200 x minutes.
 // Needs actual elapsed time (not just distance) since the same distance at
 // different paces burns very different amounts — see cardioMET above.
+//
+// Only one of distance/time logged: the other is filled in from the
+// exercise's typical pace (averageCardioSpeedKmh below — the same assumed
+// speed the stopwatch already uses to auto-fill KM). This used to return 0
+// whenever either was missing, so a set logged as just "2.9 km" — the
+// ordinary way to log a treadmill run from the machine's display — counted
+// nothing. Confirmed 2026-09-23: a 52-minute "Steady-State & HIIT Cardio"
+// session with Treadmill Run 2.9 km (no time) saved as 0 kcal. A set with
+// neither still counts nothing: there's no effort to estimate from.
 function cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) {
-  const km = parseFloat(distanceKm) || 0;
-  const minutes = (durationSeconds || 0) / 60;
+  let km = parseFloat(distanceKm) || 0;
+  let minutes = (durationSeconds || 0) / 60;
+  if (km > 0 && minutes <= 0) {
+    minutes = (km / averageCardioSpeedKmh(exerciseName)) * 60;
+  } else if (minutes > 0 && km <= 0) {
+    km = averageCardioSpeedKmh(exerciseName) * (minutes / 60);
+  }
   if (km <= 0 || minutes <= 0) return 0;
   const speedKmh = km / (minutes / 60);
   const met = cardioMET(exerciseName, speedKmh);

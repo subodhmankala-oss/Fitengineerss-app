@@ -69,3 +69,34 @@ describe('cardio calories when only distance or only time is logged', () => {
     expect(estimateCardioKcal('Treadmill Run', '2.9', 0)).toBeCloseTo(196.6, 0);
   });
 });
+
+describe('loaded carry calories (reps field holds meters)', () => {
+  const done = (set) => ({ isCompleted: true, completedAt: 1, ...set });
+  const kcalFor = (name, set, kg = 70) =>
+    computeLiveCalories([{ name, sets: [done(set)] }], 1, [], kg).totalKcal;
+
+  it('prices a 40 m Farmer Walk as ~40 s of carrying, not 40 reps', () => {
+    // 40 m / 1.0 m/s = 40 s; 6.0 MET on 70 kg body + 10 kg load:
+    // 6 x 3.5 x 80 / 200 x (40/60) = 5.6 (was 16.8 as 40 x 3 s "reps")
+    expect(kcalFor('Farmer Walk', { reps: '40', weight: '10' })).toBeCloseTo(5.6, 1);
+  });
+
+  it('prices High Knees Walk as a slower bodyweight drill', () => {
+    // 40 m / 0.7 m/s = 57.1 s at 8.0 MET, 70 kg: 8 x 3.5 x 70 / 200 x 0.952 = 9.3
+    expect(kcalFor('High Knees Walk', { reps: '40', weight: '' })).toBeCloseTo(9.3, 1);
+  });
+
+  it('does not cut an ordinary long carry off at the 100-rep ceiling', () => {
+    expect(kcalFor('Farmer Walk', { reps: '150', weight: '10' }))
+      .toBeGreaterThan(kcalFor('Farmer Walk', { reps: '100', weight: '10' }));
+  });
+
+  it('counts nothing for a carry with no distance', () => {
+    expect(kcalFor('Farmer Walk', { reps: '0', weight: '20' })).toBe(0);
+  });
+
+  it('leaves regular strength sets unchanged', () => {
+    // 10 reps x 3 s at 6.0 MET, 70 kg body + 50 kg bar: 6 x 3.5 x 120 / 200 x 0.5 = 6.3
+    expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(6.3, 1);
+  });
+});

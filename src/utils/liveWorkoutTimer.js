@@ -5,7 +5,7 @@
 // non-drifting approach a server-side timer would use, just running on the
 // coach's single device since there's no multi-viewer requirement here.
 
-import { isWarmupExercise, isBodyweightExercise } from '../data/exerciseLibrary';
+import { isWarmupExercise, isBodyweightExercise, isLoadedCarryExercise } from '../data/exerciseLibrary';
 
 // Calories reflect ONLY logged work — there is no background/idle burn, so the
 // number never moves on its own just because the session clock is running.
@@ -229,9 +229,9 @@ const MAX_PLAUSIBLE_ADDED_WEIGHT_KG = 400;
 // not just the inputs).
 const MAX_PLAUSIBLE_KCAL_PER_SET = 60;
 
-function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep) {
+function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, maxReps = MAX_PLAUSIBLE_REPS_PER_SET) {
   if (reps <= 0) return 0;
-  const clampedReps = Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET);
+  const clampedReps = Math.min(reps, maxReps);
   const clampedAddedWeight = Math.min(Math.max(0, addedWeightKg), MAX_PLAUSIBLE_ADDED_WEIGHT_KG);
   if (clampedReps !== reps || clampedAddedWeight !== Math.max(0, addedWeightKg)) {
     console.warn('[liveWorkoutTimer] Clamped implausible set input before calorie calc:', { reps, addedWeightKg });
@@ -255,6 +255,27 @@ function bodyweightKcal(reps, bodyWeightKg, addedWeightKg = 0) {
 // training MET bracket instead of the calisthenics one.
 function strengthKcal(reps, weightKg, bodyWeightKg) {
   return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP);
+}
+
+// Loaded carries (Farmer Walk, suitcase carry, ...) and High Knees Walk log
+// METERS in the reps field (see isLoadedCarryExercise). They used to fall
+// through to the strength/bodyweight branches, which priced every meter as a
+// 3s (or 2.5s) rep — a 40 m Farmer Walk was costed as 2 minutes of lifting,
+// ~3x too high, on every carry set logged. The distance is converted to time
+// at a typical walking pace instead: a brisk loaded carry ~1.0 m/s, and the
+// slow, exaggerated-knee High Knees Walk drill ~0.7 m/s. Same effective-mass
+// MET model as the rest of this file — the resistance-training bracket for a
+// carry, the calisthenics bracket for the bodyweight drill.
+const CARRY_METERS_PER_SECOND = 1.0;
+const HIGH_KNEES_WALK_METERS_PER_SECOND = 0.7;
+// Meters, not reps: a 100-rep ceiling would cut off an ordinary 150 m carry.
+const MAX_PLAUSIBLE_CARRY_METERS = 400;
+
+function loadedCarryKcal(exerciseName, meters, loadKg, bodyWeightKg) {
+  const isBodyweightDrill = isBodyweightExercise(exerciseName);
+  const metersPerSecond = isBodyweightDrill ? HIGH_KNEES_WALK_METERS_PER_SECOND : CARRY_METERS_PER_SECOND;
+  const met = isBodyweightDrill ? BODYWEIGHT_MET : STRENGTH_MET;
+  return loadedRepsKcal(meters, bodyWeightKg, loadKg, met, 1 / metersPerSecond, MAX_PLAUSIBLE_CARRY_METERS);
 }
 
 export function formatDuration(totalSeconds) {
@@ -420,6 +441,9 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
       } else if (set.time !== undefined) {
         // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
         workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg, ex.name);
+      } else if (isLoadedCarryExercise(ex.name)) {
+        // reps holds meters for these — see loadedCarryKcal.
+        workKcal += loadedCarryKcal(ex.name, parseFloat(set.reps) || 0, parseFloat(set.weight) || 0, bodyWeightKg);
       } else if (isBodyweightExercise(ex.name)) {
         const reps = parseFloat(set.reps) || 0;
         const addedWeight = parseFloat(set.weight) || 0;

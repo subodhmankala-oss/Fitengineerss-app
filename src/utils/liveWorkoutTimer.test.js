@@ -95,9 +95,10 @@ describe('loaded carry calories (reps field holds meters)', () => {
     expect(kcalFor('Farmer Walk', { reps: '0', weight: '20' })).toBe(0);
   });
 
-  it('leaves regular strength sets unchanged', () => {
+  it('leaves regular strength sets priced as strength', () => {
     // 10 reps x 3 s at 6.0 MET, 70 kg body + 50 kg bar: 6 x 3.5 x 120 / 200 x 0.5 = 6.3
-    expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(6.3, 1);
+    // + 60 s rest credit at 3.5 MET on 70 kg: 4.29
+    expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(10.6, 1);
   });
 });
 
@@ -131,5 +132,41 @@ describe('rowing machine and swimming calories', () => {
 
   it('leaves running unchanged', () => {
     expect(kcalFor('Running', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(11.0) * 25, 1); // 12 km/h
+  });
+});
+
+describe('light core vs vigorous bodyweight vs weight training', () => {
+  const done = (set) => ({ isCompleted: true, completedAt: 1, ...set });
+  const kcalFor = (name, set, kg = 70) =>
+    computeLiveCalories([{ name, sets: [done(set)] }], 1, [], kg).totalKcal;
+  // 20 reps x 2.5 s = 50 s; 70 kg -> MET x 3.5 x 70 / 200 x (50/60)
+  const bw20 = (met) => met * 3.5 * 70 / 200 * (50 / 60);
+
+  it('prices light core moves at 3.8 MET', () => {
+    ['Alternate Leg raises', 'Russian Twist', 'Shoulder Taps', 'Glute Bridge', 'Decline Crunch'].forEach(name => {
+      expect(kcalFor(name, { reps: '20', weight: '' })).toBeCloseTo(bw20(3.8), 1);
+    });
+  });
+
+  it('keeps vigorous bodyweight moves at 8.0 MET', () => {
+    ['Push Up', 'Burpee', 'Jumping Jack', 'Mountain Climber', 'Pull-Ups'].forEach(name => {
+      expect(kcalFor(name, { reps: '20', weight: '' })).toBeCloseTo(bw20(8.0), 1);
+    });
+  });
+
+  it('adds one 60 s rest credit per weighted set, not per rep', () => {
+    const rest = 3.5 * 3.5 * 70 / 200; // 4.29 kcal
+    const set = (reps) => 6 * 3.5 * (70 + 40) / 200 * (reps * 3 / 60) + rest;
+    expect(kcalFor('Lat Pulldown', { reps: '8', weight: '40' })).toBeCloseTo(set(8), 1);
+    expect(kcalFor('Lat Pulldown', { reps: '15', weight: '40' })).toBeCloseTo(set(15), 1);
+  });
+
+  it('gives no rest credit to a weighted set with 0 reps', () => {
+    expect(kcalFor('Bench Press', { reps: '0', weight: '60' })).toBe(0);
+  });
+
+  it('now ranks a weights set above the same number of light core reps', () => {
+    expect(kcalFor('Bench Press', { reps: '10', weight: '40' }))
+      .toBeGreaterThan(kcalFor('Russian Twist', { reps: '10', weight: '' }));
   });
 });

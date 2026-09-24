@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRestSecondsRemaining } from './liveWorkoutTimer';
+import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal } from './liveWorkoutTimer';
 
 describe('computeRestSecondsRemaining', () => {
   it('returns 0 when there is no end timestamp', () => {
@@ -31,5 +31,41 @@ describe('computeRestSecondsRemaining', () => {
     const restEndAt = restStartedAt + 60_000; // 60s rest
     const muchLater = restStartedAt + 5 * 60_000; // 5 minutes later, e.g. screen was locked
     expect(computeRestSecondsRemaining(restEndAt, muchLater)).toBe(0);
+  });
+});
+
+describe('cardio calories when only distance or only time is logged', () => {
+  const done = (set) => ({ isCompleted: true, completedAt: 1, ...set });
+  const kcalFor = (name, set, kg = 70) =>
+    computeLiveCalories([{ name, sets: [done(set)] }], 1, [], kg).totalKcal;
+
+  // The confirmed case: "Treadmill Run 2.9 km", no time -> saved as 0 kcal.
+  // Typical running pace 9 km/h -> ~19.3 min at 8.3 MET for 70 kg.
+  it('counts a km-only run from the typical pace instead of 0', () => {
+    expect(kcalFor('Treadmill Run', { distanceKm: '2.9', time: '' })).toBeCloseTo(196.6, 0);
+  });
+
+  it('counts a time-only set from the typical pace instead of 0', () => {
+    // Cross Trainer is a flat 5.0 MET: 5 x 3.5 x 70 / 200 x 20 min = 122.5
+    expect(kcalFor('Cross Trainer', { distanceKm: '', time: '20:00' })).toBeCloseTo(122.5, 1);
+  });
+
+  it('gives a km-only set the same total as logging it at the typical pace', () => {
+    // 2.5 km walking at the assumed 5 km/h = 30:00
+    expect(kcalFor('Walking', { distanceKm: '2.5', time: '' }))
+      .toBeCloseTo(kcalFor('Walking', { distanceKm: '2.5', time: '30:00' }), 1);
+  });
+
+  it('still uses the real pace when both are logged', () => {
+    // 10 km in 20 min cycling = 30 km/h -> 12.0 MET: 12 x 3.5 x 70 / 200 x 20 = 294
+    expect(kcalFor('Cycling', { distanceKm: '10', time: '20:00' })).toBeCloseTo(294, 1);
+  });
+
+  it('counts nothing when neither distance nor time is logged', () => {
+    expect(kcalFor('Stationary Bike HIIT', { distanceKm: '0', time: '' })).toBe(0);
+  });
+
+  it('matches the live estimate for the same km-only set', () => {
+    expect(estimateCardioKcal('Treadmill Run', '2.9', 0)).toBeCloseTo(196.6, 0);
   });
 });

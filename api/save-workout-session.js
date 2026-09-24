@@ -138,7 +138,7 @@ export default async function handler(req, res) {
     // the same fix. Bounded the same way: one retry per optional column.
     let recordsToInsert = records;
     let insertResp, errBody;
-    for (let attempt = 0; attempt < 7; attempt++) {
+    for (let attempt = 0; attempt < 10; attempt++) {
       insertResp = await fetch(`${supabaseUrl}/rest/v1/workout_logs`, {
         method: 'POST',
         headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
@@ -146,6 +146,13 @@ export default async function handler(req, res) {
       });
       if (insertResp.ok) { errBody = null; break; }
       errBody = await insertResp.json().catch(() => null);
+      // This workout's rows are already stored (same session_id — see
+      // saveWorkoutSession's idempotency key). Report success so the caller
+      // stops retrying and drops it from the offline replay queue, instead
+      // of parking it forever or writing another copy.
+      if (errBody?.code === '23505' && /workout_logs_session_row_key/.test(errBody.message || '')) {
+        return res.status(200).json({ success: true, count: 0, alreadySaved: true });
+      }
       const missingCol = errBody && (errBody.code === '42703' || errBody.code === 'PGRST204')
         ? errBody.message?.match(/'([a-z_]+)' column/)?.[1]
         : null;

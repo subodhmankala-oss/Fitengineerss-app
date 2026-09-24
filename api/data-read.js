@@ -172,17 +172,27 @@ async function handleWorkoutLogs(req, res) {
       return res.status(403).json({ error: 'You are not authorized to read this data.' });
     }
 
-    const resp = await fetch(
-      `${supabaseUrl}/rest/v1/workout_logs?select=*&user_id=eq.${encodeURIComponent(userId)}` +
-      `&order=log_date.desc,exercise_name.asc,set_number.asc`,
-      { headers: svcHeaders }
-    );
-    const data = await resp.json().catch(() => []);
-    if (!resp.ok) {
-      console.error('get-workout-logs failed:', resp.status, data);
-      return res.status(502).json({ error: 'Failed to read workout history.' });
+    // Paged: PostgREST caps each response at 1000 rows with no error, and a
+    // truncated history made the client's resync re-upload every older date
+    // (see src/utils/workoutLogDedupe.js). id.asc keeps pages from overlapping.
+    const PAGE = 1000;
+    const logs = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const resp = await fetch(
+        `${supabaseUrl}/rest/v1/workout_logs?select=*&user_id=eq.${encodeURIComponent(userId)}` +
+        `&order=log_date.desc,exercise_name.asc,set_number.asc,id.asc&limit=${PAGE}&offset=${offset}`,
+        { headers: svcHeaders }
+      );
+      const data = await resp.json().catch(() => []);
+      if (!resp.ok) {
+        console.error('get-workout-logs failed:', resp.status, data);
+        return res.status(502).json({ error: 'Failed to read workout history.' });
+      }
+      if (!Array.isArray(data)) break;
+      logs.push(...data);
+      if (data.length < PAGE) break;
     }
-    return res.status(200).json({ logs: Array.isArray(data) ? data : [] });
+    return res.status(200).json({ logs });
   } catch (err) {
     console.error('get-workout-logs error:', err);
     return res.status(500).json({ error: err.message || 'Failed to read workout history.' });

@@ -211,6 +211,18 @@ export function estimateTimedHoldKcal(durationSeconds, bodyWeightKg = DEFAULT_BO
 // 7.8-8.0 MET; one flat value matches this app's existing fixed-MET-bracket
 // approach (see cardioMET/TIMED_HOLD_MET) rather than per-exercise tuning.
 const BODYWEIGHT_MET = 8.0;
+// Every other bodyweight move — leg raises, crunches, Russian twists,
+// shoulder taps, glute bridges, bird dog, calf raises, planks-as-reps ... —
+// is light-to-moderate calisthenics, which the Compendium puts at 3.8 MET
+// ("calisthenics, moderate effort"). Until 2026-09-24 every bodyweight move
+// got BODYWEIGHT_MET, so a 32-minute core circuit read 342 kcal — more than
+// double a 76-minute weights session (125 kcal) that same day.
+const LIGHT_BODYWEIGHT_MET = 3.8;
+const VIGOROUS_BODYWEIGHT_RE = /push[- ]?up|burpee|mountain climber|jumping jack|high knees|jump squat|chin-?up|pull-?up|\bdip\b|beast walk|steppers?\b|foot fires?|step-?ups?\b/i;
+
+function bodyweightMET(exerciseName) {
+  return VIGOROUS_BODYWEIGHT_RE.test(exerciseName || '') ? BODYWEIGHT_MET : LIGHT_BODYWEIGHT_MET;
+}
 // No duration is logged for a bodyweight set (reps only, no stopwatch) — this
 // estimates one at a typical brisk calisthenics pace so the MET formula (which
 // needs minutes, not reps) has something to work with.
@@ -224,6 +236,15 @@ const STRENGTH_MET = 6.0;
 // calisthenics rep (BODYWEIGHT_SECONDS_PER_REP above) — a controlled
 // eccentric under external load typically runs ~3s/rep tempo.
 const STRENGTH_SECONDS_PER_REP = 3.0;
+// Each weighted set also earns the rest that goes with it. Rep time alone
+// (~30 s for 10 reps) left a real 76-minute weights session at ~1.6 kcal/min;
+// the Compendium's whole-session resistance-training figures (3.5 moderate,
+// 6.0 vigorous) include the rest between sets. 60 s at 3.5 MET on bodyweight
+// per completed set brings a typical weights day to ~4.3 kcal/min for a 70 kg
+// client — the moderate figure. Credited per logged set, not per minute on
+// the clock, so calories still only move when a set is logged.
+const STRENGTH_REST_SECONDS_PER_SET = 60;
+const STRENGTH_REST_MET = 3.5;
 
 // Shared MET-based estimator for any reps-driven set that has no logged
 // duration of its own (bodyweight calisthenics AND regular weighted
@@ -271,15 +292,18 @@ function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, m
   return kcal;
 }
 
-function bodyweightKcal(reps, bodyWeightKg, addedWeightKg = 0) {
-  return loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, BODYWEIGHT_MET, BODYWEIGHT_SECONDS_PER_REP);
+function bodyweightKcal(exerciseName, reps, bodyWeightKg, addedWeightKg = 0) {
+  return loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, bodyweightMET(exerciseName), BODYWEIGHT_SECONDS_PER_REP);
 }
 
 // Regular weighted strength set (bench press, squat, curls, ...) — same
 // effective-mass MET model as bodyweightKcal above, just at the resistance-
-// training MET bracket instead of the calisthenics one.
+// training MET bracket instead of the calisthenics one, plus the set's rest
+// credit (see STRENGTH_REST_SECONDS_PER_SET).
 function strengthKcal(reps, weightKg, bodyWeightKg) {
-  return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP);
+  if (reps <= 0) return 0;
+  const restKcal = (STRENGTH_REST_MET * 3.5 * bodyWeightKg / 200) * (STRENGTH_REST_SECONDS_PER_SET / 60);
+  return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP) + restKcal;
 }
 
 // Loaded carries (Farmer Walk, suitcase carry, ...) and High Knees Walk log
@@ -472,7 +496,7 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
       } else if (isBodyweightExercise(ex.name)) {
         const reps = parseFloat(set.reps) || 0;
         const addedWeight = parseFloat(set.weight) || 0;
-        workKcal += bodyweightKcal(reps, bodyWeightKg, addedWeight);
+        workKcal += bodyweightKcal(ex.name, reps, bodyWeightKg, addedWeight);
       } else {
         const reps = parseFloat(set.reps) || 0;
         const weight = parseFloat(set.weight) || 0;

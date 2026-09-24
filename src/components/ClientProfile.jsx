@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { useTheme } from '../context/ThemeContext';
+import { kgToDisplayWeight, displayWeightToKg } from '../utils/weightUnits';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import './ClientProfile.css';
@@ -65,6 +66,15 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [weightUnit, setWeightUnit] = useState(localStorage.getItem('weightUnit') || 'kg');
+  // form.userWeight is ALWAYS kilograms — it's what saveUserProfile writes to
+  // clients.weight_kg and what every calorie/target formula reads. The Units
+  // setting used to change only this field's label, so a client on Pounds
+  // who typed "180" had 180 KG stored, inflating every calorie figure 2.2x.
+  // The field now shows and accepts the chosen unit and converts to kg on
+  // the way in. weightDraft holds the raw text while typing, so a converted
+  // round-trip can't rewrite what the client is in the middle of entering.
+  const [weightDraft, setWeightDraft] = useState(null);
+  const weightFieldValue = weightDraft ?? kgToDisplayWeight(form.userWeight, weightUnit);
   const [restTimer, setRestTimer] = useState(() => localStorage.getItem('prefRestTimer') || '60');
   const [measurements, setMeasurements] = useState(() => {
     try { return JSON.parse(localStorage.getItem('userMeasurements') || '{}'); } catch { return {}; }
@@ -209,6 +219,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
   };
 
   const toggleUnit = (unit) => {
+    setWeightDraft(null);
     setWeightUnit(unit);
     localStorage.setItem('weightUnit', unit);
   };
@@ -246,7 +257,18 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
             </div>
             <div className="cp-field cp-field--border cp-field--last">
               <label className="cp-field-label">Weight <span className="cp-field-unit">({weightUnit})</span></label>
-              <input className="cp-field-input cp-field-input--right" type="number" step="0.1" value={form.userWeight} onChange={e => handleField('userWeight', e.target.value)} placeholder={weightUnit} />
+              <input
+                className="cp-field-input cp-field-input--right"
+                type="number"
+                step="0.1"
+                value={weightFieldValue}
+                onChange={e => {
+                  setWeightDraft(e.target.value);
+                  handleField('userWeight', displayWeightToKg(e.target.value, weightUnit));
+                }}
+                onBlur={() => setWeightDraft(null)}
+                placeholder={weightUnit}
+              />
             </div>
           </div>
 

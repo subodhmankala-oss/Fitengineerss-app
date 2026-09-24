@@ -113,31 +113,56 @@ self.addEventListener('push', (e) => {
   e.waitUntil(self.registration.showNotification(data.title, options));
 });
 
-// Focus or open the app when a notification is clicked. Made deliberately
-// robust for installed iOS PWAs, where the naive "focus the first client"
-// often no-ops: an existing window is navigated to the target and focused,
-// and only if there's genuinely no window do we openWindow. The target is an
-// absolute URL (relative paths can silently fail to open from a standalone
-// PWA notification on iOS).
+// Asks an already-open window to apply the deep link itself (App.jsx's
+// OPEN_DEEP_LINK listener — see utils/deepLink.js). Resolves true once the
+// page acks on the message port, false if it doesn't answer in time (a build
+// from before this listener existed, or a page that's still loading).
+function handOffToOpenWindow(client, url) {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(false), 1500);
+    channel.port1.onmessage = (ev) => {
+      clearTimeout(timer);
+      resolve(!!(ev.data && ev.data.ok));
+    };
+    try {
+      client.postMessage({ type: 'OPEN_DEEP_LINK', url }, [channel.port2]);
+    } catch {
+      clearTimeout(timer);
+      resolve(false);
+    }
+  });
+}
+
+// Open the screen the notification is about when it's clicked.
+//
+// An app window that's already open (on a phone: suspended in the
+// background, which is the usual case) is focused and handed the link to
+// apply in place. That replaces navigating the window to the URL, which on
+// iOS often did nothing beyond bringing the app forward, and when it did
+// reload, the link could be lost to the app's own reloads. See
+// utils/deepLink.js. Navigating is kept as the fallback for a window that
+// doesn't answer. openWindow only runs when there's genuinely no window. The
+// target is an absolute URL (relative paths can silently fail to open from a
+// standalone PWA notification on iOS).
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const targetPath = (e.notification.data && e.notification.data.url) || '/';
   const targetUrl = new URL(targetPath, self.location.origin).href;
 
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ('focus' in client) {
-          const focusFirst = () => client.focus();
-          if ('navigate' in client && client.url !== targetUrl) {
-            return client.navigate(targetUrl).then((c) => (c || client).focus()).catch(focusFirst);
-          }
-          return focusFirst();
-        }
-      }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
-      }
-    })
-  );
+  e.waitUntil((async () => {
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = clientList.find((c) => new URL(c.url).origin === self.location.origin && 'focus' in c);
+    if (!client) {
+      if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
+      return;
+    }
+    // Focus first: a suspended page may not run its message handler until
+    // it's back in the foreground.
+    await client.focus().catch(() => {});
+    if (await handOffToOpenWindow(client, targetUrl)) return;
+    if ('navigate' in client) {
+      await client.navigate(targetUrl).catch(() => {});
+    }
+  })());
 });

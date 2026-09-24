@@ -94,7 +94,7 @@ const convertAiDayToEditorShape = (day) => ({
   exercises: (day.exercises || []).map(convertAiExerciseToEditorShape)
 });
 
-const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) => {
+const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
@@ -2839,24 +2839,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClientId }) 
     };
   }, []);
 
-  // Deep link from a push notification (e.g. the measurement-reminder cron's
-  // coach push — see api/push.js's runMeasurementReminderSweep) — App.jsx
-  // parses ?viewClient=<id> and passes it down here. Waits for `clients` to
-  // actually be populated (this effect re-runs as that list loads) so the
-  // lookup doesn't just silently miss on the first render. Runs once — a
-  // coach navigating away from that client afterward shouldn't get yanked
-  // back to it if `clients` happens to refetch via the real-time listener.
-  const deepLinkConsumedRef = useRef(false);
+  // Deep link from a push notification (e.g. "<client> has gone quiet" or
+  // "Updated body measurements" — see api/push.js) — App.jsx parses
+  // ?viewClient=<id>&clientTab=<tab> and passes it down here as
+  // { id, tab, nonce }. Waits for `clients` to actually be populated (this
+  // effect re-runs as that list loads) so the lookup doesn't just silently
+  // miss on the first render. Each link (nonce) runs once — a coach
+  // navigating away from that client afterward shouldn't get yanked back to
+  // it if `clients` happens to refetch via the real-time listener — but a
+  // second tap while the app is open is a new nonce, so it opens too.
+  const DEEP_LINK_TABS = ['plans', 'livelog', 'workout', 'measurements'];
+  const deepLinkConsumedNonceRef = useRef(null);
   useEffect(() => {
-    if (!deepLinkClientId || deepLinkConsumedRef.current || clients.length === 0) return;
-    const match = clients.find(c => c.id === deepLinkClientId);
+    if (!deepLinkClient?.id || deepLinkConsumedNonceRef.current === deepLinkClient.nonce || clients.length === 0) return;
+    const match = clients.find(c => c.id === deepLinkClient.id);
     if (match) {
-      deepLinkConsumedRef.current = true;
+      deepLinkConsumedNonceRef.current = deepLinkClient.nonce;
       setViewMode('coach');
+      // The profile/settings overlay covers the whole dashboard — close it,
+      // or the client opens underneath where the coach can't see it.
+      setMobileHeaderMenuOpen(false);
+      setCoachProfileSection(null);
       handleSelectClient(match);
+      // handleSelectClient resets the tab to 'plans' synchronously, before
+      // its first await, so this lands after it. Measurements are already
+      // being fetched by handleSelectClient itself.
+      if (DEEP_LINK_TABS.includes(deepLinkClient.tab)) setDetailTab(deepLinkClient.tab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deepLinkClientId, clients]);
+  }, [deepLinkClient, clients]);
 
   // Restore an unsaved Plan Editor draft (see the save effect near
   // liveDraftSaveTimerRef above) after a page refresh wiped out the coach's

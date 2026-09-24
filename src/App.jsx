@@ -24,6 +24,7 @@ import { useCoachTour } from './context/CoachTourContext';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
+import { takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink } from './utils/deepLink';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -376,7 +377,10 @@ const showLocalNotification = (title, body, tag = 'fitengineers-nudge') => {
     tag,
     renotify: true,
     requireInteraction: true,
-    silent: false
+    silent: false,
+    // Both callers are wellness nudges, which belong on Home — sw.js's
+    // notificationclick opens this (see utils/deepLink.js).
+    data: { url: '/?tab=home' }
   };
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready
@@ -433,61 +437,72 @@ function App() {
            localStorage.getItem('onboardingCompleted') === 'false' &&
            (localStorage.getItem('userRole') === 'client' || !localStorage.getItem('userRole'));
   });
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
-  // Deep links from push notifications (e.g. the measurement reminder — see
-  // api/push.js's runMeasurementReminderSweep/measurement_reminder_manual):
-  // sw.js's notificationclick handler navigates to whatever `url` the push
-  // payload set, landing here with these query params. Captured once via
-  // lazy useState init (before the URL gets cleaned below) rather than read
-  // fresh on every render, so the deep link fires exactly once per tap
-  // instead of re-triggering navigation on every re-render.
-  const [deepLinkOpenMeasurements, setDeepLinkOpenMeasurements] = useState(() => new URLSearchParams(window.location.search).get('openMeasurements') === '1');
-  const [deepLinkClientId] = useState(() => new URLSearchParams(window.location.search).get('viewClient') || null);
+  // Deep links from push notifications — see utils/deepLink.js for the whole
+  // flow. Taken once per page load (URL params, or a link stashed by a tap
+  // just before a reload) and seeded straight into the states below, so the
+  // very first render already lands on the right screen.
+  const [initialDeepLink] = useState(takeInitialDeepLink);
+  const [activeTab, setActiveTab] = useState(() => tabForDeepLink(initialDeepLink) || localStorage.getItem('activeTab') || 'home');
+  // ?openMeasurements=1 — measurement reminders (api/push.js). ClientProfile
+  // reads it on mount to open straight on Measurements.
+  const [deepLinkOpenMeasurements, setDeepLinkOpenMeasurements] = useState(() => initialDeepLink?.openMeasurements === '1');
+  // ?viewClient=<users.id>&clientTab=<tab> — coach-facing pushes. `nonce`
+  // lets TrainerDashboard tell a second tap on the same client apart from a
+  // re-render.
+  const [deepLinkClient, setDeepLinkClient] = useState(() => (
+    initialDeepLink?.viewClient ? { id: initialDeepLink.viewClient, tab: initialDeepLink.clientTab || null, nonce: 0 } : null
+  ));
   // ?openMuscleMap=1 — coach's "share" icon on a client's Muscle Balance
   // Overview / Muscle Heat Map cards links here (see shareMuscleMapWithClient
-  // in TrainerDashboard.jsx). Lands the client straight on Home → Muscles,
-  // same one-shot-consume pattern as deepLinkOpenMeasurements above.
-  const [deepLinkOpenMuscleMap, setDeepLinkOpenMuscleMap] = useState(() => new URLSearchParams(window.location.search).get('openMuscleMap') === '1');
+  // in TrainerDashboard.jsx), as does the weekly muscle-balance push. Lands
+  // the client straight on Home → Muscles.
+  const [deepLinkOpenMuscleMap, setDeepLinkOpenMuscleMap] = useState(() => initialDeepLink?.openMuscleMap === '1');
   // &section=balance|heatmap on the same link — which of the two cards
   // inside the Muscles tab to scroll straight to, since landing on the tab
   // alone still left the client staring at the header/stats above whichever
   // card the coach actually meant to share (Heat Map is the SECOND card
-  // down). Read once, same lifetime as deepLinkOpenMuscleMap itself.
-  const [deepLinkMuscleSection] = useState(() => new URLSearchParams(window.location.search).get('section') || null);
-  // ?openMonthlyReport=1 — the monthly_report push (api/push.js, sent from
-  // MonthlyReportComposer's Send report). The report card itself renders
-  // unconditionally at the top of Home for any unread report, so this only
-  // has to force the tab open: a client who last left the app on
-  // Workouts/Profile would otherwise land back there instead of Home, never
-  // seeing the card land.
-  const [deepLinkOpenMonthlyReport] = useState(() => new URLSearchParams(window.location.search).get('openMonthlyReport') === '1');
+  // down).
+  const [deepLinkMuscleSection, setDeepLinkMuscleSection] = useState(() => initialDeepLink?.section || null);
+  // Bumped when a notification is tapped while the app is already open, to
+  // remount the current tab's screen so it picks up the initial section /
+  // timeframe it only reads on mount.
+  const [deepLinkNonce, setDeepLinkNonce] = useState(0);
+  // Consume the section-level links once the user leaves that tab, so coming
+  // back later behaves like a normal visit instead of jumping to the linked
+  // section again. (Was a 1s timer, which could expire before the lazily
+  // loaded screen had even mounted on a slow phone.)
   useEffect(() => {
-    if (deepLinkOpenMeasurements) setActiveTab('profile');
-    if (deepLinkOpenMuscleMap || deepLinkOpenMonthlyReport) setActiveTab('home');
-    if (deepLinkOpenMeasurements || deepLinkClientId || deepLinkOpenMuscleMap || deepLinkOpenMonthlyReport) {
-      // Strip the query params so a later refresh/share of this URL doesn't
-      // re-trigger the same deep link forever.
-      window.history.replaceState(null, '', window.location.pathname);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (activeTab !== 'profile') setDeepLinkOpenMeasurements(false);
+    if (activeTab !== 'home') setDeepLinkOpenMuscleMap(false);
+  }, [activeTab]);
+  // Tapped while the app was already open: sw.js hands the link over here
+  // instead of reloading the page (see sw.js's notificationclick). The ack on
+  // the message port tells sw.js it was handled, so it doesn't fall back to
+  // navigating the window.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return undefined;
+    const onMessage = (event) => {
+      if (event.data?.type !== 'OPEN_DEEP_LINK') return;
+      let link = null;
+      try { link = parseDeepLink(new URL(event.data.url, window.location.origin).search); } catch { /* bad url — ignore */ }
+      if (link) {
+        stashDeepLink(link);
+        const tab = tabForDeepLink(link);
+        if (tab) setActiveTab(tab);
+        setDeepLinkOpenMeasurements(link.openMeasurements === '1');
+        setDeepLinkOpenMuscleMap(link.openMuscleMap === '1');
+        setDeepLinkMuscleSection(link.section || null);
+        if (link.viewClient) setDeepLinkClient({ id: link.viewClient, tab: link.clientTab || null, nonce: Date.now() });
+        setDeepLinkNonce((n) => n + 1);
+      }
+      event.ports?.[0]?.postMessage({ ok: true });
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    // Messages posted before this listener existed sit queued until the
+    // queue is started explicitly.
+    navigator.serviceWorker.startMessages?.();
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
   }, []);
-  // Consume the measurements deep link exactly once — ClientProfile reads it
-  // on mount to pick its initial section, so leave it "true" just long
-  // enough for that first mount, then clear it. Without this, switching away
-  // from Profile and back later in the same session would keep jumping back
-  // to Measurements instead of behaving like a normal settings visit.
-  useEffect(() => {
-    if (!deepLinkOpenMeasurements) return undefined;
-    const t = setTimeout(() => setDeepLinkOpenMeasurements(false), 1000);
-    return () => clearTimeout(t);
-  }, [deepLinkOpenMeasurements]);
-  // Same one-shot consumption for the muscle map deep link — WorkoutProgressDashboard
-  // reads it on mount to pick its initial timeframe tab.
-  useEffect(() => {
-    if (!deepLinkOpenMuscleMap) return undefined;
-    const t = setTimeout(() => setDeepLinkOpenMuscleMap(false), 1000);
-    return () => clearTimeout(t);
-  }, [deepLinkOpenMuscleMap]);
   // First-login spotlight walkthrough — shown once per role, replayable via a help button.
   const demoTourCheckedRef = useRef(false);
   const clientTour = useTour();
@@ -571,10 +586,11 @@ function App() {
       }
     };
 
-    // Covers "closed and relaunched": if the process was killed while
-    // backgrounded, this is a fresh mount and no 'visible' event fires for
-    // it — check once immediately instead.
-    checkAndRefresh();
+    // "Closed and relaunched" (the process was killed while backgrounded) is
+    // already a fresh page load with fresh data, so just drop the stale stamp.
+    // Reloading here used to cost a second full load on every cold launch,
+    // and it threw away a notification's deep link (see utils/deepLink.js).
+    localStorage.removeItem(STORAGE_KEY);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -1632,6 +1648,7 @@ function App() {
   const renderHomeDashboard = () => {
     return (
       <WorkoutProgressDashboard
+        key={deepLinkNonce}
         handleLogout={handleLogout}
         onNavigateToWorkouts={() => setActiveTab('workouts')}
         initialTimeframe={deepLinkOpenMuscleMap ? 'muscles' : null}
@@ -1644,7 +1661,7 @@ function App() {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
       case 'workouts': return <WorkoutTracker />;
-      case 'profile': return <ClientProfile handleLogout={handleLogout} onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }} initialSection={deepLinkOpenMeasurements ? 'measurements' : null} />;
+      case 'profile': return <ClientProfile key={deepLinkNonce} handleLogout={handleLogout} onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }} initialSection={deepLinkOpenMeasurements ? 'measurements' : null} />;
       default: return renderHomeDashboard();
     }
   };
@@ -1821,7 +1838,7 @@ function App() {
           <TrainerDashboard
             handleLogout={handleLogout}
             onReplayDemoTour={isAdmin ? undefined : () => coachTour.restart()}
-            deepLinkClientId={deepLinkClientId}
+            deepLinkClient={deepLinkClient}
           />
         </Suspense>
         {renderResetPasswordModal()}

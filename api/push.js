@@ -276,7 +276,7 @@ async function runInactivitySweep(supabaseClient, res) {
 
         const name = clientRow.full_name || u.full_name || 'there';
         const msg = clientInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge', null, { email: u.email, name });
+        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge', '/?tab=home', { email: u.email, name });
         if (result.sent > 0) clientNudges++;
 
         // Same 3+ day threshold as the client's own nudge above (was 2+) —
@@ -286,17 +286,18 @@ async function runInactivitySweep(supabaseClient, res) {
         if (clientRow.coach_id) {
           const alert = coachAboutInactiveClientMessage(name, days);
           const coachUser = usersById.get(clientRow.coach_id);
-          // Deep-link straight to this client's profile (same ?viewClient=
-          // pattern as the other coach-facing pushes below) so tapping the
-          // notification lands the coach right where they'd send the nudge,
-          // instead of the bare homepage.
-          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert', `/?viewClient=${u.id}`, { email: coachUser?.email, name: coachUser?.full_name });
+          // Deep-link straight to this client's History tab (same
+          // ?viewClient= pattern as the other coach-facing pushes below) —
+          // their last session is right there, and the coach-note composer
+          // sits above every tab, so the coach lands right where they'd send
+          // the nudge instead of the bare homepage.
+          const coachResult = await pushToUserId(supabaseClient, clientRow.coach_id, alert.title, alert.body, 'coach_inactive_client_alert', `/?viewClient=${u.id}&clientTab=workout`, { email: coachUser?.email, name: coachUser?.full_name });
           if (coachResult.sent > 0) coachAlerts++;
         }
       } else if (coachRow) {
         const name = coachRow.brand_name || u.full_name || 'there';
         const msg = coachSelfInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'coach_self_inactivity_nudge', null, { email: u.email, name });
+        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'coach_self_inactivity_nudge', '/', { email: u.email, name });
         if (result.sent > 0) coachNudges++;
       } else {
         skipped++;
@@ -376,7 +377,7 @@ async function runMuscleBalanceSweep(supabaseClient, res) {
         : `Your ${muscleText} ${isPlural ? 'are' : 'is'} trained less this week — let's cover it up before the week ends.`;
 
       const clientUser = usersById.get(client.user_id);
-      const result = await pushToUserId(supabaseClient, client.user_id, title, body, 'muscle_balance_nudge', null, { email: clientUser?.email, name: client.full_name || clientUser?.full_name });
+      const result = await pushToUserId(supabaseClient, client.user_id, title, body, 'muscle_balance_nudge', '/?openMuscleMap=1&section=balance', { email: clientUser?.email, name: client.full_name || clientUser?.full_name });
       if (result.sent > 0) notified++;
     }
 
@@ -455,10 +456,10 @@ async function runMeasurementReminderSweep(supabaseClient, res) {
           '📏 Measurement Check-in Needed',
           `${clientName} hasn't logged measurements in ${daysSince} days — a quick nudge from you could help them stay on track.`,
           'measurement_reminder_coach',
-          // Deep link: opens this exact client's profile in the coach
-          // dashboard, where the new "Send Measurement Reminder" button
+          // Deep link: opens this exact client's Measurements tab in the
+          // coach dashboard, where the "Send Measurement Reminder" button
           // (TrainerDashboard.jsx) lets the coach act on it immediately.
-          `/?viewClient=${client.user_id}`,
+          `/?viewClient=${client.user_id}&clientTab=measurements`,
           { email: coachUser?.email, name: coachUser?.full_name }
         );
         if (coachResult.sent > 0) coachesNotified++;
@@ -625,7 +626,8 @@ async function handleSendNudges(req, res) {
           title,
           body,
           icon: '/logo.png',
-          vibrate: [300, 100, 300, 100, 300]
+          vibrate: [300, 100, 300, 100, 300],
+          url: '/?tab=home'
         });
 
         await webPush.sendNotification(sub.subscription, payload);
@@ -832,11 +834,13 @@ async function handleNotifyUser(req, res) {
       // never read here — this event never received it from the client at
       // all until now (see WorkoutTracker.jsx's handleToggleSetCompleted).
       body = workoutName ? `Started "${workoutName}" session` : 'Session started';
+      url = `/?viewClient=${clientUserId}&clientTab=workout`;
     } else if (event === 'measurements_saved') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
       title = clientName;
       body = 'Updated body measurements';
+      url = `/?viewClient=${clientUserId}&clientTab=measurements`;
     } else if (event === 'workout_finished') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;
@@ -850,11 +854,14 @@ async function handleNotifyUser(req, res) {
       body = workoutName
         ? `"${workoutName}" completed${stats ? ` — ${stats}` : ''}`
         : `Workout completed${stats ? ` — ${stats}` : ''}`;
+      url = `/?viewClient=${clientUserId}&clientTab=workout`;
     } else if (event === 'coach_note') {
       if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for coach_note.' });
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);
       body = message.trim();
+      // The note shows as a banner at the top of Home (CoachNoteBanner).
+      url = '/?tab=home';
     } else if (event === 'monthly_report') {
       // Coach sent a monthly progress report (TrainerDashboard's
       // MonthlyReportComposer → databaseService.sendMonthlyReport). The full
@@ -887,6 +894,7 @@ async function handleNotifyUser(req, res) {
         replyContext = `Re: ${workoutName}`;
       }
       body = replyContext ? `${replyContext} — ${message.trim()}` : message.trim();
+      url = `/?viewClient=${clientUserId}`;
     } else if (event === 'session_reminder') {
       targetUserId = clientUserId;
       const left = Number.isFinite(sessionsLeft) ? sessionsLeft : null;
@@ -894,6 +902,7 @@ async function handleNotifyUser(req, res) {
       body = left != null
         ? `${left} session${left === 1 ? '' : 's'} left — talk to your coach about renewing`
         : 'Session package running low — talk to your coach about renewing';
+      url = '/?tab=home';
     } else if (event === 'renewal_reminder') {
       // Coach-triggered from the Client Payments renewal row's "Gentle
       // reminder (no QR)" action (2026-09-11) — the phone-notification half
@@ -904,11 +913,15 @@ async function handleNotifyUser(req, res) {
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);
       body = message.trim();
+      url = '/?tab=home';
     } else if (event === 'client_disconnected') {
       if (!oldCoachId) return res.status(200).json({ success: true, message: 'No coach to notify.' });
       targetUserId = oldCoachId;
       title = clientName;
       body = 'Package ended — moved to unattached clients';
+      // No longer this coach's client, so their profile won't open — land
+      // on the coach's own client list instead.
+      url = '/';
     } else if (event === 'client_connected') {
       // Fired right after connectClientToCoach's link transaction commits
       // (databaseService.connectClientToCoach, 2026-09-16 — previously only
@@ -948,6 +961,7 @@ async function handleNotifyUser(req, res) {
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);
       body = planName ? `Sent you a new plan: "${planName}"` : 'Sent you a new workout plan';
+      url = '/?tab=workouts';
     } else if (event === 'measurement_reminder_manual') {
       // Coach-triggered version of the automated 15-day sweep's client push
       // (runMeasurementReminderSweep) — same message/deep-link, but fired on
@@ -979,7 +993,7 @@ async function handleNotifyUser(req, res) {
       body = `${creatorName || (creatorRole === 'coach' ? 'A coach' : 'A client')} created "${exerciseName || 'a new exercise'}"${creatorRole === 'coach' ? ` for ${clientName}` : ''}.`;
       let sent = 0, failed = 0;
       for (const adminId of adminIds) {
-        const r = await pushToUser(adminId, title, body, event, null);
+        const r = await pushToUser(adminId, title, body, event, `/?viewClient=${clientUserId}`);
         sent += r.sent; failed += r.failed;
       }
       return res.status(200).json({ success: true, event, sent, failed, matched: adminIds.length });

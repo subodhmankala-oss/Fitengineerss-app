@@ -246,7 +246,7 @@ export function isLoadedCarryExercise(name) {
 // like the others — a bare substring would also catch every loaded variant
 // (Barbell Squat, Goblet Squat, Front Squat, Smith Machine Squat, Box
 // Squat, Split Squat, Bulgarian Split Squat, Hack Squat, Dumbbell Squat,
-// Jump Squat, Kettlebell Goblet Squat, Zercher Squat...), all of which are
+// Kettlebell Goblet Squat, Zercher Squat...), all of which are
 // genuinely loaded exercises that should keep the normal weight+reps
 // fields. Only the plain "Squat" preset (bodyweight air squat) and "Chair
 // Squat" (a bodyweight sit-to-stand off a chair, occasionally loaded with a
@@ -331,11 +331,17 @@ export function isLoadedCarryExercise(name) {
 // Lunge' and 'Calf Raise (Machine)'/'Seated Calf Raise' are specific,
 // genuinely always-loaded variants (the same distinction that keeps
 // 'Barbell Squat'/'Goblet Squat'/etc. excluded from the bare 'squat' match).
+//
+// Jump Squat (added 2026-09-25) is a plyometric bodyweight move, not a loaded
+// squat variant — it used to be listed with those above, so it asked for a
+// KG number and was priced as weight training (with a per-set rest credit)
+// instead of vigorous calisthenics. It now gets the Bodyweight/+Add Weight
+// toggle like Burpee, and the 8.0 MET vigorous bracket in liveWorkoutTimer.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises'].includes(n)) return true;
-  return /push[- ]?up|mountain climber|jumping jack|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|jump squat|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

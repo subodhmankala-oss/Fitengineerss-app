@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm } from './liveWorkoutTimer';
+import { isBodyweightExercise } from '../data/exerciseLibrary';
 
 describe('computeRestSecondsRemaining', () => {
   it('returns 0 when there is no end timestamp', () => {
@@ -149,7 +150,7 @@ describe('light core vs vigorous bodyweight vs weight training', () => {
   });
 
   it('keeps vigorous bodyweight moves at 8.0 MET', () => {
-    ['Push Up', 'Burpee', 'Jumping Jack', 'Mountain Climber', 'Pull-Ups'].forEach(name => {
+    ['Push Up', 'Burpee', 'Jumping Jack', 'Mountain Climber', 'Pull-Ups', 'Jump Squat'].forEach(name => {
       expect(kcalFor(name, { reps: '20', weight: '' })).toBeCloseTo(bw20(8.0), 1);
     });
   });
@@ -168,5 +169,19 @@ describe('light core vs vigorous bodyweight vs weight training', () => {
   it('now ranks a weights set above the same number of light core reps', () => {
     expect(kcalFor('Bench Press', { reps: '10', weight: '40' }))
       .toBeGreaterThan(kcalFor('Russian Twist', { reps: '10', weight: '' }));
+  });
+});
+
+describe('Jump Squat', () => {
+  it('is a bodyweight move (Bodyweight/+Add Weight toggle), unlike loaded squats', () => {
+    expect(isBodyweightExercise('Jump Squat')).toBe(true);
+    ['Barbell Squat', 'Goblet Squat', 'Smith Machine Squat', 'Bulgarian Split Squat'].forEach(n =>
+      expect(isBodyweightExercise(n)).toBe(false));
+  });
+
+  it('counts a held 5 kg as added load at the vigorous bracket, with no rest credit', () => {
+    // 15 reps x 2.5 s = 37.5 s at 8.0 MET on 70 + 5 kg
+    const kcal = computeLiveCalories([{ name: 'Jump Squat', sets: [{ isCompleted: true, completedAt: 1, reps: '15', weight: '5' }] }], 1, [], 70).totalKcal;
+    expect(kcal).toBeCloseTo(8 * 3.5 * 75 / 200 * (37.5 / 60), 1);
   });
 });

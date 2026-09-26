@@ -839,6 +839,33 @@ async function sendClientConnectedEmail({ coachEmail, coachName, clientName, cli
   }
 }
 
+// Inserts an unread public.notifications row unless one of the same type for
+// the same actor is already unread. Non-fatal: the push still goes out if
+// this fails.
+async function recordUnreadNotification(recipientUserId, type, actorUserId, payload) {
+  try {
+    const { data: existing, error: selErr } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('recipient_user_id', recipientUserId)
+      .eq('type', type)
+      .eq('actor_user_id', actorUserId)
+      .is('read_at', null)
+      .limit(1);
+    if (selErr) throw selErr;
+    if (existing && existing.length > 0) return;
+    const { error } = await supabase.from('notifications').insert({
+      recipient_user_id: recipientUserId,
+      type,
+      actor_user_id: actorUserId,
+      payload
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.error(`notifications insert (${type}) failed (non-fatal):`, e.message || e);
+  }
+}
+
 async function handleNotifyUser(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
@@ -875,6 +902,12 @@ async function handleNotifyUser(req, res) {
       title = clientName;
       body = 'Updated body measurements';
       url = `/?viewClient=${clientUserId}&clientTab=measurements`;
+      // Durable in-app copy (public.notifications) — powers the blue unread
+      // dots on this client's directory row and Measurements tab, so the
+      // coach still sees it after swiping the push away (or never enabling
+      // push at all). One unread row per client is enough: a second save
+      // before the coach looks doesn't need a second dot.
+      await recordUnreadNotification(targetUserId, 'measurements_saved', clientUserId, { client_name: clientName });
     } else if (event === 'workout_finished') {
       if (!client?.coach_id) return res.status(200).json({ success: true, message: 'Client has no coach; nothing to send.' });
       targetUserId = client.coach_id;

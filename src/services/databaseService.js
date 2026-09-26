@@ -4602,7 +4602,7 @@ const databaseService = {
     if (!isSupabaseConfigured || !coachId) return [];
     try {
       const rows = await restSelect(
-        `notifications?select=id,type,actor_user_id,payload,created_at&recipient_user_id=eq.${encodeURIComponent(coachId)}&read_at=is.null&order=created_at.desc&limit=20`
+        `notifications?select=id,type,actor_user_id,payload,created_at&recipient_user_id=eq.${encodeURIComponent(coachId)}&read_at=is.null&order=created_at.desc&limit=50`
       );
       return (rows || []).map(r => ({
         id: r.id,

@@ -645,6 +645,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // card. Also drives the "New" chip on the directory row and the "Used by"
   // line on the Invite Clients card.
   const [newClientNotifications, setNewClientNotifications] = useState([]);
+  // Unread measurements_saved rows (written by api/push.js alongside the
+  // "Updated body measurements" push) — drive the blue dots on the client's
+  // directory row and Measurements tab until the coach opens that tab.
+  const [measurementNotifications, setMeasurementNotifications] = useState([]);
 
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
@@ -2605,6 +2609,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     if (rows === null) return;
     const connected = rows.filter(n => n.type === 'client_connected');
     setNewClientNotifications(connected);
+    setMeasurementNotifications(rows.filter(n => n.type === 'measurements_saved'));
     // A notified client missing from the directory means the list is stale
     // (loaded before they connected) — refetch so the row + "New" chip show.
     if (connected.some(n => n.clientId && !clientsRef.current.some(c => c.id === n.clientId)) && fetchClientsRef.current) {
@@ -2621,6 +2626,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setNewClientNotifications((prev) => prev.filter((n) => n.clientId !== clientId));
     await databaseService.markCoachNotificationsRead(ids);
   };
+
+  // Viewing a client's Measurements tab (tapped, or landed on from the push's
+  // deep link) counts as "seen" — clears both of that client's blue dots.
+  useEffect(() => {
+    if (detailTab !== 'measurements' || !selectedClient) return;
+    const ids = measurementNotifications.filter(n => n.clientId === selectedClient.id).map(n => n.id);
+    if (ids.length === 0) return;
+    setMeasurementNotifications((prev) => prev.filter((n) => n.clientId !== selectedClient.id));
+    databaseService.markCoachNotificationsRead(ids);
+  }, [detailTab, selectedClient, measurementNotifications]);
 
   // localStorage key for finished-workout cards the coach dismissed WITHOUT
   // sending a note. Keyed per session (clientId|date) so a NEW session for the
@@ -6128,13 +6143,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '56px' }}>
                           <td style={{ padding: '8px', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                              <Avatar
-                                className="client-avatar"
-                                email={client.email}
-                                name={client.userName}
-                                avatarUrl={client.avatarUrl}
-                                size={44}
-                              />
+                              <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                                <Avatar
+                                  className="client-avatar"
+                                  email={client.email}
+                                  name={client.userName}
+                                  avatarUrl={client.avatarUrl}
+                                  size={44}
+                                />
+                                {measurementNotifications.some(n => n.clientId === client.id) && (
+                                  <span className="unread-dot" style={{ position: 'absolute', top: 0, right: 0 }} aria-label="New measurements" />
+                                )}
+                              </span>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</span>
@@ -6728,7 +6748,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   }}
                   onClick={() => handleTabChange('measurements')}
                 >
-                  <span>📏</span>
+                  <span style={{ position: 'relative' }}>
+                    📏
+                    {measurementNotifications.some(n => n.clientId === selectedClient?.id) && (
+                      <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -8 }} aria-label="New measurements" />
+                    )}
+                  </span>
                   <span>Measurements</span>
                 </button>
               </div>

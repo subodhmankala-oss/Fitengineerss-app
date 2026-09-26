@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm } from './liveWorkoutTimer';
+import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise } from './liveWorkoutTimer';
 import { isBodyweightExercise } from '../data/exerciseLibrary';
 
 describe('computeRestSecondsRemaining', () => {
@@ -183,5 +183,34 @@ describe('Jump Squat', () => {
     // 15 reps x 2.5 s = 37.5 s at 8.0 MET on 70 + 5 kg
     const kcal = computeLiveCalories([{ name: 'Jump Squat', sets: [{ isCompleted: true, completedAt: 1, reps: '15', weight: '5' }] }], 1, [], 70).totalKcal;
     expect(kcal).toBeCloseTo(8 * 3.5 * 75 / 200 * (37.5 / 60), 1);
+  });
+});
+
+describe('Jump Rope (reps field holds skips)', () => {
+  const done = (set) => ({ isCompleted: true, completedAt: 1, ...set });
+  const kcalFor = (name, set, kg = 70) =>
+    computeLiveCalories([{ name, sets: [done(set)] }], 1, [], kg).totalKcal;
+
+  it('prices 110 skips as one minute of moderate rope jumping (11.8 MET)', () => {
+    // 11.8 x 3.5 x 70 / 200 x 1 min = 14.5 (was ~48 as 100 lifting reps + rest)
+    expect(kcalFor('Jump Rope', { reps: '110', weight: '' })).toBeCloseTo(14.5, 1);
+  });
+
+  it('prices the real 106-skip set at ~18 kcal for a 91.8 kg client, not ~54', () => {
+    expect(kcalFor('Jump Rope', { reps: '106', weight: '0' }, 91.8)).toBeCloseTo(18.3, 1);
+  });
+
+  it('does not cut an ordinary long set off at the 100-rep ceiling', () => {
+    expect(kcalFor('Jump Rope', { reps: '300', weight: '' }))
+      .toBeCloseTo(3 * kcalFor('Jump Rope', { reps: '100', weight: '' }), 0);
+  });
+
+  it('recognises common names and shows the Bodyweight toggle', () => {
+    ['Jump Rope', 'Jumprope', 'Skipping', 'Double Unders'].forEach(n => {
+      expect(isJumpRopeExercise(n)).toBe(true);
+      expect(isBodyweightExercise(n)).toBe(true);
+    });
+    expect(isJumpRopeExercise('Battle Rope')).toBe(false);
+    expect(isJumpRopeExercise('Triceps Rope Pushdown')).toBe(false);
   });
 });

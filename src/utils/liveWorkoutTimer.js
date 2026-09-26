@@ -275,7 +275,7 @@ const MAX_PLAUSIBLE_ADDED_WEIGHT_KG = 400;
 // not just the inputs).
 const MAX_PLAUSIBLE_KCAL_PER_SET = 60;
 
-function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, maxReps = MAX_PLAUSIBLE_REPS_PER_SET) {
+function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, maxReps = MAX_PLAUSIBLE_REPS_PER_SET, maxKcal = MAX_PLAUSIBLE_KCAL_PER_SET) {
   if (reps <= 0) return 0;
   const clampedReps = Math.min(reps, maxReps);
   const clampedAddedWeight = Math.min(Math.max(0, addedWeightKg), MAX_PLAUSIBLE_ADDED_WEIGHT_KG);
@@ -285,9 +285,9 @@ function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, m
   const minutes = (clampedReps * secondsPerRep) / 60;
   const effectiveMassKg = bodyWeightKg + clampedAddedWeight;
   const kcal = (met * 3.5 * effectiveMassKg / 200) * minutes;
-  if (kcal > MAX_PLAUSIBLE_KCAL_PER_SET) {
+  if (kcal > maxKcal) {
     console.warn('[liveWorkoutTimer] Clamped implausible single-set kcal result:', { reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, kcal });
-    return MAX_PLAUSIBLE_KCAL_PER_SET;
+    return maxKcal;
   }
   return kcal;
 }
@@ -319,6 +319,28 @@ const CARRY_METERS_PER_SECOND = 1.0;
 const HIGH_KNEES_WALK_METERS_PER_SECOND = 0.7;
 // Meters, not reps: a 100-rep ceiling would cut off an ordinary 150 m carry.
 const MAX_PLAUSIBLE_CARRY_METERS = 400;
+
+// Jump rope logs the number of SKIPS in the reps field. It used to fall
+// through to the weighted-strength branch, which priced each skip as a 3 s
+// lifting rep plus a 60 s rest credit — 106 skips (about a minute of
+// skipping) read ~54 kcal instead of ~18. Skips are converted to time at a
+// moderate ~110 skips/min, at the Compendium's "rope jumping, moderate"
+// 11.8 MET. Higher ceilings than a rep set: a few hundred skips is an
+// ordinary set, and that much skipping can genuinely pass 60 kcal.
+const JUMP_ROPE_RE = /jump ?rope|skipping|skip(ping)? rope|double unders?/i;
+const JUMP_ROPE_MET = 11.8;
+const JUMP_ROPE_SECONDS_PER_SKIP = 60 / 110;
+const MAX_PLAUSIBLE_SKIPS_PER_SET = 2000;
+const MAX_PLAUSIBLE_JUMP_ROPE_KCAL_PER_SET = 200;
+
+export function isJumpRopeExercise(name) {
+  return JUMP_ROPE_RE.test(name || '');
+}
+
+function jumpRopeKcal(skips, addedWeightKg, bodyWeightKg) {
+  return loadedRepsKcal(skips, bodyWeightKg, addedWeightKg, JUMP_ROPE_MET, JUMP_ROPE_SECONDS_PER_SKIP,
+    MAX_PLAUSIBLE_SKIPS_PER_SET, MAX_PLAUSIBLE_JUMP_ROPE_KCAL_PER_SET);
+}
 
 function loadedCarryKcal(exerciseName, meters, loadKg, bodyWeightKg) {
   const isBodyweightDrill = isBodyweightExercise(exerciseName);
@@ -490,6 +512,9 @@ export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals 
       } else if (set.time !== undefined) {
         // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
         workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg, ex.name);
+      } else if (isJumpRopeExercise(ex.name)) {
+        // reps holds skips for jump rope — see jumpRopeKcal.
+        workKcal += jumpRopeKcal(parseFloat(set.reps) || 0, parseFloat(set.weight) || 0, bodyWeightKg);
       } else if (isLoadedCarryExercise(ex.name)) {
         // reps holds meters for these — see loadedCarryKcal.
         workKcal += loadedCarryKcal(ex.name, parseFloat(set.reps) || 0, parseFloat(set.weight) || 0, bodyWeightKg);

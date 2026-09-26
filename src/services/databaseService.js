@@ -5852,13 +5852,15 @@ const databaseService = {
         // coach with nothing (2026-09-16). The durable in-app copy is
         // already written by the RPC itself, so this is best-effort only.
         if (isSupabaseConfigured && supabase) {
-          try {
-            fetch('/api/push?action=notify-user', {
+          // notify-user verifies the caller is this client (api/_notifyAuth.js),
+          // so the access token has to go along.
+          resolveRealAccessToken()
+            .then(token => fetch('/api/push?action=notify-user', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
               body: JSON.stringify({ event: 'client_connected', clientUserId: clientId, isNew: result.is_new !== false })
-            }).catch(() => {});
-          } catch { /* ignore */ }
+            }))
+            .catch(() => {});
         }
 
         return { success: true, coachId: result.coach_id };
@@ -6500,9 +6502,12 @@ const databaseService = {
     // Best-effort super-admin notification — never let a push hiccup fail
     // the actual save the coach/client is waiting on.
     try {
+      // notify-user verifies the caller is this client or their coach
+      // (api/_notifyAuth.js), so the access token has to go along.
+      const notifyToken = await resolveRealAccessToken();
       await fetch('/api/push?action=notify-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(notifyToken ? { Authorization: `Bearer ${notifyToken}` } : {}) },
         body: JSON.stringify({
           event: 'custom_exercise_created',
           clientUserId: record.client_user_id,

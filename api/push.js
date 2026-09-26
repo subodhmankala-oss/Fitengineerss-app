@@ -19,6 +19,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
+import { authorizeNotify } from './_notifyAuth.js';
 // Reused verbatim from the in-app Muscle Analytics screen (see that file's
 // header) rather than re-implemented here, so the weekly muscle-balance
 // nudge (runMuscleBalanceSweep below) can never drift from what the client
@@ -99,6 +100,35 @@ async function resolveOwnVerifiedUserId(req, claimedUserId) {
     ).then(r => r.json()).catch(() => []);
     const ownId = Array.isArray(rows) && rows[0]?.id;
     return ownId && ownId === claimedUserId ? claimedUserId : null;
+  } catch {
+    return null;
+  }
+}
+
+// Resolves who is calling from their Supabase bearer token: the verified
+// auth email, matched back to the public.users row (id + role) — public.users
+// .id is NOT the auth uid in this project, so the id has to come from the
+// email match, same as resolveOwnVerifiedUserId above. Returns null for a
+// missing/anon/expired token or any lookup failure (never throws).
+async function resolveCaller(req) {
+  if (!serviceKey) return null;
+  const authHeader = req.headers.authorization || '';
+  const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!accessToken || accessToken === anonKey) return null;
+  try {
+    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}` }
+    });
+    if (!userResp.ok) return null;
+    const authUser = await userResp.json().catch(() => null);
+    const email = (authUser?.email || '').trim().toLowerCase();
+    if (!email) return null;
+    const rows = await fetch(
+      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(email)}&select=id,role`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    ).then(r => r.json()).catch(() => []);
+    const row = Array.isArray(rows) ? rows[0] : null;
+    return { email, id: row?.id || null, role: row?.role || null };
   } catch {
     return null;
   }
@@ -818,7 +848,11 @@ async function handleNotifyUser(req, res) {
   }
 
   try {
-    const client = await getClientRow(clientUserId);
+    const [caller, client] = await Promise.all([resolveCaller(req), getClientRow(clientUserId)]);
+    // Caller must be the right person for this notification's direction —
+    // see api/_notifyAuth.js. This endpoint used to trust any request.
+    const auth = authorizeNotify({ event, caller, clientUserId, clientCoachId: client?.coach_id || null });
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
     const clientName = client?.full_name || 'Your client';
 
     let targetUserId = null;

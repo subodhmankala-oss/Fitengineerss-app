@@ -9,7 +9,10 @@ export default function AdminClientsList({
   setActivityFilter,
   loadingClients,
   coachesList = [],
-  onSelectCoachDetails
+  onSelectCoachDetails,
+  // Clients with an unread notification (e.g. "new client signed up") —
+  // blue dot next to their name. See clientNotifications in TrainerDashboard.
+  unreadClientIds = new Set()
 }) {
   if (loadingClients) {
     return (
@@ -120,7 +123,10 @@ export default function AdminClientsList({
                 <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '64px' }}>
                   <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{client.userName}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {client.userName}
+                        {unreadClientIds.has(client.id) && <span className="unread-dot" aria-label="New update" />}
+                      </div>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{client.email}</div>
                       {client.phone && (
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>📞 {client.phone}</div>

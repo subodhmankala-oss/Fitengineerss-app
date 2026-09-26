@@ -527,3 +527,26 @@ html.keyboard-open .trainer-dashboard-container {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Instagram-style unread dot — something from a push notification is
+   waiting behind this client row / tab / nav button (coach:
+   TrainerDashboard.jsx; client: the bottom nav in App.jsx). The ring in the
+   card colour keeps it readable over an avatar photo. */
+.unread-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0095f6;
+  box-shadow: 0 0 0 2px var(--bg-card);
+  pointer-events: none;
+}
+
+/* Top-right corner of a bottom-nav icon, like Instagram's. */
+.nav-item .icon { position: relative; }
+.nav-unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+}

@@ -28,12 +28,13 @@ function BackArrow() {
   );
 }
 
-function SettingsRow({ icon, label, value, onTap, last }) {
+function SettingsRow({ icon, label, value, onTap, last, dot }) {
   return (
     <button className={`cp-row${last ? ' cp-row--last' : ''}`} onClick={onTap}>
       <span className="cp-row-icon">{icon}</span>
       <span className="cp-row-label">{label}</span>
       <span className="cp-row-right">
+        {dot && <span className="unread-dot" aria-label="New" />}
         {value && <span className="cp-row-value">{value}</span>}
         <ChevronRight />
       </span>
@@ -41,11 +42,17 @@ function SettingsRow({ icon, label, value, onTap, last }) {
   );
 }
 
-export default function ClientProfile({ handleLogout, onReplayDemoTour, initialSection = null }) {
+// dotSections / onSectionOpen: sections an unread push notification points
+// at (e.g. a measurement reminder → 'measurements') get a blue dot on their
+// row, and opening the section tells App.jsx it's been seen.
+export default function ClientProfile({ handleLogout, onReplayDemoTour, initialSection = null, dotSections = new Set(), onSectionOpen }) {
   // Lets App.jsx jump straight to a sub-section (e.g. Measurements, from the
   // measurement-reminder push notification's deep link) instead of landing
   // on the plain settings list and leaving the user to find it themselves.
   const [activeSection, setActiveSection] = useState(initialSection);
+  useEffect(() => {
+    if (activeSection && dotSections.has(activeSection)) onSectionOpen?.(activeSection);
+  }, [activeSection, dotSections, onSectionOpen]);
   const { preference: themePreference, setTheme } = useTheme();
 
   const readProfile = () => ({
@@ -748,7 +755,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
       <div className="cp-section-label">Preferences</div>
       <div className="cp-section-card">
         <SettingsRow icon="🏋️" label="Workouts" onTap={() => setActiveSection('workouts')} />
-        <SettingsRow icon="📏" label="Measurements" onTap={() => setActiveSection('measurements')} />
+        <SettingsRow icon="📏" label="Measurements" dot={dotSections.has('measurements')} onTap={() => setActiveSection('measurements')} />
         <SettingsRow icon="📐" label="Units" value={weightUnit === 'kg' ? 'Metric' : 'Imperial'} onTap={() => setActiveSection('units')} />
         <SettingsRow
           icon="🎨"

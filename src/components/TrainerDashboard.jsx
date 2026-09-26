@@ -62,6 +62,19 @@ const DEMO_CLIENT = {
 // produces, so the reused plan editor can't tell the difference from an
 // exercise a coach added manually. Weight is always 0 — the AI has no basis
 // to guess a client's working weights, that's left for the coach to fill in.
+// The client-detail tabs a notification's clientTab can point at (see the
+// unread-dot handling around clientNotifications below).
+const CLIENT_DETAIL_TABS = ['plans', 'livelog', 'workout', 'measurements'];
+
+// A client-detail tab's emoji icon, with the blue unread dot on its corner
+// when a notification points at that tab.
+const TabIcon = ({ icon, dot }) => (
+  <span style={{ position: 'relative' }}>
+    {icon}
+    {dot && <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -8 }} aria-label="New update" />}
+  </span>
+);
+
 const convertAiExerciseToEditorShape = (aiEx) => {
   const type = aiEx.type || 'strength';
   const setCount = Math.max(1, parseInt(aiEx.setCount, 10) || (type === 'cardio' ? 1 : 3));
@@ -645,6 +658,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // card. Also drives the "New" chip on the directory row and the "Used by"
   // line on the Invite Clients card.
   const [newClientNotifications, setNewClientNotifications] = useState([]);
+  // Every other unread notification about a client — the in-app copy of each
+  // push api/push.js sent this coach ("Updated body measurements", "workout
+  // completed", "has gone quiet", a client reply...). Drives the blue dots on
+  // that client's directory row and on the tab the push linked to, so a coach
+  // who opens the app directly (not via the notification) still sees them.
+  const [clientNotifications, setClientNotifications] = useState([]);
 
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
@@ -2601,10 +2620,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   clientsRef.current = clients;
   const refreshNewClientNotifications = async () => {
     if (!resolvedCoachId) return;
-    const rows = await databaseService.getUnreadCoachNotifications(resolvedCoachId);
+    const rows = await databaseService.getUnreadNotifications(resolvedCoachId);
     if (rows === null) return;
     const connected = rows.filter(n => n.type === 'client_connected');
     setNewClientNotifications(connected);
+    setClientNotifications(rows.filter(n => n.type !== 'client_connected' && n.clientId));
     // A notified client missing from the directory means the list is stale
     // (loaded before they connected) — refetch so the row + "New" chip show.
     if (connected.some(n => n.clientId && !clientsRef.current.some(c => c.id === n.clientId)) && fetchClientsRef.current) {
@@ -2619,8 +2639,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const ids = newClientNotifications.filter(n => n.clientId === clientId).map(n => n.id);
     if (ids.length === 0) return;
     setNewClientNotifications((prev) => prev.filter((n) => n.clientId !== clientId));
-    await databaseService.markCoachNotificationsRead(ids);
+    await databaseService.markNotificationsRead(ids);
   };
+
+  // Opening a client marks read the notifications that pointed at the client
+  // in general (no tab); a tab-specific one (e.g. measurements) stays unread —
+  // its dot on that tab still showing — until the coach actually views that
+  // tab. Covers both tapping in and landing here from a push's deep link.
+  const hasClientDot = (clientId, tab = null) => clientNotifications.some(n =>
+    n.clientId === clientId && (tab === null || n.clientTab === tab)
+  );
+  useEffect(() => {
+    if (!selectedClient) return;
+    const seen = clientNotifications.filter(n =>
+      n.clientId === selectedClient.id &&
+      (!CLIENT_DETAIL_TABS.includes(n.clientTab) || n.clientTab === detailTab)
+    );
+    if (seen.length === 0) return;
+    const seenIds = new Set(seen.map(n => n.id));
+    setClientNotifications((prev) => prev.filter((n) => !seenIds.has(n.id)));
+    databaseService.markNotificationsRead([...seenIds]);
+  }, [detailTab, selectedClient, clientNotifications]);
 
   // localStorage key for finished-workout cards the coach dismissed WITHOUT
   // sending a note. Keyed per session (clientId|date) so a NEW session for the
@@ -2848,7 +2887,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // navigating away from that client afterward shouldn't get yanked back to
   // it if `clients` happens to refetch via the real-time listener — but a
   // second tap while the app is open is a new nonce, so it opens too.
-  const DEEP_LINK_TABS = ['plans', 'livelog', 'workout', 'measurements'];
   const deepLinkConsumedNonceRef = useRef(null);
   useEffect(() => {
     if (!deepLinkClient?.id || deepLinkConsumedNonceRef.current === deepLinkClient.nonce || clients.length === 0) return;
@@ -2864,7 +2902,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // handleSelectClient resets the tab to 'plans' synchronously, before
       // its first await, so this lands after it. Measurements are already
       // being fetched by handleSelectClient itself.
-      if (DEEP_LINK_TABS.includes(deepLinkClient.tab)) setDetailTab(deepLinkClient.tab);
+      if (CLIENT_DETAIL_TABS.includes(deepLinkClient.tab)) setDetailTab(deepLinkClient.tab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkClient, clients]);
@@ -4598,6 +4636,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   loadingClients={loadingClients}
                   coachesList={coachesList}
                   onSelectCoachDetails={handleViewCoachClients}
+                  unreadClientIds={new Set([...clientNotifications, ...newClientNotifications].map(n => n.clientId))}
                 />
               )}
             </div>
@@ -6128,13 +6167,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         <tr key={client.id} style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.03)', height: '56px' }}>
                           <td style={{ padding: '8px', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                              <Avatar
-                                className="client-avatar"
-                                email={client.email}
-                                name={client.userName}
-                                avatarUrl={client.avatarUrl}
-                                size={44}
-                              />
+                              <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                                <Avatar
+                                  className="client-avatar"
+                                  email={client.email}
+                                  name={client.userName}
+                                  avatarUrl={client.avatarUrl}
+                                  size={44}
+                                />
+                                {(hasClientDot(client.id) || newClientNotifications.some(n => n.clientId === client.id)) && (
+                                  <span className="unread-dot" style={{ position: 'absolute', top: 0, right: 0 }} aria-label="New update" />
+                                )}
+                              </span>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</span>
@@ -6663,7 +6707,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   }}
                   onClick={() => { handleTabChange('plans'); coachTour.advanceIfStep(2, 3); }}
                 >
-                  <span>📋</span>
+                  <TabIcon icon="📋" dot={hasClientDot(selectedClient?.id, 'plans')} />
                   <span>Send plan</span>
                 </button>
                 <button
@@ -6685,7 +6729,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   }}
                   onClick={() => { handleTabChange('livelog'); coachTour.advanceIfStep(3, 4); }}
                 >
-                  <span>🎯</span>
+                  <TabIcon icon="🎯" dot={hasClientDot(selectedClient?.id, 'livelog')} />
                   <span>Live Log</span>
                 </button>
                 <button
@@ -6707,7 +6751,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   }}
                   onClick={() => handleTabChange('workout')}
                 >
-                  <span>🏋️</span>
+                  <TabIcon icon="🏋️" dot={hasClientDot(selectedClient?.id, 'workout')} />
                   <span>History</span>
                 </button>
                 <button
@@ -6728,7 +6772,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   }}
                   onClick={() => handleTabChange('measurements')}
                 >
-                  <span>📏</span>
+                  <TabIcon icon="📏" dot={hasClientDot(selectedClient?.id, 'measurements')} />
                   <span>Measurements</span>
                 </button>
               </div>

@@ -512,6 +512,52 @@ function App() {
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
   const lastProcessedEmailRef = useRef('');
 
+  // Unread in-app copies of the pushes this client was sent (coach note, new
+  // plan, measurement reminder, monthly report... — see
+  // recordUnreadNotification in api/push.js). Each carries the bottom-nav
+  // tab its push linked to (appTab), which gets a blue dot until the client
+  // visits it — so opening the app directly, without tapping the
+  // notification, still shows where the new thing is. Coaches have their own
+  // copy of this in TrainerDashboard.
+  const [unreadNotifications, setUnreadNotifications] = useState([]);
+  const isClientSession = !!userEmail && onboardingComplete &&
+    !(isSuperAdmin(userEmail) || isTrainer(userEmail) || ['super-admin', 'admin', 'coach'].includes(userRole));
+  useEffect(() => {
+    if (!isClientSession) { setUnreadNotifications([]); return undefined; }
+    let cancelled = false;
+    const refresh = async () => {
+      const id = await databaseService.resolveUserId().catch(() => null);
+      if (!id || cancelled) return;
+      const rows = await databaseService.getUnreadNotifications(id);
+      if (rows && !cancelled) setUnreadNotifications(rows.filter(n => n.appTab));
+    };
+    refresh();
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [isClientSession]);
+  const markNotificationsSeen = (predicate) => {
+    const seen = unreadNotifications.filter(predicate);
+    if (seen.length === 0) return;
+    const seenIds = new Set(seen.map(n => n.id));
+    setUnreadNotifications((prev) => prev.filter((n) => !seenIds.has(n.id)));
+    databaseService.markNotificationsRead([...seenIds]);
+  };
+  // Being on a tab counts as seeing what its notifications pointed at —
+  // except one aimed at a specific screen inside the tab (Profile →
+  // Measurements), which waits for that screen to open (see ClientProfile's
+  // onSectionOpen below).
+  useEffect(() => {
+    markNotificationsSeen(n => n.appTab === activeTab && !n.section);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, unreadNotifications]);
+  const hasNavDot = (tab) => unreadNotifications.some(n => n.appTab === tab);
+
   // Gate: set when a logged-in session's email_confirmed_at is null (email/password
   // signup that hasn't clicked the confirmation link yet). Takes priority over the
   // normal onboarding/login screen until cleared.
@@ -1661,7 +1707,16 @@ function App() {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
       case 'workouts': return <WorkoutTracker />;
-      case 'profile': return <ClientProfile key={deepLinkNonce} handleLogout={handleLogout} onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }} initialSection={deepLinkOpenMeasurements ? 'measurements' : null} />;
+      case 'profile': return (
+        <ClientProfile
+          key={deepLinkNonce}
+          handleLogout={handleLogout}
+          onReplayDemoTour={() => { setActiveTab('home'); clientTour.restart(); }}
+          initialSection={deepLinkOpenMeasurements ? 'measurements' : null}
+          dotSections={new Set(unreadNotifications.filter(n => n.appTab === 'profile' && n.section).map(n => n.section))}
+          onSectionOpen={(section) => markNotificationsSeen(n => n.appTab === 'profile' && n.section === section)}
+        />
+      );
       default: return renderHomeDashboard();
     }
   };
@@ -1864,6 +1919,7 @@ function App() {
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9 22 9 12 15 12 15 22"/>
               </svg>
+              {hasNavDot('home') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
             </span>
             <span>Home</span>
           </button>
@@ -1876,6 +1932,7 @@ function App() {
                 <path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" />
                 <path d="m9.6 14.4 4.8-4.8" />
               </svg>
+              {hasNavDot('workouts') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
             </span>
             <span>Workout</span>
           </button>
@@ -1885,6 +1942,7 @@ function App() {
                 <circle cx="12" cy="8" r="4"/>
                 <path d="M20 21a8 8 0 1 0-16 0"/>
               </svg>
+              {hasNavDot('profile') && <span className="unread-dot nav-unread-dot" aria-label="New" />}
             </span>
             <span>Profile</span>
           </button>

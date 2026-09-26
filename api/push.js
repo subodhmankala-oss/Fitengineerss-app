@@ -177,6 +177,52 @@ async function logPushSend(supabaseClient, { event, targetUserId, title, body, s
   }
 }
 
+// Pushes that are only "come back to the app" nudges — nothing specific is
+// waiting behind them, so they don't leave an unread dot. client_connected
+// is skipped because link_coach_and_enter_transaction already writes its row.
+const NO_UNREAD_DOT_EVENTS = new Set(['client_connected', 'client_inactivity_nudge', 'coach_self_inactivity_nudge']);
+
+// Durable in-app copy of a push (public.notifications), written for every
+// push that points somewhere specific — whether or not the recipient has a
+// subscribed device. The app reads unread rows on open and shows blue dots
+// on the client's row / tab (coach) or bottom-nav tab (client) that `url`
+// leads to, so a push that was swiped away, or never delivered, still
+// surfaces. The dot clears when the user opens that place (see
+// TrainerDashboard.jsx / App.jsx). One unread row per recipient + event +
+// client: five measurement saves before the coach looks are still one dot.
+// Non-fatal: never blocks the push itself.
+async function recordUnreadNotification(recipientUserId, event, url, title, body) {
+  if (!recipientUserId || !url || NO_UNREAD_DOT_EVENTS.has(event)) return;
+  let params;
+  try { params = new URL(url, 'https://app.invalid').searchParams; } catch { return; }
+  const viewClient = params.get('viewClient');
+  const actorUserId = viewClient && /^[0-9a-f-]{36}$/i.test(viewClient) ? viewClient : null;
+  // A bare "/" points nowhere in particular — no dot.
+  if (!actorUserId && [...params.keys()].length === 0) return;
+  try {
+    let existing = supabase
+      .from('notifications')
+      .select('id')
+      .eq('recipient_user_id', recipientUserId)
+      .eq('type', event)
+      .is('read_at', null)
+      .limit(1);
+    existing = actorUserId ? existing.eq('actor_user_id', actorUserId) : existing.is('actor_user_id', null);
+    const { data, error: selErr } = await existing;
+    if (selErr) throw selErr;
+    if (data && data.length > 0) return;
+    const { error } = await supabase.from('notifications').insert({
+      recipient_user_id: recipientUserId,
+      type: event,
+      actor_user_id: actorUserId,
+      payload: { url, title: title || null, body: body || null }
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.warn(`[notifications] failed to record ${event} (non-fatal):`, e.message || e);
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // ─── send-nudges.js (default behavior — hourly wellness cycle + cron
 //     job=inactivity sweep) ───
@@ -252,6 +298,7 @@ function coachAboutInactiveClientMessage(clientName, days) {
 // anywhere the real account data doesn't already point.
 async function pushToUserId(supabaseClient, userId, title, body, event = 'inactivity_nudge', url = null, identityHints = null) {
   if (!userId) return { sent: 0, failed: 0 };
+  await recordUnreadNotification(userId, event, url, title, body);
   const allSubs = await rpcAll(supabaseClient, 'get_push_subscriptions_for_broadcast');
   const email = identityHints?.email ? identityHints.email.trim().toLowerCase() : null;
   const name = identityHints?.name || null;
@@ -733,6 +780,7 @@ async function findSubscriptions(targetUserId, email, name) {
 }
 
 async function pushToUser(targetUserId, title, body, event = 'notify_user', url = null) {
+  await recordUnreadNotification(targetUserId, event, url, title, body);
   const contact = await getUserContact(targetUserId);
   const subs = await findSubscriptions(targetUserId, contact?.email, contact?.full_name);
   if (!subs || subs.length === 0) return { sent: 0, failed: 0, matched: 0 };

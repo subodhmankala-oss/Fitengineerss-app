@@ -4,6 +4,16 @@ import './ClientOnboardingWizard.css';
 
 const TOTAL_STEPS = 4;
 
+function isInRange(value, min, max) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n >= min && n <= max;
+}
+
+function joinWithAnd(items) {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +51,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [step1Error, setStep1Error] = useState('');
   // Which step-1 field(s) specifically are empty/invalid — drives the red
   // border on that exact input, not just the shared error banner text below it.
-  const [step1FieldErrors, setStep1FieldErrors] = useState({ name: false, phone: false });
+  const [step1FieldErrors, setStep1FieldErrors] = useState({ name: false, phone: false, age: false, weight: false, height: false });
   // Steps 2-4 are option picks, not text fields, so "which field" is really
   // "did they pick anything yet" — one flag per step is enough to redden the
   // whole card/row group. All four steps are mandatory: nothing here is
@@ -55,20 +65,31 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const goNext = () => {
     if (step === 1) {
       const digitsOnly = phone.replace(/\D/g, '');
-      const nameMissing = !name.trim();
-      const phoneMissing = digitsOnly.length !== 10;
-      if (nameMissing || phoneMissing) {
-        setStep1FieldErrors({ name: nameMissing, phone: phoneMissing });
-        setStep1Error(
-          nameMissing && phoneMissing
-            ? 'Please enter your name and a valid 10-digit phone number.'
-            : nameMissing
-              ? 'Please enter your name.'
-              : 'Please enter a valid 10-digit phone number.'
-        );
+      // Age/weight/height are required too. They used to be optional and
+      // silently saved as 30 / 70 kg / 175 cm when left blank (see
+      // handleFinish), so every calorie estimate and the daily calorie target
+      // for those clients ran on made-up body stats that looked real.
+      // Ranges match each input's own min/max.
+      const errors = {
+        name: !name.trim(),
+        phone: digitsOnly.length !== 10,
+        age: !isInRange(age, 10, 100),
+        weight: !isInRange(weight, 20, 300),
+        height: !isInRange(height, 100, 250)
+      };
+      const problems = [
+        errors.name && 'your name',
+        errors.phone && 'a valid 10-digit phone number',
+        errors.age && 'your age (10–100)',
+        errors.weight && 'your weight in kg (20–300)',
+        errors.height && 'your height in cm (100–250)'
+      ].filter(Boolean);
+      if (problems.length > 0) {
+        setStep1FieldErrors(errors);
+        setStep1Error(`Please enter ${joinWithAnd(problems)}.`);
         return;
       }
-      setStep1FieldErrors({ name: false, phone: false });
+      setStep1FieldErrors({ name: false, phone: false, age: false, weight: false, height: false });
       setStep1Error('');
     } else if (step === 2) {
       if (!program) { setStep2Error('Please select a program to continue.'); return; }
@@ -101,10 +122,12 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     // four steps are validated before this ever runs, so every one of these
     // reflects a real choice the client made, not a placeholder standing in
     // for one they never got asked to make.
+    // Age/weight/height included: step 1 now requires them (goNext), so no
+    // placeholder body stats are ever saved as if the client entered them.
     const payload = {
-      age: age || '30',
-      weight_kg: weight || '70',
-      height_cm: height || '175',
+      age,
+      weight_kg: weight,
+      height_cm: height,
       program,
       activity_level: activityLevel,
       primary_concern: primaryConcern,
@@ -269,10 +292,10 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           <label className="cow-label">Age (years)</label>
           <input
             type="number"
-            className="cow-input"
+            className={`cow-input ${step1FieldErrors.age ? 'error' : ''}`}
             placeholder="e.g. 28"
             value={age}
-            onChange={e => setAge(e.target.value)}
+            onChange={e => { setAge(e.target.value); if (step1FieldErrors.age) setStep1FieldErrors(prev => ({ ...prev, age: false })); }}
             min="10"
             max="100"
           />
@@ -282,10 +305,10 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
             <label className="cow-label">Weight (kg)</label>
             <input
               type="number"
-              className="cow-input"
+              className={`cow-input ${step1FieldErrors.weight ? 'error' : ''}`}
               placeholder="e.g. 72"
               value={weight}
-              onChange={e => setWeight(e.target.value)}
+              onChange={e => { setWeight(e.target.value); if (step1FieldErrors.weight) setStep1FieldErrors(prev => ({ ...prev, weight: false })); }}
               min="20"
               max="300"
             />
@@ -294,10 +317,10 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
             <label className="cow-label">Height (cm)</label>
             <input
               type="number"
-              className="cow-input"
+              className={`cow-input ${step1FieldErrors.height ? 'error' : ''}`}
               placeholder="e.g. 175"
               value={height}
-              onChange={e => setHeight(e.target.value)}
+              onChange={e => { setHeight(e.target.value); if (step1FieldErrors.height) setStep1FieldErrors(prev => ({ ...prev, height: false })); }}
               min="100"
               max="250"
             />

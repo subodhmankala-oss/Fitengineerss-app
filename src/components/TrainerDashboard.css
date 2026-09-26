@@ -1604,15 +1604,3 @@
     background: rgba(var(--bg-card-rgb), 0.95);
   }
 }
-
-/* Instagram-style unread dot — something new is waiting behind this client
-   row / tab (see measurementNotifications in TrainerDashboard.jsx). The ring
-   in the page background colour keeps it readable over an avatar photo. */
-.unread-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #0095f6;
-  box-shadow: 0 0 0 2px var(--bg-card);
-  pointer-events: none;
-}

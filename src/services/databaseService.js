@@ -4,6 +4,7 @@ import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 import { adaptiveTimeout } from '../utils/networkQuality';
 import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
+import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -4591,38 +4592,48 @@ const databaseService = {
     }
   },
 
-  // Unread in-app notifications for this coach (public.notifications, see
-  // sql/coach_notifications.sql). Today only 'client_connected' rows exist —
-  // written by link_coach_and_enter_transaction in the same transaction as
-  // the invite redemption itself. RLS scopes the read to
-  // recipient_user_id = current_app_user_id(), so the coachId filter here is
-  // belt-and-braces. Returns null on a failed fetch (caller keeps what's on
-  // screen), [] when there's genuinely nothing.
-  async getUnreadCoachNotifications(coachId) {
-    if (!isSupabaseConfigured || !coachId) return [];
+  // Unread in-app notifications for this user — coach or client
+  // (public.notifications, see sql/coach_notifications.sql). Two sources:
+  // 'client_connected' rows written by link_coach_and_enter_transaction, and
+  // a copy of every push api/push.js sends (recordUnreadNotification), whose
+  // payload.url is the push's deep link. That link is parsed here into where
+  // the unread dot belongs: clientTab (coach: which tab inside the client)
+  // and appTab / section (client: which bottom-nav tab, and which screen in
+  // it). RLS scopes the read to recipient_user_id = current_app_user_id(),
+  // so the userId filter here is belt-and-braces. Returns null on a failed
+  // fetch (caller keeps what's on screen), [] when there's genuinely nothing.
+  async getUnreadNotifications(userId) {
+    if (!isSupabaseConfigured || !userId) return [];
     try {
       const rows = await restSelect(
-        `notifications?select=id,type,actor_user_id,payload,created_at&recipient_user_id=eq.${encodeURIComponent(coachId)}&read_at=is.null&order=created_at.desc&limit=50`
+        `notifications?select=id,type,actor_user_id,payload,created_at&recipient_user_id=eq.${encodeURIComponent(userId)}&read_at=is.null&order=created_at.desc&limit=50`
       );
-      return (rows || []).map(r => ({
-        id: r.id,
-        type: r.type,
-        clientId: r.actor_user_id,
-        clientName: r.payload?.client_name || null,
-        clientEmail: r.payload?.client_email || null,
-        inviteCode: r.payload?.invite_code || null,
-        isNew: r.payload?.is_new !== false,
-        createdAt: r.created_at
-      }));
+      return (rows || []).map(r => {
+        let link = null;
+        try { link = r.payload?.url ? parseDeepLink(new URL(r.payload.url, 'https://app.invalid').search) : null; } catch { link = null; }
+        return {
+          id: r.id,
+          type: r.type,
+          clientId: r.actor_user_id,
+          clientName: r.payload?.client_name || null,
+          clientEmail: r.payload?.client_email || null,
+          inviteCode: r.payload?.invite_code || null,
+          isNew: r.payload?.is_new !== false,
+          clientTab: link?.clientTab || null,
+          appTab: tabForDeepLink(link),
+          section: link?.openMeasurements === '1' ? 'measurements' : null,
+          createdAt: r.created_at
+        };
+      });
     } catch (e) {
-      console.error('Cloud DB Get Coach Notifications Error:', e);
+      console.error('Cloud DB Get Notifications Error:', e);
       return null;
     }
   },
 
-  // Coach opened the client / dismissed the card — stops it resurfacing.
-  // Accepts one id or a list (e.g. every unread row for one client).
-  async markCoachNotificationsRead(ids) {
+  // The user opened what the notification pointed at (or dismissed its
+  // card) — stops it resurfacing. Accepts one id or a list.
+  async markNotificationsRead(ids) {
     const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
     if (!isSupabaseConfigured || list.length === 0) return { success: false };
     try {
@@ -4632,7 +4643,7 @@ const databaseService = {
       );
       return { success: true };
     } catch (e) {
-      console.error('Cloud DB Mark Coach Notifications Read Error:', e);
+      console.error('Cloud DB Mark Notifications Read Error:', e);
       return { success: false, error: e.message || 'Update failed' };
     }
   },

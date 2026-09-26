@@ -337,11 +337,16 @@ export function isLoadedCarryExercise(name) {
 // KG number and was priced as weight training (with a per-set rest credit)
 // instead of vigorous calisthenics. It now gets the Bodyweight/+Add Weight
 // toggle like Burpee, and the 8.0 MET vigorous bracket in liveWorkoutTimer.
+//
+// Jump Rope / Skipping (added 2026-09-26) is only ever a custom exercise —
+// it isn't in the library — so it landed on the plain weight+reps shape and
+// asked for a KG number. It now gets the Bodyweight toggle too; its reps are
+// skips, priced by liveWorkoutTimer's own jump-rope branch.
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises'].includes(n)) return true;
-  return /push[- ]?up|mountain climber|jumping jack|jump squat|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

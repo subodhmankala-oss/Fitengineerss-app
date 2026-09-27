@@ -482,6 +482,41 @@
   background: rgba(var(--fg-rgb), 0.04);
 }
 
+.trainer-search-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* Room for the clear button so typed text never runs under it. */
+.trainer-search-wrap .trainer-search-input {
+  padding-right: 42px;
+}
+
+.trainer-search-clear-btn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.08);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.trainer-search-clear-btn:hover {
+  background: rgba(var(--fg-rgb), 0.16);
+  color: var(--text-main);
+}
+
 .filter-tags,
 .admin-category-pills {
   display: flex;
@@ -1517,7 +1552,7 @@
     justify-content: space-between;
   }
 
-  body.admin-wide-frame .trainer-search-input {
+  body.admin-wide-frame .trainer-search-wrap {
     max-width: 360px;
   }
 

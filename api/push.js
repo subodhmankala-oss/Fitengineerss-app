@@ -236,6 +236,12 @@ const morningQuotes = [
   "Good morning. Fuel your body well, move with purpose, and be kind to yourself. You've got everything it takes. 🙌"
 ];
 
+// Days of no login on which a client gets their own "we miss you" push. The
+// inactivity sweep runs once a day, so each milestone fires once; after the
+// last one the client hears nothing more until they come back and drift off
+// again.
+const CLIENT_NUDGE_DAYS = [3, 7, 14, 30];
+
 function daysSinceLogin(lastLogin) {
   if (!lastLogin) return null;
   return Math.floor((Date.now() - new Date(lastLogin).getTime()) / (24 * 60 * 60 * 1000));
@@ -249,7 +255,24 @@ function daysSinceLogin(lastLogin) {
 // back on track"). Same warm/low-pressure tone here — the notification's job
 // is just to get them to open the app; the actual re-engagement moment lives
 // in the Welcome Back screen itself.
-function clientInactivityMessage(name, days) {
+//
+// hasCoach=false: a client with no coach lands on Home's ComebackCard
+// (src/components/ComebackCard.jsx), which offers a 10-minute session built
+// from their own last workout, so the copy points at that one small thing.
+// It doesn't say "from your last workout": a client who has never logged one
+// gets NextWorkoutBanner's one-tap Gym/Home starter there instead.
+function clientInactivityMessage(name, days, hasCoach = true) {
+  if (!hasCoach) {
+    return days < 7
+      ? {
+          title: `👀 Got 10 minutes, ${name}?`,
+          body: "A quick 10-minute session is ready for you. One tap and you're in. 💪"
+        }
+      : {
+          title: `We saved your spot, ${name} 🙌`,
+          body: "No pressure. Whenever you're ready, a short 10-minute session is waiting to ease you back in."
+        };
+  }
   if (days < 7) {
     return {
       title: `👀 Look who we're thinking about, ${name}`,
@@ -352,9 +375,14 @@ async function runInactivitySweep(supabaseClient, res) {
         if (days < 3) { skipped++; continue; }
 
         const name = clientRow.full_name || u.full_name || 'there';
-        const msg = clientInactivityMessage(name, days);
-        const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge', '/?tab=home', { email: u.email, name });
-        if (result.sent > 0) clientNudges++;
+        // The client's own nudge goes out on CLIENT_NUDGE_DAYS only (not
+        // every day forever), so it stays worth reading. The coach alert
+        // below keeps its own daily schedule.
+        if (CLIENT_NUDGE_DAYS.includes(days)) {
+          const msg = clientInactivityMessage(name, days, !!clientRow.coach_id);
+          const result = await pushToUserId(supabaseClient, u.id, msg.title, msg.body, 'client_inactivity_nudge', '/?tab=home', { email: u.email, name });
+          if (result.sent > 0) clientNudges++;
+        }
 
         // Same 3+ day threshold as the client's own nudge above (was 2+) —
         // keeps the coach alert from firing a day before the client ever

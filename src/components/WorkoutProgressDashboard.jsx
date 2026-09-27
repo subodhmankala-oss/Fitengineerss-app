@@ -7,6 +7,8 @@ import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
+import ComebackCard from './ComebackCard';
+import { COMEBACK_THRESHOLD_DAYS, daysSinceLastWorkout } from '../utils/comebackWorkout';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
@@ -1049,9 +1051,26 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           both resolved — and hidden whenever a session is already in
           progress (the banner above already covers that case) so the two
           never stack. */}
-      {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && (
-        <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
-      )}
+      {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && (() => {
+        // A client back after COMEBACK_THRESHOLD_DAYS+ days without a workout
+        // gets ComebackCard (10-min session / get a coach) instead of the
+        // regular next-program banner. Never-trained clients keep the
+        // banner's own Gym/Home starter picker.
+        const daysAway = daysSinceLastWorkout(logs);
+        if (userId && daysAway !== null && daysAway >= COMEBACK_THRESHOLD_DAYS) {
+          return (
+            <ComebackCard
+              userId={userId}
+              userName={userName}
+              logs={logs}
+              daysAway={daysAway}
+              onNavigateToWorkouts={onNavigateToWorkouts}
+              onConnectCoach={() => setShowConnectModal(true)}
+            />
+          );
+        }
+        return <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />;
+      })()}
 
       {/* Single Prominent Sessions Done Progress Card — belongs to the
           coaching relationship, so it only renders for clients actually

@@ -86,7 +86,7 @@ self.addEventListener('push', (e) => {
   if (e.data) {
     try {
       data = e.data.json();
-    } catch (err) {
+    } catch {
       data = { title: 'Fitengineers Coach 🥗', body: e.data.text() };
     }
   }

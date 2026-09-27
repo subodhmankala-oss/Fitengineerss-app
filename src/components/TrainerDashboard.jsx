@@ -623,6 +623,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
   const [goalFilter, setGoalFilter] = useState('All');
   const [activityFilter, setActivityFilter] = useState(null);
   // Deliberately NOT restored from localStorage/DB on mount (see the removed
@@ -6061,13 +6062,29 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </div>
 
               <div className="search-filter-box">
-                <input
-                  type="text"
-                  className="trainer-search-input"
-                  placeholder="🔍 Search client by name or email..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
+                <div className="trainer-search-wrap">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    className="trainer-search-input"
+                    placeholder="🔍 Search client by name or email..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="trainer-search-clear-btn"
+                      aria-label="Clear search"
+                      onClick={() => {
+                        setSearchQuery('');
+                        searchInputRef.current?.focus();
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 <div className="filter-tags">
                   {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
                     <button

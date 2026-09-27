@@ -2529,7 +2529,6 @@ const databaseService = {
   },
 
   async getAllUsers() {
-    const loggedInEmail = localStorage.getItem('userEmail');
     const loggedInRole = localStorage.getItem('userRole');
     const loggedInCoachId = localStorage.getItem('userCoachId');
 
@@ -3618,7 +3617,7 @@ const databaseService = {
           if (resp.ok && body?.message) {
             return [body.message];
           }
-        } catch (e2) { /* fall through to local mock below */ }
+        } catch { /* fall through to local mock below */ }
         console.error('Cloud DB Save Chat Error, falling back to local:', directError);
       }
     }
@@ -3863,7 +3862,7 @@ const databaseService = {
     const stored = localStorage.getItem(key);
     let plans = [];
     if (stored) {
-      try { plans = JSON.parse(stored); } catch (e) { /* */ }
+      try { plans = JSON.parse(stored); } catch { /* */ }
     }
     // Also check UUID-keyed localStorage if userId is a name
     const sessionId = localStorage.getItem('userId');
@@ -3876,7 +3875,7 @@ const databaseService = {
           // Merge, deduplicating by plan id
           const existingIds = new Set(plans.map(p => p.id));
           uuidPlans.forEach(p => { if (!existingIds.has(p.id)) plans.push(p); });
-        } catch (e) { /* */ }
+        } catch { /* */ }
       }
     }
     return plans;
@@ -4132,7 +4131,7 @@ const databaseService = {
         const body = await resp.json().catch(() => null);
         if (!resp.ok || !body?.success) throw directError;
         return body;
-      } catch (e2) {
+      } catch {
         console.error('Cloud DB Save Body Measurement Error:', directError);
         return { success: false, error: directError.message || 'Save failed' };
       }
@@ -5385,7 +5384,7 @@ const databaseService = {
 
     try {
       return await restUpdate(query, usage);
-    } catch (err) {
+    } catch {
       // Fallback: some deployments' invitations table may not have used_at/used_by.
       return await restUpdate(query, { used });
     }

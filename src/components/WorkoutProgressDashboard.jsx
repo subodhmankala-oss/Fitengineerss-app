@@ -31,7 +31,7 @@ import './WorkoutProgressDashboard.css';
 // which exist yet — see conversation).
 const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
-const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null }) => {
+const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null }) => {
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('Warrior');
   // initialTimeframe carries the ?openMuscleMap=1 deep link (see App.jsx) —
@@ -494,7 +494,6 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
     let totalCalories = 0;
     let totalDurationSeconds = 0;
     const dailySets = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     weekDays.forEach(day => {
       if (groupedLogs[day]) {
@@ -505,7 +504,6 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         totalDurationSeconds += groupedLogs[day].durationSeconds || 0;
 
         const dateObj = parseLocalDateString(day);
-        const dayOfWeekStr = dayNames[dateObj.getDay() === 0 ? 0 : dateObj.getDay()];
         // Map Sun -> Sun, Mon -> Mon, etc.
         const mappedName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
         dailySets[mappedName] = groupedLogs[day].sets;
@@ -725,7 +723,6 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
     const history = monthlyStats.dailyVolumeHistory;
     const values = history.map(h => h.volume);
     const maxVal = Math.max(...values, 100);
-    const minVal = 0;
     const width = 320;
     const height = 120;
     const padding = 20;
@@ -782,7 +779,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
         )}
 
         {/* Highlight points on active days */}
-        {activeNodes.map((node, idx) => {
+        {activeNodes.map((node) => {
           const origIdx = history.findIndex(h => h.date === node.date);
           const x = getX(origIdx);
           const y = getY(node.volume);

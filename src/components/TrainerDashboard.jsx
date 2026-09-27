@@ -7855,7 +7855,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
                             const exIsTimed = isTimedExercise(ex.name);
                             const exIsLoadedCarry = isLoadedCarryExercise(ex.name);
                             // Same Bodyweight/+Add Weight handling as the Live
-                            // Log (see exIsBodyweight/exBwMode below in the
+                            // Log (see exIsBodyweight/allSetsLiveBw below in the
                             // liveExercises render) — this editor previously
                             // never checked isBodyweightExercise at all, so
                             // Cat Camel/Glute Bridge/Steppers/Squat etc. always
@@ -8646,7 +8646,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
                     {liveExercises.map((ex, exIdx) => {
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);
-                    const exBwMode = exIsBodyweight ? getLiveExBwMode(ex) : false;
                     // The BODYWEIGHT/KG column header reflects the real
                     // current state of the sets (not the stale exercise-
                     // level default) — it only says BODYWEIGHT when every

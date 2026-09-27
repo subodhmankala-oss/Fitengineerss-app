@@ -497,7 +497,9 @@ export function remapSetTimersForSetRemoval(exIdx, removedSetIdx, timers) {
 // cardio/timed/bodyweight sets (the plain strength formula doesn't use it,
 // since it already has a real logged weight to work with) — defaults to an
 // average adult when the caller doesn't have the client's actual weight.
-export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+// _pauseIntervals is unused (with no idle burn there is nothing to pause); it
+// stays so every caller's argument positions still line up.
+export function computeLiveCalories(exercises, sessionStartedAt, _pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   let workKcal = 0;
 
   exercises.forEach((ex) => {

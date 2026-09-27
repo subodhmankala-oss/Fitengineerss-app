@@ -107,7 +107,43 @@ const convertAiDayToEditorShape = (day) => ({
   exercises: (day.exercises || []).map(convertAiExerciseToEditorShape)
 });
 
-const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
+// Shown to a coach whose application hasn't been approved yet. Lives outside
+// TrainerDashboardContent so that component never returns before its hooks:
+// the early return this replaces sat in front of ~150 hooks, so a render
+// where the role check flipped would change the hook count and crash React.
+const CoachPendingScreen = ({ handleLogout }) => {
+  return (
+    <div className="trainer-dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
+      <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', padding: '40px', borderRadius: '16px', maxWidth: '500px' }}>
+        <h2 style={{ color: '#f59e0b', marginBottom: '16px' }}>⏳ Application Pending</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
+          Thank you for applying to be a Fitengineers Coach. Your application is currently under review by our administration team.
+        </p>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '0.9rem' }}>
+          We'll notify you once your account has been approved and activated.
+        </p>
+        <button 
+          onClick={handleLogout}
+          style={{ padding: '10px 24px', background: 'var(--danger)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          Log Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const TrainerDashboard = (props) => {
+  const loggedInEmail = localStorage.getItem('userEmail') || '';
+  const userRole = localStorage.getItem('userRole') || '';
+  const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
+  if (userRole === 'coach_pending' && !superAdmin) {
+    return <CoachPendingScreen handleLogout={props.handleLogout} />;
+  }
+  return <TrainerDashboardContent {...props} />;
+};
+
+const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
@@ -370,28 +406,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       setLoadingDrilldown(false);
     }
   };
-
-  if (userRole === 'coach_pending' && !superAdmin) {
-    return (
-      <div className="trainer-dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
-        <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', padding: '40px', borderRadius: '16px', maxWidth: '500px' }}>
-          <h2 style={{ color: '#f59e0b', marginBottom: '16px' }}>⏳ Application Pending</h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
-            Thank you for applying to be a Fitengineers Coach. Your application is currently under review by our administration team.
-          </p>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '0.9rem' }}>
-            We'll notify you once your account has been approved and activated.
-          </p>
-          <button 
-            onClick={handleLogout}
-            style={{ padding: '10px 24px', background: 'var(--danger)', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            Log Out
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const fetchAdminData = async () => {
     if (!superAdmin) return;

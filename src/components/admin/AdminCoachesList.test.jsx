@@ -99,4 +99,32 @@ describe('AdminCoachesList component', () => {
     expect(viewClientsSpy).toHaveBeenCalledTimes(1);
     expect(viewClientsSpy).toHaveBeenCalledWith(mockCoaches[0]);
   });
+
+  it('should filter coaches by the search box (name, email or brand) and clear it', () => {
+    render(
+      <AdminCoachesList
+        coachesList={mockCoaches}
+        loadingAdmin={false}
+        onToggleBlock={() => {}}
+        onViewClients={() => {}}
+      />
+    );
+
+    const input = screen.getByPlaceholderText(/Search coach/);
+
+    fireEvent.change(input, { target: { value: 'S&C' } });
+    expect(screen.queryByText('Subodh Mankala')).toBeNull();
+    expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
+
+    fireEvent.change(input, { target: { value: 'SUBODH@' } });
+    expect(screen.getByText('Subodh Mankala')).toBeTruthy();
+    expect(screen.queryByText('Jaswanth Gone')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'nobody' } });
+    expect(screen.getByText('No Coaches Found')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(screen.getByText('Subodh Mankala')).toBeTruthy();
+    expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
+  });
 });

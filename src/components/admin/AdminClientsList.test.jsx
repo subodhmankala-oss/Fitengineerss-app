@@ -160,4 +160,34 @@ describe('AdminClientsList component', () => {
     expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
     expect(screen.getByText('Subodh Guest')).toBeTruthy();
   });
+
+  it('should filter clients by the search box (name, email or coach) and clear it', () => {
+    render(
+      <AdminClientsList
+        clients={mockClients}
+        goalFilter="All"
+        setGoalFilter={() => {}}
+        loadingClients={false}
+        coachesList={mockCoaches}
+        onSelectCoachDetails={() => {}}
+      />
+    );
+
+    const input = screen.getByPlaceholderText(/Search client/);
+
+    fireEvent.change(input, { target: { value: 'guest@' } });
+    expect(screen.queryByText('Jaswanth Gone')).toBeNull();
+    expect(screen.getByText('Subodh Guest')).toBeTruthy();
+
+    fireEvent.change(input, { target: { value: 'ravi' } });
+    expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
+    expect(screen.queryByText('Subodh Guest')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'nobody' } });
+    expect(screen.getByText('No Clients Found')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
+    expect(screen.getByText('Subodh Guest')).toBeTruthy();
+  });
 });

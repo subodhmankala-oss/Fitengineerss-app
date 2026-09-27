@@ -8,10 +8,10 @@ import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 
 // New service worker installs and sits "waiting" until every open tab is
-// closed, UNLESS the page explicitly tells it to activate (see the
-// UpdateToast component / main.jsx, which posts this message when the user
-// taps "Refresh"). That's what makes updates safe: nothing is torn out from
-// under a client mid-session.
+// closed, UNLESS the page explicitly tells it to activate (see
+// pwa/registerPWA.js, which posts this message when the user taps "Refresh"
+// on the UpdateBanner or the app is backgrounded). That's what makes updates
+// safe: nothing is torn out from under a client mid-session.
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING' || event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();

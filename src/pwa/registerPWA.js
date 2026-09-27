@@ -3,102 +3,106 @@
 // DOM CustomEvents (no extra state library needed for two booleans).
 import { registerSW } from 'virtual:pwa-register';
 
-let applyUpdateFn = null;
 let swRegistration = null;
 let updatePending = false;
 let reloadingForUpdate = false;
+let lastFilePickerClickAt = 0;
 
-// Activates a worker that is ALREADY sitting in `waiting` — the case
-// onNeedRefresh cannot see. registerSW only reports an update it watches
-// install during this page's lifetime (it hangs off `updatefound`), so a
-// worker that finished installing on a PREVIOUS visit and is waiting when
-// the page loads fires nothing at all. The browser then keeps serving the
-// old worker — and therefore the old JS bundle — on every reload until every
-// tab/window for the origin is closed at the same moment, which on a phone
-// (where the app is suspended, not closed) can be days or never.
+// UPDATE POLICY (2026-09-27): a newer build is announced, not forced on
+// someone mid-session. The UpdateBanner offers "Refresh"; if it's ignored or
+// dismissed, the update is applied the moment the app goes into the
+// background (see the visibilitychange listener in initPWA) — so the reload
+// happens while nobody is looking, and they come back to the new build.
+// A build that's already waiting on a cold launch is still applied straight
+// away: nothing is in progress yet, so there's nothing to interrupt.
 //
-// Found 2026-09-15 while chasing "your fix didn't change anything on my
-// phone": the deployed preview served index-CkekcBqf.js while the open page
-// was still running index-BhKVFcUv.js, with a waiting worker parked behind
-// it. Every fix shipped in that window was invisible to that device.
-function activateWaitingWorker(registration) {
-  const waiting = registration?.waiting;
+// History: 2026-08-18 switched to reloading the instant an update was found,
+// because an opt-in toast left people on buggy builds for days (see
+// UpdateBanner.jsx). Applying on background keeps that guarantee without
+// pulling the screen out from under someone who is typing.
+
+// Tells a waiting worker to take over. The controllerchange listener
+// registered in initPWA does the actual reload once it has.
+function applyWaitingWorker() {
+  const waiting = swRegistration?.waiting;
   // No controller means this is a first install — nothing is being replaced,
   // so there's no stale bundle to escape and no reason to reload.
-  if (!waiting || !navigator.serviceWorker.controller) return;
+  if (!waiting || !navigator.serviceWorker.controller) return false;
+  waiting.postMessage({ type: 'SKIP_WAITING' });
+  return true;
+}
+
+function hasWaitingUpdate() {
+  return !!(swRegistration?.waiting && navigator.serviceWorker.controller);
+}
+
+function announceUpdate() {
   updatePending = true;
   window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloadingForUpdate) return;
-    reloadingForUpdate = true;
-    window.location.reload();
-  });
-  waiting.postMessage({ type: 'SKIP_WAITING' });
 }
 
 export function initPWA() {
   if (!('serviceWorker' in navigator)) return;
 
-  applyUpdateFn = registerSW({
+  // sw.js never calls clients.claim(), so the controller only ever changes
+  // when a waiting worker is told to skip waiting — i.e. an update. Reload
+  // onto the new build whenever that happens, in every open tab: a tab left
+  // running the old JS under the new worker would request hashed chunks the
+  // current deployment no longer has.
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadingForUpdate) return;
+      reloadingForUpdate = true;
+      window.location.reload();
+    });
+  }
+
+  // Opening the camera / photo picker from an <input type="file"> (meal
+  // scanner, coach logo, payment QR) backgrounds the page on mobile. Applying
+  // the update then would reload the page and throw away the photo being
+  // picked, so a hide that follows a file-input click right away is skipped.
+  // The banner stays up and the next real backgrounding applies it.
+  document.addEventListener('click', (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.type === 'file') {
+      lastFilePickerClickAt = Date.now();
+    }
+  }, true);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    if (Date.now() - lastFilePickerClickAt < 5000) return;
+    applyWaitingWorker();
+  });
+
+  // registerType is 'prompt' (vite.config.js), so the plugin reports a new
+  // worker via onNeedRefresh and leaves applying it to us.
+  registerSW({
     onRegisteredSW(swUrl, registration) {
       if (!registration) return;
       swRegistration = registration;
-      // BUG FIX 2026-08-16: main.jsx's `pageshow` listener calls
-      // checkForUpdateOnForeground() as the "catch an update on cold
-      // launch" path — but pageshow fires right after the page's `load`
-      // event, while registerSW()'s own registration handshake (this
-      // callback) is async and lands later. checkForUpdateOnForeground()
-      // no-ops via its `if (!swRegistration) return` guard until
-      // swRegistration is set here, so on a literal close-and-reopen —
-      // the exact repro a coach reported — the cold-launch check was lost
-      // to this race on EVERY launch, leaving only the 5-minute interval
-      // (unreliable: mobile browsers throttle/suspend timers on
-      // backgrounded tabs) to ever find a pending update. Check the
-      // instant the registration itself is ready instead of waiting on an
-      // event that may have already fired before this ran.
-      // A build that installed on an earlier visit may already be waiting
-      // right now — take it before anything else, since this page is running
-      // the old bundle until we do.
-      activateWaitingWorker(registration);
+      // A worker that finished installing on a PREVIOUS visit may already be
+      // waiting — onNeedRefresh can't see that case (it only reports installs
+      // it watches during this page's lifetime), and without taking it here
+      // the browser keeps serving the old bundle on every reload until every
+      // tab for the origin is closed at once, which on a phone can be never.
+      // Found 2026-09-15: a preview served index-CkekcBqf.js while the open
+      // page still ran index-BhKVFcUv.js with a waiting worker parked behind
+      // it. This runs on load, before anything is in progress, so it's safe
+      // to apply immediately rather than just announce.
+      applyWaitingWorker();
+      // BUG FIX 2026-08-16: check the instant the registration is ready —
+      // main.jsx's pageshow check can fire before this callback lands and
+      // would otherwise no-op on every cold launch.
       registration.update().catch(() => {});
       // Check for a newer deploy periodically while the app stays open, not
-      // just on the initial page load — closes the exact gap above for a
-      // long-running session. Errors here are non-fatal; the next interval
-      // just tries again.
+      // just on the initial page load. Errors here are non-fatal; the next
+      // interval just tries again.
       setInterval(() => {
         registration.update().catch(() => {});
       }, 5 * 60 * 1000);
     },
     onNeedRefresh() {
-      updatePending = true;
-      // POLICY CHANGE 2026-08-18: previously this only ever surfaced a
-      // dismissible toast and left applying the update entirely up to the
-      // user tapping "Refresh" (see the 2026-08-13 regression fix this
-      // replaces). That made every fix's rollout depend on someone noticing
-      // and tapping a toast — and in practice they often didn't: a coach's
-      // Live Log and a client's own logger both kept silently computing
-      // durationSeconds/caloriesBurned as null for a bug that had already
-      // been fixed and deployed, hours/days earlier, because their tab was
-      // still running the old JS and nothing forced it to update. Reported
-      // repeatedly (2026-08-13 for a save failure, 2026-08-18 for silently
-      // wrong saved data) — different symptoms, same root cause: an
-      // update that's ready and waiting but never gets applied.
-      //
-      // This is NOT the same as the 2026-08-13 regression: that one only
-      // auto-applied within a narrow "first 5s of app open" window, which
-      // (with deploys landing several times a day) ended up swallowing the
-      // toast almost every single reopen. This applies unconditionally,
-      // whenever a new build is found — on the initial registration check,
-      // the 5-minute interval, or a foreground/pageshow check — so it isn't
-      // gated to a window that eats the common case.
-      //
-      // Still surfaces the toast (so an update isn't invisible — the coach
-      // sees why the screen just reloaded) but no longer waits on a tap to
-      // apply it: every in-progress session is already continuously
-      // autosaved to a draft (client and coach Live Log both), so a reload
-      // here loses at most the last few keystrokes, not the session.
-      window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
-      applyUpdateFn?.(true);
+      announceUpdate();
     },
     onOfflineReady() {
       window.dispatchEvent(new CustomEvent('pwa:offline-ready'));
@@ -109,37 +113,32 @@ export function initPWA() {
   });
 }
 
-// Tells the waiting worker to skip waiting + activate, then reloads once
-// it takes control. Safe to call any time after initPWA().
+// Activates the waiting worker now; the page reloads once it takes control.
+// Falls back to a plain reload if there's no waiting worker to hand over to
+// (e.g. it was already activated from another tab). Safe to call any time
+// after initPWA().
 export function applyPWAUpdate() {
-  applyUpdateFn?.(true);
+  if (!applyWaitingWorker()) window.location.reload();
 }
 
 // The 5-minute setInterval above is NOT a reliable way to catch updates on a
 // long-open mobile session: mobile browsers throttle or fully suspend JS
 // timers for backgrounded/inactive tabs to save battery, so an installed PWA
-// left open for hours (screen off, app backgrounded most of that time) can
-// have that interval simply never fire. Confirmed 2026-08-13: a coach's tab
-// open 8h43m+ never showed the "Update available" toast at all, for two
-// deploys in a row, despite the interval supposedly running the whole time.
+// left open for hours can have that interval simply never fire. Confirmed
+// 2026-08-13: a coach's tab open 8h43m+ never saw an update, for two deploys
+// in a row.
 //
 // `visibilitychange`->visible and `pageshow` are far more reliable: they
 // fire when the OS actually hands the tab execution time again, which is a
-// real event even for a process that was fully suspended in between — unlike
-// a timer, which needs to have kept ticking through the suspension to ever
-// go off. main.jsx calls this from both.
+// real event even for a process that was fully suspended in between. main.jsx
+// calls this from both. It only announces — applying happens on the next
+// backgrounding, so returning to the app never reloads it in someone's face.
 export async function checkForUpdateOnForeground() {
   if (!swRegistration) return;
   try {
     await swRegistration.update();
   } catch { /* offline — next foreground event tries again */ }
-  // update() can leave a worker waiting without onNeedRefresh ever running
-  // (see activateWaitingWorker) — so check the registration itself rather
-  // than trusting the callback to have fired.
-  activateWaitingWorker(swRegistration);
-  if (updatePending) {
-    window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
-  }
+  if (updatePending || hasWaitingUpdate()) announceUpdate();
 }
 
 // A stale tab silently running pre-fix JS reproduces whatever bug that fix
@@ -148,18 +147,17 @@ export async function checkForUpdateOnForeground() {
 // doesn't touch it. Reported repeatedly 2026-08-13: a coach's Live Log save
 // kept failing with "Failed to save session" hours after the actual fix had
 // already shipped and gone live, because their tab had been open since
-// before the deploy. This lets a genuine failure (not a timeout — see
-// handleFinishLiveLog) check, on the spot, whether a newer build is already
-// sitting there waiting, so the recovery path can be "you're on an old
-// version — updating now" instead of a dead-end retry loop.
+// before the deploy. This lets a save path check, on the spot, whether a
+// newer build is already sitting there waiting, so the recovery path can be
+// "you're on an old version — updating now" instead of a dead-end retry loop.
 export async function checkForPendingPWAUpdate() {
-  if (updatePending) return true;
+  if (updatePending || hasWaitingUpdate()) return true;
   if (!swRegistration) return false;
   try {
     await swRegistration.update();
   } catch { /* offline or registration gone — treat as "no update found" */ }
-  // onNeedRefresh fires synchronously off the update() call when a new SW is
-  // found, but give the event loop a tick to actually run it.
+  // onNeedRefresh fires off the update() call when a new SW is found, but
+  // give the event loop a tick to actually run it.
   await new Promise((r) => setTimeout(r, 300));
-  return updatePending;
+  return updatePending || hasWaitingUpdate();
 }

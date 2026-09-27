@@ -12,7 +12,6 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const [isLinkedToCoach, setIsLinkedToCoach] = useState(
     () => localStorage.getItem('clientLinkedToCoach') === 'true'
   );
-  const [score, setScore] = useState(6);
   const [checks, setChecks] = useState({
     phone: true,
     chewed: false,
@@ -256,8 +255,6 @@ const HomeTracker = ({ setActiveTab, handleLogout }) => {
   const toggleCheck = (key) => {
     setChecks(prev => {
       const newChecks = { ...prev, [key]: !prev[key] };
-      const newScore = Object.values(newChecks).filter(Boolean).length * 2; 
-      setScore(newScore);
       return newChecks;
     });
   };

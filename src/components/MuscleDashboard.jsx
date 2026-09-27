@@ -7,7 +7,6 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
   const [userName, setUserName] = useState('Warrior');
   const [calorieBudget, setCalorieBudget] = useState(2500);
   const [showScanner, setShowScanner] = useState(false);
-  const [score, setScore] = useState(8);
   const [checks, setChecks] = useState({
     protein: true,
     calories: true,
@@ -249,8 +248,6 @@ const MuscleDashboard = ({ setActiveTab, handleLogout }) => {
   const toggleCheck = (key) => {
     setChecks(prev => {
       const newChecks = { ...prev, [key]: !prev[key] };
-      const newScore = Object.values(newChecks).filter(Boolean).length * 2; 
-      setScore(newScore);
       return newChecks;
     });
   };

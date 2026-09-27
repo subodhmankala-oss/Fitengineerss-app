@@ -606,43 +606,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
     return uniqueDates.size;
   };
 
-  // Best weight lifted this week
-  const getBestWeightThisWeek = () => {
-    let best = 0;
-    let bestExercise = '';
-    weekDays.forEach(day => {
-      if (groupedLogs[day]) {
-        Object.entries(groupedLogs[day].exercises).forEach(([exName, sets]) => {
-          sets.forEach(s => {
-            if (s.weight > best) {
-              best = s.weight;
-              bestExercise = exName;
-            }
-          });
-        });
-      }
-    });
-    return { weight: best, exercise: bestExercise };
-  };
-
-  // Best workout of the week (highest volume day)
-  const getBestWorkoutOfWeek = () => {
-    let bestDay = '';
-    let bestVolume = 0;
-    weekDays.forEach(day => {
-      if (groupedLogs[day] && groupedLogs[day].volume > bestVolume) {
-        bestVolume = groupedLogs[day].volume;
-        bestDay = day;
-      }
-    });
-    if (!bestDay) return { dayName: '—', volume: 0 };
-    const dayName = parseLocalDateString(bestDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    return { dayName, volume: bestVolume };
-  };
-
   const totalSessionsDone = getTotalSessionsDone();
-  const bestWeight = getBestWeightThisWeek();
-  const bestWorkout = getBestWorkoutOfWeek();
 
   // --- SVG Charts Calculations ---
   // 1. Weekly Bar Chart Coordinates

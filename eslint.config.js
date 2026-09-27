@@ -26,4 +26,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // Vercel functions, one-off maintenance scripts and build tooling run on
+  // Node, and tests reach for Node's `global` to stub browser APIs. Linting
+  // them with browser globals only reported every `process.env` read as
+  // undefined, which buried the one real no-undef bug (#266) in noise.
+  {
+    files: ['api/**/*.{js,mjs}', 'tools/**/*.{js,mjs}', '*.{js,mjs}', '**/*.test.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ])

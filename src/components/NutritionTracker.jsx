@@ -102,7 +102,7 @@ const NutritionTracker = ({ setActiveTab }) => {
       const d = parseInt(localStorage.getItem('homeMealDinner')    || '0');
       const s = parseInt(localStorage.getItem('homeMealSnacks')    || '0');
       const synced = b + l + d + s;
-      setLogged(prev => {
+      setLogged(() => {
         const ratio = activeTargets.calories > 0 ? synced / activeTargets.calories : 0;
         return {
           calories: synced,

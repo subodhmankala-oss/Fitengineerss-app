@@ -23,7 +23,9 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // `_name` marks a parameter kept only for its position, and
+      // `{ [col]: _drop, ...rest }` is how a key is stripped from an object.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
   // Vercel functions, one-off maintenance scripts and build tooling run on

@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
-import { getLocalDateString, isLocalToday } from '../utils/dateUtils';
-import SetTypeMenu, { getSetTypeVisual } from './SetTypeMenu';
+import { getLocalDateString } from '../utils/dateUtils';
+import SetTypeMenu from './SetTypeMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
-import { formatDuration, computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -424,7 +424,7 @@ const WorkoutTracker = () => {
     try {
       const saved = localStorage.getItem(lastCategoryKey);
       return ['gym', 'home'].includes(saved) ? saved : null;
-    } catch (e) { return null; }
+    } catch { return null; }
   };
   const loadWorkoutDraft = () => {
     try {
@@ -432,7 +432,7 @@ const WorkoutTracker = () => {
       if (!raw) return null;
       const draft = JSON.parse(raw);
       return draft && draft.isLoggingWorkout ? draft : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -605,7 +605,7 @@ const WorkoutTracker = () => {
 
   // Same for the Gym/Home category — see lastCategoryKey above.
   useEffect(() => {
-    try { localStorage.setItem(lastCategoryKey, genericCategory); } catch (e) { /* ignore quota/serialization errors */ }
+    try { localStorage.setItem(lastCategoryKey, genericCategory); } catch { /* ignore quota/serialization errors */ }
   }, [genericCategory, lastCategoryKey]);
 
   // Coaches pick a client by name from their roster; a client viewing their own workouts
@@ -795,7 +795,7 @@ const WorkoutTracker = () => {
     // 1. Load global workoutSessions
     const stored = localStorage.getItem('workoutSessions');
     if (stored) {
-      try { allSessions = JSON.parse(stored); } catch(e) { allSessions = []; }
+      try { allSessions = JSON.parse(stored); } catch { allSessions = []; }
     }
     // 2. Merge client-specific coach-logged sessions for logged-in user
     const clientSpecificRaw = localStorage.getItem(`client_${loggedInKey}_workoutSessions`);
@@ -1164,7 +1164,7 @@ const WorkoutTracker = () => {
           workoutPauseIntervals,
           savedAt: Date.now()
         }));
-      } catch (e) {
+      } catch {
         // Quota/serialization failure shouldn't break the live session.
       }
 
@@ -3610,7 +3610,6 @@ const WorkoutTracker = () => {
                 const unit = getExerciseUnit(ex.name);
                 const exIsCardio = isCardioExercise(ex.name);
                 const exIsBodyweight = isBodyweightExercise(ex.name);
-                const exBwMode = exIsBodyweight ? getLogExBwMode(ex) : false;
                 // The BODYWEIGHT/KG column header reflects the real current
                 // state of the sets (not the stale exercise-level default) —
                 // it only says BODYWEIGHT when every set actually is, so it

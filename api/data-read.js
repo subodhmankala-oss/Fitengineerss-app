@@ -36,7 +36,7 @@ async function resolveVerifiedEmail(req) {
         const authUser = await userResp.json().catch(() => null);
         verifiedEmail = (authUser?.email || '').trim().toLowerCase() || null;
       }
-    } catch (e) { /* fall through */ }
+    } catch { /* fall through */ }
   }
 
   const host = (req.headers.host || '').split(':')[0];

@@ -220,7 +220,7 @@ async function repairData() {
     console.log('\nPopulating coach_clients relationship links...');
     if (users.length > 0) {
       // Check if coach_clients table exists
-      const { data: checkTable, error: checkErr } = await supabase
+      const { error: checkErr } = await supabase
         .from('coach_clients')
         .select('*')
         .limit(1);

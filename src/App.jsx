@@ -385,9 +385,9 @@ const showLocalNotification = (title, body, tag = 'fitengineers-nudge') => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready
       .then((reg) => reg.showNotification(title, options))
-      .catch(() => { try { new Notification(title, options); } catch (e) { /* ignore */ } });
+      .catch(() => { try { new Notification(title, options); } catch { /* ignore */ } });
   } else {
-    try { new Notification(title, options); } catch (e) { /* ignore */ }
+    try { new Notification(title, options); } catch { /* ignore */ }
   }
 };
 
@@ -1419,7 +1419,7 @@ function App() {
   // message + a way back to login instead.
   if (typeof window !== 'undefined' && /error_code=otp_expired|error=access_denied/.test(window.location.hash || '')) {
     const backToLogin = async () => {
-      try { await databaseService.signOut(); } catch (e) { /* */ }
+      try { await databaseService.signOut(); } catch { /* */ }
       localStorage.clear();
       window.location.href = window.location.origin;
     };
@@ -1833,7 +1833,7 @@ function App() {
                   setShowResetPasswordModal(false);
                   setNewResetPassword('');
                   setResetPasswordError('');
-                  try { await databaseService.signOut(); } catch (e) { /* */ }
+                  try { await databaseService.signOut(); } catch { /* */ }
                   localStorage.clear();
                   window.location.href = window.location.origin;
                 }}

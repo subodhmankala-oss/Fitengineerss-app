@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import databaseService, { isSupabaseConfigured, isTrainer, TRAINER_EMAILS, resolveRealAccessToken } from '../services/databaseService';
+import databaseService, { isSupabaseConfigured, TRAINER_EMAILS, resolveRealAccessToken } from '../services/databaseService';
 import { calculateTargetsGeneric } from '../utils/targets';
 import Avatar from './Avatar';
 import './Onboarding.css';
@@ -178,7 +178,7 @@ const Onboarding = ({ onComplete }) => {
     try {
       const raw = localStorage.getItem('savedLoginAccount');
       return raw ? JSON.parse(raw) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   });
@@ -416,7 +416,7 @@ const Onboarding = ({ onComplete }) => {
             try {
               await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
               setAuthSuccessMsg(`Your email isn't confirmed yet. We've resent a confirmation link to ${authEmail} — click it, then log in again.`);
-            } catch (resendErr) {
+            } catch {
               setAuthSuccessMsg(`Your email isn't confirmed yet. Please check your inbox for the confirmation link, then log in again.`);
             }
             setAuthLoading(false);
@@ -580,7 +580,7 @@ const Onboarding = ({ onComplete }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: authEmail.trim().toLowerCase() })
         });
-      } catch (networkErr) {
+      } catch {
         // Couldn't reach our own API (e.g. offline) — fall through to Supabase.
       }
       if (resp?.ok) {
@@ -661,7 +661,7 @@ const Onboarding = ({ onComplete }) => {
             try {
               await databaseService.supabase.auth.resend({ type: 'signup', email: authEmail });
               setAuthSuccessMsg(`Your email isn't confirmed yet. We've resent a confirmation link to ${authEmail} — click it, then log in again.`);
-            } catch (resendErr) {
+            } catch {
               setAuthSuccessMsg(`Your email isn't confirmed yet. Please check your inbox for the confirmation link, then log in again.`);
             }
             setAuthLoading(false);
@@ -753,7 +753,7 @@ const Onboarding = ({ onComplete }) => {
         } else if (coachRecord) {
           // Super admin can block a coach for malpractice — deny access here.
           if (coachRecord.is_blocked === true) {
-            try { await databaseService.signOut(); } catch (e) { /* */ }
+            try { await databaseService.signOut(); } catch { /* */ }
             throw new Error('Your coach access has been suspended. Please contact the Fitengineers team.');
           }
           await databaseService.loadProfileIntoLocalStorage({
@@ -772,7 +772,7 @@ const Onboarding = ({ onComplete }) => {
           // can't linger and route as a client, then go straight to the Sign
           // Up form with their verified email prefilled — no error banner,
           // no extra click needed.
-          try { await databaseService.signOut(); } catch (e) { /* */ }
+          try { await databaseService.signOut(); } catch { /* */ }
           setCoachApplyEmail(authEmail);
           setUserType('coach');
           setAuthTab('coach_apply');
@@ -1047,7 +1047,7 @@ const Onboarding = ({ onComplete }) => {
           if (profile && profile.name && profile.name.toLowerCase().includes(cleanInput)) {
             matches.push(profile);
           }
-        } catch (e) {
+        } catch {
           // ignore invalid profiles
         }
       }

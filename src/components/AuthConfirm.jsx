@@ -105,7 +105,7 @@ const AuthConfirm = () => {
     // app lands on a clean login screen. Without this, a stale client session left in
     // this browser (e.g. from earlier) makes the app boot straight into that client's
     // onboarding wizard instead of the login screen after a failed/expired link.
-    try { localStorage.clear(); rememberAuthContext(); } catch (e) { /* ignore */ }
+    try { localStorage.clear(); rememberAuthContext(); } catch { /* ignore */ }
     window.location.href = window.location.origin;
   };
 

@@ -22,7 +22,7 @@ try {
       supabaseAnonKey = line.split('=')[1].trim();
     }
   });
-} catch (e) {
+} catch {
   console.log('Error reading .env file');
 }
 

@@ -23,8 +23,6 @@ createRoot(document.getElementById('root')).render(
       <IOSInstallBanner />
       <UpdateBanner />
       <PullToRefresh />
-      {/* TEMP (PR #264 update-banner test) — revert before merge */}
-      <div style={{ position: 'fixed', left: 8, bottom: 8, zIndex: 3000, padding: '2px 8px', borderRadius: 8, background: '#e11d48', color: '#fff', fontSize: 11, fontWeight: 700, pointerEvents: 'none' }}>Test build 4</div>
     </ThemeProvider>
   </StrictMode>,
 )

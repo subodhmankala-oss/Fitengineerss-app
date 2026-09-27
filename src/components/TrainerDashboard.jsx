@@ -499,6 +499,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     if (viewMode === 'payments') {
       fetchClientPayments();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on tab switch only; the fetchers use setters and superAdmin, which is fixed per mount
   }, [viewMode]);
 
   const fetchClientPayments = async () => {
@@ -625,6 +626,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
       window.removeEventListener('coaches_updated', handleCoachesUpdated);
       window.removeEventListener('storage', handleStorage);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAdminData only uses setters and superAdmin, which is fixed per mount
   }, [viewMode]);
 
   const handleToggleCoachPayment = async (coach) => {
@@ -2029,7 +2031,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     return () => {
       if (liveDraftSaveTimerRef.current) clearTimeout(liveDraftSaveTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId]);
 
   // Debounce-push the Plan Editor (Create/Edit Workout Plan) to localStorage
@@ -2065,7 +2066,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     return () => {
       if (planEditorDraftSaveTimerRef.current) clearTimeout(planEditorDraftSaveTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showPlanEditor, selectedClient, editingPlan, editorPlanName, editorExercises, extraAssignClientIds, isAiDraftMode, aiDraftDays, activeAiDraftDayIndex, aiDraftSummary]);
 
   // Clears the localStorage draft above — called whenever the editor closes
@@ -2284,7 +2284,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
   const handleLiveExercisesReordered = useCallback((newOrder) => {
     setLiveSetTimers(prev => remapSetTimersForReorder(liveExercises, newOrder, prev));
     setLiveExercises(newOrder);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveExercises]);
 
   const {

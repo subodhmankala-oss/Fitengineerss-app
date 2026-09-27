@@ -639,6 +639,7 @@ const WorkoutTracker = () => {
 
   useEffect(() => {
     fetchPlans();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when the client changes; fetchPlans reads selectedClient from that same render
   }, [selectedClient]);
 
   useEffect(() => {
@@ -1009,6 +1010,7 @@ const WorkoutTracker = () => {
     }).catch(() => {});
 
     fetchPlans();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only initial load
   }, []);
 
   // Keep the graphed exercise on one the client has actually logged, so the
@@ -1413,7 +1415,6 @@ const WorkoutTracker = () => {
   const handleLogExercisesReordered = useCallback((newOrder) => {
     setSetTimers(prev => remapSetTimersForReorder(logExercises, newOrder, prev));
     setLogExercises(newOrder);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logExercises]);
 
   const {
@@ -1750,6 +1751,7 @@ const WorkoutTracker = () => {
     // the inline style on the <svg> — so this is a 1:1 unit match).
     const targetScroll = targetX - el.clientWidth / 2;
     el.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- activeSessionData is a new object every render; listing it would re-scroll on every render
   }, [selectedSessionIndex, chartMetric, selectedExercise]);
 
   // Coach Log set actions

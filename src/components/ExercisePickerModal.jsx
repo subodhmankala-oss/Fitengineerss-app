@@ -98,7 +98,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       }, CLOSE_ANIM_MS);
     }
     return () => clearTimeout(closeTimerRef.current);
-  }, [open]);
+  }, [open, creatorMode, coachId, clientUserId]);
 
   if (!mounted) return null;
 

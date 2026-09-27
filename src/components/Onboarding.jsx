@@ -307,6 +307,7 @@ const Onboarding = ({ onComplete }) => {
       localStorage.setItem('onboardingCompleted', 'false');
       onComplete();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when step changes, with onComplete from that same render
   }, [step]);
 
   // Saved accounts for quick login

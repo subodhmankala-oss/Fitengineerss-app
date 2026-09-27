@@ -71,6 +71,7 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
       autoAdvanceTimer.current = null;
     }
     touchedSinceOpen.current = false;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed to the field changing; `active` comes from that same render
   }, [activeKey]);
 
   React.useEffect(() => () => {

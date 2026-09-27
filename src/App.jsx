@@ -509,6 +509,10 @@ function App() {
   const coachTour = useCoachTour();
   const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
+  // The auth listener below is subscribed once for the whole session, so it
+  // would otherwise only ever see the userEmail from the first render.
+  const userEmailRef = useRef(userEmail);
+  useEffect(() => { userEmailRef.current = userEmail; }, [userEmail]);
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole') || '');
   const lastProcessedEmailRef = useRef('');
 
@@ -1196,7 +1200,7 @@ function App() {
           return;
         }
 
-        const activeEmail = localStorage.getItem('userEmail') || userEmail;
+        const activeEmail = localStorage.getItem('userEmail') || userEmailRef.current;
         if (activeEmail) {
           localStorage.setItem('last_logged_in_email', activeEmail);
         }

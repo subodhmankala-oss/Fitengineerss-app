@@ -137,6 +137,11 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
   useEffect(() => {
     const storedName = localStorage.getItem('userName');
     if (storedName) setUserName(storedName);
+    // This effect runs once, and deliberately works from the cached values the
+    // screen first painted with (see reconcileCoachStatus) — read from the
+    // same localStorage keys isLinkedToCoach/coachName were initialized from.
+    const linkedAtMount = localStorage.getItem('clientLinkedToCoach') === 'true';
+    const coachNameAtMount = localStorage.getItem('userCoachName') || '';
 
     // Reconcile connection status + coach-set program length from the DB.
     // The localStorage flag is only a cache and can be stale — the progress
@@ -169,14 +174,14 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
           // wrong-looking flash that self-corrected only on the next reload.
           // Never downgrade a trusted "connected" state from an unresolved
           // read; only apply conn.connected when it's the initial/never-known
-          // case. `isLinkedToCoach` here is the closure-captured cache value
+          // case. `linkedAtMount` here is the cached value
           // from mount (this effect runs once), so it reflects what the user
           // is already seeing: if that was already a trusted "true", it's safe
           // to stop showing "Checking…" — the visible state isn't changing.
           // Otherwise stay pending and keep quietly retrying in the background
           // instead of ever declaring a false "not connected".
           setIsLinkedToCoach(prev => (prev ? prev : conn.connected));
-          if (isLinkedToCoach) setCoachStatusPending(false);
+          if (linkedAtMount) setCoachStatusPending(false);
           setTimeout(() => reconcileCoachStatus(4), 15000);
         }
         return;
@@ -229,7 +234,7 @@ const WorkoutProgressDashboard = ({ handleLogout, onNavigateToWorkouts, initialT
 
     // Backfill the coach's name for clients who connected before this lookup
     // existed — they have userCoachId but never got a userCoachName cached.
-    if (isLinkedToCoach && !coachName) {
+    if (linkedAtMount && !coachNameAtMount) {
       const storedCoachId = localStorage.getItem('userCoachId');
       if (storedCoachId) {
         databaseService.getCoachNameById(storedCoachId).then(resolvedName => {

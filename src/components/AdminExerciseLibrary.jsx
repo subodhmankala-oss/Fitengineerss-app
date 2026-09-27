@@ -70,6 +70,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
 
   useEffect(() => {
     fetchExercises();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only load; fetchExercises only uses setters
   }, []);
 
   // Update preview url when videoUrl changes

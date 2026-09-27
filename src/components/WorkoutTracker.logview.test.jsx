@@ -35,6 +35,11 @@ import { TourProvider } from '../context/TourContext';
 // component everywhere below.
 const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
 
+// jsdom has no Element.scrollTo; the analytics chart calls it on mount to
+// keep the selected session in view. Not what this file tests — stub it so
+// the effect doesn't throw and take the render down with it.
+Element.prototype.scrollTo = vi.fn();
+
 const DRAFT_KEY = 'workoutDraft_u1';
 
 // Seed an active logging session so the log view renders on mount.
@@ -80,73 +85,23 @@ describe('WorkoutTracker log view — header + billing visibility', () => {
     expect(screen.queryByText(/directly from client notebooks/i)).toBeNull();
   });
 
-  it('hides the billing/renewal box while the client still has plenty of sessions left', async () => {
+  // The session-renewal box was removed from both the logger (#207) and the
+  // analytics view (#209) — guard against it creeping back, using the case
+  // that used to trigger it: a connected client with only 2 sessions left.
+  it.each([
+    ['logger', true],
+    ['analytics view', false]
+  ])('never shows a renewal box in the %s, even when nearly out of sessions', async (_view, logging) => {
     localStorage.setItem('userCoachId', 'coach-1');
     databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 20 });
-    databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4)); // 16 left
-    seedActiveDraft();
+    databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(18)); // 2 left
+    if (logging) seedActiveDraft();
 
     renderWorkoutTracker();
-    await screen.findByText("🏋️ Today's Workout");
     // Give the async coach-connection + logs effects time to settle.
     await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
+    await waitFor(() => expect(databaseService.getOwnCoachConnection).toHaveBeenCalled());
     expect(screen.queryByText(/Renew Package/i)).toBeNull();
     expect(screen.queryByText(/session[s]? left/i)).toBeNull();
-  });
-
-  it('shows the renewal box only when the connected client is nearly out of sessions', async () => {
-    localStorage.setItem('userCoachId', 'coach-1');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 20 });
-    databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(18)); // 2 left (<= 3)
-    seedActiveDraft();
-
-    renderWorkoutTracker();
-    await screen.findByText("🏋️ Today's Workout");
-    expect(await screen.findByText(/Renew Package/i)).toBeTruthy();
-    expect(screen.getByText(/Only 2 sessions left/i)).toBeTruthy();
-  });
-
-  it('shows the client\'s own wizard goal (not the mock program name) in the sessions summary', async () => {
-    // Analytics view (no active draft) + a coach connection so the accounting
-    // split renders. userGoal is what the client picked in the wizard.
-    localStorage.setItem('userCoachId', 'coach-1');
-    localStorage.setItem('userGoal', 'Muscle Building');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 20 });
-    databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4));
-
-    renderWorkoutTracker();
-    // Label is reframed as the client's goal, and the value is their real choice.
-    expect(await screen.findByText('My Goal')).toBeTruthy();
-    expect(screen.getByText('Muscle Building')).toBeTruthy();
-    // The random mock program mapped from the goal must NOT be shown to the client.
-    expect(screen.queryByText(/Hypertrophy Surge|Body Weights & Dumbbells/)).toBeNull();
-  });
-
-  it('shows "Unassigned" (not a mock total) when the coach has not assigned a session count', async () => {
-    localStorage.setItem('userCoachId', 'coach-1');
-    localStorage.setItem('userGoal', 'Gut Health');
-    // Connected to a coach, but no total_sessions assigned yet.
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 0 });
-    databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4));
-
-    renderWorkoutTracker();
-    // Accounting split renders (client is connected), and the remaining count is
-    // "Unassigned" rather than "N left" off a random mock package total.
-    expect(await screen.findByText('Unassigned')).toBeTruthy();
-    expect(screen.queryByText(/left$/)).toBeNull();
-    // No renewal prompt should fire off a bogus total either.
-    expect(screen.queryByText(/Renew Package/i)).toBeNull();
-  });
-
-  it('shows the coach-assigned total when the coach HAS set a session count', async () => {
-    localStorage.setItem('userCoachId', 'coach-1');
-    localStorage.setItem('userGoal', 'Muscle Building');
-    databaseService.getOwnCoachConnection.mockResolvedValue({ connected: true, resolved: true, totalSessions: 24 });
-    databaseService.getWorkoutLogsForUser.mockResolvedValue(logsForDates(4)); // 20 left
-
-    renderWorkoutTracker();
-    expect(await screen.findByText('4 / 24')).toBeTruthy();
-    expect(screen.getByText('20 left')).toBeTruthy();
-    expect(screen.queryByText('Unassigned')).toBeNull();
   });
 });

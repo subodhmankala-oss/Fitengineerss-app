@@ -983,7 +983,6 @@ const Onboarding = ({ onComplete }) => {
       setUserType('client');
       setAuthTab('login');
       setShowClientEmailForm(true);
-      setClientAuthMode('login');
       setAuthSuccessMsg(msg);
     }
   }, []);

@@ -2493,7 +2493,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
       const globalRaw = localStorage.getItem('workoutSessions');
       let globalSessions = [];
       if (globalRaw) {
-        try { globalSessions = JSON.parse(globalRaw); } catch(e) {}
+        try { globalSessions = JSON.parse(globalRaw); } catch { /* corrupt cache entry — fall back to empty */ }
       }
       // Avoid duplicate: only add if not already there
       const alreadyInGlobal = globalSessions.some(s => s.id === session.id);
@@ -3248,7 +3248,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
               }
             });
           }
-        } catch(e) {}
+        } catch { /* skip an unreadable cached session list; keep scanning the rest */ }
       });
 
       // 3. Also scan global workoutSessions filtered by this client
@@ -3278,7 +3278,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
               }
             });
         }
-      } catch(e) {}
+      } catch { /* unreadable global session cache — nothing extra to merge */ }
 
       // 4. Merge and dedupe by date+exercise+set_number
       const allLogs = [...(logs || [])];

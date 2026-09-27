@@ -320,7 +320,7 @@ const Onboarding = ({ onComplete }) => {
     if (savedEmailAccountsRaw) {
       try {
         savedEmailAccounts = JSON.parse(savedEmailAccountsRaw);
-      } catch(e) {}
+      } catch { /* unreadable saved-accounts list — show none */ }
     } else {
       // Seed default coach login
       savedEmailAccounts = [
@@ -368,7 +368,7 @@ const Onboarding = ({ onComplete }) => {
               profile
             });
           }
-        } catch(e) {}
+        } catch { /* skip an unreadable saved profile; keep listing the rest */ }
       }
     }
     return accounts;

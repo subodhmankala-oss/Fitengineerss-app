@@ -3628,7 +3628,7 @@ const databaseService = {
     const stored = localStorage.getItem(key);
     let messages = [];
     if (stored) {
-      try { messages = JSON.parse(stored); } catch(e) {}
+      try { messages = JSON.parse(stored); } catch { /* corrupt cache entry — fall back to empty */ }
     }
     const newMsg = {
       id: Date.now(),
@@ -3668,7 +3668,7 @@ const databaseService = {
     if (stored) {
       try {
         return JSON.parse(stored);
-      } catch (e) {}
+      } catch { /* corrupt cache entry — fall through to the default below */ }
     }
     return [];
   },
@@ -3959,7 +3959,7 @@ const databaseService = {
     const stored = localStorage.getItem(key);
     let plans = [];
     if (stored) {
-      try { plans = JSON.parse(stored); } catch(e) {}
+      try { plans = JSON.parse(stored); } catch { /* corrupt cache entry — fall back to empty */ }
     }
     
     const existingIdx = plans.findIndex(p => p.id === plan.id || p.planName.toLowerCase() === plan.planName.toLowerCase());
@@ -4937,9 +4937,9 @@ const databaseService = {
         if (idx >= 0) {
           coaches[idx] = { ...coaches[idx], ...coach };
             localStorage.setItem('coaches_list', JSON.stringify(coaches));
-            try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
+            try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch { /* a listener failing must not block the save */ }
         }
-      } catch (e) {}
+      } catch { /* corrupt local mirror — the cloud save above is the source of truth */ }
     } else {
       const defaults = [
         { id: 'coach-ravi', name: 'Coach Ravi', email: 'ravi@fitengineers.com', brand: 'Ravi Fitness', payment_status: 'active', signup_date: new Date().toISOString(), clientsCount: 0 },
@@ -4950,7 +4950,7 @@ const databaseService = {
         defaults[idx] = { ...defaults[idx], ...coach };
       }
       localStorage.setItem('coaches_list', JSON.stringify(defaults));
-      try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: defaults })); } catch(e) {}
+      try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: defaults })); } catch { /* a listener failing must not block the save */ }
     }
   },
 
@@ -5097,7 +5097,7 @@ const databaseService = {
         const startStr = startOfWeek.toISOString().split('T')[0];
         
         totalWorkoutsLoggedThisWeek = sessions.filter(s => s.date >= startStr).length;
-      } catch(e) {}
+      } catch { /* unreadable session cache — keep the default count */ }
     } else {
       totalWorkoutsLoggedThisWeek = 14;
     }
@@ -6074,7 +6074,7 @@ const databaseService = {
     });
 
     localStorage.setItem('coaches_list', JSON.stringify(coaches));
-    try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch(e) {}
+    try { window.dispatchEvent(new CustomEvent('coaches_updated', { detail: coaches })); } catch { /* a listener failing must not block the save */ }
     return coaches;
   },
 

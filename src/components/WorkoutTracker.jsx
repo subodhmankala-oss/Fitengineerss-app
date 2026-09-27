@@ -803,7 +803,7 @@ const WorkoutTracker = () => {
       try {
         const clientSpecific = JSON.parse(clientSpecificRaw);
         allSessions = mergeAndDedupeSessions(allSessions, clientSpecific);
-      } catch(e) {}
+      } catch { /* unreadable client session cache — nothing extra to merge */ }
     }
     // 3. Scan all keys for any coach-logged sessions for this user
     for (let i = 0; i < localStorage.length; i++) {
@@ -815,7 +815,7 @@ const WorkoutTracker = () => {
             s.clientName && s.clientName.toLowerCase().replace(/\s+/g, '') === loggedInKey
           );
           if (relevant.length > 0) allSessions = mergeAndDedupeSessions(allSessions, relevant);
-        } catch(e) {}
+        } catch { /* skip an unreadable cached session list; keep merging the rest */ }
       }
     }
 

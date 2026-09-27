@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { isSuperAdmin } from '../../services/accessControl';
 import { getActivityStatus } from '../../utils/activityStatus';
+import AdminSearchBox from './AdminSearchBox';
+import { matchesSearch } from '../../utils/matchesSearch';
 
 export default function AdminCoachesList({ coachesList = [], loadingAdmin, onToggleBlock, onViewClients }) {
+  const [searchQuery, setSearchQuery] = useState('');
+
   if (loadingAdmin) {
     return (
       <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
@@ -21,6 +25,10 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
     );
   }
 
+  const filteredCoaches = coachesList.filter(coach =>
+    matchesSearch(searchQuery, [coach.name, coach.email, coach.brand])
+  );
+
   return (
     <div className="glass-panel" style={{
       background: 'var(--bg-card)',
@@ -31,6 +39,18 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
     }}>
       <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
 
+      <AdminSearchBox
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="🔍 Search coach by name, email or brand..."
+      />
+
+      {filteredCoaches.length === 0 ? (
+        <div className="trainer-empty-state">
+          <h5>No Coaches Found</h5>
+          <p>No coaches match "{searchQuery.trim()}".</p>
+        </div>
+      ) : (
       <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
@@ -40,7 +60,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
           </tr>
         </thead>
         <tbody>
-          {coachesList.map(coach => {
+          {filteredCoaches.map(coach => {
             const isSuper = coach.email && isSuperAdmin(coach.email);
             const activity = getActivityStatus(coach.last_login);
             return (
@@ -146,6 +166,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
           })}
         </tbody>
       </table>
+      )}
     </div>
   );
 }

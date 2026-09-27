@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { getActivityStatus } from '../../utils/activityStatus';
+import AdminSearchBox from './AdminSearchBox';
+import { matchesSearch } from '../../utils/matchesSearch';
 
 export default function AdminClientsList({
   clients = [],
@@ -14,6 +16,8 @@ export default function AdminClientsList({
   // blue dot next to their name. See clientNotifications in TrainerDashboard.
   unreadClientIds = new Set()
 }) {
+  const [searchQuery, setSearchQuery] = useState('');
+
   if (loadingClients) {
     return (
       <div className="trainer-loading-container" style={{ padding: '40px 0' }}>
@@ -26,7 +30,9 @@ export default function AdminClientsList({
   const filteredClients = clients.filter(c => {
     const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
     const matchesActivity = !activityFilter || getActivityStatus(c.last_login).key === activityFilter;
-    return matchesGoal && matchesActivity;
+    const coachName = coachesList.find(co => co.id === c.coach_id)?.name;
+    return matchesGoal && matchesActivity &&
+      matchesSearch(searchQuery, [c.userName, c.email, c.phone, coachName]);
   });
 
   // Activity summary across ALL clients (not just the goal-filtered subset)
@@ -89,6 +95,12 @@ export default function AdminClientsList({
         })}
       </div>
 
+      <AdminSearchBox
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="🔍 Search client by name, email, phone or coach..."
+      />
+
       {/* Goal filter pills */}
       <div className="filter-tags" style={{ marginBottom: '14px' }}>
         {['All', 'Fat Loss', 'Muscle Building', 'Gut Fix'].map(goal => (
@@ -105,7 +117,7 @@ export default function AdminClientsList({
       {filteredClients.length === 0 ? (
         <div className="trainer-empty-state">
           <h5>No Clients Found</h5>
-          <p>No client profiles match the current filter.</p>
+          <p>{searchQuery.trim() ? `No clients match "${searchQuery.trim()}".` : 'No client profiles match the current filter.'}</p>
         </div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)' }}>

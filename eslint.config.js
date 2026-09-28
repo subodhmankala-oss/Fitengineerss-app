@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // .claude/worktrees holds other sessions' full checkouts of this repo;
+  // same exclusion vitest already has in vite.config.js.
+  globalIgnores(['dist', '.claude/**']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

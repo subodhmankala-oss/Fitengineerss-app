@@ -16,7 +16,7 @@ vi.mock('../utils/pushSubscription', () => ({
   subscribeToPush: vi.fn(), unsubscribeFromPush: vi.fn(), hasActivePushSubscription: vi.fn().mockResolvedValue(false)
 }));
 vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
-vi.mock('../context/ThemeContext', () => ({ useTheme: () => ({ preference: 'system', setTheme: vi.fn() }) }));
+vi.mock('../context/useTheme', () => ({ useTheme: () => ({ preference: 'system', setTheme: vi.fn() }) }));
 
 import ClientProfile from './ClientProfile';
 import databaseService from '../services/databaseService';

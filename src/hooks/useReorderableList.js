@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 // How close the pointer needs to get to the scroll container's top/bottom
@@ -140,8 +140,12 @@ export function useReorderableList(items, onReorder) {
   const [dragIndex, setDragIndex] = useState(null); // original index of the item being dragged
   const [orderIds, setOrderIds] = useState([]); // permutation of original indices = current visual order
 
+  // Latest items for the drag/keyboard handlers, which run outside render.
+  // Synced in a layout effect (before any input can reach them) rather than
+  // written during render; getItemKey below reads `items` directly because
+  // it IS called during render, for the rows' keys.
   const itemsRef = useRef(items);
-  itemsRef.current = items;
+  useLayoutEffect(() => { itemsRef.current = items; });
   const orderIdsRef = useRef([]);
   const dragIndexRef = useRef(null);
   // The pointer position that maps to a drag offset of 0. Auto-scroll
@@ -460,7 +464,7 @@ export function useReorderableList(items, onReorder) {
     onReorder(next);
   }, [onReorder]);
 
-  const getItemKey = useCallback((index) => stableKeyFor(itemsRef.current[index]), []);
+  const getItemKey = useCallback((index) => stableKeyFor(items[index]), [items]);
 
   // Per-row inline style. The dragged row's own movement is written to the
   // DOM directly (see applyPointerDelta); here it only carries the offset

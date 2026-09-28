@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import './ClientProfile.css';

@@ -16,7 +16,7 @@ import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroup
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
-import { useTour } from '../context/TourContext';
+import { useTour } from '../context/useTour';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
@@ -25,7 +25,8 @@ import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
-import SetValueField, { scrollFieldClearOfPad } from './SetValueField';
+import SetValueField from './SetValueField';
+import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is

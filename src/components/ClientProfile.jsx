@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 import { kgToDisplayWeight, displayWeightToKg } from '../utils/weightUnits';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';

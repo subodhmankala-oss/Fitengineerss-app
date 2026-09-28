@@ -35,9 +35,11 @@ export function findPreviousExerciseSetsIn(sessions, clientName, exName) {
   return null;
 }
 
-// A plan's kg/BW box starts from PREV (see withPrevWeight in
+// A plan's kg/BW box starts from PREV (see withPrevValues in
 // WorkoutTracker). Cardio and plain timed sets have no weight and are
-// returned unchanged, as are sets the client has never logged.
+// returned unchanged, as are sets the client has never logged. Flags
+// weightFromPrev so the input can render the value as an unconfirmed
+// "ghost" until the client edits or completes the set (see SetValueField).
 export function applyPrevWeight(exName, set, prev) {
   if (isCardioExercise(exName)) return set;
   if (isTimedExercise(exName) && !isBodyweightExercise(exName)) return set;
@@ -46,15 +48,37 @@ export function applyPrevWeight(exName, set, prev) {
   return {
     ...set,
     weight,
+    weightFromPrev: true,
     ...(isBodyweightExercise(exName) ? { bodyweightMode: !(Number(weight) > 0) } : {})
   };
+}
+
+// Same idea for the reps box: a plan's per-set reps is the coach's target,
+// a reasonable default until the client has actually logged that set once —
+// after that PREV is a better prediction than a target that may be weeks
+// stale. Cardio/timed sets have no reps box.
+export function applyPrevReps(exName, set, prev) {
+  if (isCardioExercise(exName) || isTimedExercise(exName)) return set;
+  if (!prev || prev.reps == null || prev.reps === '') return set;
+  return { ...set, reps: prev.reps, repsFromPrev: true };
+}
+
+// Both together — the normal case for an assigned-plan set once PREV exists.
+export function applyPrevValues(exName, set, prev) {
+  return applyPrevReps(exName, applyPrevWeight(exName, set, prev), prev);
 }
 
 // The Workout Library's pre-fill (handleStartFromTemplate): reps and weight
 // both come from PREV when there is one.
 export function applyPrevRepsAndWeight(set, prev) {
   if (!prev) return set;
-  return { ...set, reps: prev.reps || set.reps, weight: prev.weight || set.weight };
+  return {
+    ...set,
+    reps: prev.reps || set.reps,
+    weight: prev.weight || set.weight,
+    ...(prev.reps ? { repsFromPrev: true } : {}),
+    ...(prev.weight ? { weightFromPrev: true } : {})
+  };
 }
 
 // Sets started before the client's history had loaded carry
@@ -78,7 +102,7 @@ export function fillPendingPrevSets(exercises, lookup) {
         const prev = lookup(ex.name, setIdx);
         return prevPending === 'template'
           ? applyPrevRepsAndWeight(rest, prev)
-          : applyPrevWeight(ex.name, rest, prev);
+          : applyPrevValues(ex.name, rest, prev);
       })
     };
   });

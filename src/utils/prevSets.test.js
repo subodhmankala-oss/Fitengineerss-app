@@ -3,6 +3,8 @@ import {
   findPreviousLoggedSetIn,
   findPreviousExerciseSetsIn,
   applyPrevWeight,
+  applyPrevReps,
+  applyPrevValues,
   applyPrevRepsAndWeight,
   fillPendingPrevSets,
   setsFromPreviousExercise
@@ -37,16 +39,26 @@ describe('findPreviousExerciseSetsIn', () => {
   });
 });
 
-describe('applyPrevWeight / applyPrevRepsAndWeight', () => {
-  it('takes the kg from PREV and leaves reps alone', () => {
-    expect(applyPrevWeight('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 })).toEqual({ reps: '12', weight: '45' });
+describe('applyPrevWeight / applyPrevReps / applyPrevValues / applyPrevRepsAndWeight', () => {
+  it('takes the kg from PREV, flags it as unconfirmed, and leaves reps alone', () => {
+    expect(applyPrevWeight('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: '12', weight: '45', weightFromPrev: true });
   });
   it('leaves the set unchanged with no PREV', () => {
     const set = { reps: '12', weight: '' };
     expect(applyPrevWeight('Bench Press', set, null)).toBe(set);
   });
-  it('takes both reps and weight for the Workout Library pre-fill', () => {
-    expect(applyPrevRepsAndWeight({ reps: 10, weight: '0' }, { reps: 8, weight: 45 })).toEqual({ reps: 8, weight: 45 });
+  it('takes the reps from PREV, flags it as unconfirmed, and leaves weight alone', () => {
+    expect(applyPrevReps('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: 8, weight: '20', repsFromPrev: true });
+  });
+  it('applyPrevValues takes both weight and reps from PREV, each flagged separately', () => {
+    expect(applyPrevValues('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: 8, weight: '45', weightFromPrev: true, repsFromPrev: true });
+  });
+  it('takes both reps and weight for the Workout Library pre-fill, each flagged', () => {
+    expect(applyPrevRepsAndWeight({ reps: 10, weight: '0' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: 8, weight: 45, weightFromPrev: true, repsFromPrev: true });
   });
 });
 
@@ -59,8 +71,8 @@ describe('fillPendingPrevSets', () => {
       { reps: '12', weight: '', isCompleted: false, prevPending: 'plan' }
     ] }];
     expect(fillPendingPrevSets(exercises, lookup)[0].sets).toEqual([
-      { reps: 10, weight: 42.5, isCompleted: false },
-      { reps: '12', weight: '45', isCompleted: false }
+      { reps: 10, weight: 42.5, isCompleted: false, weightFromPrev: true, repsFromPrev: true },
+      { reps: 8, weight: '45', isCompleted: false, weightFromPrev: true, repsFromPrev: true }
     ]);
   });
 

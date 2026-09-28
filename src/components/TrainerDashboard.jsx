@@ -33,9 +33,10 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
+import SetValueStepper from './SetValueStepper';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
@@ -2229,9 +2230,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         sets: ex.sets.map((s, si) => {
           if (si !== setIdx) return s;
           // Edited by hand (or by its own stopwatch) — the late PREV
-          // pre-fill must not overwrite it (see fillPendingPrevSets).
+          // pre-fill must not overwrite it (see fillPendingPrevSets), and
+          // the field just edited is no longer "what PREV showed" — its
+          // ghost styling clears (see SetValueField's isGhost prop).
           const { prevPending: _prevPending, ...set } = s;
-          return { ...set, [field]: value };
+          const clearedGhost = field === 'weight' ? { weightFromPrev: false }
+            : field === 'reps' ? { repsFromPrev: false }
+            : {};
+          return { ...set, [field]: value, ...clearedGhost };
         })
       };
     }));
@@ -2270,7 +2276,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // which fires later from a setInterval tick (see alarmSound.js).
     unlockAudio();
     const now = Date.now();
-    const togglingSetOn = !liveExercises[exIdx]?.sets[setIdx]?.isCompleted;
+    const liveEx = liveExercises[exIdx];
+    const togglingSetOn = !liveEx?.sets[setIdx]?.isCompleted;
     if (togglingSetOn) {
       // A completed set is worth saving right now, not after the debounce.
       saveLiveDraftNowRef.current = true;
@@ -2278,6 +2285,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // one of them would keep editing a completed set out of sight. (Plan
       // editor fields share the pad under 'ped-' keys; leave those alone.)
       if (activeLiveSetKey && !activeLiveSetKey.startsWith('ped-') && activeLiveSetKey.endsWith(`-${exIdx}-${setIdx}`)) closeLiveSetField();
+      // One tap on ✓ both completes this set and hands focus to the next
+      // one, same as the client's own logger — only within the same
+      // rep-based exercise (cardio/timed sets complete via their own
+      // stopwatch flow, not this handler).
+      const exName = liveEx?.name;
+      const nextSet = liveEx?.sets?.[setIdx + 1];
+      if (nextSet && !nextSet.isCompleted && exName && !isCardioExercise(exName) && !isTimedExercise(exName) && !isWarmupExercise(exName)) {
+        openLiveSetField(`w-${exIdx}-${setIdx + 1}`);
+      }
     }
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -2290,7 +2306,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           // completedAt timestamps are what the live timer's rest-interval
           // calorie calc uses — never cleared retroactively except when this
           // exact set is unchecked, so re-checking it later is timed fresh.
-          return { ...set, isCompleted: nextCompleted, completedAt: nextCompleted ? now : null };
+          // Ghost styling clears too — completed means confirmed.
+          return {
+            ...set,
+            isCompleted: nextCompleted,
+            completedAt: nextCompleted ? now : null,
+            ...(nextCompleted ? { weightFromPrev: false, repsFromPrev: false } : {})
+          };
         })
       };
     }));
@@ -3523,19 +3545,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     return changed ? { ...ex, sets } : ex;
   });
 
-  // Live Log version of applyPrevWeights that also works before the
-  // client's history has loaded (a coach opening a client and picking a
-  // plan straight away, or the starter exercise set from the draft check):
-  // those sets are flagged prevPending and get their PREV kg the moment
-  // handleSelectClient's fetch lands (see fillPendingPrevSets). Reads
-  // liveHistoryRef rather than workoutLogs so async callers get the history
-  // as it is now, not as it was when they were created.
+  // Live Log version of applyPrevWeights that also fills reps from PREV (a
+  // live session is actually logging work, not editing next week's target,
+  // so the reps box should default to what the client did last time same as
+  // the client's own withPrevValues — the Plan Editor's applyPrevWeights
+  // above deliberately leaves reps at the coach's saved target instead) and
+  // that also works before the client's history has loaded (a coach opening
+  // a client and picking a plan straight away, or the starter exercise set
+  // from the draft check): those sets are flagged prevPending and get their
+  // PREV values the moment handleSelectClient's fetch lands (see
+  // fillPendingPrevSets). Reads liveHistoryRef rather than workoutLogs so
+  // async callers get the history as it is now, not as it was when they
+  // were created.
   const applyLivePrev = (exercises) => {
     const { sessions } = liveHistoryRef.current;
     return exercises.map(ex => ({
       ...ex,
       sets: ex.sets.map((s, setIdx) => sessions
-        ? applyPrevWeight(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex.name, setIdx))
+        ? applyPrevValues(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex.name, setIdx))
         : { ...s, prevPending: 'plan' })
     }));
   };
@@ -9017,6 +9044,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                             value={set.weight}
                                             placeholder="0"
                                             active={activeLiveSetKey === weightKey}
+                                            isGhost={set.weightFromPrev}
                                             onOpen={() => openLiveSetField(weightKey)}
                                           />
                                           <button
@@ -9088,11 +9116,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                           </div>
                                         ) : (
                                           <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
-                                            <SetValueField
+                                            <SetValueStepper
                                               value={set.weight}
                                               placeholder="0"
                                               active={activeLiveSetKey === weightKey}
+                                              isGhost={set.weightFromPrev}
                                               onOpen={() => openLiveSetField(weightKey)}
+                                              onValue={(v) => handleLiveSetChange(exIdx, setIdx, 'weight', v)}
+                                              step={2.5}
+                                              decimals={1}
                                             />
                                             {exIsBodyweight && (
                                               <button
@@ -9107,11 +9139,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                           </div>
                                         )}
                                         <div className="col-reps set-input-field">
-                                          <SetValueField
+                                          <SetValueStepper
                                             value={set.reps}
                                             placeholder="0"
                                             active={activeLiveSetKey === repsKey}
+                                            isGhost={set.repsFromPrev}
                                             onOpen={() => openLiveSetField(repsKey)}
+                                            onValue={(v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
+                                            step={1}
+                                            decimals={0}
                                           />
                                         </div>
                                       </>

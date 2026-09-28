@@ -2266,7 +2266,7 @@
 
 .hevy-table-header {
   display: grid;
-  grid-template-columns: 0.6fr 1.5fr 1.3fr 1fr 1.1fr;
+  grid-template-columns: 0.5fr 1.1fr 1.7fr 1.4fr 1.1fr;
   align-items: center;
   padding: 8px 4px;
   font-size: 0.68rem;
@@ -2288,7 +2288,7 @@
 
 .hevy-set-row {
   display: grid;
-  grid-template-columns: 0.6fr 1.5fr 1.3fr 1fr 1.1fr;
+  grid-template-columns: 0.5fr 1.1fr 1.7fr 1.4fr 1.1fr;
   align-items: center;
   padding: 6px 4px;
   border-radius: var(--radius-sm);
@@ -2496,6 +2496,60 @@
   padding: 0 4px;
 }
 
+/* +/- nudge wrapper around SetValueField for the weight/reps columns (see
+   components/SetValueStepper.jsx). The field itself shrinks to
+   .set-value-btn--stepped's narrower max-width below to make room for both
+   buttons in the same column that used to hold the field alone. */
+.set-value-stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+  justify-content: center;
+}
+
+.set-stepper-btn {
+  flex-shrink: 0;
+  width: 22px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.set-stepper-btn:hover,
+.set-stepper-btn:focus-visible {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
+}
+
+.set-stepper-btn:active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+.set-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+
+.hevy-set-row .set-input-field .set-value-btn.set-value-btn--stepped {
+  max-width: 50px;
+  padding: 8px 2px;
+}
+
 /* Set-value fields (weight/reps/km/time) are now buttons that open the
    custom SetNumberPad (see components/SetValueField.jsx + SetNumberPad.jsx)
    instead of real text inputs — no native mobile keyboard, no OS keyboard
@@ -2558,6 +2612,17 @@
 
 .set-value-placeholder {
   color: var(--text-muted, rgba(148, 163, 184, 0.5));
+  font-weight: 600;
+}
+
+/* PREV pre-fill shown but not yet confirmed (see SetValueField's isGhost
+   prop) — dimmed and italic so it reads as "this is a guess, tap ✓ or edit
+   it" rather than a value the client already typed. Edited or completed
+   sets never carry this class (see weightFromPrev/repsFromPrev clearing in
+   WorkoutTracker.jsx / TrainerDashboard.jsx). */
+.hevy-set-row .set-input-field .set-value-btn.set-value-ghost {
+  color: var(--text-muted, rgba(148, 163, 184, 0.7));
+  font-style: italic;
   font-weight: 600;
 }
 

@@ -26,8 +26,9 @@ import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
+import SetValueStepper from './SetValueStepper';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevWeight, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -1344,17 +1345,19 @@ const WorkoutTracker = () => {
   // or 'template' (reps + weight, handleStartFromTemplate).
   const markPrevPending = (set, kind) => (prevHistoryReadyRef.current ? set : { ...set, prevPending: kind });
 
-  // A plan's kg/BW box starts from what the PREV column shows, not from
-  // whatever number happens to be stored in the plan (a leftover editor
-  // default, a weight duplicated in from another week, ...) — same rule as
-  // the coach side's applyPrevWeights in TrainerDashboard. Reported
-  // 2026-09-23 as "random numbers in kg and bodyweight". Sets the client
-  // has never logged, and cardio / plain timed sets (no weight at all),
+  // A plan's kg/BW box AND reps box start from what the PREV column shows,
+  // not from whatever's stored in the plan (a leftover editor default, a
+  // weight duplicated in from another week, a reps target written weeks
+  // ago, ...) — same rule as the coach side's applyPrevWeights in
+  // TrainerDashboard. Reported 2026-09-23 as "random numbers in kg and
+  // bodyweight"; extended to reps 2026-09-28 so a completed set is a single
+  // tap instead of needing the reps retyped every time. Sets the client has
+  // never logged, and cardio / plain timed sets (no weight/reps at all),
   // are returned unchanged. Bodyweight exercises also get a per-set
   // bodyweightMode so a set PREV logged as BW shows "BW" even when a
   // sibling set carries a plate (see getSetLogBwMode).
-  const withPrevWeight = (exName, setIdx, set) =>
-    markPrevPending(applyPrevWeight(exName, set, findPreviousLoggedSet(exName, setIdx)), 'plan');
+  const withPrevValues = (exName, setIdx, set) =>
+    markPrevPending(applyPrevValues(exName, set, findPreviousLoggedSet(exName, setIdx)), 'plan');
 
   const getPreviousSessionSet = (exName, setIdx) => {
     const set = findPreviousLoggedSet(exName, setIdx);
@@ -1441,7 +1444,8 @@ const WorkoutTracker = () => {
     // First completed set of an idle session = the client has started working
     // out — same signal startSessionClockIfIdle already checks for, so this
     // call also covers the "notify coach once" side effect.
-    const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
+    const ex = logExercises[exerciseIndex];
+    const togglingSetOn = !ex?.sets[setIndex]?.isCompleted;
     if (togglingSetOn) {
       startSessionClockIfIdle();
       // A completed set is worth saving right now, not after the debounce.
@@ -1449,6 +1453,17 @@ const WorkoutTracker = () => {
       // The set's fields lock once it's done — a number pad left open on
       // one of them would keep editing a completed set out of sight.
       if (activeSetKey && activeSetKey.endsWith(`-${exerciseIndex}-${setIndex}`)) closeSetField();
+      // One tap on ✓ both completes this set and hands focus to the next
+      // one, so a straight-through circuit never needs a second tap to open
+      // the following set's kg box. Only chains within the same rep-based
+      // exercise (cardio/timed sets complete via their own stopwatch flow,
+      // not this handler, and a finished exercise just leaves the pad
+      // closed for the client to pick the next one themselves).
+      const exName = ex?.name;
+      const nextSet = ex?.sets?.[setIndex + 1];
+      if (nextSet && !nextSet.isCompleted && exName && !isCardioExercise(exName) && !isTimedExercise(exName) && !isWarmupExercise(exName)) {
+        openSetField(`w-${exerciseIndex}-${setIndex + 1}`);
+      }
     }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
@@ -1468,8 +1483,15 @@ const WorkoutTracker = () => {
               }
               // completedAt is what the live calorie calc's rest-interval math
               // uses — never cleared retroactively except when this exact set
-              // is unchecked, so re-checking it later is timed fresh.
-              return { ...set, isCompleted: nextState, completedAt: nextState ? now : null };
+              // is unchecked, so re-checking it later is timed fresh. Ghost
+              // styling clears too — once completed the field is disabled and
+              // its shown value is what got saved, not an unconfirmed guess.
+              return {
+                ...set,
+                isCompleted: nextState,
+                completedAt: nextState ? now : null,
+                ...(nextState ? { weightFromPrev: false, repsFromPrev: false } : {})
+              };
             }
             return s;
           })
@@ -1847,9 +1869,15 @@ const WorkoutTracker = () => {
           sets: ex.sets.map((s, sIdx) => {
             if (sIdx === setIndex) {
               // Edited by hand (or by its own stopwatch) — the late PREV
-              // pre-fill must not overwrite it (see fillPendingPrevSets).
+              // pre-fill must not overwrite it (see fillPendingPrevSets),
+              // and the field the client just typed into is no longer
+              // "what PREV showed" — it's confirmed, so its ghost styling
+              // clears (see SetValueField's isGhost prop).
               const { prevPending: _prevPending, ...set } = s;
-              return { ...set, [field]: value };
+              const clearedGhost = field === 'weight' ? { weightFromPrev: false }
+                : field === 'reps' ? { repsFromPrev: false }
+                : {};
+              return { ...set, [field]: value, ...clearedGhost };
             }
             return s;
           })
@@ -2658,7 +2686,7 @@ const WorkoutTracker = () => {
         // client had touched the stopwatch. Reported 2026-08-28 for Plank/
         // Air Rowing. Always start these blank; only an explicit "resume"
         // flow should ever restore a real in-progress time.
-        sets: ex.sets.map((s, setIdx) => withPrevWeight(ex.name, setIdx, isCardioExercise(ex.name)
+        sets: ex.sets.map((s, setIdx) => withPrevValues(ex.name, setIdx, isCardioExercise(ex.name)
           // targetTime carries the coach's saved duration through as a
           // reusable TARGET (read by handleCardioStopwatchStart to drive the
           // countdown display) without reintroducing the stale-elapsed-time
@@ -4040,6 +4068,7 @@ const WorkoutTracker = () => {
                                           placeholder="0"
                                           disabled={set.isCompleted}
                                           active={activeSetKey === weightKey}
+                                          isGhost={set.weightFromPrev}
                                           onOpen={() => openSetField(weightKey)}
                                         />
                                         {!set.isCompleted && (
@@ -4116,12 +4145,16 @@ const WorkoutTracker = () => {
                                       )
                                     ) : (
                                       <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
-                                        <SetValueField
+                                        <SetValueStepper
                                           value={set.weight}
                                           placeholder="0"
                                           disabled={set.isCompleted}
                                           active={activeSetKey === weightKey}
+                                          isGhost={set.weightFromPrev}
                                           onOpen={() => openSetField(weightKey)}
+                                          onValue={(v) => handleSetChange(exIdx, sIdx, 'weight', v)}
+                                          step={2.5}
+                                          decimals={1}
                                         />
                                         {exIsBodyweight && !set.isCompleted && (
                                           <button
@@ -4136,12 +4169,16 @@ const WorkoutTracker = () => {
                                       </div>
                                     )}
                                     <div className="col-reps set-input-field">
-                                      <SetValueField
+                                      <SetValueStepper
                                         value={set.reps}
                                         placeholder={set.targetReps || '0'}
                                         disabled={set.isCompleted}
                                         active={activeSetKey === repsKey}
+                                        isGhost={set.repsFromPrev}
                                         onOpen={() => openSetField(repsKey)}
+                                        onValue={(v) => handleSetChange(exIdx, sIdx, 'reps', v)}
+                                        step={1}
+                                        decimals={0}
                                       />
                                     </div>
                                   </>

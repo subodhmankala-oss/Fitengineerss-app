@@ -49,6 +49,21 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+// No jest-dom in this project — plain className check instead of toHaveClass.
+const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);
+
+const twoSetDraft = (sets) => ({
+  userId: CLIENT.id,
+  coachId: 'coach1',
+  source: 'coach',
+  planName: 'Push Day',
+  logDate: null,
+  exercises: [{ name: 'Bench Press', sets }],
+  timerStatus: 'idle',
+  timerStartedAt: null,
+  pauseIntervals: []
+});
+
 describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
   beforeEach(() => {
     localStorage.clear();
@@ -117,6 +132,29 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     expect(await screen.findByText('REST TIMER', {}, SLOW)).toBeTruthy();
     // Only the coach's own Live Log row is resumed, never the client's own session.
     expect(databaseService.getWorkoutDraft).toHaveBeenCalledWith(CLIENT.id, 'coach');
+  });
+
+  it('shows PREV-filled values as ghost until confirmed, and advances focus to the next set on tap', async () => {
+    databaseService.getWorkoutDraft.mockResolvedValue(twoSetDraft([
+      { reps: 9, weight: '42.5', isCompleted: false, weightFromPrev: true, repsFromPrev: true },
+      { reps: 7, weight: '45', isCompleted: false, weightFromPrev: true, repsFromPrev: true }
+    ]));
+    renderLiveLog();
+    expect(await screen.findByRole('button', { name: '42.5' }, SLOW)).toBeTruthy();
+
+    const set1Weight = screen.getByRole('button', { name: '42.5' });
+    const set2Weight = screen.getByRole('button', { name: '45' });
+    expect(hasClass(set1Weight, 'set-value-ghost')).toBe(true);
+    expect(hasClass(set2Weight, 'set-value-ghost')).toBe(true);
+    expect(hasClass(set2Weight, 'is-active')).toBe(false);
+
+    fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
+
+    // Completing set 1 confirms it (ghost clears) and hands focus to set 2's
+    // kg box, which is still an unconfirmed guess.
+    await waitFor(() => expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(false));
+    expect(hasClass(screen.getByRole('button', { name: '45' }), 'is-active')).toBe(true);
+    expect(hasClass(screen.getByRole('button', { name: '45' }), 'set-value-ghost')).toBe(true);
   });
 
   it('does not restore a rest that belonged to a different client', async () => {

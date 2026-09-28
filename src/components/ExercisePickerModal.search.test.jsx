@@ -36,6 +36,19 @@ import ExercisePickerModal from './ExercisePickerModal';
 afterEach(cleanup);
 
 describe('ExercisePickerModal search', () => {
+  it('clears the previous search when reopened', async () => {
+    const props = { onClose: () => {}, onAdd: () => {}, onRemove: () => {} };
+    const { rerender } = render(<ExercisePickerModal open {...props} />);
+    const input = await screen.findByPlaceholderText(/search by name/i);
+    fireEvent.change(input, { target: { value: 'press' } });
+    expect(input.value).toBe('press');
+
+    // Reopened mid close-animation, while the modal is still mounted.
+    rerender(<ExercisePickerModal open={false} {...props} />);
+    rerender(<ExercisePickerModal open {...props} />);
+    expect(screen.getByPlaceholderText(/search by name/i).value).toBe('');
+  });
+
   it('matches a mid-word fragment, not just a name prefix', async () => {
     render(<ExercisePickerModal open onClose={() => {}} onAdd={() => {}} onRemove={() => {}} />);
 

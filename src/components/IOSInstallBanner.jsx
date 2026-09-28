@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import './InstallBanner.css';
 
 // iOS has no beforeinstallprompt (see InstallBanner.jsx) — Safari is the
@@ -44,14 +44,10 @@ function isIOSSafari() {
 }
 
 export default function IOSInstallBanner() {
-  const [visible, setVisible] = useState(false);
-  const [inOtherBrowser, setInOtherBrowser] = useState(false);
-
-  useEffect(() => {
-    if (!isIOSDevice() || isStandalone() || isDismissed()) return;
-    setInOtherBrowser(!isIOSSafari());
-    setVisible(true);
-  }, []);
+  // Decided on the first render (this app only renders in the browser), so
+  // there's no empty render followed by an effect turning the banner on.
+  const [visible, setVisible] = useState(() => isIOSDevice() && !isStandalone() && !isDismissed());
+  const inOtherBrowser = !isIOSSafari();
 
   if (!visible) return null;
 

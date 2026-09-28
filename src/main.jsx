@@ -59,7 +59,10 @@ import('./diagnostics/viewportDiag.js')
 // and fires even if the coach never re-opens the Live Log tab.
 window.addEventListener('online', () => {
   import('./services/databaseService')
-    .then(({ flushPendingWorkoutLogs }) => flushPendingWorkoutLogs())
+    .then(({ flushPendingWorkoutLogs, flushPendingWorkoutDrafts }) => {
+      flushPendingWorkoutLogs();
+      flushPendingWorkoutDrafts();
+    })
     .catch(() => {});
 });
 

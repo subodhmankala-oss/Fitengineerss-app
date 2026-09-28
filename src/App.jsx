@@ -20,7 +20,7 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const AuthConfirm = lazy(() => import('./components/AuthConfirm'));
 import { useTour } from './context/useTour';
 import { useCoachTour } from './context/useCoachTour';
-import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
+import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, flushPendingWorkoutDrafts, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
 import { useWakeLock } from './hooks/useWakeLock';
 import { takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink } from './utils/deepLink';
@@ -704,10 +704,12 @@ function App() {
         // it only fires once per app session per user.
         databaseService.touchLastLogin(email);
 
-        // Replay any workout whose save failed earlier (expired session, no
-        // connectivity, server down). Runs once a real session exists, so the
-        // retry is authenticated. Fire-and-forget — never delays startup.
+        // Replay any workout (or in-progress draft) whose save failed earlier
+        // (expired session, no connectivity, server down). Runs once a real
+        // session exists, so the retry is authenticated. Fire-and-forget —
+        // never delays startup.
         flushPendingWorkoutLogs().catch(() => {});
+        flushPendingWorkoutDrafts().catch(() => {});
 
         // When a coach-tab login is underway, handleCoachEmailLogin is the sole
         // authority for routing: it verifies a coaches row actually exists and either

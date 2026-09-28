@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useTour } from '../context/TourContext';
+import { useTour } from '../context/useTour';
 import './TourOverlay.css';
 
 // The script for the client spotlight tour. Each entry's `selector` must

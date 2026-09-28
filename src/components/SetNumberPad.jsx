@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { restoreScrollAfterPad } from './SetValueField';
+import { restoreScrollAfterPad } from '../utils/numberPadScroll';
 import { isTouchPrimaryDevice } from '../utils/setInputUtils';
 import './SetNumberPad.css';
 

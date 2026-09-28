@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useCoachTour } from '../context/CoachTourContext';
+import { useCoachTour } from '../context/useCoachTour';
 import './TourOverlay.css';
 
 // The coach-side counterpart to TourOverlay.jsx — same spotlight mechanics,

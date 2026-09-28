@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { TourContext } from './useTour';
 
 // Drives the client "spotlight" walkthrough: a step number that real app
 // navigation (bottom-nav clicks, tab switches inside WorkoutTracker, etc.)
@@ -7,7 +8,6 @@ import { createContext, useCallback, useContext, useState } from 'react';
 // "Next" button in the tooltip. See TourOverlay.jsx for the step script.
 //
 // step === 0 means the tour is inactive/not showing.
-const TourContext = createContext(null);
 
 const STORAGE_KEY = 'clientTourSeen';
 
@@ -43,10 +43,4 @@ export function TourProvider({ children }) {
       {children}
     </TourContext.Provider>
   );
-}
-
-export function useTour() {
-  const ctx = useContext(TourContext);
-  if (!ctx) throw new Error('useTour must be used within a TourProvider');
-  return ctx;
 }

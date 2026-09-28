@@ -11,14 +11,14 @@ export const getYouTubeEmbedUrl = (url) => {
   if (!url) return '';
   
   // Try matching Shorts format first
-  const shortsRegExp = /^.*youtube\.com\/shorts\/([^#\&\?\/]+).*/;
+  const shortsRegExp = /^.*youtube\.com\/shorts\/([^#&?/]+).*/;
   const shortsMatch = url.match(shortsRegExp);
   if (shortsMatch && shortsMatch[1].length === 11) {
     return `https://www.youtube.com/embed/${shortsMatch[1]}`;
   }
 
   // Fallback to standard YouTube regex
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) 
     ? `https://www.youtube.com/embed/${match[2]}`

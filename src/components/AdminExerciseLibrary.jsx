@@ -200,7 +200,7 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
   // stripping parens/hyphens/plurals and comparing the remaining word set.
   const normalizeForDuplicateCheck = (name) => {
     let base = (name || '').toLowerCase();
-    const paren = (base.match(/\(([^)]+)\)/) || [, ''])[1];
+    const paren = base.match(/\(([^)]+)\)/)?.[1] || '';
     base = base.replace(/\([^)]*\)/g, '').trim();
     const words = (base + ' ' + paren).split(/[\s-]+/).filter(Boolean).map(w => w.replace(/s$/, ''));
     words.sort();

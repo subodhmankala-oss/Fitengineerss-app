@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { CoachTourContext } from './useCoachTour';
 
 // Coach-side counterpart to TourContext — same shape, own storage key, own
 // step numbering. Kept as a separate context (rather than a `role` flag on
@@ -6,7 +7,6 @@ import { createContext, useCallback, useContext, useState } from 'react';
 // screens and share no steps; see CoachTourOverlay.jsx for the step script.
 //
 // step === 0 means the tour is inactive/not showing.
-const CoachTourContext = createContext(null);
 
 const STORAGE_KEY = 'coachTourSeen';
 
@@ -42,10 +42,4 @@ export function CoachTourProvider({ children }) {
       {children}
     </CoachTourContext.Provider>
   );
-}
-
-export function useCoachTour() {
-  const ctx = useContext(CoachTourContext);
-  if (!ctx) throw new Error('useCoachTour must be used within a CoachTourProvider');
-  return ctx;
 }

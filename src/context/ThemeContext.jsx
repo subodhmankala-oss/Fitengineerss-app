@@ -1,11 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ThemeContext } from './useTheme';
 
 // User-facing choice is one of 'light' | 'dark' | 'auto'; 'auto' follows the
 // time of day on the device's own clock — light 6am-6pm, dark otherwise —
 // and flips live at each boundary without needing a reload. Kept in sync
 // with the identical LIGHT_START_HOUR/LIGHT_END_HOUR + resolution logic
 // duplicated in index.html's pre-paint script.
-const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'themePreference';
 const LIGHT_START_HOUR = 6; // 6am
@@ -88,10 +88,4 @@ export function ThemeProvider({ children }) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within a ThemeProvider');
-  return ctx;
 }

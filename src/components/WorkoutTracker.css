@@ -2561,6 +2561,17 @@
   font-weight: 600;
 }
 
+/* PREV pre-fill shown but not yet confirmed (see SetValueField's isGhost
+   prop) — dimmed and italic so it reads as "this is a guess, tap ✓ or edit
+   it" rather than a value the client already typed. Edited or completed
+   sets never carry this class (see weightFromPrev/repsFromPrev clearing in
+   WorkoutTracker.jsx / TrainerDashboard.jsx). */
+.hevy-set-row .set-input-field .set-value-btn.set-value-ghost {
+  color: var(--text-muted, rgba(148, 163, 184, 0.7));
+  font-style: italic;
+  font-weight: 600;
+}
+
 .set-value-caret {
   display: inline-block;
   width: 1px;

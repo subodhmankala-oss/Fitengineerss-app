@@ -29,6 +29,9 @@ import { TourProvider } from '../context/TourContext';
 
 const renderWorkoutTracker = () => render(<TourProvider><WorkoutTracker /></TourProvider>);
 
+// No jest-dom in this project — plain className check instead of toHaveClass.
+const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);
+
 const DRAFT_KEY = 'workoutDraft_u1';
 const REST_KEY = 'workoutRestEndAt_u1';
 const today = () => {
@@ -85,6 +88,60 @@ describe('WorkoutTracker one-tap set logging', () => {
     expect(screen.getByRole('button', { name: '45' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '9' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '7' })).toBeTruthy();
+    // Pre-filled from PREV, not yet confirmed — shown as a ghost value.
+    expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(true);
+    expect(hasClass(screen.getByRole('button', { name: '9' }), 'set-value-ghost')).toBe(true);
+  });
+
+  it('shows PREV-filled values as ghost until confirmed, and advances focus to the next set on tap', async () => {
+    const draft = makeDraft();
+    draft.logExercises = [{
+      name: 'Bench Press',
+      sets: [
+        { reps: 9, weight: '42.5', isCompleted: false, weightFromPrev: true, repsFromPrev: true },
+        { reps: 7, weight: '45', isCompleted: false, weightFromPrev: true, repsFromPrev: true }
+      ]
+    }];
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    renderWorkoutTracker();
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+
+    const set1Weight = screen.getByRole('button', { name: '42.5' });
+    const set2Weight = screen.getByRole('button', { name: '45' });
+    expect(hasClass(set1Weight, 'set-value-ghost')).toBe(true);
+    expect(hasClass(set2Weight, 'set-value-ghost')).toBe(true);
+    expect(hasClass(set2Weight, 'is-active')).toBe(false);
+
+    fireEvent.click(screen.getAllByTitle('Toggle Complete')[0]);
+
+    // Completing set 1 confirms it (ghost clears, it's now locked/disabled)
+    // and hands focus to set 2's kg box, which is still an unconfirmed guess.
+    await waitFor(() => expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(false));
+    expect(hasClass(screen.getByRole('button', { name: '45' }), 'is-active')).toBe(true);
+    expect(hasClass(screen.getByRole('button', { name: '45' }), 'set-value-ghost')).toBe(true);
+  });
+
+  it('clears the ghost styling on a set the client edits by hand', async () => {
+    const draft = makeDraft();
+    draft.logExercises = [{
+      name: 'Bench Press',
+      sets: [{ reps: 9, weight: '42.5', isCompleted: false, weightFromPrev: true, repsFromPrev: true }]
+    }];
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    renderWorkoutTracker();
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(true);
+
+    // Open the kg field (desktop: the real on-screen pad never renders, but
+    // the same keydown listener that drives it on mobile is still attached,
+    // per SetNumberPad's own desktop fallback) and type over the PREV value.
+    fireEvent.click(screen.getByRole('button', { name: '42.5' }));
+    fireEvent.keyDown(document, { key: '5' });
+
+    const edited = await screen.findByRole('button', { name: '42.55' });
+    expect(hasClass(edited, 'set-value-ghost')).toBe(false);
+    // Reps wasn't touched, so it's still an unconfirmed guess.
+    expect(hasClass(screen.getByRole('button', { name: '9' }), 'set-value-ghost')).toBe(true);
   });
 
   it('saves the draft right away when a set is ticked, instead of after the debounce', async () => {

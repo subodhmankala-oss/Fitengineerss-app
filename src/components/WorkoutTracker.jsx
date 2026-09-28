@@ -326,11 +326,6 @@ const defaultHistoricalSessions = [
   }
 ];
 
-const defaultClientProfiles = [
-  { clientName: 'Sridhar', activeProgram: 'Body Weights & Dumbbells', totalSessions: 12 },
-  { clientName: 'Generic Client', activeProgram: 'Hypertrophy Surge', totalSessions: 24 }
-];
-
 const availablePrograms = [
   {
     id: 'bodyweight_dumbbells',
@@ -452,27 +447,6 @@ const WorkoutTracker = () => {
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
-  // Coach-set program length (clients.total_sessions) for the logged-in client.
-  // This is the source of truth for the session total, overriding the legacy
-  // mock package counts so the Workout tab matches the client home card.
-  // Seeded from the SAME localStorage fast-paint cache WorkoutProgressDashboard
-  // uses (userSessionsLimit) — not just for a faster first paint, but so this
-  // screen and the home card agree from the very first render instead of only
-  // converging once both screens' own DB reconciles land. Before this, this
-  // state started bare `null` every mount (unlike the home card's seeded
-  // state), so the two screens could show different numbers — read as "home
-  // screen shows different sessions than the log side."
-  const [coachSetTotalSessions, setCoachSetTotalSessions] = useState(() => {
-    const cachedLimit = parseInt(localStorage.getItem('userSessionsLimit'), 10);
-    return Number.isFinite(cachedLimit) && cachedLimit > 0 ? cachedLimit : null;
-  });
-  // DB-backed completed-session dates (distinct workout_logs dates) for the
-  // logged-in client — same source as the home progress card, so the two
-  // surfaces agree on "Completed".
-  const [dbLogDates, setDbLogDates] = useState(null);
-  // Coach-set renewal date (clients.program_started_on). Same
-  // localStorage-seed reasoning as coachSetTotalSessions above.
-  const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
   const [selectedExercise, setSelectedExercise] = useState('Shoulders Press');
 
   // Custom templates and plans state
@@ -516,14 +490,7 @@ const WorkoutTracker = () => {
   // name (then a dated default).
   const [customTemplateName, setCustomTemplateName] = useState('');
   const [workoutSource, setWorkoutSource] = useState(savedWorkoutDraft?.workoutSource ?? 'self'); // 'self' | 'coach'
-  // Generic workout templates (Push/Pull/Leg)
-  const [genericTemplates, setGenericTemplates] = useState([]);
   const [activeTemplateName, setActiveTemplateName] = useState(savedWorkoutDraft?.activeTemplateName ?? '');
-
-  // Generic (non-coach) starter workout templates — always available, regardless of coach_id.
-  const [defaultTemplates, setDefaultTemplates] = useState([]);
-  const [loadingDefaultTemplates, setLoadingDefaultTemplates] = useState(false);
-  const [selectedDefaultTemplateId, setSelectedDefaultTemplateId] = useState('');
 
   // Generic workout library, filtered by difficulty level (Beginner/Intermediate/Advanced)
   // and category (Gym/Home — Home is bodyweight/no-equipment-only programs).
@@ -552,24 +519,6 @@ const WorkoutTracker = () => {
   const [hasCoachAssigned, setHasCoachAssigned] = useState(
     () => !!(storedCoachId && storedCoachId !== 'null' && storedCoachId !== 'undefined')
   );
-
-  useEffect(() => {
-    const loadDefaultTemplates = async () => {
-      setLoadingDefaultTemplates(true);
-      try {
-        const templates = await databaseService.getDefaultWorkoutTemplates();
-        setDefaultTemplates(templates || []);
-        if (templates && templates.length > 0) {
-          setSelectedDefaultTemplateId(prev => prev || templates[0].id);
-        }
-      } catch (e) {
-        console.error('Error fetching default workout templates:', e);
-      } finally {
-        setLoadingDefaultTemplates(false);
-      }
-    };
-    loadDefaultTemplates();
-  }, []);
 
   // Load the difficulty-leveled generic workout library whenever the selected
   // level or category (Gym/Home) changes.
@@ -628,15 +577,6 @@ const WorkoutTracker = () => {
     }
   };
 
-  // Load generic templates on mount
-  useEffect(() => {
-    databaseService.getDefaultWorkoutTemplates().then(tpls => {
-      setGenericTemplates(tpls || []);
-    }).catch(() => {
-      setGenericTemplates(databaseService.BUILTIN_TEMPLATES);
-    });
-  }, []);
-
   useEffect(() => {
     fetchPlans();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when the client changes; fetchPlans reads selectedClient from that same render
@@ -658,21 +598,6 @@ const WorkoutTracker = () => {
   const chartScrollRef = useRef(null);
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' or 'monthly'
   const [toastMessage, setToastMessage] = useState('');
-  const [historyExpandedDate, setHistoryExpandedDate] = useState(null);
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() }; // 0-indexed month
-  });
-
-  // Payment Gateway Modal States
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentProgram, setPaymentProgram] = useState(null);
-  const [paymentTab, setPaymentTab] = useState('card'); // 'card' or 'upi'
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [cardName, setCardName] = useState('');
 
   // Hevy Workout Tracker States — timer state machine matches the coach Live
   // Log exactly: idle until the first set is marked done, then running/paused
@@ -879,17 +804,13 @@ const WorkoutTracker = () => {
       // to fail (right after login/reopen, competing with other requests).
       if (!conn.resolved) return;
       if (conn.connected && Number.isFinite(conn.totalSessions) && conn.totalSessions > 0) {
-        setCoachSetTotalSessions(conn.totalSessions);
         localStorage.setItem('userSessionsLimit', String(conn.totalSessions));
       } else {
-        setCoachSetTotalSessions(null);
         localStorage.removeItem('userSessionsLimit');
       }
       if (conn.connected && conn.programStartedOn) {
-        setProgramStartedOn(conn.programStartedOn);
         localStorage.setItem('userProgramStartedOn', conn.programStartedOn);
       } else {
-        setProgramStartedOn(null);
         localStorage.removeItem('userProgramStartedOn');
       }
     }).catch(() => {});
@@ -919,7 +840,6 @@ const WorkoutTracker = () => {
     loadOwnDbLogs().then(({ ownKey, logs }) => {
       const rows = logs || [];
       const dbDates = new Set(rows.map(l => l.log_date));
-      setDbLogDates(Array.from(dbDates));
 
       if (rows.length > 0) {
         // Group flat log rows into one session per date → { exercises:[{name,sets}] }
@@ -1293,7 +1213,6 @@ const WorkoutTracker = () => {
         localStorage.setItem('workoutSessions', JSON.stringify(updated));
         return updated;
       });
-      setHistoryExpandedDate(session.id); // auto-expand the new session
     };
     window.addEventListener('workoutSessionsUpdated', onCoachSaved);
     return () => window.removeEventListener('workoutSessionsUpdated', onCoachSaved);
@@ -1503,11 +1422,6 @@ const WorkoutTracker = () => {
         }
       });
     }
-  };
-
-  const saveProfilesToLocal = (newProfiles) => {
-    localStorage.setItem('workoutClientProfiles', JSON.stringify(newProfiles));
-    setClientProfiles(newProfiles);
   };
 
   const triggerToast = (msg) => {
@@ -2176,13 +2090,6 @@ const WorkoutTracker = () => {
     });
   };
 
-  const handleAddCustomExercise = () => {
-    const name = prompt("Enter Exercise Name:");
-    if (name) {
-      setLogExercises(prev => [...prev, { name, sets: [{ reps: 10, weight: '5.0', isCompleted: false }] }]);
-    }
-  };
-
   const handleFinishWorkoutPress = (e) => {
     if (e) e.preventDefault();
 
@@ -2549,73 +2456,6 @@ const WorkoutTracker = () => {
     setSetTimers({});
 
     setActiveView('analytics');
-  };
-
-  // Program enrollment select
-  const selectCoachingProgram = (program) => {
-    let isRenewal = false;
-    const updatedProfiles = clientProfiles.map(p => {
-      if (p.clientName.toLowerCase() === selectedClient.toLowerCase()) {
-        const isSameProgram = p.activeProgram.toLowerCase() === program.name.toLowerCase();
-        if (isSameProgram) {
-          isRenewal = true;
-          return {
-            ...p,
-            totalSessions: p.totalSessions + program.sessions
-          };
-        } else {
-          return {
-            ...p,
-            activeProgram: program.name,
-            totalSessions: program.sessions
-          };
-        }
-      }
-      return p;
-    });
-
-    // If client does not exist in profiles, add them
-    const exists = clientProfiles.some(p => p.clientName.toLowerCase() === selectedClient.toLowerCase());
-    if (!exists) {
-      updatedProfiles.push({
-        clientName: selectedClient,
-        activeProgram: program.name,
-        totalSessions: program.sessions
-      });
-    }
-
-    saveProfilesToLocal(updatedProfiles);
-    if (isRenewal) {
-      triggerToast(`Package renewed! Appended +${program.sessions} sessions for ${selectedClient}.`);
-    } else {
-      triggerToast(`Enrolled in "${program.name}" (${program.sessions} sessions total!)`);
-    }
-    setActiveView('analytics');
-  };
-
-  const getAmountBreakdown = (priceStr) => {
-    const total = parseFloat(priceStr.replace(/[^\d]/g, '')) || 0;
-    const base = parseFloat((total / 1.18).toFixed(2));
-    const gst = parseFloat((total - base).toFixed(2));
-    return {
-      total: priceStr,
-      base: `₹${base.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      gst: `₹${gst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    };
-  };
-
-  const handlePaymentSubmit = (e) => {
-    e.preventDefault();
-    setIsProcessingPayment(true);
-    
-    // Simulate premium payment processor verification
-    setTimeout(() => {
-      setIsProcessingPayment(false);
-      setShowPaymentModal(false);
-      
-      // Perform the actual enrollment upon successful mock payment
-      selectCoachingProgram(paymentProgram);
-    }, 1800);
   };
 
   // ─── Start a workout from a generic template ───
@@ -4383,82 +4223,6 @@ const WorkoutTracker = () => {
           </div>
         </div>
       )}
-
-      {/* Premium Invoice Amount Details Modal */}
-      {showPaymentModal && paymentProgram && (() => {
-        const breakdown = getAmountBreakdown(paymentProgram.price);
-        return (
-          <div className="payment-gateway-backdrop">
-            <div className="payment-gateway-modal invoice-modal animate-scale-in">
-              <div className="payment-modal-header">
-                <div className="modal-title-box">
-                  <span className="secure-badge">🧾 BILLING INVOICE</span>
-                  <h3>Payment Amount Details</h3>
-                </div>
-                <button 
-                  type="button" 
-                  className="btn-close-modal"
-                  onClick={() => setShowPaymentModal(false)}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="invoice-client-card">
-                <div className="client-meta-row">
-                  <span>Client Name:</span>
-                  <strong>{selectedClient}</strong>
-                </div>
-                <div className="client-meta-row">
-                  <span>Coaching Course:</span>
-                  <strong>{paymentProgram.name}</strong>
-                </div>
-                <div className="client-meta-row">
-                  <span>Sessions Package:</span>
-                  <strong>{paymentProgram.sessions} Sessions</strong>
-                </div>
-              </div>
-
-              <div className="invoice-breakdown-details">
-                <div className="invoice-row">
-                  <span>Subtotal (Base Price)</span>
-                  <span>{breakdown.base}</span>
-                </div>
-                <div className="invoice-row">
-                  <span>Integrated GST (18%)</span>
-                  <span>{breakdown.gst}</span>
-                </div>
-                <div className="invoice-row total-row">
-                  <span>Grand Total Payable</span>
-                  <strong>{breakdown.total}</strong>
-                </div>
-              </div>
-
-              <div className="secure-payment-notice">
-                <span>🔒</span>
-                <p>Fitengineers Secure Billing request. The program track will be activated instantly on payment success.</p>
-              </div>
-
-              <form onSubmit={handlePaymentSubmit} className="payment-gateway-form">
-                <button 
-                  type="submit" 
-                  className="btn-pay-submit" 
-                  disabled={isProcessingPayment}
-                >
-                  {isProcessingPayment ? (
-                    <span className="pay-loader-row">
-                      <span className="spinner-dot"></span>
-                      Processing Payment of {breakdown.total}...
-                    </span>
-                  ) : (
-                    `Pay Grand Total ${breakdown.total}`
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Shared Hevy-style exercise picker (same component as the coach side) */}
       <ExercisePickerModal

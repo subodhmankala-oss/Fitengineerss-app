@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Onboarding from './components/Onboarding';
-import SmartNudges from './components/SmartNudges';
 import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
 // Lazy-loaded: each of these is only ever needed for ONE role/route at a
@@ -507,7 +506,6 @@ function App() {
   const demoTourCheckedRef = useRef(false);
   const clientTour = useTour();
   const coachTour = useCoachTour();
-  const [userGoal, setUserGoal] = useState(() => localStorage.getItem('userGoal') || '');
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('userEmail') || '');
   // The auth listener below is subscribed once for the whole session, so it
   // would otherwise only ever see the userEmail from the first render.
@@ -1002,7 +1000,6 @@ function App() {
             localStorage.setItem('onboardingCompleted', 'false');
             setUserRole('client');
           }
-          if (clientProfile?.userGoal) setUserGoal(clientProfile.userGoal);
           setUserEmail(email);
           localStorage.setItem('onboardingComplete', 'true');
           setOnboardingComplete(true);
@@ -1046,7 +1043,6 @@ function App() {
             localStorage.setItem('userRole', fallbackRole);
             setUserRole(fallbackRole);
           }
-          if (profile?.userGoal) setUserGoal(profile.userGoal);
           setUserEmail(email);
 
           localStorage.setItem('onboardingComplete', 'true');
@@ -1223,7 +1219,6 @@ function App() {
         if (lastUserName) localStorage.setItem('lastUserName', lastUserName);
         
         setOnboardingComplete(false);
-        setUserGoal('');
         setUserEmail('');
         setActiveTab('home');
       }
@@ -1282,8 +1277,6 @@ function App() {
     const isComplete = localStorage.getItem('onboardingComplete');
     if (isComplete === 'true') {
       setOnboardingComplete(true);
-      const goal = localStorage.getItem('userGoal');
-      if (goal) setUserGoal(goal);
 
       // Check date rollover on startup
       checkAndHandleDateRollover();
@@ -1603,8 +1596,6 @@ function App() {
           }
 
           localStorage.setItem('onboardingComplete', 'true');
-          const goal = localStorage.getItem('userGoal');
-          if (goal) setUserGoal(goal);
           setUserEmail(localStorage.getItem('userEmail') || '');
           setUserRole(localStorage.getItem('userRole') || 'client');
           saveQuickLoginAccount();
@@ -1687,7 +1678,6 @@ function App() {
     lastProcessedEmailRef.current = '';
     setOnboardingComplete(false);
     setShowClientWizard(false);
-    setUserGoal('');
     setUserEmail('');
     setActiveTab('home');
 
@@ -1908,7 +1898,6 @@ function App() {
 
   return (
     <div className="app-container">
-      <SmartNudges />
       <TourOverlay />
 
       <main className="main-content">

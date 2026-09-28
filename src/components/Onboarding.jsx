@@ -110,7 +110,6 @@ const Onboarding = ({ onComplete }) => {
     return isSupabaseConfigured ? 0 : 1;
   });
   const [name, setName] = useState(() => localStorage.getItem('userName') || '');
-  const [wizardPrefill, setWizardPrefill] = useState(null);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   // Which tab opened the (localhost-only) Google account picker modal — the
   // modal itself has no other way to know whether to route the selection
@@ -309,70 +308,6 @@ const Onboarding = ({ onComplete }) => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when step changes, with onComplete from that same render
   }, [step]);
-
-  // Saved accounts for quick login
-  const [savedAccounts, setSavedAccounts] = useState(() => {
-    const accounts = [];
-
-    // Seed default coach account if savedEmailAccounts is empty or not initialized
-    const savedEmailAccountsRaw = localStorage.getItem('savedEmailAccounts');
-    let savedEmailAccounts = [];
-    if (savedEmailAccountsRaw) {
-      try {
-        savedEmailAccounts = JSON.parse(savedEmailAccountsRaw);
-      } catch { /* unreadable saved-accounts list — show none */ }
-    } else {
-      // Seed default coach login
-      savedEmailAccounts = [
-        {
-          type: 'coach',
-          email: 'coach@fitengineers.com',
-          password: 'password123',
-          name: 'Coach Subodh',
-          initials: 'CS',
-          color: '#ea4335'
-        }
-      ];
-      localStorage.setItem('savedEmailAccounts', JSON.stringify(savedEmailAccounts));
-    }
-
-    // Process email accounts
-    savedEmailAccounts.forEach(acct => {
-      accounts.push({
-        type: acct.type,
-        email: acct.email,
-        password: acct.password,
-        name: acct.name,
-        initials: acct.initials,
-        color: acct.color,
-      });
-    });
-
-    // Check for saved client profiles
-    const profilesSeen = new Set();
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('profile_')) {
-        try {
-          const profile = JSON.parse(localStorage.getItem(key));
-          if (profile && profile.name && !profilesSeen.has(profile.name)) {
-            profilesSeen.add(profile.name);
-            const initials = profile.name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-            const colors = ['#4364bd', '#4364bd', '#8b5cf6', '#ec4899', '#f59e0b'];
-            const colorIdx = profile.name.charCodeAt(0) % colors.length;
-            accounts.push({
-              type: 'client-local',
-              name: profile.name,
-              initials,
-              color: colors[colorIdx],
-              profile
-            });
-          }
-        } catch { /* skip an unreadable saved profile; keep listing the rest */ }
-      }
-    }
-    return accounts;
-  });
 
   const handleClientEmailLogin = async (e) => {
     e.preventDefault();
@@ -2079,11 +2014,6 @@ const Onboarding = ({ onComplete }) => {
                         className="suggestion-btn autofill-btn-sec"
                         onClick={() => {
                           setName(profile.name);
-                          setWizardPrefill({
-                            age: profile.age || '',
-                            weight: profile.weight || '',
-                            height: profile.height || ''
-                          });
                           if (profile.age) localStorage.setItem('userAge', profile.age);
                           if (profile.weight) localStorage.setItem('userWeight', profile.weight);
                           if (profile.height) localStorage.setItem('userHeight', profile.height);

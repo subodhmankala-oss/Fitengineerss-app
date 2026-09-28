@@ -256,14 +256,11 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
 
   const [adminSubTab, setAdminSubTab] = useState('clients'); // 'clients' or 'coaches'
   const [coachesList, setCoachesList] = useState([]);
-  const [pendingCoachesList, setPendingCoachesList] = useState([]);
   const [platformStats, setPlatformStats] = useState({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
   const [exerciseCount, setExerciseCount] = useState(0);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
   const [refreshToast, setRefreshToast] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [allUsersList, setAllUsersList] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // Platform Admin: drill-down into a specific coach's actual client list
   const [drilldownCoach, setDrilldownCoach] = useState(null);
@@ -413,10 +410,8 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     try {
       const coaches = await databaseService.getAllCoaches();
       const stats = await databaseService.getPlatformStats();
-      const pendingCoaches = await databaseService.getPendingCoachApplications();
       const exercises = await databaseService.getExerciseLibrary();
       setCoachesList(coaches || []);
-      setPendingCoachesList(pendingCoaches || []);
       setPlatformStats(stats || { totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 });
       // Same merge AdminExerciseLibrary itself does (see that component's
       // fetchExercises comment): a code-defined exercise not yet INSERTed
@@ -430,31 +425,10 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
       const mergedExerciseCount = (exercises || []).length
         + EXERCISE_LIBRARY.filter(e => !dbExerciseNames.has(e.name.toLowerCase())).length;
       setExerciseCount(mergedExerciseCount);
-
-      // Fetch all users for platform directory
-      setLoadingUsers(true);
-      const allUsers = await databaseService.getAllUsersWithRoles();
-      setAllUsersList(allUsers || []);
-      setLoadingUsers(false);
     } catch (e) {
       console.error('Error fetching admin data:', e);
-      setLoadingUsers(false);
     } finally {
       setLoadingAdmin(false);
-    }
-  };
-
-  const handleRejectCoach = async (coach) => {
-    if (!window.confirm(`Reject ${coach.name || coach.email}'s application?`)) {
-      return;
-    }
-    try {
-      await databaseService.rejectCoach(coach.email);
-      fetchAdminData();
-      alert('Coach application rejected.');
-    } catch (err) {
-      console.error('Error rejecting coach:', err);
-      alert('Failed to reject coach.');
     }
   };
 
@@ -628,13 +602,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAdminData only uses setters and superAdmin, which is fixed per mount
   }, [viewMode]);
-
-  const handleToggleCoachPayment = async (coach) => {
-    const nextStatus = coach.payment_status === 'active' ? 'failed' : 'active';
-    const updated = { ...coach, payment_status: nextStatus };
-    await databaseService.saveCoachProfile(updated);
-    fetchAdminData();
-  };
 
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -1254,7 +1221,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
   // itself on change, no separate edit mode or popup.
   const [programStartedOnInput, setProgramStartedOnInput] = useState('');
   const [programEstCompletionInput, setProgramEstCompletionInput] = useState('');
-  const [savingProgramDates, setSavingProgramDates] = useState(false);
   const [programDatesSaveMsg, setProgramDatesSaveMsg] = useState('');
 
   // Selected client workout plans state
@@ -2825,8 +2791,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
 
   // Chat states
   const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [loadingChat, setLoadingChat] = useState(false);
   const chatEndRef = useRef(null);
 
   // Resolve this coach's canonical id once on mount (repairs a null/poisoned
@@ -3010,7 +2974,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     if (!selectedClient) return;
     const startedOn = 'startedOn' in overrides ? overrides.startedOn : programStartedOnInput;
     const estCompletion = 'estCompletion' in overrides ? overrides.estCompletion : programEstCompletionInput;
-    setSavingProgramDates(true);
     setProgramDatesSaveMsg('');
     try {
       const result = await databaseService.setClientProgramDates(
@@ -3029,7 +2992,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
       console.error('Error saving program dates:', e);
       setProgramDatesSaveMsg('❌ Could not save dates. Please try again.');
     } finally {
-      setSavingProgramDates(false);
       setTimeout(() => setProgramDatesSaveMsg(''), 3500);
     }
   };
@@ -3510,9 +3472,7 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
   const handleTabChange = async (tab) => {
     setDetailTab(tab);
     if (tab === 'chat' && selectedClient) {
-      setLoadingChat(true);
       await fetchClientChat(selectedClient.id);
-      setLoadingChat(false);
     } else if (tab === 'plans' && selectedClient) {
       await fetchClientPlans(selectedClient.id);
     } else if (tab === 'measurements' && selectedClient) {
@@ -3879,19 +3839,6 @@ const TrainerDashboardContent = ({ handleLogout, onReplayDemoTour, deepLinkClien
     moveByKeyboard: moveEditorExerciseByKeyboard,
     getItemKey: getEditorItemKey,
   } = useReorderableList(editorExercises, setEditorExercises);
-
-  const handleSendCoachMessage = async () => {
-    if (!chatInput.trim() || !selectedClient) return;
-    
-    const text = chatInput.trim();
-    setChatInput('');
-
-    // Save coach reply in database
-    await databaseService.saveChatMessage(selectedClient.id, 'coach', text);
-    
-    // Refresh history
-    await fetchClientChat(selectedClient.id);
-  };
 
   // The client's most recent completed session (for tailoring note
   // suggestions to what they just did). workoutLogs is already grouped and

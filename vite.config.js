@@ -44,6 +44,19 @@ export default defineConfig({
   ],
   test: {
     environment: 'jsdom',
+    // Placeholder Supabase settings so tests behave the same everywhere:
+    // several code paths branch on isSupabaseConfigured, so without these
+    // the suite depended on each developer's local .env (and failed in CI,
+    // which has none). Placeholders also guarantee a test can never reach
+    // the real project; anything network-bound must be mocked.
+    env: {
+      VITE_SUPABASE_URL: 'https://placeholder.supabase.co',
+      VITE_SUPABASE_ANON_KEY: 'placeholder-anon-key',
+    },
+    // The heaviest component tests (e.g. the exercise picker's first cold
+    // render) took up to ~6s with the whole suite running in parallel,
+    // tripping the 5s default intermittently; CI runners are slower still.
+    testTimeout: 20000,
     // vite-plugin-pwa's `virtual:pwa-register` module only exists under the
     // real Vite build/dev pipeline, not vitest's transform — any test that
     // imports (even transitively, via pwa/registerPWA.js) a component using

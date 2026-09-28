@@ -22,6 +22,9 @@ describe('findPreviousLoggedSetIn', () => {
     const withShortNewest = [...sessions, { clientName: 'Asha', date: '2026-09-15', exercises: [{ name: 'Bench Press', sets: [{ reps: 6, weight: 50 }] }] }];
     expect(findPreviousLoggedSetIn(withShortNewest, 'Asha', 'Bench Press', 1)).toEqual({ reps: 8, weight: 45 });
   });
+  it('skips the client filter when the list is already one client’s history', () => {
+    expect(findPreviousLoggedSetIn(sessions, null, 'Bench Press', 0)).toEqual({ reps: 5, weight: 100 });
+  });
   it('returns null when never logged, and tolerates sessions without a clientName', () => {
     expect(findPreviousLoggedSetIn([{ date: '2026-09-01', exercises: [] }, ...sessions], 'Asha', 'Deadlift', 0)).toBeNull();
   });

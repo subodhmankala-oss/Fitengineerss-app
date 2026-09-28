@@ -7,8 +7,10 @@ import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data
 
 const byNewestFirst = (a, b) => new Date(b.date) - new Date(a.date);
 
+// clientName null = the list is already one client's history (the coach
+// Live Log's workoutLogs), so nothing to filter.
 const clientSessionsNewestFirst = (sessions, clientName) => (sessions || [])
-  .filter(s => (s.clientName || '').toLowerCase() === (clientName || '').toLowerCase())
+  .filter(s => clientName == null || (s.clientName || '').toLowerCase() === clientName.toLowerCase())
   .sort(byNewestFirst);
 
 // The most recent logged set for this exercise at this set index, or null

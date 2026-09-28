@@ -33,6 +33,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -108,6 +109,10 @@ const convertAiDayToEditorShape = (day) => ({
   planName: day.planName,
   exercises: (day.exercises || []).map(convertAiExerciseToEditorShape)
 });
+
+// localStorage key for the Live Log's running rest countdown:
+// { clientId, endAt } — see liveRestClientIdRef.
+const LIVE_REST_KEY = 'coachLiveRestEndAt';
 
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
@@ -1310,6 +1315,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // session objects `workoutLogs` holds.
   const [rawWorkoutLogs, setRawWorkoutLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  // Which client's history the Live Log's PREV pre-fill can use right now:
+  // { clientId, sessions } where sessions is null until handleSelectClient's
+  // fetch lands. A ref, not state, because the pre-fill runs from async
+  // callbacks (the draft resume, the history fetch itself) that would
+  // otherwise read a stale workoutLogs — and because the history for a
+  // client the coach already switched away from must be ignored, not
+  // applied to the next client's sets.
+  const liveHistoryRef = useRef({ clientId: null, sessions: null });
   // Workout History tab timeframe filter: 'weekly' (last 7 days), 'daily'
   // (today), or 'monthly' (last 30 days) — same control as Workout Summary.
   const [historyTimeframe, setHistoryTimeframe] = useState('weekly');
@@ -1530,6 +1543,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };
+  }, [restTimerActive, restEndAt]);
+
+  // Remember the running rest (and whose set started it) so reopening that
+  // client's resumed Live Log after a page reload picks the countdown back
+  // up — see the resume branch in handleSelectClient. Local only: the rest
+  // belongs to the coach's device, not the cross-device draft.
+  const liveRestClientIdRef = useRef(null);
+  useEffect(() => {
+    try {
+      // No rest started or restored since this page loaded — keep whatever
+      // an earlier page left, so it can still be restored.
+      if (!liveRestClientIdRef.current) return;
+      if (restTimerActive && restEndAt) {
+        localStorage.setItem(LIVE_REST_KEY, JSON.stringify({ clientId: liveRestClientIdRef.current, endAt: restEndAt }));
+      } else {
+        localStorage.removeItem(LIVE_REST_KEY);
+      }
+    } catch { /* ignore quota/serialization errors */ }
   }, [restTimerActive, restEndAt]);
 
   const resetLiveTimer = () => {
@@ -1860,14 +1891,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   };
 
   const handleDiscardLiveSession = async () => {
-    // Cancel any debounced background draft-save still armed from the last
-    // edit — otherwise it can fire after the delete below and silently
-    // recreate the row it just removed. See the matching comment in
-    // handleSaveLiveSession for the full race.
-    if (liveDraftSaveTimerRef.current) {
-      clearTimeout(liveDraftSaveTimerRef.current);
-      liveDraftSaveTimerRef.current = null;
-    }
+    // A draft save still waiting (or already sent) must not land after the
+    // delete below and recreate the row it just removed — see
+    // deleteLiveDraftAfterPendingSave and handleSaveLiveSession.
     resetLiveTimer();
     setLiveExercises([]);
     setLiveSetTimers({});
@@ -1877,7 +1903,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // banner on the client directory screen keeps showing this session as
     // resumable even though it was just discarded here.
     if (selectedClient) {
-      await databaseService.deleteWorkoutDraft(selectedClient.id);
+      await deleteLiveDraftAfterPendingSave(selectedClient.id);
       refreshCoachActiveDrafts();
     }
     triggerLiveToast('🗑️ Live session discarded.');
@@ -1935,35 +1961,99 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const liveCaloriesBase = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg);
   const liveCalories = { ...liveCaloriesBase, totalKcal: Math.round((liveCaloriesBase.totalKcal + liveRunningCardioKcal) * 10) / 10 };
 
-  // Debounce-push the Live Log session to workout_drafts once there's
-  // actually something worth resuming (a set ticked, or the timer running/
-  // paused) — this is what survives the coach backgrounding the app or
-  // switching to another client mid-session, and what the coach's client
-  // list "Resume Live Log" banner reads. Debounced so typing a weight/rep
-  // doesn't fire a request per keystroke.
+  // Push the Live Log session to workout_drafts once there's actually
+  // something worth resuming (a set ticked, or the timer running/paused) —
+  // this is what survives the coach backgrounding the app or switching to
+  // another client mid-session, and what the coach's client list "Resume
+  // Live Log" banner reads. Debounced so typing a weight/rep doesn't fire a
+  // request per keystroke; a ticked set is sent immediately.
   const liveDraftSaveTimerRef = useRef(null);
+  // The draft waiting out the debounce, if any.
+  const pendingLiveDraftRef = useRef(null);
+  // The last workout_drafts request sent. Every save and delete is chained
+  // after it, so they land in the order they were made — an older upsert
+  // can't overwrite a newer one, or recreate the row after Save/Discard
+  // deleted it (the "Live Log in progress" banner that won't go away).
+  const liveDraftInFlightRef = useRef(null);
+  // Set by a ticked set: the next draft save skips the debounce, so every
+  // completed set reaches the DB copy right away (workout_logs itself is
+  // still only written by Save Workout).
+  const saveLiveDraftNowRef = useRef(false);
+
+  const sendPendingLiveDraft = useCallback(() => {
+    if (liveDraftSaveTimerRef.current) {
+      clearTimeout(liveDraftSaveTimerRef.current);
+      liveDraftSaveTimerRef.current = null;
+    }
+    const draft = pendingLiveDraftRef.current;
+    pendingLiveDraftRef.current = null;
+    if (!draft) return;
+    liveDraftInFlightRef.current = Promise.resolve(liveDraftInFlightRef.current)
+      .then(() => databaseService.saveWorkoutDraft(draft))
+      .catch(() => {});
+  }, []);
+
+  // Drops a draft save still waiting for this client, then deletes their
+  // draft once any save already sent has finished. Resolves when the delete
+  // is done.
+  const deleteLiveDraftAfterPendingSave = (userId) => {
+    if (pendingLiveDraftRef.current?.userId === userId) {
+      if (liveDraftSaveTimerRef.current) {
+        clearTimeout(liveDraftSaveTimerRef.current);
+        liveDraftSaveTimerRef.current = null;
+      }
+      pendingLiveDraftRef.current = null;
+    }
+    const deleted = Promise.resolve(liveDraftInFlightRef.current)
+      .then(() => databaseService.deleteWorkoutDraft(userId));
+    liveDraftInFlightRef.current = deleted.catch(() => {});
+    return deleted;
+  };
+
+  // Locking the phone between sets (or switching apps) freezes timers, so a
+  // debounced save would sit unsent until the app is opened again — send it
+  // the moment the page is hidden instead.
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') sendPendingLiveDraft(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', sendPendingLiveDraft);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', sendPendingLiveDraft);
+    };
+  }, [sendPendingLiveDraft]);
+
   useEffect(() => {
     if (!selectedClient) return;
+    // Switched clients with the previous one's last edits still waiting out
+    // the debounce — send them now rather than drop them.
+    if (pendingLiveDraftRef.current && pendingLiveDraftRef.current.userId !== selectedClient.id) {
+      sendPendingLiveDraft();
+    }
     const hasProgress = liveTimerStatus !== 'idle' || liveExercises.some(ex => ex.sets.some(s => s.isCompleted));
     if (!hasProgress) return;
+    pendingLiveDraftRef.current = {
+      userId: selectedClient.id,
+      coachId: resolvedCoachId,
+      source: 'coach',
+      planName: livePlanName,
+      logDate: liveDate,
+      exercises: liveExercises,
+      timerStatus: liveTimerStatus,
+      timerStartedAt: liveTimerStartedAt,
+      pauseIntervals: livePauseIntervals
+    };
+    if (saveLiveDraftNowRef.current) {
+      saveLiveDraftNowRef.current = false;
+      sendPendingLiveDraft();
+      return;
+    }
     if (liveDraftSaveTimerRef.current) clearTimeout(liveDraftSaveTimerRef.current);
-    liveDraftSaveTimerRef.current = setTimeout(() => {
-      databaseService.saveWorkoutDraft({
-        userId: selectedClient.id,
-        coachId: resolvedCoachId,
-        source: 'coach',
-        planName: livePlanName,
-        logDate: liveDate,
-        exercises: liveExercises,
-        timerStatus: liveTimerStatus,
-        timerStartedAt: liveTimerStartedAt,
-        pauseIntervals: livePauseIntervals
-      });
-    }, 1200);
+    liveDraftSaveTimerRef.current = setTimeout(sendPendingLiveDraft, 1200);
     return () => {
       if (liveDraftSaveTimerRef.current) clearTimeout(liveDraftSaveTimerRef.current);
     };
-  }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId]);
+  }, [selectedClient, liveExercises, livePlanName, liveDate, liveTimerStatus, liveTimerStartedAt, livePauseIntervals, resolvedCoachId, sendPendingLiveDraft]);
 
   // Debounce-push the Plan Editor (Create/Edit Workout Plan) to localStorage
   // while it's open, so refreshing the page mid-build — reported 2026-09-11,
@@ -2027,9 +2117,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     } else {
       newSet = { reps: '10', weight: '20', isCompleted: false };
     }
+    // Done before? Start from exactly what the client did last time — every
+    // set, ready for a single tap each — instead of one default set.
+    const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(workoutLogs, null, name)) || [newSet];
     setLiveExercises(prev => [
       ...prev,
-      bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }
+      bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }
     ]);
   };
 
@@ -2057,7 +2150,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         sets: ex.sets.map((s, i) => {
           if (i !== sIdx) return s;
           const nextMode = !getSetLiveBwMode(ex, s);
-          return { ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
+          const { prevPending: _prevPending, ...set } = s;
+          return { ...set, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
         })
       };
     }));
@@ -2132,7 +2226,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       if (idx !== exIdx) return ex;
       return {
         ...ex,
-        sets: ex.sets.map((s, si) => si === setIdx ? { ...s, [field]: value } : s)
+        sets: ex.sets.map((s, si) => {
+          if (si !== setIdx) return s;
+          // Edited by hand (or by its own stopwatch) — the late PREV
+          // pre-fill must not overwrite it (see fillPendingPrevSets).
+          const { prevPending: _prevPending, ...set } = s;
+          return { ...set, [field]: value };
+        })
       };
     }));
   };
@@ -2171,17 +2271,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     unlockAudio();
     const now = Date.now();
     const togglingSetOn = !liveExercises[exIdx]?.sets[setIdx]?.isCompleted;
+    if (togglingSetOn) {
+      // A completed set is worth saving right now, not after the debounce.
+      saveLiveDraftNowRef.current = true;
+      // The set's fields lock once it's done — a number pad left open on
+      // one of them would keep editing a completed set out of sight. (Plan
+      // editor fields share the pad under 'ped-' keys; leave those alone.)
+      if (activeLiveSetKey && !activeLiveSetKey.startsWith('ped-') && activeLiveSetKey.endsWith(`-${exIdx}-${setIdx}`)) closeLiveSetField();
+    }
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
       return {
         ...ex,
         sets: ex.sets.map((s, si) => {
           if (si !== setIdx) return s;
-          const nextCompleted = !s.isCompleted;
+          const { prevPending: _prevPending, ...set } = s;
+          const nextCompleted = !set.isCompleted;
           // completedAt timestamps are what the live timer's rest-interval
           // calorie calc uses — never cleared retroactively except when this
           // exact set is unchecked, so re-checking it later is timed fresh.
-          return { ...s, isCompleted: nextCompleted, completedAt: nextCompleted ? now : null };
+          return { ...set, isCompleted: nextCompleted, completedAt: nextCompleted ? now : null };
         })
       };
     }));
@@ -2191,6 +2300,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // timer, same as the client's own logger.
     if (togglingSetOn) {
       restFinishHandledRef.current = false;
+      liveRestClientIdRef.current = selectedClient?.id || null;
       setRestEndAt(Date.now() + 60000);
       setRestSecondsRemaining(60);
       setRestTimerActive(true);
@@ -2263,11 +2373,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // silently recreate the very row just removed — the exact "saved fine,
     // but 'Live Log in progress' banner won't go away, and its delete button
     // does nothing either because it keeps getting resurrected" symptom
-    // reported for a real client (Nagesh A., 2026-08-10).
-    if (liveDraftSaveTimerRef.current) {
-      clearTimeout(liveDraftSaveTimerRef.current);
-      liveDraftSaveTimerRef.current = null;
-    }
+    // reported for a real client (Nagesh A., 2026-08-10). A save already SENT
+    // (a ticked set now goes out immediately) could land after the delete the
+    // same way, so the delete goes through deleteLiveDraftAfterPendingSave,
+    // which drops the waiting save and runs after any in-flight one.
     setLiveSaving(true);
     // Hard ceiling on the whole save flow — every individual network call
     // inside it already has its own 8s timeout (restInsert/restSelect), but
@@ -2373,7 +2482,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
       await databaseService.saveWorkoutSession(session);
       // Session is finished and saved to workout_logs — the open draft is done.
-      await databaseService.deleteWorkoutDraft(selectedClient.id);
+      await deleteLiveDraftAfterPendingSave(selectedClient.id);
       // ── Everything above this line is the actual save. Everything below is
       // follow-up work, and none of it decides whether the workout exists.
       // criticalDone resolves here so the button can stop saying "Saving…"
@@ -2470,15 +2579,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
       // Refresh workout history
       const logs = await databaseService.getWorkoutLogsForUser(selectedClient.id);
-      setWorkoutLogs(groupLogs(logs || []));
+      const refreshedHistory = groupLogs(logs || []);
+      setWorkoutLogs(refreshedHistory);
       setRawWorkoutLogs(logs || []);
+      if (liveHistoryRef.current.clientId === selectedClient.id) {
+        liveHistoryRef.current = { clientId: selectedClient.id, sessions: refreshedHistory };
+      }
       // Refresh the Workout Plan tab so the plan just saved above shows up
       // immediately if the coach switches to it.
       fetchClientPlans(selectedClient.id);
       // Reset exercises for next session
-      setLiveExercises([
+      setLiveExercises(applyLivePrev([
         { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
-      ]);
+      ]));
       setLiveSetTimers({});
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
@@ -2699,14 +2812,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const handleDiscardDraftFromList = async () => {
     if (!discardDraftTarget) return;
     const { userId } = discardDraftTarget;
-    // Same debounce race as handleSaveLiveSession/handleDiscardLiveSession —
-    // only relevant when discarding the same client currently open in the
-    // Live Log tab, but cheap to guard unconditionally.
-    if (selectedClient?.id === userId && liveDraftSaveTimerRef.current) {
-      clearTimeout(liveDraftSaveTimerRef.current);
-      liveDraftSaveTimerRef.current = null;
-    }
-    await databaseService.deleteWorkoutDraft(userId);
+    // Same save-vs-delete race as handleSaveLiveSession/
+    // handleDiscardLiveSession — only relevant when discarding the same
+    // client currently open in the Live Log tab, but cheap to guard
+    // unconditionally.
+    await deleteLiveDraftAfterPendingSave(userId);
     if (selectedClient?.id === userId) {
       resetLiveTimer();
       setLiveExercises([]);
@@ -3055,6 +3165,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
     setDetailTab('plans');
+    // This client's history hasn't loaded yet — see liveHistoryRef.
+    liveHistoryRef.current = { clientId: client.id, sessions: null };
     // Opening a freshly-connected client counts as "seen" for the
     // new-client card / chip (no-op when there's nothing unread for them).
     acknowledgeNewClient(client.id);
@@ -3129,13 +3241,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           setLivePauseIntervals(dbDraft.pauseIntervals || []);
           triggerLiveToast(`↩️ Resumed in-progress Live Log for ${client.userName}`);
         }
+        // A rest this coach started for this client before the page
+        // reloaded, still counting down — pick it back up.
+        let savedRest = null;
+        try { savedRest = JSON.parse(localStorage.getItem(LIVE_REST_KEY) || 'null'); } catch { /* ignore */ }
+        if (savedRest?.clientId === client.id && computeRestSecondsRemaining(savedRest.endAt) > 0) {
+          restFinishHandledRef.current = false;
+          liveRestClientIdRef.current = client.id;
+          setRestEndAt(savedRest.endAt);
+          setRestSecondsRemaining(computeRestSecondsRemaining(savedRest.endAt));
+          setRestTimerActive(true);
+          setRestJustFinished(false);
+        }
       } else {
-        setLiveExercises([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]);
+        setLiveExercises(applyLivePrev([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]));
         setLivePlanName('Live Routine');
         setLiveDate(getLocalDateString());
       }
     }).catch(() => {
-      setLiveExercises([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]);
+      setLiveExercises(applyLivePrev([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]));
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
     });
@@ -3224,6 +3348,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       const grouped = groupLogs(allLogs);
       setWorkoutLogs(grouped);
       setRawWorkoutLogs(allLogs);
+      fillLivePendingPrev(client.id, grouped);
 
       // The Weekly History view hard-defaults to "This week" (handleSelectClient
       // resets historyWeekOffset to 0) — if the client's most recent session
@@ -3252,9 +3377,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       fetchClientPlans(client.id);
     } catch (err) {
       console.error('Error fetching client logs:', err);
+      // No history to pre-fill from — release the pending sets as they are
+      // (unless the failure came after the history had already landed).
+      if (liveHistoryRef.current.sessions == null) fillLivePendingPrev(client.id, []);
     } finally {
       setLoadingLogs(false);
     }
+  };
+
+  // The client's history has arrived: record it for applyLivePrev and give
+  // any Live Log sets created while it was loading their PREV kg. Ignored if
+  // the coach has already moved on to another client.
+  const fillLivePendingPrev = (clientId, sessions) => {
+    if (liveHistoryRef.current.clientId !== clientId) return;
+    liveHistoryRef.current = { clientId, sessions };
+    setLiveExercises(prev => fillPendingPrevSets(prev, (exName, setIdx) =>
+      findPreviousLoggedSetIn(sessions, null, exName, setIdx)));
   };
 
   const groupLogs = (logs) => {
@@ -3384,6 +3522,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     });
     return changed ? { ...ex, sets } : ex;
   });
+
+  // Live Log version of applyPrevWeights that also works before the
+  // client's history has loaded (a coach opening a client and picking a
+  // plan straight away, or the starter exercise set from the draft check):
+  // those sets are flagged prevPending and get their PREV kg the moment
+  // handleSelectClient's fetch lands (see fillPendingPrevSets). Reads
+  // liveHistoryRef rather than workoutLogs so async callers get the history
+  // as it is now, not as it was when they were created.
+  const applyLivePrev = (exercises) => {
+    const { sessions } = liveHistoryRef.current;
+    return exercises.map(ex => ({
+      ...ex,
+      sets: ex.sets.map((s, setIdx) => sessions
+        ? applyPrevWeight(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex.name, setIdx))
+        : { ...s, prevPending: 'plan' })
+    }));
+  };
 
   // "PREVIOUS" column lookup for the Live Log / Plan editor set tables — same
   // idea as the client's own getPreviousSessionSet.
@@ -8490,8 +8645,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               if (plan) {
                                 setLivePlanName(plan.planName);
                                 // Weights start from the client's PREV values (see
-                                // applyPrevWeights), not whatever the saved plan holds.
-                                setLiveExercises(applyPrevWeights(plan.exercises).map(ex => ({
+                                // applyPrevWeights), not whatever the saved plan holds —
+                                // or, if their history is still loading, as soon as it
+                                // lands (applyLivePrev).
+                                setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
                                   name: ex.name,
                                   ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
                                   // `time` is deliberately NOT carried over from the saved
@@ -8512,7 +8669,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                     : isTimedExercise(ex.name)
                                     ? { time: '', targetTime: s.time || '', isCompleted: false }
                                     : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false, ...(s.bodyweightMode !== undefined ? { bodyweightMode: s.bodyweightMode } : {}) })
-                                })));
+                                }))));
                                 // liveSetTimers is keyed purely by "exIdx,setIdx" (see
                                 // getSetTimerKey), not by exercise identity — loading a
                                 // different plan into the same session left whatever

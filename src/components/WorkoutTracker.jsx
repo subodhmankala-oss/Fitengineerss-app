@@ -27,6 +27,7 @@ import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevWeight, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -613,13 +614,29 @@ const WorkoutTracker = () => {
   const workoutActiveSeconds = computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals);
   const [showExerciseDbModal, setShowExerciseDbModal] = useState(false);
   const [showFinishSummary, setShowFinishSummary] = useState(false);
-  const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
-  const [restTimerActive, setRestTimerActive] = useState(false);
+  // A rest that was still counting down when the page reloaded (or the
+  // browser evicted the backgrounded tab) picks up where it left off —
+  // restEndAt is a wall-clock timestamp, so the remaining time is simply
+  // recomputed. Only alongside a restored session, and only if the rest
+  // hasn't already run out.
+  const restKey = `workoutRestEndAt_${localStorage.getItem('userId') || loggedInUser}`;
+  const loadRestoredRestEndAt = () => {
+    if (!savedWorkoutDraft) return null;
+    try {
+      const endAt = Number(localStorage.getItem(restKey));
+      return endAt && computeRestSecondsRemaining(endAt) > 0 ? endAt : null;
+    } catch {
+      return null;
+    }
+  };
+  const [restoredRestEndAt] = useState(loadRestoredRestEndAt);
+  const [restSecondsRemaining, setRestSecondsRemaining] = useState(() => restoredRestEndAt ? computeRestSecondsRemaining(restoredRestEndAt) : 0);
+  const [restTimerActive, setRestTimerActive] = useState(!!restoredRestEndAt);
   // Wall-clock timestamp the current rest ends at — the actual source of
   // truth restSecondsRemaining is recomputed from (see computeRestSecondsRemaining
   // in liveWorkoutTimer.js for why this needs to be a timestamp, not a
   // decremented counter).
-  const [restEndAt, setRestEndAt] = useState(null);
+  const [restEndAt, setRestEndAt] = useState(restoredRestEndAt);
   // Guards the "rest hit 0 naturally" alarm/blink so it only ever fires once
   // per rest (a visibilitychange tick and the next setInterval tick can both
   // observe remaining<=0 for the same rest otherwise).
@@ -693,9 +710,22 @@ const WorkoutTracker = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // False until the client's workout history (below) has loaded. A session
+  // started before then — always the case for the Home banner's auto-start,
+  // which runs on mount — can't see PREV yet, so its sets are flagged
+  // prevPending and filled in by fillPendingPrev once the history arrives.
+  // Without this every kg box of such a session read 0 and had to be typed.
+  const prevHistoryReadyRef = useRef(false);
+
   useEffect(() => {
     const loggedInUser = localStorage.getItem('userName') || 'Warrior';
     const loggedInKey = loggedInUser.toLowerCase().replace(/\s+/g, '');
+
+    const fillPendingPrev = (history) => {
+      prevHistoryReadyRef.current = true;
+      setLogExercises(prev => fillPendingPrevSets(prev, (exName, setIdx) =>
+        findPreviousLoggedSetIn(history, loggedInUser, exName, setIdx)));
+    };
 
     // ─── Hydrate sessions: merge global + client-specific + coach-logged ───
     const mergeAndDedupeSessions = (base, extra) => {
@@ -884,6 +914,9 @@ const WorkoutTracker = () => {
         const merged = [...localOnly, ...dbSessions].sort((a, b) => new Date(a.date) - new Date(b.date));
         setSessions(merged);
         setSelectedSessionIndex(merged.length - 1);
+        fillPendingPrev(merged);
+      } else {
+        fillPendingPrev(allSessions);
       }
 
       // Self-healing resync: a local session for THIS device's own account
@@ -928,7 +961,7 @@ const WorkoutTracker = () => {
             databaseService.saveWorkoutSession({ ...s, clientId: ownKey }).catch(() => {});
           });
       }
-    }).catch(() => {});
+    }).catch(() => fillPendingPrev(allSessions));
 
     fetchPlans();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only initial load
@@ -984,7 +1017,7 @@ const WorkoutTracker = () => {
     setIsLoggingWorkout(false);
     setTemplateName('');
     setWorkoutSource('self');
-    if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
+    deleteDraftAfterPendingSave();
     setLogExercises([
       { name: 'Shoulders Press', sets: [{ reps: 9, weight: '2.5', isCompleted: false }, { reps: 9, weight: '2.5', isCompleted: false }] },
       { name: 'Biceps Curls', sets: [{ reps: 15, weight: '2.5', isCompleted: false }, { reps: 15, weight: '2.5', isCompleted: false }] },
@@ -1059,15 +1092,68 @@ const WorkoutTracker = () => {
   }, []);
 
   const draftSaveTimerRef = useRef(null);
+  // The draft waiting out the debounce below, if any.
+  const pendingDraftRef = useRef(null);
+  // The last workout_drafts request sent. Each save (and the final delete)
+  // is chained after it, so requests always land in the order they were
+  // made — an older upsert can't overwrite a newer one, or recreate the row
+  // after Finish/Discard deleted it (the "Resume Workout" banner that won't
+  // go away).
+  const draftSaveInFlightRef = useRef(null);
+  // Set by a completed set: the next draft save skips the debounce, so every
+  // ticked set reaches the DB copy right away (workout_logs itself is still
+  // only written on Finish).
+  const saveDraftNowRef = useRef(false);
+
+  const sendPendingDraft = useCallback(() => {
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    const draft = pendingDraftRef.current;
+    pendingDraftRef.current = null;
+    if (!draft) return;
+    draftSaveInFlightRef.current = Promise.resolve(draftSaveInFlightRef.current)
+      .then(() => databaseService.saveWorkoutDraft(draft))
+      .catch(() => {});
+  }, []);
+
+  // Drops any draft save still waiting, then deletes the DB draft once the
+  // save already sent (if any) has finished — see draftSaveInFlightRef.
+  const deleteDraftAfterPendingSave = () => {
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    pendingDraftRef.current = null;
+    if (!ownUserId) return;
+    const userId = ownUserId;
+    draftSaveInFlightRef.current = Promise.resolve(draftSaveInFlightRef.current)
+      .then(() => databaseService.deleteWorkoutDraft(userId))
+      .catch(() => {});
+  };
+
+  // Locking the phone between sets (or switching apps) freezes timers, so a
+  // debounced save would sit unsent until the app is opened again — send it
+  // the moment the page is hidden instead.
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') sendPendingDraft(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', sendPendingDraft);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', sendPendingDraft);
+    };
+  }, [sendPendingDraft]);
 
   // Mirror the active logging session into localStorage on every change so it
   // survives an unmount (tab switch / reload / logout), and clear it the moment
   // the session ends (finish or discard sets isLoggingWorkout back to false).
-  // Also debounce-push the same session to workout_drafts in the DB — that
-  // copy is what survives being away from the device entirely (backgrounded
-  // for 15-20 min, different device) and what the Home tab's "Resume
-  // Workout" banner reads. Debounced so typing a weight/rep doesn't fire a
-  // request per keystroke; a completed-set tick still lands within ~1.2s.
+  // Also push the same session to workout_drafts in the DB — that copy is
+  // what survives being away from the device entirely (backgrounded for
+  // 15-20 min, different device) and what the Home tab's "Resume Workout"
+  // banner reads. Debounced so typing a weight/rep doesn't fire a request per
+  // keystroke; a completed-set tick is sent immediately (saveDraftNowRef).
   useEffect(() => {
     if (isLoggingWorkout) {
       try {
@@ -1090,31 +1176,35 @@ const WorkoutTracker = () => {
       }
 
       if (ownUserId) {
-        if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
-        draftSaveTimerRef.current = setTimeout(() => {
-          databaseService.saveWorkoutDraft({
-            userId: ownUserId,
-            coachId: null,
-            // Always 'self' here, never workoutSource: this component only
-            // ever renders for the logged-in client logging their own
-            // session (coach live-logging is a separate path in
-            // TrainerDashboard.jsx that saves source: 'coach' explicitly).
-            // workoutSource instead tracks who *authored the plan* being
-            // followed ('coach' for a coach-assigned template) and is used
-            // for the saved session's source field, not for who's live-
-            // logging. Reusing it here made picking a coach-assigned plan
-            // mislabel the draft as coach-logged, so a client logging their
-            // own workout from a coach's plan saw "Your coach is logging a
-            // session for you" on their dashboard. BUG FIX (2026-08-24).
-            source: 'self',
-            planName: templateName,
-            logDate,
-            exercises: logExercises,
-            timerStatus: workoutTimerStatus,
-            timerStartedAt: workoutTimerStartedAt,
-            pauseIntervals: workoutPauseIntervals
-          });
-        }, 1200);
+        pendingDraftRef.current = {
+          userId: ownUserId,
+          coachId: null,
+          // Always 'self' here, never workoutSource: this component only
+          // ever renders for the logged-in client logging their own
+          // session (coach live-logging is a separate path in
+          // TrainerDashboard.jsx that saves source: 'coach' explicitly).
+          // workoutSource instead tracks who *authored the plan* being
+          // followed ('coach' for a coach-assigned template) and is used
+          // for the saved session's source field, not for who's live-
+          // logging. Reusing it here made picking a coach-assigned plan
+          // mislabel the draft as coach-logged, so a client logging their
+          // own workout from a coach's plan saw "Your coach is logging a
+          // session for you" on their dashboard. BUG FIX (2026-08-24).
+          source: 'self',
+          planName: templateName,
+          logDate,
+          exercises: logExercises,
+          timerStatus: workoutTimerStatus,
+          timerStartedAt: workoutTimerStartedAt,
+          pauseIntervals: workoutPauseIntervals
+        };
+        if (saveDraftNowRef.current) {
+          saveDraftNowRef.current = false;
+          sendPendingDraft();
+        } else {
+          if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+          draftSaveTimerRef.current = setTimeout(sendPendingDraft, 1200);
+        }
       }
     } else {
       localStorage.removeItem(workoutDraftKey);
@@ -1122,6 +1212,7 @@ const WorkoutTracker = () => {
         clearTimeout(draftSaveTimerRef.current);
         draftSaveTimerRef.current = null;
       }
+      pendingDraftRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggingWorkout, logExercises, logClient, logDate, templateName, activeTemplateName, loggingLevel, saveAsTemplate, workoutTimerStatus, workoutTimerStartedAt, workoutPauseIntervals, ownUserId, workoutSource]);
@@ -1202,6 +1293,16 @@ const WorkoutTracker = () => {
     };
   }, [restTimerActive, restEndAt]);
 
+  // Remember the running rest's end time so a reload mid-rest restores it
+  // (see loadRestoredRestEndAt). Local only — the rest belongs to the phone
+  // in the client's hand, not to the cross-device draft.
+  useEffect(() => {
+    try {
+      if (isLoggingWorkout && restTimerActive && restEndAt) localStorage.setItem(restKey, String(restEndAt));
+      else localStorage.removeItem(restKey);
+    } catch { /* ignore quota/serialization errors */ }
+  }, [isLoggingWorkout, restTimerActive, restEndAt, restKey]);
+
   // Listen for coach live-session saves and merge new sessions in real-time
   useEffect(() => {
     const onCoachSaved = (e) => {
@@ -1234,19 +1335,14 @@ const WorkoutTracker = () => {
   // handleStartFromTemplate (pre-fill) — walks the client's history newest
   // first and returns the actual logged set for this exercise/set index, or
   // null when nothing's ever been logged for it.
-  const findPreviousLoggedSet = (exName, setIdx) => {
-    const clientHistory = sessions
-      .filter(s => s.clientName.toLowerCase() === selectedClient.toLowerCase())
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const findPreviousLoggedSet = (exName, setIdx) =>
+    findPreviousLoggedSetIn(sessions, selectedClient, exName, setIdx);
 
-    for (const session of clientHistory) {
-      const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
-      if (exercise && exercise.sets && exercise.sets[setIdx]) {
-        return exercise.sets[setIdx];
-      }
-    }
-    return null;
-  };
+  // Marks sets created before the history has loaded, so fillPendingPrev
+  // can give them this same pre-fill once it arrives (see
+  // prevHistoryReadyRef). `kind` is which pre-fill: 'plan' (withPrevWeight)
+  // or 'template' (reps + weight, handleStartFromTemplate).
+  const markPrevPending = (set, kind) => (prevHistoryReadyRef.current ? set : { ...set, prevPending: kind });
 
   // A plan's kg/BW box starts from what the PREV column shows, not from
   // whatever number happens to be stored in the plan (a leftover editor
@@ -1257,18 +1353,8 @@ const WorkoutTracker = () => {
   // are returned unchanged. Bodyweight exercises also get a per-set
   // bodyweightMode so a set PREV logged as BW shows "BW" even when a
   // sibling set carries a plate (see getSetLogBwMode).
-  const withPrevWeight = (exName, setIdx, set) => {
-    if (isCardioExercise(exName)) return set;
-    if (isTimedExercise(exName) && !isBodyweightExercise(exName)) return set;
-    const prev = findPreviousLoggedSet(exName, setIdx);
-    if (!prev || prev.weight == null || prev.weight === '') return set;
-    const weight = String(Number(prev.weight) || 0);
-    return {
-      ...set,
-      weight,
-      ...(isBodyweightExercise(exName) ? { bodyweightMode: !(Number(weight) > 0) } : {})
-    };
-  };
+  const withPrevWeight = (exName, setIdx, set) =>
+    markPrevPending(applyPrevWeight(exName, set, findPreviousLoggedSet(exName, setIdx)), 'plan');
 
   const getPreviousSessionSet = (exName, setIdx) => {
     const set = findPreviousLoggedSet(exName, setIdx);
@@ -1356,14 +1442,22 @@ const WorkoutTracker = () => {
     // out — same signal startSessionClockIfIdle already checks for, so this
     // call also covers the "notify coach once" side effect.
     const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
-    if (togglingSetOn) startSessionClockIfIdle();
+    if (togglingSetOn) {
+      startSessionClockIfIdle();
+      // A completed set is worth saving right now, not after the debounce.
+      saveDraftNowRef.current = true;
+      // The set's fields lock once it's done — a number pad left open on
+      // one of them would keep editing a completed set out of sight.
+      if (activeSetKey && activeSetKey.endsWith(`-${exerciseIndex}-${setIndex}`)) closeSetField();
+    }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
         return {
           ...ex,
           sets: ex.sets.map((s, sIdx) => {
             if (sIdx === setIndex) {
-              const nextState = !s.isCompleted;
+              const { prevPending: _prevPending, ...set } = s;
+              const nextState = !set.isCompleted;
               if (nextState) {
                 restFinishHandledRef.current = false;
                 setRestEndAt(Date.now() + 60000);
@@ -1375,7 +1469,7 @@ const WorkoutTracker = () => {
               // completedAt is what the live calorie calc's rest-interval math
               // uses — never cleared retroactively except when this exact set
               // is unchecked, so re-checking it later is timed fresh.
-              return { ...s, isCompleted: nextState, completedAt: nextState ? now : null };
+              return { ...set, isCompleted: nextState, completedAt: nextState ? now : null };
             }
             return s;
           })
@@ -1752,7 +1846,10 @@ const WorkoutTracker = () => {
           ...ex,
           sets: ex.sets.map((s, sIdx) => {
             if (sIdx === setIndex) {
-              return { ...s, [field]: value };
+              // Edited by hand (or by its own stopwatch) — the late PREV
+              // pre-fill must not overwrite it (see fillPendingPrevSets).
+              const { prevPending: _prevPending, ...set } = s;
+              return { ...set, [field]: value };
             }
             return s;
           })
@@ -1786,7 +1883,8 @@ const WorkoutTracker = () => {
         sets: ex.sets.map((s, i) => {
           if (i !== sIdx) return s;
           const nextMode = !getSetLogBwMode(ex, s);
-          return { ...s, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
+          const { prevPending: _prevPending, ...set } = s;
+          return { ...set, bodyweightMode: nextMode, weight: nextMode ? '0' : '' };
         })
       };
     }));
@@ -2352,13 +2450,11 @@ const WorkoutTracker = () => {
     // progress' banner won't go away" symptom already fixed once on the
     // coach's own Live Log save (see handleSaveLiveSession in
     // TrainerDashboard.jsx) but missed here on the client's self-log path.
-    // Confirmed 2026-08-11 for a real client (Mahalsa).
-    if (draftSaveTimerRef.current) {
-      clearTimeout(draftSaveTimerRef.current);
-      draftSaveTimerRef.current = null;
-    }
+    // Confirmed 2026-08-11 for a real client (Mahalsa). A save already SENT
+    // (the last ticked set goes out immediately) has the same effect if it
+    // lands after the delete, so the delete also waits for it.
     // Session is finished and saved to workout_logs — the open draft is done.
-    if (ownUserId) databaseService.deleteWorkoutDraft(ownUserId);
+    deleteDraftAfterPendingSave();
 
     // Notify this client's coach that a session was completed, with the real
     // duration and calories, so the coach can send a note back. Client
@@ -2473,17 +2569,17 @@ const WorkoutTracker = () => {
         // gets set 3's, etc., so PREV and the editable fields agree instead
         // of looking unrelated. Falls back to the template's target reps
         // and 0 weight when nothing's been logged for that set before.
-        sets: Array.from({ length: ex.sets || 3 }, (_, setIdx) => {
-          const prevSet = findPreviousLoggedSet(ex.name, setIdx);
-          return {
-            reps: prevSet?.reps || targetReps,
-            weight: prevSet?.weight || '0',
-            isCompleted: false,
-            // Kept so the reps input can show the plan's target range as a
-            // placeholder hint once the lifter clears the pre-filled number.
-            targetReps: ex.reps ? String(ex.reps) : null
-          };
-        })
+        // (Started from the Home banner, this runs on mount — before the
+        // history has loaded — so markPrevPending has the pre-fill applied
+        // once it arrives.)
+        sets: Array.from({ length: ex.sets || 3 }, (_, setIdx) => markPrevPending(applyPrevRepsAndWeight({
+          reps: targetReps,
+          weight: '0',
+          isCompleted: false,
+          // Kept so the reps input can show the plan's target range as a
+          // placeholder hint once the lifter clears the pre-filled number.
+          targetReps: ex.reps ? String(ex.reps) : null
+        }, findPreviousLoggedSet(ex.name, setIdx)), 'template'))
       };
     });
     setLogExercises(exercises);
@@ -3636,6 +3732,7 @@ const WorkoutTracker = () => {
                               // session gets durationSeconds/caloriesBurned: null
                               // even though every set is checked off.
                               startSessionClockIfIdle();
+                              saveDraftNowRef.current = true;
                               const now = Date.now();
                               // Same freeze-before-complete fix as
                               // handleCardioSetComplete/handleSetStopwatchComplete,
@@ -4249,7 +4346,10 @@ const WorkoutTracker = () => {
           } else {
             newSet = { reps: 10, weight: '5.0', isCompleted: false };
           }
-          setLogExercises(prev => [...prev, bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }]);
+          // Done before? Start from exactly what the client did last time —
+          // every set, ready for a single tap each — instead of one default set.
+          const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
+          setLogExercises(prev => [...prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }]);
           triggerToast(`Added ${name} to active workout!`);
         }}
         onRemove={(name) => {

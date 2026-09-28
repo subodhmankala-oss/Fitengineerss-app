@@ -2005,7 +2005,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       pendingLiveDraftRef.current = null;
     }
     const deleted = Promise.resolve(liveDraftInFlightRef.current)
-      .then(() => databaseService.deleteWorkoutDraft(userId));
+      .then(() => databaseService.deleteWorkoutDraft(userId, 'coach'));
     liveDraftInFlightRef.current = deleted.catch(() => {});
     return deleted;
   };
@@ -3218,7 +3218,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // client's session — reported as "not loading fresh". Clear it every
     // time this fires, both on resume and on the fresh-default path.
     setLiveSetTimers({});
-    databaseService.getWorkoutDraft(client.id).then(dbDraft => {
+    databaseService.getWorkoutDraft(client.id, 'coach').then(dbDraft => {
       const canResume = dbDraft && dbDraft.source === 'coach' && dbDraft.coachId === resolvedCoachId
         && dbDraft.exercises && dbDraft.exercises.length > 0;
       if (canResume) {

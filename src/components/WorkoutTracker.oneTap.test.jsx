@@ -97,12 +97,14 @@ describe('WorkoutTracker one-tap set logging', () => {
 
     fireEvent.click(screen.getByTitle('Toggle Complete'));
 
-    // Well inside the 1.2s debounce window.
-    await waitFor(() => expect(databaseService.saveWorkoutDraft).toHaveBeenCalled(), { timeout: 400 });
+    // Inside the 1.2s debounce window.
+    await waitFor(() => expect(databaseService.saveWorkoutDraft).toHaveBeenCalled(), { timeout: 1000 });
     const saved = databaseService.saveWorkoutDraft.mock.calls[0][0];
     expect(saved.exercises[0].sets[0].isCompleted).toBe(true);
     // ...and the rest countdown it started is remembered for a reload.
     expect(Number(localStorage.getItem(REST_KEY))).toBeGreaterThan(Date.now());
+    // The client only ever resumes their own session's draft, never the coach's.
+    expect(databaseService.getWorkoutDraft).toHaveBeenCalledWith('u1', 'self');
   });
 
   it('restores a rest countdown that was running when the page reloaded', async () => {

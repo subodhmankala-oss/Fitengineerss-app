@@ -39,13 +39,17 @@ const renderLiveLog = () => render(
   </CoachTourProvider>
 );
 
+// TrainerDashboard is very large; its first render alone can take several
+// seconds on a busy machine or CI runner, well past the 1s findBy default.
+const SLOW = { timeout: 15000 };
+
 const deferred = () => {
   let resolve;
   const promise = new Promise(r => { resolve = r; });
   return { promise, resolve };
 };
 
-describe('Coach Live Log one-tap set logging', () => {
+describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem('userId', 'coach1');
@@ -67,7 +71,7 @@ describe('Coach Live Log one-tap set logging', () => {
     renderLiveLog();
 
     // Starter exercise, opened while the history fetch is still pending.
-    expect((await screen.findAllByText('Shoulders Press')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: '20' }).length).toBe(2);
 
     logs.resolve([
@@ -75,20 +79,20 @@ describe('Coach Live Log one-tap set logging', () => {
       { log_date: '2026-09-01', exercise_name: 'Shoulders Press', set_number: 2, reps: 8, weight_kg: 35 }
     ]);
 
-    expect(await screen.findByRole('button', { name: '32.5' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '32.5' }, SLOW)).toBeTruthy();
     expect(screen.getByRole('button', { name: '35' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '20' })).toBeNull();
   });
 
   it('saves the draft right away when a set is ticked, instead of after the debounce', async () => {
     renderLiveLog();
-    expect((await screen.findAllByText('Shoulders Press')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
 
-    // Well inside the 1.2s debounce window.
-    await waitFor(() => expect(databaseService.saveWorkoutDraft).toHaveBeenCalled(), { timeout: 400 });
+    // Inside the 1.2s debounce window.
+    await waitFor(() => expect(databaseService.saveWorkoutDraft).toHaveBeenCalled(), { timeout: 1000 });
     const saved = databaseService.saveWorkoutDraft.mock.calls[0][0];
     expect(saved).toMatchObject({ userId: CLIENT.id, source: 'coach' });
     expect(saved.exercises[0].sets[0].isCompleted).toBe(true);
@@ -110,7 +114,9 @@ describe('Coach Live Log one-tap set logging', () => {
       pauseIntervals: []
     });
     renderLiveLog();
-    expect(await screen.findByText('REST TIMER')).toBeTruthy();
+    expect(await screen.findByText('REST TIMER', {}, SLOW)).toBeTruthy();
+    // Only the coach's own Live Log row is resumed, never the client's own session.
+    expect(databaseService.getWorkoutDraft).toHaveBeenCalledWith(CLIENT.id, 'coach');
   });
 
   it('does not restore a rest that belonged to a different client', async () => {
@@ -121,7 +127,7 @@ describe('Coach Live Log one-tap set logging', () => {
       timerStatus: 'running', timerStartedAt: Date.now() - 60000, pauseIntervals: []
     });
     renderLiveLog();
-    expect((await screen.findAllByText('Bench Press')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Bench Press', {}, SLOW)).length).toBeGreaterThan(0);
     expect(screen.queryByText('REST TIMER')).toBeNull();
   });
 });

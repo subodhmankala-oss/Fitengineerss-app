@@ -68,9 +68,15 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const closeTimerRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  useEffect(() => {
+  // Open/close state changes are applied during the render where `open`
+  // flips (React's "adjust state when a prop changes" pattern), not in the
+  // effect below: an effect only runs after that render has painted, so a
+  // reopen briefly showed the previous search/filter (or the closing
+  // animation, if reopened mid-close) for a frame.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
-      clearTimeout(closeTimerRef.current);
       setClosing(false);
       setMounted(true);
       // The modal never fully unmounts between closes while `open` is
@@ -78,6 +84,14 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       // from the last time it was open — reset them fresh on every open.
       setQuery('');
       setTag('All');
+    } else {
+      setClosing(true);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      clearTimeout(closeTimerRef.current);
       databaseService.getExerciseLibrary()
         .then(setExercises)
         .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
@@ -91,7 +105,6 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
         .then(setCustomExercises)
         .catch(err => console.error('Failed to fetch custom exercises in picker modal:', err));
     } else {
-      setClosing(true);
       closeTimerRef.current = setTimeout(() => {
         setMounted(false);
         setClosing(false);

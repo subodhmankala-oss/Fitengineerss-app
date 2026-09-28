@@ -13,10 +13,11 @@ import { gravatarUrl, getInitials, getAvatarColor } from '../utils/avatarUtil';
 // an initials circle if neither exists.
 export default function Avatar({ email, name, avatarUrl, size = 36, className = '', style = {} }) {
   const [gravatar, setGravatar] = useState(null);
-  const [failed, setFailed] = useState(false);
+  // The src that failed to load, not a boolean: a new avatarUrl/email is a
+  // new src, so it gets its own attempt without an effect resetting a flag.
+  const [failedSrc, setFailedSrc] = useState(null);
 
   useEffect(() => {
-    setFailed(false);
     if (avatarUrl || !email) return;
     let cancelled = false;
     gravatarUrl(email, Math.max(64, size * 2)).then(url => {
@@ -34,14 +35,14 @@ export default function Avatar({ email, name, avatarUrl, size = 36, className = 
     ...style
   };
 
-  if (src && !failed) {
+  if (src && src !== failedSrc) {
     return (
       <img
         src={src}
         alt={name || email || 'User avatar'}
         className={className}
         style={{ ...circleStyle, objectFit: 'cover' }}
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(src)}
       />
     );
   }

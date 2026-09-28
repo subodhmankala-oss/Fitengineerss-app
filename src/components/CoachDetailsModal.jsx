@@ -9,12 +9,14 @@ import './ConnectCoachModal.css';
 // but shows static fields instead of a form — this is display-only, a
 // client can't edit their coach's business info.
 export default function CoachDetailsModal({ coachId, coachName, onClose }) {
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Details are stored with the coachId they were fetched for, so "loading"
+  // is just "nothing fetched for this coach yet" — no flag to reset.
+  const [loaded, setLoaded] = useState({ coachId: undefined, details: null });
+  const loading = loaded.coachId !== coachId;
+  const details = loading ? null : loaded.details;
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     // Belt-and-suspenders timeout: getCoachDetailsById already goes through
     // a service-role endpoint with its own internal timeout, but that whole
     // chain still starts by awaiting resolveBearerToken() — a hang anywhere
@@ -25,8 +27,8 @@ export default function CoachDetailsModal({ coachId, coachName, onClose }) {
     // upstream.
     const timeout = new Promise(resolve => setTimeout(() => resolve(null), 10000));
     Promise.race([databaseService.getCoachDetailsById(coachId), timeout]).then(result => {
-      if (!cancelled) { setDetails(result); setLoading(false); }
-    }).catch(() => { if (!cancelled) setLoading(false); });
+      if (!cancelled) setLoaded({ coachId, details: result });
+    }).catch(() => { if (!cancelled) setLoaded({ coachId, details: null }); });
     return () => { cancelled = true; };
   }, [coachId]);
 

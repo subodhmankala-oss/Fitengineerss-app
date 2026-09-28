@@ -91,18 +91,15 @@ const AUTO_ADVANCE_MS = 5000;
 
 export default function TourOverlay() {
   const { step, advanceIfStep, finish } = useTour();
-  const [rect, setRect] = useState(null);
+  // The spotlight rect is stored with the step it was measured for, so a
+  // step change drops the old ring on that same render. (An effect that
+  // reset it ran only after the stale ring had already painted once,
+  // highlighting the previous step's control for a frame.)
+  const [measured, setMeasured] = useState({ step: null, rect: null });
+  const rect = measured.step === step ? measured.rect : null;
   const [tooltipSize, setTooltipSize] = useState(null);
   const tooltipRef = useRef(null);
   const config = STEPS[step];
-
-  // Whenever the step changes, drop the old spotlight immediately rather
-  // than letting a stale rect linger under the new step's copy — avoids a
-  // ring highlighting the wrong control while the tooltip already talks
-  // about the next one.
-  useEffect(() => {
-    setRect(null);
-  }, [step]);
 
   useEffect(() => {
     if (!config) return undefined;
@@ -123,10 +120,11 @@ export default function TourOverlay() {
           if (offscreen) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         const r = el.getBoundingClientRect();
-        setRect((prev) => (prev && prev.top === r.top && prev.left === r.left
-          && prev.width === r.width && prev.height === r.height)
+        setMeasured((prev) => (prev.step === step && prev.rect
+          && prev.rect.top === r.top && prev.rect.left === r.left
+          && prev.rect.width === r.width && prev.rect.height === r.height)
           ? prev
-          : { top: r.top, left: r.left, width: r.width, height: r.height });
+          : { step, rect: { top: r.top, left: r.left, width: r.width, height: r.height } });
       }
       raf = requestAnimationFrame(measure);
     };

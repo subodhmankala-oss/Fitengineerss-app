@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import { isSlowConnection } from '../utils/networkQuality';
 
@@ -10,14 +10,23 @@ import { isSlowConnection } from '../utils/networkQuality';
 // this" entry point in the app opens the exact same sheet. `exercise` is
 // the shape normalizeExerciseForGuide() produces; pass null to keep it
 // unmounted (no exercise selected).
+//
+// Keyed by exercise name so each exercise opens a fresh sheet (Summary tab,
+// video state reset) instead of an effect resetting state after the
+// previous exercise's tab and video had already rendered once.
 export default function ExerciseGuideModal({ exercise, onClose }) {
+  if (!exercise) return null;
+  return <ExerciseGuideSheet key={exercise.name} exercise={exercise} onClose={onClose} />;
+}
+
+function ExerciseGuideSheet({ exercise, onClose }) {
   const [guideTab, setGuideTab] = useState('summary');
   // On a detected-slow connection (or Data Saver on), don't autoplay the raw
   // MP4 the moment the sheet opens — a user tapping through several
   // exercises' Form Guides back-to-back on 2G would otherwise download a
   // full video for each one whether they watch it or not. Gate behind a
   // tap; YouTube embeds already don't autoplay so they're unaffected.
-  const [videoTapped, setVideoTapped] = useState(!isSlowConnection());
+  const [videoTapped, setVideoTapped] = useState(() => !isSlowConnection());
   // Shown over the black video square while the MP4 buffers its first
   // playable frame, so the sheet reads as "opening" instead of "stuck" —
   // the raw <video> gives no visual feedback on its own until it has
@@ -32,15 +41,6 @@ export default function ExerciseGuideModal({ exercise, onClose }) {
   // nothing is ever cropped. 16/9 footage then fills the box edge to edge as
   // before, so this needs no revisiting when real per-exercise clips land.
   const [mediaAspect, setMediaAspect] = useState(null);
-
-  useEffect(() => {
-    setGuideTab('summary');
-    setVideoTapped(!isSlowConnection());
-    setVideoLoading(true);
-    setMediaAspect(null);
-  }, [exercise]);
-
-  if (!exercise) return null;
 
   return (
     <div className="guide-sheet-backdrop" onClick={onClose}>

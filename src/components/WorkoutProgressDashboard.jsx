@@ -33,7 +33,9 @@ const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
 const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null }) => {
   const [userId, setUserId] = useState(null);
-  const [userName, setUserName] = useState('Warrior');
+  // Read on the first render: seeding 'Warrior' and swapping in the saved
+  // name from an effect flashed "Warrior" in the greeting for a frame.
+  const [userName] = useState(() => localStorage.getItem('userName') || 'Warrior');
   // initialTimeframe carries the ?openMuscleMap=1 deep link (see App.jsx) —
   // lazy init so it only wins on first mount, same as the weekly/daily/
   // monthly toggle buttons below normally would.
@@ -135,8 +137,6 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   };
 
   useEffect(() => {
-    const storedName = localStorage.getItem('userName');
-    if (storedName) setUserName(storedName);
     // This effect runs once, and deliberately works from the cached values the
     // screen first painted with (see reconcileCoachStatus) — read from the
     // same localStorage keys isLinkedToCoach/coachName were initialized from.

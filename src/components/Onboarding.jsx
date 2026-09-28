@@ -104,7 +104,7 @@ const Onboarding = ({ onComplete }) => {
       // straight into the wizard; only a coach-ish role (no wizard
       // equivalent exists for coaches) still lands on this screen.
       const role = localStorage.getItem('userRole');
-      const isCoachish = role === 'coach' || role === 'coach_pending' || role === 'super-admin' || role === 'admin';
+      const isCoachish = role === 'coach' || role === 'super-admin' || role === 'admin';
       return isCoachish ? 1 : 'wizard';
     }
     return isSupabaseConfigured ? 0 : 1;
@@ -169,7 +169,7 @@ const Onboarding = ({ onComplete }) => {
   // saveQuickLoginAccount() in App.jsx, which writes this after every
   // successful login, and handleLogout, which preserves it across the
   // localStorage.clear() logout does. Only shown when nobody's currently
-  // mid-login (a live userEmail or a pending coach application takes
+  // mid-login (a live userEmail or an unfinished coach sign-up takes
   // priority over this screen).
   const [quickLoginAccount, setQuickLoginAccount] = useState(() => {
     if (localStorage.getItem('userEmail')) return null;
@@ -237,15 +237,6 @@ const Onboarding = ({ onComplete }) => {
           'userRole',
           email.toLowerCase() === 'subodhmankala@gmail.com' ? 'super-admin' : 'coach'
         );
-      }
-      localStorage.setItem('onboardingComplete', 'true');
-      onComplete();
-      return;
-    }
-
-    if (userRole === 'coach_pending') {
-      if (profile) {
-        await databaseService.loadProfileIntoLocalStorage(profile, email);
       }
       localStorage.setItem('onboardingComplete', 'true');
       onComplete();
@@ -862,7 +853,7 @@ const Onboarding = ({ onComplete }) => {
   // from the Client/Coach + Google/email chooser.
   const handleQuickLogin = (account) => {
     setAuthError('');
-    const isCoachAccount = account.role === 'coach' || account.role === 'super-admin' || account.role === 'coach_pending';
+    const isCoachAccount = account.role === 'coach' || account.role === 'super-admin';
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     setUserType(isCoachAccount ? 'coach' : 'client');
     setAuthTab('login');

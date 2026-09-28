@@ -406,8 +406,13 @@ async function handleWorkoutDraft(req, res) {
       return res.status(403).json({ error: 'You are not authorized to read this data.' });
     }
 
+    // A client can have two open drafts — their own session ('self') and
+    // their coach's Live Log ('coach'); see sql/supabase_workout_drafts_per_source.sql.
+    // The client (and super admin) get both; their coach only gets the
+    // Live Log row, same as the table's RLS gives a coach directly.
+    const sourceFilter = (isOwnDraft || isSuperAdmin) ? '' : '&source=eq.coach';
     const resp = await fetch(
-      `${supabaseUrl}/rest/v1/workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
+      `${supabaseUrl}/rest/v1/workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}${sourceFilter}`,
       { headers: svcHeaders }
     );
     const data = await resp.json().catch(() => []);
@@ -415,7 +420,12 @@ async function handleWorkoutDraft(req, res) {
       console.error('get-workout-draft failed:', resp.status, data);
       return res.status(502).json({ error: 'Failed to read workout draft.' });
     }
-    return res.status(200).json({ draft: (Array.isArray(data) && data[0]) || null });
+    const drafts = Array.isArray(data) ? data : [];
+    // `draft` is kept for app versions from before per-source drafts, which
+    // only read a single row — the client's own session wins, as that's the
+    // one they can act on.
+    const draft = drafts.find(d => d.source === 'self') || drafts[0] || null;
+    return res.status(200).json({ drafts, draft });
   } catch (err) {
     console.error('get-workout-draft error:', err);
     return res.status(500).json({ error: err.message || 'Failed to read workout draft.' });

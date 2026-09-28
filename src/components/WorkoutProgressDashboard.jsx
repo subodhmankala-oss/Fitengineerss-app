@@ -332,7 +332,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
     const checkDraft = async () => {
       const userId = await databaseService.resolveUserId();
       if (!userId || cancelled) return;
-      const draft = await databaseService.getWorkoutDraft(userId);
+      // Their own session and their coach's Live Log are separate drafts —
+      // show their own first (it's the one they can resume), otherwise the
+      // coach's as read-only status.
+      const drafts = await databaseService.getWorkoutDrafts(userId);
+      const draft = drafts.find(d => d.source === 'self') || drafts.find(d => d.source === 'coach') || null;
       if (!cancelled) setActiveDraft(draft);
     };
     checkDraft();
@@ -973,7 +977,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               onClick={async (e) => {
                 e.stopPropagation();
                 if (userId) {
-                  await databaseService.deleteWorkoutDraft(userId);
+                  await databaseService.deleteWorkoutDraft(userId, 'self');
                   // The Workout tab mirrors its in-progress session into a
                   // localStorage draft (workoutDraft_<userId>) so it survives
                   // an unmount. That mirror is separate from the DB row we

@@ -662,11 +662,27 @@ async function getWorkoutLogsViaServer(userId) {
   }
 }
 
+// workout_drafts row → the shape every draft reader in the app uses.
+function normalizeDraftRow(row) {
+  return {
+    userId: row.user_id,
+    coachId: row.coach_id,
+    source: row.source,
+    planName: row.plan_name,
+    logDate: row.log_date,
+    exercises: row.exercises || [],
+    timerStatus: row.timer_status || 'idle',
+    timerStartedAt: row.timer_started_at ?? null,
+    pauseIntervals: row.pause_intervals || [],
+    updatedAt: row.updated_at
+  };
+}
+
 // RLS-proof workout_drafts read via api/get-workout-draft.js (data-read.js's
 // 'workout-draft' resource) — see saveWorkoutDraftViaServer's comment below
-// for why this pairs with it. Returns the raw DB row (or null), or null on
-// any failure; never throws.
-async function getWorkoutDraftViaServer(userId) {
+// for why this pairs with it. Returns every raw draft row for this client
+// ([] when there are none), or null on any failure; never throws.
+async function getWorkoutDraftsViaServer(userId) {
   try {
     const { headers, email } = await serverFallbackAuth();
     const controller = new AbortController();
@@ -680,12 +696,14 @@ async function getWorkoutDraftViaServer(userId) {
       });
       if (!resp.ok) return null;
       const data = await resp.json().catch(() => null);
-      return data?.draft || null;
+      if (Array.isArray(data?.drafts)) return data.drafts;
+      // A server from before per-source drafts only returns `draft`.
+      return data?.draft ? [data.draft] : [];
     } finally {
       clearTimeout(timer);
     }
   } catch (e) {
-    console.warn('getWorkoutDraftViaServer failed (non-fatal):', e?.message || e);
+    console.warn('getWorkoutDraftsViaServer failed (non-fatal):', e?.message || e);
     return null;
   }
 }
@@ -4001,11 +4019,15 @@ const databaseService = {
   },
 
   // ─── WORKOUT DRAFTS (resume an in-progress logging session) ───
-  // One row per client (upsert on user_id) holding whichever session is
-  // currently open for them — written by the client's own Log Sets screen
-  // (source:'self') or by their coach's Live Log (source:'coach', coachId
-  // set). Deleted the moment that session is finished or discarded. This is
-  // a live "what's open right now" table, never history.
+  // Up to two rows per client, one per source (upsert on user_id,source):
+  // the client's own Log Sets session (source:'self') and their coach's
+  // Live Log session (source:'coach', coachId set). They used to share a
+  // single row per client, so whichever side saved last silently replaced
+  // the other's in-progress session — and finishing either one deleted
+  // both. Every read, write and delete below is therefore scoped to one
+  // source. Deleted the moment that session is finished or discarded. This
+  // is a live "what's open right now" table, never history.
+  // (sql/supabase_workout_drafts_per_source.sql)
   async saveWorkoutDraft(draft) {
     if (!isSupabaseConfigured || !supabase || !draft?.userId) return;
     const record = {
@@ -4023,7 +4045,7 @@ const databaseService = {
     try {
       // Raw PostgREST (restUpsert) instead of supabase.from() — same
       // SDK-hang bypass as everywhere else in this file.
-      await restUpsert('workout_drafts', record, 'user_id');
+      await restUpsert('workout_drafts', record, 'user_id,source');
     } catch (e) {
       console.error('Cloud DB Save Workout Draft Error:', e);
       // workout_drafts' live INSERT policy turned out to be auth.uid()-based
@@ -4037,30 +4059,21 @@ const databaseService = {
     }
   },
 
-  async getWorkoutDraft(userId) {
-    if (!isSupabaseConfigured || !userId) return null;
-    const normalize = (row) => !row ? null : {
-      userId: row.user_id,
-      coachId: row.coach_id,
-      source: row.source,
-      planName: row.plan_name,
-      logDate: row.log_date,
-      exercises: row.exercises || [],
-      timerStatus: row.timer_status || 'idle',
-      timerStartedAt: row.timer_started_at ?? null,
-      pauseIntervals: row.pause_intervals || [],
-      updatedAt: row.updated_at
-    };
+  // Every open draft for this client (their own and/or their coach's), [] if
+  // none. Only the client themselves can see both through RLS — a coach's
+  // direct read sees just their own Live Log row — so callers that want one
+  // particular session should use getWorkoutDraft(userId, source).
+  async getWorkoutDrafts(userId) {
+    if (!isSupabaseConfigured || !userId) return [];
     try {
       const rows = await restSelect(
-        `workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+        `workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}`
       );
-      const row = Array.isArray(rows) ? rows[0] : null;
-      if (row) return normalize(row);
+      if (Array.isArray(rows) && rows.length > 0) return rows.map(normalizeDraftRow);
     } catch (e) {
-      console.error('Cloud DB Get Workout Draft Error:', e);
+      console.error('Cloud DB Get Workout Drafts Error:', e);
     }
-    // A null/errored result here doesn't prove "no draft" — RLS silently
+    // An empty/errored result here doesn't prove "no draft" — RLS silently
     // returns zero rows on a stale/expired bearer instead of throwing, the
     // same asymmetry saveWorkoutDraft's write-side fallback above exists
     // for. Confirm via the service-role-backed read before believing it;
@@ -4068,7 +4081,26 @@ const databaseService = {
     // fallback (RLS blocking the direct upsert) could still read back empty
     // here, leaving the Home tab's "resume workout" banner missing even
     // though the draft genuinely exists. Confirmed 2026-08-24.
-    return normalize(await getWorkoutDraftViaServer(userId));
+    return ((await getWorkoutDraftsViaServer(userId)) || []).map(normalizeDraftRow);
+  },
+
+  // This client's open draft for one source — 'self' (their own Log Sets
+  // session) or 'coach' (their coach's Live Log) — or null.
+  async getWorkoutDraft(userId, source) {
+    if (!isSupabaseConfigured || !userId || (source !== 'self' && source !== 'coach')) return null;
+    try {
+      const rows = await restSelect(
+        `workout_drafts?select=*&user_id=eq.${encodeURIComponent(userId)}&source=eq.${source}&limit=1`
+      );
+      const row = Array.isArray(rows) ? rows[0] : null;
+      if (row) return normalizeDraftRow(row);
+    } catch (e) {
+      console.error('Cloud DB Get Workout Draft Error:', e);
+    }
+    // Same "empty proves nothing" confirmation as getWorkoutDrafts above.
+    const serverRows = (await getWorkoutDraftsViaServer(userId)) || [];
+    const row = serverRows.find(r => r.source === source);
+    return row ? normalizeDraftRow(row) : null;
   },
 
   // For the coach's own home/client-list screen: every session currently
@@ -4077,32 +4109,27 @@ const databaseService = {
     if (!isSupabaseConfigured || !coachId) return [];
     try {
       const rows = await restSelect(
-        `workout_drafts?select=*&coach_id=eq.${encodeURIComponent(coachId)}`
+        `workout_drafts?select=*&coach_id=eq.${encodeURIComponent(coachId)}&source=eq.coach`
       );
-      return (rows || []).map(row => ({
-        userId: row.user_id,
-        coachId: row.coach_id,
-        source: row.source,
-        planName: row.plan_name,
-        logDate: row.log_date,
-        exercises: row.exercises || [],
-        timerStatus: row.timer_status || 'idle',
-        timerStartedAt: row.timer_started_at ?? null,
-        pauseIntervals: row.pause_intervals || [],
-        updatedAt: row.updated_at
-      }));
+      return (rows || []).map(normalizeDraftRow);
     } catch (e) {
       console.error('Cloud DB Get Coach Active Drafts Error:', e);
       return [];
     }
   },
 
-  async deleteWorkoutDraft(userId) {
+  // Deletes only this source's draft — finishing or discarding the client's
+  // own session must never take the coach's Live Log with it, or vice versa.
+  async deleteWorkoutDraft(userId, source) {
     if (!isSupabaseConfigured || !supabase || !userId) return;
+    if (source !== 'self' && source !== 'coach') {
+      console.error(`deleteWorkoutDraft: source must be 'self' or 'coach', got ${source} — not deleting.`);
+      return;
+    }
     try {
       // Raw PostgREST (restDelete) instead of supabase.from() — same
       // SDK-hang bypass as everywhere else in this file.
-      await restDelete(`workout_drafts?user_id=eq.${encodeURIComponent(userId)}`);
+      await restDelete(`workout_drafts?user_id=eq.${encodeURIComponent(userId)}&source=eq.${source}`);
     } catch (e) {
       console.error('Cloud DB Delete Workout Draft Error:', e);
     }

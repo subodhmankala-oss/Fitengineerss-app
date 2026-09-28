@@ -97,8 +97,21 @@ export default async function handler(req, res) {
     if (!isOwnDraft && !isSuperAdmin && !isClientsOwnCoach) {
       return res.status(403).json({ error: 'You are not authorized to write this draft for this account.' });
     }
+    // Each side writes only its own row (see
+    // sql/supabase_workout_drafts_per_source.sql): the client their 'self'
+    // session, their coach the 'coach' Live Log. Enforced here so neither
+    // can overwrite the other's in-progress session through this endpoint.
+    if (record.source !== 'self' && record.source !== 'coach') {
+      return res.status(400).json({ error: "record.source must be 'self' or 'coach'" });
+    }
+    const mayWriteSource = isSuperAdmin
+      || (record.source === 'self' && isOwnDraft)
+      || (record.source === 'coach' && isClientsOwnCoach);
+    if (!mayWriteSource) {
+      return res.status(403).json({ error: `You are not authorized to write the '${record.source}' draft for this account.` });
+    }
 
-    const upsertResp = await fetch(`${supabaseUrl}/rest/v1/workout_drafts?on_conflict=user_id`, {
+    const upsertResp = await fetch(`${supabaseUrl}/rest/v1/workout_drafts?on_conflict=user_id,source`, {
       method: 'POST',
       headers: {
         ...svcHeaders,

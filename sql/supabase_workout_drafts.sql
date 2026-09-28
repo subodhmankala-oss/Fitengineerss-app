@@ -8,17 +8,18 @@
 -- (mobile browsers reclaim memory, or the user just switches apps) unmounted
 -- the screen and the half-finished workout was gone, forcing a restart.
 --
--- One row per client (UNIQUE on user_id) holds whichever session is
--- currently in progress FOR that client — written by the client themself
--- (source='self', coach_id NULL) or by their coach logging live on their
--- behalf (source='coach', coach_id = the logging coach). Deleted the moment
--- that session is finished or explicitly discarded — this table only ever
--- holds "currently open" sessions, never history (workout_logs is history).
+-- One row per client per source (UNIQUE on user_id, source — see
+-- supabase_workout_drafts_per_source.sql) holds each session currently in
+-- progress FOR that client: the client's own (source='self', coach_id NULL)
+-- and/or their coach logging live on their behalf (source='coach', coach_id =
+-- the logging coach). Deleted the moment that session is finished or
+-- explicitly discarded — this table only ever holds "currently open"
+-- sessions, never history (workout_logs is history).
 -- ==========================================
 
 CREATE TABLE IF NOT EXISTS public.workout_drafts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   coach_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
   source TEXT NOT NULL DEFAULT 'self' CHECK (source IN ('self', 'coach')),
   plan_name TEXT,
@@ -30,7 +31,8 @@ CREATE TABLE IF NOT EXISTS public.workout_drafts (
   timer_started_at BIGINT,
   pause_intervals JSONB NOT NULL DEFAULT '[]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT workout_drafts_user_id_source_key UNIQUE (user_id, source)
 );
 
 CREATE INDEX IF NOT EXISTS idx_workout_drafts_coach_id ON public.workout_drafts(coach_id);

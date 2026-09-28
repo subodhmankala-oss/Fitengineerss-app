@@ -1049,7 +1049,7 @@ const WorkoutTracker = () => {
     databaseService.resolveUserId().then(id => {
       if (cancelled || !id) return;
       setOwnUserId(id);
-      databaseService.getWorkoutDraft(id).then(dbDraft => {
+      databaseService.getWorkoutDraft(id, 'self').then(dbDraft => {
         // Only ever auto-load a draft this client started themselves. A
         // 'coach' draft means the coach's Live Log is actively editing that
         // same session right now — pulling it into the client's own form too
@@ -1129,7 +1129,7 @@ const WorkoutTracker = () => {
     if (!ownUserId) return;
     const userId = ownUserId;
     draftSaveInFlightRef.current = Promise.resolve(draftSaveInFlightRef.current)
-      .then(() => databaseService.deleteWorkoutDraft(userId))
+      .then(() => databaseService.deleteWorkoutDraft(userId, 'self'))
       .catch(() => {});
   };
 

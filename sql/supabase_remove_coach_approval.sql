@@ -24,6 +24,14 @@
 --   - trg_prevent_role_escalation on users only guards 'super-admin', so
 --     it is unaffected
 --
+-- APPLIED to production 2026-09-28 (verified: both checks tightened,
+-- table gone, 72 client / 11 coach / 1 super-admin unchanged). Note: run
+-- as one script in the Supabase SQL Editor, only step 0 executed. The
+-- editor stopped silently after the DO block, with no error, so nothing
+-- changed. It was applied instead as two separate runs: steps 1-2 without
+-- BEGIN/COMMIT, then step 3. Adding a CHECK constraint validates every
+-- existing row, so steps 1-2 are still safe without the guard.
+--
 -- Safe to re-run: step 0 re-checks the data and aborts the whole script if
 -- anything would be lost, and every statement below is IF EXISTS.
 -- Everything runs in one transaction, so it applies fully or not at all.

@@ -851,7 +851,7 @@ function App() {
           // They land in the dashboard immediately instead of behind a form
           // gate, and can fill in experience/brand/etc. from their coach
           // profile settings later. Best-effort: if this fails (network,
-          // expired token), fall through to the old pendingCoachApply form
+          // expired token), fall through to the Coach Sign Up form
           // exactly as before — nothing regresses.
           //
           // Persist intent onto the auth account itself, the first time we
@@ -902,15 +902,17 @@ function App() {
                 });
                 return;
               }
-              console.warn('[coach auto-provision] register-coach-google failed, falling back to apply form:', result.error);
+              console.warn('[coach auto-provision] register-coach-google failed, falling back to the sign-up form:', result.error);
             } catch (e) {
-              console.warn('[coach auto-provision] request failed, falling back to apply form:', e.message);
+              console.warn('[coach auto-provision] request failed, falling back to the sign-up form:', e.message);
             }
           }
 
+          // Show the Coach Sign Up form (Onboarding reads pendingCoachApply);
+          // submitting it creates an active coach, same endpoint as above.
           localStorage.setItem('pendingCoachApply', 'true');
           setUserEmail(email);
-          setUserRole('coach_pending');
+          setUserRole('');
           setOnboardingComplete(false);
           return;
         }

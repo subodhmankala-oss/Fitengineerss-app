@@ -5077,7 +5077,7 @@ html.keyboard-open .rest-timer-floating-card {
 /* Add Set: new row slides down into place */
 @keyframes set-row-slide-in {
   from { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; }
-  to { max-height: 96px; opacity: 1; transform: translateY(0); }
+  to { max-height: var(--row-h, 96px); opacity: 1; transform: translateY(0); }
 }
 .hevy-set-row.set-row-enter {
   overflow: hidden;
@@ -5087,16 +5087,11 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-enter { animation: none; }
 }
 
-/* Delete Set: row slides up, collapses and fades out before it's removed */
-@keyframes set-row-slide-out {
-  from { max-height: var(--row-h, 56px); opacity: 1; transform: translateY(0); }
-  40% { opacity: 0; }
-  to { max-height: 0; opacity: 0; transform: translateY(-14px); padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
-}
+/* Delete Set: exactly the Add Set slide-in played backwards */
 .hevy-set-row.set-row-exit {
   overflow: hidden;
   pointer-events: none;
-  animation: set-row-slide-out 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: set-row-slide-in 0.55s cubic-bezier(0.33, 0.9, 0.4, 1) reverse forwards;
 }
 @media (prefers-reduced-motion: reduce) {
   .hevy-set-row.set-row-exit { animation: none; }

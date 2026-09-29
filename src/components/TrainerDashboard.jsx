@@ -2289,15 +2289,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // one of them would keep editing a completed set out of sight. (Plan
       // editor fields share the pad under 'ped-' keys; leave those alone.)
       if (activeLiveSetKey && !activeLiveSetKey.startsWith('ped-') && activeLiveSetKey.endsWith(`-${exIdx}-${setIdx}`)) closeLiveSetField();
-      // One tap on ✓ both completes this set and hands focus to the next
-      // one, same as the client's own logger — only within the same
-      // rep-based exercise (cardio/timed sets complete via their own
-      // stopwatch flow, not this handler).
-      const exName = liveEx?.name;
-      const nextSet = liveEx?.sets?.[setIdx + 1];
-      if (nextSet && !nextSet.isCompleted && exName && !isCardioExercise(exName) && !isTimedExercise(exName) && !isWarmupExercise(exName)) {
-        openLiveSetField(`w-${exIdx}-${setIdx + 1}`);
-      }
     }
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -8054,8 +8045,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                   </div>
                                   <ExerciseCardMenu
                                     name={ex.name}
-                                    canMoveUp={exIdx > 0}
-                                    canMoveDown={exIdx < editorExercises.length - 1}
+                                    onReorderPointerDown={startEditorExerciseDrag(exIdx)}
                                     onMoveUp={() => moveEditorExerciseByKeyboard(exIdx, -1)}
                                     onMoveDown={() => moveEditorExerciseByKeyboard(exIdx, 1)}
                                     onRemove={() => handleRemoveExerciseFromEditor(exIdx)}
@@ -8844,8 +8834,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                           <ExerciseCardMenu
                             name={ex.name}
-                            canMoveUp={exIdx > 0}
-                            canMoveDown={exIdx < liveExercises.length - 1}
+                            onReorderPointerDown={startLiveExerciseDrag(exIdx)}
                             onMoveUp={() => moveLiveExerciseByKeyboard(exIdx, -1)}
                             onMoveDown={() => moveLiveExerciseByKeyboard(exIdx, 1)}
                             onRemove={() => handleLiveRemoveExercise(exIdx)}

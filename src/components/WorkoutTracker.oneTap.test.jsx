@@ -93,7 +93,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     expect(hasClass(screen.getByRole('button', { name: '9' }), 'set-value-ghost')).toBe(true);
   });
 
-  it('shows PREV-filled values as ghost until confirmed, and advances focus to the next set on tap', async () => {
+  it('shows PREV-filled values as ghost until confirmed and does not open the keypad on tap', async () => {
     const draft = makeDraft();
     draft.logExercises = [{
       name: 'Bench Press',
@@ -114,10 +114,9 @@ describe('WorkoutTracker one-tap set logging', () => {
 
     fireEvent.click(screen.getAllByTitle('Toggle Complete')[0]);
 
-    // Completing set 1 confirms it (ghost clears, it's now locked/disabled)
-    // and hands focus to set 2's kg box, which is still an unconfirmed guess.
+    // Completing set 1 confirms it (ghost clears); the keypad stays closed.
     await waitFor(() => expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(false));
-    expect(hasClass(screen.getByRole('button', { name: '45' }), 'is-active')).toBe(true);
+    expect(hasClass(screen.getByRole('button', { name: '45' }), 'is-active')).toBe(false);
     expect(hasClass(screen.getByRole('button', { name: '45' }), 'set-value-ghost')).toBe(true);
   });
 

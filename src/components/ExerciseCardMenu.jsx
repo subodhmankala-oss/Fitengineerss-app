@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { TrashIcon, DragHandleIcon } from './TimerIcons';
 
 // Per-exercise 3-dot menu shared by the client logger and the coach editor /
-// Live Log: Move up, Move down, Remove. Styles live in WorkoutTracker.css.
-export default function ExerciseCardMenu({ name, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onRemove }) {
+// Live Log. It holds the two actions that used to sit beside the exercise
+// name: the press-and-drag reorder handle and Remove. Styles live in
+// WorkoutTracker.css.
+export default function ExerciseCardMenu({ name, onReorderPointerDown, onMoveUp, onMoveDown, onRemove }) {
   const [open, setOpen] = useState(false);
-  const run = (fn) => () => { setOpen(false); fn(); };
   return (
     <div className="ex-card-menu-wrap">
       <button
@@ -24,13 +25,29 @@ export default function ExerciseCardMenu({ name, canMoveUp, canMoveDown, onMoveU
         <>
           <div className="ex-card-menu-backdrop" onClick={() => setOpen(false)} />
           <div className="ex-card-menu" role="menu">
-            <button type="button" role="menuitem" disabled={!canMoveUp} onClick={run(onMoveUp)}>
-              <DragHandleIcon size={16} /> Move up
+            {/* Same press-and-drag behaviour as the old inline handle: the
+                drag starts on pointerdown and follows the finger, so the
+                menu closes as soon as it begins. */}
+            <button
+              type="button"
+              role="menuitem"
+              className="btn-drag-handle ex-card-menu-drag"
+              onPointerDown={(e) => { onReorderPointerDown(e); setOpen(false); }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowUp') { e.preventDefault(); onMoveUp(); }
+                if (e.key === 'ArrowDown') { e.preventDefault(); onMoveDown(); }
+              }}
+              title="Hold and drag to reorder"
+              style={{ touchAction: 'none' }}
+            >
+              <DragHandleIcon size={16} /> Drag to reorder
             </button>
-            <button type="button" role="menuitem" disabled={!canMoveDown} onClick={run(onMoveDown)}>
-              <DragHandleIcon size={16} /> Move down
-            </button>
-            <button type="button" role="menuitem" className="ex-card-menu-danger" onClick={run(onRemove)}>
+            <button
+              type="button"
+              role="menuitem"
+              className="ex-card-menu-danger"
+              onClick={() => { setOpen(false); onRemove(); }}
+            >
               <TrashIcon size={16} /> Remove exercise
             </button>
           </div>

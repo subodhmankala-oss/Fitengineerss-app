@@ -2641,6 +2641,9 @@
 .hevy-set-row .set-input-field .set-value-btn {
   width: 100%;
   max-width: 72px;
+  /* Same height as the complete tick (.btn-hevy-check) so the row matches. */
+  height: 40px;
+  box-sizing: border-box;
   background: rgba(var(--bg-app-rgb), 0.5);
   border: 1px solid rgba(var(--fg-rgb), 0.06);
   padding: 8px 4px;
@@ -2836,8 +2839,9 @@
 /* Circular Checkmark Button — 44px is the minimum comfortable mobile touch
    target (Apple HIG / Android Material); this used to be a 24px square. */
 .btn-hevy-check {
-  width: 44px;
-  height: 44px;
+  /* Height matches the KG / REPS boxes (40px). */
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   background: rgba(var(--fg-rgb), 0.05);
   border: 1px solid rgba(var(--fg-rgb), 0.1);

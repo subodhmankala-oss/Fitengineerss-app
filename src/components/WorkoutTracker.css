@@ -5076,7 +5076,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 /* Add Set: new row slides down into place */
 @keyframes set-row-slide-in {
-  from { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; }
+  from { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; border-top-width: 0; border-bottom-width: 0; margin-top: -4px; }
   to { max-height: var(--row-h, 96px); opacity: 1; transform: translateY(0); }
 }
 .hevy-set-row.set-row-enter {
@@ -5092,7 +5092,9 @@ html.keyboard-open .rest-timer-floating-card {
    reverses the curve into an ease-in, which read as a lag after the tap. */
 @keyframes set-row-slide-out {
   from { max-height: var(--row-h, 96px); opacity: 1; transform: translateY(0); }
-  to { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; }
+  /* border + the table's 4px flex gap must reach 0 too, or removing the row
+     jumps the layout by ~6px at the end. */
+  to { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; border-top-width: 0; border-bottom-width: 0; margin-top: -4px; }
 }
 .hevy-set-row.set-row-exit {
   overflow: hidden;

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
+import { computeElapsedSeconds, computeRestSecondsRemaining } from '../utils/liveWorkoutTimer';
+import { useLiveTick } from '../hooks/useLiveTick';
 import './ClockTimerModal.css';
 
 const CIRCLE_R = 90;
@@ -8,6 +10,12 @@ const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_R;
 const DEFAULT_DURATION = 60;
 const MIN_DURATION = 15;
 const MAX_DURATION = 99 * 60 + 59;
+const STORAGE_KEY = 'clockTimerModalState';
+// A timer/stopwatch left behind from an earlier day isn't worth restoring.
+const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
+// Only beep for a timer that ran out recently — reopening the popup (or the
+// app) long after it finished shouldn't sound an alarm out of nowhere.
+const LATE_ALARM_WINDOW_MS = 60 * 1000;
 
 function formatClock(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -15,60 +23,68 @@ function formatClock(totalSeconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// A small iOS Clock-style Timer/Stopwatch popup — lets a coach time a rest
-// period or warmup during a live session without leaving the app. Purely a
-// utility overlay: no data is saved anywhere, closing it just discards state.
+function loadSavedState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (!saved || !saved.timer || !saved.stopwatch) return null;
+    if (Date.now() - (saved.savedAt || 0) > STALE_AFTER_MS) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+// A small iOS Clock-style Timer/Stopwatch popup — lets a coach or client
+// time a rest period or warmup without leaving the app. No workout data is
+// saved; only the popup's own state is kept (localStorage), so a running
+// timer or stopwatch carries on through closing the popup, the app going
+// off screen, or the page reloading.
+//
+// Both used to count by adding/subtracting 1 on every setInterval tick.
+// Phones suspend setInterval while the app is off screen, so switching apps
+// or locking the phone mid-rest froze them — they picked up from the same
+// number on return, however long the rest had actually been. They're now
+// wall-clock timestamps (timer: endAt, stopwatch: startedAt), the same
+// approach as the session clock and the rest card, and the ticks only
+// redraw.
 export default function ClockTimerModal({ onClose }) {
-  const [mode, setMode] = useState('stopwatch');
+  const [saved] = useState(loadSavedState);
+  const [mode, setMode] = useState(saved?.mode ?? 'stopwatch');
+  const [duration, setDuration] = useState(saved?.duration ?? DEFAULT_DURATION);
+  // endAt is set while running; remaining holds the seconds left while
+  // paused or not started.
+  const [timer, setTimer] = useState(saved?.timer ?? { endAt: null, remaining: DEFAULT_DURATION, done: false });
+  // startedAt is set while running; accumulated holds the seconds counted
+  // before the current run.
+  const [stopwatch, setStopwatch] = useState(saved?.stopwatch ?? { startedAt: null, accumulated: 0 });
 
-  const [duration, setDuration] = useState(DEFAULT_DURATION);
-  const [remaining, setRemaining] = useState(DEFAULT_DURATION);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [timerDone, setTimerDone] = useState(false);
-  const timerIntervalRef = useRef(null);
+  const remaining = timer.endAt != null ? computeRestSecondsRemaining(timer.endAt) : timer.remaining;
+  const timerFinished = timer.endAt != null && remaining <= 0;
+  const timerRunning = timer.endAt != null && !timerFinished;
+  const timerDone = timer.done || timerFinished;
+  const stopwatchRunning = stopwatch.startedAt != null;
+  const elapsed = stopwatch.accumulated + (stopwatchRunning ? computeElapsedSeconds(stopwatch.startedAt) : 0);
 
-  const [elapsed, setElapsed] = useState(0);
-  const [stopwatchRunning, setStopwatchRunning] = useState(false);
-  const stopwatchIntervalRef = useRef(null);
+  useLiveTick(timerRunning || stopwatchRunning, 250);
+
+  const alarmedEndAtRef = useRef(null);
+  useEffect(() => {
+    if (!timerFinished || alarmedEndAtRef.current === timer.endAt) return;
+    alarmedEndAtRef.current = timer.endAt;
+    if (Date.now() - timer.endAt < LATE_ALARM_WINDOW_MS) playAlarmBeeps();
+  }, [timerFinished, timer.endAt]);
 
   useEffect(() => {
-    if (!timerRunning) return;
-    timerIntervalRef.current = setInterval(() => {
-      setRemaining(prev => {
-        if (prev <= 1) {
-          clearInterval(timerIntervalRef.current);
-          setTimerRunning(false);
-          setTimerDone(true);
-          playAlarmBeeps();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerIntervalRef.current);
-  }, [timerRunning]);
-
-  useEffect(() => {
-    if (!stopwatchRunning) return;
-    stopwatchIntervalRef.current = setInterval(() => {
-      setElapsed(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(stopwatchIntervalRef.current);
-  }, [stopwatchRunning]);
-
-  useEffect(() => () => {
-    clearInterval(timerIntervalRef.current);
-    clearInterval(stopwatchIntervalRef.current);
-  }, []);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ mode, duration, timer, stopwatch, savedAt: Date.now() }));
+    } catch { /* ignore quota/serialization errors */ }
+  }, [mode, duration, timer, stopwatch]);
 
   const adjustDuration = (delta) => {
     if (timerRunning) return;
-    setDuration(prev => {
-      const next = Math.min(MAX_DURATION, Math.max(MIN_DURATION, prev + delta));
-      setRemaining(next);
-      setTimerDone(false);
-      return next;
-    });
+    const next = Math.min(MAX_DURATION, Math.max(MIN_DURATION, duration + delta));
+    setDuration(next);
+    setTimer({ endAt: null, remaining: next, done: false });
   };
 
   const handleTimerStart = () => {
@@ -76,24 +92,30 @@ export default function ClockTimerModal({ onClose }) {
     // the alarm that fires later from a setInterval tick (never itself a
     // user gesture, which mobile browsers require to play sound).
     unlockAudio();
-    setTimerDone(false);
-    setTimerRunning(true);
+    setTimer({ endAt: Date.now() + remaining * 1000, remaining, done: false });
   };
-  const handleTimerPause = () => setTimerRunning(false);
+  const handleTimerPause = () => {
+    setTimer({ endAt: null, remaining: computeRestSecondsRemaining(timer.endAt), done: false });
+  };
   const handleTimerReset = () => {
-    setTimerRunning(false);
-    setTimerDone(false);
-    setRemaining(duration);
+    setTimer({ endAt: null, remaining: duration, done: false });
   };
 
-  const handleStopwatchStart = () => setStopwatchRunning(true);
-  const handleStopwatchPause = () => setStopwatchRunning(false);
+  const handleStopwatchStart = () => {
+    setStopwatch(prev => ({ startedAt: Date.now(), accumulated: prev.accumulated }));
+  };
+  const handleStopwatchPause = () => {
+    setStopwatch(prev => ({ startedAt: null, accumulated: prev.accumulated + computeElapsedSeconds(prev.startedAt) }));
+  };
   const handleStopwatchReset = () => {
-    setStopwatchRunning(false);
-    setElapsed(0);
+    setStopwatch({ startedAt: null, accumulated: 0 });
   };
   const adjustElapsed = (delta) => {
-    setElapsed(prev => Math.max(0, prev + delta));
+    setStopwatch(prev => {
+      const current = prev.accumulated + (prev.startedAt != null ? computeElapsedSeconds(prev.startedAt) : 0);
+      const next = Math.max(0, current + delta);
+      return prev.startedAt != null ? { startedAt: Date.now(), accumulated: next } : { startedAt: null, accumulated: next };
+    });
   };
 
   const timerFraction = duration > 0 ? remaining / duration : 0;

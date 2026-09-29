@@ -25,6 +25,7 @@ import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -33,7 +34,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -592,6 +593,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
+
+  // Keep the screen from auto-locking/dimming only while the coach is
+  // actually on the Live Log tab logging a client's session — not the whole
+  // dashboard. Same rationale as the client's own WorkoutTracker.
+  useWakeLock(detailTab === 'livelog');
 
   // Every Live Log session this coach currently has open across their
   // clients (workout_drafts) — surfaced on the client directory screen so a
@@ -1470,7 +1476,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // in WorkoutTracker.jsx / computeRestSecondsRemaining's comment for why.
   const [restEndAt, setRestEndAt] = useState(null);
   const restFinishHandledRef = useRef(false);
-  const [restPulseKey, setRestPulseKey] = useState(0);
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [showDiscardLiveModal, setShowDiscardLiveModal] = useState(false);
   // Which draft (from the client directory's "Live Log in progress" list) is
@@ -1522,7 +1527,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       if (remaining <= 0 && !restFinishHandledRef.current) {
         restFinishHandledRef.current = true;
         setRestJustFinished(true);
-        setRestPulseKey(k => k + 1);
         playAlarmBeeps(1);
         setTimeout(() => {
           setRestTimerActive(false);
@@ -2229,9 +2233,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         sets: ex.sets.map((s, si) => {
           if (si !== setIdx) return s;
           // Edited by hand (or by its own stopwatch) — the late PREV
-          // pre-fill must not overwrite it (see fillPendingPrevSets).
+          // pre-fill must not overwrite it (see fillPendingPrevSets), and
+          // the field just edited is no longer "what PREV showed" — its
+          // ghost styling clears (see SetValueField's isGhost prop).
           const { prevPending: _prevPending, ...set } = s;
-          return { ...set, [field]: value };
+          const clearedGhost = field === 'weight' ? { weightFromPrev: false }
+            : field === 'reps' ? { repsFromPrev: false }
+            : {};
+          return { ...set, [field]: value, ...clearedGhost };
         })
       };
     }));
@@ -2270,7 +2279,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // which fires later from a setInterval tick (see alarmSound.js).
     unlockAudio();
     const now = Date.now();
-    const togglingSetOn = !liveExercises[exIdx]?.sets[setIdx]?.isCompleted;
+    const liveEx = liveExercises[exIdx];
+    const togglingSetOn = !liveEx?.sets[setIdx]?.isCompleted;
     if (togglingSetOn) {
       // A completed set is worth saving right now, not after the debounce.
       saveLiveDraftNowRef.current = true;
@@ -2278,6 +2288,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // one of them would keep editing a completed set out of sight. (Plan
       // editor fields share the pad under 'ped-' keys; leave those alone.)
       if (activeLiveSetKey && !activeLiveSetKey.startsWith('ped-') && activeLiveSetKey.endsWith(`-${exIdx}-${setIdx}`)) closeLiveSetField();
+      // One tap on ✓ both completes this set and hands focus to the next
+      // one, same as the client's own logger — only within the same
+      // rep-based exercise (cardio/timed sets complete via their own
+      // stopwatch flow, not this handler).
+      const exName = liveEx?.name;
+      const nextSet = liveEx?.sets?.[setIdx + 1];
+      if (nextSet && !nextSet.isCompleted && exName && !isCardioExercise(exName) && !isTimedExercise(exName) && !isWarmupExercise(exName)) {
+        openLiveSetField(`w-${exIdx}-${setIdx + 1}`);
+      }
     }
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
@@ -2290,23 +2309,90 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           // completedAt timestamps are what the live timer's rest-interval
           // calorie calc uses — never cleared retroactively except when this
           // exact set is unchecked, so re-checking it later is timed fresh.
-          return { ...set, isCompleted: nextCompleted, completedAt: nextCompleted ? now : null };
+          // Ghost styling clears too — completed means confirmed.
+          return {
+            ...set,
+            isCompleted: nextCompleted,
+            completedAt: nextCompleted ? now : null,
+            ...(nextCompleted ? { weightFromPrev: false, repsFromPrev: false } : {})
+          };
         })
       };
     }));
     // Logging real work is what starts the session clock — not opening the tab.
     startLiveSessionClockIfIdle();
-    // Marking a set complete (not un-completing one) auto-starts the rest
-    // timer, same as the client's own logger.
-    if (togglingSetOn) {
-      restFinishHandledRef.current = false;
-      liveRestClientIdRef.current = selectedClient?.id || null;
-      setRestEndAt(Date.now() + 60000);
-      setRestSecondsRemaining(60);
-      setRestTimerActive(true);
-      setRestJustFinished(false);
-      setRestPulseKey(k => k + 1);
+  };
+
+  // Rest timer is manual — completing a set no longer starts it on its own
+  // (see handleLiveToggleSet above, and the client's own logger). This is
+  // the one path that (re)arms it, from the "⏱️ Start Rest" link on
+  // whichever exercise card the coach just logged. Same 60s default and
+  // state shape the old auto-start used, including liveRestClientIdRef so
+  // it still ties the running rest to the client it belongs to.
+  // "✓ all" in an exercise's header — same as the client logger's: freezes
+  // any running cardio/timed stopwatch at its real elapsed time, logs the
+  // plan's target for timed sets never run or typed, and completes every set.
+  const handleLiveCompleteAllSets = (exIdx) => {
+    const ex = liveExercises[exIdx];
+    if (!ex) return;
+    unlockAudio();
+    startLiveSessionClockIfIdle();
+    saveLiveDraftNowRef.current = true;
+    if (activeLiveSetKey && !activeLiveSetKey.startsWith('ped-') && new RegExp(`-${exIdx}-\\d+$`).test(activeLiveSetKey)) closeLiveSetField();
+    const now = Date.now();
+    const exIsCardio = isCardioExercise(ex.name);
+    const runningKeysToClear = [];
+    ex.sets.forEach((set, setIdx) => {
+      const key = getSetTimerKey(exIdx, setIdx);
+      const timer = liveSetTimers[key];
+      if (!timer?.isRunning) return;
+      const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+      handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+      handleLiveSetChange(exIdx, setIdx, 'timeIsLive', true);
+      if (exIsCardio && timer.autoKm) {
+        handleLiveSetChange(exIdx, setIdx, 'distanceKm', String(estimateCardioDistanceKm(ex.name, elapsed)));
+      }
+      runningKeysToClear.push(key);
+    });
+    if (runningKeysToClear.length > 0) {
+      setLiveSetTimers(prev => {
+        const updated = { ...prev };
+        runningKeysToClear.forEach(k => delete updated[k]);
+        return updated;
+      });
     }
+    const fillTarget = exIsCardio || isTimedExercise(ex.name);
+    setLiveExercises(prev => prev.map((e, i) => i !== exIdx ? e : {
+      ...e,
+      sets: e.sets.map((s, setIdx) => {
+        if (s.isCompleted) return s;
+        const { prevPending: _prevPending, ...set } = s;
+        const targetSeconds = fillTarget && !set.time && !runningKeysToClear.includes(getSetTimerKey(exIdx, setIdx))
+          ? parseTimeStringToSeconds(set.targetTime)
+          : null;
+        return {
+          ...set,
+          ...(targetSeconds ? { time: formatSecondsToTimeString(targetSeconds) } : {}),
+          ...(targetSeconds && exIsCardio && !set.distanceKm
+            ? { distanceKm: String(estimateCardioDistanceKm(ex.name, targetSeconds)) }
+            : {}),
+          isCompleted: true,
+          completedAt: now,
+          weightFromPrev: false,
+          repsFromPrev: false
+        };
+      })
+    }));
+  };
+
+  const handleStartLiveRestTimer = () => {
+    unlockAudio();
+    restFinishHandledRef.current = false;
+    liveRestClientIdRef.current = selectedClient?.id || null;
+    setRestEndAt(Date.now() + 60000);
+    setRestSecondsRemaining(60);
+    setRestTimerActive(true);
+    setRestJustFinished(false);
   };
 
   const handleLiveRemoveExercise = (exIdx) => {
@@ -3523,19 +3609,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     return changed ? { ...ex, sets } : ex;
   });
 
-  // Live Log version of applyPrevWeights that also works before the
-  // client's history has loaded (a coach opening a client and picking a
-  // plan straight away, or the starter exercise set from the draft check):
-  // those sets are flagged prevPending and get their PREV kg the moment
-  // handleSelectClient's fetch lands (see fillPendingPrevSets). Reads
-  // liveHistoryRef rather than workoutLogs so async callers get the history
-  // as it is now, not as it was when they were created.
+  // Live Log version of applyPrevWeights that also fills reps from PREV (a
+  // live session is actually logging work, not editing next week's target,
+  // so the reps box should default to what the client did last time same as
+  // the client's own withPrevValues — the Plan Editor's applyPrevWeights
+  // above deliberately leaves reps at the coach's saved target instead) and
+  // that also works before the client's history has loaded (a coach opening
+  // a client and picking a plan straight away, or the starter exercise set
+  // from the draft check): those sets are flagged prevPending and get their
+  // PREV values the moment handleSelectClient's fetch lands (see
+  // fillPendingPrevSets). Reads liveHistoryRef rather than workoutLogs so
+  // async callers get the history as it is now, not as it was when they
+  // were created.
   const applyLivePrev = (exercises) => {
     const { sessions } = liveHistoryRef.current;
     return exercises.map(ex => ({
       ...ex,
       sets: ex.sets.map((s, setIdx) => sessions
-        ? applyPrevWeight(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex.name, setIdx))
+        ? applyPrevValues(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex.name, setIdx))
         : { ...s, prevPending: 'plan' })
     }));
   };
@@ -3560,6 +3651,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       : `${set.weight}kg`;
     return `${weightLabel} x ${set.reps}`;
   };
+
+  // "Last: 40kg×8 → try 42.5kg×8" under each Live Log exercise card — same
+  // helper and rule the client's own logger uses. workoutLogs is already
+  // scoped to the selected client (see findPreviousLoggedSet above).
+  const getExerciseProgressionHint = (exName) =>
+    buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(workoutLogs, null, exName));
 
   const fetchClientChat = async (clientId) => {
     try {
@@ -8775,6 +8872,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                         </div>
 
+                        {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
+                          const hint = getExerciseProgressionHint(ex.name);
+                          return hint ? <div className="ex-progression-hint">📈 {hint}</div> : null;
+                        })()}
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
@@ -8817,7 +8918,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 <span className="col-reps">REPS</span>
                               </>
                             )}
-                            <span className="col-check">DONE</span>
+                            <span className="col-check">
+                              <button
+                                type="button"
+                                title="Mark all sets done"
+                                className={`btn-check-all ${ex.sets.every(s => s.isCompleted) ? 'is-all-done' : ''}`}
+                                onClick={() => handleLiveCompleteAllSets(exIdx)}
+                              >✓ all</button>
+                            </span>
                           </div>
                           <div className="hevy-table-body">
                             {ex.sets.map((set, setIdx) => {
@@ -9017,6 +9125,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                             value={set.weight}
                                             placeholder="0"
                                             active={activeLiveSetKey === weightKey}
+                                            isGhost={set.weightFromPrev}
                                             onOpen={() => openLiveSetField(weightKey)}
                                           />
                                           <button
@@ -9092,6 +9201,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                               value={set.weight}
                                               placeholder="0"
                                               active={activeLiveSetKey === weightKey}
+                                              isGhost={set.weightFromPrev}
                                               onOpen={() => openLiveSetField(weightKey)}
                                             />
                                             {exIsBodyweight && (
@@ -9111,6 +9221,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                             value={set.reps}
                                             placeholder="0"
                                             active={activeLiveSetKey === repsKey}
+                                            isGhost={set.repsFromPrev}
                                             onOpen={() => openLiveSetField(repsKey)}
                                           />
                                         </div>
@@ -9144,10 +9255,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => handleLiveAddSet(exIdx)}
-                          className="btn-add-set-link live-logger-add-set"
-                        >➕ Add Set</button>
+                        <div className="ex-card-actions">
+                          <button
+                            onClick={() => handleLiveAddSet(exIdx)}
+                            className="btn-add-set-link live-logger-add-set"
+                          >➕ Add Set</button>
+                          <button
+                            type="button"
+                            className="btn-start-rest-link"
+                            onClick={handleStartLiveRestTimer}
+                            title="Start a 60s rest timer"
+                          >⏱️ Start Rest</button>
+                        </div>
                       </div>
                       </div>
                       <div className="ex-reorder-compact">
@@ -9221,10 +9340,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       internal scroll instead of staying pinned to the
                       screen. */}
                   {!isLiveReordering && restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
-                    <div
-                      key={restPulseKey}
-                      className={`rest-timer-floating-card rest-timer-floating-card--coach ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
-                    >
+                    <div className="rest-timer-floating-card rest-timer-floating-card--coach">
                       <div className="rest-timer-header-row">
                         <span className="rest-icon">{restJustFinished ? '✅' : '⏱️'}</span>
                         <span className="rest-timer-label">{restJustFinished ? 'REST OVER' : 'REST TIMER'}</span>

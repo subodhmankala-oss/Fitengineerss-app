@@ -3,10 +3,36 @@ import {
   findPreviousLoggedSetIn,
   findPreviousExerciseSetsIn,
   applyPrevWeight,
+  applyPrevReps,
+  applyPrevValues,
   applyPrevRepsAndWeight,
   fillPendingPrevSets,
-  setsFromPreviousExercise
+  setsFromPreviousExercise,
+  buildProgressiveOverloadHint
 } from './prevSets';
+
+describe('buildProgressiveOverloadHint', () => {
+  it('suggests +2.5 on the heaviest working set, ignoring warmups', () => {
+    const prev = [{ reps: 12, weight: 60, setType: 'warmup', isWarmup: true }, { reps: 8, weight: 40 }, { reps: 6, weight: 42.5 }];
+    expect(buildProgressiveOverloadHint('Bench Press', prev)).toBe('Last: 42.5kg×6 → try 45kg×6');
+  });
+
+  it('breaks weight ties by reps', () => {
+    expect(buildProgressiveOverloadHint('Bench Press', [{ reps: 6, weight: 40 }, { reps: 8, weight: 40 }]))
+      .toBe('Last: 40kg×8 → try 42.5kg×8');
+  });
+
+  it('progresses reps instead of weight for pure bodyweight sets', () => {
+    expect(buildProgressiveOverloadHint('Push-up', [{ reps: 12, weight: 0 }])).toBe('Last: BW×12 → try BW×13');
+  });
+
+  it('returns null with no history, warmup-only history, or cardio/timed exercises', () => {
+    expect(buildProgressiveOverloadHint('Bench Press', null)).toBeNull();
+    expect(buildProgressiveOverloadHint('Bench Press', [{ reps: 10, weight: 20, isWarmup: true }])).toBeNull();
+    expect(buildProgressiveOverloadHint('Treadmill', [{ distanceKm: 2, time: '10:00' }])).toBeNull();
+    expect(buildProgressiveOverloadHint('Plank', [{ time: '01:00' }])).toBeNull();
+  });
+});
 
 const sessions = [
   { clientName: 'Asha', date: '2026-09-01', exercises: [{ name: 'Bench Press', sets: [{ reps: 8, weight: 40 }] }] },
@@ -37,16 +63,26 @@ describe('findPreviousExerciseSetsIn', () => {
   });
 });
 
-describe('applyPrevWeight / applyPrevRepsAndWeight', () => {
-  it('takes the kg from PREV and leaves reps alone', () => {
-    expect(applyPrevWeight('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 })).toEqual({ reps: '12', weight: '45' });
+describe('applyPrevWeight / applyPrevReps / applyPrevValues / applyPrevRepsAndWeight', () => {
+  it('takes the kg from PREV, flags it as unconfirmed, and leaves reps alone', () => {
+    expect(applyPrevWeight('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: '12', weight: '45', weightFromPrev: true });
   });
   it('leaves the set unchanged with no PREV', () => {
     const set = { reps: '12', weight: '' };
     expect(applyPrevWeight('Bench Press', set, null)).toBe(set);
   });
-  it('takes both reps and weight for the Workout Library pre-fill', () => {
-    expect(applyPrevRepsAndWeight({ reps: 10, weight: '0' }, { reps: 8, weight: 45 })).toEqual({ reps: 8, weight: 45 });
+  it('takes the reps from PREV, flags it as unconfirmed, and leaves weight alone', () => {
+    expect(applyPrevReps('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: 8, weight: '20', repsFromPrev: true });
+  });
+  it('applyPrevValues takes both weight and reps from PREV, each flagged separately', () => {
+    expect(applyPrevValues('Bench Press', { reps: '12', weight: '20' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: 8, weight: '45', weightFromPrev: true, repsFromPrev: true });
+  });
+  it('takes both reps and weight for the Workout Library pre-fill, each flagged', () => {
+    expect(applyPrevRepsAndWeight({ reps: 10, weight: '0' }, { reps: 8, weight: 45 }))
+      .toEqual({ reps: 8, weight: 45, weightFromPrev: true, repsFromPrev: true });
   });
 });
 
@@ -59,8 +95,8 @@ describe('fillPendingPrevSets', () => {
       { reps: '12', weight: '', isCompleted: false, prevPending: 'plan' }
     ] }];
     expect(fillPendingPrevSets(exercises, lookup)[0].sets).toEqual([
-      { reps: 10, weight: 42.5, isCompleted: false },
-      { reps: '12', weight: '45', isCompleted: false }
+      { reps: 10, weight: 42.5, isCompleted: false, weightFromPrev: true, repsFromPrev: true },
+      { reps: 8, weight: '45', isCompleted: false, weightFromPrev: true, repsFromPrev: true }
     ]);
   });
 

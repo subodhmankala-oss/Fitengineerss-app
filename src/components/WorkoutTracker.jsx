@@ -21,13 +21,14 @@ import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevWeight, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -454,6 +455,13 @@ const WorkoutTracker = () => {
   // Custom templates and plans state
   const [isLoggingWorkout, setIsLoggingWorkout] = useState(!!savedWorkoutDraft);
 
+  // Keep the screen from auto-locking/dimming only while an in-progress
+  // session is actually open — not the whole app — most noticeable during a
+  // live cardio set where the client's hands are on a treadmill/bike, not
+  // the phone. Releases (via the hook's own unmount/visibilitychange
+  // handling) the moment the session ends or the tab is hidden.
+  useWakeLock(isLoggingWorkout);
+
   // SetNumberPad is rendered once, unconditionally, at the bottom of this
   // component's JSX — it isn't scoped inside the `activeView === 'log' &&
   // isLoggingWorkout` block that's the only place Kg/Reps/Km/Time fields
@@ -637,17 +645,12 @@ const WorkoutTracker = () => {
   // in liveWorkoutTimer.js for why this needs to be a timestamp, not a
   // decremented counter).
   const [restEndAt, setRestEndAt] = useState(restoredRestEndAt);
-  // Guards the "rest hit 0 naturally" alarm/blink so it only ever fires once
+  // Guards the "rest hit 0 naturally" alarm so it only ever fires once
   // per rest (a visibilitychange tick and the next setInterval tick can both
   // observe remaining<=0 for the same rest otherwise).
   const restFinishHandledRef = useRef(false);
-  // Rest start/end used to be announced with a toast; now the floating rest
-  // timer card itself blinks instead — bumping this key forces React to
-  // remount the card so its CSS blink animation replays every time (a class
-  // toggle alone wouldn't restart an already-applied animation).
-  const [restPulseKey, setRestPulseKey] = useState(0);
   // True for a short window right after the countdown hits 0 — swaps the
-  // card to a "Rest over" blink instead of vanishing instantly.
+  // card to "Rest over" instead of vanishing instantly.
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [summaryStats, setSummaryStats] = useState(null);
   // Post-save share card (client self-logged sessions only — see
@@ -1262,11 +1265,9 @@ const WorkoutTracker = () => {
       setRestSecondsRemaining(remaining);
       if (remaining <= 0 && !restFinishHandledRef.current) {
         restFinishHandledRef.current = true;
-        // Swap to the "Rest over" blink instead of a toast, then let the
-        // card linger just long enough to actually be seen blinking before
-        // it clears itself.
+        // Swap to "Rest over" instead of a toast, then let the card linger
+        // just long enough to be seen before it clears itself.
         setRestJustFinished(true);
-        setRestPulseKey(k => k + 1);
         playAlarmBeeps(1);
         setTimeout(() => {
           setRestTimerActive(false);
@@ -1344,17 +1345,19 @@ const WorkoutTracker = () => {
   // or 'template' (reps + weight, handleStartFromTemplate).
   const markPrevPending = (set, kind) => (prevHistoryReadyRef.current ? set : { ...set, prevPending: kind });
 
-  // A plan's kg/BW box starts from what the PREV column shows, not from
-  // whatever number happens to be stored in the plan (a leftover editor
-  // default, a weight duplicated in from another week, ...) — same rule as
-  // the coach side's applyPrevWeights in TrainerDashboard. Reported
-  // 2026-09-23 as "random numbers in kg and bodyweight". Sets the client
-  // has never logged, and cardio / plain timed sets (no weight at all),
+  // A plan's kg/BW box AND reps box start from what the PREV column shows,
+  // not from whatever's stored in the plan (a leftover editor default, a
+  // weight duplicated in from another week, a reps target written weeks
+  // ago, ...) — same rule as the coach side's applyPrevWeights in
+  // TrainerDashboard. Reported 2026-09-23 as "random numbers in kg and
+  // bodyweight"; extended to reps 2026-09-28 so a completed set is a single
+  // tap instead of needing the reps retyped every time. Sets the client has
+  // never logged, and cardio / plain timed sets (no weight/reps at all),
   // are returned unchanged. Bodyweight exercises also get a per-set
   // bodyweightMode so a set PREV logged as BW shows "BW" even when a
   // sibling set carries a plate (see getSetLogBwMode).
-  const withPrevWeight = (exName, setIdx, set) =>
-    markPrevPending(applyPrevWeight(exName, set, findPreviousLoggedSet(exName, setIdx)), 'plan');
+  const withPrevValues = (exName, setIdx, set) =>
+    markPrevPending(applyPrevValues(exName, set, findPreviousLoggedSet(exName, setIdx)), 'plan');
 
   const getPreviousSessionSet = (exName, setIdx) => {
     const set = findPreviousLoggedSet(exName, setIdx);
@@ -1375,6 +1378,11 @@ const WorkoutTracker = () => {
       : `${set.weight}${getExerciseUnit(exName)}`;
     return `${weightLabel} x ${set.reps}`;
   };
+
+  // "Last: 40kg×8 → try 42.5kg×8" shown under each exercise card — see
+  // buildProgressiveOverloadHint's own comment for the progression rule.
+  const getExerciseProgressionHint = (exName) =>
+    buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(sessions, selectedClient, exName));
 
   // Shared by every action that represents "the client has started doing
   // real work" — ticking a set complete, but also now pressing Play on a
@@ -1441,7 +1449,8 @@ const WorkoutTracker = () => {
     // First completed set of an idle session = the client has started working
     // out — same signal startSessionClockIfIdle already checks for, so this
     // call also covers the "notify coach once" side effect.
-    const togglingSetOn = !logExercises[exerciseIndex]?.sets[setIndex]?.isCompleted;
+    const ex = logExercises[exerciseIndex];
+    const togglingSetOn = !ex?.sets[setIndex]?.isCompleted;
     if (togglingSetOn) {
       startSessionClockIfIdle();
       // A completed set is worth saving right now, not after the debounce.
@@ -1449,6 +1458,17 @@ const WorkoutTracker = () => {
       // The set's fields lock once it's done — a number pad left open on
       // one of them would keep editing a completed set out of sight.
       if (activeSetKey && activeSetKey.endsWith(`-${exerciseIndex}-${setIndex}`)) closeSetField();
+      // One tap on ✓ both completes this set and hands focus to the next
+      // one, so a straight-through circuit never needs a second tap to open
+      // the following set's kg box. Only chains within the same rep-based
+      // exercise (cardio/timed sets complete via their own stopwatch flow,
+      // not this handler, and a finished exercise just leaves the pad
+      // closed for the client to pick the next one themselves).
+      const exName = ex?.name;
+      const nextSet = ex?.sets?.[setIndex + 1];
+      if (nextSet && !nextSet.isCompleted && exName && !isCardioExercise(exName) && !isTimedExercise(exName) && !isWarmupExercise(exName)) {
+        openSetField(`w-${exerciseIndex}-${setIndex + 1}`);
+      }
     }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
@@ -1458,18 +1478,17 @@ const WorkoutTracker = () => {
             if (sIdx === setIndex) {
               const { prevPending: _prevPending, ...set } = s;
               const nextState = !set.isCompleted;
-              if (nextState) {
-                restFinishHandledRef.current = false;
-                setRestEndAt(Date.now() + 60000);
-                setRestSecondsRemaining(60);
-                setRestTimerActive(true);
-                setRestJustFinished(false);
-                setRestPulseKey(k => k + 1);
-              }
               // completedAt is what the live calorie calc's rest-interval math
               // uses — never cleared retroactively except when this exact set
-              // is unchecked, so re-checking it later is timed fresh.
-              return { ...set, isCompleted: nextState, completedAt: nextState ? now : null };
+              // is unchecked, so re-checking it later is timed fresh. Ghost
+              // styling clears too — once completed the field is disabled and
+              // its shown value is what got saved, not an unconfirmed guess.
+              return {
+                ...set,
+                isCompleted: nextState,
+                completedAt: nextState ? now : null,
+                ...(nextState ? { weightFromPrev: false, repsFromPrev: false } : {})
+              };
             }
             return s;
           })
@@ -1477,6 +1496,19 @@ const WorkoutTracker = () => {
       }
       return ex;
     }));
+  };
+
+  // Rest timer is manual — completing a set no longer starts it on its own
+  // (see handleToggleSetCompleted above). This is the one path that (re)arms
+  // it, from the "⏱️ Start Rest" link on whichever exercise card the client
+  // just worked. Same 60s default and state shape the old auto-start used.
+  const handleStartRestTimer = () => {
+    unlockAudio();
+    restFinishHandledRef.current = false;
+    setRestEndAt(Date.now() + 60000);
+    setRestSecondsRemaining(60);
+    setRestTimerActive(true);
+    setRestJustFinished(false);
   };
 
   const saveSessionsToLocal = (newSessions) => {
@@ -1847,9 +1879,15 @@ const WorkoutTracker = () => {
           sets: ex.sets.map((s, sIdx) => {
             if (sIdx === setIndex) {
               // Edited by hand (or by its own stopwatch) — the late PREV
-              // pre-fill must not overwrite it (see fillPendingPrevSets).
+              // pre-fill must not overwrite it (see fillPendingPrevSets),
+              // and the field the client just typed into is no longer
+              // "what PREV showed" — it's confirmed, so its ghost styling
+              // clears (see SetValueField's isGhost prop).
               const { prevPending: _prevPending, ...set } = s;
-              return { ...set, [field]: value };
+              const clearedGhost = field === 'weight' ? { weightFromPrev: false }
+                : field === 'reps' ? { repsFromPrev: false }
+                : {};
+              return { ...set, [field]: value, ...clearedGhost };
             }
             return s;
           })
@@ -2658,7 +2696,7 @@ const WorkoutTracker = () => {
         // client had touched the stopwatch. Reported 2026-08-28 for Plank/
         // Air Rowing. Always start these blank; only an explicit "resume"
         // flow should ever restore a real in-progress time.
-        sets: ex.sets.map((s, setIdx) => withPrevWeight(ex.name, setIdx, isCardioExercise(ex.name)
+        sets: ex.sets.map((s, setIdx) => withPrevValues(ex.name, setIdx, isCardioExercise(ex.name)
           // targetTime carries the coach's saved duration through as a
           // reusable TARGET (read by handleCardioStopwatchStart to drive the
           // countdown display) without reintroducing the stale-elapsed-time
@@ -3644,6 +3682,11 @@ const WorkoutTracker = () => {
                       </div>
                     </div>
 
+                    {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
+                      const hint = getExerciseProgressionHint(ex.name);
+                      return hint ? <div className="ex-progression-hint">📈 {hint}</div> : null;
+                    })()}
+
                     {loggingLevel === 'beginner' && (() => {
                       // Beginner-only inline form video, shown right under the
                       // exercise name without needing a tap — Intermediate/
@@ -3786,16 +3829,15 @@ const WorkoutTracker = () => {
                                         : {}),
                                       isCompleted: true,
                                       completedAt: s.completedAt || now,
+                                      // Completed = confirmed, same as the per-set ✓.
+                                      weightFromPrev: false,
+                                      repsFromPrev: false,
                                     };
                                   }) }
                                 : e
                               ));
                             }}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              color: ex.sets.every(s => s.isCompleted) ? 'var(--accent-text)' : 'rgba(148,163,184,0.5)',
-                              fontSize: '0.85rem', padding: '2px 4px', lineHeight: 1
-                            }}
+                            className={`btn-check-all ${ex.sets.every(s => s.isCompleted) ? 'is-all-done' : ''}`}
                           >✓ all</button>
                         </span>
                       </div>
@@ -4040,6 +4082,7 @@ const WorkoutTracker = () => {
                                           placeholder="0"
                                           disabled={set.isCompleted}
                                           active={activeSetKey === weightKey}
+                                          isGhost={set.weightFromPrev}
                                           onOpen={() => openSetField(weightKey)}
                                         />
                                         {!set.isCompleted && (
@@ -4121,6 +4164,7 @@ const WorkoutTracker = () => {
                                           placeholder="0"
                                           disabled={set.isCompleted}
                                           active={activeSetKey === weightKey}
+                                          isGhost={set.weightFromPrev}
                                           onOpen={() => openSetField(weightKey)}
                                         />
                                         {exIsBodyweight && !set.isCompleted && (
@@ -4141,6 +4185,7 @@ const WorkoutTracker = () => {
                                         placeholder={set.targetReps || '0'}
                                         disabled={set.isCompleted}
                                         active={activeSetKey === repsKey}
+                                        isGhost={set.repsFromPrev}
                                         onOpen={() => openSetField(repsKey)}
                                       />
                                     </div>
@@ -4181,6 +4226,14 @@ const WorkoutTracker = () => {
                         onClick={() => handleAddSet(exIdx)}
                       >
                         ➕ Add Set
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-start-rest-link"
+                        onClick={handleStartRestTimer}
+                        title="Start a 60s rest timer"
+                      >
+                        ⏱️ Start Rest
                       </button>
                     </div>
                   </div>
@@ -4480,11 +4533,8 @@ const WorkoutTracker = () => {
         <WorkoutShareCard session={shareCardData} onClose={() => setShareCardData(null)} />
       )}
 
-      {/* Floating Hevy Rest Timer Overlay. Both the rest-started moment and the
-          rest-finished moment used to interrupt with a toast; now the card
-          itself blinks (key={restPulseKey} forces a remount so the CSS blink
-          animation replays every time, since re-applying the same class
-          wouldn't restart an animation already in progress).
+      {/* Floating Hevy Rest Timer Overlay. No toast and no blink on rest
+          start/finish — the card's own label switches to REST OVER.
 
           Portaled to .app-container (not rendered in place) so it's a
           sibling of .main-content instead of a descendant — sitting inside
@@ -4496,10 +4546,7 @@ const WorkoutTracker = () => {
           screen regardless of scroll position, matching Hevy's own
           behavior. */}
       {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
-        <div
-          key={restPulseKey}
-          className={`rest-timer-floating-card ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
-        >
+        <div className="rest-timer-floating-card">
           <div className="rest-timer-header-row">
             <span className="rest-icon">{restJustFinished ? '✅' : '⏱️'}</span>
             <span className="rest-timer-label">{restJustFinished ? 'REST OVER' : 'REST TIMER'}</span>

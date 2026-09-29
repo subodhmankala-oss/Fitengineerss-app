@@ -35,9 +35,11 @@ export function findPreviousExerciseSetsIn(sessions, clientName, exName) {
   return null;
 }
 
-// A plan's kg/BW box starts from PREV (see withPrevWeight in
+// A plan's kg/BW box starts from PREV (see withPrevValues in
 // WorkoutTracker). Cardio and plain timed sets have no weight and are
-// returned unchanged, as are sets the client has never logged.
+// returned unchanged, as are sets the client has never logged. Flags
+// weightFromPrev so the input can render the value as an unconfirmed
+// "ghost" until the client edits or completes the set (see SetValueField).
 export function applyPrevWeight(exName, set, prev) {
   if (isCardioExercise(exName)) return set;
   if (isTimedExercise(exName) && !isBodyweightExercise(exName)) return set;
@@ -46,15 +48,37 @@ export function applyPrevWeight(exName, set, prev) {
   return {
     ...set,
     weight,
+    weightFromPrev: true,
     ...(isBodyweightExercise(exName) ? { bodyweightMode: !(Number(weight) > 0) } : {})
   };
+}
+
+// Same idea for the reps box: a plan's per-set reps is the coach's target,
+// a reasonable default until the client has actually logged that set once —
+// after that PREV is a better prediction than a target that may be weeks
+// stale. Cardio/timed sets have no reps box.
+export function applyPrevReps(exName, set, prev) {
+  if (isCardioExercise(exName) || isTimedExercise(exName)) return set;
+  if (!prev || prev.reps == null || prev.reps === '') return set;
+  return { ...set, reps: prev.reps, repsFromPrev: true };
+}
+
+// Both together — the normal case for an assigned-plan set once PREV exists.
+export function applyPrevValues(exName, set, prev) {
+  return applyPrevReps(exName, applyPrevWeight(exName, set, prev), prev);
 }
 
 // The Workout Library's pre-fill (handleStartFromTemplate): reps and weight
 // both come from PREV when there is one.
 export function applyPrevRepsAndWeight(set, prev) {
   if (!prev) return set;
-  return { ...set, reps: prev.reps || set.reps, weight: prev.weight || set.weight };
+  return {
+    ...set,
+    reps: prev.reps || set.reps,
+    weight: prev.weight || set.weight,
+    ...(prev.reps ? { repsFromPrev: true } : {}),
+    ...(prev.weight ? { weightFromPrev: true } : {})
+  };
 }
 
 // Sets started before the client's history had loaded carry
@@ -78,11 +102,48 @@ export function fillPendingPrevSets(exercises, lookup) {
         const prev = lookup(ex.name, setIdx);
         return prevPending === 'template'
           ? applyPrevRepsAndWeight(rest, prev)
-          : applyPrevWeight(ex.name, rest, prev);
+          : applyPrevValues(ex.name, rest, prev);
       })
     };
   });
   return changed ? next : exercises;
+}
+
+// Progressive-overload hint shown under an exercise card: "Last: 40kg×8 →
+// try 42.5kg×8". Built from the same last-session sets findPreviousExerciseSetsIn
+// already resolves — takes the result directly rather than sessions/clientName
+// so it stays a plain function of data, easy to call from either the client
+// logger or the coach's Live Log. Picks the heaviest working (non-warmup)
+// set to progress, since that's the one a "next time" bump is normally about;
+// warmup sets are never the ones being progressed. Suggests +2.5 (the usual
+// smallest plate jump) when there's already added
+// weight, or +1 rep when there's none to add to yet (true bodyweight reps,
+// or an unusual 0kg entry) — a weight jump from 0 would be a guess, not a
+// read of what the client actually did. Returns null when there's nothing
+// to base a suggestion on (no history, cardio/timed exercise, warmup-only).
+export function buildProgressiveOverloadHint(exName, prevSets) {
+  if (!prevSets || prevSets.length === 0) return null;
+  if (isCardioExercise(exName) || isTimedExercise(exName)) return null;
+  const working = prevSets.filter(s => !s.isWarmup && s.setType !== 'warmup');
+  if (working.length === 0) return null;
+  const best = working.reduce((top, s) => {
+    const w = Number(s.weight) || 0;
+    const topW = Number(top.weight) || 0;
+    if (w > topW) return s;
+    if (w === topW && (Number(s.reps) || 0) > (Number(top.reps) || 0)) return s;
+    return top;
+  });
+  const reps = Number(best.reps) || 0;
+  if (!reps) return null;
+  const weight = Number(best.weight) || 0;
+  const bodyweight = isBodyweightExercise(exName);
+  const unit = /lat pull|plate/i.test(exName) ? 'plates' : 'kg';
+  const label = (w) => (bodyweight && !(w > 0)) ? 'BW' : `${w}${unit}`;
+  if (weight > 0) {
+    const nextWeight = Math.round((weight + 2.5) * 10) / 10;
+    return `Last: ${label(weight)}×${reps} → try ${label(nextWeight)}×${reps}`;
+  }
+  return `Last: ${label(weight)}×${reps} → try ${label(weight)}×${reps + 1}`;
 }
 
 // Sets for an exercise added mid-session: a copy of what the client did

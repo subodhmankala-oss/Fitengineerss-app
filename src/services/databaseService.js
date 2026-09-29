@@ -899,6 +899,124 @@ async function flushPendingWorkoutLogsInner() {
   return { attempted: queue.length, saved };
 }
 
+// ─── PENDING-DRAFT QUEUE (autosave retry) ───
+// workout_drafts (see saveWorkoutDraft below) autosaves on every set change.
+// saveWorkoutDraftWithRetry already retries a failed attempt a few times with
+// backoff — covers a flaky request or a brief server hiccup — but if every
+// attempt fails (genuinely offline, server down), the latest draft state is
+// parked here instead of silently dropped, keyed by `user_id:source` since
+// only the newest state for a given session matters, never a history of
+// them (unlike pendingWorkoutLogs above, which queues append-only rows).
+// Replayed on the same triggers as flushPendingWorkoutLogs — the browser's
+// `online` event (main.jsx) and "a real session is now available" (App.jsx).
+const PENDING_DRAFTS_KEY = 'pendingWorkoutDrafts';
+
+function pendingDraftMapKey(userId, source) {
+  return `${userId}:${source}`;
+}
+
+function queuePendingWorkoutDraft(record) {
+  try {
+    const map = JSON.parse(localStorage.getItem(PENDING_DRAFTS_KEY) || '{}');
+    map[pendingDraftMapKey(record.user_id, record.source)] = { record, queuedAt: new Date().toISOString() };
+    localStorage.setItem(PENDING_DRAFTS_KEY, JSON.stringify(map));
+    console.warn('Workout draft save deferred — queued for automatic retry.');
+  } catch (e) {
+    console.error('Could not queue workout draft for retry:', e?.message || e);
+  }
+}
+
+// Called both after a successful save (immediate or replayed) and from
+// deleteWorkoutDraft — a session that's since been finished or discarded
+// must never have a stale queued draft resurrect it on the next flush.
+function dropPendingWorkoutDraft(userId, source) {
+  try {
+    const map = JSON.parse(localStorage.getItem(PENDING_DRAFTS_KEY) || '{}');
+    const key = pendingDraftMapKey(userId, source);
+    if (!(key in map)) return;
+    delete map[key];
+    if (Object.keys(map).length) localStorage.setItem(PENDING_DRAFTS_KEY, JSON.stringify(map));
+    else localStorage.removeItem(PENDING_DRAFTS_KEY);
+  } catch (e) {
+    console.error('Could not clear queued workout draft after a successful save:', e?.message || e);
+  }
+}
+
+// One attempt: client-side upsert, falling back to the service-role-backed
+// endpoint on RLS failure. Split out of saveWorkoutDraft so both the retry
+// loop below and the queue-replay path can share it without saving twice.
+async function saveWorkoutDraftOnce(record) {
+  try {
+    // Raw PostgREST (restUpsert) instead of supabase.from() — same SDK-hang
+    // bypass as everywhere else in this file.
+    await restUpsert('workout_drafts', record, 'user_id,source');
+    return true;
+  } catch (e) {
+    console.error('Cloud DB Save Workout Draft Error:', e);
+    // workout_drafts' live INSERT policy turned out to be auth.uid()-based
+    // rather than the permissive one sql/lock_down_reads.sql describes —
+    // same drift documented for workout_logs (see save-workout-session.js)
+    // — so the client-side upsert above 42501s every time. Fall back to the
+    // service-role-backed endpoint rather than silently dropping the draft;
+    // without this, the Home tab's "resume workout" banner never had
+    // anything to read back. Confirmed 2026-08-24.
+    return await saveWorkoutDraftViaServer(record);
+  }
+}
+
+// This is autosave — a request that would have landed a second later
+// shouldn't cost the client their in-progress set — so a transient failure
+// gets a few immediate retries with backoff before the caller falls back to
+// queuePendingWorkoutDraft. Same backoff shape as getOwnCoachConnection's
+// retry loop elsewhere in this file.
+async function saveWorkoutDraftWithRetry(record, maxAttempts = 3) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (await saveWorkoutDraftOnce(record)) return true;
+    if (attempt < maxAttempts - 1) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+  }
+  return false;
+}
+
+let pendingDraftFlushInFlight = null;
+
+// Replays every queued draft save. Same in-flight guard as
+// flushPendingWorkoutLogs above — the `online` event and the app's own
+// session-available check can fire together and must not both replay the
+// same entry.
+export async function flushPendingWorkoutDrafts() {
+  if (pendingDraftFlushInFlight) return pendingDraftFlushInFlight;
+  pendingDraftFlushInFlight = (async () => {
+    try {
+      return await flushPendingWorkoutDraftsInner();
+    } finally {
+      pendingDraftFlushInFlight = null;
+    }
+  })();
+  return pendingDraftFlushInFlight;
+}
+
+async function flushPendingWorkoutDraftsInner() {
+  let map;
+  try {
+    map = JSON.parse(localStorage.getItem(PENDING_DRAFTS_KEY) || '{}');
+  } catch {
+    return { attempted: 0, saved: 0 };
+  }
+  const entries = Object.entries(map || {});
+  if (!entries.length) return { attempted: 0, saved: 0 };
+  let saved = 0;
+  for (const [, entry] of entries) {
+    if (!entry?.record) continue;
+    const ok = await saveWorkoutDraftOnce(entry.record);
+    if (ok) {
+      saved++;
+      dropPendingWorkoutDraft(entry.record.user_id, entry.record.source);
+    }
+  }
+  if (saved) console.log(`Replayed ${saved} previously-failed workout draft save(s).`);
+  return { attempted: entries.length, saved };
+}
+
 // Same SDK-hang bypass as restSelect, for calling a Postgres RPC function
 // directly via PostgREST instead of supabase.rpc(...), which hangs on this
 // project the same way .from().select() does. Confirmed cause of clients
@@ -4028,8 +4146,14 @@ const databaseService = {
   // source. Deleted the moment that session is finished or discarded. This
   // is a live "what's open right now" table, never history.
   // (sql/supabase_workout_drafts_per_source.sql)
+  // Returns true once the draft has actually landed somewhere durable
+  // (Supabase directly, the service-role fallback, or — if every attempt
+  // failed — the local retry queue, which still counts as "not lost").
+  // Callers that only care about "did I lose this" can ignore the return
+  // value; WorkoutTracker's own local mirror in localStorage already covers
+  // the same-device case regardless of what happens here.
   async saveWorkoutDraft(draft) {
-    if (!isSupabaseConfigured || !supabase || !draft?.userId) return;
+    if (!isSupabaseConfigured || !supabase || !draft?.userId) return false;
     const record = {
       user_id: draft.userId,
       coach_id: draft.coachId || null,
@@ -4042,21 +4166,10 @@ const databaseService = {
       pause_intervals: draft.pauseIntervals || [],
       updated_at: new Date().toISOString()
     };
-    try {
-      // Raw PostgREST (restUpsert) instead of supabase.from() — same
-      // SDK-hang bypass as everywhere else in this file.
-      await restUpsert('workout_drafts', record, 'user_id,source');
-    } catch (e) {
-      console.error('Cloud DB Save Workout Draft Error:', e);
-      // workout_drafts' live INSERT policy turned out to be auth.uid()-based
-      // rather than the permissive one sql/lock_down_reads.sql describes —
-      // same drift documented for workout_logs (see save-workout-session.js)
-      // — so the client-side upsert above 42501s every time. Fall back to
-      // the service-role-backed endpoint rather than silently dropping the
-      // draft; without this, the Home tab's "resume workout" banner never
-      // had anything to read back. Confirmed 2026-08-24.
-      await saveWorkoutDraftViaServer(record);
-    }
+    const ok = await saveWorkoutDraftWithRetry(record);
+    if (ok) dropPendingWorkoutDraft(record.user_id, record.source);
+    else queuePendingWorkoutDraft(record);
+    return ok;
   },
 
   // Every open draft for this client (their own and/or their coach's), [] if
@@ -4126,6 +4239,10 @@ const databaseService = {
       console.error(`deleteWorkoutDraft: source must be 'self' or 'coach', got ${source} — not deleting.`);
       return;
     }
+    // A queued retry (see queuePendingWorkoutDraft) for this session must not
+    // outlive it — otherwise the next flush resurrects a session the client
+    // already finished or discarded.
+    dropPendingWorkoutDraft(userId, source);
     try {
       // Raw PostgREST (restDelete) instead of supabase.from() — same
       // SDK-hang bypass as everywhere else in this file.

@@ -211,6 +211,34 @@ describe('useReorderableList', () => {
     expect(result.current.getItemKey(1)).toBe(keyForAAtIndex0); // a, wherever it lands, keeps a's key
   });
 
+  it('keeps an edited item\'s key when it is replaced in place, so its row is not remounted', () => {
+    const a = { name: 'A' };
+    const b = { name: 'B' };
+    // Keys are read during render, exactly like the real call sites' row keys.
+    const { result, rerender } = renderHook(
+      ({ list }) => {
+        const { getItemKey } = useReorderableList(list, vi.fn());
+        return list.map((_, i) => getItemKey(i));
+      },
+      { initialProps: { list: [a, b] } }
+    );
+    const [keyA, keyB] = result.current;
+
+    // An edit: { ...ex, field } replaces b with a new object at the same index.
+    const editedB = { ...b, notes: 'x' };
+    rerender({ list: [a, editedB] });
+    expect(result.current).toEqual([keyA, keyB]);
+
+    // Removing a: the edited b shifts up and keeps b's key.
+    rerender({ list: [editedB] });
+    expect(result.current).toEqual([keyB]);
+
+    // A genuinely new item appended gets a fresh key.
+    rerender({ list: [editedB, { name: 'C' }] });
+    expect(result.current[0]).toBe(keyB);
+    expect([keyA, keyB]).not.toContain(result.current[1]);
+  });
+
   it('keeps the dropped row anchored in the viewport if another row grows above it during settle', async () => {
     const onReorder = vi.fn();
     const items = Array.from({ length: 5 }, (_, i) => `Item ${i}`);

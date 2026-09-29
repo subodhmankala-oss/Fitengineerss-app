@@ -1859,6 +1859,11 @@ const databaseService = {
                 // monitor was connected.
                 avg_heart_rate_bpm: session.avgHeartRate != null ? session.avgHeartRate : null,
                 max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null,
+                // Per-exercise RPE (1-10) and notes from the logger's
+                // collapsed "RPE & Notes" panel — duplicated onto every row
+                // of that exercise, read back from any one of them.
+                rpe: ex.rpe != null ? ex.rpe : null,
+                exercise_notes: ex.notes || null,
                 session_id: sessionId,
                 session_row: sessionId ? sessionRow++ : null
               });

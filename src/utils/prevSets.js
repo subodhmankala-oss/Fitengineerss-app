@@ -109,6 +109,43 @@ export function fillPendingPrevSets(exercises, lookup) {
   return changed ? next : exercises;
 }
 
+// Progressive-overload hint shown under an exercise card: "Last: 40kg×8 →
+// try 42.5kg×8". Built from the same last-session sets findPreviousExerciseSetsIn
+// already resolves — takes the result directly rather than sessions/clientName
+// so it stays a plain function of data, easy to call from either the client
+// logger or the coach's Live Log. Picks the heaviest working (non-warmup)
+// set to progress, since that's the one a "next time" bump is normally about;
+// warmup sets are never the ones being progressed. Suggests +2.5 (the same
+// increment the weight stepper itself uses) when there's already added
+// weight, or +1 rep when there's none to add to yet (true bodyweight reps,
+// or an unusual 0kg entry) — a weight jump from 0 would be a guess, not a
+// read of what the client actually did. Returns null when there's nothing
+// to base a suggestion on (no history, cardio/timed exercise, warmup-only).
+export function buildProgressiveOverloadHint(exName, prevSets) {
+  if (!prevSets || prevSets.length === 0) return null;
+  if (isCardioExercise(exName) || isTimedExercise(exName)) return null;
+  const working = prevSets.filter(s => !s.isWarmup && s.setType !== 'warmup');
+  if (working.length === 0) return null;
+  const best = working.reduce((top, s) => {
+    const w = Number(s.weight) || 0;
+    const topW = Number(top.weight) || 0;
+    if (w > topW) return s;
+    if (w === topW && (Number(s.reps) || 0) > (Number(top.reps) || 0)) return s;
+    return top;
+  });
+  const reps = Number(best.reps) || 0;
+  if (!reps) return null;
+  const weight = Number(best.weight) || 0;
+  const bodyweight = isBodyweightExercise(exName);
+  const unit = /lat pull|plate/i.test(exName) ? 'plates' : 'kg';
+  const label = (w) => (bodyweight && !(w > 0)) ? 'BW' : `${w}${unit}`;
+  if (weight > 0) {
+    const nextWeight = Math.round((weight + 2.5) * 10) / 10;
+    return `Last: ${label(weight)}×${reps} → try ${label(nextWeight)}×${reps}`;
+  }
+  return `Last: ${label(weight)}×${reps} → try ${label(weight)}×${reps + 1}`;
+}
+
 // Sets for an exercise added mid-session: a copy of what the client did
 // last time (same number of sets, reps, weight and warm-up/drop/failure
 // tags), so each one is a single tap. Only for rep-based exercises — cardio

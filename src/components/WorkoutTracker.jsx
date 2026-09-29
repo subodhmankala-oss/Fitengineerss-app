@@ -21,14 +21,16 @@ import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import SetValueStepper from './SetValueStepper';
+import ExerciseRpeNotes from './ExerciseRpeNotes';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -455,6 +457,13 @@ const WorkoutTracker = () => {
   // Custom templates and plans state
   const [isLoggingWorkout, setIsLoggingWorkout] = useState(!!savedWorkoutDraft);
 
+  // Keep the screen from auto-locking/dimming only while an in-progress
+  // session is actually open — not the whole app — most noticeable during a
+  // live cardio set where the client's hands are on a treadmill/bike, not
+  // the phone. Releases (via the hook's own unmount/visibilitychange
+  // handling) the moment the session ends or the tab is hidden.
+  useWakeLock(isLoggingWorkout);
+
   // SetNumberPad is rendered once, unconditionally, at the bottom of this
   // component's JSX — it isn't scoped inside the `activeView === 'log' &&
   // isLoggingWorkout` block that's the only place Kg/Reps/Km/Time fields
@@ -878,7 +887,7 @@ const WorkoutTracker = () => {
         const byDate = {};
         rows.forEach(l => {
           const d = l.log_date;
-          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {} };
+          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {}, exMeta: {} };
           // Session duration/calories/heart-rate are duplicated onto every
           // row of the session (workout_logs has no session-level row) —
           // take the first non-null value seen for this date so the history
@@ -889,6 +898,10 @@ const WorkoutTracker = () => {
           if (l.max_heart_rate_bpm != null && byDate[d].maxHeartRate == null) byDate[d].maxHeartRate = l.max_heart_rate_bpm;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
+          // RPE/notes are per exercise, duplicated onto each of its rows.
+          if (!byDate[d].exMeta[ex]) byDate[d].exMeta[ex] = {};
+          if (l.rpe != null && byDate[d].exMeta[ex].rpe == null) byDate[d].exMeta[ex].rpe = Number(l.rpe);
+          if (l.exercise_notes && !byDate[d].exMeta[ex].notes) byDate[d].exMeta[ex].notes = l.exercise_notes;
           // distance_km present = real cardio; cardio_duration_seconds present
           // without distance_km = a timed hold (plank etc.) reusing that column
           // (see databaseService.saveWorkoutSession) — else a normal reps/weight set.
@@ -908,7 +921,7 @@ const WorkoutTracker = () => {
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
           durationSeconds: s.durationSeconds, caloriesBurned: s.caloriesBurned,
           avgHeartRate: s.avgHeartRate, maxHeartRate: s.maxHeartRate,
-          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
+          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, ...s.exMeta[name], sets }))
         }));
         // DB is authoritative per date; keep any local-only (unsynced) dates too.
         const localOnly = allSessions.filter(s => !dbDates.has(s.date));
@@ -1379,6 +1392,11 @@ const WorkoutTracker = () => {
     return `${weightLabel} x ${set.reps}`;
   };
 
+  // "Last: 40kg×8 → try 42.5kg×8" shown under each exercise card — see
+  // buildProgressiveOverloadHint's own comment for the progression rule.
+  const getExerciseProgressionHint = (exName) =>
+    buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(sessions, selectedClient, exName));
+
   // Shared by every action that represents "the client has started doing
   // real work" — ticking a set complete, but also now pressing Play on a
   // cardio/timed exercise's stopwatch (see handleCardioStopwatchStart /
@@ -1473,14 +1491,6 @@ const WorkoutTracker = () => {
             if (sIdx === setIndex) {
               const { prevPending: _prevPending, ...set } = s;
               const nextState = !set.isCompleted;
-              if (nextState) {
-                restFinishHandledRef.current = false;
-                setRestEndAt(Date.now() + 60000);
-                setRestSecondsRemaining(60);
-                setRestTimerActive(true);
-                setRestJustFinished(false);
-                setRestPulseKey(k => k + 1);
-              }
               // completedAt is what the live calorie calc's rest-interval math
               // uses — never cleared retroactively except when this exact set
               // is unchecked, so re-checking it later is timed fresh. Ghost
@@ -1499,6 +1509,24 @@ const WorkoutTracker = () => {
       }
       return ex;
     }));
+  };
+
+  // Rest timer is manual — completing a set no longer starts it on its own
+  // (see handleToggleSetCompleted above). This is the one path that (re)arms
+  // it, from the "⏱️ Start Rest" link on whichever exercise card the client
+  // just worked. Same 60s default and state shape the old auto-start used.
+  const handleExerciseMetaChange = (exIdx, field, value) => {
+    setLogExercises(prev => prev.map((ex, i) => (i === exIdx ? { ...ex, [field]: value } : ex)));
+  };
+
+  const handleStartRestTimer = () => {
+    unlockAudio();
+    restFinishHandledRef.current = false;
+    setRestEndAt(Date.now() + 60000);
+    setRestSecondsRemaining(60);
+    setRestTimerActive(true);
+    setRestJustFinished(false);
+    setRestPulseKey(k => k + 1);
   };
 
   const saveSessionsToLocal = (newSessions) => {
@@ -2363,6 +2391,8 @@ const WorkoutTracker = () => {
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
+          ...(ex.rpe ? { rpe: Number(ex.rpe) } : {}),
+          ...(ex.notes?.trim() ? { notes: ex.notes.trim() } : {}),
           sets: ex.sets
             .filter(s => s.isCompleted)
             .map(s => ({
@@ -3672,6 +3702,11 @@ const WorkoutTracker = () => {
                       </div>
                     </div>
 
+                    {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
+                      const hint = getExerciseProgressionHint(ex.name);
+                      return hint ? <div className="ex-progression-hint">📈 {hint}</div> : null;
+                    })()}
+
                     {loggingLevel === 'beginner' && (() => {
                       // Beginner-only inline form video, shown right under the
                       // exercise name without needing a tap — Intermediate/
@@ -4219,7 +4254,23 @@ const WorkoutTracker = () => {
                       >
                         ➕ Add Set
                       </button>
+                      <button
+                        type="button"
+                        className="btn-start-rest-link"
+                        onClick={handleStartRestTimer}
+                        title="Start a 60s rest timer"
+                      >
+                        ⏱️ Start Rest
+                      </button>
                     </div>
+
+                    {!exIsWarmup && (
+                      <ExerciseRpeNotes
+                        rpe={ex.rpe}
+                        notes={ex.notes}
+                        onChange={(field, value) => handleExerciseMetaChange(exIdx, field, value)}
+                      />
+                    )}
                   </div>
                   </div>
                   <div className="ex-reorder-compact">

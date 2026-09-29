@@ -22,7 +22,6 @@ import { useTour } from './context/useTour';
 import { useCoachTour } from './context/useCoachTour';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, flushPendingWorkoutDrafts, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
-import { useWakeLock } from './hooks/useWakeLock';
 import { takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink } from './utils/deepLink';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -1235,11 +1234,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
-
-  // Keep the screen from auto-locking/dimming while the app is actually in
-  // use (past login/onboarding) — most noticeable during a live cardio set
-  // where the client's hands are on a treadmill/bike, not the phone.
-  useWakeLock(onboardingComplete);
 
   // ─── Real-Time Cloud Database Synchronizer ───
   useEffect(() => {

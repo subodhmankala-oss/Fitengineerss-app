@@ -111,8 +111,17 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     const saved = databaseService.saveWorkoutDraft.mock.calls[0][0];
     expect(saved).toMatchObject({ userId: CLIENT.id, source: 'coach' });
     expect(saved.exercises[0].sets[0].isCompleted).toBe(true);
-    // ...and the rest it started is remembered for this client.
-    expect(JSON.parse(localStorage.getItem('coachLiveRestEndAt'))).toMatchObject({ clientId: CLIENT.id });
+    // The rest timer is manual now — ticking a set doesn't start one.
+    expect(localStorage.getItem('coachLiveRestEndAt')).toBeNull();
+  });
+
+  it('starts a rest only from the Start Rest button, remembered for this client', async () => {
+    renderLiveLog();
+    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByText('⏱️ Start Rest')[0]);
+
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('coachLiveRestEndAt'))).toMatchObject({ clientId: CLIENT.id }));
   });
 
   it('picks a running rest back up when the resumed Live Log is reopened after a reload', async () => {

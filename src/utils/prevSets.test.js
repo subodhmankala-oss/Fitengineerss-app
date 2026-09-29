@@ -7,8 +7,32 @@ import {
   applyPrevValues,
   applyPrevRepsAndWeight,
   fillPendingPrevSets,
-  setsFromPreviousExercise
+  setsFromPreviousExercise,
+  buildProgressiveOverloadHint
 } from './prevSets';
+
+describe('buildProgressiveOverloadHint', () => {
+  it('suggests +2.5 on the heaviest working set, ignoring warmups', () => {
+    const prev = [{ reps: 12, weight: 60, setType: 'warmup', isWarmup: true }, { reps: 8, weight: 40 }, { reps: 6, weight: 42.5 }];
+    expect(buildProgressiveOverloadHint('Bench Press', prev)).toBe('Last: 42.5kg×6 → try 45kg×6');
+  });
+
+  it('breaks weight ties by reps', () => {
+    expect(buildProgressiveOverloadHint('Bench Press', [{ reps: 6, weight: 40 }, { reps: 8, weight: 40 }]))
+      .toBe('Last: 40kg×8 → try 42.5kg×8');
+  });
+
+  it('progresses reps instead of weight for pure bodyweight sets', () => {
+    expect(buildProgressiveOverloadHint('Push-up', [{ reps: 12, weight: 0 }])).toBe('Last: BW×12 → try BW×13');
+  });
+
+  it('returns null with no history, warmup-only history, or cardio/timed exercises', () => {
+    expect(buildProgressiveOverloadHint('Bench Press', null)).toBeNull();
+    expect(buildProgressiveOverloadHint('Bench Press', [{ reps: 10, weight: 20, isWarmup: true }])).toBeNull();
+    expect(buildProgressiveOverloadHint('Treadmill', [{ distanceKm: 2, time: '10:00' }])).toBeNull();
+    expect(buildProgressiveOverloadHint('Plank', [{ time: '01:00' }])).toBeNull();
+  });
+});
 
 const sessions = [
   { clientName: 'Asha', date: '2026-09-01', exercises: [{ name: 'Bench Press', sets: [{ reps: 8, weight: 40 }] }] },

@@ -25,6 +25,8 @@ import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
+import { useWakeLock } from '../hooks/useWakeLock';
+import ExerciseRpeNotes from './ExerciseRpeNotes';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -33,7 +35,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import SetValueStepper from './SetValueStepper';
@@ -593,6 +595,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
+
+  // Keep the screen from auto-locking/dimming only while the coach is
+  // actually on the Live Log tab logging a client's session — not the whole
+  // dashboard. Same rationale as the client's own WorkoutTracker.
+  useWakeLock(detailTab === 'livelog');
 
   // Every Live Log session this coach currently has open across their
   // clients (workout_drafts) — surfaced on the client directory screen so a
@@ -2318,17 +2325,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     }));
     // Logging real work is what starts the session clock — not opening the tab.
     startLiveSessionClockIfIdle();
-    // Marking a set complete (not un-completing one) auto-starts the rest
-    // timer, same as the client's own logger.
-    if (togglingSetOn) {
-      restFinishHandledRef.current = false;
-      liveRestClientIdRef.current = selectedClient?.id || null;
-      setRestEndAt(Date.now() + 60000);
-      setRestSecondsRemaining(60);
-      setRestTimerActive(true);
-      setRestJustFinished(false);
-      setRestPulseKey(k => k + 1);
-    }
+  };
+
+  // Rest timer is manual — completing a set no longer starts it on its own
+  // (see handleLiveToggleSet above, and the client's own logger). This is
+  // the one path that (re)arms it, from the "⏱️ Start Rest" link on
+  // whichever exercise card the coach just logged. Same 60s default and
+  // state shape the old auto-start used, including liveRestClientIdRef so
+  // it still ties the running rest to the client it belongs to.
+  const handleLiveExerciseMetaChange = (exIdx, field, value) => {
+    setLiveExercises(prev => prev.map((ex, i) => (i === exIdx ? { ...ex, [field]: value } : ex)));
+  };
+
+  const handleStartLiveRestTimer = () => {
+    unlockAudio();
+    restFinishHandledRef.current = false;
+    liveRestClientIdRef.current = selectedClient?.id || null;
+    setRestEndAt(Date.now() + 60000);
+    setRestSecondsRemaining(60);
+    setRestTimerActive(true);
+    setRestJustFinished(false);
+    setRestPulseKey(k => k + 1);
   };
 
   const handleLiveRemoveExercise = (exIdx) => {
@@ -2467,6 +2484,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
+          ...(ex.rpe ? { rpe: Number(ex.rpe) } : {}),
+          ...(ex.notes?.trim() ? { notes: ex.notes.trim() } : {}),
           sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
@@ -3429,6 +3448,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // can compare against when the session actually landed rather than just
     // its calendar day (see sessionNeedsResponse).
     const createdAtByDate = {};
+    const exMetaByKey = {};
 
     logs.forEach(log => {
       const date = log.log_date;
@@ -3455,6 +3475,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       if (!datesMap[date][exercise]) {
         datesMap[date][exercise] = [];
       }
+      // RPE/notes are per exercise, duplicated onto each of its rows.
+      const metaKey = `${date}|${exercise}`;
+      if (!exMetaByKey[metaKey]) exMetaByKey[metaKey] = {};
+      if (log.rpe != null && exMetaByKey[metaKey].rpe == null) exMetaByKey[metaKey].rpe = Number(log.rpe);
+      if (log.exercise_notes && !exMetaByKey[metaKey].notes) exMetaByKey[metaKey].notes = log.exercise_notes;
 
       datesMap[date][exercise].push({
         setNumber: log.set_number,
@@ -3481,6 +3506,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           const sortedSets = datesMap[dateStr][exName].sort((a, b) => a.setNumber - b.setNumber);
           return {
             name: exName,
+            ...exMetaByKey[`${dateStr}|${exName}`],
             sets: sortedSets
           };
         });
@@ -3587,6 +3613,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       : `${set.weight}kg`;
     return `${weightLabel} x ${set.reps}`;
   };
+
+  // "Last: 40kg×8 → try 42.5kg×8" under each Live Log exercise card — same
+  // helper and rule the client's own logger uses. workoutLogs is already
+  // scoped to the selected client (see findPreviousLoggedSet above).
+  const getExerciseProgressionHint = (exName) =>
+    buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(workoutLogs, null, exName));
 
   const fetchClientChat = async (clientId) => {
     try {
@@ -8802,6 +8834,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                         </div>
 
+                        {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
+                          const hint = getExerciseProgressionHint(ex.name);
+                          return hint ? <div className="ex-progression-hint">📈 {hint}</div> : null;
+                        })()}
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">
@@ -9180,10 +9216,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => handleLiveAddSet(exIdx)}
-                          className="btn-add-set-link live-logger-add-set"
-                        >➕ Add Set</button>
+                        <div className="ex-card-actions">
+                          <button
+                            onClick={() => handleLiveAddSet(exIdx)}
+                            className="btn-add-set-link live-logger-add-set"
+                          >➕ Add Set</button>
+                          <button
+                            type="button"
+                            className="btn-start-rest-link"
+                            onClick={handleStartLiveRestTimer}
+                            title="Start a 60s rest timer"
+                          >⏱️ Start Rest</button>
+                        </div>
+
+                        {!exIsWarmup && (
+                          <ExerciseRpeNotes
+                            rpe={ex.rpe}
+                            notes={ex.notes}
+                            onChange={(field, value) => handleLiveExerciseMetaChange(exIdx, field, value)}
+                          />
+                        )}
                       </div>
                       </div>
                       <div className="ex-reorder-compact">

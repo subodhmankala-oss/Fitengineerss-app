@@ -839,19 +839,108 @@
   color: var(--text-main);
 }
 
+.ex-progression-hint {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 2px 4px 6px;
+}
+
+.ex-rpe-notes {
+  margin-top: 6px;
+}
+
+.ex-rpe-notes-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ex-rpe-notes-summary {
+  color: var(--accent-text);
+  font-size: 0.8rem;
+}
+
+.ex-rpe-notes-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px 4px;
+}
+
+.ex-rpe-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.ex-rpe-chip {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 10px;
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  color: var(--text-main);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ex-rpe-chip.selected {
+  background: var(--primary-accent-light);
+  border-color: var(--primary-accent-light);
+  color: #fff;
+}
+
+/* 16px minimum stops iOS Safari from zooming the page on focus. */
+.ex-notes-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  color: var(--text-main);
+  font-size: 16px;
+  font-family: inherit;
+}
+
 .ex-card-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   margin-top: 4px;
 }
 
-.btn-add-set-link {
+/* Both primary per-card actions — min-height 44px meets the mobile touch
+   target guideline (Apple HIG / Android Material both call for ~44-48px);
+   these used to be plain text links with no vertical padding at all. */
+.btn-add-set-link,
+.btn-start-rest-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #3b82f6;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.btn-add-set-link {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .btn-add-set-link:hover {
@@ -860,6 +949,15 @@
 
 .btn-add-warmup-link {
   color: #f59e0b;
+}
+
+.btn-start-rest-link {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.btn-start-rest-link:hover {
+  opacity: 0.85;
 }
 
 .sets-input-rows {
@@ -2266,7 +2364,7 @@
 
 .hevy-table-header {
   display: grid;
-  grid-template-columns: 0.5fr 1.1fr 1.7fr 1.4fr 1.1fr;
+  grid-template-columns: 0.5fr 0.9fr 1.7fr 1.4fr 1.3fr;
   align-items: center;
   padding: 8px 4px;
   font-size: 0.68rem;
@@ -2288,7 +2386,7 @@
 
 .hevy-set-row {
   display: grid;
-  grid-template-columns: 0.5fr 1.1fr 1.7fr 1.4fr 1.1fr;
+  grid-template-columns: 0.5fr 0.9fr 1.7fr 1.4fr 1.3fr;
   align-items: center;
   padding: 6px 4px;
   border-radius: var(--radius-sm);
@@ -2649,7 +2747,7 @@
    proportions — bare .hevy-set-row--cardio, not compounded with
    .hevy-set-row, so it matches on whichever base class the element has. */
 .hevy-set-row--cardio {
-  grid-template-columns: 0.5fr 1fr 1fr 2fr 0.8fr;
+  grid-template-columns: 0.5fr 0.8fr 1fr 2fr 1fr;
 }
 
 .hevy-set-row .cardio-time-field {
@@ -2734,7 +2832,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* Row Completed State (Glowing Emerald Blur) */
@@ -2752,20 +2850,22 @@
   color: rgba(var(--accent-rgb), 0.7);
 }
 
-/* Circular Checkmark Button */
+/* Circular Checkmark Button — 44px is the minimum comfortable mobile touch
+   target (Apple HIG / Android Material); this used to be a 24px square. */
 .btn-hevy-check {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   background: rgba(var(--fg-rgb), 0.05);
   border: 1px solid rgba(var(--fg-rgb), 0.1);
   color: transparent;
-  font-size: 0.7rem;
+  font-size: 1.1rem;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

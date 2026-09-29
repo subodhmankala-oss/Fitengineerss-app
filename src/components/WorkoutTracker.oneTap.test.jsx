@@ -158,10 +158,22 @@ describe('WorkoutTracker one-tap set logging', () => {
     await waitFor(() => expect(databaseService.saveWorkoutDraft).toHaveBeenCalled(), { timeout: 1000 });
     const saved = databaseService.saveWorkoutDraft.mock.calls[0][0];
     expect(saved.exercises[0].sets[0].isCompleted).toBe(true);
-    // ...and the rest countdown it started is remembered for a reload.
-    expect(Number(localStorage.getItem(REST_KEY))).toBeGreaterThan(Date.now());
+    // The rest timer is manual now — ticking a set doesn't start one.
+    expect(localStorage.getItem(REST_KEY)).toBeNull();
     // The client only ever resumes their own session's draft, never the coach's.
     expect(databaseService.getWorkoutDraft).toHaveBeenCalledWith('u1', 'self');
+  });
+
+  it('starts a rest only from the Start Rest button, and remembers it for a reload', async () => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
+    renderWorkoutTracker();
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+    expect(screen.queryByText('REST TIMER')).toBeNull();
+
+    fireEvent.click(screen.getByText('⏱️ Start Rest'));
+
+    expect(await screen.findByText('REST TIMER')).toBeTruthy();
+    await waitFor(() => expect(Number(localStorage.getItem(REST_KEY))).toBeGreaterThan(Date.now()));
   });
 
   it('restores a rest countdown that was running when the page reloaded', async () => {

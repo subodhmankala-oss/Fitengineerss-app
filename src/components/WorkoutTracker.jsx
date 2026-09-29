@@ -4,6 +4,7 @@ import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString } from '../utils/dateUtils';
 import SetTypeMenu from './SetTypeMenu';
+import ExerciseCardMenu from './ExerciseCardMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
@@ -3649,37 +3650,22 @@ const WorkoutTracker = () => {
                           🎬 Form Guide
                         </button>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button
-                          type="button"
-                          className="btn-drag-handle"
-                          onPointerDown={startLogExerciseDrag(exIdx)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'ArrowUp') { e.preventDefault(); moveLogExerciseByKeyboard(exIdx, -1); }
-                            if (e.key === 'ArrowDown') { e.preventDefault(); moveLogExerciseByKeyboard(exIdx, 1); }
-                          }}
-                          title="Hold and drag to reorder"
-                          aria-label={`Reorder ${ex.name}`}
-                          style={{ touchAction: 'none' }}
-                        ><DragHandleIcon size={18} /></button>
-                        <button
-                          type="button"
-                          className="btn-delete-exercise-card"
-                          onClick={() => {
-                            // Remap first — see remapSetTimersForExerciseRemoval's
-                            // comment in liveWorkoutTimer.js. Without this a
-                            // running stopwatch on any LATER exercise silently
-                            // reattached to whatever exercise shifted into its
-                            // old index.
-                            setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
-                            setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
-                          }}
-                          title="Remove Exercise"
-                          style={{ display: 'flex', alignItems: 'center' }}
-                        >
-                          <TrashIcon size={16} />
-                        </button>
-                      </div>
+                      <ExerciseCardMenu
+                        name={ex.name}
+                        canMoveUp={exIdx > 0}
+                        canMoveDown={exIdx < logExercises.length - 1}
+                        onMoveUp={() => moveLogExerciseByKeyboard(exIdx, -1)}
+                        onMoveDown={() => moveLogExerciseByKeyboard(exIdx, 1)}
+                        onRemove={() => {
+                          // Remap first — see remapSetTimersForExerciseRemoval's
+                          // comment in liveWorkoutTimer.js. Without this a
+                          // running stopwatch on any LATER exercise silently
+                          // reattached to whatever exercise shifted into its
+                          // old index.
+                          setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
+                          setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+                        }}
+                      />
                     </div>
 
                     {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {

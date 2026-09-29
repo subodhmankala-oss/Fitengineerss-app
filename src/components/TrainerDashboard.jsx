@@ -24,6 +24,7 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
@@ -8051,25 +8052,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                       🎬 Form Guide
                                     </button>
                                   </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <button
-                                      type="button"
-                                      className="btn-drag-handle"
-                                      onPointerDown={startEditorExerciseDrag(exIdx)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'ArrowUp') { e.preventDefault(); moveEditorExerciseByKeyboard(exIdx, -1); }
-                                        if (e.key === 'ArrowDown') { e.preventDefault(); moveEditorExerciseByKeyboard(exIdx, 1); }
-                                      }}
-                                      title="Hold and drag to reorder"
-                                      aria-label={`Reorder ${ex.name}`}
-                                      style={{ touchAction: 'none' }}
-                                    ><DragHandleIcon size={18} /></button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveExerciseFromEditor(exIdx)}
-                                      style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
-                                    ><TrashIcon size={16} /></button>
-                                  </div>
+                                  <ExerciseCardMenu
+                                    name={ex.name}
+                                    canMoveUp={exIdx > 0}
+                                    canMoveDown={exIdx < editorExercises.length - 1}
+                                    onMoveUp={() => moveEditorExerciseByKeyboard(exIdx, -1)}
+                                    onMoveDown={() => moveEditorExerciseByKeyboard(exIdx, 1)}
+                                    onRemove={() => handleRemoveExerciseFromEditor(exIdx)}
+                                  />
                                 </div>
 
                                 <div className="hevy-sets-table">
@@ -8852,24 +8842,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               🎬 Form Guide
                             </button>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <button
-                              type="button"
-                              className="btn-drag-handle"
-                              onPointerDown={startLiveExerciseDrag(exIdx)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'ArrowUp') { e.preventDefault(); moveLiveExerciseByKeyboard(exIdx, -1); }
-                                if (e.key === 'ArrowDown') { e.preventDefault(); moveLiveExerciseByKeyboard(exIdx, 1); }
-                              }}
-                              title="Hold and drag to reorder"
-                              aria-label={`Reorder ${ex.name}`}
-                              style={{ touchAction: 'none' }}
-                            ><DragHandleIcon size={18} /></button>
-                            <button
-                              onClick={() => handleLiveRemoveExercise(exIdx)}
-                              style={{ display: 'flex', alignItems: 'center', color: 'var(--danger)', cursor: 'pointer' }}
-                            ><TrashIcon size={16} /></button>
-                          </div>
+                          <ExerciseCardMenu
+                            name={ex.name}
+                            canMoveUp={exIdx > 0}
+                            canMoveDown={exIdx < liveExercises.length - 1}
+                            onMoveUp={() => moveLiveExerciseByKeyboard(exIdx, -1)}
+                            onMoveDown={() => moveLiveExerciseByKeyboard(exIdx, 1)}
+                            onRemove={() => handleLiveRemoveExercise(exIdx)}
+                          />
                         </div>
 
                         {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {

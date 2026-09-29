@@ -1008,6 +1008,13 @@
   display: inline-block;
 }
 
+/* Inside the Add Set / Start Rest row the button must not keep the standalone
+   margin/inline-block above, or it sits lower than Start Rest. */
+.ex-card-actions .live-logger-add-set {
+  margin-top: 0;
+  display: flex;
+}
+
 .bw-static-label {
   display: flex;
   align-items: center;

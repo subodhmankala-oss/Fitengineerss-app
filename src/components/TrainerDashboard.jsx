@@ -42,6 +42,7 @@ import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
+import { animateNewSetRow } from '../utils/animateNewSetRow';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -8368,7 +8369,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
                                 <button
                                   type="button"
-                                  onClick={() => handleAddSetToExercise(exIdx)}
+                                  onClick={(e) => { handleAddSetToExercise(exIdx); animateNewSetRow(e.currentTarget); }}
                                   className="btn-add-set-link live-logger-add-set"
                                 >➕ Add Set</button>
                               </div>
@@ -9253,7 +9254,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
                         <div className="ex-card-actions">
                           <button
-                            onClick={() => handleLiveAddSet(exIdx)}
+                            onClick={(e) => { handleLiveAddSet(exIdx); animateNewSetRow(e.currentTarget); }}
                             className="btn-add-set-link live-logger-add-set"
                           >➕ Add Set</button>
                           <button

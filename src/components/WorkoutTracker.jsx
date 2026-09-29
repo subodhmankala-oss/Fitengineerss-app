@@ -1926,10 +1926,31 @@ const WorkoutTracker = () => {
     if (!timer) return 0;
     if (!timer.startedAt) return timer.pausedDuration || 0;
     const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
-    return elapsed;
+    // A countdown never runs past its target — a tab that was backgrounded
+    // past 00:00 would otherwise log more time than the interval prescribed.
+    return timer.targetSeconds > 0 ? Math.min(elapsed, timer.targetSeconds) : elapsed;
   };
 
+  // A countdown (interval with a target time) that reaches 00:00 stops itself
+  // and beeps, same as pressing Pause at that instant — the time saved is the
+  // target, and Play afterwards starts a fresh countdown (see the
+  // pausedDuration >= target guard in the two Start handlers below). Runs
+  // after every render; the 100ms tick above keeps re-rendering while
+  // anything is running, and pausing flips isRunning off so it fires once.
+  useEffect(() => {
+    Object.entries(setTimers).forEach(([key, timer]) => {
+      if (!timer.isRunning || !timer.startedAt || !(timer.targetSeconds > 0)) return;
+      const rawElapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
+      if (rawElapsed < timer.targetSeconds) return;
+      const [exIdx, sIdx] = key.split(',').map(Number);
+      if (isCardioExercise(logExercises[exIdx]?.name)) handleCardioStopwatchPause(exIdx, sIdx);
+      else handleSetStopwatchPause(exIdx, sIdx);
+      playAlarmBeeps();
+    });
+  });
+
   const handleSetStopwatchStart = (exIdx, sIdx) => {
+    unlockAudio();
     // Pressing Play on a timed exercise (Plank, Side Hops, ...) is real work
     // starting, same as ticking a set — the top banner's clock + live kcal
     // should already be climbing while the hold is in progress, not wait
@@ -1952,7 +1973,7 @@ const WorkoutTracker = () => {
     // in-progress session keeps whatever it was hydrated with, so a never-
     // completed set could still be carrying the old stale value.
     const existingPausedDuration = setTimers[key]?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // The coach's prescribed hold (startPlan's targetTime) makes the live
@@ -1962,6 +1983,9 @@ const WorkoutTracker = () => {
     const targetSeconds = setTimers[key]?.targetSeconds != null
       ? setTimers[key].targetSeconds
       : (parseTimeStringToSeconds(set?.targetTime) || 0);
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
@@ -2037,6 +2061,7 @@ const WorkoutTracker = () => {
     // work starting, so the top banner's clock + live kcal should start
     // ticking right away instead of waiting for a tick/complete.
     startSessionClockIfIdle();
+    unlockAudio();
     const key = getSetTimerKey(exIdx, sIdx);
     const set = logExercises[exIdx]?.sets[sIdx];
     // A normal pause leaves the timer entry in place with its pausedDuration
@@ -2054,7 +2079,7 @@ const WorkoutTracker = () => {
     // the displayed time and live calorie total.
     const existingTimer = setTimers[key];
     const existingPausedDuration = existingTimer?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // The coach's suggested duration (e.g. a 00:30 interval), captured only
@@ -2079,6 +2104,9 @@ const WorkoutTracker = () => {
       : set?.targetTime
       ? (parseTimeStringToSeconds(set.targetTime) || 0)
       : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true, targetSeconds }

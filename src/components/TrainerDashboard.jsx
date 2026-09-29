@@ -1618,10 +1618,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     if (!timer) return 0;
     if (!timer.startedAt) return timer.pausedDuration || 0;
     const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
-    return elapsed;
+    // A countdown never runs past its target — see WorkoutTracker's
+    // getSetElapsedSeconds.
+    return timer.targetSeconds > 0 ? Math.min(elapsed, timer.targetSeconds) : elapsed;
   };
 
+  // A countdown (interval with a target time) that reaches 00:00 stops itself
+  // and beeps, same as pressing Pause at that instant — see WorkoutTracker's
+  // matching effect. Runs after every render; the 100ms tick keeps
+  // re-rendering while anything is running, and pausing flips isRunning off
+  // so it fires once.
+  useEffect(() => {
+    Object.entries(liveSetTimers).forEach(([key, timer]) => {
+      if (!timer.isRunning || !timer.startedAt || !(timer.targetSeconds > 0)) return;
+      const rawElapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
+      if (rawElapsed < timer.targetSeconds) return;
+      const [exIdx, setIdx] = key.split(',').map(Number);
+      if (isCardioExercise(liveExercises[exIdx]?.name)) handleLiveCardioStopwatchPause(exIdx, setIdx);
+      else handleLiveSetStopwatchPause(exIdx, setIdx);
+      playAlarmBeeps();
+    });
+  });
+
   const handleLiveSetStopwatchStart = (exIdx, setIdx) => {
+    unlockAudio();
     // Pressing Play on a timed exercise (Plank, Side Hops, ...) is real work
     // starting, same as ticking a set — the top bar's clock + live kcal
     // should already be climbing while the hold is in progress.
@@ -1642,7 +1662,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // in-progress session keeps whatever it was hydrated with, so a never-
     // completed set could still be carrying the old stale value.
     const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // Count down to the plan's targetTime — see WorkoutTracker's
@@ -1650,6 +1670,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const targetSeconds = liveSetTimers[key]?.targetSeconds != null
       ? liveSetTimers[key].targetSeconds
       : (parseTimeStringToSeconds(set?.targetTime) || 0);
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
@@ -1719,6 +1742,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // work starting, so the top bar's clock + live kcal should start ticking
     // right away instead of waiting for a tick/complete.
     startLiveSessionClockIfIdle();
+    unlockAudio();
     const key = getSetTimerKey(exIdx, setIdx);
     const set = liveExercises[exIdx]?.sets[setIdx];
     // A normal pause leaves the timer entry in place with its pausedDuration
@@ -1736,7 +1760,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // start into the displayed time and live calorie total.
     const existingTimer = liveSetTimers[key];
     const existingPausedDuration = existingTimer?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // The coach's suggested duration (e.g. a 00:30 interval), captured only
@@ -1761,6 +1785,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       : set?.targetTime
       ? (parseTimeStringToSeconds(set.targetTime) || 0)
       : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true, targetSeconds }

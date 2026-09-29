@@ -8186,7 +8186,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                             {label}
                                           </span>
                                           {editorSetTypeMenu?.exIdx === exIdx && editorSetTypeMenu?.setIdx === setIdx && (
-                                            <SetTypeMenu onSelect={(type) => handleEditorChangeSetType(exIdx, setIdx, type)} />
+                                            <SetTypeMenu onSelect={(type, anchor) => (type === 'remove' ? (setEditorSetTypeMenu(null), animateRemoveSetRow(anchor, () => handleEditorChangeSetType(exIdx, setIdx, type))) : handleEditorChangeSetType(exIdx, setIdx, type))} />
                                           )}
                                         </span>
                                         <span className="col-prev set-prev-lbl">{prevStats}</span>
@@ -9056,7 +9056,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                     {liveLabel}
                                   </span>
                                   {liveSetTypeMenu?.exIdx === exIdx && liveSetTypeMenu?.setIdx === setIdx && (
-                                    <SetTypeMenu onSelect={(type) => handleLiveChangeSetType(exIdx, setIdx, type)} />
+                                    <SetTypeMenu onSelect={(type, anchor) => (type === 'remove' ? (setLiveSetTypeMenu(null), animateRemoveSetRow(anchor, () => handleLiveChangeSetType(exIdx, setIdx, type))) : handleLiveChangeSetType(exIdx, setIdx, type))} />
                                   )}
                                 </span>
                                 <span className="col-prev set-prev-lbl">{prevStats}</span>

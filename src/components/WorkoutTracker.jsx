@@ -3997,7 +3997,7 @@ const WorkoutTracker = () => {
                                   {setDisplayLabel}
                                 </span>
                                 {setTypeMenu?.exIdx === exIdx && setTypeMenu?.sIdx === sIdx && (
-                                  <SetTypeMenu onSelect={(type) => handleChangeSetType(exIdx, sIdx, type)} />
+                                  <SetTypeMenu onSelect={(type, anchor) => (type === 'remove' ? (setSetTypeMenu(null), animateRemoveSetRow(anchor, () => handleChangeSetType(exIdx, sIdx, type))) : handleChangeSetType(exIdx, sIdx, type))} />
                                 )}
                               </span>
                               <span className="col-prev set-prev-lbl">{prevStats}</span>

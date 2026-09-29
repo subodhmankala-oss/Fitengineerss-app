@@ -23,7 +23,10 @@ vi.mock('../services/databaseService', () => {
   return { __esModule: true, default: svc, isTrainer: () => false };
 });
 
+vi.mock('../utils/alarmSound', () => ({ playAlarmBeeps: vi.fn(), unlockAudio: vi.fn() }));
+
 import databaseService from '../services/databaseService';
+import { playAlarmBeeps } from '../utils/alarmSound';
 import WorkoutTracker from './WorkoutTracker';
 import { TourProvider } from '../context/TourContext';
 
@@ -189,5 +192,27 @@ describe('WorkoutTracker one-tap set logging', () => {
     expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
     expect(screen.queryByText('REST TIMER')).toBeNull();
     expect(localStorage.getItem(REST_KEY)).toBeNull();
+  });
+
+  it('stops a cardio countdown at 00:00 and beeps once', async () => {
+    const draft = makeDraft();
+    draft.logExercises = [{
+      name: 'Interval running',
+      sets: [{ time: '', targetTime: '00:02', distanceKm: '', isCompleted: false }]
+    }];
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    renderWorkoutTracker();
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+
+    const setBtn = () => document.querySelector('.btn-cardio-stopwatch');
+    fireEvent.click(setBtn());
+    expect(setBtn().title).toBe('Pause');
+    expect(playAlarmBeeps).not.toHaveBeenCalled();
+
+    // Stops by itself once the 2s target is reached — back to Start, not still running.
+    await waitFor(() => expect(setBtn().title).toBe('Start'), { timeout: 4000 });
+    expect(playAlarmBeeps).toHaveBeenCalledTimes(1);
+    // The saved time is the target, not whatever the wall clock reached.
+    expect(screen.getByRole('button', { name: '00:02' })).toBeTruthy();
   });
 });

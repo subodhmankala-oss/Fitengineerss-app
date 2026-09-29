@@ -302,7 +302,14 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                     className={`btn-add-preset-action ${already ? 'added' : ''}`}
                     onClick={() => (already ? onRemove(ex.name) : onAdd(ex.name))}
                   >
-                    {already ? '✓ Added' : '➕ Add'}
+                    {already ? '✓ Added' : (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true" style={{ marginRight: 5, verticalAlign: '-1px' }}>
+                          <path d="M6 1v10M1 6h10" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+                        </svg>
+                        Add
+                      </>
+                    )}
                   </button>
                 </div>
               );

@@ -27,6 +27,8 @@ import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from '.
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { useLiveTick } from '../hooks/useLiveTick';
+import { readSavedSetTimers, restoreSavedSetTimers } from '../utils/setTimerRestore';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -42,6 +44,7 @@ import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
+import { animateNewSetRow } from '../utils/animateNewSetRow';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -115,6 +118,9 @@ const convertAiDayToEditorShape = (day) => ({
 // localStorage key for the Live Log's running rest countdown:
 // { clientId, endAt } — see liveRestClientIdRef.
 const LIVE_REST_KEY = 'coachLiveRestEndAt';
+// Same for its per-set stopwatches: { clientId, sessionStartedAt, timers,
+// names } — see the save effect next to liveSetTimers and setTimerRestore.js.
+const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
@@ -1464,10 +1470,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [liveTimerStatus, setLiveTimerStatus] = useState('idle'); // 'idle' | 'running' | 'paused'
   const [liveTimerStartedAt, setLiveTimerStartedAt] = useState(null);
   const [livePauseIntervals, setLivePauseIntervals] = useState([]); // [{ pausedAt, resumedAt }]
-  const [, forceLiveTimerTick] = useState(0);
   // Timed exercise stopwatches in Live Log: { "exIdx,setIdx": { isRunning, startedAt, pausedDuration } }
   const [liveSetTimers, setLiveSetTimers] = useState({});
-  const [, forceLiveSetTimerTick] = useState(0);
   // Floating rest-between-sets timer — same behavior/UI as the client's own
   // logger (WorkoutTracker.jsx): starts automatically whenever a set is
   // marked complete, alarms + blinks "Rest over" when it hits 0.
@@ -1500,21 +1504,38 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   }, [editorSetTypeMenu]);
 
   // Re-render once a second while the live timer is running so the displayed
-  // elapsed time / calories stay current. The values themselves are always
+  // elapsed time / calories stay current, and at once when the app comes
+  // back on screen (see useLiveTick). The values themselves are always
   // recomputed fresh from timestamps below — this tick only drives the UI.
-  useEffect(() => {
-    if (liveTimerStatus !== 'running') return;
-    const id = setInterval(() => forceLiveTimerTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [liveTimerStatus]);
+  useLiveTick(liveTimerStatus === 'running', 1000);
 
   // Live set timers for timed exercises — re-render every 100ms for smooth UI
+  useLiveTick(Object.values(liveSetTimers).some(t => t.isRunning), 100);
+
+  // Keep the running/paused set stopwatches in localStorage (with the
+  // client, the session's clock start and the exercise names they're keyed
+  // against), so a stopwatch survives the phone reloading the page —
+  // handleSelectClient's resume branch puts it back. Nothing is removed
+  // until this page has saved stopwatches of its own: on a fresh page load
+  // liveSetTimers starts empty, and clearing the key then would lose the
+  // one being restored.
+  const liveSetTimersSavedRef = useRef(false);
   useEffect(() => {
-    const anyRunning = Object.values(liveSetTimers).some(t => t.isRunning);
-    if (!anyRunning) return;
-    const id = setInterval(() => forceLiveSetTimerTick(t => t + 1), 100);
-    return () => clearInterval(id);
-  }, [liveSetTimers]);
+    try {
+      if (selectedClient?.id && Object.keys(liveSetTimers).length > 0) {
+        localStorage.setItem(LIVE_SET_TIMERS_KEY, JSON.stringify({
+          clientId: selectedClient.id,
+          sessionStartedAt: liveTimerStartedAt,
+          timers: liveSetTimers,
+          names: liveExercises.map(ex => ex.name)
+        }));
+        liveSetTimersSavedRef.current = true;
+      } else if (liveSetTimersSavedRef.current) {
+        localStorage.removeItem(LIVE_SET_TIMERS_KEY);
+        liveSetTimersSavedRef.current = false;
+      }
+    } catch { /* ignore quota/serialization errors */ }
+  }, [liveSetTimers, liveExercises, liveTimerStartedAt, selectedClient?.id]);
 
   // Rest-between-sets countdown — same behavior as the client's own logger
   // (WorkoutTracker.jsx): swaps to a blinking "Rest over" card + alarm beeps
@@ -1618,10 +1639,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     if (!timer) return 0;
     if (!timer.startedAt) return timer.pausedDuration || 0;
     const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
-    return elapsed;
+    // A countdown never runs past its target — see WorkoutTracker's
+    // getSetElapsedSeconds.
+    return timer.targetSeconds > 0 ? Math.min(elapsed, timer.targetSeconds) : elapsed;
   };
 
+  // A countdown (interval with a target time) that reaches 00:00 stops itself
+  // and beeps, same as pressing Pause at that instant — see WorkoutTracker's
+  // matching effect. Runs after every render; the 100ms tick keeps
+  // re-rendering while anything is running, and pausing flips isRunning off
+  // so it fires once.
+  useEffect(() => {
+    Object.entries(liveSetTimers).forEach(([key, timer]) => {
+      if (!timer.isRunning || !timer.startedAt || !(timer.targetSeconds > 0)) return;
+      const rawElapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
+      if (rawElapsed < timer.targetSeconds) return;
+      const [exIdx, setIdx] = key.split(',').map(Number);
+      if (isCardioExercise(liveExercises[exIdx]?.name)) handleLiveCardioStopwatchPause(exIdx, setIdx);
+      else handleLiveSetStopwatchPause(exIdx, setIdx);
+      playAlarmBeeps();
+    });
+  });
+
   const handleLiveSetStopwatchStart = (exIdx, setIdx) => {
+    unlockAudio();
     // Pressing Play on a timed exercise (Plank, Side Hops, ...) is real work
     // starting, same as ticking a set — the top bar's clock + live kcal
     // should already be climbing while the hold is in progress.
@@ -1642,7 +1683,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // in-progress session keeps whatever it was hydrated with, so a never-
     // completed set could still be carrying the old stale value.
     const existingPausedDuration = liveSetTimers[key]?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // Count down to the plan's targetTime — see WorkoutTracker's
@@ -1650,6 +1691,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const targetSeconds = liveSetTimers[key]?.targetSeconds != null
       ? liveSetTimers[key].targetSeconds
       : (parseTimeStringToSeconds(set?.targetTime) || 0);
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
@@ -1719,6 +1763,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // work starting, so the top bar's clock + live kcal should start ticking
     // right away instead of waiting for a tick/complete.
     startLiveSessionClockIfIdle();
+    unlockAudio();
     const key = getSetTimerKey(exIdx, setIdx);
     const set = liveExercises[exIdx]?.sets[setIdx];
     // A normal pause leaves the timer entry in place with its pausedDuration
@@ -1736,7 +1781,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // start into the displayed time and live calorie total.
     const existingTimer = liveSetTimers[key];
     const existingPausedDuration = existingTimer?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // The coach's suggested duration (e.g. a 00:30 interval), captured only
@@ -1761,6 +1806,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       : set?.targetTime
       ? (parseTimeStringToSeconds(set.targetTime) || 0)
       : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setLiveSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true, targetSeconds }
@@ -2273,6 +2321,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       }
       return prevStatus;
     });
+  };
+
+  // Loading the client's plan into the Live Log is the workout starting, so
+  // the clock starts then — not at the first ticked set. Waiting for the
+  // first tick left out everything before it: on 2026-09-29 a Live Log
+  // opened at 07:22 IST only started counting at the 07:35 first tick, and a
+  // session ticked at the end saved almost no duration (one: 18 sets in 7 s).
+  // Already running (a second plan loaded mid-session) or paused: left
+  // alone. A session built by hand still starts on the first tick/Play
+  // (startLiveSessionClockIfIdle).
+  const startLiveWorkoutClock = () => {
+    if (liveTimerStatus !== 'idle') return;
+    setLiveTimerStartedAt(Date.now());
+    setLivePauseIntervals([]);
+    setLiveTimerStatus('running');
   };
 
   const handleLiveToggleSet = (exIdx, setIdx) => {
@@ -3294,7 +3357,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // Client B's timed set inherit Client A's stale elapsed time or even a
     // still-"running" stopwatch, on a set that was never touched in this
     // client's session — reported as "not loading fresh". Clear it every
-    // time this fires, both on resume and on the fresh-default path.
+    // time this fires, both on resume and on the fresh-default path. A
+    // stopwatch saved for THIS client's session before the page reloaded is
+    // read first and put back below, onto the same exercises only.
+    const savedLiveSetTimers = readSavedSetTimers(LIVE_SET_TIMERS_KEY);
     setLiveSetTimers({});
     databaseService.getWorkoutDraft(client.id, 'coach').then(dbDraft => {
       const canResume = dbDraft && dbDraft.source === 'coach' && dbDraft.coachId === resolvedCoachId
@@ -3318,6 +3384,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           setLiveTimerStartedAt(dbDraft.timerStartedAt ?? null);
           setLivePauseIntervals(dbDraft.pauseIntervals || []);
           triggerLiveToast(`↩️ Resumed in-progress Live Log for ${client.userName}`);
+          // Treadmill/plank stopwatches that were running (or paused) in
+          // this session when the page went away — see setTimerRestore.js.
+          if (savedLiveSetTimers?.clientId === client.id) {
+            setLiveSetTimers(restoreSavedSetTimers(savedLiveSetTimers, dbDraft.timerStartedAt, dbDraft.exercises));
+          }
         }
         // A rest this coach started for this client before the page
         // reloaded, still counting down — pick it back up.
@@ -8341,7 +8412,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
                                 <button
                                   type="button"
-                                  onClick={() => handleAddSetToExercise(exIdx)}
+                                  onClick={(e) => { handleAddSetToExercise(exIdx); animateNewSetRow(e.currentTarget); }}
                                   className="btn-add-set-link live-logger-add-set"
                                 >➕ Add Set</button>
                               </div>
@@ -8757,6 +8828,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 // set that was never started in this plan — reported as
                                 // "not loading fresh". Clear it on every fresh plan load.
                                 setLiveSetTimers({});
+                                // Loading the plan is the workout starting, so the clock
+                                // starts now (unless it's already running) — see
+                                // startLiveWorkoutClock.
+                                startLiveWorkoutClock();
                                 triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
                               }
                               e.target.value = '';
@@ -9226,7 +9301,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
                         <div className="ex-card-actions">
                           <button
-                            onClick={() => handleLiveAddSet(exIdx)}
+                            onClick={(e) => { handleLiveAddSet(exIdx); animateNewSetRow(e.currentTarget); }}
                             className="btn-add-set-link live-logger-add-set"
                           >➕ Add Set</button>
                           <button

@@ -5064,3 +5064,25 @@ html.keyboard-open .rest-timer-floating-card {
   background: var(--bg-card);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
+[data-theme="light"] .set-type-menu {
+  background: var(--bg-card);
+  box-shadow: 0 -14px 44px rgba(15, 23, 42, 0.18);
+}
+[data-theme="light"] .set-type-sheet-backdrop {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+
+
+/* Add Set: new row slides down into place */
+@keyframes set-row-slide-in {
+  from { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; }
+  to { max-height: 96px; opacity: 1; transform: translateY(0); }
+}
+.hevy-set-row.set-row-enter {
+  overflow: hidden;
+  animation: set-row-slide-in 0.55s cubic-bezier(0.33, 0.9, 0.4, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hevy-set-row.set-row-enter { animation: none; }
+}

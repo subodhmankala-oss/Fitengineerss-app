@@ -172,6 +172,14 @@ describe('light core vs vigorous bodyweight vs weight training', () => {
   });
 });
 
+describe('Standing Calf Raise', () => {
+  it('gets the Bodyweight/+Add Weight toggle; machine and seated variants stay loaded', () => {
+    expect(isBodyweightExercise('Standing Calf Raise')).toBe(true);
+    ['Seated Calf Raise', 'Calf Raise (Machine)'].forEach(n =>
+      expect(isBodyweightExercise(n)).toBe(false));
+  });
+});
+
 describe('Jump Squat', () => {
   it('is a bodyweight move (Bodyweight/+Add Weight toggle), unlike loaded squats', () => {
     expect(isBodyweightExercise('Jump Squat')).toBe(true);

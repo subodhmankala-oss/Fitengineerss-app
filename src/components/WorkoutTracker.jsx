@@ -23,12 +23,15 @@ import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { useLiveTick } from '../hooks/useLiveTick';
+import { keepSetTimersForSameExercises, readSavedSetTimers, restoreSavedSetTimers } from '../utils/setTimerRestore';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
+import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -617,7 +620,6 @@ const WorkoutTracker = () => {
   const [workoutTimerStatus, setWorkoutTimerStatus] = useState(savedWorkoutDraft?.workoutTimerStatus ?? 'idle'); // 'idle' | 'running' | 'paused'
   const [workoutTimerStartedAt, setWorkoutTimerStartedAt] = useState(savedWorkoutDraft?.workoutTimerStartedAt ?? null);
   const [workoutPauseIntervals, setWorkoutPauseIntervals] = useState(savedWorkoutDraft?.workoutPauseIntervals ?? []); // [{ pausedAt, resumedAt }]
-  const [, forceWorkoutTimerTick] = useState(0);
   // Derived, not stored — every read site below (Finish summary, live badge,
   // billing, stopwatch display) keeps using this name/shape unchanged.
   const workoutActiveSeconds = computeElapsedSeconds(workoutTimerStartedAt, workoutPauseIntervals);
@@ -664,8 +666,23 @@ const WorkoutTracker = () => {
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   const [historyModalExercise, setHistoryModalExercise] = useState(null);
   // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
-  const [setTimers, setSetTimers] = useState({});
-  const [, forceSetTimerTick] = useState(0);
+  // Kept in localStorage alongside the restored session, so a stopwatch
+  // running when the phone reloaded the page carries on — see
+  // setTimerRestore.js.
+  const setTimersKey = `workoutSetTimers_${localStorage.getItem('userId') || loggedInUser}`;
+  const loadRestoredSetTimers = () => {
+    // A draft from an earlier day restarts the session clock (see the
+    // staleness effect below), so a stopwatch "running" since then is dropped.
+    if (!savedWorkoutDraft || (savedWorkoutDraft.logDate && savedWorkoutDraft.logDate !== getLocalDateString())) return {};
+    return restoreSavedSetTimers(readSavedSetTimers(setTimersKey), savedWorkoutDraft.workoutTimerStartedAt, savedWorkoutDraft.logExercises);
+  };
+  const [setTimers, setSetTimers] = useState(loadRestoredSetTimers);
+  // Whether this session's "workout started" notification has gone to the
+  // coach (see startSessionClockIfIdle). A restored session that already
+  // has a ticked set or a started stopwatch has had it.
+  const workStartNotifiedRef = useRef(
+    !!savedWorkoutDraft?.logExercises?.some(ex => ex.sets?.some(s => s.isCompleted)) || Object.keys(setTimers).length > 0
+  );
   const [exercisesList, setExercisesList] = useState([]);
 
   useEffect(() => {
@@ -987,29 +1004,36 @@ const WorkoutTracker = () => {
   }, [sessions, selectedClient]);
 
   // Hevy stopwatch — re-render once a second while running so the displayed
-  // elapsed time / calories stay current. Values are always recomputed fresh
+  // elapsed time / calories stay current, and at once when the app comes
+  // back on screen (see useLiveTick). Values are always recomputed fresh
   // from timestamps above (never an incrementing counter), matching the
   // coach's live timer bar exactly. No more force-starting the clock just
   // from being on the Log Sets tab — it now only starts on the first
   // completed set (see handleToggleSetCompleted), same as the coach.
-  useEffect(() => {
-    if (workoutTimerStatus !== 'running') return;
-    const id = setInterval(() => forceWorkoutTimerTick(t => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [workoutTimerStatus]);
+  useLiveTick(workoutTimerStatus === 'running', 1000);
 
   // Set timers for timed exercises — re-render every 100ms for smooth UI
-  useEffect(() => {
-    const anyRunning = Object.values(setTimers).some(t => t.isRunning);
-    if (!anyRunning) return;
-    const id = setInterval(() => forceSetTimerTick(t => t + 1), 100);
-    return () => clearInterval(id);
-  }, [setTimers]);
+  useLiveTick(Object.values(setTimers).some(t => t.isRunning), 100);
 
   const resetWorkoutTimer = () => {
     setWorkoutTimerStatus('idle');
     setWorkoutTimerStartedAt(null);
     setWorkoutPauseIntervals([]);
+  };
+
+  // A new workout's clock starts the moment the client starts it — a coach
+  // plan, a template or the Home banner's pick, or an empty session — not at
+  // the first ticked set. Waiting for the first tick left out everything
+  // before it (warm-up, an exercise done before ticking anything), and a
+  // session ticked at the end saved almost no duration: 26 of 147 September
+  // sessions saved under 30 s per set (one client session: 22 sets, 77 s).
+  // A clock that isn't running for any other reason still starts on the
+  // first tick (startSessionClockIfIdle).
+  const startWorkoutClock = () => {
+    workStartNotifiedRef.current = false;
+    setWorkoutTimerStartedAt(Date.now());
+    setWorkoutPauseIntervals([]);
+    setWorkoutTimerStatus('running');
   };
 
   // Wipe the in-progress session and go back to the log picker. Shared by the
@@ -1064,13 +1088,22 @@ const WorkoutTracker = () => {
         const localTime = savedWorkoutDraft?.savedAt || 0;
         if (!savedWorkoutDraft || dbTime > localTime) {
           if (dbDraft.exercises && dbDraft.exercises.length > 0) setLogExercises(dbDraft.exercises);
-          setSetTimers({});
           // Same staleness check as the local-draft mount effect above — this
           // DB draft may be from a previous calendar day (different device,
           // or the local mirror was cleared). Never resume it pinned to that
           // old date/timer window, or the finished session lands invisibly
           // on the old day with a multi-day "duration".
           const draftIsStale = dbDraft.logDate && dbDraft.logDate !== getLocalDateString();
+          // The DB copy is usually this same session, saved from this phone
+          // just before the page went away (its server timestamp is later
+          // than the local copy's) — keep a restored stopwatch wherever the
+          // same exercise is still at that position (see setTimerRestore.js)
+          // instead of always dropping it. Not for an earlier day's draft,
+          // whose clock restarts below, or a different session.
+          const restoredExercises = dbDraft.exercises && dbDraft.exercises.length > 0 ? dbDraft.exercises : savedWorkoutDraft?.logExercises;
+          const sameSession = Number(dbDraft.timerStartedAt) === Number(savedWorkoutDraft?.workoutTimerStartedAt);
+          setSetTimers(prev => (draftIsStale || !sameSession ? {} : keepSetTimersForSameExercises(prev, savedWorkoutDraft?.logExercises, restoredExercises)));
+          if ((dbDraft.exercises || []).some(ex => ex.sets?.some(s => s.isCompleted))) workStartNotifiedRef.current = true;
           setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
@@ -1305,6 +1338,24 @@ const WorkoutTracker = () => {
     } catch { /* ignore quota/serialization errors */ }
   }, [isLoggingWorkout, restTimerActive, restEndAt, restKey]);
 
+  // Same for the per-set stopwatches (see loadRestoredSetTimers), with the
+  // exercise names they're keyed against so a restore can check they still
+  // line up, and the session they belong to (its clock start) so they can
+  // never reappear in a later session.
+  useEffect(() => {
+    try {
+      if (isLoggingWorkout && Object.keys(setTimers).length > 0) {
+        localStorage.setItem(setTimersKey, JSON.stringify({
+          sessionStartedAt: workoutTimerStartedAt,
+          timers: setTimers,
+          names: logExercises.map(ex => ex.name)
+        }));
+      } else {
+        localStorage.removeItem(setTimersKey);
+      }
+    } catch { /* ignore quota/serialization errors */ }
+  }, [isLoggingWorkout, setTimers, logExercises, workoutTimerStartedAt, setTimersKey]);
+
   // Listen for coach live-session saves and merge new sessions in real-time
   useEffect(() => {
     const onCoachSaved = (e) => {
@@ -1395,11 +1446,17 @@ const WorkoutTracker = () => {
   const startSessionClockIfIdle = () => {
     const now = Date.now();
     const clientId = ownUserId || localStorage.getItem('userId');
-    if (workoutTimerStatus === 'idle' && clientId && workoutSource !== 'coach') {
-      // Same workoutName field the "completed" notification already sends
-      // (see handleConfirmSaveWorkout below) — the server just wasn't using
-      // it for either event until now (see api/push.js).
-      notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
+    // The coach hears about it on the first real work, not the moment a
+    // plan is opened (the clock now starts then — see startWorkoutClock), so
+    // opening a plan just to look at it and discarding it doesn't ping them.
+    if (!workStartNotifiedRef.current) {
+      workStartNotifiedRef.current = true;
+      if (clientId && workoutSource !== 'coach') {
+        // Same workoutName field the "completed" notification already sends
+        // (see handleConfirmSaveWorkout below) — the server just wasn't using
+        // it for either event until now (see api/push.js).
+        notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
+      }
     }
     // Ticking a set or pressing Play while the session is PAUSED (not idle)
     // is the same "real work just happened" signal, and needs the same
@@ -1926,10 +1983,31 @@ const WorkoutTracker = () => {
     if (!timer) return 0;
     if (!timer.startedAt) return timer.pausedDuration || 0;
     const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
-    return elapsed;
+    // A countdown never runs past its target — a tab that was backgrounded
+    // past 00:00 would otherwise log more time than the interval prescribed.
+    return timer.targetSeconds > 0 ? Math.min(elapsed, timer.targetSeconds) : elapsed;
   };
 
+  // A countdown (interval with a target time) that reaches 00:00 stops itself
+  // and beeps, same as pressing Pause at that instant — the time saved is the
+  // target, and Play afterwards starts a fresh countdown (see the
+  // pausedDuration >= target guard in the two Start handlers below). Runs
+  // after every render; the 100ms tick above keeps re-rendering while
+  // anything is running, and pausing flips isRunning off so it fires once.
+  useEffect(() => {
+    Object.entries(setTimers).forEach(([key, timer]) => {
+      if (!timer.isRunning || !timer.startedAt || !(timer.targetSeconds > 0)) return;
+      const rawElapsed = Math.floor((Date.now() - timer.startedAt) / 1000) + (timer.pausedDuration || 0);
+      if (rawElapsed < timer.targetSeconds) return;
+      const [exIdx, sIdx] = key.split(',').map(Number);
+      if (isCardioExercise(logExercises[exIdx]?.name)) handleCardioStopwatchPause(exIdx, sIdx);
+      else handleSetStopwatchPause(exIdx, sIdx);
+      playAlarmBeeps();
+    });
+  });
+
   const handleSetStopwatchStart = (exIdx, sIdx) => {
+    unlockAudio();
     // Pressing Play on a timed exercise (Plank, Side Hops, ...) is real work
     // starting, same as ticking a set — the top banner's clock + live kcal
     // should already be climbing while the hold is in progress, not wait
@@ -1952,7 +2030,7 @@ const WorkoutTracker = () => {
     // in-progress session keeps whatever it was hydrated with, so a never-
     // completed set could still be carrying the old stale value.
     const existingPausedDuration = setTimers[key]?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // The coach's prescribed hold (startPlan's targetTime) makes the live
@@ -1962,6 +2040,9 @@ const WorkoutTracker = () => {
     const targetSeconds = setTimers[key]?.targetSeconds != null
       ? setTimers[key].targetSeconds
       : (parseTimeStringToSeconds(set?.targetTime) || 0);
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, targetSeconds }
@@ -2037,6 +2118,7 @@ const WorkoutTracker = () => {
     // work starting, so the top banner's clock + live kcal should start
     // ticking right away instead of waiting for a tick/complete.
     startSessionClockIfIdle();
+    unlockAudio();
     const key = getSetTimerKey(exIdx, sIdx);
     const set = logExercises[exIdx]?.sets[sIdx];
     // A normal pause leaves the timer entry in place with its pausedDuration
@@ -2054,7 +2136,7 @@ const WorkoutTracker = () => {
     // the displayed time and live calorie total.
     const existingTimer = setTimers[key];
     const existingPausedDuration = existingTimer?.pausedDuration;
-    const pausedDuration = existingPausedDuration != null
+    const resumeFrom = existingPausedDuration != null
       ? existingPausedDuration
       : (set?.timeIsLive ? (parseTimeStringToSeconds(set.time) || 0) : 0);
     // The coach's suggested duration (e.g. a 00:30 interval), captured only
@@ -2079,6 +2161,9 @@ const WorkoutTracker = () => {
       : set?.targetTime
       ? (parseTimeStringToSeconds(set.targetTime) || 0)
       : (set?.timeIsLive ? 0 : (parseTimeStringToSeconds(set.time) || 0));
+    // Already at/past the target (countdown finished earlier) — start over
+    // instead of instantly finishing again.
+    const pausedDuration = targetSeconds > 0 && resumeFrom >= targetSeconds ? 0 : resumeFrom;
     setSetTimers(prev => ({
       ...prev,
       [key]: { isRunning: true, startedAt: Date.now(), pausedDuration, autoKm: true, targetSeconds }
@@ -2617,7 +2702,7 @@ const WorkoutTracker = () => {
     setLoggingLevel(level);
     setLogClient(loggedInUser);
     setLogDate(getLocalDateString());
-    resetWorkoutTimer();
+    startWorkoutClock();
     setIsLoggingWorkout(true);
     setActiveView('log');
     triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
@@ -2720,7 +2805,7 @@ const WorkoutTracker = () => {
     setWorkoutSource(source);
     setLoggingLevel(null);
     setIsLoggingWorkout(true);
-    resetWorkoutTimer();
+    startWorkoutClock();
   };
 
   // Live calorie readout for the client's own "Log Sets" stopwatch banner —
@@ -3345,7 +3430,7 @@ const WorkoutTracker = () => {
                 setLogClient(loggedInUser);
                 setLogDate(getLocalDateString());
                 setLoggingLevel(null);
-                resetWorkoutTimer();
+                startWorkoutClock();
                 setIsLoggingWorkout(true);
                 setActiveView('log');
               }}
@@ -3394,7 +3479,7 @@ const WorkoutTracker = () => {
                 setTemplateName('');
                 setLoggingLevel(null);
                 setIsLoggingWorkout(true);
-                resetWorkoutTimer();
+                startWorkoutClock();
               }}
             >
               <span className="wt-start-empty-icon">+</span>
@@ -4197,7 +4282,7 @@ const WorkoutTracker = () => {
                       <button
                         type="button"
                         className="btn-add-set-link"
-                        onClick={() => handleAddSet(exIdx)}
+                        onClick={(e) => { handleAddSet(exIdx); animateNewSetRow(e.currentTarget); }}
                       >
                         ➕ Add Set
                       </button>

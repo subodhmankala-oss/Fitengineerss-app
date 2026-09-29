@@ -86,10 +86,11 @@ describe('Coach Live Log delete set', { timeout: 30000 }, () => {
 
     fireEvent.click(screen.getAllByTitle('Delete Set')[0]);
 
-    // Past the 0.45s exit animation (WorkoutTracker.css's set-row-exit) —
-    // generous timeout since a busy full-suite run can delay the timer well
-    // past its nominal 450ms.
-    await waitFor(() => expect(screen.queryByRole('button', { name: '40' })).toBeNull(), { timeout: 3000 });
+    // jsdom never fires animationend for a real CSS animation, so removal
+    // here falls back to useExitingSetRow's safety timer (900ms) — a
+    // generous timeout on top of that since a busy full-suite run can delay
+    // real setTimeout callbacks well past their nominal delay.
+    await waitFor(() => expect(screen.queryByRole('button', { name: '40' })).toBeNull(), { timeout: 5000 });
 
     expect(screen.getByRole('button', { name: '42.5' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '45' })).toBeTruthy();

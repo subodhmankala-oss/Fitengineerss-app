@@ -64,6 +64,20 @@ function stableKeyFor(item) {
   return key;
 }
 
+// An edit replaces an item with a new object at the same index ({ ...ex,
+// field }), which would otherwise get a fresh key and remount its whole row —
+// dropping any local UI state inside it (an expanded panel) and the focus of
+// a native input being typed into. When the object previously at this index
+// is no longer in the list at all, the new one is that same item edited, so
+// it takes over the old key. Reorders only permute existing references and
+// never reach this path.
+function inheritKeyOnReplace(item, prevItem, items) {
+  if (item === null || typeof item !== 'object' || keyRegistry.has(item)) return;
+  if (prevItem === null || typeof prevItem !== 'object' || !keyRegistry.has(prevItem)) return;
+  if (items.includes(prevItem)) return;
+  keyRegistry.set(item, keyRegistry.get(prevItem));
+}
+
 // How long to keep correcting scroll drift after a drag ends (late layout
 // shifts such as images or fonts inside the re-expanded cards).
 const SCROLL_ANCHOR_WINDOW_MS = 360;
@@ -464,7 +478,12 @@ export function useReorderableList(items, onReorder) {
     onReorder(next);
   }, [onReorder]);
 
-  const getItemKey = useCallback((index) => stableKeyFor(items[index]), [items]);
+  // itemsRef still holds the previously committed list during render (it is
+  // synced in a layout effect), which is what inheritKeyOnReplace compares to.
+  const getItemKey = useCallback((index) => {
+    inheritKeyOnReplace(items[index], itemsRef.current[index], items);
+    return stableKeyFor(items[index]);
+  }, [items]);
 
   // Per-row inline style. The dragged row's own movement is written to the
   // DOM directly (see applyPointerDelta); here it only carries the offset

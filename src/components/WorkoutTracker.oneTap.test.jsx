@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-library/react';
 
 // Same isolated data layer as WorkoutTracker.draft.test.jsx.
 vi.mock('../services/databaseService', () => {
@@ -162,6 +162,27 @@ describe('WorkoutTracker one-tap set logging', () => {
     expect(localStorage.getItem(REST_KEY)).toBeNull();
     // The client only ever resumes their own session's draft, never the coach's.
     expect(databaseService.getWorkoutDraft).toHaveBeenCalledWith('u1', 'self');
+  });
+
+  it('keeps RPE & Notes open, with focus in the notes box, while it is edited', async () => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(makeDraft()));
+    renderWorkoutTracker();
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+
+    const toggle = screen.getAllByText('RPE & Notes', { exact: false })[0].closest('button');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    fireEvent.click(within(screen.getByRole('group', { name: 'Rate of perceived exertion' })).getByRole('button', { name: '8' }));
+
+    const notes = screen.getByPlaceholderText(/Notes/);
+    notes.focus();
+    fireEvent.change(notes, { target: { value: 'elbow ok' } });
+
+    const stillOpen = screen.getByPlaceholderText(/Notes/);
+    expect(stillOpen).toBe(notes);
+    expect(document.activeElement).toBe(notes);
+    expect(stillOpen.value).toBe('elbow ok');
+    expect(screen.getByText('RPE 8 · Note')).toBeTruthy();
   });
 
   it('starts a rest only from the Start Rest button, and remembers it for a reload', async () => {

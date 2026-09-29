@@ -27,7 +27,6 @@ import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
-import SetValueStepper from './SetValueStepper';
 import ExerciseRpeNotes from './ExerciseRpeNotes';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, findPreviousExerciseNotesIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
@@ -4179,16 +4178,13 @@ const WorkoutTracker = () => {
                                       )
                                     ) : (
                                       <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
-                                        <SetValueStepper
+                                        <SetValueField
                                           value={set.weight}
                                           placeholder="0"
                                           disabled={set.isCompleted}
                                           active={activeSetKey === weightKey}
                                           isGhost={set.weightFromPrev}
                                           onOpen={() => openSetField(weightKey)}
-                                          onValue={(v) => handleSetChange(exIdx, sIdx, 'weight', v)}
-                                          step={2.5}
-                                          decimals={1}
                                         />
                                         {exIsBodyweight && !set.isCompleted && (
                                           <button
@@ -4203,16 +4199,13 @@ const WorkoutTracker = () => {
                                       </div>
                                     )}
                                     <div className="col-reps set-input-field">
-                                      <SetValueStepper
+                                      <SetValueField
                                         value={set.reps}
                                         placeholder={set.targetReps || '0'}
                                         disabled={set.isCompleted}
                                         active={activeSetKey === repsKey}
                                         isGhost={set.repsFromPrev}
                                         onOpen={() => openSetField(repsKey)}
-                                        onValue={(v) => handleSetChange(exIdx, sIdx, 'reps', v)}
-                                        step={1}
-                                        decimals={0}
                                       />
                                     </div>
                                   </>

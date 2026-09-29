@@ -38,7 +38,6 @@ import { useSetNumberPad } from '../utils/setInputUtils';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, findPreviousExerciseNotesIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
-import SetValueStepper from './SetValueStepper';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
@@ -9218,15 +9217,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                           </div>
                                         ) : (
                                           <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
-                                            <SetValueStepper
+                                            <SetValueField
                                               value={set.weight}
                                               placeholder="0"
                                               active={activeLiveSetKey === weightKey}
                                               isGhost={set.weightFromPrev}
                                               onOpen={() => openLiveSetField(weightKey)}
-                                              onValue={(v) => handleLiveSetChange(exIdx, setIdx, 'weight', v)}
-                                              step={2.5}
-                                              decimals={1}
                                             />
                                             {exIsBodyweight && (
                                               <button
@@ -9241,15 +9237,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                           </div>
                                         )}
                                         <div className="col-reps set-input-field">
-                                          <SetValueStepper
+                                          <SetValueField
                                             value={set.reps}
                                             placeholder="0"
                                             active={activeLiveSetKey === repsKey}
                                             isGhost={set.repsFromPrev}
                                             onOpen={() => openLiveSetField(repsKey)}
-                                            onValue={(v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
-                                            step={1}
-                                            decimals={0}
                                           />
                                         </div>
                                       </>

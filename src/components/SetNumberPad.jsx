@@ -115,7 +115,7 @@ export default function SetNumberPad({ active, activeKey, onClose }) {
     const handlePointerDown = (e) => {
       const padEl = document.querySelector('.set-number-pad');
       if (padEl && padEl.contains(e.target)) return;
-      if (e.target.closest && (e.target.closest('.set-value-btn') || e.target.closest('.set-stepper-btn'))) return;
+      if (e.target.closest && e.target.closest('.set-value-btn')) return;
       onClose();
     };
     const events = ['pointerdown', 'touchstart', 'mousedown'];

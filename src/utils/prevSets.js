@@ -127,8 +127,8 @@ export function fillPendingPrevSets(exercises, lookup) {
 // so it stays a plain function of data, easy to call from either the client
 // logger or the coach's Live Log. Picks the heaviest working (non-warmup)
 // set to progress, since that's the one a "next time" bump is normally about;
-// warmup sets are never the ones being progressed. Suggests +2.5 (the same
-// increment the weight stepper itself uses) when there's already added
+// warmup sets are never the ones being progressed. Suggests +2.5 (the usual
+// smallest plate jump) when there's already added
 // weight, or +1 rep when there's none to add to yet (true bodyweight reps,
 // or an unusual 0kg entry) — a weight jump from 0 would be a guess, not a
 // read of what the client actually did. Returns null when there's nothing

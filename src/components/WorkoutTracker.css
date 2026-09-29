@@ -913,6 +913,11 @@
   font-family: inherit;
 }
 
+.ex-notes-input--from-last {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .ex-card-actions {
   display: flex;
   align-items: center;
@@ -2850,6 +2855,27 @@
   color: rgba(var(--accent-rgb), 0.7);
 }
 
+/* "✓ all" in the set table header (client logger + coach Live Log). */
+.btn-check-all {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  /* Eats the header row's own 8px vertical padding so the bigger tap
+     target doesn't make the header row taller than it needs to be. */
+  margin: -8px 0;
+}
+
+.btn-check-all.is-all-done {
+  color: var(--accent-text);
+}
+
 /* Circular Checkmark Button — 44px is the minimum comfortable mobile touch
    target (Apple HIG / Android Material); this used to be a 24px square. */
 .btn-hevy-check {
@@ -2971,20 +2997,6 @@ html.keyboard-open .rest-timer-floating-card {
 @keyframes restTimerFadeIn {
   0% { transform: translateY(20px) scale(0.95); opacity: 0; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-
-/* Draws attention to the rest-started / rest-finished moment without a toast
-   interrupting the screen — the card's own background washes to a soft
-   green tint and smoothly back, 3 times. No box-shadow/border flashing —
-   just a gentle, low-contrast background pulse. */
-@keyframes restTimerBoxPulse {
-  0%, 100% { background: rgba(var(--bg-app-rgb), 0.92); }
-  50% { background: rgba(var(--accent-rgb), 0.16); }
-}
-
-.rest-timer-pulse-start,
-.rest-timer-pulse-finish {
-  animation: restTimerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards, restTimerBoxPulse 0.9s ease-in-out 3;
 }
 
 .rest-timer-header-row {

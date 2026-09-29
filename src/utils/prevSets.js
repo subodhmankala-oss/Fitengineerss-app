@@ -35,6 +35,18 @@ export function findPreviousExerciseSetsIn(sessions, clientName, exName) {
   return null;
 }
 
+// The notes from the most recent session that has this exercise ('' when
+// that session had none — so clearing a note stops it carrying forward), or
+// null when the client has never logged it.
+export function findPreviousExerciseNotesIn(sessions, clientName, exName) {
+  const name = (exName || '').toLowerCase();
+  for (const session of clientSessionsNewestFirst(sessions, clientName)) {
+    const exercise = (session.exercises || []).find(e => (e.name || '').toLowerCase() === name);
+    if (exercise) return exercise.notes || '';
+  }
+  return null;
+}
+
 // A plan's kg/BW box starts from PREV (see withPrevValues in
 // WorkoutTracker). Cardio and plain timed sets have no weight and are
 // returned unchanged, as are sets the client has never logged. Flags

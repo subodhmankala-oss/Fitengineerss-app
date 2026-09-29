@@ -30,7 +30,7 @@ import SetValueField from './SetValueField';
 import SetValueStepper from './SetValueStepper';
 import ExerciseRpeNotes from './ExerciseRpeNotes';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, findPreviousExerciseNotesIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -647,17 +647,12 @@ const WorkoutTracker = () => {
   // in liveWorkoutTimer.js for why this needs to be a timestamp, not a
   // decremented counter).
   const [restEndAt, setRestEndAt] = useState(restoredRestEndAt);
-  // Guards the "rest hit 0 naturally" alarm/blink so it only ever fires once
+  // Guards the "rest hit 0 naturally" alarm so it only ever fires once
   // per rest (a visibilitychange tick and the next setInterval tick can both
   // observe remaining<=0 for the same rest otherwise).
   const restFinishHandledRef = useRef(false);
-  // Rest start/end used to be announced with a toast; now the floating rest
-  // timer card itself blinks instead — bumping this key forces React to
-  // remount the card so its CSS blink animation replays every time (a class
-  // toggle alone wouldn't restart an already-applied animation).
-  const [restPulseKey, setRestPulseKey] = useState(0);
   // True for a short window right after the countdown hits 0 — swaps the
-  // card to a "Rest over" blink instead of vanishing instantly.
+  // card to "Rest over" instead of vanishing instantly.
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [summaryStats, setSummaryStats] = useState(null);
   // Post-save share card (client self-logged sessions only — see
@@ -1276,11 +1271,9 @@ const WorkoutTracker = () => {
       setRestSecondsRemaining(remaining);
       if (remaining <= 0 && !restFinishHandledRef.current) {
         restFinishHandledRef.current = true;
-        // Swap to the "Rest over" blink instead of a toast, then let the
-        // card linger just long enough to actually be seen blinking before
-        // it clears itself.
+        // Swap to "Rest over" instead of a toast, then let the card linger
+        // just long enough to be seen before it clears itself.
         setRestJustFinished(true);
-        setRestPulseKey(k => k + 1);
         playAlarmBeeps(1);
         setTimeout(() => {
           setRestTimerActive(false);
@@ -1396,6 +1389,13 @@ const WorkoutTracker = () => {
   // buildProgressiveOverloadHint's own comment for the progression rule.
   const getExerciseProgressionHint = (exName) =>
     buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(sessions, selectedClient, exName));
+
+  // An exercise's note carries forward from its last session until it's
+  // touched this session (ex.notes set, even to ''). Resolved at render/save
+  // rather than copied in when the exercise is created, so it also fills in
+  // once a history that loaded late arrives.
+  const getExerciseNotes = (ex) =>
+    ex.notes ?? findPreviousExerciseNotesIn(sessions, selectedClient, ex.name) ?? '';
 
   // Shared by every action that represents "the client has started doing
   // real work" — ticking a set complete, but also now pressing Play on a
@@ -1526,7 +1526,6 @@ const WorkoutTracker = () => {
     setRestSecondsRemaining(60);
     setRestTimerActive(true);
     setRestJustFinished(false);
-    setRestPulseKey(k => k + 1);
   };
 
   const saveSessionsToLocal = (newSessions) => {
@@ -2389,10 +2388,11 @@ const WorkoutTracker = () => {
     const formattedExercises = activeExercises
       .map(ex => {
         const exIsCardio = isCardioExercise(ex.name);
+        const notes = isWarmupExercise(ex.name) ? '' : getExerciseNotes(ex).trim();
         return {
           name: ex.name,
           ...(ex.rpe ? { rpe: Number(ex.rpe) } : {}),
-          ...(ex.notes?.trim() ? { notes: ex.notes.trim() } : {}),
+          ...(notes ? { notes } : {}),
           sets: ex.sets
             .filter(s => s.isCompleted)
             .map(s => ({
@@ -3849,16 +3849,15 @@ const WorkoutTracker = () => {
                                         : {}),
                                       isCompleted: true,
                                       completedAt: s.completedAt || now,
+                                      // Completed = confirmed, same as the per-set ✓.
+                                      weightFromPrev: false,
+                                      repsFromPrev: false,
                                     };
                                   }) }
                                 : e
                               ));
                             }}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              color: ex.sets.every(s => s.isCompleted) ? 'var(--accent-text)' : 'rgba(148,163,184,0.5)',
-                              fontSize: '0.85rem', padding: '2px 4px', lineHeight: 1
-                            }}
+                            className={`btn-check-all ${ex.sets.every(s => s.isCompleted) ? 'is-all-done' : ''}`}
                           >✓ all</button>
                         </span>
                       </div>
@@ -4267,7 +4266,8 @@ const WorkoutTracker = () => {
                     {!exIsWarmup && (
                       <ExerciseRpeNotes
                         rpe={ex.rpe}
-                        notes={ex.notes}
+                        notes={getExerciseNotes(ex)}
+                        notesFromLast={ex.notes == null}
                         onChange={(field, value) => handleExerciseMetaChange(exIdx, field, value)}
                       />
                     )}
@@ -4568,11 +4568,8 @@ const WorkoutTracker = () => {
         <WorkoutShareCard session={shareCardData} onClose={() => setShareCardData(null)} />
       )}
 
-      {/* Floating Hevy Rest Timer Overlay. Both the rest-started moment and the
-          rest-finished moment used to interrupt with a toast; now the card
-          itself blinks (key={restPulseKey} forces a remount so the CSS blink
-          animation replays every time, since re-applying the same class
-          wouldn't restart an animation already in progress).
+      {/* Floating Hevy Rest Timer Overlay. No toast and no blink on rest
+          start/finish — the card's own label switches to REST OVER.
 
           Portaled to .app-container (not rendered in place) so it's a
           sibling of .main-content instead of a descendant — sitting inside
@@ -4584,10 +4581,7 @@ const WorkoutTracker = () => {
           screen regardless of scroll position, matching Hevy's own
           behavior. */}
       {restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
-        <div
-          key={restPulseKey}
-          className={`rest-timer-floating-card ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
-        >
+        <div className="rest-timer-floating-card">
           <div className="rest-timer-header-row">
             <span className="rest-icon">{restJustFinished ? '✅' : '⏱️'}</span>
             <span className="rest-timer-label">{restJustFinished ? 'REST OVER' : 'REST TIMER'}</span>

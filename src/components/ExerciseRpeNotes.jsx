@@ -7,7 +7,9 @@ const RPE_OPTIONS = [6, 7, 8, 9, 10];
 // rows; the toggle label shows what's filled in so a collapsed panel with
 // content isn't mistaken for an empty one. Open/closed is local UI state —
 // it follows the exercise row because each row is keyed by its item key.
-export default function ExerciseRpeNotes({ rpe, notes, onChange }) {
+// notesFromLast = `notes` is last session's note carried forward, not yet
+// touched this session — shown muted, like the kg/reps PREV pre-fill.
+export default function ExerciseRpeNotes({ rpe, notes, notesFromLast = false, onChange }) {
   const [open, setOpen] = useState(false);
   const summary = [rpe ? `RPE ${rpe}` : null, notes?.trim() ? 'Note' : null].filter(Boolean).join(' · ');
 
@@ -39,7 +41,7 @@ export default function ExerciseRpeNotes({ rpe, notes, onChange }) {
             ))}
           </div>
           <textarea
-            className="ex-notes-input"
+            className={`ex-notes-input ${notesFromLast && notes ? 'ex-notes-input--from-last' : ''}`}
             rows={2}
             maxLength={500}
             placeholder="Notes (form cues, how it felt, pain…)"

@@ -35,7 +35,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, findPreviousExerciseNotesIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import SetValueStepper from './SetValueStepper';
@@ -1478,7 +1478,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // in WorkoutTracker.jsx / computeRestSecondsRemaining's comment for why.
   const [restEndAt, setRestEndAt] = useState(null);
   const restFinishHandledRef = useRef(false);
-  const [restPulseKey, setRestPulseKey] = useState(0);
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [showDiscardLiveModal, setShowDiscardLiveModal] = useState(false);
   // Which draft (from the client directory's "Live Log in progress" list) is
@@ -1530,7 +1529,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       if (remaining <= 0 && !restFinishHandledRef.current) {
         restFinishHandledRef.current = true;
         setRestJustFinished(true);
-        setRestPulseKey(k => k + 1);
         playAlarmBeeps(1);
         setTimeout(() => {
           setRestTimerActive(false);
@@ -2333,6 +2331,62 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // whichever exercise card the coach just logged. Same 60s default and
   // state shape the old auto-start used, including liveRestClientIdRef so
   // it still ties the running rest to the client it belongs to.
+  // "✓ all" in an exercise's header — same as the client logger's: freezes
+  // any running cardio/timed stopwatch at its real elapsed time, logs the
+  // plan's target for timed sets never run or typed, and completes every set.
+  const handleLiveCompleteAllSets = (exIdx) => {
+    const ex = liveExercises[exIdx];
+    if (!ex) return;
+    unlockAudio();
+    startLiveSessionClockIfIdle();
+    saveLiveDraftNowRef.current = true;
+    if (activeLiveSetKey && !activeLiveSetKey.startsWith('ped-') && new RegExp(`-${exIdx}-\\d+$`).test(activeLiveSetKey)) closeLiveSetField();
+    const now = Date.now();
+    const exIsCardio = isCardioExercise(ex.name);
+    const runningKeysToClear = [];
+    ex.sets.forEach((set, setIdx) => {
+      const key = getSetTimerKey(exIdx, setIdx);
+      const timer = liveSetTimers[key];
+      if (!timer?.isRunning) return;
+      const elapsed = getLiveSetElapsedSeconds(exIdx, setIdx);
+      handleLiveSetChange(exIdx, setIdx, 'time', formatSecondsToTimeString(elapsed));
+      handleLiveSetChange(exIdx, setIdx, 'timeIsLive', true);
+      if (exIsCardio && timer.autoKm) {
+        handleLiveSetChange(exIdx, setIdx, 'distanceKm', String(estimateCardioDistanceKm(ex.name, elapsed)));
+      }
+      runningKeysToClear.push(key);
+    });
+    if (runningKeysToClear.length > 0) {
+      setLiveSetTimers(prev => {
+        const updated = { ...prev };
+        runningKeysToClear.forEach(k => delete updated[k]);
+        return updated;
+      });
+    }
+    const fillTarget = exIsCardio || isTimedExercise(ex.name);
+    setLiveExercises(prev => prev.map((e, i) => i !== exIdx ? e : {
+      ...e,
+      sets: e.sets.map((s, setIdx) => {
+        if (s.isCompleted) return s;
+        const { prevPending: _prevPending, ...set } = s;
+        const targetSeconds = fillTarget && !set.time && !runningKeysToClear.includes(getSetTimerKey(exIdx, setIdx))
+          ? parseTimeStringToSeconds(set.targetTime)
+          : null;
+        return {
+          ...set,
+          ...(targetSeconds ? { time: formatSecondsToTimeString(targetSeconds) } : {}),
+          ...(targetSeconds && exIsCardio && !set.distanceKm
+            ? { distanceKm: String(estimateCardioDistanceKm(ex.name, targetSeconds)) }
+            : {}),
+          isCompleted: true,
+          completedAt: now,
+          weightFromPrev: false,
+          repsFromPrev: false
+        };
+      })
+    }));
+  };
+
   const handleLiveExerciseMetaChange = (exIdx, field, value) => {
     setLiveExercises(prev => prev.map((ex, i) => (i === exIdx ? { ...ex, [field]: value } : ex)));
   };
@@ -2345,7 +2399,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setRestSecondsRemaining(60);
     setRestTimerActive(true);
     setRestJustFinished(false);
-    setRestPulseKey(k => k + 1);
   };
 
   const handleLiveRemoveExercise = (exIdx) => {
@@ -2482,10 +2535,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
       const formattedExercises = liveExercises.map(ex => {
         const exIsCardio = isCardioExercise(ex.name);
+        const notes = isWarmupExercise(ex.name) ? '' : getLiveExerciseNotes(ex).trim();
         return {
           name: ex.name,
           ...(ex.rpe ? { rpe: Number(ex.rpe) } : {}),
-          ...(ex.notes?.trim() ? { notes: ex.notes.trim() } : {}),
+          ...(notes ? { notes } : {}),
           sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
@@ -3619,6 +3673,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // scoped to the selected client (see findPreviousLoggedSet above).
   const getExerciseProgressionHint = (exName) =>
     buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(workoutLogs, null, exName));
+
+  // Last session's note for this exercise until it's touched this session —
+  // same rule as the client logger's getExerciseNotes.
+  const getLiveExerciseNotes = (ex) =>
+    ex.notes ?? findPreviousExerciseNotesIn(workoutLogs, null, ex.name) ?? '';
 
   const fetchClientChat = async (clientId) => {
     try {
@@ -8880,7 +8939,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 <span className="col-reps">REPS</span>
                               </>
                             )}
-                            <span className="col-check">DONE</span>
+                            <span className="col-check">
+                              <button
+                                type="button"
+                                title="Mark all sets done"
+                                className={`btn-check-all ${ex.sets.every(s => s.isCompleted) ? 'is-all-done' : ''}`}
+                                onClick={() => handleLiveCompleteAllSets(exIdx)}
+                              >✓ all</button>
+                            </span>
                           </div>
                           <div className="hevy-table-body">
                             {ex.sets.map((set, setIdx) => {
@@ -9232,7 +9298,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         {!exIsWarmup && (
                           <ExerciseRpeNotes
                             rpe={ex.rpe}
-                            notes={ex.notes}
+                            notes={getLiveExerciseNotes(ex)}
+                            notesFromLast={ex.notes == null}
                             onChange={(field, value) => handleLiveExerciseMetaChange(exIdx, field, value)}
                           />
                         )}
@@ -9309,10 +9376,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       internal scroll instead of staying pinned to the
                       screen. */}
                   {!isLiveReordering && restTimerActive && (restSecondsRemaining > 0 || restJustFinished) && createPortal(
-                    <div
-                      key={restPulseKey}
-                      className={`rest-timer-floating-card rest-timer-floating-card--coach ${restJustFinished ? 'rest-timer-pulse-finish' : 'rest-timer-pulse-start'}`}
-                    >
+                    <div className="rest-timer-floating-card rest-timer-floating-card--coach">
                       <div className="rest-timer-header-row">
                         <span className="rest-icon">{restJustFinished ? '✅' : '⏱️'}</span>
                         <span className="rest-timer-label">{restJustFinished ? 'REST OVER' : 'REST TIMER'}</span>

@@ -5087,10 +5087,10 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-enter { animation: none; }
 }
 
-/* Delete Set: row collapses and fades out before it's removed */
+/* Delete Set: row slides up, collapses and fades out before it's removed */
 @keyframes set-row-slide-out {
-  from { max-height: 96px; opacity: 1; transform: translateX(0); }
-  to { max-height: 0; opacity: 0; transform: translateX(28px); padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
+  from { max-height: 96px; opacity: 1; transform: translateY(0); }
+  to { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
 }
 .hevy-set-row.set-row-exit {
   overflow: hidden;

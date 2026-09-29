@@ -8054,8 +8054,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                   </div>
                                   <ExerciseCardMenu
                                     name={ex.name}
-                                    canMoveUp={exIdx > 0}
-                                    canMoveDown={exIdx < editorExercises.length - 1}
+                                    onReorderPointerDown={startEditorExerciseDrag(exIdx)}
                                     onMoveUp={() => moveEditorExerciseByKeyboard(exIdx, -1)}
                                     onMoveDown={() => moveEditorExerciseByKeyboard(exIdx, 1)}
                                     onRemove={() => handleRemoveExerciseFromEditor(exIdx)}
@@ -8844,8 +8843,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                           <ExerciseCardMenu
                             name={ex.name}
-                            canMoveUp={exIdx > 0}
-                            canMoveDown={exIdx < liveExercises.length - 1}
+                            onReorderPointerDown={startLiveExerciseDrag(exIdx)}
                             onMoveUp={() => moveLiveExerciseByKeyboard(exIdx, -1)}
                             onMoveDown={() => moveLiveExerciseByKeyboard(exIdx, 1)}
                             onRemove={() => handleLiveRemoveExercise(exIdx)}

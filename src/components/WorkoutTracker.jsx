@@ -3652,8 +3652,7 @@ const WorkoutTracker = () => {
                       </div>
                       <ExerciseCardMenu
                         name={ex.name}
-                        canMoveUp={exIdx > 0}
-                        canMoveDown={exIdx < logExercises.length - 1}
+                        onReorderPointerDown={startLogExerciseDrag(exIdx)}
                         onMoveUp={() => moveLogExerciseByKeyboard(exIdx, -1)}
                         onMoveDown={() => moveLogExerciseByKeyboard(exIdx, 1)}
                         onRemove={() => {

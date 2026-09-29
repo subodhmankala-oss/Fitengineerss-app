@@ -1,17 +1,12 @@
 -- ==========================================
 -- WORKOUT LOGS RPE + EXERCISE NOTES
--- Paste this script into the Supabase SQL Editor.
+-- Applied to production on 2026-09-29.
 --
--- The live logger (client WorkoutTracker + coach Live Log) now has a
--- collapsed-by-default "RPE & Notes" panel per exercise. Same pattern as
--- avg_heart_rate_bpm in supabase_workout_logs_heart_rate.sql: workout_logs is
--- a per-set table with no exercise-level row, so the exercise's RPE and
--- notes are written onto every set row of that exercise and read back from
--- any one of them. NULL = not filled in.
---
--- Until this runs, saves still succeed — databaseService/save-workout-session
--- drop any column PostgREST reports as missing and retry — the RPE/notes are
--- just not stored.
+-- Added for a per-exercise "RPE & Notes" panel in the live loggers that was
+-- removed again before shipping. Nothing reads or writes these columns now;
+-- they are nullable and empty. Kept here only so the repo matches the
+-- production schema. To drop them:
+--   ALTER TABLE public.workout_logs DROP COLUMN IF EXISTS rpe, DROP COLUMN IF EXISTS exercise_notes;
 -- ==========================================
 
 ALTER TABLE public.workout_logs

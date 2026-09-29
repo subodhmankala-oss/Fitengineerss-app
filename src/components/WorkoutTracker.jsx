@@ -27,9 +27,8 @@ import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
-import ExerciseRpeNotes from './ExerciseRpeNotes';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, findPreviousExerciseNotesIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -881,7 +880,7 @@ const WorkoutTracker = () => {
         const byDate = {};
         rows.forEach(l => {
           const d = l.log_date;
-          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {}, exMeta: {} };
+          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {} };
           // Session duration/calories/heart-rate are duplicated onto every
           // row of the session (workout_logs has no session-level row) —
           // take the first non-null value seen for this date so the history
@@ -892,10 +891,6 @@ const WorkoutTracker = () => {
           if (l.max_heart_rate_bpm != null && byDate[d].maxHeartRate == null) byDate[d].maxHeartRate = l.max_heart_rate_bpm;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
-          // RPE/notes are per exercise, duplicated onto each of its rows.
-          if (!byDate[d].exMeta[ex]) byDate[d].exMeta[ex] = {};
-          if (l.rpe != null && byDate[d].exMeta[ex].rpe == null) byDate[d].exMeta[ex].rpe = Number(l.rpe);
-          if (l.exercise_notes && !byDate[d].exMeta[ex].notes) byDate[d].exMeta[ex].notes = l.exercise_notes;
           // distance_km present = real cardio; cardio_duration_seconds present
           // without distance_km = a timed hold (plank etc.) reusing that column
           // (see databaseService.saveWorkoutSession) — else a normal reps/weight set.
@@ -915,7 +910,7 @@ const WorkoutTracker = () => {
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
           durationSeconds: s.durationSeconds, caloriesBurned: s.caloriesBurned,
           avgHeartRate: s.avgHeartRate, maxHeartRate: s.maxHeartRate,
-          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, ...s.exMeta[name], sets }))
+          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
         }));
         // DB is authoritative per date; keep any local-only (unsynced) dates too.
         const localOnly = allSessions.filter(s => !dbDates.has(s.date));
@@ -1389,13 +1384,6 @@ const WorkoutTracker = () => {
   const getExerciseProgressionHint = (exName) =>
     buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(sessions, selectedClient, exName));
 
-  // An exercise's note carries forward from its last session until it's
-  // touched this session (ex.notes set, even to ''). Resolved at render/save
-  // rather than copied in when the exercise is created, so it also fills in
-  // once a history that loaded late arrives.
-  const getExerciseNotes = (ex) =>
-    ex.notes ?? findPreviousExerciseNotesIn(sessions, selectedClient, ex.name) ?? '';
-
   // Shared by every action that represents "the client has started doing
   // real work" — ticking a set complete, but also now pressing Play on a
   // cardio/timed exercise's stopwatch (see handleCardioStopwatchStart /
@@ -1514,10 +1502,6 @@ const WorkoutTracker = () => {
   // (see handleToggleSetCompleted above). This is the one path that (re)arms
   // it, from the "⏱️ Start Rest" link on whichever exercise card the client
   // just worked. Same 60s default and state shape the old auto-start used.
-  const handleExerciseMetaChange = (exIdx, field, value) => {
-    setLogExercises(prev => prev.map((ex, i) => (i === exIdx ? { ...ex, [field]: value } : ex)));
-  };
-
   const handleStartRestTimer = () => {
     unlockAudio();
     restFinishHandledRef.current = false;
@@ -2387,11 +2371,8 @@ const WorkoutTracker = () => {
     const formattedExercises = activeExercises
       .map(ex => {
         const exIsCardio = isCardioExercise(ex.name);
-        const notes = isWarmupExercise(ex.name) ? '' : getExerciseNotes(ex).trim();
         return {
           name: ex.name,
-          ...(ex.rpe ? { rpe: Number(ex.rpe) } : {}),
-          ...(notes ? { notes } : {}),
           sets: ex.sets
             .filter(s => s.isCompleted)
             .map(s => ({
@@ -4255,15 +4236,6 @@ const WorkoutTracker = () => {
                         ⏱️ Start Rest
                       </button>
                     </div>
-
-                    {!exIsWarmup && (
-                      <ExerciseRpeNotes
-                        rpe={ex.rpe}
-                        notes={getExerciseNotes(ex)}
-                        notesFromLast={ex.notes == null}
-                        onChange={(field, value) => handleExerciseMetaChange(exIdx, field, value)}
-                      />
-                    )}
                   </div>
                   </div>
                   <div className="ex-reorder-compact">

@@ -139,25 +139,6 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     expect(saved.exercises[0].sets.every(s => s.isCompleted)).toBe(true);
   });
 
-  it("pre-fills an exercise's note from the client's last session with it", async () => {
-    databaseService.getWorkoutLogsForUser.mockResolvedValue([
-      { log_date: '2026-09-01', exercise_name: 'Shoulders Press', set_number: 1, reps: 10, weight_kg: 20, exercise_notes: 'Seat at 4' }
-    ]);
-    renderLiveLog();
-    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
-
-    // Collapsed by default, but the summary shows a note is there.
-    expect(await screen.findByText('Note', {}, SLOW)).toBeTruthy();
-    fireEvent.click(screen.getAllByText('RPE & Notes', { exact: false })[0].closest('button'));
-    const notes = screen.getByPlaceholderText(/Notes/);
-    expect(notes.value).toBe('Seat at 4');
-    expect(hasClass(notes, 'ex-notes-input--from-last')).toBe(true);
-
-    fireEvent.change(notes, { target: { value: 'Seat at 5' } });
-    expect(screen.getByPlaceholderText(/Notes/).value).toBe('Seat at 5');
-    expect(hasClass(screen.getByPlaceholderText(/Notes/), 'ex-notes-input--from-last')).toBe(false);
-  });
-
   it('picks a running rest back up when the resumed Live Log is reopened after a reload', async () => {
     localStorage.setItem('coachLiveRestEndAt', JSON.stringify({ clientId: CLIENT.id, endAt: Date.now() + 45000 }));
     databaseService.getWorkoutDraft.mockResolvedValue({

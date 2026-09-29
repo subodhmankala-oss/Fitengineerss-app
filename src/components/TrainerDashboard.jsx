@@ -26,7 +26,6 @@ import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
-import ExerciseRpeNotes from './ExerciseRpeNotes';
 import { checkForPendingPWAUpdate, applyPWAUpdate } from '../pwa/registerPWA';
 import { playAlarmBeeps, unlockAudio } from '../utils/alarmSound';
 import ExerciseGuideModal from './ExerciseGuideModal';
@@ -35,7 +34,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, findPreviousExerciseNotesIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -2386,10 +2385,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     }));
   };
 
-  const handleLiveExerciseMetaChange = (exIdx, field, value) => {
-    setLiveExercises(prev => prev.map((ex, i) => (i === exIdx ? { ...ex, [field]: value } : ex)));
-  };
-
   const handleStartLiveRestTimer = () => {
     unlockAudio();
     restFinishHandledRef.current = false;
@@ -2534,11 +2529,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
       const formattedExercises = liveExercises.map(ex => {
         const exIsCardio = isCardioExercise(ex.name);
-        const notes = isWarmupExercise(ex.name) ? '' : getLiveExerciseNotes(ex).trim();
         return {
           name: ex.name,
-          ...(ex.rpe ? { rpe: Number(ex.rpe) } : {}),
-          ...(notes ? { notes } : {}),
           sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
@@ -3501,7 +3493,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // can compare against when the session actually landed rather than just
     // its calendar day (see sessionNeedsResponse).
     const createdAtByDate = {};
-    const exMetaByKey = {};
 
     logs.forEach(log => {
       const date = log.log_date;
@@ -3528,11 +3519,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       if (!datesMap[date][exercise]) {
         datesMap[date][exercise] = [];
       }
-      // RPE/notes are per exercise, duplicated onto each of its rows.
-      const metaKey = `${date}|${exercise}`;
-      if (!exMetaByKey[metaKey]) exMetaByKey[metaKey] = {};
-      if (log.rpe != null && exMetaByKey[metaKey].rpe == null) exMetaByKey[metaKey].rpe = Number(log.rpe);
-      if (log.exercise_notes && !exMetaByKey[metaKey].notes) exMetaByKey[metaKey].notes = log.exercise_notes;
 
       datesMap[date][exercise].push({
         setNumber: log.set_number,
@@ -3559,7 +3545,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           const sortedSets = datesMap[dateStr][exName].sort((a, b) => a.setNumber - b.setNumber);
           return {
             name: exName,
-            ...exMetaByKey[`${dateStr}|${exName}`],
             sets: sortedSets
           };
         });
@@ -3672,11 +3657,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // scoped to the selected client (see findPreviousLoggedSet above).
   const getExerciseProgressionHint = (exName) =>
     buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(workoutLogs, null, exName));
-
-  // Last session's note for this exercise until it's touched this session —
-  // same rule as the client logger's getExerciseNotes.
-  const getLiveExerciseNotes = (ex) =>
-    ex.notes ?? findPreviousExerciseNotesIn(workoutLogs, null, ex.name) ?? '';
 
   const fetchClientChat = async (clientId) => {
     try {
@@ -9287,15 +9267,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             title="Start a 60s rest timer"
                           >⏱️ Start Rest</button>
                         </div>
-
-                        {!exIsWarmup && (
-                          <ExerciseRpeNotes
-                            rpe={ex.rpe}
-                            notes={getLiveExerciseNotes(ex)}
-                            notesFromLast={ex.notes == null}
-                            onChange={(field, value) => handleLiveExerciseMetaChange(exIdx, field, value)}
-                          />
-                        )}
                       </div>
                       </div>
                       <div className="ex-reorder-compact">

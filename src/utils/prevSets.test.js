@@ -8,34 +8,8 @@ import {
   applyPrevRepsAndWeight,
   fillPendingPrevSets,
   setsFromPreviousExercise,
-  buildProgressiveOverloadHint,
-  findPreviousExerciseNotesIn
+  buildProgressiveOverloadHint
 } from './prevSets';
-
-describe('findPreviousExerciseNotesIn', () => {
-  const history = [
-    { clientName: 'Asha', date: '2026-09-01', exercises: [{ name: 'Squat', notes: 'old cue', sets: [{ reps: 5, weight: 60 }] }] },
-    { clientName: 'Asha', date: '2026-09-10', exercises: [{ name: 'Squat', notes: 'Belt on, depth to box', sets: [{ reps: 5, weight: 70 }] }] },
-    { clientName: 'Asha', date: '2026-09-12', exercises: [{ name: 'Bench Press', sets: [{ reps: 8, weight: 40 }] }] },
-    { clientName: 'Ravi', date: '2026-09-15', exercises: [{ name: 'Squat', notes: 'not Asha', sets: [{ reps: 5, weight: 90 }] }] }
-  ];
-
-  it('returns the note from the most recent session with the exercise, for that client', () => {
-    expect(findPreviousExerciseNotesIn(history, 'asha', 'squat')).toBe('Belt on, depth to box');
-  });
-
-  it("returns '' when the latest session had no note, so a cleared note doesn't come back", () => {
-    expect(findPreviousExerciseNotesIn(history, 'Asha', 'Bench Press')).toBe('');
-  });
-
-  it('returns null for an exercise never logged', () => {
-    expect(findPreviousExerciseNotesIn(history, 'Asha', 'Deadlift')).toBeNull();
-  });
-
-  it('treats a null clientName as already one client\'s history', () => {
-    expect(findPreviousExerciseNotesIn(history, null, 'Squat')).toBe('not Asha');
-  });
-});
 
 describe('buildProgressiveOverloadHint', () => {
   it('suggests +2.5 on the heaviest working set, ignoring warmups', () => {

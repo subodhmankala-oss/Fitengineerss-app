@@ -29,6 +29,7 @@ import { useSetNumberPad } from '../utils/setInputUtils';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
+import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -4225,7 +4226,7 @@ const WorkoutTracker = () => {
                       <button
                         type="button"
                         className="btn-add-set-link"
-                        onClick={() => handleAddSet(exIdx)}
+                        onClick={(e) => { handleAddSet(exIdx); animateNewSetRow(e.currentTarget); }}
                       >
                         ➕ Add Set
                       </button>

@@ -2295,6 +2295,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     });
   };
 
+  // Loading the client's plan into the Live Log is the workout starting, so
+  // the clock starts then — not at the first ticked set. Waiting for the
+  // first tick left out everything before it: on 2026-09-29 a Live Log
+  // opened at 07:22 IST only started counting at the 07:35 first tick, and a
+  // session ticked at the end saved almost no duration (one: 18 sets in 7 s).
+  // Already running (a second plan loaded mid-session) or paused: left
+  // alone. A session built by hand still starts on the first tick/Play
+  // (startLiveSessionClockIfIdle).
+  const startLiveWorkoutClock = () => {
+    if (liveTimerStatus !== 'idle') return;
+    setLiveTimerStartedAt(Date.now());
+    setLivePauseIntervals([]);
+    setLiveTimerStatus('running');
+  };
+
   const handleLiveToggleSet = (exIdx, setIdx) => {
     // Real click, right here — unlocks audio for the rest timer's alarm,
     // which fires later from a setInterval tick (see alarmSound.js).
@@ -8785,6 +8800,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 // set that was never started in this plan — reported as
                                 // "not loading fresh". Clear it on every fresh plan load.
                                 setLiveSetTimers({});
+                                // Loading the plan is the workout starting, so the clock
+                                // starts now (unless it's already running) — see
+                                // startLiveWorkoutClock.
+                                startLiveWorkoutClock();
                                 triggerLiveToast(`📋 Loaded exercises from "${plan.planName}"!`);
                               }
                               e.target.value = '';

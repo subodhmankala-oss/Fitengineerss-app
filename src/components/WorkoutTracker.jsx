@@ -676,6 +676,12 @@ const WorkoutTracker = () => {
     return restoreSavedSetTimers(readSavedSetTimers(setTimersKey), savedWorkoutDraft.workoutTimerStartedAt, savedWorkoutDraft.logExercises);
   };
   const [setTimers, setSetTimers] = useState(loadRestoredSetTimers);
+  // Whether this session's "workout started" notification has gone to the
+  // coach (see startSessionClockIfIdle). A restored session that already
+  // has a ticked set or a started stopwatch has had it.
+  const workStartNotifiedRef = useRef(
+    !!savedWorkoutDraft?.logExercises?.some(ex => ex.sets?.some(s => s.isCompleted)) || Object.keys(setTimers).length > 0
+  );
   const [exercisesList, setExercisesList] = useState([]);
 
   useEffect(() => {
@@ -1014,6 +1020,21 @@ const WorkoutTracker = () => {
     setWorkoutPauseIntervals([]);
   };
 
+  // A new workout's clock starts the moment the client starts it — a coach
+  // plan, a template or the Home banner's pick, or an empty session — not at
+  // the first ticked set. Waiting for the first tick left out everything
+  // before it (warm-up, an exercise done before ticking anything), and a
+  // session ticked at the end saved almost no duration: 26 of 147 September
+  // sessions saved under 30 s per set (one client session: 22 sets, 77 s).
+  // A clock that isn't running for any other reason still starts on the
+  // first tick (startSessionClockIfIdle).
+  const startWorkoutClock = () => {
+    workStartNotifiedRef.current = false;
+    setWorkoutTimerStartedAt(Date.now());
+    setWorkoutPauseIntervals([]);
+    setWorkoutTimerStatus('running');
+  };
+
   // Wipe the in-progress session and go back to the log picker. Shared by the
   // "empty sets" warning modal and the always-available discard button next
   // to Save — both need the exact same reset (timer, draft row, exercise
@@ -1081,6 +1102,7 @@ const WorkoutTracker = () => {
           const restoredExercises = dbDraft.exercises && dbDraft.exercises.length > 0 ? dbDraft.exercises : savedWorkoutDraft?.logExercises;
           const sameSession = Number(dbDraft.timerStartedAt) === Number(savedWorkoutDraft?.workoutTimerStartedAt);
           setSetTimers(prev => (draftIsStale || !sameSession ? {} : keepSetTimersForSameExercises(prev, savedWorkoutDraft?.logExercises, restoredExercises)));
+          if ((dbDraft.exercises || []).some(ex => ex.sets?.some(s => s.isCompleted))) workStartNotifiedRef.current = true;
           setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
@@ -1423,11 +1445,17 @@ const WorkoutTracker = () => {
   const startSessionClockIfIdle = () => {
     const now = Date.now();
     const clientId = ownUserId || localStorage.getItem('userId');
-    if (workoutTimerStatus === 'idle' && clientId && workoutSource !== 'coach') {
-      // Same workoutName field the "completed" notification already sends
-      // (see handleConfirmSaveWorkout below) — the server just wasn't using
-      // it for either event until now (see api/push.js).
-      notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
+    // The coach hears about it on the first real work, not the moment a
+    // plan is opened (the clock now starts then — see startWorkoutClock), so
+    // opening a plan just to look at it and discarding it doesn't ping them.
+    if (!workStartNotifiedRef.current) {
+      workStartNotifiedRef.current = true;
+      if (clientId && workoutSource !== 'coach') {
+        // Same workoutName field the "completed" notification already sends
+        // (see handleConfirmSaveWorkout below) — the server just wasn't using
+        // it for either event until now (see api/push.js).
+        notifyEvent('workout_started', { clientUserId: clientId, workoutName: templateName?.trim() || null });
+      }
     }
     // Ticking a set or pressing Play while the session is PAUSED (not idle)
     // is the same "real work just happened" signal, and needs the same
@@ -2645,7 +2673,7 @@ const WorkoutTracker = () => {
     setLoggingLevel(level);
     setLogClient(loggedInUser);
     setLogDate(getLocalDateString());
-    resetWorkoutTimer();
+    startWorkoutClock();
     setIsLoggingWorkout(true);
     setActiveView('log');
     triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
@@ -2748,7 +2776,7 @@ const WorkoutTracker = () => {
     setWorkoutSource(source);
     setLoggingLevel(null);
     setIsLoggingWorkout(true);
-    resetWorkoutTimer();
+    startWorkoutClock();
   };
 
   // Live calorie readout for the client's own "Log Sets" stopwatch banner —
@@ -3373,7 +3401,7 @@ const WorkoutTracker = () => {
                 setLogClient(loggedInUser);
                 setLogDate(getLocalDateString());
                 setLoggingLevel(null);
-                resetWorkoutTimer();
+                startWorkoutClock();
                 setIsLoggingWorkout(true);
                 setActiveView('log');
               }}
@@ -3422,7 +3450,7 @@ const WorkoutTracker = () => {
                 setTemplateName('');
                 setLoggingLevel(null);
                 setIsLoggingWorkout(true);
-                resetWorkoutTimer();
+                startWorkoutClock();
               }}
             >
               <span className="wt-start-empty-icon">+</span>

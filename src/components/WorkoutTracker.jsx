@@ -32,6 +32,7 @@ import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
+import { animateRemoveSetRow } from '../utils/animateRemoveSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -4265,7 +4266,7 @@ const WorkoutTracker = () => {
                                   <button 
                                     type="button" 
                                     className="btn-hevy-row-delete"
-                                    onClick={() => handleRemoveSet(exIdx, sIdx)}
+                                    onClick={(e) => animateRemoveSetRow(e.currentTarget, () => handleRemoveSet(exIdx, sIdx))}
                                     title="Delete Set"
                                   >
                                     <TrashIcon size={16} />

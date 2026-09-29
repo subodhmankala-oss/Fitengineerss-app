@@ -45,6 +45,7 @@ import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
+import { animateRemoveSetRow } from '../utils/animateRemoveSetRow';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -8397,7 +8398,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                             <button
                                               type="button"
                                               className="btn-hevy-row-delete"
-                                              onClick={() => handleRemoveSetFromExercise(exIdx, setIdx)}
+                                              onClick={(e) => animateRemoveSetRow(e.currentTarget, () => handleRemoveSetFromExercise(exIdx, setIdx))}
                                               title="Delete Set"
                                             >
                                               <TrashIcon size={16} />
@@ -9286,7 +9287,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                     <button
                                       type="button"
                                       className="btn-hevy-row-delete"
-                                      onClick={() => handleLiveRemoveSet(exIdx, setIdx)}
+                                      onClick={(e) => animateRemoveSetRow(e.currentTarget, () => handleLiveRemoveSet(exIdx, setIdx))}
                                       title="Delete Set"
                                     >
                                       <TrashIcon size={16} />

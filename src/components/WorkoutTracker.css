@@ -5081,6 +5081,13 @@ html.keyboard-open .rest-timer-floating-card {
 }
 .hevy-set-row.set-row-enter {
   overflow: hidden;
+  /* .hevy-set-row's own `transition: all 0.25s` (for hover/state-color
+     changes) would otherwise fight this keyframe animation for the exact
+     same properties (max-height, opacity, transform, padding, border) —
+     a transition and an animation on the same element and property can
+     both try to drive it, and which one visibly wins is inconsistent
+     across engines. Cancelling the transition here removes that race. */
+  transition: none;
   animation: set-row-slide-in 0.55s cubic-bezier(0.33, 0.9, 0.4, 1);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -5099,6 +5106,16 @@ html.keyboard-open .rest-timer-floating-card {
 .hevy-set-row.set-row-exit {
   overflow: hidden;
   pointer-events: none;
+  /* Same reasoning as set-row-enter above — cancel the base class's
+     `transition: all` so it can't race this keyframe animation for the
+     same properties. Reported as a small jerk right at the end of the
+     collapse (2026-09-29): the row would sit fully visible for most of
+     the animation's declared duration with no visible height change, then
+     snap to gone in a single frame — consistent with the transition (not
+     the animation) actually driving the "from" state's hold, then the row
+     unmounting outright once the JS-side removal fired, rather than the
+     animation smoothly reaching its own "to" state first. */
+  transition: none;
   animation: set-row-slide-out 0.45s cubic-bezier(0.33, 0.9, 0.4, 1) forwards;
 }
 @media (prefers-reduced-motion: reduce) {

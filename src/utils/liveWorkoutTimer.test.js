@@ -231,7 +231,9 @@ describe('weighted strength: MET by lift type', () => {
   it('prices single-joint lifts at 3.5 MET and multi-joint lifts at 5.0', () => {
     // 15 reps x 3 s = 45 s, 70 kg body + 10 kg load
     const work = (met) => met * 3.5 * 80 / 200 * 0.75;
-    ['Wrist Curl', 'Lateral Raise', 'Cable Shrug', 'Leg Extension', 'Pec Deck Fly', 'Triceps Pushdown', 'Face Pull', 'Standing hip abduction', 'Standing Calf Raise']
+    // Standing Calf Raise is a bodyweight move (#290) — the seated one is the
+    // always-loaded isolation lift.
+    ['Wrist Curl', 'Lateral Raise', 'Cable Shrug', 'Leg Extension', 'Pec Deck Fly', 'Triceps Pushdown', 'Face Pull', 'Standing hip abduction', 'Seated Calf Raise']
       .forEach(name => expect(workOnly(name, { reps: '15', weight: '10' })).toBeCloseTo(work(3.5), 1));
     ['Seated Cable Row', 'Chest Press (Machine)', 'Lat Pull Down', 'Barbell Squat', 'Deadlift', 'Leg Press', 'Clean and Press', 'Shoulder Press (Dumbbell)']
       .forEach(name => expect(workOnly(name, { reps: '15', weight: '10' })).toBeCloseTo(work(5.0), 1));

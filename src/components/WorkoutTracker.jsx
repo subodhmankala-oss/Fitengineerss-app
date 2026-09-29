@@ -32,7 +32,7 @@ import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
-import { animateRemoveSetRow } from '../utils/animateRemoveSetRow';
+import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -450,6 +450,13 @@ const WorkoutTracker = () => {
   // time fields — see utils/setInputUtils.js for why this replaced the
   // native mobile keyboard entirely.
   const { activeKey: activeSetKey, registerField: registerSetField, openField: openSetField, closeField: closeSetField, getActiveField: getActiveSetField } = useSetNumberPad();
+
+  // Drives the delete-set collapse animation through React state, keyed to
+  // the CURRENT exIdx/setIdx every render — see useExitingSetRow's own
+  // comment for why the old direct-DOM-mutation approach (animateRemoveSetRow)
+  // left a permanently invisible "ghost" row behind whenever the deleted set
+  // wasn't the last one in its exercise.
+  const { isExitingSet, beginExit } = useExitingSetRow();
 
   const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
@@ -3982,7 +3989,7 @@ const WorkoutTracker = () => {
                           return (
                             <div
                               key={sIdx}
-                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`}
+                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isExitingSet(exIdx, sIdx) ? 'set-row-exit' : ''}`}
                             >
                               <span className="col-set set-type-menu-wrapper">
                                 <span
@@ -3997,7 +4004,7 @@ const WorkoutTracker = () => {
                                   {setDisplayLabel}
                                 </span>
                                 {setTypeMenu?.exIdx === exIdx && setTypeMenu?.sIdx === sIdx && (
-                                  <SetTypeMenu onSelect={(type, anchor) => (type === 'remove' ? (setSetTypeMenu(null), animateRemoveSetRow(anchor, () => handleChangeSetType(exIdx, sIdx, type))) : handleChangeSetType(exIdx, sIdx, type))} />
+                                  <SetTypeMenu onSelect={(type, anchor) => (type === 'remove' ? (setSetTypeMenu(null), beginExit(exIdx, sIdx, anchor?.closest('.hevy-set-row'), () => handleChangeSetType(exIdx, sIdx, type))) : handleChangeSetType(exIdx, sIdx, type))} />
                                 )}
                               </span>
                               <span className="col-prev set-prev-lbl">{prevStats}</span>
@@ -4266,7 +4273,7 @@ const WorkoutTracker = () => {
                                   <button 
                                     type="button" 
                                     className="btn-hevy-row-delete"
-                                    onClick={(e) => animateRemoveSetRow(e.currentTarget, () => handleRemoveSet(exIdx, sIdx))}
+                                    onClick={(e) => beginExit(exIdx, sIdx, e.currentTarget.closest('.hevy-set-row'), () => handleRemoveSet(exIdx, sIdx))}
                                     title="Delete Set"
                                   >
                                     <TrashIcon size={16} />

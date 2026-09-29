@@ -1459,17 +1459,6 @@ const WorkoutTracker = () => {
       // The set's fields lock once it's done — a number pad left open on
       // one of them would keep editing a completed set out of sight.
       if (activeSetKey && activeSetKey.endsWith(`-${exerciseIndex}-${setIndex}`)) closeSetField();
-      // One tap on ✓ both completes this set and hands focus to the next
-      // one, so a straight-through circuit never needs a second tap to open
-      // the following set's kg box. Only chains within the same rep-based
-      // exercise (cardio/timed sets complete via their own stopwatch flow,
-      // not this handler, and a finished exercise just leaves the pad
-      // closed for the client to pick the next one themselves).
-      const exName = ex?.name;
-      const nextSet = ex?.sets?.[setIndex + 1];
-      if (nextSet && !nextSet.isCompleted && exName && !isCardioExercise(exName) && !isTimedExercise(exName) && !isWarmupExercise(exName)) {
-        openSetField(`w-${exerciseIndex}-${setIndex + 1}`);
-      }
     }
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {

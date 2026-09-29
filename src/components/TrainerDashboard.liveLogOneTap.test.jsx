@@ -158,7 +158,7 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     expect(databaseService.getWorkoutDraft).toHaveBeenCalledWith(CLIENT.id, 'coach');
   });
 
-  it('shows PREV-filled values as ghost until confirmed, and advances focus to the next set on tap', async () => {
+  it('shows PREV-filled values as ghost until confirmed and does not open the keypad on tap', async () => {
     databaseService.getWorkoutDraft.mockResolvedValue(twoSetDraft([
       { reps: 9, weight: '42.5', isCompleted: false, weightFromPrev: true, repsFromPrev: true },
       { reps: 7, weight: '45', isCompleted: false, weightFromPrev: true, repsFromPrev: true }
@@ -174,10 +174,9 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
 
-    // Completing set 1 confirms it (ghost clears) and hands focus to set 2's
-    // kg box, which is still an unconfirmed guess.
+    // Completing set 1 confirms it (ghost clears); the keypad stays closed.
     await waitFor(() => expect(hasClass(screen.getByRole('button', { name: '42.5' }), 'set-value-ghost')).toBe(false));
-    expect(hasClass(screen.getByRole('button', { name: '45' }), 'is-active')).toBe(true);
+    expect(hasClass(screen.getByRole('button', { name: '45' }), 'is-active')).toBe(false);
     expect(hasClass(screen.getByRole('button', { name: '45' }), 'set-value-ghost')).toBe(true);
   });
 

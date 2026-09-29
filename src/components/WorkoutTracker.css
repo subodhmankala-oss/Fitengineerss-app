@@ -5086,3 +5086,17 @@ html.keyboard-open .rest-timer-floating-card {
 @media (prefers-reduced-motion: reduce) {
   .hevy-set-row.set-row-enter { animation: none; }
 }
+
+/* Delete Set: row collapses and fades out before it's removed */
+@keyframes set-row-slide-out {
+  from { max-height: 96px; opacity: 1; transform: translateX(0); }
+  to { max-height: 0; opacity: 0; transform: translateX(28px); padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; }
+}
+.hevy-set-row.set-row-exit {
+  overflow: hidden;
+  pointer-events: none;
+  animation: set-row-slide-out 0.35s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hevy-set-row.set-row-exit { animation: none; }
+}

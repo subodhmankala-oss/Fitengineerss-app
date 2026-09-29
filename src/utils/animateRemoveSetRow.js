@@ -18,5 +18,5 @@ export function animateRemoveSetRow(button, onRemove) {
   row.style.setProperty('--row-h', `${row.offsetHeight}px`);
   row.classList.add('set-row-exit');
   row.addEventListener('animationend', finish, { once: true });
-  setTimeout(finish, 650);
+  setTimeout(finish, 550);
 }

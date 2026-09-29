@@ -60,7 +60,7 @@ const COACH_NAMES = [
   'Seated Cable Row', 'Seated Calf Raise', 'Seated Dumbbell Curl', 'Seated Leg Curl', 'Seated Row (Machine)',
   'Shoulder Press (Barbell)', 'Shoulder Press (Dumbbell)', 'Shoulder Press (Machine)', 'Shrug',
   'Side Lateral Raise', 'Single Leg Deadlift', 'Single Leg Press', 'Skullcrusher',
-  'Smith Machine Squat', 'Split Squat', 'Squat', 'Step-up', 'Steppers', 'Stiff Leg Deadlift', 'Straight Bar Curl',
+  'Smith Machine Squat', 'Split Squat', 'Squat', 'Standing Calf Raise', 'Step-up', 'Steppers', 'Stiff Leg Deadlift', 'Straight Bar Curl',
   'Sumo Deadlift', 'Superman', 'T-Bar Row', 'Triceps Dip', 'Triceps Extension (Cable)', 'Triceps Extension (Dumbbell)',
   'Triceps Kickback', 'Triceps Pushdown', 'Triceps Rope Pushdown', 'Upright Row (Barbell)', 'Upright Row (Cable)',
   'Upright Row (Dumbbell)', 'V Up', 'V-Bar Pulldown', 'Wide Grip Pull-up', 'Wrist Curl', 'Zercher Squat',
@@ -332,6 +332,10 @@ export function isLoadedCarryExercise(name) {
 // genuinely always-loaded variants (the same distinction that keeps
 // 'Barbell Squat'/'Goblet Squat'/etc. excluded from the bare 'squat' match).
 //
+// Standing Calf Raise (added 2026-09-29) is the bodyweight-or-loaded version
+// of Calf Raise, so it joins the same exact-name exception ('Seated Calf Raise'
+// and 'Calf Raise (Machine)' stay always-loaded).
+//
 // Jump Squat (added 2026-09-25) is a plyometric bodyweight move, not a loaded
 // squat variant — it used to be listed with those above, so it asked for a
 // KG number and was priced as weight training (with a per-set rest credit)
@@ -345,7 +349,7 @@ export function isLoadedCarryExercise(name) {
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises'].includes(n)) return true;
+  if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises', 'standing calf raise', 'calf raise (standing)'].includes(n)) return true;
   return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit/.test(n);
 }
 

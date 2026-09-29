@@ -13,7 +13,10 @@ export function animateRemoveSetRow(button, onRemove) {
     done = true;
     onRemove();
   };
+  // Animate from the row's real height so the collapse starts immediately
+  // (a fixed max-height larger than the row makes the first part invisible).
+  row.style.setProperty('--row-h', `${row.offsetHeight}px`);
   row.classList.add('set-row-exit');
   row.addEventListener('animationend', finish, { once: true });
-  setTimeout(finish, 450);
+  setTimeout(finish, 700);
 }

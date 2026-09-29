@@ -17,8 +17,8 @@ export default function ExerciseCardMenu({ name, onReorderPointerDown, onMoveUp,
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-          <line x1="5" y1="9" x2="19" y2="9" /><line x1="5" y1="15" x2="19" y2="15" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+          <line x1="4" y1="8" x2="20" y2="8" /><line x1="4" y1="15" x2="16" y2="15" />
         </svg>
       </button>
       {open && (

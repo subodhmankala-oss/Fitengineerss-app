@@ -2999,15 +2999,18 @@ const WorkoutTracker = () => {
               </div>
             )}
 
-            {/* Skill-level progress bar — coaching-program accounting, only
-                for clients connected to a coach (or a coach viewing a
-                client). Completed/Remaining session counts (still computed
-                above, just no longer shown here) replaced by this bar per
-                request — session accounting still lives on the Home
-                dashboard's own progress card. Best Lift moved below the
-                Strength Progression chart (see further down). */}
-            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
-            <>
+            {/* Skill-level progress bar — based purely on the client's own
+                session history (see skillLevel above), not on any coaching
+                relationship. Previously gated behind hasCoachAssigned
+                because it replaced a coaching-program accounting display
+                (Completed/Remaining session counts, still computed above,
+                just no longer shown here — that accounting still lives on
+                the Home dashboard's own progress card) that WAS legitimately
+                coach-only; this bar inherited that gate by copy-paste even
+                though it has no coach dependency, which hid it completely
+                for self-guided clients. Now shown unconditionally. Best Lift
+                moved below the Strength Progression chart (see further
+                down). */}
             <span className="skill-level-heading">🏆 Training Level</span>
             <div className="sessions-accounting-split">
               <div className="skill-level-bar" title={`${Math.round(skillLevel.score)}/100 — earned from consistency and progressive overload over your whole training history, not just recent activity`}>
@@ -3045,8 +3048,6 @@ const WorkoutTracker = () => {
                 </div>
               </div>
             </div>
-            </>
-            )}
           </div>
 
           {/* SVG Graph block — the exercise picker/Guide/timeframe row now

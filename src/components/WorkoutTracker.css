@@ -4663,8 +4663,8 @@ html.keyboard-open .rest-timer-floating-card {
   transform: scale(0.99);
 }
 
-/* Light tile with bold stacked program words — the visual anchor of each
-   row, echoing print-style program covers. First word takes the level color. */
+/* Muscle heat-map tile — the visual anchor of each row, showing which
+   muscles the program trains (same thumbnail as the coach-plan cards). */
 .wt-program-tile {
   width: 84px;
   min-width: 84px;
@@ -4672,27 +4672,11 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 12px;
   background: #eef1f5;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: 10px;
   overflow: hidden;
 }
-
-.wt-program-tile span {
-  font-size: 0.82rem;
-  font-weight: 900;
-  font-style: italic;
-  text-transform: uppercase;
-  letter-spacing: -0.03em;
-  line-height: 1.12;
-  color: #111827;
-  white-space: nowrap;
-}
-
-.wt-program-tile--beginner .wt-program-tile-accent { color: var(--accent-text); }
-.wt-program-tile--intermediate .wt-program-tile-accent { color: #d97706; }
-.wt-program-tile--advanced .wt-program-tile-accent { color: #dc2626; }
 
 .wt-program-info {
   flex: 1;

@@ -13,7 +13,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl }
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
 import { notifyEvent } from '../utils/pushNotify';
-import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC } from '../utils/muscleGroups';
+import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
@@ -78,24 +78,6 @@ const TrashIcon = ({ size = 14 }) => (
   </svg>
 );
 
-// Bold stacked words for a library card's typographic tile (e.g. "Beginner
-// Full Body A" → ["FULL", "BODY A"]). Strips the level word (the tabs already
-// filter by it) and joiners, merges a trailing single-letter variant ("A"/"B")
-// into the previous line, and caps at 3 lines so the tile never overflows.
-const programTileWords = (name) => {
-  const words = String(name || '')
-    .replace(/\(.*?\)/g, '')
-    .split(/\s+/)
-    .filter(w => w && !/^(beginner|intermediate|advanced|&|and|-|\+)$/i.test(w))
-    .map(w => w.toUpperCase());
-  const lines = [];
-  words.forEach(w => {
-    if (w.length <= 2 && lines.length > 0) lines[lines.length - 1] += ` ${w}`;
-    else lines.push(w);
-  });
-  return lines.slice(0, 3);
-};
-
 // Push/Pull/Legs/Core color coding for the routine-picker cards — same
 // categorization Section 3 of Weekly Muscle Analytics uses (MUSCLE_TO_PPLC),
 // so a "Push Strength" plan's thumbnail/chips read the same warm-red family
@@ -112,10 +94,17 @@ const getPlanCardMeta = (plan) => {
   const exerciseCount = exercises.length;
   const totalSets = exercises.reduce((sum, ex) => sum + (ex.sets?.length || 0), 0);
 
+  // getMuscleGroupsForExercise returns [primary, secondary?] — a compound
+  // press/row/squat names its secondary mover (Triceps/Biceps/Glutes) on
+  // almost every exercise, so counting mentions flat let that rider outscore
+  // the muscle the day is actually built around (a Push day of bench/incline/
+  // overhead press racked up more "Triceps" mentions than "Chest" ones,
+  // because every one of those presses also credits triceps). Weighting the
+  // first-listed muscle double keeps the actual target on top.
   const muscleCounts = {};
   exercises.forEach(ex => {
-    getMuscleGroupsForExercise(ex.name).forEach(m => {
-      muscleCounts[m] = (muscleCounts[m] || 0) + 1;
+    getMuscleGroupsForExercise(ex.name).forEach((m, i) => {
+      muscleCounts[m] = (muscleCounts[m] || 0) + (i === 0 ? 2 : 1);
     });
   });
   const muscles = Object.keys(muscleCounts).sort((a, b) => muscleCounts[b] - muscleCounts[a]);
@@ -127,19 +116,41 @@ const getPlanCardMeta = (plan) => {
   });
   const category = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0] || 'Push';
 
-  // "Full body" gets the whole-body thumbnail instead of MuscleThumbnail's
-  // single-muscle zoomed crop, which otherwise misrepresented a plan as
-  // "just a chest day" — either the coach named it that outright (may still
-  // be light on exercises, like a plan still being built out) or its
-  // exercises genuinely span 3+ of the 4 Push/Pull/Legs/Core categories.
-  const isFullBody = /full\s*body/i.test(plan.planName || '') || Object.keys(categoryCounts).length >= 3;
+  // Which body-diagram view (front/back) best represents this workout.
+  // Primary signal: how many exercises' MAIN target muscle lives on each
+  // view — e.g. a Pull day is "mostly back" because Barbell Row/Lat
+  // Pulldown/Seated Cable Row all target Back first, even though Face Pull
+  // and Hammer Curl (front-view primaries) plus every row's secondary Biceps
+  // credit add up to the same *total* mention weight as Back alone — a flat
+  // score comparison ties here and defaults front, showing a Pull day as a
+  // biceps close-up instead of the intended full-back highlight. Counting
+  // primary-target exercises instead breaks that tie correctly (3 back vs 2
+  // front). Falls back to the aggregate weighted score (secondary movers
+  // included) only if even that's tied.
+  let primaryFrontCount = 0, primaryBackCount = 0;
+  exercises.forEach(ex => {
+    const primary = getMuscleGroupsForExercise(ex.name)[0];
+    if (MUSCLE_BODY_VIEW[primary] === 'front') primaryFrontCount++;
+    else if (MUSCLE_BODY_VIEW[primary] === 'back') primaryBackCount++;
+  });
+  let view;
+  if (primaryFrontCount !== primaryBackCount) {
+    view = primaryBackCount > primaryFrontCount ? 'back' : 'front';
+  } else {
+    let frontScore = 0, backScore = 0;
+    muscles.forEach(m => {
+      if (MUSCLE_BODY_VIEW[m] === 'front') frontScore += muscleCounts[m];
+      else if (MUSCLE_BODY_VIEW[m] === 'back') backScore += muscleCounts[m];
+    });
+    view = backScore > frontScore ? 'back' : 'front';
+  }
 
   return {
     muscles,
     primaryMuscle: muscles[0] || 'Chest',
     category,
     color: PPLC_COLOR[category] || PPLC_COLOR.Push,
-    isFullBody,
+    view,
     exerciseCount,
     totalSets,
     estMinutes: Math.max(15, Math.round((totalSets * 2.5) / 5) * 5)
@@ -216,8 +227,8 @@ const PlanCard = ({ plan, source, onStart, onDelete }) => {
         </div>
       ) : (
         <div className="wt-plan-thumb">
-          {meta.isFullBody ? (
-            <FullBodyThumbnail trainedMuscles={meta.muscles} size={64} />
+          {meta.muscles.length > 1 ? (
+            <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
           ) : (
             <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
           )}
@@ -3398,6 +3409,7 @@ const WorkoutTracker = () => {
               <div className="wt-library-grid">
                 {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => {
                   const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
+                  const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
                   return (
                     <button
                       key={workout.id}
@@ -3405,10 +3417,12 @@ const WorkoutTracker = () => {
                       className={`wt-program-card wt-program-card--${genericLevel}`}
                       onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel)}
                     >
-                      <div className={`wt-program-tile wt-program-tile--${genericLevel}`}>
-                        {programTileWords(workout.name).map((word, i) => (
-                          <span key={i} className={i === 0 ? 'wt-program-tile-accent' : undefined}>{word}</span>
-                        ))}
+                      <div className="wt-program-tile">
+                        {meta.muscles.length > 1 ? (
+                          <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
+                        ) : (
+                          <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+                        )}
                       </div>
                       <div className="wt-program-info">
                         <div className="wt-program-name">{workout.name}</div>

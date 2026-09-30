@@ -97,23 +97,56 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
   );
 });
 
+// Bounding box (shared 200×369 canvas) covering every one of `muscles` —
+// the union of their individual MUSCLE_CROP windows. Used to zoom
+// MultiMuscleThumbnail into just the trained region (upper body for a
+// Push/Pull day, legs for a Legs day) instead of shrinking the whole
+// standing figure down to icon size, which left the actually-trained area
+// too small to read. A genuine full-body plan's muscles span top to bottom,
+// so its union naturally comes out close to the full canvas anyway.
+function unionMuscleCrop(muscles) {
+  const boxes = muscles.map(m => MUSCLE_CROP[m]).filter(Boolean);
+  if (boxes.length === 0) return { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H };
+  const x0 = Math.min(...boxes.map(b => b.x));
+  const y0 = Math.min(...boxes.map(b => b.y));
+  const x1 = Math.max(...boxes.map(b => b.x + b.w));
+  const y1 = Math.max(...boxes.map(b => b.y + b.h));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
 /**
- * Whole-body icon for a routine card that trains many different muscle
- * groups (e.g. a plan literally named "Full Body ..." or one whose
- * exercises span 3+ Push/Pull/Legs/Core categories) — MuscleThumbnail's
- * tight single-muscle crop misrepresents those as "just a chest day" since
- * it can only zoom into one region. This shows the uncropped front-view
- * silhouette instead, with every trained front-visible muscle tinted by its
- * own Push/Pull/Legs/Core color (same family as the card's muscle chips
- * below it) so it reads as "several areas trained", not one flat color.
- * Muscles only visible from the back (Back, Triceps, Glutes, Hamstrings,
- * Calves — see MUSCLE_BODY_VIEW) can't be shown at this icon size; the
- * front view alone is enough to signal "full body" here.
+ * Multi-muscle icon for a routine card that trains more than one muscle
+ * group (a Push/Pull/Legs/Upper-Body split, or a literal Full Body plan) —
+ * MuscleThumbnail's crop only fits a single muscle, and the whole-body
+ * silhouette by itself misrepresents a split day since it can only zoom out.
+ * This zooms into the union of every trained muscle's own crop window
+ * instead (tight around the torso for a Push/Pull day, around the legs for
+ * a Legs day, close to the whole figure for a genuine full-body plan), each
+ * one tinted by its own Push/Pull/Legs/Core color (same family as the
+ * card's muscle chips below it) so it reads as "these areas trained", not
+ * one flat color.
+ *
+ * The union box isn't always square, so it's fit (not stretched) into the
+ * square icon — letterboxed on whichever axis has room to spare, same as a
+ * photo thumbnail — rather than distorting the artwork to fill the box.
+ *
+ * `view` picks front or back — a muscle only visible on the other view (see
+ * MUSCLE_BODY_VIEW) has no layer in this view's map and is skipped, both for
+ * tinting and for the crop union, so callers should pick whichever view
+ * covers more of `trainedMuscles` (see getPlanCardMeta's view logic in
+ * WorkoutTracker.jsx) rather than defaulting to front — a Pull or Legs day
+ * is mostly back-visible muscles and would render almost empty on front.
  */
-export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
-  const scale = size / CANVAS_H; // fit the full height into the square box
-  const offsetX = (size - CANVAS_W * scale) / 2;
+export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 64 }) => {
+  const isFront = view !== 'back';
   const trainedSet = new Set(trainedMuscles);
+  const layers = isFront ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS;
+  const visibleMuscles = trainedMuscles.filter(m => layers[m]);
+
+  const crop = unionMuscleCrop(visibleMuscles);
+  const scale = Math.min(size / crop.w, size / crop.h);
+  const offsetX = (size - crop.w * scale) / 2;
+  const offsetY = (size - crop.h * scale) / 2;
 
   return (
     <div className="muscle-thumb" style={{ width: size, height: size }} aria-hidden="true">
@@ -122,17 +155,19 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], size = 64 }) => {
         style={{
           width: CANVAS_W,
           height: CANVAS_H,
-          transform: `translate(${offsetX}px, 0px) scale(${scale})`,
+          transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale}) translate(${-crop.x}px, ${-crop.y}px)`,
           transformOrigin: 'top left',
         }}
       >
-        <img src={BODY_FRONT_FILL_URL} alt="" className="muscle-thumb-layer" />
+        <img src={isFront ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL} alt="" className="muscle-thumb-layer" />
 
-        <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: BODY_FRONT_SVG }} />
+        <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: isFront ? BODY_FRONT_SVG : BODY_BACK_SVG }} />
 
-        <FaceMaskLayer gradientId="thumbFace-fullbody" />
+        {isFront
+          ? <FaceMaskLayer gradientId="thumbFace-fullbody" />
+          : <ScalpMaskLayer gradientId="thumbScalp-fullbody" />}
 
-        {Object.entries(FRONT_MUSCLE_LAYERS)
+        {Object.entries(layers)
           .filter(([muscle]) => trainedSet.has(muscle))
           .flatMap(([muscle, rawFiles]) =>
             rawFiles.map((rawSvg, i) => (

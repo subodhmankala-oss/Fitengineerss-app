@@ -3757,7 +3757,6 @@ const WorkoutTracker = () => {
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
                     <div className="ex-card-header">
                       <div className="ex-card-title-group">
-                        <span className="ex-indicator-dot"></span>
                         <h5
                           className="ex-name-clickable"
                           role="button"

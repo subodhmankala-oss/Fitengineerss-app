@@ -834,13 +834,13 @@
 }
 
 .ex-card-header h5 {
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-main);
 }
 
 .ex-progression-hint {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-muted);
   padding: 2px 4px 6px;
@@ -2054,14 +2054,6 @@
   gap: 8px;
 }
 
-.ex-indicator-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary-accent-light);
-  box-shadow: 0 0 8px var(--primary-accent-light);
-}
-
 .ex-name-clickable {
   cursor: pointer;
   transition: color 0.15s;
@@ -2383,7 +2375,7 @@
   grid-template-columns: 0.6fr 1.2fr 1.3fr 1fr 1.4fr;
   align-items: center;
   padding: 8px 4px;
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.05em;
@@ -2416,7 +2408,7 @@
 }
 
 .hevy-set-row .set-num-lbl {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: var(--text-muted);
   padding-left: 8px;
@@ -2598,7 +2590,7 @@
 }
 
 .hevy-set-row .set-prev-lbl {
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-subtle);
   text-align: center;
@@ -2652,7 +2644,7 @@
   font-family: inherit;
   /* Must stay >= 16px: iOS Safari auto-zooms the page on focus for any
      input with a smaller computed font-size, which is hard to undo. */
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   text-align: center;
   outline: none;

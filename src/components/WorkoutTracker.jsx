@@ -1735,15 +1735,8 @@ const WorkoutTracker = () => {
   })();
 
   const displayedSessions = timeframe === 'weekly'
-    ? clientSessions.slice(-3) 
+    ? clientSessions.slice(-3)
     : clientSessions;
-
-  // Sync selected index boundaries
-  useEffect(() => {
-    if (displayedSessions.length > 0 && selectedSessionIndex >= displayedSessions.length) {
-      setSelectedSessionIndex(displayedSessions.length - 1);
-    }
-  }, [displayedSessions, selectedSessionIndex]);
 
   // Exercise unit helper
   const getExerciseUnit = (exName) => {
@@ -1776,7 +1769,25 @@ const WorkoutTracker = () => {
     };
   }).filter(d => d.weight > 0 || d.volume > 0);
 
-  const activeSessionData = graphData.find(d => d.index === selectedSessionIndex) || graphData[graphData.length - 1] || null;
+  // `selectedSessionIndex` is a position in `graphData` (the plotted, filtered
+  // list — same thing the slider's own min/max is defined against), NOT a
+  // raw index into `displayedSessions`. Sessions with no data for the
+  // selected exercise are filtered out above, so raw session-history
+  // position and plotted position diverge — e.g. "session 2 overall" and
+  // "session 2 among the ones with Shoulders Press data" can be completely
+  // different dates. Indexing graphData directly (rather than searching it
+  // by raw `.index`) keeps the slider, the header label below, and the
+  // highlighted dot all pointing at the same point.
+  const activeSessionData = graphData[selectedSessionIndex] || graphData[graphData.length - 1] || null;
+
+  // Sync selected index boundaries — against graphData (what the slider
+  // actually scrubs through), not displayedSessions (see note above).
+  useEffect(() => {
+    if (graphData.length > 0 && selectedSessionIndex >= graphData.length) {
+      setSelectedSessionIndex(graphData.length - 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- graphData is a new array every render; depend on its length instead so this only re-runs when the count actually changes
+  }, [graphData.length, selectedSessionIndex]);
 
   // Overload calculations
   const getOverloadMetrics = () => {
@@ -3176,9 +3187,9 @@ const WorkoutTracker = () => {
                         textAnchor="middle"
                         fontSize="11"
                         fontWeight="600"
-                        fill={d.index === selectedSessionIndex ? 'var(--text-main)' : 'var(--text-muted)'}
+                        fill={idx === selectedSessionIndex ? 'var(--text-main)' : 'var(--text-muted)'}
                         style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedSessionIndex(d.index)}
+                        onClick={() => setSelectedSessionIndex(idx)}
                       >
                         {new Date(d.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </text>
@@ -3269,7 +3280,17 @@ const WorkoutTracker = () => {
                   <div className="slider-label-row">
                     <span>📅 Timeline Session</span>
                     <strong>
-                      Session {selectedSessionIndex + 1}: <span className="text-highlight">{displayedSessions[selectedSessionIndex]?.date}</span>
+                      {/* Read off activeSessionData (already resolved from
+                          `selectedSessionIndex` as a graphData position, see
+                          above) instead of indexing displayedSessions
+                          directly — displayedSessions is the raw,
+                          unfiltered session list, so the same numeric index
+                          can land on a completely different date once
+                          sessions with no data for this exercise have been
+                          filtered out of graphData. Reading both the number
+                          and the date off the same resolved object is what
+                          keeps this label in sync with the highlighted dot. */}
+                      Session {activeSessionData ? activeSessionData.index + 1 : selectedSessionIndex + 1}: <span className="text-highlight">{activeSessionData?.date}</span>
                     </strong>
                   </div>
                   <input

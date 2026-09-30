@@ -5094,29 +5094,29 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-enter { animation: none; }
 }
 
-/* Delete Set: same motion as the slide-in, in reverse. Written out as its own
-   keyframes with an ease-out curve — playing slide-in with `reverse` also
-   reverses the curve into an ease-in, which read as a lag after the tap. */
-@keyframes set-row-slide-out {
-  from { max-height: var(--row-h, 96px); opacity: 1; transform: translateY(0); }
-  /* border + the table's 4px flex gap must reach 0 too, or removing the row
-     jumps the layout by ~6px at the end. */
-  to { max-height: 0; opacity: 0; transform: translateY(-16px); padding-top: 0; padding-bottom: 0; border-top-width: 0; border-bottom-width: 0; margin-top: -4px; }
+/* Delete Set: fades the tapped row out IN PLACE — opacity + transform only,
+   never max-height/padding/border/margin. Two earlier attempts (syncing the
+   actual removal to animationend, then killing a `transition: all` that was
+   racing the keyframe) didn't fix a jerk a coach recorded on their device:
+   inspecting the video frame-by-frame showed the row sitting at full height
+   with zero visible change for nearly the entire declared duration, then
+   snapping to gone in a single frame — animating max-height (a layout
+   property, forcing a reflow every frame) just wasn't rendering as a smooth
+   multi-frame animation on that hardware at all. Opacity/transform are
+   compositor-only and can't stutter like that. The row keeps its full
+   height throughout this fade (nothing else moves yet); once it finishes,
+   useExitingSetRow's hook actually removes the row and FLIP-slides the
+   rows below it up to fill the gap using the same GPU-only technique. See
+   that hook's own comment for the full two-phase picture. Reported
+   2026-09-29, root-caused 2026-09-30. */
+@keyframes set-row-fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
 }
 .hevy-set-row.set-row-exit {
-  overflow: hidden;
   pointer-events: none;
-  /* Same reasoning as set-row-enter above — cancel the base class's
-     `transition: all` so it can't race this keyframe animation for the
-     same properties. Reported as a small jerk right at the end of the
-     collapse (2026-09-29): the row would sit fully visible for most of
-     the animation's declared duration with no visible height change, then
-     snap to gone in a single frame — consistent with the transition (not
-     the animation) actually driving the "from" state's hold, then the row
-     unmounting outright once the JS-side removal fired, rather than the
-     animation smoothly reaching its own "to" state first. */
   transition: none;
-  animation: set-row-slide-out 0.45s cubic-bezier(0.33, 0.9, 0.4, 1) forwards;
+  animation: set-row-fade-out 0.3s ease-out forwards;
 }
 @media (prefers-reduced-motion: reduce) {
   .hevy-set-row.set-row-exit { animation: none; }

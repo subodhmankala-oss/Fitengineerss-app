@@ -1695,7 +1695,13 @@ const WorkoutTracker = () => {
     }
 
     const firstDate = new Date(`${clientSessions[0].date}T00:00:00`);
+    // Floored to 1 so it's never a divide-by-zero denominator below —
+    // `realWeeksActive` (unfloored) is what the marker's own tenure
+    // progress is measured against, since flooring THAT to 1 would make a
+    // day-one client's marker jump straight to 25% of the way through
+    // Beginner before they've trained at all.
     const weeksActive = Math.max(1, (Date.now() - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const realWeeksActive = Math.max(0, (Date.now() - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
     const distinctDays = new Set(clientSessions.map(s => s.date)).size;
     const consistencyPct = Math.min(1, distinctDays / (weeksActive * 3));
@@ -1726,11 +1732,22 @@ const WorkoutTracker = () => {
     const scoreTierIndex = Math.min(3, Math.floor(score / 25));
     const tenureTierIndex = weeksActive >= 26 ? 3 : weeksActive >= 12 ? 2 : weeksActive >= 4 ? 1 : 0;
     const tierIndex = Math.min(scoreTierIndex, tenureTierIndex);
-    // Position within the active tier's own 25%-wide slice, for the marker
-    // — clamped against the score actually reached, so a tenure-capped
-    // client (score would place them higher) shows at the START of their
-    // capped tier rather than implying they're about to overflow it.
-    const withinTierPct = tierIndex < scoreTierIndex ? 0 : Math.min(1, (score - tierIndex * 25) / 25);
+    // Position within the active tier's own slice, for the marker — driven
+    // by whichever of the two axes (score or tenure) is the actual
+    // bottleneck holding them at this tier, not always the score one. A
+    // tenure-capped client (score would already place them higher) used to
+    // show flat at the START of their tier for their entire time in it —
+    // weeks of real training with zero visible movement — because the old
+    // formula only ever looked at score. Taking the TIGHTER of the two
+    // percentages means whichever axis hasn't caught up yet is what's
+    // reflected, so a tenure-capped client still sees the marker creep
+    // forward as calendar weeks pass, and a score-capped client (tenure
+    // already qualifies them higher) still sees it driven by score.
+    const TIER_WEEK_BOUNDS = [[0, 4], [4, 12], [12, 26], [26, Infinity]];
+    const [bandStart, bandEnd] = TIER_WEEK_BOUNDS[tierIndex];
+    const tenureWithinPct = bandEnd === Infinity ? 1 : Math.min(1, Math.max(0, (realWeeksActive - bandStart) / (bandEnd - bandStart)));
+    const scoreWithinPct = Math.min(1, Math.max(0, (score - tierIndex * 25) / 25));
+    const withinTierPct = Math.min(scoreWithinPct, tenureWithinPct);
     return { score, tier: tiers[tierIndex], tierIndex, withinTierPct };
   })();
 

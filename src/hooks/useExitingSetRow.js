@@ -18,12 +18,9 @@ const SHIFT_EASING = 'cubic-bezier(0.33, 0.9, 0.4, 1)';
 //     keeps its full height, so nothing else moves yet.
 //  2. Once the fade finishes (handleAnimationEnd, or the fallback timer),
 //     the row is actually removed from the array. The useLayoutEffect below
-//     then runs a FLIP: it already knows where every surviving row in that
-//     exercise sat right before the removal (a snapshot taken the instant
-//     before onDone() fires), compares that against where they land in the
-//     DOM right after React's re-render, and for any row that moved, snaps
-//     it back to its old spot with transition: none, then releases it into
-//     a transform transition on the next frame — so it visibly slides up
+//     then FLIPs the rows below it: snap each one back down by the removed
+//     row's own height (transition: none), then release it into a
+//     transform transition on the next frame — so it visibly slides up
 //     instead of teleporting.
 //
 // Both phases only ever touch `transform`/`opacity`, which the compositor
@@ -37,17 +34,28 @@ const SHIFT_EASING = 'cubic-bezier(0.33, 0.9, 0.4, 1)';
 // was max-height simply not rendering as a smooth multi-frame animation on
 // that device at all).
 //
-// The FLIP match is by DOM NODE IDENTITY (via rowRefs, a live node per
-// "exIdx:setIdx"), not by key/index — set rows are keyed by array index
-// (they have no stable id), so once the array shrinks, React reuses a
-// surviving DOM node for whatever LOGICAL row now sits at its key. That's
-// fine here: this only asks "did this exact node move, and by how much,"
-// never "which logical set is this."
+// The shift is computed from the removed row's INDEX and measured height,
+// not from comparing a DOM node's position before vs. after — an earlier
+// version of this hook tried the "real" FLIP (snapshot every row's
+// getBoundingClientRect().top, diff it against the same node after the
+// re-render) and it never animated anything, because it never moves at
+// all: set rows are keyed by array index (no stable id), so when an EARLIER
+// row is removed, React's reconciliation doesn't relocate any DOM nodes —
+// it reuses each surviving position's existing node and just swaps its
+// CONTENT to the next item's data, and only ever unmounts the LAST node
+// (there's one fewer item now). The node sitting at position 0 never moves
+// in the DOM at all; it just starts rendering different values a moment
+// after the row above it — no positional delta for a real FLIP to find.
+// Since we already know exactly which positions logically shifted (every
+// index from the removed one down) and by how much (the removed row's own
+// height), we can fake the same visual effect without needing the nodes to
+// have actually moved: apply the compensating offset to whichever DOM
+// nodes now occupy those positions, then release it.
 export function useExitingSetRow() {
   const [exiting, setExiting] = useState(() => new Set());
-  const pending = useRef(new Map()); // key -> { onDone, fallbackTimer, done, exIdx }
+  const pending = useRef(new Map()); // key -> { onDone, fallbackTimer, done, exIdx, setIdx }
   const rowRefs = useRef(new Map()); // "exIdx:setIdx" -> current DOM node
-  const flipSnapshot = useRef(null); // Map(node -> its top just before a removal)
+  const pendingShift = useRef(null); // { exIdx, fromIdx, rowHeight } set right before a removal
 
   const registerRow = useCallback((exIdx, setIdx, node) => {
     const key = `${exIdx}:${setIdx}`;
@@ -67,11 +75,6 @@ export function useExitingSetRow() {
       next.delete(key);
       return next;
     });
-    const before = new Map();
-    for (const [rowKey, node] of rowRefs.current) {
-      if (rowKey.startsWith(`${entry.exIdx}:`)) before.set(node, node.getBoundingClientRect().top);
-    }
-    flipSnapshot.current = before;
     entry.onDone();
   }, []);
 
@@ -79,10 +82,16 @@ export function useExitingSetRow() {
     const key = `${exIdx}:${setIdx}`;
     const existing = pending.current.get(key);
     if (existing) clearTimeout(existing.fallbackTimer);
+    // Measured now, while the row is still at its normal (pre-fade) full
+    // height, so the later shift matches exactly what's about to vanish.
+    const rowEl = rowRefs.current.get(key);
+    const rowHeight = rowEl ? rowEl.getBoundingClientRect().height : 0;
     pending.current.set(key, {
-      onDone,
+      onDone: () => {
+        pendingShift.current = { exIdx, fromIdx: setIdx, rowHeight };
+        onDone();
+      },
       done: false,
-      exIdx,
       fallbackTimer: setTimeout(() => finish(key), FADE_FALLBACK_MS)
     });
     setExiting(prev => new Set(prev).add(key));
@@ -95,31 +104,31 @@ export function useExitingSetRow() {
   const handleAnimationEnd = useCallback((exIdx, setIdx) => finish(`${exIdx}:${setIdx}`), [finish]);
 
   useLayoutEffect(() => {
-    const before = flipSnapshot.current;
-    if (!before) return;
-    flipSnapshot.current = null;
+    const shift = pendingShift.current;
+    if (!shift || !shift.rowHeight) return;
+    pendingShift.current = null;
+    const { exIdx, fromIdx, rowHeight } = shift;
     const moved = [];
-    for (const [node, oldTop] of before) {
-      if (!document.contains(node)) continue; // this one was the row that got removed
-      const delta = oldTop - node.getBoundingClientRect().top;
-      if (Math.abs(delta) > 0.5) moved.push({ node, delta });
+    for (const [rowKey, node] of rowRefs.current) {
+      const [ki, kj] = rowKey.split(':').map(Number);
+      if (ki === exIdx && kj >= fromIdx) moved.push(node);
     }
     if (moved.length === 0) return;
-    moved.forEach(({ node, delta }) => {
+    moved.forEach(node => {
       node.style.transition = 'none';
-      node.style.transform = `translateY(${delta}px)`;
+      node.style.transform = `translateY(${rowHeight}px)`;
     });
     // Force a style flush so the browser registers the "from" position
     // above before the next frame releases it — otherwise both writes can
     // land in the same frame and the transition never gets a chance to run.
-    void moved[0].node.offsetHeight;
+    void moved[0].offsetHeight;
     requestAnimationFrame(() => {
-      moved.forEach(({ node }) => {
+      moved.forEach(node => {
         node.style.transition = `transform ${SHIFT_DURATION_MS}ms ${SHIFT_EASING}`;
         node.style.transform = '';
       });
       setTimeout(() => {
-        moved.forEach(({ node }) => {
+        moved.forEach(node => {
           if (document.contains(node)) node.style.transition = '';
         });
       }, SHIFT_DURATION_MS + 50);

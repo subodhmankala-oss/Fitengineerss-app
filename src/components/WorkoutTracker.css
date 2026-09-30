@@ -5094,12 +5094,39 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-enter { animation: none; }
 }
 
-/* Delete Set: no CSS animation here at all — useExitingSetRow.js drives the
-   tapped row's own collapse (and the rows below sliding up to fill the gap)
-   entirely with inline styles, so it can take the row out of normal flow
-   (position: fixed) before animating its height. Three earlier CSS-only
-   attempts all animated max-height IN PLACE, which forces every row below
-   it to reflow on every frame — on the reporter's device that didn't render
-   as a smooth animation at all (confirmed by inspecting a screen recording
-   frame-by-frame, 2026-09-30). See that hook's file-level comment for the
-   full two-phase picture. Reported 2026-09-29.*/
+/* Delete Set: collapses the tapped row IN PLACE via `transform: scaleY()` —
+   never max-height/padding/border/margin, and never `position` (a fixed/
+   absolute-position version of this was tried and pinned the row to the
+   wrong spot on screen: this app's dashboard sits inside a container that
+   itself has a `transform` from its own mount animation, which becomes the
+   containing block for any fixed-position descendant instead of the
+   viewport — so the measured on-screen coordinates didn't line up with
+   where the row actually got pinned. transform:scaleY, by contrast, never
+   repositions anything and needs no coordinate math at all).
+   `transform` never affects layout, so the row's OWN box stays exactly its
+   normal full height in the document the entire time this plays — nothing
+   below it moves yet, same as the plain-fade version this replaced — while
+   `transform-origin: top` makes it visibly shrink toward its own top edge,
+   reading as a collapse rather than a flat fade (closer to Add Set's own
+   grow-from-nothing motion, in reverse, without animating height — see
+   set-row-slide-in above and useExitingSetRow.js for why animating height
+   directly, in place, was the original problem here: it forces every row
+   below it to reflow on every single frame, which on the reporter's device
+   didn't render as a smooth animation at all — confirmed by inspecting a
+   screen recording frame-by-frame, 2026-09-30). Once this finishes,
+   useExitingSetRow's hook actually removes the row and slides the rows
+   below it up to fill the gap, also transform-only. See that hook's own
+   comment for the full two-phase picture. Reported 2026-09-29. */
+@keyframes set-row-collapse-out {
+  from { opacity: 1; transform: scaleY(1); }
+  to { opacity: 0; transform: scaleY(0); }
+}
+.hevy-set-row.set-row-exit {
+  transform-origin: top;
+  pointer-events: none;
+  transition: none;
+  animation: set-row-collapse-out 0.32s cubic-bezier(0.33, 0.9, 0.4, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hevy-set-row.set-row-exit { animation: none; }
+}

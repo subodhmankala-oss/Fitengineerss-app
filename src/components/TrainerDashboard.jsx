@@ -154,8 +154,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // "ghost" row behind whenever the deleted set wasn't the last one in its
   // exercise. Separate instances for the Plan Editor and the Live Log since
   // they're independent exIdx/setIdx spaces over different exercise lists.
-  const { beginExit: beginEditorExit, registerRow: registerEditorRow } = useExitingSetRow();
-  const { beginExit: beginLiveExit, registerRow: registerLiveRow } = useExitingSetRow();
+  const { isExitingSet: isEditorExitingSet, beginExit: beginEditorExit, handleAnimationEnd: handleEditorExitAnimationEnd, registerRow: registerEditorRow } = useExitingSetRow();
+  const { isExitingSet: isLiveExitingSet, beginExit: beginLiveExit, handleAnimationEnd: handleLiveExitAnimationEnd, registerRow: registerLiveRow } = useExitingSetRow();
   // This coach's canonical public.users.id (== clients.coach_id for their
   // clients). Seeded from localStorage but re-resolved by email on mount because
   // localStorage.userId can be null/poisoned right after login — and the "My
@@ -8180,7 +8180,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                       const label = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : workingNum;
                                       const prevStats = getPreviousSessionSet(ex.name, setIdx);
                                       return (
-                                      <div key={setIdx} className={`hevy-set-row ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`} ref={(node) => registerEditorRow(exIdx, setIdx, node)}>
+                                      <div key={setIdx} className={`hevy-set-row ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isEditorExitingSet(exIdx, setIdx) ? 'set-row-exit' : ''}`} onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleEditorExitAnimationEnd(exIdx, setIdx); }} ref={(node) => registerEditorRow(exIdx, setIdx, node)}>
                                         <span className="col-set set-type-menu-wrapper">
                                           <span
                                             className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''} ${set.setType === 'superset' ? 'superset' : ''}`}
@@ -9050,7 +9050,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 );
                               };
                               return (
-                              <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`} ref={(node) => registerLiveRow(exIdx, setIdx, node)}>
+                              <div key={setIdx} className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isLiveExitingSet(exIdx, setIdx) ? 'set-row-exit' : ''}`} onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleLiveExitAnimationEnd(exIdx, setIdx); }} ref={(node) => registerLiveRow(exIdx, setIdx, node)}>
                                 <span className="col-set set-type-menu-wrapper">
                                   <span
                                     className={`set-num-lbl ${set.isWarmup ? 'warmup' : ''} ${set.setType === 'failure' ? 'failure' : ''} ${set.setType === 'drop' ? 'drop' : ''} ${set.setType === 'superset' ? 'superset' : ''}`}

@@ -5094,30 +5094,12 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-enter { animation: none; }
 }
 
-/* Delete Set: fades the tapped row out IN PLACE — opacity + transform only,
-   never max-height/padding/border/margin. Two earlier attempts (syncing the
-   actual removal to animationend, then killing a `transition: all` that was
-   racing the keyframe) didn't fix a jerk a coach recorded on their device:
-   inspecting the video frame-by-frame showed the row sitting at full height
-   with zero visible change for nearly the entire declared duration, then
-   snapping to gone in a single frame — animating max-height (a layout
-   property, forcing a reflow every frame) just wasn't rendering as a smooth
-   multi-frame animation on that hardware at all. Opacity/transform are
-   compositor-only and can't stutter like that. The row keeps its full
-   height throughout this fade (nothing else moves yet); once it finishes,
-   useExitingSetRow's hook actually removes the row and FLIP-slides the
-   rows below it up to fill the gap using the same GPU-only technique. See
-   that hook's own comment for the full two-phase picture. Reported
-   2026-09-29, root-caused 2026-09-30. */
-@keyframes set-row-fade-out {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-8px); }
-}
-.hevy-set-row.set-row-exit {
-  pointer-events: none;
-  transition: none;
-  animation: set-row-fade-out 0.3s ease-out forwards;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hevy-set-row.set-row-exit { animation: none; }
-}
+/* Delete Set: no CSS animation here at all — useExitingSetRow.js drives the
+   tapped row's own collapse (and the rows below sliding up to fill the gap)
+   entirely with inline styles, so it can take the row out of normal flow
+   (position: fixed) before animating its height. Three earlier CSS-only
+   attempts all animated max-height IN PLACE, which forces every row below
+   it to reflow on every frame — on the reporter's device that didn't render
+   as a smooth animation at all (confirmed by inspecting a screen recording
+   frame-by-frame, 2026-09-30). See that hook's file-level comment for the
+   full two-phase picture. Reported 2026-09-29.*/

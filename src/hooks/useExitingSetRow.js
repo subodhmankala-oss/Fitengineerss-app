@@ -1,61 +1,62 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
-// Backs up the fade's animationend in case it never fires — prefers-reduced-
-// motion disables the animation entirely, and a backgrounded/hidden tab can
-// throttle animation frames outright. Well past the CSS's own 0.3s so it
-// never preempts a real, on-time animationend.
-const FADE_FALLBACK_MS = 600;
-// How long the surviving rows take to slide up into their new position.
-const SHIFT_DURATION_MS = 260;
-const SHIFT_EASING = 'cubic-bezier(0.33, 0.9, 0.4, 1)';
+// How long the tapped row's own collapse takes — its own isolated height/
+// opacity transition, matching (roughly) Add Set's own ~0.55s growth (see
+// animateNewSetRow.js), just a touch snappier since removing something
+// should feel quicker than adding it.
+const COLLAPSE_DURATION_MS = 380;
+// Backs up transitionend in case it never fires (prefers-reduced-motion,
+// a backgrounded tab) — comfortably past COLLAPSE_DURATION_MS.
+const COLLAPSE_FALLBACK_MS = 700;
+// How long the rows below take to release into their new position once
+// the collapse above finishes.
+const RELEASE_DURATION_MS = 260;
+const EASING = 'cubic-bezier(0.33, 0.9, 0.4, 1)';
 
-// Drives "delete a set row, the rest slide up to fill the gap" in two
-// GPU-only phases instead of animating layout (max-height/padding/border)
-// directly, which is what every earlier attempt at this did:
+// Delete a set row so it looks like Add Set in reverse — the row itself
+// visibly shrinks away, then the rows below slide up to close the gap —
+// without ever animating a property that forces the browser to re-run
+// layout on every frame. Three earlier attempts at this all animated
+// max-height (or a CSS transition/animation conflict around it) IN PLACE,
+// which forces every sibling below the shrinking row to reflow continuously
+// for the animation's whole duration. On the reporter's device that just
+// didn't render as a smooth multi-frame animation at all — confirmed by
+// inspecting a screen recording frame-by-frame, 2026-09-30: the row sat at
+// full height with no visible change for nearly the entire duration, then
+// snapped to gone in one frame. Switching to a two-phase, GPU-only
+// approach (opacity/transform/fixed-position, never a layout property)
+// fixed the underlying stutter, but a flat fade didn't visually read as
+// "shrinking" the way this ticket asked for — hence this version, which
+// gets the actual collapse look back without paying the reflow cost:
 //
-//  1. beginExit fades the tapped row out in place (opacity + transform
-//     only — see .hevy-set-row.set-row-exit in WorkoutTracker.css) while it
-//     keeps its full height, so nothing else moves yet.
-//  2. Once the fade finishes (handleAnimationEnd, or the fallback timer),
-//     the row is actually removed from the array. The useLayoutEffect below
-//     then FLIPs the rows below it: snap each one back down by the removed
-//     row's own height (transition: none), then release it into a
-//     transform transition on the next frame — so it visibly slides up
-//     instead of teleporting.
+//  1. beginExit takes the tapped row OUT of the page's normal flow
+//     entirely (position: fixed, pinned to its current on-screen spot) the
+//     instant it's called. Because it's no longer in flow, the rows below
+//     it in the SAME exercise jump into their final positions immediately
+//     — before any animation has even started — so in that same instant,
+//     each of those rows is held back with an un-transitioned
+//     translateY() equal to the removed row's height, so nothing visibly
+//     moves yet. The pinned row then transitions its own height and
+//     opacity down to 0 — safe now, since being out of flow means this
+//     can never trigger layout on anything else.
+//  2. Once that finishes (transitionend, or the fallback timer), the row's
+//     inline styles are cleared and the actual removal (onDone) runs.
+//     Because the held rows' REAL flow position already reflects life
+//     without the deleted row, releasing their translateY() hold back to
+//     0 is the entire "slide up to fill the gap" motion.
 //
-// Both phases only ever touch `transform`/`opacity`, which the compositor
-// can animate without re-running layout on every frame — unlike max-height,
-// which forces a full reflow each tick and is why the collapse looked like
-// nothing happening for most of its duration, then snapping instantly at
-// the end (confirmed by inspecting a screen recording frame-by-frame,
-// 2026-09-30, after two earlier attempts — syncing removal to animationend,
-// then killing a `transition: all` that was racing the keyframe — didn't
-// fix it: the jerk was never a timing or transition-conflict problem, it
-// was max-height simply not rendering as a smooth multi-frame animation on
-// that device at all).
-//
-// The shift is computed from the removed row's INDEX and measured height,
-// not from comparing a DOM node's position before vs. after — an earlier
-// version of this hook tried the "real" FLIP (snapshot every row's
-// getBoundingClientRect().top, diff it against the same node after the
-// re-render) and it never animated anything, because it never moves at
-// all: set rows are keyed by array index (no stable id), so when an EARLIER
-// row is removed, React's reconciliation doesn't relocate any DOM nodes —
-// it reuses each surviving position's existing node and just swaps its
-// CONTENT to the next item's data, and only ever unmounts the LAST node
-// (there's one fewer item now). The node sitting at position 0 never moves
-// in the DOM at all; it just starts rendering different values a moment
-// after the row above it — no positional delta for a real FLIP to find.
-// Since we already know exactly which positions logically shifted (every
-// index from the removed one down) and by how much (the removed row's own
-// height), we can fake the same visual effect without needing the nodes to
-// have actually moved: apply the compensating offset to whichever DOM
-// nodes now occupy those positions, then release it.
+// Rows are tracked by DOM node reference via registerRow, not by React key
+// — set rows are keyed by array index (no stable id), so once the array
+// shrinks, React reuses a surviving node for whatever LOGICAL row now sits
+// at that index (a content swap in place, not a reposition — see this
+// file's git history for the full explanation of why a real
+// measure-before/measure-after FLIP never found any movement to animate).
+// Holding/releasing specific node OBJECTS sidesteps that entirely: it never
+// needs to know which logical set a node represents, only whether IT
+// needs to visually settle into wherever it now really sits.
 export function useExitingSetRow() {
-  const [exiting, setExiting] = useState(() => new Set());
-  const pending = useRef(new Map()); // key -> { onDone, fallbackTimer, done, exIdx, setIdx }
   const rowRefs = useRef(new Map()); // "exIdx:setIdx" -> current DOM node
-  const pendingShift = useRef(null); // { exIdx, fromIdx, rowHeight } set right before a removal
+  const pending = useRef(new Map()); // key -> { onDone, fallbackTimer, done, rowEl, heldNodes }
 
   const registerRow = useCallback((exIdx, setIdx, node) => {
     const key = `${exIdx}:${setIdx}`;
@@ -63,77 +64,90 @@ export function useExitingSetRow() {
     else rowRefs.current.delete(key);
   }, []);
 
+  const clearPinnedRowStyles = (node) => {
+    node.style.position = '';
+    node.style.top = '';
+    node.style.left = '';
+    node.style.width = '';
+    node.style.margin = '';
+    node.style.zIndex = '';
+    node.style.overflow = '';
+    node.style.height = '';
+    node.style.opacity = '';
+    node.style.transition = '';
+    node.style.pointerEvents = '';
+  };
+
   const finish = useCallback((key) => {
     const entry = pending.current.get(key);
     if (!entry || entry.done) return;
     entry.done = true;
     clearTimeout(entry.fallbackTimer);
     pending.current.delete(key);
-    setExiting(prev => {
-      if (!prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.delete(key);
-      return next;
-    });
+    if (entry.rowEl) clearPinnedRowStyles(entry.rowEl);
     entry.onDone();
+    requestAnimationFrame(() => {
+      entry.heldNodes.forEach(node => {
+        if (!document.contains(node)) return;
+        node.style.transition = `transform ${RELEASE_DURATION_MS}ms ${EASING}`;
+        node.style.transform = '';
+      });
+      setTimeout(() => {
+        entry.heldNodes.forEach(node => {
+          if (document.contains(node)) node.style.transition = '';
+        });
+      }, RELEASE_DURATION_MS + 50);
+    });
   }, []);
 
   const beginExit = useCallback((exIdx, setIdx, onDone) => {
     const key = `${exIdx}:${setIdx}`;
     const existing = pending.current.get(key);
     if (existing) clearTimeout(existing.fallbackTimer);
-    // Measured now, while the row is still at its normal (pre-fade) full
-    // height, so the later shift matches exactly what's about to vanish.
+
     const rowEl = rowRefs.current.get(key);
-    const rowHeight = rowEl ? rowEl.getBoundingClientRect().height : 0;
+    const heldNodes = [];
+    if (rowEl) {
+      const rect = rowEl.getBoundingClientRect();
+      for (const [rowKey, node] of rowRefs.current) {
+        const [ki, kj] = rowKey.split(':').map(Number);
+        if (ki === exIdx && kj > setIdx) heldNodes.push(node);
+      }
+      heldNodes.forEach(node => {
+        node.style.transition = 'none';
+        node.style.transform = `translateY(${rect.height}px)`;
+      });
+      rowEl.style.position = 'fixed';
+      rowEl.style.top = `${rect.top}px`;
+      rowEl.style.left = `${rect.left}px`;
+      rowEl.style.width = `${rect.width}px`;
+      rowEl.style.margin = '0';
+      rowEl.style.zIndex = '5';
+      rowEl.style.overflow = 'hidden';
+      rowEl.style.pointerEvents = 'none';
+      rowEl.style.height = `${rect.height}px`;
+      // Force a style flush so the browser registers all of the above
+      // before the next frame starts the actual transitions — otherwise
+      // it can coalesce these writes with the ones below into a single
+      // frame and skip straight to the end state.
+      void rowEl.offsetHeight;
+      const startTransition = () => {
+        rowEl.style.transition = `height ${COLLAPSE_DURATION_MS}ms ${EASING}, opacity ${COLLAPSE_DURATION_MS}ms ${EASING}`;
+        rowEl.style.height = '0px';
+        rowEl.style.opacity = '0';
+      };
+      requestAnimationFrame(() => requestAnimationFrame(startTransition));
+      rowEl.addEventListener('transitionend', () => finish(key), { once: true });
+    }
+
     pending.current.set(key, {
-      onDone: () => {
-        pendingShift.current = { exIdx, fromIdx: setIdx, rowHeight };
-        onDone();
-      },
+      onDone,
       done: false,
-      fallbackTimer: setTimeout(() => finish(key), FADE_FALLBACK_MS)
+      rowEl,
+      heldNodes,
+      fallbackTimer: setTimeout(() => finish(key), COLLAPSE_FALLBACK_MS)
     });
-    setExiting(prev => new Set(prev).add(key));
   }, [finish]);
 
-  const isExitingSet = useCallback((exIdx, setIdx) => exiting.has(`${exIdx}:${setIdx}`), [exiting]);
-
-  // Wire this to the row's onAnimationEnd. Harmless (a no-op) if this row
-  // isn't the one currently fading out.
-  const handleAnimationEnd = useCallback((exIdx, setIdx) => finish(`${exIdx}:${setIdx}`), [finish]);
-
-  useLayoutEffect(() => {
-    const shift = pendingShift.current;
-    if (!shift || !shift.rowHeight) return;
-    pendingShift.current = null;
-    const { exIdx, fromIdx, rowHeight } = shift;
-    const moved = [];
-    for (const [rowKey, node] of rowRefs.current) {
-      const [ki, kj] = rowKey.split(':').map(Number);
-      if (ki === exIdx && kj >= fromIdx) moved.push(node);
-    }
-    if (moved.length === 0) return;
-    moved.forEach(node => {
-      node.style.transition = 'none';
-      node.style.transform = `translateY(${rowHeight}px)`;
-    });
-    // Force a style flush so the browser registers the "from" position
-    // above before the next frame releases it — otherwise both writes can
-    // land in the same frame and the transition never gets a chance to run.
-    void moved[0].offsetHeight;
-    requestAnimationFrame(() => {
-      moved.forEach(node => {
-        node.style.transition = `transform ${SHIFT_DURATION_MS}ms ${SHIFT_EASING}`;
-        node.style.transform = '';
-      });
-      setTimeout(() => {
-        moved.forEach(node => {
-          if (document.contains(node)) node.style.transition = '';
-        });
-      }, SHIFT_DURATION_MS + 50);
-    });
-  });
-
-  return { isExitingSet, beginExit, handleAnimationEnd, registerRow };
+  return { beginExit, registerRow };
 }

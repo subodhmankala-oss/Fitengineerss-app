@@ -456,7 +456,7 @@ const WorkoutTracker = () => {
   // comment for why the old direct-DOM-mutation approach (animateRemoveSetRow)
   // left a permanently invisible "ghost" row behind whenever the deleted set
   // wasn't the last one in its exercise.
-  const { isExitingSet, beginExit, handleAnimationEnd: handleExitAnimationEnd, registerRow } = useExitingSetRow();
+  const { beginExit, registerRow } = useExitingSetRow();
 
   const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
   const [sessions, setSessions] = useState([]);
@@ -3989,8 +3989,7 @@ const WorkoutTracker = () => {
                           return (
                             <div
                               key={sIdx}
-                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isExitingSet(exIdx, sIdx) ? 'set-row-exit' : ''}`}
-                              onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleExitAnimationEnd(exIdx, sIdx); }}
+                              className={`hevy-set-row ${exIsCardio ? 'hevy-set-row--cardio' : ''} ${set.isCompleted ? 'set-row-completed' : ''} ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''}`}
                               ref={(node) => registerRow(exIdx, sIdx, node)}
                             >
                               <span className="col-set set-type-menu-wrapper">

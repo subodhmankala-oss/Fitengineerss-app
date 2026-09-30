@@ -1695,7 +1695,13 @@ const WorkoutTracker = () => {
     }
 
     const firstDate = new Date(`${clientSessions[0].date}T00:00:00`);
+    // Floored to 1 so it's never a divide-by-zero denominator below —
+    // `realWeeksActive` (unfloored) is what the marker's own tenure
+    // progress is measured against, since flooring THAT to 1 would make a
+    // day-one client's marker jump straight to 25% of the way through
+    // Beginner before they've trained at all.
     const weeksActive = Math.max(1, (Date.now() - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const realWeeksActive = Math.max(0, (Date.now() - firstDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
     const distinctDays = new Set(clientSessions.map(s => s.date)).size;
     const consistencyPct = Math.min(1, distinctDays / (weeksActive * 3));
@@ -1726,24 +1732,28 @@ const WorkoutTracker = () => {
     const scoreTierIndex = Math.min(3, Math.floor(score / 25));
     const tenureTierIndex = weeksActive >= 26 ? 3 : weeksActive >= 12 ? 2 : weeksActive >= 4 ? 1 : 0;
     const tierIndex = Math.min(scoreTierIndex, tenureTierIndex);
-    // Position within the active tier's own 25%-wide slice, for the marker
-    // — clamped against the score actually reached, so a tenure-capped
-    // client (score would place them higher) shows at the START of their
-    // capped tier rather than implying they're about to overflow it.
-    const withinTierPct = tierIndex < scoreTierIndex ? 0 : Math.min(1, (score - tierIndex * 25) / 25);
+    // Position within the active tier's own slice, for the marker — driven
+    // by whichever of the two axes (score or tenure) is the actual
+    // bottleneck holding them at this tier, not always the score one. A
+    // tenure-capped client (score would already place them higher) used to
+    // show flat at the START of their tier for their entire time in it —
+    // weeks of real training with zero visible movement — because the old
+    // formula only ever looked at score. Taking the TIGHTER of the two
+    // percentages means whichever axis hasn't caught up yet is what's
+    // reflected, so a tenure-capped client still sees the marker creep
+    // forward as calendar weeks pass, and a score-capped client (tenure
+    // already qualifies them higher) still sees it driven by score.
+    const TIER_WEEK_BOUNDS = [[0, 4], [4, 12], [12, 26], [26, Infinity]];
+    const [bandStart, bandEnd] = TIER_WEEK_BOUNDS[tierIndex];
+    const tenureWithinPct = bandEnd === Infinity ? 1 : Math.min(1, Math.max(0, (realWeeksActive - bandStart) / (bandEnd - bandStart)));
+    const scoreWithinPct = Math.min(1, Math.max(0, (score - tierIndex * 25) / 25));
+    const withinTierPct = Math.min(scoreWithinPct, tenureWithinPct);
     return { score, tier: tiers[tierIndex], tierIndex, withinTierPct };
   })();
 
   const displayedSessions = timeframe === 'weekly'
-    ? clientSessions.slice(-3) 
+    ? clientSessions.slice(-3)
     : clientSessions;
-
-  // Sync selected index boundaries
-  useEffect(() => {
-    if (displayedSessions.length > 0 && selectedSessionIndex >= displayedSessions.length) {
-      setSelectedSessionIndex(displayedSessions.length - 1);
-    }
-  }, [displayedSessions, selectedSessionIndex]);
 
   // Exercise unit helper
   const getExerciseUnit = (exName) => {
@@ -1774,20 +1784,27 @@ const WorkoutTracker = () => {
       sets: exercise.sets,
       index
     };
-  }).filter(d => d.weight > 0 || d.volume > 0)
-    // `index` (above) is the session's position in the full, unfiltered
-    // history — used to look up "the previous session" etc. `pos` is this
-    // point's position among the points actually being PLOTTED, which is
-    // what the x-coordinate must be driven by. They diverge whenever an
-    // earlier session had no data for this exercise and got filtered out
-    // above; using `index` for x placement (as getPointX calls used to)
-    // put dots/labels/tooltips at the session's real-history slot instead
-    // of its plotted slot, stranding them far from the line/gradient path
-    // (which IS built off plotted position) — the "floating value with no
-    // attachment" bug.
-    .map((d, pos) => ({ ...d, pos }));
+  }).filter(d => d.weight > 0 || d.volume > 0);
 
-  const activeSessionData = graphData.find(d => d.index === selectedSessionIndex) || graphData[graphData.length - 1] || null;
+  // `selectedSessionIndex` is a position in `graphData` (the plotted, filtered
+  // list — same thing the slider's own min/max is defined against), NOT a
+  // raw index into `displayedSessions`. Sessions with no data for the
+  // selected exercise are filtered out above, so raw session-history
+  // position and plotted position diverge — e.g. "session 2 overall" and
+  // "session 2 among the ones with Shoulders Press data" can be completely
+  // different dates. Indexing graphData directly (rather than searching it
+  // by raw `.index`) keeps the slider, the header label below, and the
+  // highlighted dot all pointing at the same point.
+  const activeSessionData = graphData[selectedSessionIndex] || graphData[graphData.length - 1] || null;
+
+  // Sync selected index boundaries — against graphData (what the slider
+  // actually scrubs through), not displayedSessions (see note above).
+  useEffect(() => {
+    if (graphData.length > 0 && selectedSessionIndex >= graphData.length) {
+      setSelectedSessionIndex(graphData.length - 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- graphData is a new array every render; depend on its length instead so this only re-runs when the count actually changes
+  }, [graphData.length, selectedSessionIndex]);
 
   // Overload calculations
   const getOverloadMetrics = () => {
@@ -1809,14 +1826,32 @@ const WorkoutTracker = () => {
   const overload = getOverloadMetrics();
 
   // SVG calculations
-  // Fixed pixel spacing per point instead of squeezing every session into a
-  // constant-width chart — with many sessions that meant points, labels, and
-  // dates all crushed on top of each other. VISIBLE_POINTS worth fit in the
-  // card's normal width with no scrolling; beyond that the SVG grows wider
-  // than its container and .svg-container-box (overflow-x: auto) lets the
-  // user drag/scroll through the rest instead of cramming them in.
-  const VISIBLE_POINTS = 7;
-  const pointSpacing = 62;
+  // Calendar-day based x-axis instead of fixed spacing per point — spacing
+  // every point equally (regardless of the real gap between session dates)
+  // made a workout on the 12th and another on the 28th sit right next to
+  // each other, 16 real days apart but one uniform "step" on the chart. Each
+  // x pixel now represents a real day, so the line/gradient between two
+  // points stretches the actual distance between their dates. The axis also
+  // runs out to the end of the last plotted month rather than stopping dead
+  // at the final workout, so it reads as one continuous month strip instead
+  // of a chart that just ends.
+  const PIXELS_PER_DAY = 14;
+  const parseLocalDate = (dateStr) => new Date(dateStr + 'T00:00:00');
+  const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const daysBetween = (a, b) => Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
+
+  // Anchored to the FIRST PLOTTED SESSION's actual date, not the 1st of its
+  // month — the timeline slider below (and its date-tick labels) always
+  // treats "session 1" as position zero, so starting the axis at the
+  // calendar month's start instead left an empty lead-in before the first
+  // dot, stranding it away from the left edge the slider's own first handle
+  // sits at. Only the far end still extends past the last real session, out
+  // to that month's last day, so the strip still reads as running through
+  // to month-end.
+  const axisStartDate = graphData.length > 0 ? parseLocalDate(graphData[0].date) : new Date();
+  const axisEndDate = graphData.length > 0 ? endOfMonth(parseLocalDate(graphData[graphData.length - 1].date)) : endOfMonth(new Date());
+  const totalAxisDays = Math.max(daysBetween(axisStartDate, axisEndDate), 1);
+
   // Vertical margin (room for value labels above points, date labels below)
   // and horizontal margin (just breathing room before the first/after the
   // last point) used to share one `padding` value — there's no Y-axis text
@@ -1825,10 +1860,16 @@ const WorkoutTracker = () => {
   // start. Split them: paddingX stays tight, padding (vertical) unchanged.
   const padding = 35;
   const paddingX = 14;
-  const chartWidth = pointSpacing * Math.max(graphData.length - 1, 0);
-  const width = Math.max(paddingX * 2 + pointSpacing * (VISIBLE_POINTS - 1), paddingX * 2 + chartWidth);
+  // Roughly a month's worth of days visible in the card at once before
+  // .svg-container-box's horizontal scroll kicks in (see svg-scroll-wrap
+  // /hint below).
+  const VISIBLE_DAYS = 30;
+  const chartWidth = totalAxisDays * PIXELS_PER_DAY;
+  const width = Math.max(paddingX * 2 + VISIBLE_DAYS * PIXELS_PER_DAY, paddingX * 2 + chartWidth);
   const height = 200;
   const chartHeight = height - padding * 2;
+
+  const getPointX = (dateStr) => paddingX + daysBetween(axisStartDate, parseLocalDate(dateStr)) * PIXELS_PER_DAY;
 
   let pathPoints = '';
   let areaPoints = '';
@@ -1836,11 +1877,13 @@ const WorkoutTracker = () => {
   const maxY = Math.max(...yValues, 5) * 1.15;
   const minY = Math.min(...yValues, 0) * 0.9;
 
+  const getPointY = (val) => padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
+
   if (graphData.length > 0) {
     graphData.forEach((d, idx) => {
       const val = chartMetric === 'weight' ? d.weight : d.volume;
-      const x = paddingX + idx * pointSpacing;
-      const y = padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
+      const x = getPointX(d.date);
+      const y = getPointY(val);
 
       if (idx === 0) {
         pathPoints += `M ${x} ${y}`;
@@ -1855,15 +1898,12 @@ const WorkoutTracker = () => {
     });
   }
 
-  const getPointX = (idx) => paddingX + idx * pointSpacing;
-  const getPointY = (val) => padding + chartHeight - ((val - minY) / Math.max(maxY - minY, 1)) * chartHeight;
-
   // Keep the slider/date-tick-selected session scrolled into view when the
   // chart is wider than its card (see width calc above).
   useEffect(() => {
     const el = chartScrollRef.current;
     if (!el || !activeSessionData) return;
-    const targetX = getPointX(activeSessionData.pos);
+    const targetX = getPointX(activeSessionData.date);
     // SVG viewBox units → actual rendered pixels (the container may be
     // narrower than `width`, but the SVG itself renders at `width`px — see
     // the inline style on the <svg> — so this is a 1:1 unit match).
@@ -2959,15 +2999,18 @@ const WorkoutTracker = () => {
               </div>
             )}
 
-            {/* Skill-level progress bar — coaching-program accounting, only
-                for clients connected to a coach (or a coach viewing a
-                client). Completed/Remaining session counts (still computed
-                above, just no longer shown here) replaced by this bar per
-                request — session accounting still lives on the Home
-                dashboard's own progress card. Best Lift moved below the
-                Strength Progression chart (see further down). */}
-            {(hasCoachAssigned || isTrainer(localStorage.getItem('userEmail'))) && (
-            <>
+            {/* Skill-level progress bar — based purely on the client's own
+                session history (see skillLevel above), not on any coaching
+                relationship. Previously gated behind hasCoachAssigned
+                because it replaced a coaching-program accounting display
+                (Completed/Remaining session counts, still computed above,
+                just no longer shown here — that accounting still lives on
+                the Home dashboard's own progress card) that WAS legitimately
+                coach-only; this bar inherited that gate by copy-paste even
+                though it has no coach dependency, which hid it completely
+                for self-guided clients. Now shown unconditionally. Best Lift
+                moved below the Strength Progression chart (see further
+                down). */}
             <span className="skill-level-heading">🏆 Training Level</span>
             <div className="sessions-accounting-split">
               <div className="skill-level-bar" title={`${Math.round(skillLevel.score)}/100 — earned from consistency and progressive overload over your whole training history, not just recent activity`}>
@@ -3005,8 +3048,6 @@ const WorkoutTracker = () => {
                 </div>
               </div>
             </div>
-            </>
-            )}
           </div>
 
           {/* SVG Graph block — the exercise picker/Guide/timeframe row now
@@ -3085,7 +3126,7 @@ const WorkoutTracker = () => {
                     fit — a client had no way to know there was more to see.
                     Edge fade (CSS) + this small caption only appear when the
                     chart is actually wider than its box. */}
-                <div className={`svg-scroll-wrap ${graphData.length > VISIBLE_POINTS ? 'scrollable' : ''}`}>
+                <div className={`svg-scroll-wrap ${totalAxisDays > VISIBLE_DAYS ? 'scrollable' : ''}`}>
                   <div className="svg-container-box" ref={chartScrollRef}>
                   <svg
                     viewBox={`0 0 ${width} ${height}`}
@@ -3137,9 +3178,9 @@ const WorkoutTracker = () => {
 
                     {activeSessionData && (
                       <line 
-                        x1={getPointX(activeSessionData.pos)}
+                        x1={getPointX(activeSessionData.date)}
                         y1={padding}
-                        x2={getPointX(activeSessionData.pos)}
+                        x2={getPointX(activeSessionData.date)}
                         y2={padding + chartHeight} 
                         stroke="rgba(var(--fg-rgb), 0.1)" 
                         strokeWidth="1.5" 
@@ -3148,7 +3189,7 @@ const WorkoutTracker = () => {
                     )}
 
                     {/* Per-point date labels — safe to show one per point
-                        now that spacing is fixed (pointSpacing) instead of
+                        now that x-position is calendar-day based instead of
                         every session being squeezed into a constant-width
                         chart; extra points just extend the scrollable width
                         instead of crowding these together. Clickable —
@@ -3159,14 +3200,14 @@ const WorkoutTracker = () => {
                     {graphData.map((d, idx) => (
                       <text
                         key={`axis-${d.date}-${idx}`}
-                        x={getPointX(d.pos)}
+                        x={getPointX(d.date)}
                         y={padding + chartHeight + 22}
                         textAnchor="middle"
                         fontSize="11"
                         fontWeight="600"
-                        fill={d.index === selectedSessionIndex ? 'var(--text-main)' : 'var(--text-muted)'}
+                        fill={idx === selectedSessionIndex ? 'var(--text-main)' : 'var(--text-muted)'}
                         style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedSessionIndex(d.index)}
+                        onClick={() => setSelectedSessionIndex(idx)}
                       >
                         {new Date(d.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </text>
@@ -3175,7 +3216,7 @@ const WorkoutTracker = () => {
                     {graphData.map((d, idx) => {
                       const val = chartMetric === 'weight' ? d.weight : d.volume;
                       const active = activeSessionData && activeSessionData.index === d.index;
-                      const px = getPointX(d.pos);
+                      const px = getPointX(d.date);
                       const py = getPointY(val);
                       return (
                         <g key={`${d.date}-${idx}`}>
@@ -3234,7 +3275,7 @@ const WorkoutTracker = () => {
                       const dateLabel = new Date(activeSessionData.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                       const boxWidth = 118;
                       const boxHeight = 40;
-                      const px = getPointX(activeSessionData.pos);
+                      const px = getPointX(activeSessionData.date);
                       const py = getPointY(val);
                       const boxX = Math.min(Math.max(px - boxWidth / 2, 2), width - boxWidth - 2);
                       const boxY = Math.max(py - boxHeight - 16, 2);
@@ -3248,7 +3289,7 @@ const WorkoutTracker = () => {
                     })()}
                   </svg>
                   </div>
-                  {graphData.length > VISIBLE_POINTS && (
+                  {totalAxisDays > VISIBLE_DAYS && (
                     <span className="svg-scroll-hint">↔ Drag</span>
                   )}
                 </div>
@@ -3257,7 +3298,17 @@ const WorkoutTracker = () => {
                   <div className="slider-label-row">
                     <span>📅 Timeline Session</span>
                     <strong>
-                      Session {selectedSessionIndex + 1}: <span className="text-highlight">{displayedSessions[selectedSessionIndex]?.date}</span>
+                      {/* Read off activeSessionData (already resolved from
+                          `selectedSessionIndex` as a graphData position, see
+                          above) instead of indexing displayedSessions
+                          directly — displayedSessions is the raw,
+                          unfiltered session list, so the same numeric index
+                          can land on a completely different date once
+                          sessions with no data for this exercise have been
+                          filtered out of graphData. Reading both the number
+                          and the date off the same resolved object is what
+                          keeps this label in sync with the highlighted dot. */}
+                      Session {activeSessionData ? activeSessionData.index + 1 : selectedSessionIndex + 1}: <span className="text-highlight">{activeSessionData?.date}</span>
                     </strong>
                   </div>
                   <input

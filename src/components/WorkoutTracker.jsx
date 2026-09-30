@@ -1763,7 +1763,18 @@ const WorkoutTracker = () => {
       sets: exercise.sets,
       index
     };
-  }).filter(d => d.weight > 0 || d.volume > 0);
+  }).filter(d => d.weight > 0 || d.volume > 0)
+    // `index` (above) is the session's position in the full, unfiltered
+    // history — used to look up "the previous session" etc. `pos` is this
+    // point's position among the points actually being PLOTTED, which is
+    // what the x-coordinate must be driven by. They diverge whenever an
+    // earlier session had no data for this exercise and got filtered out
+    // above; using `index` for x placement (as getPointX calls used to)
+    // put dots/labels/tooltips at the session's real-history slot instead
+    // of its plotted slot, stranding them far from the line/gradient path
+    // (which IS built off plotted position) — the "floating value with no
+    // attachment" bug.
+    .map((d, pos) => ({ ...d, pos }));
 
   const activeSessionData = graphData.find(d => d.index === selectedSessionIndex) || graphData[graphData.length - 1] || null;
 
@@ -1841,7 +1852,7 @@ const WorkoutTracker = () => {
   useEffect(() => {
     const el = chartScrollRef.current;
     if (!el || !activeSessionData) return;
-    const targetX = getPointX(activeSessionData.index);
+    const targetX = getPointX(activeSessionData.pos);
     // SVG viewBox units → actual rendered pixels (the container may be
     // narrower than `width`, but the SVG itself renders at `width`px — see
     // the inline style on the <svg> — so this is a 1:1 unit match).
@@ -3115,9 +3126,9 @@ const WorkoutTracker = () => {
 
                     {activeSessionData && (
                       <line 
-                        x1={getPointX(activeSessionData.index)} 
-                        y1={padding} 
-                        x2={getPointX(activeSessionData.index)} 
+                        x1={getPointX(activeSessionData.pos)}
+                        y1={padding}
+                        x2={getPointX(activeSessionData.pos)}
                         y2={padding + chartHeight} 
                         stroke="rgba(var(--fg-rgb), 0.1)" 
                         strokeWidth="1.5" 
@@ -3137,7 +3148,7 @@ const WorkoutTracker = () => {
                     {graphData.map((d, idx) => (
                       <text
                         key={`axis-${d.date}-${idx}`}
-                        x={getPointX(d.index)}
+                        x={getPointX(d.pos)}
                         y={padding + chartHeight + 22}
                         textAnchor="middle"
                         fontSize="11"
@@ -3153,7 +3164,7 @@ const WorkoutTracker = () => {
                     {graphData.map((d, idx) => {
                       const val = chartMetric === 'weight' ? d.weight : d.volume;
                       const active = activeSessionData && activeSessionData.index === d.index;
-                      const px = getPointX(d.index);
+                      const px = getPointX(d.pos);
                       const py = getPointY(val);
                       return (
                         <g key={`${d.date}-${idx}`}>
@@ -3212,7 +3223,7 @@ const WorkoutTracker = () => {
                       const dateLabel = new Date(activeSessionData.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                       const boxWidth = 118;
                       const boxHeight = 40;
-                      const px = getPointX(activeSessionData.index);
+                      const px = getPointX(activeSessionData.pos);
                       const py = getPointY(val);
                       const boxX = Math.min(Math.max(px - boxWidth / 2, 2), width - boxWidth - 2);
                       const boxY = Math.max(py - boxHeight - 16, 2);

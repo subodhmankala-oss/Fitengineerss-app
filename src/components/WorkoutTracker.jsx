@@ -1809,11 +1809,18 @@ const WorkoutTracker = () => {
   // of a chart that just ends.
   const PIXELS_PER_DAY = 14;
   const parseLocalDate = (dateStr) => new Date(dateStr + 'T00:00:00');
-  const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
   const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
   const daysBetween = (a, b) => Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
 
-  const axisStartDate = graphData.length > 0 ? startOfMonth(parseLocalDate(graphData[0].date)) : startOfMonth(new Date());
+  // Anchored to the FIRST PLOTTED SESSION's actual date, not the 1st of its
+  // month — the timeline slider below (and its date-tick labels) always
+  // treats "session 1" as position zero, so starting the axis at the
+  // calendar month's start instead left an empty lead-in before the first
+  // dot, stranding it away from the left edge the slider's own first handle
+  // sits at. Only the far end still extends past the last real session, out
+  // to that month's last day, so the strip still reads as running through
+  // to month-end.
+  const axisStartDate = graphData.length > 0 ? parseLocalDate(graphData[0].date) : new Date();
   const axisEndDate = graphData.length > 0 ? endOfMonth(parseLocalDate(graphData[graphData.length - 1].date)) : endOfMonth(new Date());
   const totalAxisDays = Math.max(daysBetween(axisStartDate, axisEndDate), 1);
 

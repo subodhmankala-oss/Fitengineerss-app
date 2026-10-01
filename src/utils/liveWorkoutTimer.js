@@ -11,6 +11,20 @@ import { isWarmupExercise, isBodyweightExercise, isLoadedCarryExercise } from '.
 // number never moves on its own just because the session clock is running.
 export const DEFAULT_BODY_WEIGHT_KG = 70;
 
+// Every MET in this file is a GROSS figure — it includes the 1 MET the body
+// burns at rest anyway. Showing gross kcal credited a client for the calories
+// they'd have burned sitting on the sofa: a 45-minute incline walk at 80 kg
+// read 379 kcal (2026-10-01, Lakku Chandra Sekhar), well above what a watch's
+// "active calories" shows for the same walk. Every estimate now subtracts that
+// resting 1 MET, on body weight only (a held dumbbell has no metabolism).
+const RESTING_MET = 1.0;
+
+// kcal = MET x 3.5 x kg / 200 x minutes, minus the resting burn over the same
+// minutes. effectiveMassKg is bodyweight + any load being moved.
+function activeKcal(met, effectiveMassKg, bodyWeightKg, minutes) {
+  return Math.max(0, (met * effectiveMassKg - RESTING_MET * bodyWeightKg) * 3.5 / 200 * minutes);
+}
+
 // MET for a static core hold (plank, side plank, wall sit, hollow hold, dead
 // hang) — Compendium of Physical Activities lists isometric abdominal/
 // calisthenic holds around 3.5-4.0 MET; a single flat value here matches the
@@ -51,6 +65,8 @@ function timedHoldMET(exerciseName) {
 // took, and cycling covers far more ground per unit of effort than running.
 // Speed (derived from distance/time) picks the right intensity bracket
 // instead.
+const INCLINE_WALK_ASSUMED_GRADE = 0.05;
+
 function cardioMET(exerciseName, speedKmh) {
   const n = (exerciseName || '').toLowerCase();
 
@@ -82,7 +98,14 @@ function cardioMET(exerciseName, speedKmh) {
     return 9.8;
   }
   if (/cross trainer|elliptical/.test(n)) return 5.0;
-  if (/incline walk/.test(n)) return 6.0;
+  // Incline Walk was a flat 6.0 MET at any speed, so a slow 4.5 km/h walk
+  // priced like a steep climb. The ACSM walking equation (VO2 = 3.5 + 0.1 x
+  // m/min + 1.8 x m/min x grade) scales with speed instead. Incline isn't
+  // logged, so it assumes a moderate 5% grade: 4.5 km/h -> ~5.1 MET.
+  if (/incline walk/.test(n)) {
+    const metersPerMin = speedKmh * 1000 / 60;
+    return (3.5 + 0.1 * metersPerMin + 1.8 * metersPerMin * INCLINE_WALK_ASSUMED_GRADE) / 3.5;
+  }
   // "Treadmill" has no case of its own before this point, so a treadmill
   // set fell all the way through to the generic running ladder below
   // (floor 6.0 MET) no matter how slow it actually was — a treadmill WALK
@@ -134,7 +157,7 @@ function cardioKcal(exerciseName, distanceKm, durationSeconds, bodyWeightKg) {
   if (km <= 0 || minutes <= 0) return 0;
   const speedKmh = km / (minutes / 60);
   const met = cardioMET(exerciseName, speedKmh);
-  return (met * 3.5 * bodyWeightKg / 200) * minutes;
+  return activeKcal(met, bodyWeightKg, bodyWeightKg, minutes);
 }
 
 // Public wrapper around cardioKcal — lets the logger show a live "burning
@@ -195,7 +218,7 @@ export function estimateCardioDistanceKm(exerciseName, durationSeconds) {
 function timedHoldKcal(durationSeconds, bodyWeightKg, exerciseName) {
   const minutes = (durationSeconds || 0) / 60;
   if (minutes <= 0) return 0;
-  return (timedHoldMET(exerciseName) * 3.5 * bodyWeightKg / 200) * minutes;
+  return activeKcal(timedHoldMET(exerciseName), bodyWeightKg, bodyWeightKg, minutes);
 }
 
 // Public wrapper around timedHoldKcal — mirrors estimateCardioKcal above but
@@ -284,7 +307,7 @@ function loadedRepsKcal(reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, m
   }
   const minutes = (clampedReps * secondsPerRep) / 60;
   const effectiveMassKg = bodyWeightKg + clampedAddedWeight;
-  const kcal = (met * 3.5 * effectiveMassKg / 200) * minutes;
+  const kcal = activeKcal(met, effectiveMassKg, bodyWeightKg, minutes);
   if (kcal > maxKcal) {
     console.warn('[liveWorkoutTimer] Clamped implausible single-set kcal result:', { reps, bodyWeightKg, addedWeightKg, met, secondsPerRep, kcal });
     return maxKcal;
@@ -302,7 +325,7 @@ function bodyweightKcal(exerciseName, reps, bodyWeightKg, addedWeightKg = 0) {
 // credit (see STRENGTH_REST_SECONDS_PER_SET).
 function strengthKcal(reps, weightKg, bodyWeightKg) {
   if (reps <= 0) return 0;
-  const restKcal = (STRENGTH_REST_MET * 3.5 * bodyWeightKg / 200) * (STRENGTH_REST_SECONDS_PER_SET / 60);
+  const restKcal = activeKcal(STRENGTH_REST_MET, bodyWeightKg, bodyWeightKg, STRENGTH_REST_SECONDS_PER_SET / 60);
   return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP) + restKcal;
 }
 

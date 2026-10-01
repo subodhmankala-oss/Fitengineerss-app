@@ -98,9 +98,8 @@ describe('loaded carry calories (reps field holds meters)', () => {
 
   it('leaves regular strength sets priced as strength', () => {
     // 10 reps x 3 s at 6.0 MET, 70 kg body + 50 kg bar, minus resting:
-    // (6 x 120 - 70) x 3.5 / 200 x 0.5 = 5.69
-    // + 60 s rest credit at 3.5 MET (2.5 active) on 70 kg: 3.06
-    expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(8.8, 1);
+    // (6 x 120 - 70) x 3.5 / 200 x 0.5 = 5.7, no rest credit
+    expect(kcalFor('Bench Press', { reps: '10', weight: '50' })).toBeCloseTo(5.7, 1);
   });
 });
 
@@ -156,14 +155,13 @@ describe('light core vs vigorous bodyweight vs weight training', () => {
     });
   });
 
-  it('adds one 60 s rest credit per weighted set, not per rep', () => {
-    const rest = 2.5 * 3.5 * 70 / 200; // 3.06 kcal
-    const set = (reps) => (6 * (70 + 40) - 70) * 3.5 / 200 * (reps * 3 / 60) + rest;
+  it('counts only the logged reps of a weighted set, with no rest credit', () => {
+    const set = (reps) => (6 * (70 + 40) - 70) * 3.5 / 200 * (reps * 3 / 60);
     expect(kcalFor('Lat Pulldown', { reps: '8', weight: '40' })).toBeCloseTo(set(8), 1);
     expect(kcalFor('Lat Pulldown', { reps: '15', weight: '40' })).toBeCloseTo(set(15), 1);
   });
 
-  it('gives no rest credit to a weighted set with 0 reps', () => {
+  it('counts nothing for a weighted set with 0 reps', () => {
     expect(kcalFor('Bench Press', { reps: '0', weight: '60' })).toBe(0);
   });
 

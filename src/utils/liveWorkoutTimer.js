@@ -259,15 +259,9 @@ const STRENGTH_MET = 6.0;
 // calisthenics rep (BODYWEIGHT_SECONDS_PER_REP above) — a controlled
 // eccentric under external load typically runs ~3s/rep tempo.
 const STRENGTH_SECONDS_PER_REP = 3.0;
-// Each weighted set also earns the rest that goes with it. Rep time alone
-// (~30 s for 10 reps) left a real 76-minute weights session at ~1.6 kcal/min;
-// the Compendium's whole-session resistance-training figures (3.5 moderate,
-// 6.0 vigorous) include the rest between sets. 60 s at 3.5 MET on bodyweight
-// per completed set brings a typical weights day to ~4.3 kcal/min for a 70 kg
-// client — the moderate figure. Credited per logged set, not per minute on
-// the clock, so calories still only move when a set is logged.
-const STRENGTH_REST_SECONDS_PER_SET = 60;
-const STRENGTH_REST_MET = 3.5;
+// No rest credit: a weighted set counts only the reps actually logged. A 60 s
+// rest credit per set (added 2026-09-24) was removed on 2026-10-01 — clients
+// should see calories for the work they entered, nothing extra.
 
 // Shared MET-based estimator for any reps-driven set that has no logged
 // duration of its own (bodyweight calisthenics AND regular weighted
@@ -321,12 +315,10 @@ function bodyweightKcal(exerciseName, reps, bodyWeightKg, addedWeightKg = 0) {
 
 // Regular weighted strength set (bench press, squat, curls, ...) — same
 // effective-mass MET model as bodyweightKcal above, just at the resistance-
-// training MET bracket instead of the calisthenics one, plus the set's rest
-// credit (see STRENGTH_REST_SECONDS_PER_SET).
+// training MET bracket instead of the calisthenics one.
 function strengthKcal(reps, weightKg, bodyWeightKg) {
   if (reps <= 0) return 0;
-  const restKcal = activeKcal(STRENGTH_REST_MET, bodyWeightKg, bodyWeightKg, STRENGTH_REST_SECONDS_PER_SET / 60);
-  return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP) + restKcal;
+  return loadedRepsKcal(reps, bodyWeightKg, weightKg, STRENGTH_MET, STRENGTH_SECONDS_PER_REP);
 }
 
 // Loaded carries (Farmer Walk, suitcase carry, ...) and High Knees Walk log

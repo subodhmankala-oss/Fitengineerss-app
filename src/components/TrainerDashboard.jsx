@@ -7,6 +7,7 @@ import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
+import AdminSignupAlerts from './admin/AdminSignupAlerts';
 import './WorkoutTracker.css';
 // Weekly/Daily/Monthly chart + card styling — shared with the client's own
 // WorkoutProgressDashboard so the coach's per-client Workout History tab is
@@ -74,6 +75,11 @@ const DEMO_CLIENT = {
 // The client-detail tabs a notification's clientTab can point at (see the
 // unread-dot handling around clientNotifications below).
 const CLIENT_DETAIL_TABS = ['plans', 'livelog', 'workout', 'measurements'];
+
+// notifications.type values for the super-admin's sign-up alerts — same list
+// as SIGNUP_ALERT_TYPES in api/_adminAlert.js (server-only module, so not
+// imported here).
+const SIGNUP_ALERT_TYPES = new Set(['new_client_signup', 'signup_incomplete', 'new_coach_signup']);
 
 // A client-detail tab's emoji icon, with the blue unread dot on its corner
 // when a notification points at that tab.
@@ -641,6 +647,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // that client's directory row and on the tab the push linked to, so a coach
   // who opens the app directly (not via the notification) still sees them.
   const [clientNotifications, setClientNotifications] = useState([]);
+  // Super-admin only: unread sign-up alerts (new client, sign-up not
+  // finished, new coach — written by api/_adminAlert.js next to the push).
+  // Cards on the Admin panel + a dot on the Admin toggle until opened or
+  // dismissed. Kept out of clientNotifications so they don't put blue dots
+  // on the super-admin's own "My Clients" rows.
+  const [signupAlerts, setSignupAlerts] = useState([]);
 
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
@@ -2832,13 +2844,51 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const rows = await databaseService.getUnreadNotifications(resolvedCoachId);
     if (rows === null) return;
     const connected = rows.filter(n => n.type === 'client_connected');
+    const signups = rows.filter(n => SIGNUP_ALERT_TYPES.has(n.type));
     setNewClientNotifications(connected);
-    setClientNotifications(rows.filter(n => n.type !== 'client_connected' && n.clientId));
+    setSignupAlerts(superAdmin ? signups : []);
+    setClientNotifications(rows.filter(n => n.type !== 'client_connected' && !SIGNUP_ALERT_TYPES.has(n.type) && n.clientId));
     // A notified client missing from the directory means the list is stale
-    // (loaded before they connected) — refetch so the row + "New" chip show.
-    if (connected.some(n => n.clientId && !clientsRef.current.some(c => c.id === n.clientId)) && fetchClientsRef.current) {
+    // (loaded before they connected / signed up) — refetch so the row shows.
+    const clientAlerts = [...connected, ...signups.filter(n => n.type !== 'new_coach_signup')];
+    if (clientAlerts.some(n => n.clientId && !clientsRef.current.some(c => c.id === n.clientId)) && fetchClientsRef.current) {
       fetchClientsRef.current();
     }
+  };
+
+  // Super-admin opened or dismissed a sign-up alert.
+  const dismissSignupAlerts = (ids) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setSignupAlerts((prev) => prev.filter((n) => !idSet.has(n.id)));
+    databaseService.markNotificationsRead(ids);
+  };
+  // Opening a client clears every sign-up alert about them — an effect
+  // rather than a call in handleSelectClient so it also catches alerts that
+  // finish loading after the client was opened (e.g. from the push's deep
+  // link, which can open the client before the alerts fetch returns).
+  useEffect(() => {
+    if (!selectedClient) return;
+    const ids = signupAlerts
+      .filter(n => n.clientId === selectedClient.id && n.type !== 'new_coach_signup')
+      .map(n => n.id);
+    if (ids.length > 0) dismissSignupAlerts(ids);
+  }, [selectedClient, signupAlerts]);
+  const handleOpenSignupAlert = (alert) => {
+    if (alert.type === 'new_coach_signup') {
+      dismissSignupAlerts([alert.id]);
+      setAdminSubTab('coaches');
+      return;
+    }
+    const match = clients.find(c => c.id === alert.clientId);
+    if (!match) {
+      // Not in the loaded list yet — show them in All Clients instead.
+      dismissSignupAlerts([alert.id]);
+      setAdminSubTab('clients');
+      return;
+    }
+    setViewMode('coach');
+    handleSelectClient(match);
   };
 
   // Coach acknowledged the new client (dismissed the card, or opened them
@@ -4366,10 +4416,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               title="Super-Admin"
               aria-label="Super-Admin"
             >
-              <span className="admin-shell-icon">
+              <span className="admin-shell-icon" style={{ position: 'relative' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
+                {signupAlerts.length > 0 && (
+                  <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -4 }} aria-label="New sign-ups" />
+                )}
               </span>
               <span className="admin-shell-label">Admin</span>
             </button>
@@ -4604,6 +4657,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               }}
             >
               🛡️ Super-Admin
+              {signupAlerts.length > 0 && (
+                <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups" />
+              )}
             </button>
           </div>
         )}
@@ -4802,6 +4858,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             </div>
           </div>
 
+          <AdminSignupAlerts
+            alerts={signupAlerts}
+            onOpen={handleOpenSignupAlert}
+            onDismiss={(a) => dismissSignupAlerts([a.id])}
+            onDismissAll={() => dismissSignupAlerts(signupAlerts.map(n => n.id))}
+          />
+
           {/* KPI stat cards — desktop overview row. One neutral accent
               (the app's own --primary-accent-light) rather than a color per
               category, flat rather than glowing — reads as a calm summary
@@ -4887,7 +4950,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   loadingClients={loadingClients}
                   coachesList={coachesList}
                   onSelectCoachDetails={handleViewCoachClients}
-                  unreadClientIds={new Set([...clientNotifications, ...newClientNotifications].map(n => n.clientId))}
+                  unreadClientIds={new Set([...clientNotifications, ...newClientNotifications, ...signupAlerts].map(n => n.clientId))}
                 />
               )}
             </div>

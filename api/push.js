@@ -20,6 +20,7 @@
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 import { authorizeNotify } from './_notifyAuth.js';
+import { runIncompleteSignupSweep } from './_adminAlert.js';
 // Reused verbatim from the in-app Muscle Analytics screen (see that file's
 // header) rather than re-implemented here, so the weekly muscle-balance
 // nudge (runMuscleBalanceSweep below) can never drift from what the client
@@ -601,6 +602,17 @@ async function handleSendNudges(req, res) {
       throw rpcError;
     }
 
+    // Piggybacks on these five daily slots (Hobby crons can't run hourly):
+    // alert the super-admin about clients who started signing up but didn't
+    // finish. Runs before the subscriber/sleeping-hours early returns below,
+    // and is non-fatal — the wellness cycle must still go out if it fails.
+    let incompleteSignups = null;
+    try {
+      incompleteSignups = await runIncompleteSignupSweep({ supabaseUrl, serviceKey, clients: allClients, users: allUsers });
+    } catch (sweepErr) {
+      console.error('Incomplete sign-up sweep failed (non-fatal):', sweepErr);
+    }
+
     if (!subscribers || subscribers.length === 0) {
       return res.status(200).json({ success: true, message: 'Zero subscribers found. Fired 0 notifications.' });
     }
@@ -726,7 +738,8 @@ async function handleSendNudges(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: `Hourly nudge cycle triggered. Notifications sent: ${successCount} successful, ${failureCount} failed. IST Hour: ${hours}`
+      message: `Hourly nudge cycle triggered. Notifications sent: ${successCount} successful, ${failureCount} failed. IST Hour: ${hours}`,
+      incompleteSignups
     });
   } catch (error) {
     console.error('Nudge broadcast error:', error);

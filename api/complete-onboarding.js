@@ -1,4 +1,4 @@
-import webPush from 'web-push';
+import { alertSuperAdmin, clearSignupIncompleteAlert } from './_adminAlert.js';
 
 // Persists the client onboarding wizard result server-side, with the
 // service-role key, so the write can never be silently dropped by the
@@ -7,72 +7,23 @@ import webPush from 'web-push';
 // clients ended up with their body stats saved but onboarding_completed
 // stuck at false, forcing them back through the wizard on every login.
 
-// Same hardcoded super-admin identity App.jsx's processSessionUser uses to
-// grant the super-admin role — kept in sync deliberately rather than reading
-// a role column, since that's the one account the new-signup alert below
-// must always reach regardless of DB role drift.
-const SUPER_ADMIN_EMAIL = 'subodhmankala@gmail.com';
-
-let vapidConfigured = false;
-function ensureVapid() {
-  if (vapidConfigured) return;
-  webPush.setVapidDetails(
-    'mailto:support@fitengineers.com',
-    process.env.VITE_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-  vapidConfigured = true;
-}
-
-// Sends a push to every subscription registered for one userId, straight
-// with the service-role key already held by this handler (bypasses RLS
-// outright, no anon-key/RPC dance needed) rather than round-tripping through
-// api/push.js's HTTP endpoint — a serverless function calling another one
-// over the network can get frozen mid-flight the instant this handler's own
-// response is sent (confirmed 2026-08-15: that exact cross-function call
-// aborted under vercel dev's local simulation), and it adds nothing this
-// handler can't do itself with the credentials it already has. Silent no-op
-// if the user has no subscriptions yet (e.g. a brand-new client who hasn't
-// granted push permission in the browser yet) — never throws.
-async function sendPushToUserId(supabaseUrl, serviceKey, userId, { title, body, url }) {
-  ensureVapid();
-  const restHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-
-  const subsResp = await fetch(`${supabaseUrl}/rest/v1/push_subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=id,subscription`, { headers: restHeaders });
-  const subs = await subsResp.json().catch(() => []);
-  if (!Array.isArray(subs) || subs.length === 0) return;
-
-  const payload = JSON.stringify({ title, body, icon: '/logo.png', vibrate: [300, 100, 300], url: url || undefined });
-
-  await Promise.all(subs.map(async (sub) => {
-    try {
-      await webPush.sendNotification(sub.subscription, payload);
-    } catch (err) {
-      if (err.statusCode === 410 || err.statusCode === 404) {
-        await fetch(`${supabaseUrl}/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(sub.id)}`, { method: 'DELETE', headers: restHeaders }).catch(() => {});
-      }
-    }
-  }));
-}
-
-// Best-effort push to the super-admin that a brand-new client just finished
-// signing up. Never throws — a notification hiccup must not fail the
-// onboarding save that already succeeded by the time this runs.
-async function notifySuperAdminOfNewClient(supabaseUrl, serviceKey, clientName) {
-  try {
-    const restHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
-    const adminResp = await fetch(`${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(SUPER_ADMIN_EMAIL)}&select=id`, { headers: restHeaders });
-    const adminData = await adminResp.json().catch(() => []);
-    const adminId = Array.isArray(adminData) ? adminData[0]?.id : null;
-    if (!adminId) return;
-
-    await sendPushToUserId(supabaseUrl, serviceKey, adminId, {
-      title: '🎉 New client joined',
-      body: `${clientName} just signed up on Fitengineers.`
-    });
-  } catch (notifyErr) {
-    console.error('complete-onboarding: new-signup admin notification failed (non-fatal):', notifyErr);
-  }
+// Alert the super-admin (push + in-app card, via api/_adminAlert.js) that a
+// brand-new client just finished signing up. "no coach yet" is called out
+// because those are the sign-ups nobody else hears about — the super-admin
+// is the only one who can follow up. Never throws.
+async function notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, clientName, hasCoach }) {
+  // They finished, so a pending "sign-up not finished" card is stale.
+  await clearSignupIncompleteAlert({ supabaseUrl, serviceKey, actorUserId: userId });
+  await alertSuperAdmin({
+    supabaseUrl,
+    serviceKey,
+    type: 'new_client_signup',
+    actorUserId: userId,
+    title: '🎉 New client joined',
+    body: `${clientName} just signed up on Fitengineers${hasCoach ? '.' : ' — no coach yet.'}`,
+    url: `/?viewClient=${userId}`,
+    payload: { client_name: clientName }
+  });
 }
 
 export default async function handler(req, res) {
@@ -229,7 +180,7 @@ export default async function handler(req, res) {
     // driven by clients.welcome_seen defaulting to false on this insert) —
     // no push needed here for that half.
     const finalName = persistName ? cleanName : (data[0].full_name || 'A new client');
-    await notifySuperAdminOfNewClient(supabaseUrl, serviceKey, finalName);
+    await notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, clientName: finalName, hasCoach: !!data[0].coach_id });
 
     return res.status(200).json({ success: true, client: data[0] });
   } catch (err) {

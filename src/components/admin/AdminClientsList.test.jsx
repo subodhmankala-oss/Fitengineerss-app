@@ -190,4 +190,56 @@ describe('AdminClientsList component', () => {
     expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
     expect(screen.getByText('Subodh Guest')).toBeTruthy();
   });
+
+  describe('new sign-ups', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const signupClients = [
+      { id: 'old', userName: 'Old Client', email: 'old@x.com', joined_at: new Date(Date.now() - 30 * DAY).toISOString() },
+      { id: 'newest', userName: 'Newest Client', email: 'newest@x.com', joined_at: new Date(Date.now() - 1 * DAY).toISOString() },
+      { id: 'undated', userName: 'Undated Client', email: 'undated@x.com' },
+      { id: 'recent', userName: null, email: 'noname@x.com', joined_at: new Date(Date.now() - 3 * DAY).toISOString() }
+    ];
+
+    const renderList = (props = {}) => render(
+      <AdminClientsList
+        clients={signupClients}
+        goalFilter="All"
+        setGoalFilter={() => {}}
+        loadingClients={false}
+        coachesList={[]}
+        onSelectCoachDetails={() => {}}
+        {...props}
+      />
+    );
+
+    it('lists newest sign-ups first, undated rows last', () => {
+      renderList();
+      const emails = screen.getAllByText(/@x\.com$/).map(el => el.textContent);
+      expect(emails).toEqual(['newest@x.com', 'noname@x.com', 'old@x.com', 'undated@x.com']);
+    });
+
+    it('counts and badges clients who joined in the last 7 days', () => {
+      renderList();
+      const tile = screen.getByText('New this week').parentElement;
+      expect(tile.textContent).toContain('2');
+      expect(screen.getAllByText('NEW')).toHaveLength(2);
+      expect(screen.getByText('No name yet')).toBeTruthy();
+    });
+
+    it('clicking the tile filters to new sign-ups, clicking again clears it', () => {
+      const setActivityFilter = vi.fn();
+      renderList({ setActivityFilter });
+      fireEvent.click(screen.getByText('New this week'));
+      expect(setActivityFilter).toHaveBeenCalledWith('new');
+      cleanup();
+
+      renderList({ activityFilter: 'new', setActivityFilter });
+      expect(screen.getByText('newest@x.com')).toBeTruthy();
+      expect(screen.getByText('noname@x.com')).toBeTruthy();
+      expect(screen.queryByText('old@x.com')).toBeNull();
+      expect(screen.queryByText('undated@x.com')).toBeNull();
+      fireEvent.click(screen.getByText('New this week'));
+      expect(setActivityFilter).toHaveBeenLastCalledWith(null);
+    });
+  });
 });

@@ -25,3 +25,33 @@ export function getActivityStatus(lastLogin) {
   if (days < LONG_INACTIVE_DAYS) return { key: 'inactive-mid', label: `${days} day${days === 1 ? '' : 's'} inactive`, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' };
   return { key: 'inactive-long', label: `${days} days inactive`, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' };
 }
+
+// "New this week" — how recently a user must have signed up to get the NEW
+// badge and be counted in the admin lists' "New this week" tile. Rolling
+// window (last 7×24h), not calendar week, so Monday's list isn't empty.
+export const NEW_SIGNUP_DAYS = 7;
+
+export function isNewSignup(joinedAt, now = Date.now()) {
+  if (!joinedAt) return false;
+  const t = new Date(joinedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return now - t < NEW_SIGNUP_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// Sort comparator: newest sign-up first; rows with no join date sink to the
+// bottom (in their original order — Array.prototype.sort is stable).
+export function compareNewestJoinFirst(getJoined) {
+  return (a, b) => {
+    const ta = new Date(getJoined(a) || 0).getTime() || 0;
+    const tb = new Date(getJoined(b) || 0).getTime() || 0;
+    return tb - ta;
+  };
+}
+
+// "2 Oct 2026, 11:06 am" — date + time, since several people can join the
+// same day and the time is what tells you who's newest.
+export function formatJoined(joinedAt) {
+  return new Date(joinedAt).toLocaleString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+}

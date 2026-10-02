@@ -4760,6 +4760,10 @@ const databaseService = {
           clientId: r.actor_user_id,
           clientName: r.payload?.client_name || null,
           clientEmail: r.payload?.client_email || null,
+          // Super-admin sign-up alerts (api/_adminAlert.js) render the
+          // push's own text on their in-app card.
+          title: r.payload?.title || null,
+          body: r.payload?.body || null,
           inviteCode: r.payload?.invite_code || null,
           isNew: r.payload?.is_new !== false,
           clientTab: link?.clientTab || null,

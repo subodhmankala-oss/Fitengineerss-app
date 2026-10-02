@@ -11,10 +11,28 @@
 //   /api/register-coach-google  -> /api/auth-register?method=google
 
 import { createClient } from '@supabase/supabase-js';
+import { alertSuperAdmin } from './_adminAlert.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+// Push + in-app card to the super-admin (api/_adminAlert.js). Both paths
+// below are upserts that also run for an existing coach (retry, or App.jsx's
+// Google auto-provision) — _adminAlert de-duplicates per coach, so only the
+// first one alerts. No URL: the card lives on the Admin panel, which the
+// app's Admin toggle dot points to.
+function notifySuperAdminOfNewCoach(publicUserId, name, email) {
+  return alertSuperAdmin({
+    supabaseUrl,
+    serviceKey: serviceRoleKey,
+    type: 'new_coach_signup',
+    actorUserId: publicUserId,
+    title: '🏅 New coach joined',
+    body: `${name} (${email}) just signed up as a coach.`,
+    payload: { coach_name: name, coach_email: email }
+  });
+}
 
 // users.phone carries a UNIQUE constraint, so a number already on another
 // account (a coach who is also an existing client, or a plain typo) comes back
@@ -140,6 +158,8 @@ async function handleRegisterEmail(req, res) {
       throw profileErr;
     }
 
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail);
+
     const { data: finalSignIn } = await anonClient.auth.signInWithPassword({
       email: normalizedEmail,
       password
@@ -216,6 +236,8 @@ async function handleRegisterGoogle(req, res) {
       .select('id')
       .single();
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
+
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail);
 
     return res.status(200).json({
       success: true,

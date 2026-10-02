@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { isSuperAdmin } from '../../services/accessControl';
-import { getActivityStatus } from '../../utils/activityStatus';
+import { getActivityStatus, isNewSignup, compareNewestJoinFirst, formatJoined } from '../../utils/activityStatus';
+import { NewBadge } from './AdminClientsList';
 import AdminSearchBox from './AdminSearchBox';
 import { matchesSearch } from '../../utils/matchesSearch';
 
@@ -25,9 +26,11 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
     );
   }
 
+  // Newest sign-ups first, so a new coach is always at the top.
   const filteredCoaches = coachesList.filter(coach =>
     matchesSearch(searchQuery, [coach.name, coach.email, coach.brand])
-  );
+  ).sort(compareNewestJoinFirst(coach => coach.signup_date));
+  const newSignupCount = coachesList.filter(coach => isNewSignup(coach.signup_date)).length;
 
   return (
     <div className="glass-panel" style={{
@@ -37,7 +40,14 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
       padding: '16px',
       overflowX: 'auto'
     }}>
-      <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>Coaches ({coachesList.length})</h5>
+      <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>
+        Coaches ({coachesList.length})
+        {newSignupCount > 0 && (
+          <span style={{ marginLeft: '8px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-blue)' }}>
+            · {newSignupCount} new this week
+          </span>
+        )}
+      </h5>
 
       <AdminSearchBox
         value={searchQuery}
@@ -73,8 +83,14 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                         background: coach.isBlocked ? 'var(--danger)' : 'var(--primary-accent-light)', marginRight: '6px' 
                       }} />
                       {coach.name}
+                      {isNewSignup(coach.signup_date) && <span style={{ marginLeft: '6px' }}><NewBadge /></span>}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{coach.email}</div>
+                    {coach.signup_date && (
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        🗓️ Joined {formatJoined(coach.signup_date)}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       <span style={{
                         background: 'rgba(var(--fg-rgb), 0.04)',

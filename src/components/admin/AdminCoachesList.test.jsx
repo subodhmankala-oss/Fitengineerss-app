@@ -127,4 +127,24 @@ describe('AdminCoachesList component', () => {
     expect(screen.getByText('Subodh Mankala')).toBeTruthy();
     expect(screen.getByText('Jaswanth Gone')).toBeTruthy();
   });
+
+  it('lists newest coach sign-ups first with a NEW badge and join date', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    render(
+      <AdminCoachesList
+        coachesList={[
+          { id: 'a', name: 'Veteran Coach', email: 'vet@x.com', brand: 'B', clientsCount: 0, signup_date: new Date(Date.now() - 90 * DAY).toISOString() },
+          { id: 'b', name: 'Fresh Coach', email: 'fresh@x.com', brand: 'B', clientsCount: 0, signup_date: new Date(Date.now() - 2 * DAY).toISOString() }
+        ]}
+        loadingAdmin={false}
+        onToggleBlock={() => {}}
+        onViewClients={() => {}}
+      />
+    );
+    const emails = screen.getAllByText(/@x\.com$/).map(el => el.textContent);
+    expect(emails).toEqual(['fresh@x.com', 'vet@x.com']);
+    expect(screen.getAllByText('NEW')).toHaveLength(1);
+    expect(screen.getByText(/1 new this week/)).toBeTruthy();
+    expect(screen.getAllByText(/Joined/)).toHaveLength(2);
+  });
 });

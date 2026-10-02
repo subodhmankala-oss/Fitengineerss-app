@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getActivityStatus } from '../../utils/activityStatus';
+import { getActivityStatus, isNewSignup, compareNewestJoinFirst, formatJoined } from '../../utils/activityStatus';
 import AdminSearchBox from './AdminSearchBox';
 import { matchesSearch } from '../../utils/matchesSearch';
 
@@ -27,13 +27,22 @@ export default function AdminClientsList({
     );
   }
 
+  // 'new' is a sign-up-date filter sharing the activity tile row, not an
+  // activity bucket — getActivityStatus never returns it.
+  const matchesActivityFilter = (c) => {
+    if (!activityFilter) return true;
+    if (activityFilter === 'new') return isNewSignup(c.joined_at);
+    return getActivityStatus(c.last_login).key === activityFilter;
+  };
+
+  // Newest sign-ups first, so a new client is always at the top.
   const filteredClients = clients.filter(c => {
     const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
-    const matchesActivity = !activityFilter || getActivityStatus(c.last_login).key === activityFilter;
+    const matchesActivity = matchesActivityFilter(c);
     const coachName = coachesList.find(co => co.id === c.coach_id)?.name;
     return matchesGoal && matchesActivity &&
       matchesSearch(searchQuery, [c.userName, c.email, c.phone, coachName]);
-  });
+  }).sort(compareNewestJoinFirst(c => c.joined_at));
 
   // Activity summary across ALL clients (not just the goal-filtered subset)
   // so the counts don't shift when someone flips the filter pills.
@@ -42,7 +51,9 @@ export default function AdminClientsList({
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
+  const newSignupCount = clients.filter(c => isNewSignup(c.joined_at)).length;
   const summaryTiles = [
+    { key: 'new', label: 'New this week', count: newSignupCount, color: 'var(--tint-blue)', bg: 'rgba(59, 130, 246, 0.08)', border: 'rgba(59, 130, 246, 0.2)' },
     { key: 'active', label: 'Active today', count: activityCounts.active || 0, color: 'var(--accent-text)', bg: 'rgba(var(--accent-rgb), 0.08)', border: 'rgba(var(--accent-rgb), 0.2)' },
     { key: 'inactive-mid', label: '1–5 days inactive', count: activityCounts['inactive-mid'] || 0, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
     { key: 'inactive-long', label: '6+ days inactive', count: activityCounts['inactive-long'] || 0, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' },
@@ -136,7 +147,8 @@ export default function AdminClientsList({
                   <td style={{ padding: '8px 8px', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {client.userName}
+                        {client.userName || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 600 }}>No name yet</span>}
+                        {isNewSignup(client.joined_at) && <NewBadge />}
                         {unreadClientIds.has(client.id) && <span className="unread-dot" aria-label="New update" />}
                       </div>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{client.email}</div>
@@ -145,7 +157,7 @@ export default function AdminClientsList({
                       )}
                       {client.joined_at && (
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          🗓️ Joined {new Date(client.joined_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          🗓️ Joined {formatJoined(client.joined_at)}
                         </div>
                       )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
@@ -201,5 +213,22 @@ export default function AdminClientsList({
         </table>
       )}
     </div>
+  );
+}
+
+export function NewBadge() {
+  return (
+    <span style={{
+      background: 'rgba(59, 130, 246, 0.12)',
+      border: '1px solid rgba(59, 130, 246, 0.3)',
+      color: 'var(--tint-blue)',
+      padding: '0 5px',
+      borderRadius: '4px',
+      fontSize: '0.6rem',
+      fontWeight: 800,
+      letterSpacing: '0.04em'
+    }}>
+      NEW
+    </span>
   );
 }

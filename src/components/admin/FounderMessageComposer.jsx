@@ -37,7 +37,10 @@ export default function FounderMessageComposer({ client, onClose }) {
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        // Anchored to the top and scrollable: a vertically centred dialog
+        // ends up behind the phone keyboard, so the text box can't be seen.
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '16px',
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch'
       }}
     >
       <div
@@ -57,8 +60,7 @@ export default function FounderMessageComposer({ client, onClose }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={1000}
-          rows={5}
-          autoFocus
+          rows={4}
           disabled={sending || sent}
           aria-label="Message"
           style={{

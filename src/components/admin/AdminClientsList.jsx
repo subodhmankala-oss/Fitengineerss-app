@@ -17,10 +17,15 @@ export default function AdminClientsList({
   unreadClientIds = new Set(),
   // Latest reply per client to a founder message: { [clientId]: { reply, at } }.
   founderReplies = {},
+  // Client ids whose latest reply hasn't been seen yet, and the handler that
+  // marks one seen (TrainerDashboard keeps this per device).
+  unreadReplyIds = new Set(),
+  onMarkReplyRead,
   // Opens the founder-message composer for this client (TrainerDashboard).
   onMessageClient
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyNewReplies, setOnlyNewReplies] = useState(false);
 
   if (loadingClients) {
     return (
@@ -44,6 +49,7 @@ export default function AdminClientsList({
     const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
     const matchesActivity = matchesActivityFilter(c);
     const coachName = coachesList.find(co => co.id === c.coach_id)?.name;
+    if (onlyNewReplies && !unreadReplyIds.has(c.id)) return false;
     return matchesGoal && matchesActivity &&
       matchesSearch(searchQuery, [c.userName, c.email, c.phone, coachName]);
   }).sort(compareNewestJoinFirst(c => c.joined_at));
@@ -110,6 +116,25 @@ export default function AdminClientsList({
         })}
       </div>
 
+      {unreadReplyIds.size > 0 && (
+        <button
+          type="button"
+          onClick={() => setOnlyNewReplies(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left',
+            margin: '0 0 10px 0', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit',
+            fontSize: '0.82rem', fontWeight: 700, color: 'var(--tint-violet)',
+            background: onlyNewReplies ? 'rgba(139, 92, 246, 0.18)' : 'rgba(139, 92, 246, 0.08)',
+            border: '1px solid rgba(139, 92, 246, 0.3)'
+          }}
+        >
+          <span className="unread-dot" aria-hidden="true" />
+          {unreadReplyIds.size} new {unreadReplyIds.size === 1 ? 'reply' : 'replies'} from clients
+          <span style={{ marginLeft: 'auto', fontWeight: 600, fontSize: '0.74rem' }}>
+            {onlyNewReplies ? 'Show everyone' : 'Show only these'}
+          </span>
+        </button>
+      )}
       <AdminSearchBox
         value={searchQuery}
         onChange={setSearchQuery}
@@ -164,21 +189,49 @@ export default function AdminClientsList({
                           🗓️ Joined {formatJoined(client.joined_at)}
                         </div>
                       )}
-                      {founderReplies[client.id] && (
-                        <div
-                          style={{
-                            marginTop: '2px', padding: '5px 8px', borderRadius: '8px', fontSize: '0.74rem',
-                            background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.2)',
-                            color: 'var(--text-main)', maxWidth: '420px'
-                          }}
-                        >
-                          <span style={{ fontWeight: 700, color: 'var(--tint-violet)' }}>💬 Replied: </span>
-                          {founderReplies[client.id].reply}
-                          {founderReplies[client.id].at && (
-                            <span style={{ color: 'var(--text-muted)' }}> · {new Date(founderReplies[client.id].at).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                      )}
+                      {founderReplies[client.id] && (() => {
+                        const r = founderReplies[client.id];
+                        const unread = unreadReplyIds.has(client.id);
+                        return (
+                          <div
+                            style={{
+                              marginTop: '2px', padding: '8px 10px', borderRadius: '10px', fontSize: '0.78rem',
+                              background: unread ? 'rgba(139, 92, 246, 0.14)' : 'rgba(var(--fg-rgb), 0.04)',
+                              border: `1px solid ${unread ? 'rgba(139, 92, 246, 0.45)' : 'var(--border-color)'}`,
+                              color: 'var(--text-main)', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '6px'
+                            }}
+                          >
+                            <div>
+                              <span style={{ fontWeight: 700, color: 'var(--tint-violet)' }}>
+                                {unread && <span className="unread-dot" style={{ marginRight: '6px' }} aria-label="New reply" />}
+                                💬 {unread ? 'New reply' : 'Replied'}:{' '}
+                              </span>
+                              {r.reply}
+                              {r.at && <span style={{ color: 'var(--text-muted)' }}> · {new Date(r.at).toLocaleDateString()}</span>}
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              {onMessageClient && (
+                                <button
+                                  type="button"
+                                  onClick={() => onMessageClient(client)}
+                                  style={{ background: 'var(--tint-violet, #8b5cf6)', border: 'none', color: '#fff', padding: '4px 12px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                                >
+                                  Reply
+                                </button>
+                              )}
+                              {unread && onMarkReplyRead && (
+                                <button
+                                  type="button"
+                                  onClick={() => onMarkReplyRead(client.id)}
+                                  style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                                >
+                                  Mark read
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                         {client.userGoal && (
                           <span style={{

@@ -44,6 +44,27 @@ describe('AdminClientsList component', () => {
     expect(screen.getByText(/Sure/)).toBeTruthy();
   });
 
+  it('flags an unread reply, filters to it, and marks it read', () => {
+    const onMark = vi.fn();
+    render(
+      <AdminClientsList
+        clients={mockClients}
+        loadingClients={false}
+        coachesList={mockCoaches}
+        founderReplies={{ 'client-1': { reply: 'Sure', at: '2026-10-03T11:29:03Z' } }}
+        unreadReplyIds={new Set(['client-1'])}
+        onMarkReplyRead={onMark}
+        onMessageClient={() => {}}
+      />
+    );
+    expect(screen.getByText(/1 new reply from clients/)).toBeTruthy();
+    expect(screen.getByText(/New reply:/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/1 new reply from clients/));
+    expect(screen.queryByText('Subodh Guest')).toBeNull();
+    fireEvent.click(screen.getByText('Mark read'));
+    expect(onMark).toHaveBeenCalledWith('client-1');
+  });
+
   it('should render the list of clients correctly', () => {
     render(
       <AdminClientsList

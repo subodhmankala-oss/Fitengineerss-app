@@ -88,11 +88,11 @@ describe('ClientOnboardingWizard → first workout', () => {
     const onComplete = vi.fn();
     await finishSignUp(onComplete);
     await screen.findByText('What’s your level?');
-    expect(screen.getByRole('radio', { name: 'Beginner' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: /^Beginner/ }).getAttribute('aria-checked')).toBe('true');
     // No Advanced programs in this library → no Advanced button.
-    expect(screen.queryByRole('radio', { name: 'Advanced' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /^Advanced/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Intermediate' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Intermediate/ }));
     expect(screen.getByText('Training regularly for 6+ months')).toBeTruthy();
     expect(screen.getByText('Intermediate Push · 1 exercise')).toBeTruthy();
     // No Intermediate home program → only the gym card.
@@ -108,7 +108,7 @@ describe('ClientOnboardingWizard → first workout', () => {
   it('switching level drops a gym/home pick that level doesn’t have', async () => {
     await finishSignUp(vi.fn());
     fireEvent.click(await screen.findByText('At home'));
-    fireEvent.click(screen.getByRole('radio', { name: 'Intermediate' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Intermediate/ }));
     expect(screen.getByRole('button', { name: 'Pick gym or home' }).disabled).toBe(true);
   });
 

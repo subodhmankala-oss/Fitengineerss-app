@@ -19,7 +19,7 @@ const CATEGORIES = [
   { id: 'home', emoji: '🏠', label: 'At home' }
 ];
 
-export const LEVELS = [
+const LEVELS = [
   { id: 'beginner', emoji: '🌱', label: 'Beginner', desc: 'New to training, or getting back into it' },
   { id: 'intermediate', emoji: '💪', label: 'Intermediate', desc: 'Training regularly for 6+ months' },
   { id: 'advanced', emoji: '🔥', label: 'Advanced', desc: 'Training seriously for 2+ years' }
@@ -84,11 +84,14 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip }) {
                 onClick={() => pickLevel(l.id)}
               >
                 <span className="fwp-level-emoji" aria-hidden="true">{l.emoji}</span>
-                <span className="fwp-level-label">{l.label}</span>
+                <span className="fwp-option-text">
+                  <span className="fwp-level-label">{l.label}</span>
+                  <span className="fwp-level-desc">{l.desc}</span>
+                </span>
+                <span className={`fwp-check ${level === l.id ? 'visible' : ''}`} aria-hidden="true">✓</span>
               </button>
             ))}
           </div>
-          <p className="fwp-level-desc">{LEVELS.find(l => l.id === level)?.desc}</p>
 
           <h3 className="fwp-question">Where will you train?</h3>
           <div className="fwp-options" role="radiogroup" aria-label="Where will you train?">

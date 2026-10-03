@@ -134,26 +134,27 @@
   margin: 0 0 10px;
 }
 
-/* Level: three big side-by-side buttons, Beginner pre-selected. */
+/* Level: full-width rows (three across didn't fit "Intermediate" at
+   phone width without shrinking the text), Beginner pre-selected. */
 .fwp-levels {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 22px;
 }
 
 .fwp-level {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 78px;
-  padding: 10px 4px;
+  gap: 14px;
+  width: 100%;
+  min-height: 62px;
+  padding: 12px 16px;
   background: rgba(var(--fg-rgb), 0.03);
   border: 2px solid rgba(var(--fg-rgb), 0.1);
   border-radius: 14px;
   cursor: pointer;
+  text-align: left;
   font-family: inherit;
   transition: all 0.2s ease;
 }
@@ -170,12 +171,13 @@
 }
 
 .fwp-level-emoji {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .fwp-level-label {
-  font-size: 0.98rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: var(--text-main);
 }
@@ -183,6 +185,5 @@
 .fwp-level-desc {
   font-size: 0.95rem;
   color: var(--text-muted);
-  margin: 0 0 20px;
-  min-height: 1.3em;
+  line-height: 1.3;
 }

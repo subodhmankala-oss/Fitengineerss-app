@@ -15,6 +15,8 @@ export default function AdminClientsList({
   // Clients with an unread notification (e.g. "new client signed up") —
   // blue dot next to their name. See clientNotifications in TrainerDashboard.
   unreadClientIds = new Set(),
+  // Latest reply per client to a founder message: { [clientId]: { reply, at } }.
+  founderReplies = {},
   // Opens the founder-message composer for this client (TrainerDashboard).
   onMessageClient
 }) {
@@ -160,6 +162,21 @@ export default function AdminClientsList({
                       {client.joined_at && (
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                           🗓️ Joined {formatJoined(client.joined_at)}
+                        </div>
+                      )}
+                      {founderReplies[client.id] && (
+                        <div
+                          style={{
+                            marginTop: '2px', padding: '5px 8px', borderRadius: '8px', fontSize: '0.74rem',
+                            background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.2)',
+                            color: 'var(--text-main)', maxWidth: '420px'
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: 'var(--tint-violet)' }}>💬 Replied: </span>
+                          {founderReplies[client.id].reply}
+                          {founderReplies[client.id].at && (
+                            <span style={{ color: 'var(--text-muted)' }}> · {new Date(founderReplies[client.id].at).toLocaleDateString()}</span>
+                          )}
                         </div>
                       )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>

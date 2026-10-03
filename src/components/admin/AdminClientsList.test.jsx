@@ -31,6 +31,19 @@ describe('AdminClientsList component', () => {
     }
   ];
 
+  it('shows a founder-message reply on the matching client row only', () => {
+    render(
+      <AdminClientsList
+        clients={mockClients}
+        loadingClients={false}
+        coachesList={mockCoaches}
+        founderReplies={{ 'client-1': { reply: 'Sure', at: '2026-10-03T11:29:03Z' } }}
+      />
+    );
+    expect(screen.getAllByText(/Replied:/)).toHaveLength(1);
+    expect(screen.getByText(/Sure/)).toBeTruthy();
+  });
+
   it('should render the list of clients correctly', () => {
     render(
       <AdminClientsList

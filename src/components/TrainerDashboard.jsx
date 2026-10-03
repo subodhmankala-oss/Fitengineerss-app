@@ -657,6 +657,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Super-admin: { id, name } of the client the founder-message composer is
   // open for, or null.
   const [founderMessageTarget, setFounderMessageTarget] = useState(null);
+  // Latest client reply per client ({ [clientId]: { reply, at } }) — shown on
+  // the All Clients rows. Reloaded when the composer closes.
+  const [founderReplies, setFounderReplies] = useState({});
+  useEffect(() => {
+    if (!superAdmin || founderMessageTarget) return undefined;
+    let cancelled = false;
+    databaseService.getFounderReplies().then(r => { if (!cancelled) setFounderReplies(r); });
+    return () => { cancelled = true; };
+  }, [superAdmin, founderMessageTarget]);
 
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
@@ -4962,6 +4971,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   coachesList={coachesList}
                   onSelectCoachDetails={handleViewCoachClients}
                   unreadClientIds={new Set([...clientNotifications, ...newClientNotifications, ...signupAlerts].map(n => n.clientId))}
+                  founderReplies={founderReplies}
                   onMessageClient={(c) => setFounderMessageTarget({ id: c.id, name: c.userName || '' })}
                 />
               )}

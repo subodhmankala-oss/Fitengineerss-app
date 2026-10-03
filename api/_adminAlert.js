@@ -18,7 +18,7 @@
 import webPush from 'web-push';
 import { SUPER_ADMIN_EMAIL } from './_notifyAuth.js';
 
-export const SIGNUP_ALERT_TYPES = ['new_client_signup', 'signup_incomplete', 'new_coach_signup'];
+export const SIGNUP_ALERT_TYPES = ['new_client_signup', 'signup_incomplete', 'new_coach_signup', 'founder_reply'];
 
 export function vapidReady() {
   const pub = process.env.VITE_VAPID_PUBLIC_KEY;
@@ -34,7 +34,9 @@ export function vapidReady() {
   }
 }
 
-export async function alertSuperAdmin({ supabaseUrl, serviceKey, type, actorUserId, title, body, url = null, payload = {} }) {
+// dedupe: false for alerts that can legitimately repeat per person (a
+// client's reply to each founder message).
+export async function alertSuperAdmin({ supabaseUrl, serviceKey, type, actorUserId, title, body, url = null, payload = {}, dedupe = true }) {
   if (!supabaseUrl || !serviceKey || !type || !actorUserId) return { alerted: false, reason: 'missing_args' };
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
   const rest = (path, init = {}) => fetch(`${supabaseUrl}/rest/v1/${path}`, { ...init, headers: { ...headers, ...(init.headers || {}) } });
@@ -46,7 +48,7 @@ export async function alertSuperAdmin({ supabaseUrl, serviceKey, type, actorUser
     // The super-admin signing up as a coach / client on their own account.
     if (adminId === actorUserId) return { alerted: false, reason: 'self' };
 
-    const existing = await rest(
+    const existing = !dedupe ? [] : await rest(
       `notifications?recipient_user_id=eq.${adminId}&type=eq.${encodeURIComponent(type)}&actor_user_id=eq.${encodeURIComponent(actorUserId)}&select=id&limit=1`
     ).then(r => r.json()).catch(() => null);
     if (Array.isArray(existing) && existing.length > 0) return { alerted: false, reason: 'duplicate' };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import databaseService from '../services/databaseService';
 import './ClientOnboardingWizard.css';
+import FounderMessageCard from './FounderMessageCard';
 
 const TOTAL_STEPS = 4;
 
@@ -481,6 +482,10 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
 
         {/* Progress */}
         {renderProgressBar()}
+
+        {/* The founder's welcome / "stuck? reply" message — mainly for
+            people coming back after quitting sign-up midway. */}
+        <FounderMessageCard compact />
 
         {/* Step content */}
         <div className="cow-body">

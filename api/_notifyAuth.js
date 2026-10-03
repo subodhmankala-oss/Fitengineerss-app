@@ -18,7 +18,8 @@ const FROM_CLIENT_EVENTS = new Set([
   'client_reply',
   'client_disconnected',
   'client_connected',
-  'new_client_signup'
+  'new_client_signup',
+  'founder_reply'
 ]);
 
 // Sent by the client's coach to the client, so the caller must be the coach

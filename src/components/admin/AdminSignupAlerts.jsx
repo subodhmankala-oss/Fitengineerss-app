@@ -9,7 +9,8 @@ import React from 'react';
 const STYLE_BY_TYPE = {
   new_client_signup: { icon: '🎉', color: 'var(--tint-emerald)', bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.25)', fallback: 'New client joined' },
   signup_incomplete: { icon: '⏸️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.25)', fallback: 'Sign-up not finished' },
-  new_coach_signup: { icon: '🏅', color: 'var(--tint-violet)', bg: 'rgba(139, 92, 246, 0.08)', border: 'rgba(139, 92, 246, 0.25)', fallback: 'New coach joined' }
+  new_coach_signup: { icon: '🏅', color: 'var(--tint-violet)', bg: 'rgba(139, 92, 246, 0.08)', border: 'rgba(139, 92, 246, 0.25)', fallback: 'New coach joined' },
+  founder_reply: { icon: '💬', color: 'var(--tint-blue)', bg: 'rgba(59, 130, 246, 0.08)', border: 'rgba(59, 130, 246, 0.25)', fallback: 'A client replied' }
 };
 
 function timeAgo(iso, now = Date.now()) {
@@ -22,13 +23,15 @@ function timeAgo(iso, now = Date.now()) {
   return `${days}d ago`;
 }
 
-export default function AdminSignupAlerts({ alerts = [], onOpen, onDismiss, onDismissAll }) {
+// onMessage (optional): opens the founder-message composer for the client
+// an alert is about — not shown on coach alerts.
+export default function AdminSignupAlerts({ alerts = [], onOpen, onDismiss, onDismissAll, onMessage }) {
   if (alerts.length === 0) return null;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h5 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>
-          🆕 New sign-ups ({alerts.length})
+          🔔 Inbox ({alerts.length})
         </h5>
         {alerts.length > 1 && (
           <button
@@ -67,6 +70,19 @@ export default function AdminSignupAlerts({ alerts = [], onOpen, onDismiss, onDi
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                   {timeAgo(a.createdAt)} · {a.type === 'new_coach_signup' ? 'Tap to see coaches' : 'Tap to open'}
                 </div>
+                {onMessage && a.type !== 'new_coach_signup' && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onMessage(a); }}
+                    style={{
+                      marginTop: '6px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)',
+                      color: 'var(--tint-violet)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.72rem',
+                      fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
+                    }}
+                  >
+                    ✉️ {a.type === 'founder_reply' ? 'Reply' : 'Message'}
+                  </button>
+                )}
               </div>
             </div>
             <button

@@ -43,6 +43,15 @@ describe('authorizeNotify', () => {
     expect(check('coach_note', as(OTHER_COACH, { role: 'super-admin' })).ok).toBe(true);
   });
 
+  it('only the founder (super-admin) can send a founder message; only the client can reply', () => {
+    const founder = as('44444444-4444-4444-8444-444444444444', { email: 'subodhmankala@gmail.com' });
+    expect(check('founder_message', founder, null).ok).toBe(true);
+    expect(check('founder_message', as(COACH, { role: 'coach' }))).toMatchObject({ ok: false, status: 403 });
+    expect(check('founder_message', as(CLIENT))).toMatchObject({ ok: false, status: 403 });
+    expect(check('founder_reply', as(CLIENT), null).ok).toBe(true);
+    expect(check('founder_reply', as(COACH, { role: 'coach' }))).toMatchObject({ ok: false, status: 403 });
+  });
+
   it('rejects unknown events for non-admins', () => {
     expect(check('anything_else', as(CLIENT)).ok).toBe(false);
   });

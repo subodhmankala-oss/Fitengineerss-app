@@ -5,7 +5,10 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 vi.mock('../services/databaseService', () => ({
   __esModule: true,
-  default: { saveClientOnboardingData: vi.fn().mockResolvedValue(undefined) }
+  default: {
+    saveClientOnboardingData: vi.fn().mockResolvedValue(undefined),
+    getMyFounderMessages: vi.fn().mockResolvedValue([])
+  }
 }));
 
 import ClientOnboardingWizard from './ClientOnboardingWizard';

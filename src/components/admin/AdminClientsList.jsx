@@ -14,7 +14,9 @@ export default function AdminClientsList({
   onSelectCoachDetails,
   // Clients with an unread notification (e.g. "new client signed up") —
   // blue dot next to their name. See clientNotifications in TrainerDashboard.
-  unreadClientIds = new Set()
+  unreadClientIds = new Set(),
+  // Opens the founder-message composer for this client (TrainerDashboard).
+  onMessageClient
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -203,6 +205,25 @@ export default function AdminClientsList({
                         >
                           ⏱ {activity.label}
                         </span>
+                        {onMessageClient && (
+                          <button
+                            type="button"
+                            onClick={() => onMessageClient(client)}
+                            style={{
+                              background: 'rgba(139, 92, 246, 0.08)',
+                              border: '1px solid rgba(139, 92, 246, 0.2)',
+                              color: 'var(--tint-violet)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            ✉️ Message
+                          </button>
+                        )}
                       </div>
                     </div>
                   </td>

@@ -1024,15 +1024,20 @@ async function flushPendingWorkoutDraftsInner() {
 // redeeming a coach invite code (link_coach_and_enter_transaction is
 // SECURITY DEFINER, so it doesn't need the caller's own session/RLS —
 // the anon apikey is sufficient, same as restSelect).
-async function restRpc(fnName, params, { timeoutMs = adaptiveTimeout(10000) } = {}) {
+//
+// `authed: true` sends the caller's real session token instead, for RPCs
+// that act as the signed-in user via current_app_user_id() (e.g. the
+// founder_messages functions).
+async function restRpc(fnName, params, { timeoutMs = adaptiveTimeout(10000), authed = false } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const bearer = authed ? await resolveBearerToken() : supabaseAnonKey;
     const res = await fetch(`${REST_BASE}/rpc/${fnName}`, {
       method: 'POST',
       headers: {
         apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        Authorization: `Bearer ${bearer}`,
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
@@ -4664,6 +4669,63 @@ const databaseService = {
   },
 
   // Mark a note read once the client has seen it, so it stops resurfacing.
+  // ─── FOUNDER MESSAGES (sql/founder_messages.sql) ───
+  // The signed-in client's unread messages from the founder, newest first.
+  // The RPC also creates their automatic welcome on first call if they're a
+  // new client. Returns [] on any failure (the card just doesn't show).
+  async getMyFounderMessages() {
+    if (!isSupabaseConfigured) return [];
+    try {
+      const rows = await restRpc('get_my_founder_messages', {}, { authed: true });
+      return (rows || []).map(r => ({
+        id: r.id,
+        clientId: r.client_id,
+        kind: r.kind,
+        message: r.message,
+        senderName: r.sender_name || 'Fitengineers',
+        senderAvatarUrl: r.sender_avatar_url || null,
+        clientReply: r.client_reply || null,
+        clientReplyAt: r.client_reply_at || null,
+        createdAt: r.created_at
+      }));
+    } catch (e) {
+      console.error('Cloud DB Get Founder Messages Error:', e);
+      return [];
+    }
+  },
+
+  async dismissFounderMessage(id) {
+    if (!isSupabaseConfigured || !id) return;
+    try {
+      await restRpc('dismiss_founder_message', { p_id: id }, { authed: true });
+    } catch (e) {
+      console.error('Cloud DB Dismiss Founder Message Error:', e);
+    }
+  },
+
+  async replyToFounderMessage(id, reply) {
+    if (!isSupabaseConfigured || !id || !reply?.trim()) return { success: false };
+    try {
+      const ok = await restRpc('reply_founder_message', { p_id: id, p_reply: reply.trim() }, { authed: true });
+      return ok === true ? { success: true } : { success: false, error: 'Already replied to this message.' };
+    } catch (e) {
+      console.error('Cloud DB Reply Founder Message Error:', e);
+      return { success: false, error: e.message || 'Send failed' };
+    }
+  },
+
+  // Super-admin only (the RPC enforces it).
+  async sendFounderMessage(clientId, message) {
+    if (!isSupabaseConfigured || !clientId || !message?.trim()) return { success: false, error: 'Message is empty.' };
+    try {
+      await restRpc('send_founder_message', { p_client_id: clientId, p_message: message.trim() }, { authed: true });
+      return { success: true };
+    } catch (e) {
+      console.error('Cloud DB Send Founder Message Error:', e);
+      return { success: false, error: e.message || 'Send failed' };
+    }
+  },
+
   async markCoachNoteRead(noteId) {
     if (!isSupabaseConfigured || !noteId) return { success: false };
     try {

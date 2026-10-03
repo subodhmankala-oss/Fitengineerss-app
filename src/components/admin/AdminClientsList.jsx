@@ -173,7 +173,7 @@ export default function AdminClientsList({
                             fontSize: '0.62rem',
                             fontWeight: 700
                           }}>
-                            🎯 {client.userGoal}
+                            🎯 {client.userGoal}{client.userSecondaryGoal ? ` + ${client.userSecondaryGoal}` : ''}
                           </span>
                         )}
                         <span

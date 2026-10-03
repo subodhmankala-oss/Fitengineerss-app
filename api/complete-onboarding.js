@@ -47,6 +47,17 @@ async function notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, cl
   });
 }
 
+// Allowed goals — same list as the CHECK constraints on clients.program and
+// secondary_program (sql/clients_secondary_goal.sql). A value outside it
+// would make the whole save fail on the constraint, so a second goal that
+// isn't valid (or that repeats the main one) is simply dropped rather than
+// blocking onboarding.
+const PROGRAMS = ['fat_loss', 'muscle_building', 'gut_repair'];
+
+export function cleanSecondary(value, allowed, main) {
+  return allowed.includes(value) && value !== main ? value : null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -60,7 +71,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
 
-  const { userId: bodyUserId, email, coreStats, program, primary_concern, full_name } = req.body || {};
+  const { userId: bodyUserId, email, coreStats, program, primary_concern, secondary_program, full_name } = req.body || {};
   if ((!bodyUserId && !email) || !coreStats) {
     return res.status(400).json({ error: 'Missing userId/email or coreStats' });
   }
@@ -75,9 +86,15 @@ export default async function handler(req, res) {
   const payload = {
     ...coreStats,
     program: program || null,
-    primary_concern: primary_concern || null,
+    // The wizard lets a client pick up to 2 goals; the first is `program`
+    // above, the second lands here.
+    secondary_program: cleanSecondary(secondary_program, PROGRAMS, program),
     onboarding_completed: true
   };
+  // The wizard no longer asks for a primary concern (nothing in the app read
+  // it). Only write it when a caller still sends one — an explicit null here
+  // would wipe the answer an existing client already gave.
+  if (primary_concern) payload.primary_concern = primary_concern;
   if (persistName) payload.full_name = cleanName;
 
   try {
@@ -154,7 +171,7 @@ export default async function handler(req, res) {
     // case where no clients row exists yet — merge-duplicates only touches
     // the columns listed here, so an EXISTING row's coach_id (and anything
     // else not in `payload`) is left untouched, never reset to null.
-    const resp = await fetch(`${supabaseUrl}/rest/v1/clients?on_conflict=user_id`, {
+    const saveClientRow = (body) => fetch(`${supabaseUrl}/rest/v1/clients?on_conflict=user_id`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -162,9 +179,19 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${serviceKey}`,
         Prefer: 'resolution=merge-duplicates,return=representation'
       },
-      body: JSON.stringify({ user_id: userId, ...payload })
+      body: JSON.stringify({ user_id: userId, ...body })
     });
-    const data = await resp.json();
+    let resp = await saveClientRow(payload);
+    let data = await resp.json();
+    if (!resp.ok && resp.status === 400 && /secondary_/.test(JSON.stringify(data))) {
+      // The secondary_program column isn't there (a database that hasn't had
+      // sql/clients_secondary_goal.sql run) — sign-up must still work, so
+      // save everything else.
+      console.warn('complete-onboarding: secondary_program column missing, saving without it');
+      const { secondary_program: _sp, ...withoutSecondary } = payload;
+      resp = await saveClientRow(withoutSecondary);
+      data = await resp.json();
+    }
     if (!resp.ok) {
       console.error('complete-onboarding update failed:', resp.status, data);
       return res.status(502).json({ error: 'Failed to save onboarding data.' });

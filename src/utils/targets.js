@@ -64,6 +64,16 @@ export const PROGRAM_TO_GOAL_LABEL = {
   gut_repair: 'Gut Fix'
 };
 
+// Same wording as the fitness_goal value saved for the MAIN goal (see
+// saveClientOnboardingData's goalMap — note it says 'Gut Health' where the
+// map above says 'Gut Fix'), so a "main + also" pair reads consistently on
+// one chip in the coach/admin views.
+export const PROGRAM_TO_FITNESS_GOAL = {
+  fat_loss: 'Fat Loss',
+  muscle_building: 'Muscle Building',
+  gut_repair: 'Gut Health'
+};
+
 export const ACTIVITY_TO_LABEL = {
   sedentary: 'Sedentary',
   lightly_active: 'Lightly Active',

@@ -125,3 +125,64 @@
   cursor: pointer;
   font-family: inherit;
 }
+
+/* Section questions ("What's your level?" / "Where will you train?"). */
+.fwp-question {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 10px;
+}
+
+/* Level: three big side-by-side buttons, Beginner pre-selected. */
+.fwp-levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fwp-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 78px;
+  padding: 10px 4px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 2px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.fwp-level:hover {
+  background: rgba(139, 92, 246, 0.07);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.fwp-level.selected {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.65);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
+}
+
+.fwp-level-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.fwp-level-label {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.fwp-level-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin: 0 0 20px;
+  min-height: 1.3em;
+}

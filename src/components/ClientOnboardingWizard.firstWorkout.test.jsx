@@ -8,6 +8,8 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 
 const gymA = { name: 'Beginner Full Body A', exercises: [{ name: 'Goblet Squat' }, { name: 'Push-up' }, { name: 'Row' }] };
 const homeA = { name: 'Home Beginner Full Body A', exercises: [{ name: 'Squat' }, { name: 'Plank' }] };
+const gymInt = { name: 'Intermediate Push', exercises: [{ name: 'Bench Press' }] };
+const LIB = { gym: { beginner: [gymA], intermediate: [gymInt], advanced: [] }, home: { beginner: [homeA], intermediate: [], advanced: [] } };
 
 const db = vi.hoisted(() => ({
   saveClientOnboardingData: vi.fn(),
@@ -44,7 +46,7 @@ describe('ClientOnboardingWizard → first workout', () => {
     localStorage.setItem('userId', 'u1');
     db.saveClientOnboardingData.mockResolvedValue(undefined);
     db.getMyFounderMessages.mockResolvedValue([]);
-    db.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => (category === 'home' ? [homeA] : [gymA]));
+    db.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => LIB[category][level]);
   });
   afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
@@ -80,6 +82,34 @@ describe('ClientOnboardingWizard → first workout', () => {
     expect(onComplete).toHaveBeenCalledWith();
     expect(localStorage.getItem('workoutTrackerAutoStart_u1')).toBeNull();
     expect(localStorage.getItem('clientTourSeen')).toBeNull();
+  });
+
+  it('Beginner is pre-selected; picking a level shows and starts that level’s program', async () => {
+    const onComplete = vi.fn();
+    await finishSignUp(onComplete);
+    await screen.findByText('What’s your level?');
+    expect(screen.getByRole('radio', { name: 'Beginner' }).getAttribute('aria-checked')).toBe('true');
+    // No Advanced programs in this library → no Advanced button.
+    expect(screen.queryByRole('radio', { name: 'Advanced' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Intermediate' }));
+    expect(screen.getByText('Training regularly for 6+ months')).toBeTruthy();
+    expect(screen.getByText('Intermediate Push · 1 exercise')).toBeTruthy();
+    // No Intermediate home program → only the gym card.
+    expect(screen.queryByText('At home')).toBeNull();
+
+    fireEvent.click(screen.getByText('At the gym'));
+    click('Start my first workout 💪');
+    expect(onComplete).toHaveBeenCalledWith({ startWorkout: true });
+    expect(JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'))).toMatchObject({ name: 'Intermediate Push', level: 'intermediate' });
+    expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('intermediate');
+  });
+
+  it('switching level drops a gym/home pick that level doesn’t have', async () => {
+    await finishSignUp(vi.fn());
+    fireEvent.click(await screen.findByText('At home'));
+    fireEvent.click(screen.getByRole('radio', { name: 'Intermediate' }));
+    expect(screen.getByRole('button', { name: 'Pick gym or home' }).disabled).toBe(true);
   });
 
   it('falls back to "Go to dashboard" if the library can’t load', async () => {

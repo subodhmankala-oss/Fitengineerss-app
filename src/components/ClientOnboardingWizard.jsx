@@ -471,8 +471,8 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
 
   const stepContent = [renderStep1, renderStep2, renderStep3, renderStep4];
 
-  const startFirstWorkout = (category, program) => {
-    startLibraryProgram(localStorage.getItem('userId'), category, 'beginner', program);
+  const startFirstWorkout = (category, level, program) => {
+    startLibraryProgram(localStorage.getItem('userId'), category, level, program);
     // They're about to do exactly what the client spotlight tour teaches
     // (Workouts -> Library -> level -> start -> log sets); its first steps
     // would otherwise sit on top of the live session pointing at screens

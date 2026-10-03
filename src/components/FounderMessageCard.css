@@ -1,0 +1,52 @@
+/* Founder message card — layout/reply styles come from CoachNoteBanner.css;
+   this adds the photo + name header and a violet tint so it reads as
+   personal, distinct from a coach's note. */
+.founder-message-card {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.fmc-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35);
+}
+
+.fmc-avatar-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(139, 92, 246, 0.2);
+  color: var(--tint-violet, #8b5cf6);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.fmc-sender {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  margin-bottom: 3px;
+}
+
+.fmc-name {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.fmc-role {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--tint-violet, #8b5cf6);
+}
+
+/* Sign-up wizard: sits between the header and the step content. */
+.fmc-compact {
+  margin: 0 0 12px;
+  text-align: left;
+}

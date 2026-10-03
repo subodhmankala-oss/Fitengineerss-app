@@ -20,7 +20,7 @@ describe('AdminSignupAlerts', () => {
 
   it('shows each alert with its text', () => {
     render(<AdminSignupAlerts alerts={alerts} onOpen={() => {}} onDismiss={() => {}} onDismissAll={() => {}} />);
-    expect(screen.getByText('🆕 New sign-ups (3)')).toBeTruthy();
+    expect(screen.getByText('🔔 Inbox (3)')).toBeTruthy();
     expect(screen.getByText('Anusha just signed up — no coach yet.')).toBeTruthy();
     expect(screen.getByText('⏸️ Sign-up not finished')).toBeTruthy();
     expect(screen.getByText(/Tap to see coaches/)).toBeTruthy();

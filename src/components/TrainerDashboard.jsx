@@ -8,6 +8,7 @@ import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
+import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
 // Weekly/Daily/Monthly chart + card styling — shared with the client's own
 // WorkoutProgressDashboard so the coach's per-client Workout History tab is
@@ -79,7 +80,7 @@ const CLIENT_DETAIL_TABS = ['plans', 'livelog', 'workout', 'measurements'];
 // notifications.type values for the super-admin's sign-up alerts — same list
 // as SIGNUP_ALERT_TYPES in api/_adminAlert.js (server-only module, so not
 // imported here).
-const SIGNUP_ALERT_TYPES = new Set(['new_client_signup', 'signup_incomplete', 'new_coach_signup']);
+const SIGNUP_ALERT_TYPES = new Set(['new_client_signup', 'signup_incomplete', 'new_coach_signup', 'founder_reply']);
 
 // A client-detail tab's emoji icon, with the blue unread dot on its corner
 // when a notification points at that tab.
@@ -653,6 +654,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // dismissed. Kept out of clientNotifications so they don't put blue dots
   // on the super-admin's own "My Clients" rows.
   const [signupAlerts, setSignupAlerts] = useState([]);
+  // Super-admin: { id, name } of the client the founder-message composer is
+  // open for, or null.
+  const [founderMessageTarget, setFounderMessageTarget] = useState(null);
 
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
@@ -4863,7 +4867,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             onOpen={handleOpenSignupAlert}
             onDismiss={(a) => dismissSignupAlerts([a.id])}
             onDismissAll={() => dismissSignupAlerts(signupAlerts.map(n => n.id))}
+            onMessage={(a) => {
+              const match = clients.find(c => c.id === a.clientId);
+              setFounderMessageTarget({ id: a.clientId, name: match?.userName || a.clientName || '' });
+            }}
           />
+          {founderMessageTarget && (
+            <FounderMessageComposer client={founderMessageTarget} onClose={() => setFounderMessageTarget(null)} />
+          )}
 
           {/* KPI stat cards — desktop overview row. One neutral accent
               (the app's own --primary-accent-light) rather than a color per
@@ -4951,6 +4962,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   coachesList={coachesList}
                   onSelectCoachDetails={handleViewCoachClients}
                   unreadClientIds={new Set([...clientNotifications, ...newClientNotifications, ...signupAlerts].map(n => n.clientId))}
+                  onMessageClient={(c) => setFounderMessageTarget({ id: c.id, name: c.userName || '' })}
                 />
               )}
             </div>

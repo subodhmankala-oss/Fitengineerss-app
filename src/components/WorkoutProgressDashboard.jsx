@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import ConnectCoachModal from './ConnectCoachModal';
 import CoachDetailsModal from './CoachDetailsModal';
 import CoachNoteBanner from './CoachNoteBanner';
+import FounderMessageCard from './FounderMessageCard';
 import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
@@ -907,6 +908,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           after their first login — surfaces the toggle instead of leaving it
           buried in profile settings until they stumble onto it. */}
       <NotificationPrompt userId={userId} userName={userName} />
+
+      {/* Personal message from the founder (automatic welcome for new
+          clients, or one sent from Super-Admin) — photo, message, reply. */}
+      <FounderMessageCard />
 
       {/* Unread notes from the coach — the fallback if the client missed the
           push notification when the coach sent it. */}

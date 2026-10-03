@@ -20,7 +20,7 @@
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 import { authorizeNotify } from './_notifyAuth.js';
-import { runIncompleteSignupSweep } from './_adminAlert.js';
+import { runIncompleteSignupSweep, alertSuperAdmin } from './_adminAlert.js';
 // Reused verbatim from the in-app Muscle Analytics screen (see that file's
 // header) rather than re-implemented here, so the weekly muscle-balance
 // nudge (runMuscleBalanceSweep below) can never drift from what the client
@@ -1077,6 +1077,33 @@ async function handleNotifyUser(req, res) {
       title = '🎉 New client joined';
       body = `${clientName} just signed up on Fitengineers.`;
       url = `/?viewClient=${clientUserId}`;
+    } else if (event === 'founder_message') {
+      // Founder wrote this client a personal message from Super-Admin (the
+      // row is already saved by send_founder_message; this is the push).
+      // Only the super-admin passes authorizeNotify for this event.
+      if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for founder_message.' });
+      targetUserId = clientUserId;
+      const founder = await getUserContact(await getSuperAdminUserId());
+      title = `${founder?.full_name || 'Fitengineers'} · Founder`;
+      body = message.trim();
+      // The message card lives on Home.
+      url = '/?tab=home';
+    } else if (event === 'founder_reply') {
+      // Client replied to a founder message (FounderMessageCard). Push + an
+      // Inbox card in Super-Admin, one per reply (no dedupe).
+      if (!message || !message.trim()) return res.status(400).json({ error: 'message is required for founder_reply.' });
+      const r = await alertSuperAdmin({
+        supabaseUrl,
+        serviceKey,
+        type: 'founder_reply',
+        actorUserId: clientUserId,
+        title: `💬 ${clientName === 'Your client' ? 'A client' : clientName} replied`,
+        body: message.trim().slice(0, 500),
+        url: `/?viewClient=${clientUserId}`,
+        payload: { client_name: client?.full_name || null },
+        dedupe: false
+      });
+      return res.status(200).json({ success: true, event, ...r });
     } else if (event === 'custom_exercise_created') {
       // Fired from databaseService.createCustomExercise right after a coach
       // or client saves a new custom exercise from the Add Exercise

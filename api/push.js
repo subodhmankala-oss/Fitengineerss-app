@@ -21,6 +21,7 @@ import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 import { authorizeNotify } from './_notifyAuth.js';
 import { runIncompleteSignupSweep } from './_adminAlert.js';
+import { runFinishSignupReminders } from './_signupReminders.js';
 // Reused verbatim from the in-app Muscle Analytics screen (see that file's
 // header) rather than re-implemented here, so the weekly muscle-balance
 // nudge (runMuscleBalanceSweep below) can never drift from what the client
@@ -612,6 +613,14 @@ async function handleSendNudges(req, res) {
     } catch (sweepErr) {
       console.error('Incomplete sign-up sweep failed (non-fatal):', sweepErr);
     }
+    // ...and nudge those same clients themselves to finish (email + push,
+    // max 3 — see api/_signupReminders.js). Same non-fatal rule.
+    let finishSignupReminders = null;
+    try {
+      finishSignupReminders = await runFinishSignupReminders({ supabaseUrl, serviceKey, clients: allClients, users: allUsers });
+    } catch (reminderErr) {
+      console.error('Finish-sign-up reminders failed (non-fatal):', reminderErr);
+    }
 
     if (!subscribers || subscribers.length === 0) {
       return res.status(200).json({ success: true, message: 'Zero subscribers found. Fired 0 notifications.' });
@@ -739,7 +748,8 @@ async function handleSendNudges(req, res) {
     return res.status(200).json({
       success: true,
       message: `Hourly nudge cycle triggered. Notifications sent: ${successCount} successful, ${failureCount} failed. IST Hour: ${hours}`,
-      incompleteSignups
+      incompleteSignups,
+      finishSignupReminders
     });
   } catch (error) {
     console.error('Nudge broadcast error:', error);

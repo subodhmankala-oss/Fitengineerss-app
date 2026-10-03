@@ -20,7 +20,7 @@ import { SUPER_ADMIN_EMAIL } from './_notifyAuth.js';
 
 export const SIGNUP_ALERT_TYPES = ['new_client_signup', 'signup_incomplete', 'new_coach_signup'];
 
-function vapidReady() {
+export function vapidReady() {
   const pub = process.env.VITE_VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   // VAPID vars are Production-only — on previews this skips the push but

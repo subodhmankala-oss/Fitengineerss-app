@@ -34,6 +34,7 @@ import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { getOpenedPlanIds, markPlanOpened } from '../utils/openedCoachPlans';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -180,36 +181,9 @@ const assignedDateLabel = (isoString) => {
   return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-// Tracks which coach-assigned plan IDs this client has already opened (i.e.
-// pressed Start on), scoped per-user via localStorage since there's no
-// server-side "viewed" column on workout_plans. Used to show a small "new"
-// dot on cards for plans the client hasn't opened yet.
-const OPENED_PLANS_KEY_PREFIX = 'wt_opened_coach_plan_ids';
-const getOpenedPlanIds = () => {
-  try {
-    const userId = localStorage.getItem('userId') || 'anon';
-    const raw = localStorage.getItem(`${OPENED_PLANS_KEY_PREFIX}_${userId}`);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-};
-const markPlanOpened = (planId) => {
-  if (!planId) return;
-  try {
-    const userId = localStorage.getItem('userId') || 'anon';
-    const ids = getOpenedPlanIds();
-    ids.add(planId);
-    localStorage.setItem(`${OPENED_PLANS_KEY_PREFIX}_${userId}`, JSON.stringify([...ids]));
-  } catch {
-    /* ignore */
-  }
-};
-
 // Routine card — a coach-assigned plan (muscle thumbnail, Push/Pull/Legs
-// color) or a client's own saved template (folder icon). Shared by the Log
-// Sets routine picker and the Workouts tab's "Your Coach's Plan" section, so
-// both present a plan the exact same way.
+// color) or a client's own saved template (folder icon). Both live in the
+// Log Sets routine picker, so they present a plan the exact same way.
 const PlanCard = ({ plan, source, onStart, onDelete }) => {
   const meta = getPlanCardMeta(plan);
   const isTemplate = source === 'self';
@@ -2788,6 +2762,7 @@ const WorkoutTracker = () => {
   // after; silently drops the request instead of clobbering a session
   // that's already in progress.
   const autoStartConsumedRef = useRef(false);
+  const pendingCoachPlanIdRef = useRef(null);
   useEffect(() => {
     if (autoStartConsumedRef.current) return;
     autoStartConsumedRef.current = true;
@@ -2800,6 +2775,13 @@ const WorkoutTracker = () => {
     if (!payload) return;
     try { localStorage.removeItem(key); } catch { /* ignore quota/serialization errors */ }
     if (savedWorkoutDraft) return; // already mid-session — don't clobber it
+    // Home's "New plan from your coach" card sends just the plan id — the
+    // plan itself arrives with clientPlans, so the effect below starts it.
+    if (payload.coachPlanId) {
+      pendingCoachPlanIdRef.current = payload.coachPlanId;
+      setActiveView('log');
+      return;
+    }
     if (!payload.name || !Array.isArray(payload.exercises)) return;
     handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2877,6 +2859,20 @@ const WorkoutTracker = () => {
     setIsLoggingWorkout(true);
     startWorkoutClock();
   };
+
+  // Second half of the Home coach-plan deep link (see the auto-start effect
+  // above): start the plan once clientPlans has loaded it. Stays pending
+  // until the plan shows up — the first renders run with an empty list.
+  useEffect(() => {
+    const planId = pendingCoachPlanIdRef.current;
+    if (!planId || loadingPlans) return;
+    const plan = clientPlans.find(p => p.id === planId);
+    if (!plan) return;
+    pendingCoachPlanIdRef.current = null;
+    markPlanOpened(plan.id);
+    startPlan(plan, 'coach');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startPlan is recreated every render; only a plans refresh should re-run this
+  }, [clientPlans, loadingPlans]);
 
   // Live calorie readout for the client's own "Log Sets" stopwatch banner —
   // identical mechanism to the coach Live Log: each completed set's own
@@ -3371,43 +3367,6 @@ const WorkoutTracker = () => {
       {activeView === 'templates' && (
         <div className="wt-templates-outer">
 
-          {/* Coach's Plan section (only if client has a coach plan). isAssigned
-              excludes coach-only records (e.g. a plan auto-saved from Live
-              Log) that haven't actually been assigned to this client — see
-              TrainerDashboard's "Assign to client" action. */}
-          {(() => {
-            const coachPlansTpl = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
-            const visibleCoachPlansTpl = showAllCoachPlans ? coachPlansTpl : coachPlansTpl.slice(0, 3);
-            return coachPlansTpl.length > 0 && (
-              <div className="wt-picker-section">
-                <div className="wt-picker-section-header">
-                  <span className="wt-picker-section-title">📋 Coach Plans <span className="wt-count-badge">{coachPlansTpl.length} available</span></span>
-                  {coachPlansTpl.length > 3 && (
-                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
-                      {showAllCoachPlans ? 'Show less' : 'View all'}
-                    </button>
-                  )}
-                </div>
-                <div className="wt-plan-list">
-                  {visibleCoachPlansTpl.map(plan => (
-                    <PlanCard
-                      key={plan.id || plan.planName}
-                      plan={plan}
-                      source="coach"
-                      // Was routed through handleStartFromTemplate, which was
-                      // built for the older flat {sets: <count>, reps: '<n>'}
-                      // shape — it discarded each set's real weight (always
-                      // reset to '0') and reps (always defaulted to 10),
-                      // wiping out whatever the coach entered when assigning
-                      // the plan. startPlan preserves the actual per-set data.
-                      onStart={() => { startPlan(plan, 'coach'); setActiveView('log'); }}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
           {/* Workout Library — Gym/Home × Beginner/Intermediate/Advanced */}
           <div className="wt-section">
             <div className="wt-library-header">
@@ -3527,7 +3486,7 @@ const WorkoutTracker = () => {
 
       {activeView === 'log' && !isLoggingWorkout && (() => {
         // startPlan is defined at component scope (see above) — shared with
-        // the Coach Plans card in the Templates view.
+        // the Home screen's coach-plan deep link.
         // "Top 10" means best-PERFORMED, not most recent: ranked by each
         // template's own average calories burned, session duration, and
         // weight volume across its past completed sessions (see
@@ -3537,6 +3496,8 @@ const WorkoutTracker = () => {
         const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
         const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
+        const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
+        const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
 
         const handleDeleteTemplate = async (plan) => {
           if (confirm('Are you sure you want to delete this template?')) {
@@ -3573,6 +3534,34 @@ const WorkoutTracker = () => {
               </div>
               <span className="wt-start-empty-chevron">›</span>
             </button>
+
+            {/* Coach Plans — every plan the coach has assigned (isAssigned
+                excludes coach-only records, e.g. a plan auto-saved from Live
+                Log that was never assigned to this client). A brand-new one
+                is also surfaced on the Home screen until it's started (see
+                CoachPlanHomeCard); once started it lives here only. */}
+            {coachPlans.length > 0 && (
+              <div className="wt-picker-section">
+                <div className="wt-picker-section-header">
+                  <span className="wt-picker-section-title">📋 Coach Assigned <span className="wt-count-badge">{coachPlans.length} available</span></span>
+                  {coachPlans.length > 3 && (
+                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
+                      {showAllCoachPlans ? 'Show less' : 'View all'}
+                    </button>
+                  )}
+                </div>
+                <div className="wt-plan-list">
+                  {visibleCoachPlans.map(plan => (
+                    <PlanCard
+                      key={plan.id || plan.planName}
+                      plan={plan}
+                      source="coach"
+                      onStart={() => startPlan(plan, 'coach')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* My Saved Templates */}
             <div className="wt-picker-section">

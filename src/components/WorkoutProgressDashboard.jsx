@@ -8,6 +8,7 @@ import { MonthlyReportCard, MonthlyReportsList } from './MonthlyReportCard';
 import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
+import CoachPlanHomeCard from './CoachPlanHomeCard';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
@@ -1026,6 +1027,13 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           never stack. */}
       {!coachStatusPending && !isLinkedToCoach && !loading && !activeDraft && (
         <NextWorkoutBanner userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
+      )}
+
+      {/* A plan the coach just assigned — shown here until the client starts
+          it, then it lives only in Log Sets → Coach Assigned. Stays visible
+          during a session: starting one plan must not hide the others. */}
+      {!loading && (
+        <CoachPlanHomeCard userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
       )}
 
       {/* Single Prominent Sessions Done Progress Card — belongs to the

@@ -22,7 +22,7 @@ const STEPS = {
   2: {
     icon: '📋',
     selector: '[data-tour="wt-tab-templates"]',
-    title: 'Browse Workouts',
+    title: 'Browse the Library',
     desc: 'Tap here to see workout programs.',
     autoClick: true,
   },

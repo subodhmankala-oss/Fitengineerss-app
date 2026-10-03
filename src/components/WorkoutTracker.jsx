@@ -34,6 +34,9 @@ import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { markPlanOpened } from '../utils/openedCoachPlans';
+import PlanCard, { TrashIcon } from './PlanCard';
+import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -45,246 +48,6 @@ const getDefaultWarmupExercises = () => [
   { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
   { name: 'Leg Swing', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
 ];
-
-// Routine-picker card icons — plain stroke SVGs (matches ClientProfile.jsx's
-// icon style) instead of emoji, so Coach Plan and Saved Template cards use
-// the exact same icon language.
-const FolderIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
-  </svg>
-);
-const ClockIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" />
-    <polyline points="12 7 12 12 16 14" />
-  </svg>
-);
-const CalendarIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <path d="M3 9h18M8 2v4M16 2v4" />
-  </svg>
-);
-const DumbbellIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6.5 6.5 17.5 17.5M4 4l3 3M20 20l-3-3M2 8l3-3M8 2l3 3M16 22l3-3M22 16l-3 3" />
-  </svg>
-);
-const TrashIcon = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </svg>
-);
-
-// Push/Pull/Legs/Core color coding for the routine-picker cards — same
-// categorization Section 3 of Weekly Muscle Analytics uses (MUSCLE_TO_PPLC),
-// so a "Push Strength" plan's thumbnail/chips read the same warm-red family
-// a client already associates with chest/shoulders/triceps elsewhere.
-const PPLC_COLOR = { Push: '#ef4444', Pull: '#3b82f6', Legs: 'var(--primary-accent-light)', Core: '#a855f7' };
-
-// Derives the routine-picker card's display data from a plan's exercise list
-// — muscle groups trained, a representative body region + color for its
-// MuscleThumbnail, and a rough duration estimate (no real duration is
-// tracked per plan, so this is a heuristic: ~1min work + ~1.5min rest per
-// set, rounded to the nearest 5 minutes for a clean-looking number).
-const getPlanCardMeta = (plan) => {
-  const exercises = plan.exercises || [];
-  const exerciseCount = exercises.length;
-  const totalSets = exercises.reduce((sum, ex) => sum + (ex.sets?.length || 0), 0);
-
-  // getMuscleGroupsForExercise returns [primary, secondary?] — a compound
-  // press/row/squat names its secondary mover (Triceps/Biceps/Glutes) on
-  // almost every exercise, so counting mentions flat let that rider outscore
-  // the muscle the day is actually built around (a Push day of bench/incline/
-  // overhead press racked up more "Triceps" mentions than "Chest" ones,
-  // because every one of those presses also credits triceps). Weighting the
-  // first-listed muscle double keeps the actual target on top.
-  const muscleCounts = {};
-  exercises.forEach(ex => {
-    getMuscleGroupsForExercise(ex.name).forEach((m, i) => {
-      muscleCounts[m] = (muscleCounts[m] || 0) + (i === 0 ? 2 : 1);
-    });
-  });
-  const muscles = Object.keys(muscleCounts).sort((a, b) => muscleCounts[b] - muscleCounts[a]);
-
-  const categoryCounts = {};
-  muscles.forEach(m => {
-    const cat = MUSCLE_TO_PPLC[m];
-    if (cat) categoryCounts[cat] = (categoryCounts[cat] || 0) + muscleCounts[m];
-  });
-  const category = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0] || 'Push';
-
-  // Which body-diagram view (front/back) best represents this workout.
-  // Primary signal: how many exercises' MAIN target muscle lives on each
-  // view — e.g. a Pull day is "mostly back" because Barbell Row/Lat
-  // Pulldown/Seated Cable Row all target Back first, even though Face Pull
-  // and Hammer Curl (front-view primaries) plus every row's secondary Biceps
-  // credit add up to the same *total* mention weight as Back alone — a flat
-  // score comparison ties here and defaults front, showing a Pull day as a
-  // biceps close-up instead of the intended full-back highlight. Counting
-  // primary-target exercises instead breaks that tie correctly (3 back vs 2
-  // front). Falls back to the aggregate weighted score (secondary movers
-  // included) only if even that's tied.
-  let primaryFrontCount = 0, primaryBackCount = 0;
-  exercises.forEach(ex => {
-    const primary = getMuscleGroupsForExercise(ex.name)[0];
-    if (MUSCLE_BODY_VIEW[primary] === 'front') primaryFrontCount++;
-    else if (MUSCLE_BODY_VIEW[primary] === 'back') primaryBackCount++;
-  });
-  let view;
-  if (primaryFrontCount !== primaryBackCount) {
-    view = primaryBackCount > primaryFrontCount ? 'back' : 'front';
-  } else {
-    let frontScore = 0, backScore = 0;
-    muscles.forEach(m => {
-      if (MUSCLE_BODY_VIEW[m] === 'front') frontScore += muscleCounts[m];
-      else if (MUSCLE_BODY_VIEW[m] === 'back') backScore += muscleCounts[m];
-    });
-    view = backScore > frontScore ? 'back' : 'front';
-  }
-
-  return {
-    muscles,
-    primaryMuscle: muscles[0] || 'Chest',
-    category,
-    color: PPLC_COLOR[category] || PPLC_COLOR.Push,
-    view,
-    exerciseCount,
-    totalSets,
-    estMinutes: Math.max(15, Math.round((totalSets * 2.5) / 5) * 5)
-  };
-};
-
-// "3d ago" / "Today" / "Yesterday" from an ISO timestamp — used for saved
-// templates, which only track createdAt (no separate updated-at column).
-const relativeDateLabel = (isoString) => {
-  if (!isoString) return '';
-  const then = new Date(isoString);
-  if (Number.isNaN(then.getTime())) return '';
-  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
-  if (days <= 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days}d ago`;
-  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-// Absolute "Jul 27, 2026" form — used for the coach-assigned date, where an
-// exact date reads better than a relative one (matches the coach's own
-// "Assigned to: X · Jul 27, 2026" label in TrainerDashboard).
-const assignedDateLabel = (isoString) => {
-  if (!isoString) return '';
-  const then = new Date(isoString);
-  if (Number.isNaN(then.getTime())) return '';
-  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-// Tracks which coach-assigned plan IDs this client has already opened (i.e.
-// pressed Start on), scoped per-user via localStorage since there's no
-// server-side "viewed" column on workout_plans. Used to show a small "new"
-// dot on cards for plans the client hasn't opened yet.
-const OPENED_PLANS_KEY_PREFIX = 'wt_opened_coach_plan_ids';
-const getOpenedPlanIds = () => {
-  try {
-    const userId = localStorage.getItem('userId') || 'anon';
-    const raw = localStorage.getItem(`${OPENED_PLANS_KEY_PREFIX}_${userId}`);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-};
-const markPlanOpened = (planId) => {
-  if (!planId) return;
-  try {
-    const userId = localStorage.getItem('userId') || 'anon';
-    const ids = getOpenedPlanIds();
-    ids.add(planId);
-    localStorage.setItem(`${OPENED_PLANS_KEY_PREFIX}_${userId}`, JSON.stringify([...ids]));
-  } catch {
-    /* ignore */
-  }
-};
-
-// Routine card — a coach-assigned plan (muscle thumbnail, Push/Pull/Legs
-// color) or a client's own saved template (folder icon). Shared by the Log
-// Sets routine picker and the Workouts tab's "Your Coach's Plan" section, so
-// both present a plan the exact same way.
-const PlanCard = ({ plan, source, onStart, onDelete }) => {
-  const meta = getPlanCardMeta(plan);
-  const isTemplate = source === 'self';
-  const isUnopened = source === 'coach' && plan.id && !getOpenedPlanIds().has(plan.id);
-  const handleStart = () => {
-    if (source === 'coach') markPlanOpened(plan.id);
-    onStart();
-  };
-  return (
-    <div className="wt-plan-card">
-      {isUnopened && <span className="wt-plan-new-dot" aria-label="New, unopened plan" />}
-      {isTemplate ? (
-        <div className="wt-plan-thumb-fallback" style={{ background: `${meta.color}1c`, color: meta.color }}>
-          <FolderIcon />
-        </div>
-      ) : (
-        <div className="wt-plan-thumb">
-          {meta.muscles.length > 1 ? (
-            <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
-          ) : (
-            <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
-          )}
-        </div>
-      )}
-
-      <div className="wt-plan-body">
-        {!isTemplate && (
-          <div className="wt-plan-top-row">
-            <span className="wt-plan-source-label" style={{ color: meta.color }}>
-              Coach assigned{plan.createdAt ? ` · ${assignedDateLabel(plan.createdAt)}` : ''}
-            </span>
-          </div>
-        )}
-
-        <strong className="wt-plan-title">{plan.planName}</strong>
-
-        <div className="wt-plan-meta-row">
-          {isTemplate ? (
-            <span><CalendarIcon /> Updated {relativeDateLabel(plan.createdAt)}</span>
-          ) : (
-            <span><ClockIcon /> {meta.estMinutes} min</span>
-          )}
-          <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
-        </div>
-
-        {meta.muscles.length > 0 && (
-          <div className="wt-plan-chip-row">
-            {meta.muscles.slice(0, 3).map(m => (
-              <span key={m} className="wt-muscle-chip">
-                <span className="wt-muscle-chip-dot" style={{ background: PPLC_COLOR[MUSCLE_TO_PPLC[m]] || meta.color }} />
-                {m}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="wt-plan-side">
-        <button type="button" className="wt-plan-start-btn" onClick={handleStart}>
-          ▶ Start
-        </button>
-        {isTemplate && onDelete && (
-          <button
-            type="button"
-            className="wt-plan-delete-btn"
-            aria-label="Delete template"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          >
-            <TrashIcon />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
 const defaultHistoricalSessions = [
@@ -400,7 +163,9 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
   .filter((ex, idx, arr) => arr.findIndex(e => e.name.toLowerCase() === ex.name.toLowerCase()) === idx)
   .sort((a, b) => a.name.localeCompare(b.name));
 
-const WorkoutTracker = () => {
+// onWorkoutSaved: App.jsx sends the client to Home → Muscle Balance Overview
+// once a workout is saved (after the summary card is closed, if one shows).
+const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
 
   // ─── In-progress workout draft persistence ───
@@ -2674,6 +2439,9 @@ const WorkoutTracker = () => {
     // for a client's own self-logged session, not a coach logging on a
     // client's behalf (workoutSource === 'coach'). Coach-logged saves keep
     // the plain toast.
+    // Self-logged saves show the summary/share card first and redirect when
+    // it's closed (see WorkoutShareCard's onClose below).
+    let redirectAfterSave = false;
     if (workoutSource !== 'coach') {
       // Best lift: the PR just set (if any — summaryStats.prs is already
       // sorted by discovery order in currentExercises above), else whichever
@@ -2722,6 +2490,8 @@ const WorkoutTracker = () => {
       });
     } else {
       triggerToast(`🏋️‍♂️ Your Fitengineers Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
+      // No summary card on this path, so nothing to wait for.
+      redirectAfterSave = true;
     }
 
     resetWorkoutTimer();
@@ -2736,6 +2506,7 @@ const WorkoutTracker = () => {
     setSetTimers({});
 
     setActiveView('analytics');
+    if (redirectAfterSave) onWorkoutSaved?.();
   };
 
   // ─── Start a workout from a generic template ───
@@ -2788,6 +2559,7 @@ const WorkoutTracker = () => {
   // after; silently drops the request instead of clobbering a session
   // that's already in progress.
   const autoStartConsumedRef = useRef(false);
+  const pendingCoachPlanIdRef = useRef(null);
   useEffect(() => {
     if (autoStartConsumedRef.current) return;
     autoStartConsumedRef.current = true;
@@ -2800,6 +2572,13 @@ const WorkoutTracker = () => {
     if (!payload) return;
     try { localStorage.removeItem(key); } catch { /* ignore quota/serialization errors */ }
     if (savedWorkoutDraft) return; // already mid-session — don't clobber it
+    // Home's "New plan from your coach" card sends just the plan id — the
+    // plan itself arrives with clientPlans, so the effect below starts it.
+    if (payload.coachPlanId) {
+      pendingCoachPlanIdRef.current = payload.coachPlanId;
+      setActiveView('log');
+      return;
+    }
     if (!payload.name || !Array.isArray(payload.exercises)) return;
     handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2877,6 +2656,20 @@ const WorkoutTracker = () => {
     setIsLoggingWorkout(true);
     startWorkoutClock();
   };
+
+  // Second half of the Home coach-plan deep link (see the auto-start effect
+  // above): start the plan once clientPlans has loaded it. Stays pending
+  // until the plan shows up — the first renders run with an empty list.
+  useEffect(() => {
+    const planId = pendingCoachPlanIdRef.current;
+    if (!planId || loadingPlans) return;
+    const plan = clientPlans.find(p => p.id === planId);
+    if (!plan) return;
+    pendingCoachPlanIdRef.current = null;
+    markPlanOpened(plan.id);
+    startPlan(plan, 'coach');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startPlan is recreated every render; only a plans refresh should re-run this
+  }, [clientPlans, loadingPlans]);
 
   // Live calorie readout for the client's own "Log Sets" stopwatch banner —
   // identical mechanism to the coach Live Log: each completed set's own
@@ -2965,7 +2758,7 @@ const WorkoutTracker = () => {
           className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
           onClick={() => setActiveView('templates')}
         >
-          🏋️ Workouts
+          🏋️ Library
         </button>
       </div>
 
@@ -3371,43 +3164,6 @@ const WorkoutTracker = () => {
       {activeView === 'templates' && (
         <div className="wt-templates-outer">
 
-          {/* Coach's Plan section (only if client has a coach plan). isAssigned
-              excludes coach-only records (e.g. a plan auto-saved from Live
-              Log) that haven't actually been assigned to this client — see
-              TrainerDashboard's "Assign to client" action. */}
-          {(() => {
-            const coachPlansTpl = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
-            const visibleCoachPlansTpl = showAllCoachPlans ? coachPlansTpl : coachPlansTpl.slice(0, 3);
-            return coachPlansTpl.length > 0 && (
-              <div className="wt-picker-section">
-                <div className="wt-picker-section-header">
-                  <span className="wt-picker-section-title">📋 Coach Plans <span className="wt-count-badge">{coachPlansTpl.length} available</span></span>
-                  {coachPlansTpl.length > 3 && (
-                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
-                      {showAllCoachPlans ? 'Show less' : 'View all'}
-                    </button>
-                  )}
-                </div>
-                <div className="wt-plan-list">
-                  {visibleCoachPlansTpl.map(plan => (
-                    <PlanCard
-                      key={plan.id || plan.planName}
-                      plan={plan}
-                      source="coach"
-                      // Was routed through handleStartFromTemplate, which was
-                      // built for the older flat {sets: <count>, reps: '<n>'}
-                      // shape — it discarded each set's real weight (always
-                      // reset to '0') and reps (always defaulted to 10),
-                      // wiping out whatever the coach entered when assigning
-                      // the plan. startPlan preserves the actual per-set data.
-                      onStart={() => { startPlan(plan, 'coach'); setActiveView('log'); }}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
           {/* Workout Library — Gym/Home × Beginner/Intermediate/Advanced */}
           <div className="wt-section">
             <div className="wt-library-header">
@@ -3527,7 +3283,7 @@ const WorkoutTracker = () => {
 
       {activeView === 'log' && !isLoggingWorkout && (() => {
         // startPlan is defined at component scope (see above) — shared with
-        // the Coach Plans card in the Templates view.
+        // the Home screen's coach-plan deep link.
         // "Top 10" means best-PERFORMED, not most recent: ranked by each
         // template's own average calories burned, session duration, and
         // weight volume across its past completed sessions (see
@@ -3537,6 +3293,8 @@ const WorkoutTracker = () => {
         const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
         const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
+        const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
+        const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
 
         const handleDeleteTemplate = async (plan) => {
           if (confirm('Are you sure you want to delete this template?')) {
@@ -3573,6 +3331,34 @@ const WorkoutTracker = () => {
               </div>
               <span className="wt-start-empty-chevron">›</span>
             </button>
+
+            {/* Coach Plans — every plan the coach has assigned (isAssigned
+                excludes coach-only records, e.g. a plan auto-saved from Live
+                Log that was never assigned to this client). A brand-new one
+                is also surfaced on the Home screen until it's started (see
+                CoachPlanHomeCard); once started it lives here only. */}
+            {coachPlans.length > 0 && (
+              <div className="wt-picker-section">
+                <div className="wt-picker-section-header">
+                  <span className="wt-picker-section-title">📋 Coach Assigned <span className="wt-count-badge">{coachPlans.length} available</span></span>
+                  {coachPlans.length > 3 && (
+                    <button type="button" className="wt-view-all-btn" onClick={() => setShowAllCoachPlans(v => !v)}>
+                      {showAllCoachPlans ? 'Show less' : 'View all'}
+                    </button>
+                  )}
+                </div>
+                <div className="wt-plan-list">
+                  {visibleCoachPlans.map(plan => (
+                    <PlanCard
+                      key={plan.id || plan.planName}
+                      plan={plan}
+                      source="coach"
+                      onStart={() => startPlan(plan, 'coach')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* My Saved Templates */}
             <div className="wt-picker-section">
@@ -4674,7 +4460,7 @@ const WorkoutTracker = () => {
       )}
 
       {shareCardData && (
-        <WorkoutShareCard session={shareCardData} onClose={() => setShareCardData(null)} />
+        <WorkoutShareCard session={shareCardData} onClose={() => { setShareCardData(null); onWorkoutSaved?.(); }} />
       )}
 
       {/* Floating Hevy Rest Timer Overlay. No toast and no blink on rest

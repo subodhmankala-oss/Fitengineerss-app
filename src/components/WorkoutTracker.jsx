@@ -2750,7 +2750,7 @@ const WorkoutTracker = () => {
           className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
           onClick={() => setActiveView('templates')}
         >
-          🏋️ Workouts
+          🏋️ Library
         </button>
       </div>
 

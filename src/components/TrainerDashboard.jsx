@@ -657,6 +657,34 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Super-admin: { id, name } of the client the founder-message composer is
   // open for, or null.
   const [founderMessageTarget, setFounderMessageTarget] = useState(null);
+  // Latest client reply per client ({ [clientId]: { reply, at } }) — shown on
+  // the All Clients rows. Reloaded when the composer closes.
+  const [founderReplies, setFounderReplies] = useState({});
+  // "Seen" is remembered per device (no DB column): { [clientId]: replyTimestamp }.
+  const SEEN_KEY = 'founderRepliesSeen';
+  const [seenReplies, setSeenReplies] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; }
+  });
+  const unreadReplyIds = useMemo(() => new Set(
+    Object.entries(founderReplies)
+      .filter(([id, r]) => r.at && (!seenReplies[id] || new Date(r.at) > new Date(seenReplies[id])))
+      .map(([id]) => id)
+  ), [founderReplies, seenReplies]);
+  const markReplyRead = (clientId) => {
+    const at = founderReplies[clientId]?.at;
+    if (!at) return;
+    setSeenReplies(prev => {
+      const next = { ...prev, [clientId]: at };
+      try { localStorage.setItem(SEEN_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
+  useEffect(() => {
+    if (!superAdmin || founderMessageTarget) return undefined;
+    let cancelled = false;
+    databaseService.getFounderReplies().then(r => { if (!cancelled) setFounderReplies(r); });
+    return () => { cancelled = true; };
+  }, [superAdmin, founderMessageTarget]);
 
   // Clients on a monthly cadence who haven't paid again in ~30 days (or are
   // coming up on that) — see databaseService.getRenewalDueClients. Purely
@@ -4424,8 +4452,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
-                {signupAlerts.length > 0 && (
-                  <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -4 }} aria-label="New sign-ups" />
+                {(signupAlerts.length > 0 || unreadReplyIds.size > 0) && (
+                  <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -4 }} aria-label="New sign-ups or replies" />
                 )}
               </span>
               <span className="admin-shell-label">Admin</span>
@@ -4661,8 +4689,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               }}
             >
               🛡️ Super-Admin
-              {signupAlerts.length > 0 && (
-                <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups" />
+              {(signupAlerts.length > 0 || unreadReplyIds.size > 0) && (
+                <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups or replies" />
               )}
             </button>
           </div>
@@ -4937,6 +4965,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 >
                   <span>{nav.icon}</span>
                   <span>{nav.label}</span>
+                  {nav.key === 'clients' && unreadReplyIds.size > 0 && (
+                    <span style={{ marginLeft: 'auto', background: 'var(--tint-violet, #8b5cf6)', color: '#fff', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 800, padding: '1px 7px' }}>
+                      {unreadReplyIds.size}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -4961,8 +4994,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   loadingClients={loadingClients}
                   coachesList={coachesList}
                   onSelectCoachDetails={handleViewCoachClients}
-                  unreadClientIds={new Set([...clientNotifications, ...newClientNotifications, ...signupAlerts].map(n => n.clientId))}
-                  onMessageClient={(c) => setFounderMessageTarget({ id: c.id, name: c.userName || '' })}
+                  unreadClientIds={new Set([...clientNotifications, ...newClientNotifications, ...signupAlerts].map(n => n.clientId).concat([...unreadReplyIds]))}
+                  founderReplies={founderReplies}
+                  unreadReplyIds={unreadReplyIds}
+                  onMarkReplyRead={markReplyRead}
+                  onMessageClient={(c) => { markReplyRead(c.id); setFounderMessageTarget({ id: c.id, name: c.userName || '' }); }}
                 />
               )}
             </div>

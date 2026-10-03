@@ -18,6 +18,15 @@ describe('FounderMessageComposer', () => {
     expect(screen.getByLabelText('Message').value).toBe('Hi Rahul! ');
   });
 
+  it('quick-pick fills the box with their name, and it stays editable', () => {
+    render(<FounderMessageComposer client={{ id: 'c1', name: 'Rahul Naik' }} onClose={() => {}} />);
+    fireEvent.click(screen.getByText('Get started'));
+    const box = screen.getByLabelText('Message');
+    expect(box.value).toMatch(/^Hi Rahul! Here's how to use Fitengineers/);
+    fireEvent.change(box, { target: { value: `${box.value} Call me.` } });
+    expect(box.value).toMatch(/Call me\.$/);
+  });
+
   it('sends the message and pushes it to the client', async () => {
     db.sendFounderMessage.mockResolvedValue({ success: true });
     render(<FounderMessageComposer client={{ id: 'c1', name: 'Rahul Naik' }} onClose={() => {}} />);

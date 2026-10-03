@@ -8,7 +8,14 @@ import { notifyEvent } from '../../utils/pushNotify';
 // (api/push.js founder_message).
 export default function FounderMessageComposer({ client, onClose }) {
   const firstName = (client?.name || '').trim().split(/\s+/)[0];
-  const [text, setText] = useState(firstName ? `Hi ${firstName}! ` : 'Hi! ');
+  const greeting = firstName ? `Hi ${firstName}!` : 'Hi!';
+  // One-tap how-to-use-the-app messages; tapping fills the box, which stays fully editable.
+  const templates = [
+    { label: 'Get started', text: `${greeting} Here's how to use Fitengineers: 1) Open the Workout tab and pick a workout. 2) Log your weight and reps as you finish each set. 3) The app remembers your last numbers, so next time they're pre-filled. Stuck anywhere? Just reply here.` },
+    { label: 'Form videos', text: `${greeting} Not sure how to do an exercise? Open its Form Guide in the Workout tab to watch a short video of the correct form before your set. Reply if you want help choosing exercises.` },
+    { label: 'Track progress', text: `${greeting} Your Home screen shows how you're doing, and the Profile tab holds your goals and body stats. Keep logging each workout and your progress builds up automatically. Reply with any questions.` }
+  ];
+  const [text, setText] = useState(`${greeting} `);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
@@ -53,6 +60,22 @@ export default function FounderMessageComposer({ client, onClose }) {
         <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           Shows on their home screen with your photo, and goes to their phone if notifications are on. They can reply once.
         </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {templates.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              onClick={() => setText(t.text)}
+              disabled={sending || sent}
+              style={{
+                background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid var(--border-color)', color: 'var(--text-main)',
+                padding: '6px 12px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

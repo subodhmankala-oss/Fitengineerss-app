@@ -4748,6 +4748,25 @@ const databaseService = {
     }
   },
 
+  // Super-admin: the latest client reply per client, as { [clientId]: { reply,
+  // at, message } }. Read straight from the table (RLS lets the super-admin
+  // select everything) so replies are visible even if the Inbox push/alert
+  // call failed. Returns {} on any failure.
+  async getFounderReplies() {
+    if (!isSupabaseConfigured) return {};
+    try {
+      const rows = await restSelect('founder_messages?client_reply=not.is.null&select=client_id,message,client_reply,client_reply_at&order=client_reply_at.desc&limit=500');
+      const byClient = {};
+      for (const r of Array.isArray(rows) ? rows : []) {
+        if (!byClient[r.client_id]) byClient[r.client_id] = { reply: r.client_reply, at: r.client_reply_at, message: r.message };
+      }
+      return byClient;
+    } catch (e) {
+      console.warn('Cloud DB Get Founder Replies Error:', e);
+      return {};
+    }
+  },
+
   async markCoachNoteRead(noteId) {
     if (!isSupabaseConfigured || !noteId) return { success: false };
     try {

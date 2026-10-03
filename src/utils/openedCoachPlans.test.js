@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getUnopenedCoachPlans, markPlanOpened, getOpenedPlanIds } from './openedCoachPlans';
+import { getUnopenedCoachPlans as getUnopened, markPlanOpened, getOpenedPlanIds } from './openedCoachPlans';
+
+const NOW = Date.parse('2026-10-03T12:00:00Z');
+const getUnopenedCoachPlans = (plans, logs) => getUnopened(plans, logs, NOW);
 
 const coachPlan = (overrides = {}) => ({
   id: 'p1', planName: 'Push Day', createdBy: 'coach', isAssigned: true,
@@ -36,6 +39,11 @@ describe('getUnopenedCoachPlans', () => {
   it('skips client templates and unassigned coach records', () => {
     const plans = [coachPlan({ id: 'a', createdBy: 'client' }), coachPlan({ id: 'b', isAssigned: false })];
     expect(getUnopenedCoachPlans(plans, [])).toHaveLength(0);
+  });
+
+  it('only surfaces plans sent in the last 7 days', () => {
+    const old = coachPlan({ id: 'old', createdAt: '2026-09-22T10:00:00Z' });
+    expect(getUnopenedCoachPlans([old, coachPlan()], []).map(p => p.id)).toEqual(['p1']);
   });
 
   it('keeps the opened list per user', () => {

@@ -8,9 +8,10 @@ vi.mock('../services/databaseService', () => ({
   default: { getWorkoutPlansForUser: vi.fn() }
 }));
 
+const recent = new Date(Date.now() - 86400000).toISOString();
 const plans = [
-  { id: 'p1', planName: 'Push Day', createdBy: 'coach', isAssigned: true, createdAt: '2026-10-01T09:00:00Z', exercises: [{}, {}] },
-  { id: 'p2', planName: 'My Template', createdBy: 'client', isAssigned: true, createdAt: '2026-10-01T09:00:00Z', exercises: [{}] }
+  { id: 'p1', planName: 'Push Day', createdBy: 'coach', isAssigned: true, createdAt: recent, exercises: [{}, {}] },
+  { id: 'p2', planName: 'My Template', createdBy: 'client', isAssigned: true, createdAt: recent, exercises: [{}] }
 ];
 
 describe('CoachPlanHomeCard', () => {
@@ -36,7 +37,7 @@ describe('CoachPlanHomeCard', () => {
 
   it('renders nothing once the plan has been logged', async () => {
     const { container } = render(
-      <CoachPlanHomeCard userId="u1" logs={[{ log_date: '2026-10-02', plan_name: 'Push Day' }]} />
+      <CoachPlanHomeCard userId="u1" logs={[{ log_date: recent.slice(0, 10), plan_name: 'Push Day' }]} />
     );
     await vi.waitFor(() => expect(databaseService.getWorkoutPlansForUser).toHaveBeenCalled());
     expect(container.textContent).toBe('');

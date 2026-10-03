@@ -27,15 +27,23 @@ export const markPlanOpened = (planId) => {
   }
 };
 
+// Home only surfaces plans sent recently — without it, every old plan a
+// client never happened to log (or opened on another device) would show up
+// as "new" the day this card shipped. Older ones stay in Log Sets.
+export const NEW_PLAN_WINDOW_DAYS = 7;
+
 // Coach-assigned plans the client hasn't started yet. localStorage alone is
 // per-device, so a plan also counts as started once any workout log carries
 // its name on or after the day it was assigned — covers a client who started
 // it on another phone.
-export const getUnopenedCoachPlans = (plans, logs = []) => {
+export const getUnopenedCoachPlans = (plans, logs = [], now = Date.now()) => {
   const opened = getOpenedPlanIds();
+  const cutoff = now - NEW_PLAN_WINDOW_DAYS * 86400000;
   return (plans || []).filter(p => {
     if (p.createdBy !== 'coach' || p.isAssigned === false || !p.id) return false;
     if (opened.has(p.id)) return false;
+    const assignedAt = new Date(p.createdAt).getTime();
+    if (!Number.isFinite(assignedAt) || assignedAt < cutoff) return false;
     const assignedDay = (p.createdAt || '').slice(0, 10);
     const name = (p.planName || '').trim().toLowerCase();
     return !logs.some(l => {

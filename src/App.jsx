@@ -800,7 +800,12 @@ function App() {
         // this project the same way it does in the password-reset flow) the
         // first time either of the other two signals is seen, so it survives
         // every future login on any device until a real coach profile exists.
-        const metadataIntent = user.user_metadata?.intendedRole === 'coach';
+        // Never for an established client (onboarding done, or linked to a
+        // coach): a stale intendedRole left on testclient by an accidental
+        // coach sign-up re-provisioned a coach profile on every later login
+        // (2026-10-03), even after the coach row was deleted by hand.
+        const isEstablishedClient = resolvedRole === 'client' && !!(profile?.onboardingCompleted || profile?.coach_id);
+        const metadataIntent = user.user_metadata?.intendedRole === 'coach' && !isEstablishedClient;
         const pendingCoachLogin = sessionStorage.getItem('pendingCoachLogin') === 'true' || authIntentParam === 'coach' || metadataIntent;
         const isApprovedCoach =
           TRAINER_EMAILS.includes(email.toLowerCase()) ||

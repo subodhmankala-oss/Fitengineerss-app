@@ -1,0 +1,127 @@
+/* "First workout" screen at the end of the sign-up wizard. Larger type than
+   the other wizard steps on purpose — it's the one choice on the screen and
+   it has to be easy to read and tap. Colours/borders follow
+   ClientOnboardingWizard.css's option rows. */
+
+.fwp-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.fwp-subtitle {
+  font-size: 1.08rem;
+  line-height: 1.45;
+  color: var(--text-main);
+  opacity: 0.85;
+  margin: 0 0 22px;
+}
+
+.fwp-loading {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: 0 0 22px;
+}
+
+.fwp-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.fwp-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 18px;
+  min-height: 76px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 2px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.fwp-option:hover {
+  background: rgba(139, 92, 246, 0.07);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.fwp-option.selected {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.65);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
+}
+
+.fwp-emoji {
+  font-size: 2.1rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.fwp-option-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fwp-option-label {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.fwp-option-desc {
+  font-size: 0.98rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.fwp-check {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent-text);
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.fwp-check.visible {
+  opacity: 1;
+}
+
+.fwp-start {
+  font-size: 1.15rem;
+  padding: 17px;
+}
+
+.fwp-start:disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+}
+
+.fwp-skip {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}

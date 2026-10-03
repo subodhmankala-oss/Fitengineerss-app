@@ -1876,8 +1876,12 @@ function App() {
       <div className="app-container">
         <Suspense fallback={<LazyScreenFallback />}>
           <ClientOnboardingWizard
-            onComplete={() => {
+            onComplete={({ startWorkout = false } = {}) => {
               setShowClientWizard(false);
+              // "Start my first workout" on the wizard's last screen queued a
+              // Workout Library program (startLibraryProgram) — open the
+              // Workouts tab so it auto-starts.
+              if (startWorkout) setActiveTab('workouts');
               localStorage.setItem('onboardingCompleted', 'true');
               // A brand-new signup reaches the dashboard through THIS
               // completion, not the Onboarding onComplete above — so a saved

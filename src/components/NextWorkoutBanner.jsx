@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
+import { startLibraryProgram } from '../utils/startLibraryProgram';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
 // "new client nudge"), but that no longer fits a genuine ~3-month-per-level
@@ -12,25 +13,9 @@ import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
 
-// Writes the same localStorage keys WorkoutTracker reads on mount (see its
-// lastTabKey/lastLevelKey/lastCategoryKey/autoStart handling) and navigates.
-// Lands the client on the right Workouts tab / level / category even if the
-// deep-link auto-start can't run for some reason (e.g. a session is already
-// in progress); when it can, it starts logging `program` immediately — no
-// extra tap on the library card needed.
+// Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 function startProgram(userId, onNavigateToWorkouts, category, level, program) {
-  if (userId) {
-    try {
-      localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'templates');
-      localStorage.setItem(`workoutTrackerLastLevel_${userId}`, level);
-      localStorage.setItem(`workoutTrackerLastCategory_${userId}`, category);
-      localStorage.setItem(`workoutTrackerAutoStart_${userId}`, JSON.stringify({
-        name: program.name,
-        exercises: program.exercises,
-        level
-      }));
-    } catch { /* ignore quota/serialization errors */ }
-  }
+  startLibraryProgram(userId, category, level, program);
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
 

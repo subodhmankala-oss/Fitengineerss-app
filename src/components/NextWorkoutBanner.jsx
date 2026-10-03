@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
+import FirstWorkoutPicker from './FirstWorkoutPicker';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
 // "new client nudge"), but that no longer fits a genuine ~3-month-per-level
@@ -73,57 +74,33 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
-  // from — determineWorkoutGuidance defaults to Gym, but silently assuming
-  // that is a real error for a client who only trains at home. Ask instead,
-  // this one time: two explicit choices, each deep-linking straight into
-  // that category's first Beginner program. The moment they've logged
-  // anything at all (even from one of these two picks), this branch stops
-  // matching and the normal single-suggestion banner below takes over,
-  // correctly following whichever they actually did.
+  // (or their level) from — determineWorkoutGuidance defaults to Gym
+  // Beginner, but silently assuming that is a real error for a client who
+  // only trains at home or already trains. Ask instead, this one time, with
+  // the same level + Gym/Home chooser as the end of sign-up
+  // (FirstWorkoutPicker) so picking "I'll start later" there gets them the
+  // same choice here. The moment they've logged anything at all (even from
+  // this picker), this branch stops matching and the normal single-
+  // suggestion banner below takes over, correctly following whichever they
+  // actually did.
   if (guidance.reason === 'no-sessions') {
-    const gymFirst = library.gym.beginner?.[0];
-    const homeFirst = library.home.beginner?.[0];
-    if (!gymFirst && !homeFirst) return null;
+    const hasAnyProgram = Object.values(library).some(byLevel =>
+      Object.values(byLevel).some(list => list?.length > 0)
+    );
+    if (!hasAnyProgram) return null;
 
     return (
       <div
         style={{
           background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
-          borderRadius: 0, padding: '12px 14px', marginBottom: '4px'
+          borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
         }}
       >
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>🌱 New here? Let's get you started</div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '10px' }}>
-          Where will you be training?
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {gymFirst && (
-            <button
-              type="button"
-              onClick={() => startProgram(userId, onNavigateToWorkouts, 'gym', 'beginner', gymFirst)}
-              style={{
-                flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: 'var(--accent-text)', fontSize: '0.78rem',
-                fontWeight: 700, cursor: 'pointer'
-              }}
-            >
-              🏋️ I have gym access
-            </button>
-          )}
-          {homeFirst && (
-            <button
-              type="button"
-              onClick={() => startProgram(userId, onNavigateToWorkouts, 'home', 'beginner', homeFirst)}
-              style={{
-                flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: 'var(--accent-text)', fontSize: '0.78rem',
-                fontWeight: 700, cursor: 'pointer'
-              }}
-            >
-              🏠 I'm training at home
-            </button>
-          )}
-        </div>
+        <FirstWorkoutPicker
+          variant="home"
+          library={library}
+          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program)}
+        />
       </div>
     );
   }

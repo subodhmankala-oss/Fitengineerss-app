@@ -1,18 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import databaseService from '../services/databaseService';
 import './FirstWorkoutPicker.css';
 
-// Last screen of the sign-up wizard, shown once their answers are saved.
-// Almost no self-guided client ever did a workout after signing up (3 of 26
-// in the 45 days to 2026-10-03): "Go to dashboard" dropped them on a busy
-// home screen at their most motivated moment and they left. This asks the
-// two things needed to pick a Workout Library program — Gym or Home, and
-// their level (Beginner pre-selected) — and starts the first program of that
-// category + level straight away. Deliberately large text: these are the
-// only decisions on the screen.
+// "Start your first workout" chooser: level (Beginner pre-selected) + Gym or
+// Home, then a big Start button that opens that category + level's first
+// Workout Library program. Deliberately large type — these are the only
+// decisions on the screen.
+//
+// Used in two places, the same screen so they can't drift apart:
+//  - variant="signup": last screen of the sign-up wizard, once the answers
+//    are saved. Almost no self-guided client ever did a workout after
+//    signing up (3 of 26 in the 45 days to 2026-10-03): "Go to dashboard"
+//    dropped them on a busy home screen at their most motivated moment.
+//    Has "I'll start later" (onSkip) → dashboard.
+//  - variant="home": the self-guided client's Home screen until they've
+//    logged a first session (NextWorkoutBanner) — so choosing "later" at
+//    sign-up gets them the same choice, not a Beginner-only banner. Passes
+//    the library NextWorkoutBanner already loaded; no skip button.
 //
 // onStart(category, level, program) — caller queues the program and opens
-// the Workouts tab. onSkip() — "I'll start later", straight to the dashboard.
+// the Workouts tab.
 
 const CATEGORIES = [
   { id: 'gym', emoji: '🏋️', label: 'At the gym' },
@@ -25,13 +32,24 @@ const LEVELS = [
   { id: 'advanced', emoji: '🔥', label: 'Advanced', desc: 'Training seriously for 2+ years' }
 ];
 
-export default function FirstWorkoutPicker({ name, onStart, onSkip }) {
-  // { gym: { beginner: program|null, ... }, home: {...} }, or null = loading
-  const [library, setLibrary] = useState(null);
+// { gym: { beginner: [programs], ... }, home: {...} } (the shape
+// NextWorkoutBanner loads) → { gym: { beginner: first program | null, ... } }
+function firstPrograms(library) {
+  const out = {};
+  CATEGORIES.forEach(c => {
+    out[c.id] = {};
+    LEVELS.forEach(l => { out[c.id][l.id] = library?.[c.id]?.[l.id]?.[0] || null; });
+  });
+  return out;
+}
+
+export default function FirstWorkoutPicker({ name, onStart, onSkip, variant = 'signup', library: providedLibrary }) {
+  const [fetched, setFetched] = useState(null); // null = loading
   const [category, setCategory] = useState(null);
   const [level, setLevel] = useState('beginner');
 
   useEffect(() => {
+    if (providedLibrary) return undefined;
     let cancelled = false;
     Promise.all(
       CATEGORIES.map(c => Promise.all(
@@ -42,13 +60,19 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip }) {
       const next = {};
       CATEGORIES.forEach((c, ci) => {
         next[c.id] = {};
-        LEVELS.forEach((l, li) => { next[c.id][l.id] = lists[ci][li]?.[0] || null; });
+        LEVELS.forEach((l, li) => { next[c.id][l.id] = lists[ci][li] || []; });
       });
-      setLibrary(next);
+      setFetched(next);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [providedLibrary]);
 
+  const library = useMemo(
+    () => (providedLibrary || fetched ? firstPrograms(providedLibrary || fetched) : null),
+    [providedLibrary, fetched]
+  );
+
+  const isHome = variant === 'home';
   const firstName = (name || '').trim().split(/\s+/)[0];
   // Only offer what the library actually has.
   const levels = library ? LEVELS.filter(l => CATEGORIES.some(c => library[c.id][l.id])) : [];
@@ -63,10 +87,19 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip }) {
   };
 
   return (
-    <div className="cow-step-content forward fwp" key="first-workout">
-      <div className="cow-step-icon">🎉</div>
-      <h2 className="fwp-title">You’re all set{firstName ? `, ${firstName}` : ''}!</h2>
-      <p className="fwp-subtitle">Let’s do your first workout — a program from our library.</p>
+    <div className={isHome ? 'fwp fwp-home' : 'cow-step-content forward fwp'} key="first-workout">
+      {isHome ? (
+        <>
+          <h2 className="fwp-title">🌱 New here? Let’s get you started</h2>
+          <p className="fwp-subtitle">Pick your level and where you’ll train — we’ll set up your first workout.</p>
+        </>
+      ) : (
+        <>
+          <div className="cow-step-icon">🎉</div>
+          <h2 className="fwp-title">You’re all set{firstName ? `, ${firstName}` : ''}!</h2>
+          <p className="fwp-subtitle">Let’s do your first workout — a program from our library.</p>
+        </>
+      )}
 
       {library === null ? (
         <p className="fwp-loading">Loading workouts…</p>
@@ -122,7 +155,7 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip }) {
 
           <button
             type="button"
-            className="cow-finish-btn fwp-start"
+            className="fwp-start"
             disabled={!program}
             onClick={() => program && onStart(category, level, program)}
           >
@@ -131,9 +164,11 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip }) {
         </>
       )}
 
-      <button type="button" className="fwp-skip" onClick={onSkip}>
-        {library !== null && !hasLibrary ? 'Go to dashboard 🚀' : 'I’ll start later'}
-      </button>
+      {onSkip && (
+        <button type="button" className="fwp-skip" onClick={onSkip}>
+          {library !== null && !hasLibrary ? 'Go to dashboard 🚀' : 'I’ll start later'}
+        </button>
+      )}
     </div>
   );
 }

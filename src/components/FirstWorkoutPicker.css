@@ -100,14 +100,38 @@
 }
 
 .fwp-start {
-  font-size: 1.15rem;
+  /* Self-contained (not .cow-finish-btn) — this also renders on the Home
+     screen, where the sign-up wizard's stylesheet isn't loaded. */
+  display: block;
+  width: 100%;
   padding: 17px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent));
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
+  transition: all 0.2s ease;
 }
 
 .fwp-start:disabled {
   opacity: 0.55;
   cursor: default;
   box-shadow: none;
+}
+
+/* Home-screen version (NextWorkoutBanner): the banner supplies the card
+   background, so just a bit of padding and a smaller heading. */
+.fwp-home {
+  text-align: left;
+}
+
+.fwp-home .fwp-title {
+  font-size: 1.35rem;
 }
 
 .fwp-skip {

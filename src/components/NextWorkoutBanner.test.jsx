@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 
 vi.mock('../services/databaseService', () => ({
   __esModule: true,
@@ -48,34 +48,47 @@ describe('NextWorkoutBanner', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('asks a client with zero logged sessions to choose Gym or Home, instead of assuming Gym', async () => {
+  it('asks a client with zero logged sessions for their level and Gym or Home, instead of assuming Gym', async () => {
     mockLibrary({
       gym: { beginner: gymBeginner },
       home: { beginner: [{ name: 'Home Beginner Full Body A', exercises: [] }] }
     });
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/Let's get you started/)).not.toBeNull();
-    expect(screen.getByText(/I have gym access/)).not.toBeNull();
-    expect(screen.getByText(/I'm training at home/)).not.toBeNull();
-    // Neither option is auto-started until the client actually picks one.
+    expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
+    expect(screen.getByText('What’s your level?')).not.toBeNull();
+    expect(screen.getByRole('radio', { name: /^Beginner/ }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('At the gym')).not.toBeNull();
+    expect(screen.getByText('At home')).not.toBeNull();
+    // Start stays disabled until Gym or Home is picked; nothing auto-starts.
+    expect(screen.getByRole('button', { name: 'Pick gym or home' }).disabled).toBe(true);
     expect(localStorage.getItem('workoutTrackerAutoStart_u1')).toBeNull();
+    // No skip button here — this is the Home screen, not the sign-up wizard.
+    expect(screen.queryByText(/start later/)).toBeNull();
+  });
+
+  it('uses the library it already loaded instead of fetching it a second time', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    await screen.findByText('At the gym');
+    expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalledTimes(6); // 3 levels x 2 categories, once
   });
 
   it('only offers the Gym choice when no Home programs are configured, and vice versa', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } }); // no home library at all
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
-    expect(await screen.findByText(/I have gym access/)).not.toBeNull();
-    expect(screen.queryByText(/I'm training at home/)).toBeNull();
+    expect(await screen.findByText('At the gym')).not.toBeNull();
+    expect(screen.queryByText('At home')).toBeNull();
   });
 
-  it('deep-links to Gym Beginner A when the client picks "I have gym access"', async () => {
+  it('deep-links to Gym Beginner A when the client picks "At the gym"', async () => {
     mockLibrary({
       gym: { beginner: gymBeginner },
       home: { beginner: [{ name: 'Home Beginner Full Body A', exercises: [] }] }
     });
     const onNavigate = vi.fn();
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
-    (await screen.findByText(/I have gym access/)).click();
+    fireEvent.click(await screen.findByText('At the gym'));
+    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('gym');
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('beginner');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));
@@ -83,17 +96,35 @@ describe('NextWorkoutBanner', () => {
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 
-  it('deep-links to Home Beginner A when the client picks "I\'m training at home"', async () => {
+  it('deep-links to Home Beginner A when the client picks "At home"', async () => {
     mockLibrary({
       gym: { beginner: gymBeginner },
       home: { beginner: [{ name: 'Home Beginner Full Body A', exercises: [] }] }
     });
     const onNavigate = vi.fn();
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
-    (await screen.findByText(/I'm training at home/)).click();
+    fireEvent.click(await screen.findByText('At home'));
+    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('home');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));
     expect(autoStart.name).toBe('Home Beginner Full Body A');
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a client who already trains pick Intermediate and starts that level', async () => {
+    mockLibrary({
+      gym: {
+        beginner: gymBeginner,
+        intermediate: [{ name: 'Intermediate Push', exercises: [{ name: 'Bench Press' }] }]
+      }
+    });
+    const onNavigate = vi.fn();
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
+    fireEvent.click(await screen.findByRole('radio', { name: /^Intermediate/ }));
+    fireEvent.click(screen.getByText('At the gym'));
+    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
+    expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('intermediate');
+    expect(JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'))).toMatchObject({ name: 'Intermediate Push', level: 'intermediate' });
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 

@@ -7,20 +7,41 @@ import { alertSuperAdmin, clearSignupIncompleteAlert } from './_adminAlert.js';
 // clients ended up with their body stats saved but onboarding_completed
 // stuck at false, forcing them back through the wizard on every login.
 
+// Coach's display name for the alert below, or null (no coach, or lookup
+// failed — the alert still goes out, just without the name).
+async function getCoachName(supabaseUrl, serviceKey, coachId) {
+  if (!coachId) return null;
+  try {
+    const rows = await fetch(`${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(coachId)}&select=full_name`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+    }).then(r => r.json());
+    return (Array.isArray(rows) && rows[0]?.full_name) || null;
+  } catch {
+    return null;
+  }
+}
+
 // Alert the super-admin (push + in-app card, via api/_adminAlert.js) that a
-// brand-new client just finished signing up. "no coach yet" is called out
-// because those are the sign-ups nobody else hears about — the super-admin
-// is the only one who can follow up. Never throws.
-async function notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, clientName, hasCoach }) {
+// brand-new client just finished signing up, and how they'll be guided: by
+// their coach, or self-guided by the app itself — a first-class way to use
+// Fitengineers, not a gap, so it's worded that way (same "Self-Guided" label
+// as the Super-Admin client list). Never throws.
+export function newClientAlertBody(clientName, coachId, coachName) {
+  if (!coachId) return `${clientName} signed up as a self-guided user.`;
+  return coachName ? `${clientName} signed up with Coach ${coachName}.` : `${clientName} signed up with their coach.`;
+}
+
+async function notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, clientName, coachId }) {
   // They finished, so a pending "sign-up not finished" card is stale.
   await clearSignupIncompleteAlert({ supabaseUrl, serviceKey, actorUserId: userId });
+  const coachName = await getCoachName(supabaseUrl, serviceKey, coachId);
   await alertSuperAdmin({
     supabaseUrl,
     serviceKey,
     type: 'new_client_signup',
     actorUserId: userId,
     title: '🎉 New client joined',
-    body: `${clientName} just signed up on Fitengineers${hasCoach ? '.' : ' — no coach yet.'}`,
+    body: newClientAlertBody(clientName, coachId, coachName),
     url: `/?viewClient=${userId}`,
     payload: { client_name: clientName }
   });
@@ -180,7 +201,7 @@ export default async function handler(req, res) {
     // driven by clients.welcome_seen defaulting to false on this insert) —
     // no push needed here for that half.
     const finalName = persistName ? cleanName : (data[0].full_name || 'A new client');
-    await notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, clientName: finalName, hasCoach: !!data[0].coach_id });
+    await notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, clientName: finalName, coachId: data[0].coach_id || null });
 
     return res.status(200).json({ success: true, client: data[0] });
   } catch (err) {

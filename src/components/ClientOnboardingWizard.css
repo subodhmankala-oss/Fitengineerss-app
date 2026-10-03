@@ -10,8 +10,15 @@
   inset: 0;
   z-index: 9999;
   display: flex;
-  align-items: center;
+  /* Scrolls when the card is taller than the screen (small phones, the
+     founder message on top, the first-workout screen) — it used to be
+     clipped top AND bottom with no way to reach the button. The card's
+     margin: auto still centres it whenever it fits. */
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 20px;
   background:
     radial-gradient(ellipse at top left, rgba(139, 92, 246, 0.18) 0%, transparent 55%),
@@ -33,6 +40,9 @@
     0 0 80px rgba(139, 92, 246, 0.06);
   backdrop-filter: blur(24px);
   overflow: hidden;
+  /* Centres in the scrollable overlay when it fits; top-aligned when not. */
+  margin: auto;
+  flex-shrink: 0;
 }
 
 /* ── Header ── */

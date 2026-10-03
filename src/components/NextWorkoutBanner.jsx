@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
+import { startLibraryProgram } from '../utils/startLibraryProgram';
+import FirstWorkoutPicker from './FirstWorkoutPicker';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
 // "new client nudge"), but that no longer fits a genuine ~3-month-per-level
@@ -12,25 +14,9 @@ import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
 
-// Writes the same localStorage keys WorkoutTracker reads on mount (see its
-// lastTabKey/lastLevelKey/lastCategoryKey/autoStart handling) and navigates.
-// Lands the client on the right Workouts tab / level / category even if the
-// deep-link auto-start can't run for some reason (e.g. a session is already
-// in progress); when it can, it starts logging `program` immediately — no
-// extra tap on the library card needed.
+// Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 function startProgram(userId, onNavigateToWorkouts, category, level, program) {
-  if (userId) {
-    try {
-      localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'templates');
-      localStorage.setItem(`workoutTrackerLastLevel_${userId}`, level);
-      localStorage.setItem(`workoutTrackerLastCategory_${userId}`, category);
-      localStorage.setItem(`workoutTrackerAutoStart_${userId}`, JSON.stringify({
-        name: program.name,
-        exercises: program.exercises,
-        level
-      }));
-    } catch { /* ignore quota/serialization errors */ }
-  }
+  startLibraryProgram(userId, category, level, program);
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
 
@@ -49,6 +35,17 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program) {
 // Workout Library programs are configured for either category at all.
 export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }) {
   const [library, setLibrary] = useState(null); // null = still loading
+  // The ✕ on the first-workout picker hides it for good on this device (per
+  // client) — they can still start anything from the Workouts tab, and once
+  // they log a session the normal next-program banner shows regardless.
+  const dismissKey = `firstWorkoutPickerDismissed_${userId}`;
+  const [pickerDismissed, setPickerDismissed] = useState(() => {
+    try { return localStorage.getItem(dismissKey) === '1'; } catch { return false; }
+  });
+  const dismissPicker = () => {
+    setPickerDismissed(true);
+    try { localStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -88,57 +85,48 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
-  // from — determineWorkoutGuidance defaults to Gym, but silently assuming
-  // that is a real error for a client who only trains at home. Ask instead,
-  // this one time: two explicit choices, each deep-linking straight into
-  // that category's first Beginner program. The moment they've logged
-  // anything at all (even from one of these two picks), this branch stops
-  // matching and the normal single-suggestion banner below takes over,
-  // correctly following whichever they actually did.
+  // (or their level) from — determineWorkoutGuidance defaults to Gym
+  // Beginner, but silently assuming that is a real error for a client who
+  // only trains at home or already trains. Ask instead, this one time, with
+  // the same level + Gym/Home chooser as the end of sign-up
+  // (FirstWorkoutPicker) so picking "I'll start later" there gets them the
+  // same choice here. The moment they've logged anything at all (even from
+  // this picker), this branch stops matching and the normal single-
+  // suggestion banner below takes over, correctly following whichever they
+  // actually did.
   if (guidance.reason === 'no-sessions') {
-    const gymFirst = library.gym.beginner?.[0];
-    const homeFirst = library.home.beginner?.[0];
-    if (!gymFirst && !homeFirst) return null;
+    const hasAnyProgram = Object.values(library).some(byLevel =>
+      Object.values(byLevel).some(list => list?.length > 0)
+    );
+    if (!hasAnyProgram || pickerDismissed) return null;
 
     return (
       <div
         style={{
+          position: 'relative',
           background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
-          borderRadius: 0, padding: '12px 14px', marginBottom: '4px'
+          borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
         }}
       >
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>🌱 New here? Let's get you started</div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '10px' }}>
-          Where will you be training?
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {gymFirst && (
-            <button
-              type="button"
-              onClick={() => startProgram(userId, onNavigateToWorkouts, 'gym', 'beginner', gymFirst)}
-              style={{
-                flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: 'var(--accent-text)', fontSize: '0.78rem',
-                fontWeight: 700, cursor: 'pointer'
-              }}
-            >
-              🏋️ I have gym access
-            </button>
-          )}
-          {homeFirst && (
-            <button
-              type="button"
-              onClick={() => startProgram(userId, onNavigateToWorkouts, 'home', 'beginner', homeFirst)}
-              style={{
-                flex: 1, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                borderRadius: '8px', padding: '8px 10px', color: 'var(--accent-text)', fontSize: '0.78rem',
-                fontWeight: 700, cursor: 'pointer'
-              }}
-            >
-              🏠 I'm training at home
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={dismissPicker}
+          aria-label="Close"
+          title="Close — I don’t want to start yet"
+          style={{
+            position: 'absolute', top: '10px', right: '10px', zIndex: 1,
+            width: '32px', height: '32px', borderRadius: '50%',
+            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+            color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
+          }}
+        >
+          ✕
+        </button>
+        <FirstWorkoutPicker
+          library={library}
+          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program)}
+        />
       </div>
     );
   }

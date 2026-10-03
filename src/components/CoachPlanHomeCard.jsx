@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { getUnopenedCoachPlans, markPlanOpened } from '../utils/openedCoachPlans';
+import PlanCard from './PlanCard';
 
 // Home-screen card for a plan the coach just assigned. Shows each coach plan
 // the client hasn't started yet; tapping Start marks it opened and deep-links
@@ -51,33 +52,12 @@ export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }
       <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>
         📋 {unopened.length === 1 ? 'New plan from your coach' : `${unopened.length} new plans from your coach`}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-        {unopened.map(plan => {
-          const exerciseCount = Array.isArray(plan.exercises) ? plan.exercises.length : 0;
-          return (
-            <div key={plan.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {plan.planName}
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  {exerciseCount} exercise{exerciseCount === 1 ? '' : 's'}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => start(plan)}
-                style={{
-                  flexShrink: 0, background: 'rgba(var(--accent-rgb), 0.15)', border: '1px solid rgba(var(--accent-rgb), 0.4)',
-                  borderRadius: '8px', padding: '8px 12px', color: 'var(--accent-text)', fontSize: '0.78rem',
-                  fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
-                }}
-              >
-                ▶ Start
-              </button>
-            </div>
-          );
-        })}
+      {/* Same card as Log Sets → Coach Assigned (muscle thumbnail, chips,
+          est. minutes), so a plan looks identical in both places. */}
+      <div className="wt-plan-list" style={{ marginTop: '10px' }}>
+        {unopened.map(plan => (
+          <PlanCard key={plan.id} plan={plan} source="coach" onStart={() => start(plan)} />
+        ))}
       </div>
     </div>
   );

@@ -1,182 +1,58 @@
-/* "First workout" screen at the end of the sign-up wizard. Larger type than
-   the other wizard steps on purpose — it's the one choice on the screen and
-   it has to be easy to read and tap. Colours/borders follow
-   ClientOnboardingWizard.css's option rows. */
+/* "First workout" screen: end of the sign-up wizard, and the self-guided
+   Home screen (variant "home"). Type sizes sit close to the wizard's other
+   steps (ClientOnboardingWizard.css option rows) so the whole flow feels
+   like one thing; colours/borders follow those option rows too. */
 
 .fwp-title {
-  font-size: 1.75rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--text-main);
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
 
 .fwp-subtitle {
-  font-size: 1.08rem;
+  font-size: 0.9rem;
   line-height: 1.45;
   color: var(--text-main);
-  opacity: 0.85;
-  margin: 0 0 22px;
+  opacity: 0.8;
+  margin: 0 0 18px;
 }
 
 .fwp-loading {
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  margin: 0 0 22px;
-}
-
-.fwp-options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 22px;
-}
-
-.fwp-option {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 18px 18px;
-  min-height: 76px;
-  background: rgba(var(--fg-rgb), 0.03);
-  border: 2px solid rgba(var(--fg-rgb), 0.1);
-  border-radius: 16px;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: all 0.2s ease;
-}
-
-.fwp-option:hover {
-  background: rgba(139, 92, 246, 0.07);
-  border-color: rgba(139, 92, 246, 0.3);
-}
-
-.fwp-option.selected {
-  background: rgba(139, 92, 246, 0.14);
-  border-color: rgba(139, 92, 246, 0.65);
-  box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
-}
-
-.fwp-emoji {
-  font-size: 2.1rem;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.fwp-option-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.fwp-option-label {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: var(--text-main);
-}
-
-.fwp-option-desc {
-  font-size: 0.98rem;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-.fwp-check {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: var(--accent-text);
-  opacity: 0;
-  transition: opacity 0.2s;
-  flex-shrink: 0;
-}
-
-.fwp-check.visible {
-  opacity: 1;
-}
-
-.fwp-start {
-  /* Self-contained (not .cow-finish-btn) — this also renders on the Home
-     screen, where the sign-up wizard's stylesheet isn't loaded. */
-  display: block;
-  width: 100%;
-  padding: 17px;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent));
-  color: #fff;
-  font-size: 1.15rem;
-  font-weight: 700;
-  font-family: inherit;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
-  transition: all 0.2s ease;
-}
-
-.fwp-start:disabled {
-  opacity: 0.55;
-  cursor: default;
-  box-shadow: none;
-}
-
-/* Home-screen version (NextWorkoutBanner): the banner supplies the card
-   background, so just a bit of padding and a smaller heading. */
-.fwp-home {
-  text-align: left;
-}
-
-.fwp-home .fwp-title {
-  font-size: 1.35rem;
-}
-
-.fwp-skip {
-  display: block;
-  width: 100%;
-  margin-top: 14px;
-  padding: 10px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  font-family: inherit;
+  margin: 0 0 18px;
 }
 
 /* Section questions ("What's your level?" / "Where will you train?"). */
 .fwp-question {
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: var(--text-main);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 
-/* Level: full-width rows (three across didn't fit "Intermediate" at
-   phone width without shrinking the text), Beginner pre-selected. */
+/* Level: full-width rows (three across didn't fit "Intermediate" at phone
+   width). Nothing is pre-selected. */
 .fwp-levels {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .fwp-level {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
-  min-height: 62px;
-  padding: 12px 16px;
+  min-height: 54px;
+  padding: 10px 14px;
   background: rgba(var(--fg-rgb), 0.03);
   border: 2px solid rgba(var(--fg-rgb), 0.1);
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -195,19 +71,144 @@
 }
 
 .fwp-level-emoji {
-  font-size: 1.7rem;
+  font-size: 1.4rem;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .fwp-level-label {
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: var(--text-main);
 }
 
 .fwp-level-desc {
-  font-size: 0.95rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   line-height: 1.3;
+}
+
+/* Gym / Home */
+.fwp-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.fwp-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  min-height: 60px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 2px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.fwp-option:hover {
+  background: rgba(139, 92, 246, 0.07);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.fwp-option.selected {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.65);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
+}
+
+.fwp-emoji {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.fwp-option-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fwp-option-label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.fwp-option-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.fwp-check {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--accent-text);
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.fwp-check.visible {
+  opacity: 1;
+}
+
+.fwp-start {
+  /* Self-contained (not .cow-finish-btn) — this also renders on the Home
+     screen, where the sign-up wizard's stylesheet isn't loaded. */
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent));
+  color: #fff;
+  font-size: 0.98rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.35);
+  transition: all 0.2s ease;
+}
+
+.fwp-start:disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Home-screen version (NextWorkoutBanner): the banner supplies the card
+   background, so just a slightly smaller heading. */
+.fwp-home {
+  text-align: left;
+}
+
+.fwp-home .fwp-title {
+  font-size: 1.15rem;
+}
+
+.fwp-skip {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-family: inherit;
 }

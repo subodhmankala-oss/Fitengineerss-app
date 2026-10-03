@@ -56,11 +56,12 @@ describe('NextWorkoutBanner', () => {
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
     expect(screen.getByText('What’s your level?')).not.toBeNull();
-    expect(screen.getByRole('radio', { name: /^Beginner/ }).getAttribute('aria-checked')).toBe('true');
+    // Nothing is pre-selected; Start stays disabled until the level and
+    // Gym or Home are both picked, and nothing auto-starts.
+    expect(screen.getByRole('radio', { name: /^Beginner/ }).getAttribute('aria-checked')).toBe('false');
     expect(screen.getByText('At the gym')).not.toBeNull();
     expect(screen.getByText('At home')).not.toBeNull();
-    // Start stays disabled until Gym or Home is picked; nothing auto-starts.
-    expect(screen.getByRole('button', { name: 'Pick gym or home' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Pick your level' }).disabled).toBe(true);
     expect(localStorage.getItem('workoutTrackerAutoStart_u1')).toBeNull();
     // No skip button here — this is the Home screen, not the sign-up wizard.
     expect(screen.queryByText(/start later/)).toBeNull();
@@ -87,7 +88,8 @@ describe('NextWorkoutBanner', () => {
     });
     const onNavigate = vi.fn();
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
-    fireEvent.click(await screen.findByText('At the gym'));
+    fireEvent.click(await screen.findByRole('radio', { name: /^Beginner/ }));
+    fireEvent.click(screen.getByText('At the gym'));
     fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('gym');
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('beginner');
@@ -103,7 +105,8 @@ describe('NextWorkoutBanner', () => {
     });
     const onNavigate = vi.fn();
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
-    fireEvent.click(await screen.findByText('At home'));
+    fireEvent.click(await screen.findByRole('radio', { name: /^Beginner/ }));
+    fireEvent.click(screen.getByText('At home'));
     fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('home');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));

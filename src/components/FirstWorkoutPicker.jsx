@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import databaseService from '../services/databaseService';
 import './FirstWorkoutPicker.css';
 
-// "Start your first workout" chooser: level (Beginner pre-selected) + Gym or
-// Home, then a big Start button that opens that category + level's first
+// "Start your first workout" chooser: level + Gym or Home (nothing is
+// pre-selected — people choose both), then a big Start button that opens that category + level's first
 // Workout Library program. Deliberately large type — these are the only
 // decisions on the screen.
 //
@@ -46,7 +46,7 @@ function firstPrograms(library) {
 export default function FirstWorkoutPicker({ name, onStart, onSkip, variant = 'signup', library: providedLibrary }) {
   const [fetched, setFetched] = useState(null); // null = loading
   const [category, setCategory] = useState(null);
-  const [level, setLevel] = useState('beginner');
+  const [level, setLevel] = useState(null);
 
   useEffect(() => {
     if (providedLibrary) return undefined;
@@ -76,8 +76,12 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip, variant = 's
   const firstName = (name || '').trim().split(/\s+/)[0];
   // Only offer what the library actually has.
   const levels = library ? LEVELS.filter(l => CATEGORIES.some(c => library[c.id][l.id])) : [];
-  const categories = library ? CATEGORIES.filter(c => library[c.id][level]) : [];
-  const program = library && category ? library[category]?.[level] : null;
+  // Before a level is picked, offer every category that has any program;
+  // after, only those with a program at that level.
+  const categories = library
+    ? CATEGORIES.filter(c => (level ? library[c.id][level] : LEVELS.some(l => library[c.id][l.id])))
+    : [];
+  const program = library && category && level ? library[category]?.[level] : null;
   const hasLibrary = levels.length > 0;
 
   const pickLevel = (id) => {
@@ -129,7 +133,7 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip, variant = 's
           <h3 className="fwp-question">Where will you train?</h3>
           <div className="fwp-options" role="radiogroup" aria-label="Where will you train?">
             {categories.map(c => {
-              const p = library[c.id][level];
+              const p = level ? library[c.id][level] : null;
               return (
                 <button
                   key={c.id}
@@ -143,8 +147,12 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip, variant = 's
                   <span className="fwp-option-text">
                     <span className="fwp-option-label">{c.label}</span>
                     <span className="fwp-option-desc">
-                      {p.name}
-                      {Array.isArray(p.exercises) && p.exercises.length > 0 && ` · ${p.exercises.length} exercise${p.exercises.length === 1 ? '' : 's'}`}
+                      {p ? (
+                        <>
+                          {p.name}
+                          {Array.isArray(p.exercises) && p.exercises.length > 0 && ` · ${p.exercises.length} exercise${p.exercises.length === 1 ? '' : 's'}`}
+                        </>
+                      ) : 'Pick your level to see your workout'}
                     </span>
                   </span>
                   <span className={`fwp-check ${category === c.id ? 'visible' : ''}`} aria-hidden="true">✓</span>
@@ -159,7 +167,7 @@ export default function FirstWorkoutPicker({ name, onStart, onSkip, variant = 's
             disabled={!program}
             onClick={() => program && onStart(category, level, program)}
           >
-            {program ? 'Start my first workout 💪' : 'Pick gym or home'}
+            {program ? 'Start my first workout 💪' : level ? 'Pick gym or home' : 'Pick your level'}
           </button>
         </>
       )}

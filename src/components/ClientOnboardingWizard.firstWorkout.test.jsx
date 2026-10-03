@@ -56,6 +56,13 @@ describe('ClientOnboardingWizard → first workout', () => {
     expect(db.saveClientOnboardingData).toHaveBeenCalledTimes(1);
     expect(onComplete).not.toHaveBeenCalled();
     expect(await screen.findByText('At the gym')).toBeTruthy();
+    // Nothing is pre-selected: no level, no gym/home, so no program is shown
+    // yet and Start is disabled until both are chosen.
+    screen.getAllByRole('radio').forEach(r => expect(r.getAttribute('aria-checked')).toBe('false'));
+    expect(screen.queryByText('Beginner Full Body A · 3 exercises')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Pick your level' }).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('radio', { name: /^Beginner/ }));
     expect(screen.getByText('Beginner Full Body A · 3 exercises')).toBeTruthy();
     expect(screen.getByText('Home Beginner Full Body A · 2 exercises')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pick gym or home' }).disabled).toBe(true);
@@ -64,7 +71,8 @@ describe('ClientOnboardingWizard → first workout', () => {
   it('starting queues the program for the Workouts tab and opens it', async () => {
     const onComplete = vi.fn();
     await finishSignUp(onComplete);
-    fireEvent.click(await screen.findByText('At home'));
+    fireEvent.click(await screen.findByRole('radio', { name: /^Beginner/ }));
+    fireEvent.click(screen.getByText('At home'));
     click('Start my first workout 💪');
     expect(onComplete).toHaveBeenCalledWith({ startWorkout: true });
     expect(JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'))).toEqual({
@@ -84,11 +92,11 @@ describe('ClientOnboardingWizard → first workout', () => {
     expect(localStorage.getItem('clientTourSeen')).toBeNull();
   });
 
-  it('Beginner is pre-selected; picking a level shows and starts that level’s program', async () => {
+  it('picking a level shows and starts that level’s program', async () => {
     const onComplete = vi.fn();
     await finishSignUp(onComplete);
     await screen.findByText('What’s your level?');
-    expect(screen.getByRole('radio', { name: /^Beginner/ }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: /^Beginner/ }).getAttribute('aria-checked')).toBe('false');
     // No Advanced programs in this library → no Advanced button.
     expect(screen.queryByRole('radio', { name: /^Advanced/ })).toBeNull();
 
@@ -107,7 +115,8 @@ describe('ClientOnboardingWizard → first workout', () => {
 
   it('switching level drops a gym/home pick that level doesn’t have', async () => {
     await finishSignUp(vi.fn());
-    fireEvent.click(await screen.findByText('At home'));
+    fireEvent.click(await screen.findByRole('radio', { name: /^Beginner/ }));
+    fireEvent.click(screen.getByText('At home'));
     fireEvent.click(screen.getByRole('radio', { name: /^Intermediate/ }));
     expect(screen.getByRole('button', { name: 'Pick gym or home' }).disabled).toBe(true);
   });

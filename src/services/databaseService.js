@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
+import { calculateTargetsGeneric, PROGRAM_TO_GOAL_LABEL, PROGRAM_TO_FITNESS_GOAL, ACTIVITY_TO_LABEL, CONCERN_TO_LABEL } from '../utils/targets';
 import { parseTimeStringToSeconds } from '../utils/liveWorkoutTimer';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
 import { adaptiveTimeout } from '../utils/networkQuality';
@@ -2547,7 +2547,7 @@ const databaseService = {
   },
 
   // ─── CLIENT ONBOARDING WIZARD ───
-  async saveClientOnboardingData({ age, weight_kg, height_cm, program, activity_level, primary_concern, full_name, phone }) {
+  async saveClientOnboardingData({ age, weight_kg, height_cm, program, secondary_program, activity_level, primary_concern, secondary_concern, full_name, phone }) {
     const userId = localStorage.getItem('userId');
 
     // Persist the client's real name locally right away so the dashboard header
@@ -2566,6 +2566,11 @@ const databaseService = {
     if (activity_level) localStorage.setItem('userActivity', activity_level);
     if (program) localStorage.setItem('userProgram', program);
     if (primary_concern) localStorage.setItem('userPrimaryConcern', primary_concern);
+    // Second pick (wizard allows up to 2) — cleared when they chose only one.
+    if (secondary_program) localStorage.setItem('userSecondaryProgram', secondary_program);
+    else localStorage.removeItem('userSecondaryProgram');
+    if (secondary_concern) localStorage.setItem('userSecondaryConcern', secondary_concern);
+    else localStorage.removeItem('userSecondaryConcern');
     localStorage.setItem('onboardingCompleted', 'true');
 
     // Map program → fitness_goal for existing dashboard compatibility
@@ -2637,7 +2642,7 @@ const databaseService = {
         const resp = await fetch('/api/complete-onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: resolvedUserId || null, email, coreStats, program, primary_concern, full_name: cleanName })
+          body: JSON.stringify({ userId: resolvedUserId || null, email, coreStats, program, primary_concern, secondary_program: secondary_program || null, secondary_concern: secondary_concern || null, full_name: cleanName })
         });
         const saveData = await resp.json().catch(() => ({}));
         if (!resp.ok) {
@@ -2663,6 +2668,8 @@ const databaseService = {
         mClient.onboarding_completed = true;
         mClient.program = program || null;
         mClient.primary_concern = primary_concern || null;
+        mClient.secondary_program = secondary_program || null;
+        mClient.secondary_concern = secondary_concern || null;
         if (cleanName && cleanName.toLowerCase() !== 'warrior') mClient.full_name = cleanName;
         this.saveMockTable('clients', mockClients);
       }
@@ -2792,6 +2799,8 @@ const databaseService = {
             userWeight: String(c.weight_kg || ''),
             userActivity: c.activity_level || '',
             userGoal: c.fitness_goal || '',
+            userSecondaryGoal: PROGRAM_TO_FITNESS_GOAL[c.secondary_program] || '',
+            userSecondaryConcern: CONCERN_TO_LABEL[c.secondary_concern] || '',
             userDiet: c.dietary_preference || '',
             userCalorieTarget: String(c.calorie_target || ''),
             userProteinTarget: String(c.protein_target || ''),
@@ -2828,6 +2837,8 @@ const databaseService = {
                 userWeight: String(c.weight_kg || ''),
                 userActivity: c.activity_level || '',
                 userGoal: c.fitness_goal || '',
+                userSecondaryGoal: PROGRAM_TO_FITNESS_GOAL[c.secondary_program] || '',
+                userSecondaryConcern: CONCERN_TO_LABEL[c.secondary_concern] || '',
                 userDiet: c.dietary_preference || '',
                 userCalorieTarget: String(c.calorie_target || ''),
                 userProteinTarget: String(c.protein_target || ''),
@@ -2877,6 +2888,8 @@ const databaseService = {
         userWeight: String(c.weight_kg || ''),
         userActivity: c.activity_level || '',
         userGoal: c.fitness_goal || '',
+        userSecondaryGoal: PROGRAM_TO_FITNESS_GOAL[c.secondary_program] || '',
+        userSecondaryConcern: CONCERN_TO_LABEL[c.secondary_concern] || '',
         userDiet: c.dietary_preference || '',
         userCalorieTarget: String(c.calorie_target || ''),
         userProteinTarget: String(c.protein_target || ''),
@@ -2946,6 +2959,8 @@ const databaseService = {
             userWeight: String(c.weight_kg || ''),
             userActivity: c.activity_level || '',
             userGoal: c.fitness_goal || '',
+            userSecondaryGoal: PROGRAM_TO_FITNESS_GOAL[c.secondary_program] || '',
+            userSecondaryConcern: CONCERN_TO_LABEL[c.secondary_concern] || '',
             userDiet: c.dietary_preference || '',
             userCalorieTarget: String(c.calorie_target || ''),
             userProteinTarget: String(c.protein_target || ''),
@@ -2977,6 +2992,8 @@ const databaseService = {
             userWeight: String(c.weight_kg || ''),
             userActivity: c.activity_level || '',
             userGoal: c.fitness_goal || '',
+            userSecondaryGoal: PROGRAM_TO_FITNESS_GOAL[c.secondary_program] || '',
+            userSecondaryConcern: CONCERN_TO_LABEL[c.secondary_concern] || '',
             userDiet: c.dietary_preference || '',
             userCalorieTarget: String(c.calorie_target || ''),
             userProteinTarget: String(c.protein_target || ''),
@@ -3009,6 +3026,8 @@ const databaseService = {
         userWeight: String(c.weight_kg || ''),
         userActivity: c.activity_level || '',
         userGoal: c.fitness_goal || '',
+        userSecondaryGoal: PROGRAM_TO_FITNESS_GOAL[c.secondary_program] || '',
+        userSecondaryConcern: CONCERN_TO_LABEL[c.secondary_concern] || '',
         userDiet: c.dietary_preference || '',
         userCalorieTarget: String(c.calorie_target || ''),
         userProteinTarget: String(c.protein_target || ''),

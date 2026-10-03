@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import databaseService from '../services/databaseService';
+import { togglePick, pickTag, MAX_PICKS } from '../utils/multiPick';
 import './ClientOnboardingWizard.css';
 import FounderMessageCard from './FounderMessageCard';
 
@@ -38,14 +39,17 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
 
-  // Step 2 — Program
-  const [program, setProgram] = useState('');
+  // Step 2 — Program: up to 2 goals. The first pick is the MAIN one (saved
+  // as clients.program — drives the calorie target and every coach/admin
+  // view); the second is saved separately as secondary_program.
+  const [programs, setPrograms] = useState([]);
 
   // Step 3 — Activity level
   const [activityLevel, setActivityLevel] = useState('');
 
-  // Step 4 — Primary concern
-  const [primaryConcern, setPrimaryConcern] = useState('');
+  // Step 4 — Primary concern: up to 2, same main/also rule (primary_concern /
+  // secondary_concern).
+  const [concerns, setConcerns] = useState([]);
 
   const [slideDir, setSlideDir] = useState('forward');
   const [saveError, setSaveError] = useState('');
@@ -93,7 +97,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       setStep1FieldErrors({ name: false, phone: false, age: false, weight: false, height: false });
       setStep1Error('');
     } else if (step === 2) {
-      if (!program) { setStep2Error('Please select a program to continue.'); return; }
+      if (programs.length === 0) { setStep2Error('Please select a program to continue.'); return; }
       setStep2Error('');
     } else if (step === 3) {
       if (!activityLevel) { setStep3Error('Please select your activity level to continue.'); return; }
@@ -113,7 +117,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     // ends the wizard via this button instead of Next →. Name/phone (step 1),
     // program (step 2) and activity level (step 3) were already enforced on
     // their own steps, so reaching this point guarantees they're set too.
-    if (!primaryConcern) { setStep4Error('Please select your primary concern to continue.'); return; }
+    if (concerns.length === 0) { setStep4Error('Please select your primary concern to continue.'); return; }
     setStep4Error('');
 
     setIsSubmitting(true);
@@ -129,9 +133,11 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       age,
       weight_kg: weight,
       height_cm: height,
-      program,
+      program: programs[0],
+      secondary_program: programs[1] || null,
       activity_level: activityLevel,
-      primary_concern: primaryConcern,
+      primary_concern: concerns[0],
+      secondary_concern: concerns[1] || null,
       full_name: name.trim(),
       phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
     };
@@ -341,19 +347,34 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     </div>
   );
 
+  // Tap to pick / un-pick, up to MAX_PICKS. A third tap while full explains
+  // instead of silently doing nothing.
+  const pickProgram = (id) => {
+    const { list, full } = togglePick(programs, id);
+    setPrograms(list);
+    setStep2Error(full ? `You can choose up to ${MAX_PICKS} — tap one to remove it first.` : '');
+  };
+  const pickConcern = (id) => {
+    const { list, full } = togglePick(concerns, id);
+    setConcerns(list);
+    setStep4Error(full ? `You can choose up to ${MAX_PICKS} — tap one to remove it first.` : '');
+  };
+
   const renderStep2 = () => (
     <div className={`cow-step-content ${slideDir}`} key="step2">
       <div className="cow-step-icon">🎯</div>
       <h2 className="cow-step-title">Select Your Program</h2>
-      <p className="cow-step-subtitle">What's your main goal?</p>
+      <p className="cow-step-subtitle">What are your goals? Pick up to 2 — your first pick is your main goal.</p>
 
       <div className={`cow-option-grid ${step2Error ? 'error' : ''}`}>
         {programOptions.map(opt => (
           <button
             key={opt.id}
-            className={`cow-option-card ${program === opt.id ? 'selected' : ''}`}
-            onClick={() => { setProgram(opt.id); setStep2Error(''); }}
+            className={`cow-option-card ${programs.includes(opt.id) ? 'selected' : ''}`}
+            onClick={() => pickProgram(opt.id)}
+            aria-pressed={programs.includes(opt.id)}
           >
+            {pickTag(programs, opt.id) && <span className="cow-pick-tag">{pickTag(programs, opt.id)}</span>}
             <span className="cow-option-emoji">{opt.emoji}</span>
             <span className="cow-option-label">{opt.label}</span>
             <span className="cow-option-desc">{opt.desc}</span>
@@ -414,21 +435,23 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     <div className={`cow-step-content ${slideDir}`} key="step4">
       <div className="cow-step-icon">💡</div>
       <h2 className="cow-step-title">Primary Concern</h2>
-      <p className="cow-step-subtitle">What matters most to you right now?</p>
+      <p className="cow-step-subtitle">What matters most to you right now? Pick up to 2.</p>
 
       <div className={`cow-option-list ${step4Error ? 'error' : ''}`}>
         {concernOptions.map(opt => (
           <button
             key={opt.id}
-            className={`cow-option-row ${primaryConcern === opt.id ? 'selected' : ''}`}
-            onClick={() => { setPrimaryConcern(opt.id); setStep4Error(''); }}
+            className={`cow-option-row ${concerns.includes(opt.id) ? 'selected' : ''}`}
+            onClick={() => pickConcern(opt.id)}
+            aria-pressed={concerns.includes(opt.id)}
           >
             <span className="cow-row-emoji">{opt.emoji}</span>
             <div className="cow-row-text">
               <span className="cow-row-label">{opt.label}</span>
               <span className="cow-row-desc">{opt.desc}</span>
             </div>
-            <span className={`cow-row-check ${primaryConcern === opt.id ? 'visible' : ''}`}>✓</span>
+            {pickTag(concerns, opt.id) && <span className="cow-pick-tag cow-pick-tag-row">{pickTag(concerns, opt.id)}</span>}
+            <span className={`cow-row-check ${concerns.includes(opt.id) ? 'visible' : ''}`}>✓</span>
           </button>
         ))}
       </div>

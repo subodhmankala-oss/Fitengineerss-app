@@ -58,6 +58,20 @@ describe('AdminClientsList component', () => {
     expect(screen.getByText('👤 Self-Guided')).toBeTruthy();
   });
 
+  it('shows the second goal on the goal chip when the client picked two', () => {
+    render(
+      <AdminClientsList
+        clients={[{ id: 'c3', userName: 'Two Goals', email: 'two@x.com', userGoal: 'Fat Loss', userSecondaryGoal: 'Gut Health', coach_id: null }]}
+        goalFilter="All"
+        setGoalFilter={() => {}}
+        loadingClients={false}
+        coachesList={[]}
+        onSelectCoachDetails={() => {}}
+      />
+    );
+    expect(screen.getByText('🎯 Fat Loss + Gut Health')).toBeTruthy();
+  });
+
   it('should trigger setGoalFilter when filter tag buttons are clicked', () => {
     const setGoalFilterSpy = vi.fn();
     render(

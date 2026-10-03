@@ -467,6 +467,32 @@
   to { transform: rotate(360deg); }
 }
 
+/* "Main" / "Also" tag on a picked option once two are chosen (goal and
+   concern steps allow up to 2; the first pick is the main one). */
+.cow-option-card {
+  position: relative;
+}
+
+.cow-pick-tag {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.22);
+  color: var(--accent-text);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* In the row layout the tag sits inline before the check mark. */
+.cow-pick-tag-row {
+  position: static;
+  flex-shrink: 0;
+}
+
 /* ── Mobile responsive ── */
 @media (max-width: 520px) {
   .cow-card {

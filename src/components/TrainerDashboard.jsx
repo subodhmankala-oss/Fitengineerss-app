@@ -6679,6 +6679,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   <div className="metric-mini-label">Fitness Goal</div>
                   <div className="metric-mini-value" style={{ fontSize: '0.8rem', color: 'var(--accent-text)' }}>
                     {selectedClient.userGoal || 'Not set'}
+                    {selectedClient.userSecondaryGoal ? ` + ${selectedClient.userSecondaryGoal}` : ''}
                   </div>
                 </div>
                 <div className="metric-mini-card">

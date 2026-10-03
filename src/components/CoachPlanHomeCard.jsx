@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
-import { getUnopenedCoachPlans, markPlanOpened } from '../utils/openedCoachPlans';
+import { getUnopenedCoachPlans } from '../utils/openedCoachPlans';
 import PlanCard from './PlanCard';
 
 // Home-screen card for a plan the coach just assigned. Shows each coach plan
-// the client hasn't started yet; tapping Start marks it opened and deep-links
-// into Log Sets with that plan loaded (WorkoutTracker reads the coachPlanId
+// the client hasn't started yet; tapping Start deep-links into Log Sets with
+// that plan loaded (WorkoutTracker reads the coachPlanId
 // from workoutTrackerAutoStart_<userId>). Once started, the plan drops off
 // Home and lives only in Log Sets' "Coach Assigned" section.
 export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }) {
@@ -33,8 +33,10 @@ export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }
   const unopened = getUnopenedCoachPlans(plans, logs);
   if (unopened.length === 0) return null;
 
+  // Not marked opened here: WorkoutTracker marks it once the plan really
+  // starts. If a session is already in progress the tracker keeps that one
+  // and this plan stays on Home.
   const start = (plan) => {
-    markPlanOpened(plan.id);
     try {
       localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'log');
       localStorage.setItem(`workoutTrackerAutoStart_${userId}`, JSON.stringify({ coachPlanId: plan.id }));
@@ -56,7 +58,7 @@ export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }
           est. minutes), so a plan looks identical in both places. */}
       <div className="wt-plan-list" style={{ marginTop: '10px' }}>
         {unopened.map(plan => (
-          <PlanCard key={plan.id} plan={plan} source="coach" onStart={() => start(plan)} />
+          <PlanCard key={plan.id} plan={plan} source="coach" markOpenedOnStart={false} onStart={() => start(plan)} />
         ))}
       </div>
     </div>

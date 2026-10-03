@@ -26,6 +26,12 @@ describe('getUnopenedCoachPlans', () => {
     expect(getUnopenedCoachPlans([coachPlan()], [])).toHaveLength(0);
   });
 
+  it('starting one plan leaves the other on Home', () => {
+    markPlanOpened('p1');
+    const other = coachPlan({ id: 'p2', planName: 'Pull Day' });
+    expect(getUnopenedCoachPlans([coachPlan(), other], []).map(p => p.id)).toEqual(['p2']);
+  });
+
   it('hides it once logged on another device (log with that name on/after the assign day)', () => {
     const logs = [{ log_date: '2026-10-02', plan_name: 'push day' }];
     expect(getUnopenedCoachPlans([coachPlan()], logs)).toHaveLength(0);

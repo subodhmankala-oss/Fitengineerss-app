@@ -33,6 +33,9 @@ describe('CoachPlanHomeCard', () => {
     expect(onNavigate).toHaveBeenCalled();
     expect(localStorage.getItem('workoutTrackerLastTab_u1')).toBe('log');
     expect(JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'))).toEqual({ coachPlanId: 'p1' });
+    // Marked only once the tracker really starts it (a session already in
+    // progress keeps it on Home).
+    expect(localStorage.getItem('wt_opened_coach_plan_ids_u1')).toBeNull();
   });
 
   it('renders nothing once the plan has been logged', async () => {

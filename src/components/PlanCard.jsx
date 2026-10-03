@@ -63,12 +63,14 @@ const assignedDateLabel = (isoString) => {
 // Routine card — a coach-assigned plan (muscle thumbnail, Push/Pull/Legs
 // color) or a client's own saved template (folder icon). Both live in the
 // Log Sets routine picker, so they present a plan the exact same way.
-const PlanCard = ({ plan, source, onStart, onDelete }) => {
+// markOpenedOnStart: Home's card passes false and leaves the marking to
+// WorkoutTracker, which only marks a plan once it has actually started it.
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true }) => {
   const meta = getPlanCardMeta(plan);
   const isTemplate = source === 'self';
   const isUnopened = source === 'coach' && plan.id && !getOpenedPlanIds().has(plan.id);
   const handleStart = () => {
-    if (source === 'coach') markPlanOpened(plan.id);
+    if (source === 'coach' && markOpenedOnStart) markPlanOpened(plan.id);
     onStart();
   };
   return (

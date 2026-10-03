@@ -1025,9 +1025,9 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       )}
 
       {/* A plan the coach just assigned — shown here until the client starts
-          it, then it lives only in Log Sets → Coach Assigned. Hidden while a
-          session is in progress, same as the banner above. */}
-      {!loading && !activeDraft && (
+          it, then it lives only in Log Sets → Coach Assigned. Stays visible
+          during a session: starting one plan must not hide the others. */}
+      {!loading && (
         <CoachPlanHomeCard userId={userId} logs={logs} onNavigateToWorkouts={onNavigateToWorkouts} />
       )}
 

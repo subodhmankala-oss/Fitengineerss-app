@@ -50,6 +50,29 @@ function phoneConflictMessage(err) {
   return 'That phone number is already registered to another account. Use a different number, or log in to the account that already has it.';
 }
 
+// An established client (finished onboarding, or linked to a coach) must not
+// be turned into a coach by these upserts: login routes by role and a coaches
+// row wins, so the client silently loses their client app (testclient,
+// 2026-10-03, via Coach tab login -> prefilled Coach Sign Up). A half-finished
+// client profile is still allowed through, so a coach who first landed in the
+// client flow by mistake isn't trapped.
+const CLIENT_ACCOUNT_MESSAGE = 'This email already belongs to a client account. Log in on the Client tab instead, or sign up as a coach with a different email.';
+async function isEstablishedClient(adminClient, normalizedEmail) {
+  const { data: userRow } = await adminClient
+    .from('users')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+  if (!userRow?.id) return false;
+  const { data: clientRows } = await adminClient
+    .from('clients')
+    .select('onboarding_completed, coach_id')
+    .eq('user_id', userRow.id)
+    .limit(1);
+  const client = clientRows?.[0];
+  return !!client && (client.onboarding_completed === true || !!client.coach_id);
+}
+
 // ─── register-coach.js (method=email) ───
 async function handleRegisterEmail(req, res) {
   const { email, name, password, phone, experience, brand, certifications, social, location } = req.body || {};
@@ -94,6 +117,9 @@ async function handleRegisterEmail(req, res) {
         });
       }
       userId = signInData.user.id;
+      if (await isEstablishedClient(adminClient, normalizedEmail)) {
+        return res.status(409).json({ error: CLIENT_ACCOUNT_MESSAGE });
+      }
     } else {
       userId = createData.user.id;
       justCreatedAuthUser = true;
@@ -202,6 +228,9 @@ async function handleRegisterGoogle(req, res) {
     const normalizedEmail = (userData.user.email || '').trim().toLowerCase();
     if (!normalizedEmail) {
       return res.status(400).json({ error: 'Could not read your email from this session. Please sign in with Google again.' });
+    }
+    if (await isEstablishedClient(adminClient, normalizedEmail)) {
+      return res.status(409).json({ error: CLIENT_ACCOUNT_MESSAGE });
     }
 
     const { data: userRow, error: userErr } = await adminClient

@@ -690,6 +690,14 @@ const Onboarding = ({ onComplete }) => {
           }, authEmail);
           localStorage.setItem('onboardingCompleted', 'true');
           onComplete();
+        } else if (profile?.role === 'client' && (profile.onboardingCompleted || profile.coach_id)) {
+          // An established client on the Coach tab. Used to fall into the
+          // branch below and land on Coach Sign Up with the email prefilled;
+          // submitting that turned the client into a coach (role routing then
+          // locked them out of their client app — testclient, 2026-10-03).
+          // A half-finished client profile still goes to Sign Up below.
+          try { await databaseService.signOut(); } catch { /* */ }
+          throw new Error('This is a client account. Switch to the Client tab to log in.');
         } else {
           // Credentials were valid, but this identity has no coaches row yet —
           // the exact "new coach" case: they already have a working auth

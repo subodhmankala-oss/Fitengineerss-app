@@ -9,11 +9,11 @@ import { notifyEvent } from '../../utils/pushNotify';
 export default function FounderMessageComposer({ client, onClose }) {
   const firstName = (client?.name || '').trim().split(/\s+/)[0];
   const greeting = firstName ? `Hi ${firstName}!` : 'Hi!';
-  // One-tap starting points; tapping fills the box, which stays fully editable.
+  // One-tap how-to-use-the-app messages; tapping fills the box, which stays fully editable.
   const templates = [
-    { label: 'Welcome', text: `${greeting} Welcome to Fitengineers 👋 I'm glad you're here. If anything is unclear while you get started, just reply and I'll help.` },
-    { label: 'Check-in', text: `${greeting} I noticed you haven't logged a workout in a few days. Everything okay? Reply and I'll help you get back on track.` },
-    { label: 'Encourage', text: `${greeting} Great consistency lately 💪 Keep it up. If you'd like to tweak your plan, reply and let me know.` }
+    { label: 'Get started', text: `${greeting} Here's how to use Fitengineers: 1) Open the Workout tab and pick a workout. 2) Log your weight and reps as you finish each set. 3) The app remembers your last numbers, so next time they're pre-filled. Stuck anywhere? Just reply here.` },
+    { label: 'Form videos', text: `${greeting} Not sure how to do an exercise? Open its Form Guide in the Workout tab to watch a short video of the correct form before your set. Reply if you want help choosing exercises.` },
+    { label: 'Track progress', text: `${greeting} Your Home screen shows how you're doing, and the Profile tab holds your goals and body stats. Keep logging each workout and your progress builds up automatically. Reply with any questions.` }
   ];
   const [text, setText] = useState(`${greeting} `);
   const [sending, setSending] = useState(false);

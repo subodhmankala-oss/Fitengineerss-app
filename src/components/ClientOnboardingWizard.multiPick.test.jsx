@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-// Goal (step 2) and concern (step 4) each allow up to 2 picks; the first is
-// the main one (program / primary_concern), the second is saved separately
-// (secondary_program / secondary_concern).
+// The goal step allows up to 2 picks; the first is the main one (program),
+// the second is saved separately (secondary_program). The wizard is 3 steps
+// — the old "Primary Concern" step was removed (nothing read the answer).
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
@@ -29,7 +29,7 @@ function toStep2() {
   next();
 }
 
-describe('ClientOnboardingWizard — pick up to 2', () => {
+describe('ClientOnboardingWizard — goal: pick up to 2, three steps', () => {
   beforeEach(() => {
     db.saveClientOnboardingData.mockResolvedValue(undefined);
     db.getMyFounderMessages.mockResolvedValue([]);
@@ -67,41 +67,61 @@ describe('ClientOnboardingWizard — pick up to 2', () => {
     expect(screen.getByText('Please select a program to continue.')).toBeTruthy();
   });
 
-  it('saves main + also for both goal and concern', async () => {
+  it('is three steps: activity level is the last, with the save button, and there is no concern step', () => {
     render(<ClientOnboardingWizard onComplete={() => {}} />);
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
+    toStep2();
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
+    pick('Fat Loss');
+    next();
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
+    expect(screen.getByText('Activity Level')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Next/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Go to dashboard/ })).toBeTruthy();
+    expect(screen.queryByText('Primary Concern')).toBeNull();
+  });
+
+  it('the last step still needs an activity level before saving', () => {
+    render(<ClientOnboardingWizard onComplete={() => {}} />);
+    toStep2();
+    pick('Fat Loss');
+    next();
+    finish();
+    expect(screen.getByText('Please select your activity level to continue.')).toBeTruthy();
+    expect(db.saveClientOnboardingData).not.toHaveBeenCalled();
+  });
+
+  it('saves main + also goals, and no concern', async () => {
+    const onComplete = vi.fn();
+    render(<ClientOnboardingWizard onComplete={onComplete} />);
     toStep2();
     pick('Gut Repair');          // main
     pick('Fat Loss');            // also
     next();
     pick('Lightly Active');
-    next();
-    pick('Digestion issues');    // main
-    pick('Just stay fit');       // also
     finish();
-    await waitFor(() => expect(db.saveClientOnboardingData).toHaveBeenCalledTimes(1));
-    expect(db.saveClientOnboardingData.mock.calls[0][0]).toMatchObject({
+    await waitFor(() => expect(onComplete).toHaveBeenCalled());
+    const payload = db.saveClientOnboardingData.mock.calls[0][0];
+    expect(payload).toMatchObject({
       program: 'gut_repair',
       secondary_program: 'fat_loss',
-      primary_concern: 'digestion_issues',
-      secondary_concern: 'just_stay_fit'
+      activity_level: 'lightly_active'
     });
+    expect(payload).not.toHaveProperty('primary_concern');
+    expect(payload).not.toHaveProperty('secondary_concern');
   });
 
-  it('one pick each saves with no second pick (null)', async () => {
+  it('one goal saves with no second goal (null)', async () => {
     render(<ClientOnboardingWizard onComplete={() => {}} />);
     toStep2();
     pick('Muscle Building');
     next();
     pick('Moderately Active');
-    next();
-    pick('Bloating or constipation');
     finish();
     await waitFor(() => expect(db.saveClientOnboardingData).toHaveBeenCalledTimes(1));
     expect(db.saveClientOnboardingData.mock.calls[0][0]).toMatchObject({
       program: 'muscle_building',
-      secondary_program: null,
-      primary_concern: 'bloating_constipation',
-      secondary_concern: null
+      secondary_program: null
     });
   });
 });

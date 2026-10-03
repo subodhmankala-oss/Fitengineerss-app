@@ -47,13 +47,12 @@ async function notifySuperAdminOfNewClient(supabaseUrl, serviceKey, { userId, cl
   });
 }
 
-// Allowed values — same lists as the CHECK constraints on clients.program /
-// primary_concern (and their secondary_ twins, sql/clients_secondary_goal_
-// and_concern.sql). A value outside them would make the whole save fail on
-// the constraint, so a second pick that isn't valid (or that repeats the
-// main one) is simply dropped rather than blocking onboarding.
+// Allowed goals — same list as the CHECK constraints on clients.program and
+// secondary_program (sql/clients_secondary_goal.sql). A value outside it
+// would make the whole save fail on the constraint, so a second goal that
+// isn't valid (or that repeats the main one) is simply dropped rather than
+// blocking onboarding.
 const PROGRAMS = ['fat_loss', 'muscle_building', 'gut_repair'];
-const CONCERNS = ['bloating_constipation', 'digestion_issues', 'just_stay_fit'];
 
 export function cleanSecondary(value, allowed, main) {
   return allowed.includes(value) && value !== main ? value : null;
@@ -72,7 +71,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
 
-  const { userId: bodyUserId, email, coreStats, program, primary_concern, secondary_program, secondary_concern, full_name } = req.body || {};
+  const { userId: bodyUserId, email, coreStats, program, primary_concern, secondary_program, full_name } = req.body || {};
   if ((!bodyUserId && !email) || !coreStats) {
     return res.status(400).json({ error: 'Missing userId/email or coreStats' });
   }
@@ -87,13 +86,15 @@ export default async function handler(req, res) {
   const payload = {
     ...coreStats,
     program: program || null,
-    primary_concern: primary_concern || null,
-    // The wizard lets a client pick up to 2 goals / concerns; the first is
-    // program / primary_concern above, the second lands here.
+    // The wizard lets a client pick up to 2 goals; the first is `program`
+    // above, the second lands here.
     secondary_program: cleanSecondary(secondary_program, PROGRAMS, program),
-    secondary_concern: cleanSecondary(secondary_concern, CONCERNS, primary_concern),
     onboarding_completed: true
   };
+  // The wizard no longer asks for a primary concern (nothing in the app read
+  // it). Only write it when a caller still sends one — an explicit null here
+  // would wipe the answer an existing client already gave.
+  if (primary_concern) payload.primary_concern = primary_concern;
   if (persistName) payload.full_name = cleanName;
 
   try {
@@ -183,11 +184,11 @@ export default async function handler(req, res) {
     let resp = await saveClientRow(payload);
     let data = await resp.json();
     if (!resp.ok && resp.status === 400 && /secondary_/.test(JSON.stringify(data))) {
-      // The secondary_* columns aren't there (a database that hasn't had
-      // sql/clients_secondary_goal_and_concern.sql run) — sign-up must still
-      // work, so save everything else.
-      console.warn('complete-onboarding: secondary_* columns missing, saving without them');
-      const { secondary_program: _sp, secondary_concern: _sc, ...withoutSecondary } = payload;
+      // The secondary_program column isn't there (a database that hasn't had
+      // sql/clients_secondary_goal.sql run) — sign-up must still work, so
+      // save everything else.
+      console.warn('complete-onboarding: secondary_program column missing, saving without it');
+      const { secondary_program: _sp, ...withoutSecondary } = payload;
       resp = await saveClientRow(withoutSecondary);
       data = await resp.json();
     }

@@ -467,8 +467,8 @@
   to { transform: rotate(360deg); }
 }
 
-/* "Main" / "Also" tag on a picked option once two are chosen (goal and
-   concern steps allow up to 2; the first pick is the main one). */
+/* "Main" / "Also" tag on a picked goal once two are chosen (the goal step
+   allows up to 2; the first pick is the main one). */
 .cow-option-card {
   position: relative;
 }
@@ -485,12 +485,6 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-/* In the row layout the tag sits inline before the check mark. */
-.cow-pick-tag-row {
-  position: static;
-  flex-shrink: 0;
 }
 
 /* ── Mobile responsive ── */

@@ -4,7 +4,7 @@ import { togglePick, pickTag, MAX_PICKS } from '../utils/multiPick';
 import './ClientOnboardingWizard.css';
 import FounderMessageCard from './FounderMessageCard';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 3;
 
 function isInRange(value, min, max) {
   const n = parseFloat(value);
@@ -47,25 +47,20 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   // Step 3 — Activity level
   const [activityLevel, setActivityLevel] = useState('');
 
-  // Step 4 — Primary concern: up to 2, same main/also rule (primary_concern /
-  // secondary_concern).
-  const [concerns, setConcerns] = useState([]);
-
   const [slideDir, setSlideDir] = useState('forward');
   const [saveError, setSaveError] = useState('');
   const [step1Error, setStep1Error] = useState('');
   // Which step-1 field(s) specifically are empty/invalid — drives the red
   // border on that exact input, not just the shared error banner text below it.
   const [step1FieldErrors, setStep1FieldErrors] = useState({ name: false, phone: false, age: false, weight: false, height: false });
-  // Steps 2-4 are option picks, not text fields, so "which field" is really
+  // Steps 2-3 are option picks, not text fields, so "which field" is really
   // "did they pick anything yet" — one flag per step is enough to redden the
-  // whole card/row group. All four steps are mandatory: nothing here is
+  // whole card/row group. All three steps are mandatory: nothing here is
   // silently defaulted anymore (see handleFinish — it used to fall back to
-  // 'fat_loss' / 'moderately_active' / 'just_stay_fit' for a step the client
-  // skipped straight through).
+  // 'fat_loss' / 'moderately_active' for a step the client skipped straight
+  // through).
   const [step2Error, setStep2Error] = useState('');
   const [step3Error, setStep3Error] = useState('');
-  const [step4Error, setStep4Error] = useState('');
 
   const goNext = () => {
     if (step === 1) {
@@ -99,9 +94,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     } else if (step === 2) {
       if (programs.length === 0) { setStep2Error('Please select a program to continue.'); return; }
       setStep2Error('');
-    } else if (step === 3) {
-      if (!activityLevel) { setStep3Error('Please select your activity level to continue.'); return; }
-      setStep3Error('');
     }
     setSlideDir('forward');
     setStep(s => Math.min(s + 1, TOTAL_STEPS));
@@ -113,18 +105,21 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   };
 
   const handleFinish = async () => {
-    // Last mandatory pick, guarded here rather than in goNext since step 4
-    // ends the wizard via this button instead of Next →. Name/phone (step 1),
-    // program (step 2) and activity level (step 3) were already enforced on
-    // their own steps, so reaching this point guarantees they're set too.
-    if (concerns.length === 0) { setStep4Error('Please select your primary concern to continue.'); return; }
-    setStep4Error('');
+    // Last mandatory pick, guarded here rather than in goNext since step 3
+    // ends the wizard via this button instead of Next →. Name/phone (step 1)
+    // and program (step 2) were already enforced on their own steps, so
+    // reaching this point guarantees they're set too.
+    //
+    // (There used to be a fourth step, "Primary Concern", removed 2026-10-03:
+    // nothing in the app ever read the answer — see clients.primary_concern.)
+    if (!activityLevel) { setStep3Error('Please select your activity level to continue.'); return; }
+    setStep3Error('');
 
     setIsSubmitting(true);
     setSaveError('');
     const digitsOnly = phone.replace(/\D/g, '');
     // No more silent defaults for a step the client skipped through — all
-    // four steps are validated before this ever runs, so every one of these
+    // three steps are validated before this ever runs, so every one of these
     // reflects a real choice the client made, not a placeholder standing in
     // for one they never got asked to make.
     // Age/weight/height included: step 1 now requires them (goNext), so no
@@ -136,8 +131,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       program: programs[0],
       secondary_program: programs[1] || null,
       activity_level: activityLevel,
-      primary_concern: concerns[0],
-      secondary_concern: concerns[1] || null,
       full_name: name.trim(),
       phone: digitsOnly.length === 10 ? `+91${digitsOnly}` : ''
     };
@@ -227,27 +220,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
       emoji: '⚡',
       label: 'Very Active',
       desc: 'Hard training 6–7 days/week'
-    }
-  ];
-
-  const concernOptions = [
-    {
-      id: 'bloating_constipation',
-      emoji: '😣',
-      label: 'Bloating or constipation',
-      desc: 'Fix gut discomfort'
-    },
-    {
-      id: 'digestion_issues',
-      emoji: '🫁',
-      label: 'Digestion issues',
-      desc: 'Improve gut health overall'
-    },
-    {
-      id: 'just_stay_fit',
-      emoji: '✨',
-      label: 'Just stay fit',
-      desc: 'General health & wellbeing'
     }
   ];
 
@@ -354,11 +326,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     setPrograms(list);
     setStep2Error(full ? `You can choose up to ${MAX_PICKS} — tap one to remove it first.` : '');
   };
-  const pickConcern = (id) => {
-    const { list, full } = togglePick(concerns, id);
-    setConcerns(list);
-    setStep4Error(full ? `You can choose up to ${MAX_PICKS} — tap one to remove it first.` : '');
-  };
 
   const renderStep2 = () => (
     <div className={`cow-step-content ${slideDir}`} key="step2">
@@ -424,44 +391,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         </div>
       )}
 
-      <div className="cow-nav-row">
-        <button className="cow-back-btn" onClick={goBack}>← Back</button>
-        <button className="cow-next-btn" onClick={goNext}>Next →</button>
-      </div>
-    </div>
-  );
-
-  const renderStep4 = () => (
-    <div className={`cow-step-content ${slideDir}`} key="step4">
-      <div className="cow-step-icon">💡</div>
-      <h2 className="cow-step-title">Primary Concern</h2>
-      <p className="cow-step-subtitle">What matters most to you right now? Pick up to 2.</p>
-
-      <div className={`cow-option-list ${step4Error ? 'error' : ''}`}>
-        {concernOptions.map(opt => (
-          <button
-            key={opt.id}
-            className={`cow-option-row ${concerns.includes(opt.id) ? 'selected' : ''}`}
-            onClick={() => pickConcern(opt.id)}
-            aria-pressed={concerns.includes(opt.id)}
-          >
-            <span className="cow-row-emoji">{opt.emoji}</span>
-            <div className="cow-row-text">
-              <span className="cow-row-label">{opt.label}</span>
-              <span className="cow-row-desc">{opt.desc}</span>
-            </div>
-            {pickTag(concerns, opt.id) && <span className="cow-pick-tag cow-pick-tag-row">{pickTag(concerns, opt.id)}</span>}
-            <span className={`cow-row-check ${concerns.includes(opt.id) ? 'visible' : ''}`}>✓</span>
-          </button>
-        ))}
-      </div>
-
-      {step4Error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
-          {step4Error}
-        </div>
-      )}
-
       {saveError && (
         <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: 'var(--tint-red)', fontSize: '0.78rem', marginBottom: '12px' }}>
           {saveError}
@@ -485,7 +414,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     </div>
   );
 
-  const stepContent = [renderStep1, renderStep2, renderStep3, renderStep4];
+  const stepContent = [renderStep1, renderStep2, renderStep3];
 
   return (
     <div className="cow-overlay">

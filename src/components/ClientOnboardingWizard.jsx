@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import databaseService from '../services/databaseService';
 import './ClientOnboardingWizard.css';
 import FounderMessageCard from './FounderMessageCard';
-import FirstWorkoutPicker from './FirstWorkoutPicker';
-import { startLibraryProgram } from '../utils/startLibraryProgram';
 
 const TOTAL_STEPS = 4;
 
@@ -20,9 +18,6 @@ function joinWithAnd(items) {
 const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Answers saved — show the "first workout" screen (FirstWorkoutPicker)
-  // instead of leaving for the dashboard straight away.
-  const [saved, setSaved] = useState(false);
 
   // Step 1 — Name + body stats. Prefill the name from whatever login captured
   // (e.g. a Google display name), but treat the "Warrior" placeholder as empty
@@ -168,9 +163,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         console.warn('Wizard save failed once, retrying automatically:', firstErr.message || firstErr);
         await attemptSave();
       }
-      // Saved (onboarding_completed is true server-side), so closing the app
-      // on the next screen is safe — they'd land on the dashboard next time.
-      setSaved(true);
+      onComplete();
     } catch (err) {
       // Don't let onComplete() run on a failed save — that was the original bug:
       // the UI moved on to the dashboard while onboarding_completed silently stayed
@@ -462,7 +455,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           {isSubmitting ? (
             <span className="cow-spinner">⏳</span>
           ) : (
-            'Next →'
+            'Go to dashboard 🚀'
           )}
         </button>
       </div>
@@ -471,16 +464,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
 
   const stepContent = [renderStep1, renderStep2, renderStep3, renderStep4];
 
-  const startFirstWorkout = (category, level, program) => {
-    startLibraryProgram(localStorage.getItem('userId'), category, level, program);
-    // They're about to do exactly what the client spotlight tour teaches
-    // (Workouts -> Library -> level -> start -> log sets); its first steps
-    // would otherwise sit on top of the live session pointing at screens
-    // they've skipped past. Still replayable from Profile.
-    try { localStorage.setItem('clientTourSeen', 'true'); } catch { /* storage blocked - tour just shows */ }
-    onComplete({ startWorkout: true });
-  };
-
   return (
     <div className="cow-overlay">
       <div className="cow-card">
@@ -488,7 +471,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         <div className="cow-header">
           <img src="/logo.png" alt="Fitengineers" className="cow-logo" />
           <div className="cow-header-text">
-            <span className="cow-step-label">{saved ? 'Ready to train' : `Step ${step} of ${TOTAL_STEPS}`}</span>
+            <span className="cow-step-label">Step {step} of {TOTAL_STEPS}</span>
           </div>
           {onBackToLogin && (
             <button type="button" className="cow-back-to-login" onClick={onBackToLogin}>
@@ -498,19 +481,15 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         </div>
 
         {/* Progress */}
-        {!saved && renderProgressBar()}
+        {renderProgressBar()}
 
         {/* The founder's welcome / "stuck? reply" message — mainly for
-            people coming back after quitting sign-up midway. Hidden on the
-            first-workout screen so that one choice has the screen to itself
-            (the card is still on their home screen). */}
-        {!saved && <FounderMessageCard compact />}
+            people coming back after quitting sign-up midway. */}
+        <FounderMessageCard compact />
 
         {/* Step content */}
         <div className="cow-body">
-          {saved ? (
-            <FirstWorkoutPicker name={name} onStart={startFirstWorkout} onSkip={() => onComplete()} />
-          ) : stepContent[step - 1]()}
+          {stepContent[step - 1]()}
         </div>
       </div>
     </div>

@@ -1,10 +1,15 @@
-/* "First workout" screen: end of the sign-up wizard, and the self-guided
-   Home screen (variant "home"). Type sizes sit close to the wizard's other
-   steps (ClientOnboardingWizard.css option rows) so the whole flow feels
-   like one thing; colours/borders follow those option rows too. */
+/* First-workout picker on the self-guided Home screen (NextWorkoutBanner).
+   Type sizes sit close to the sign-up wizard's option rows
+   (ClientOnboardingWizard.css), whose colours/borders it also follows. */
+
+.fwp {
+  text-align: left;
+}
 
 .fwp-title {
-  font-size: 1.4rem;
+  font-size: 1.15rem;
+  /* Keep the heading clear of the banner's ✕ close button (top-right). */
+  padding-right: 36px;
   font-weight: 800;
   color: var(--text-main);
   margin: 0 0 6px;
@@ -187,30 +192,3 @@
   box-shadow: none;
 }
 
-/* Home-screen version (NextWorkoutBanner): the banner supplies the card
-   background, so just a slightly smaller heading. */
-.fwp-home {
-  text-align: left;
-}
-
-.fwp-home .fwp-title {
-  font-size: 1.15rem;
-  /* Keep the heading clear of the banner's ✕ close button (top-right). */
-  padding-right: 36px;
-}
-
-.fwp-skip {
-  display: block;
-  width: 100%;
-  margin-top: 12px;
-  padding: 8px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  font-family: inherit;
-}

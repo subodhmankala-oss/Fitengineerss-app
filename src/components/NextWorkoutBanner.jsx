@@ -124,7 +124,6 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
           ✕
         </button>
         <FirstWorkoutPicker
-          variant="home"
           library={library}
           onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program)}
         />

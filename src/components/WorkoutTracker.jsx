@@ -163,7 +163,9 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
   .filter((ex, idx, arr) => arr.findIndex(e => e.name.toLowerCase() === ex.name.toLowerCase()) === idx)
   .sort((a, b) => a.name.localeCompare(b.name));
 
-const WorkoutTracker = () => {
+// onWorkoutSaved: App.jsx sends the client to Home → Muscle Balance Overview
+// once a workout is saved (after the summary card is closed, if one shows).
+const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
 
   // ─── In-progress workout draft persistence ───
@@ -2437,6 +2439,9 @@ const WorkoutTracker = () => {
     // for a client's own self-logged session, not a coach logging on a
     // client's behalf (workoutSource === 'coach'). Coach-logged saves keep
     // the plain toast.
+    // Self-logged saves show the summary/share card first and redirect when
+    // it's closed (see WorkoutShareCard's onClose below).
+    let redirectAfterSave = false;
     if (workoutSource !== 'coach') {
       // Best lift: the PR just set (if any — summaryStats.prs is already
       // sorted by discovery order in currentExercises above), else whichever
@@ -2485,6 +2490,8 @@ const WorkoutTracker = () => {
       });
     } else {
       triggerToast(`🏋️‍♂️ Your Fitengineers Workout Saved! Completed ${summaryStats?.totalSets || finalSetsCount} sets.`);
+      // No summary card on this path, so nothing to wait for.
+      redirectAfterSave = true;
     }
 
     resetWorkoutTimer();
@@ -2499,6 +2506,7 @@ const WorkoutTracker = () => {
     setSetTimers({});
 
     setActiveView('analytics');
+    if (redirectAfterSave) onWorkoutSaved?.();
   };
 
   // ─── Start a workout from a generic template ───
@@ -4452,7 +4460,7 @@ const WorkoutTracker = () => {
       )}
 
       {shareCardData && (
-        <WorkoutShareCard session={shareCardData} onClose={() => setShareCardData(null)} />
+        <WorkoutShareCard session={shareCardData} onClose={() => { setShareCardData(null); onWorkoutSaved?.(); }} />
       )}
 
       {/* Floating Hevy Rest Timer Overlay. No toast and no blink on rest

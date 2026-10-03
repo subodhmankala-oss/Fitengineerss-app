@@ -1698,7 +1698,18 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home': return renderHomeDashboard();
-      case 'workouts': return <WorkoutTracker />;
+      // A saved workout lands on Home → Muscles → Muscle Balance Overview,
+      // via the same section link a coach's muscle-map share uses.
+      case 'workouts': return (
+        <WorkoutTracker
+          onWorkoutSaved={() => {
+            setDeepLinkOpenMuscleMap(true);
+            setDeepLinkMuscleSection('balance');
+            setDeepLinkNonce((n) => n + 1);
+            setActiveTab('home');
+          }}
+        />
+      );
       case 'profile': return (
         <ClientProfile
           key={deepLinkNonce}

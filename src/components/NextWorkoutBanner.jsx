@@ -35,6 +35,17 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program) {
 // Workout Library programs are configured for either category at all.
 export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }) {
   const [library, setLibrary] = useState(null); // null = still loading
+  // The ✕ on the first-workout picker hides it for good on this device (per
+  // client) — they can still start anything from the Workouts tab, and once
+  // they log a session the normal next-program banner shows regardless.
+  const dismissKey = `firstWorkoutPickerDismissed_${userId}`;
+  const [pickerDismissed, setPickerDismissed] = useState(() => {
+    try { return localStorage.getItem(dismissKey) === '1'; } catch { return false; }
+  });
+  const dismissPicker = () => {
+    setPickerDismissed(true);
+    try { localStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -87,15 +98,31 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     const hasAnyProgram = Object.values(library).some(byLevel =>
       Object.values(byLevel).some(list => list?.length > 0)
     );
-    if (!hasAnyProgram) return null;
+    if (!hasAnyProgram || pickerDismissed) return null;
 
     return (
       <div
         style={{
+          position: 'relative',
           background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
           borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
         }}
       >
+        <button
+          type="button"
+          onClick={dismissPicker}
+          aria-label="Close"
+          title="Close — I don’t want to start yet"
+          style={{
+            position: 'absolute', top: '10px', right: '10px', zIndex: 1,
+            width: '32px', height: '32px', borderRadius: '50%',
+            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+            color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
+          }}
+        >
+          ✕
+        </button>
         <FirstWorkoutPicker
           variant="home"
           library={library}

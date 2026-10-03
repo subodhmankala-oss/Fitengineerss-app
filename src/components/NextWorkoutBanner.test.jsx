@@ -31,6 +31,7 @@ function mockLibrary({ gym = {}, home = {} } = {}) {
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -65,6 +66,33 @@ describe('NextWorkoutBanner', () => {
     expect(localStorage.getItem('workoutTrackerAutoStart_u1')).toBeNull();
     // No skip button here — this is the Home screen, not the sign-up wizard.
     expect(screen.queryByText(/start later/)).toBeNull();
+  });
+
+  it('has a ✕ that closes the picker and keeps it closed for that client on this device', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    const { unmount } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    expect(screen.queryByText(/Let’s get you started/)).toBeNull();
+    expect(localStorage.getItem('firstWorkoutPickerDismissed_u1')).toBe('1');
+    unmount();
+
+    // Stays closed on the next visit...
+    const again = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    await waitFor(() => expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalled());
+    expect(screen.queryByText(/Let’s get you started/)).toBeNull();
+    again.unmount();
+
+    // ...but another client on the same device still gets it.
+    render(<NextWorkoutBanner userId="u2" logs={[]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
+  });
+
+  it('closing the picker doesn’t hide the normal next-program banner once they have logged workouts', async () => {
+    localStorage.setItem('firstWorkoutPickerDismissed_u1', '1');
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A' }];
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
   });
 
   it('uses the library it already loaded instead of fetching it a second time', async () => {

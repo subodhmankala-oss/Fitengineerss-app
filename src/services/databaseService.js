@@ -2538,8 +2538,20 @@ const databaseService = {
     if (profile.coachName) localStorage.setItem('userCoachName', profile.coachName);
     // Store onboarding wizard flags (support both camelCase and snake_case callers)
     const isOnboardingDone = profile.onboardingCompleted === true || profile.onboarding_completed === true;
-    localStorage.setItem('onboardingWizardCompleted', isOnboardingDone ? 'true' : 'false');
-    localStorage.setItem('onboardingCompleted', isOnboardingDone ? 'true' : 'false');
+    // A client profile that came back WITHOUT its clients row (userClientId
+    // null) says nothing about onboarding — the row read was blank/failed on a
+    // cold open (stale token, RLS, server fallback timing out). Writing 'false'
+    // here used to clobber a known 'true', and the next cold open then booted
+    // straight into the wizard from that stored flag, repeating until a read
+    // happened to succeed (reported 2026-10-03: wizard 2-3 reopens in a row).
+    // Only downgrade when the row was actually read.
+    const clientRowUnread = profile.role === 'client' && !profile.userClientId;
+    const keepStoredDone = !isOnboardingDone && clientRowUnread &&
+      localStorage.getItem('onboardingCompleted') === 'true';
+    if (!keepStoredDone) {
+      localStorage.setItem('onboardingWizardCompleted', isOnboardingDone ? 'true' : 'false');
+      localStorage.setItem('onboardingCompleted', isOnboardingDone ? 'true' : 'false');
+    }
     if (profile.program) localStorage.setItem('userProgram', profile.program);
     if (profile.primaryConcern) localStorage.setItem('userPrimaryConcern', profile.primaryConcern);
     if (profile.primary_concern) localStorage.setItem('userPrimaryConcern', profile.primary_concern);

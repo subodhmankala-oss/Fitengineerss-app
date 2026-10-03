@@ -971,6 +971,8 @@ function App() {
             }
           }
 
+          // Read BEFORE loadProfileIntoLocalStorage, which rewrites it.
+          const wasOnboardedLocally = localStorage.getItem('onboardingCompleted') === 'true';
           if (clientProfile) {
             await databaseService.loadProfileIntoLocalStorage(clientProfile, email);
             setUserRole(clientProfile.role);
@@ -1017,7 +1019,13 @@ function App() {
             avatarUrl: googleAvatarUrl || clientProfile?.userAvatarUrl || null
           });
           // Show wizard if onboarding_completed is false (new client)
-          if (clientProfile?.onboarding_completed === false || clientProfile?.onboarding_completed === null || !clientProfile?.onboarding_completed) {
+          // A profile with no clients row (userClientId null) is an unread row,
+          // not a confirmed "not onboarded" — if this device already knows the
+          // client finished the wizard, trust that instead of re-showing it.
+          const clientRowUnread = !!clientProfile && !clientProfile.userClientId;
+          if (wasOnboardedLocally && clientRowUnread) {
+            setShowClientWizard(false);
+          } else if (clientProfile?.onboarding_completed === false || clientProfile?.onboarding_completed === null || !clientProfile?.onboarding_completed) {
             setShowClientWizard(true);
           } else {
             setShowClientWizard(false);

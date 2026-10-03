@@ -4452,8 +4452,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
-                {signupAlerts.length > 0 && (
-                  <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -4 }} aria-label="New sign-ups" />
+                {(signupAlerts.length > 0 || unreadReplyIds.size > 0) && (
+                  <span className="unread-dot" style={{ position: 'absolute', top: -2, right: -4 }} aria-label="New sign-ups or replies" />
                 )}
               </span>
               <span className="admin-shell-label">Admin</span>
@@ -4689,8 +4689,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               }}
             >
               🛡️ Super-Admin
-              {signupAlerts.length > 0 && (
-                <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups" />
+              {(signupAlerts.length > 0 || unreadReplyIds.size > 0) && (
+                <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups or replies" />
               )}
             </button>
           </div>

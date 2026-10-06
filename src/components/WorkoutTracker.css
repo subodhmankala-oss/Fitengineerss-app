@@ -5107,121 +5107,62 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-exit { animation: none; }
 }
 
-/* Workout Library search + Filters panel */
-.wt-library-search-row {
+/* Workout Library Focus / Time / Equipment dropdowns. Each pill is a label
+   with an invisible native <select> stretched over it, so tapping opens the
+   phone's own picker while the pill shows the current choice. */
+.wt-library-filters {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
 }
-.wt-library-search {
+.wt-library-filter {
   position: relative;
   flex: 1;
   min-width: 0;
-}
-.wt-library-search-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 36px 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--fg-rgb), 0.1);
-  background: rgba(var(--fg-rgb), 0.04);
-  color: var(--text-main);
-  font-size: 16px; /* >=16px stops iOS zooming on focus */
-  font-family: inherit;
-}
-.wt-library-search-input:focus {
-  outline: none;
-  border-color: rgba(139, 92, 246, 0.5);
-}
-.wt-library-search-clear {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.wt-library-filter-btn {
-  flex: 0 0 auto;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 14px;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px;
   border-radius: 12px;
   border: 1px solid rgba(var(--fg-rgb), 0.1);
   background: rgba(var(--fg-rgb), 0.04);
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 700;
-  font-family: inherit;
   cursor: pointer;
 }
-.wt-library-filter-btn.active {
+.wt-library-filter.active {
+  background: rgba(139, 92, 246, 0.14);
   border-color: rgba(139, 92, 246, 0.5);
   color: var(--accent-text);
 }
-.wt-library-filter-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: rgba(139, 92, 246, 0.85);
-  color: #fff;
-  font-size: 0.68rem;
-  line-height: 18px;
-  text-align: center;
-}
-.wt-library-chips {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  margin-bottom: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--fg-rgb), 0.07);
-  background: rgba(var(--fg-rgb), 0.02);
-}
-.wt-library-chip-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.wt-library-chip-label {
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.wt-library-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.wt-library-chip {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--fg-rgb), 0.12);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
+.wt-library-filter-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wt-library-chip.active {
-  background: rgba(139, 92, 246, 0.16);
-  border-color: rgba(139, 92, 246, 0.5);
-  color: var(--accent-text);
+.wt-library-filter-caret {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.wt-library-filter select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px; /* >=16px stops iOS zooming on focus */
+}
+.wt-library-filter:focus-within {
+  outline: 2px solid rgba(139, 92, 246, 0.5);
+  outline-offset: 1px;
 }
 .wt-library-clear-filters {
-  align-self: flex-start;
+  display: block;
+  margin: 8px auto 0;
   padding: 4px 0;
   border: none;
   background: none;
@@ -5231,8 +5172,18 @@ html.keyboard-open .rest-timer-floating-card {
   font-family: inherit;
   cursor: pointer;
 }
-.wt-empty-state .wt-library-clear-filters {
-  display: block;
-  margin: 8px auto 0;
+.wt-library-closest-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--text-muted);
+  font-size: 0.76rem;
 }
-
+.wt-library-closest-note .wt-library-clear-filters {
+  margin: 0;
+  flex: 0 0 auto;
+}

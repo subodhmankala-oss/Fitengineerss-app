@@ -33,12 +33,11 @@ import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
-import useAllLibrary from '../hooks/useAllLibrary';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
-import { searchLibrary, filterByChips, enrichLibraryEntry, DURATION_FILTERS, EQUIPMENT_FILTERS, FOCUS_FILTERS } from '../utils/librarySearch';
+import { filterOrClosest, enrichLibraryEntry, DURATION_FILTERS, EQUIPMENT_FILTERS, FOCUS_FILTERS } from '../utils/libraryFilters';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -307,16 +306,11 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
   const [showAllLevelWorkouts, setShowAllLevelWorkouts] = useState(false);
-  // Library search spans every category x level (useAllLibrary loads all six
-  // lists the first time the client types). Focus/Time/Equipment filters sit
-  // behind a "Filters" button and apply to search results and the tab list.
-  const [librarySearch, setLibrarySearch] = useState('');
+  // Focus / Time / Equipment dropdowns at the top of the Library — narrow the
+  // current Gym/Home x level list. null = "any".
   const [durationFilter, setDurationFilter] = useState(null);
   const [equipmentFilter, setEquipmentFilter] = useState(null);
   const [focusFilter, setFocusFilter] = useState(null);
-  const [showLibraryFilters, setShowLibraryFilters] = useState(false);
-  const librarySearching = !!librarySearch.trim();
-  const activeLibraryFilterCount = [durationFilter, equipmentFilter, focusFilter].filter(Boolean).length;
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
   // Whether this client is actually connected to a coach. Initialized from the
@@ -350,17 +344,10 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     return () => { cancelled = true; };
   }, [genericLevel, genericCategory]);
 
-  const { entries: allLibrary, loading: loadingAllLibrary } = useAllLibrary(librarySearching);
-
-  // Search spans the whole library; the Focus/Time/Equipment filters apply
-  // both to search results and to the current Gym/Home x level tab.
-  const librarySearchResults = useMemo(() => {
-    if (!librarySearching || !allLibrary) return [];
-    const enriched = allLibrary.map(e => enrichLibraryEntry(e.workout, e.category, e.level));
-    return filterByChips(searchLibrary(enriched, librarySearch), { duration: durationFilter, equipment: equipmentFilter, focus: focusFilter });
-  }, [librarySearching, allLibrary, librarySearch, durationFilter, equipmentFilter, focusFilter]);
-  const libraryBrowseResults = useMemo(() =>
-    filterByChips(levelWorkouts.map(w => enrichLibraryEntry(w, genericCategory, genericLevel)), { duration: durationFilter, equipment: equipmentFilter, focus: focusFilter }),
+  // Never empty: with no exact match, filterOrClosest returns the nearest
+  // programs (closest: true) instead of a dead end.
+  const { results: libraryBrowseResults, closest: libraryShowingClosest } = useMemo(() =>
+    filterOrClosest(levelWorkouts.map(w => enrichLibraryEntry(w, genericCategory, genericLevel)), { duration: durationFilter, equipment: equipmentFilter, focus: focusFilter }),
   [levelWorkouts, genericCategory, genericLevel, durationFilter, equipmentFilter, focusFilter]);
   const clearLibraryFilters = () => { setDurationFilter(null); setEquipmentFilter(null); setFocusFilter(null); };
 
@@ -3199,97 +3186,31 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               </div>
             </div>
 
-            <div className="wt-library-search-row">
-              <div className="wt-library-search">
-                <input
-                  type="search"
-                  className="wt-library-search-input"
-                  placeholder="Search programs, exercises or muscles…"
-                  value={librarySearch}
-                  onChange={e => setLibrarySearch(e.target.value)}
-                  aria-label="Search the Workout Library"
-                />
-                {librarySearch && (
-                  <button type="button" className="wt-library-search-clear" aria-label="Clear search" onClick={() => setLibrarySearch('')}>✕</button>
-                )}
-              </div>
-              <button
-                type="button"
-                className={`wt-library-filter-btn${showLibraryFilters || activeLibraryFilterCount ? ' active' : ''}`}
-                aria-expanded={showLibraryFilters}
-                onClick={() => setShowLibraryFilters(v => !v)}
-              >
-                Filters{activeLibraryFilterCount > 0 && <span className="wt-library-filter-count">{activeLibraryFilterCount}</span>}
-              </button>
+            {/* Focus / Time / Equipment — native selects so a phone opens its
+                own picker. Each narrows the Gym/Home x level list below. */}
+            <div className="wt-library-filters" role="group" aria-label="Filter the Workout Library">
+              {[
+                ['Focus', FOCUS_FILTERS, focusFilter, setFocusFilter],
+                ['Time', DURATION_FILTERS, durationFilter, setDurationFilter],
+                ['Equipment', EQUIPMENT_FILTERS, equipmentFilter, setEquipmentFilter],
+              ].map(([label, options, value, setValue]) => (
+                <label key={label} className={`wt-library-filter${value ? ' active' : ''}`}>
+                  <span className="wt-library-filter-text">
+                    {value ? options.find(o => o.id === value)?.label : label}
+                  </span>
+                  <span className="wt-library-filter-caret" aria-hidden="true">▾</span>
+                  <select
+                    aria-label={label}
+                    value={value || ''}
+                    onChange={e => setValue(e.target.value || null)}
+                  >
+                    <option value="">Any {label.toLowerCase()}</option>
+                    {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                  </select>
+                </label>
+              ))}
             </div>
 
-            {showLibraryFilters && (
-              <div className="wt-library-chips" role="group" aria-label="Filter the Workout Library">
-                {[
-                  ['Focus', FOCUS_FILTERS, focusFilter, setFocusFilter],
-                  ['Time', DURATION_FILTERS, durationFilter, setDurationFilter],
-                  ['Equipment', EQUIPMENT_FILTERS, equipmentFilter, setEquipmentFilter],
-                ].map(([group, options, value, setValue]) => (
-                  <div key={group} className="wt-library-chip-group">
-                    <span className="wt-library-chip-label">{group}</span>
-                    <div className="wt-library-chip-row">
-                      {options.map(f => (
-                        <button key={f.id} type="button" className={`wt-library-chip${value === f.id ? ' active' : ''}`}
-                          aria-pressed={value === f.id}
-                          onClick={() => setValue(value === f.id ? null : f.id)}>{f.label}</button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {activeLibraryFilterCount > 0 && (
-                  <button type="button" className="wt-library-clear-filters" onClick={clearLibraryFilters}>Clear filters</button>
-                )}
-              </div>
-            )}
-
-            {librarySearching ? (
-              loadingAllLibrary || !allLibrary ? (
-                <div className="wt-empty-state"><span>⏳</span> Searching…</div>
-              ) : librarySearchResults.length === 0 ? (
-                <div className="wt-empty-state"><span>🔍</span> No programs match “{librarySearch.trim()}”{activeLibraryFilterCount > 0 ? ' with these filters' : ''}.</div>
-              ) : (
-                <div className="wt-library-grid">
-                  {librarySearchResults.map(({ workout, category, level }) => {
-                    const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
-                    const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
-                    return (
-                      <button
-                        key={workout.id}
-                        type="button"
-                        className={`wt-program-card wt-program-card--${level}`}
-                        onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, level)}
-                      >
-                        <div className="wt-program-tile">
-                          {meta.muscles.length > 1 ? (
-                            <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
-                          ) : (
-                            <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
-                          )}
-                        </div>
-                        <div className="wt-program-info">
-                          <div className="wt-program-name">{workout.name}</div>
-                          <div className="wt-program-meta">
-                            <span className={`wt-program-dot wt-program-dot--${level}`} />
-                            {category === 'home' ? 'Home' : 'Gym'} · {level.charAt(0).toUpperCase() + level.slice(1)} · ~{meta.estMinutes} min · {exList.length} exercise{exList.length === 1 ? '' : 's'}
-                          </div>
-                          {exList.length > 0 && (
-                            <div className="wt-program-preview">
-                              {exList.slice(0, 3).map(e => e.name).join(' · ')}{exList.length > 3 ? ` +${exList.length - 3}` : ''}
-                            </div>
-                          )}
-                        </div>
-                        <span className="wt-program-chevron">›</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )
-            ) : (<>
             {/* Gym vs Home — every level exists in both, so this sits above
                 the level tabs rather than replacing one of them. Home
                 programs are bodyweight/no-equipment only. */}
@@ -3329,13 +3250,14 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               <div className="wt-empty-state">
                 <span>📭</span> No {genericCategory} {genericLevel} workouts available yet.
               </div>
-            ) : libraryBrowseResults.length === 0 ? (
-              <div className="wt-empty-state">
-                <span>🔍</span> No {genericCategory} {genericLevel} programs match these filters.
-                <button type="button" className="wt-library-clear-filters" onClick={clearLibraryFilters}>Clear filters</button>
-              </div>
             ) : (
               <div className="wt-library-grid">
+                {libraryShowingClosest && (
+                  <div className="wt-library-closest-note">
+                    No exact match — showing the closest programs.
+                    <button type="button" className="wt-library-clear-filters" onClick={clearLibraryFilters}>Clear filters</button>
+                  </div>
+                )}
                 {(showAllLevelWorkouts ? libraryBrowseResults : libraryBrowseResults.slice(0, 4)).map(({ workout, estMinutes }) => {
                   const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
                   const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
@@ -3380,7 +3302,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 )}
               </div>
             )}
-            </>)}
           </div>
 
           {/* Quick empty start CTA */}

@@ -1,3 +1,5 @@
+import { getPlanCardMeta } from './planCardMeta';
+
 // Workout Library search: matches a query against program name, exercise
 // names and trained muscles across every category x level at once, so a
 // client can type "chest" or "dumbell" without knowing where it lives.
@@ -121,6 +123,13 @@ export const PLACE_FILTERS = [
   { id: 'gym', label: '🏋️ Gym' },
   { id: 'home', label: '🏠 Home' },
 ];
+
+// Library row -> the shape searchLibrary/filterByChips read.
+export function enrichLibraryEntry(workout, category, level) {
+  const exercises = Array.isArray(workout?.exercises) ? workout.exercises : [];
+  const meta = getPlanCardMeta({ exercises, planName: workout?.name });
+  return { workout, category, level, muscles: meta.muscles, estMinutes: meta.estMinutes, focus: meta.category, equipment: getProgramEquipment(exercises) };
+}
 
 // entries carry estMinutes + equipment (Set). Empty filter = no restriction.
 export function filterByChips(entries, { duration, equipment, focus, level, place } = {}) {

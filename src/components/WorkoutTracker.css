@@ -5107,10 +5107,16 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-exit { animation: none; }
 }
 
-/* Workout Library search */
+/* Workout Library search + Filters panel */
+.wt-library-search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
 .wt-library-search {
   position: relative;
-  margin-bottom: 10px;
+  flex: 1;
+  min-width: 0;
 }
 .wt-library-search-input {
   width: 100%;
@@ -5140,18 +5146,64 @@ html.keyboard-open .rest-timer-floating-card {
   color: var(--text-muted);
   cursor: pointer;
 }
-
+.wt-library-filter-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wt-library-filter-btn.active {
+  border-color: rgba(139, 92, 246, 0.5);
+  color: var(--accent-text);
+}
+.wt-library-filter-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(139, 92, 246, 0.85);
+  color: #fff;
+  font-size: 0.68rem;
+  line-height: 18px;
+  text-align: center;
+}
 .wt-library-chips {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  margin-bottom: 8px;
-  scrollbar-width: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--fg-rgb), 0.07);
+  background: rgba(var(--fg-rgb), 0.02);
 }
-.wt-library-chips::-webkit-scrollbar { display: none; }
+.wt-library-chip-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wt-library-chip-label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.wt-library-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .wt-library-chip {
-  flex: 0 0 auto;
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid rgba(var(--fg-rgb), 0.12);
@@ -5168,22 +5220,19 @@ html.keyboard-open .rest-timer-floating-card {
   border-color: rgba(139, 92, 246, 0.5);
   color: var(--accent-text);
 }
+.wt-library-clear-filters {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wt-empty-state .wt-library-clear-filters {
+  display: block;
+  margin: 8px auto 0;
+}
 
-.wt-library-chips { display: block; overflow: visible; }
-.wt-library-chip-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: none;
-}
-.wt-library-chip-row::-webkit-scrollbar { display: none; }
-.wt-library-chip-label {
-  flex: 0 0 62px;
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}

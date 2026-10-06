@@ -5106,3 +5106,37 @@ html.keyboard-open .rest-timer-floating-card {
 @media (prefers-reduced-motion: reduce) {
   .hevy-set-row.set-row-exit { animation: none; }
 }
+
+/* Workout Library search */
+.wt-library-search {
+  position: relative;
+  margin-bottom: 10px;
+}
+.wt-library-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 36px 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-main);
+  font-size: 16px; /* >=16px stops iOS zooming on focus */
+  font-family: inherit;
+}
+.wt-library-search-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+}
+.wt-library-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}

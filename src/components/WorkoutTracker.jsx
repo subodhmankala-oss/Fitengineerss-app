@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
@@ -37,6 +37,7 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
+import { searchLibrary } from '../utils/librarySearch';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -305,6 +306,11 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
   const [showAllLevelWorkouts, setShowAllLevelWorkouts] = useState(false);
+  // Library search spans every category x level, so it loads all six lists
+  // the first time the client types (cached after that).
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [allLibrary, setAllLibrary] = useState(null);
+  const [loadingAllLibrary, setLoadingAllLibrary] = useState(false);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
   // Whether this client is actually connected to a coach. Initialized from the
@@ -337,6 +343,29 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     loadLevelWorkouts();
     return () => { cancelled = true; };
   }, [genericLevel, genericCategory]);
+
+  useEffect(() => {
+    if (!librarySearch.trim() || allLibrary || loadingAllLibrary) return;
+    let cancelled = false;
+    setLoadingAllLibrary(true);
+    const combos = ['gym', 'home'].flatMap(c => ['beginner', 'intermediate', 'advanced'].map(l => [c, l]));
+    Promise.all(combos.map(([c, l]) =>
+      databaseService.getGenericWorkoutsByLevel(l, c)
+        .then(ws => (ws || []).map(workout => ({ category: c, level: l, workout })))
+        .catch(() => [])
+    )).then(lists => { if (!cancelled) setAllLibrary(lists.flat()); })
+      .finally(() => { if (!cancelled) setLoadingAllLibrary(false); });
+    return () => { cancelled = true; };
+  }, [librarySearch, allLibrary, loadingAllLibrary]);
+
+  const librarySearchResults = useMemo(() => {
+    if (!librarySearch.trim() || !allLibrary) return [];
+    const withMuscles = allLibrary.map(e => ({
+      ...e,
+      muscles: getPlanCardMeta({ exercises: Array.isArray(e.workout.exercises) ? e.workout.exercises : [], planName: e.workout.name }).muscles,
+    }));
+    return searchLibrary(withMuscles, librarySearch);
+  }, [librarySearch, allLibrary]);
 
   // Persist the Workout Library level so the next mount restores it — see
   // lastLevelKey above. (activeView itself is NOT mirrored on every change:
@@ -3173,6 +3202,63 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               </div>
             </div>
 
+            <div className="wt-library-search">
+              <input
+                type="search"
+                className="wt-library-search-input"
+                placeholder="Search programs, exercises or muscles…"
+                value={librarySearch}
+                onChange={e => setLibrarySearch(e.target.value)}
+                aria-label="Search the Workout Library"
+              />
+              {librarySearch && (
+                <button type="button" className="wt-library-search-clear" aria-label="Clear search" onClick={() => setLibrarySearch('')}>✕</button>
+              )}
+            </div>
+
+            {librarySearch.trim() ? (
+              loadingAllLibrary || !allLibrary ? (
+                <div className="wt-empty-state"><span>⏳</span> Searching…</div>
+              ) : librarySearchResults.length === 0 ? (
+                <div className="wt-empty-state"><span>🔍</span> No programs match “{librarySearch.trim()}”.</div>
+              ) : (
+                <div className="wt-library-grid">
+                  {librarySearchResults.map(({ workout, category, level }) => {
+                    const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
+                    const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
+                    return (
+                      <button
+                        key={workout.id}
+                        type="button"
+                        className={`wt-program-card wt-program-card--${level}`}
+                        onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, level)}
+                      >
+                        <div className="wt-program-tile">
+                          {meta.muscles.length > 1 ? (
+                            <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
+                          ) : (
+                            <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+                          )}
+                        </div>
+                        <div className="wt-program-info">
+                          <div className="wt-program-name">{workout.name}</div>
+                          <div className="wt-program-meta">
+                            <span className={`wt-program-dot wt-program-dot--${level}`} />
+                            {category === 'home' ? 'Home' : 'Gym'} · {level.charAt(0).toUpperCase() + level.slice(1)} · {exList.length} exercise{exList.length === 1 ? '' : 's'}
+                          </div>
+                          {exList.length > 0 && (
+                            <div className="wt-program-preview">
+                              {exList.slice(0, 3).map(e => e.name).join(' · ')}{exList.length > 3 ? ` +${exList.length - 3}` : ''}
+                            </div>
+                          )}
+                        </div>
+                        <span className="wt-program-chevron">›</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            ) : (<>
             {/* Gym vs Home — every level exists in both, so this sits above
                 the level tabs rather than replacing one of them. Home
                 programs are bodyweight/no-equipment only. */}
@@ -3258,6 +3344,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 )}
               </div>
             )}
+            </>)}
           </div>
 
           {/* Quick empty start CTA */}

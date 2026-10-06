@@ -5107,83 +5107,38 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-exit { animation: none; }
 }
 
-/* Workout Library Focus / Time / Equipment dropdowns. Each pill is a label
-   with an invisible native <select> stretched over it, so tapping opens the
-   phone's own picker while the pill shows the current choice. */
-.wt-library-filters {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
+/* Workout Library top sections (Recommended / Favorites / Recently used)
+   and the favorite star that sits beside each program card. */
+.wt-library-section {
+  margin-bottom: 16px;
 }
-.wt-library-filter {
+.wt-library-section-title {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.wt-program-card-wrap {
   position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 10px 8px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--fg-rgb), 0.1);
-  background: rgba(var(--fg-rgb), 0.04);
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
 }
-.wt-library-filter.active {
-  background: rgba(139, 92, 246, 0.14);
-  border-color: rgba(139, 92, 246, 0.5);
-  color: var(--accent-text);
+.wt-program-card--fav {
+  padding-right: 48px;
 }
-.wt-library-filter-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wt-library-filter-caret {
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  opacity: 0.7;
-}
-.wt-library-filter select {
+.wt-fav-btn {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  font-size: 16px; /* >=16px stops iOS zooming on focus */
-}
-.wt-library-filter:focus-within {
-  outline: 2px solid rgba(139, 92, 246, 0.5);
-  outline-offset: 1px;
-}
-.wt-library-clear-filters {
-  display: block;
-  margin: 8px auto 0;
-  padding: 4px 0;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
   border: none;
-  background: none;
-  color: var(--accent-text);
-  font-size: 0.76rem;
-  font-weight: 700;
-  font-family: inherit;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(148, 163, 184, 0.6);
+  font-size: 1.3rem;
+  line-height: 1;
   cursor: pointer;
 }
-.wt-library-closest-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: rgba(139, 92, 246, 0.08);
-  color: var(--text-muted);
-  font-size: 0.76rem;
-}
-.wt-library-closest-note .wt-library-clear-filters {
-  margin: 0;
-  flex: 0 0 auto;
+.wt-fav-btn.active {
+  color: #facc15;
 }

@@ -10,9 +10,8 @@ import './FounderMessageCard.css';
 // reply slot — the reply goes to the founder as a push + an Inbox card in
 // Super-Admin (api/push.js founder_reply). ✕ dismisses it on every device.
 //
-// Rendered on the home screen and, `compact`, at the top of the sign-up
-// wizard — so someone who quit sign-up midway sees it when they come back.
-// Compact shows only the newest message.
+// Rendered on the client home screen only — not in the sign-up wizard, where
+// it distracted from the form. `compact` (newest message only) is unused now.
 
 function initials(name) {
   return (name || 'F').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');

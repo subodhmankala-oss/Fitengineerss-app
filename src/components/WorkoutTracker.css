@@ -5140,3 +5140,31 @@ html.keyboard-open .rest-timer-floating-card {
   color: var(--text-muted);
   cursor: pointer;
 }
+
+.wt-library-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  scrollbar-width: none;
+}
+.wt-library-chips::-webkit-scrollbar { display: none; }
+.wt-library-chip {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.wt-library-chip.active {
+  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: var(--accent-text);
+}

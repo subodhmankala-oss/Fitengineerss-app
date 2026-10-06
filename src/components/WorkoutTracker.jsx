@@ -37,7 +37,7 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
-import { searchLibrary } from '../utils/librarySearch';
+import { searchLibrary, filterByChips, getProgramEquipment, DURATION_FILTERS, EQUIPMENT_FILTERS } from '../utils/librarySearch';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -310,6 +310,9 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // the first time the client types (cached after that).
   const [librarySearch, setLibrarySearch] = useState('');
   const [allLibrary, setAllLibrary] = useState(null);
+  const [durationFilter, setDurationFilter] = useState(null);
+  const [equipmentFilter, setEquipmentFilter] = useState(null);
+  const libraryFiltering = !!(librarySearch.trim() || durationFilter || equipmentFilter);
   const [loadingAllLibrary, setLoadingAllLibrary] = useState(false);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
@@ -345,7 +348,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   }, [genericLevel, genericCategory]);
 
   useEffect(() => {
-    if (!librarySearch.trim() || allLibrary || loadingAllLibrary) return;
+    if (!libraryFiltering || allLibrary || loadingAllLibrary) return;
     let cancelled = false;
     setLoadingAllLibrary(true);
     const combos = ['gym', 'home'].flatMap(c => ['beginner', 'intermediate', 'advanced'].map(l => [c, l]));
@@ -356,16 +359,17 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     )).then(lists => { if (!cancelled) setAllLibrary(lists.flat()); })
       .finally(() => { if (!cancelled) setLoadingAllLibrary(false); });
     return () => { cancelled = true; };
-  }, [librarySearch, allLibrary, loadingAllLibrary]);
+  }, [libraryFiltering, allLibrary, loadingAllLibrary]);
 
   const librarySearchResults = useMemo(() => {
-    if (!librarySearch.trim() || !allLibrary) return [];
-    const withMuscles = allLibrary.map(e => ({
-      ...e,
-      muscles: getPlanCardMeta({ exercises: Array.isArray(e.workout.exercises) ? e.workout.exercises : [], planName: e.workout.name }).muscles,
-    }));
-    return searchLibrary(withMuscles, librarySearch);
-  }, [librarySearch, allLibrary]);
+    if (!libraryFiltering || !allLibrary) return [];
+    const enriched = allLibrary.map(e => {
+      const exercises = Array.isArray(e.workout.exercises) ? e.workout.exercises : [];
+      const meta = getPlanCardMeta({ exercises, planName: e.workout.name });
+      return { ...e, muscles: meta.muscles, estMinutes: meta.estMinutes, equipment: getProgramEquipment(exercises) };
+    });
+    return filterByChips(searchLibrary(enriched, librarySearch), { duration: durationFilter, equipment: equipmentFilter });
+  }, [libraryFiltering, allLibrary, librarySearch, durationFilter, equipmentFilter]);
 
   // Persist the Workout Library level so the next mount restores it — see
   // lastLevelKey above. (activeView itself is NOT mirrored on every change:
@@ -3216,11 +3220,24 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               )}
             </div>
 
-            {librarySearch.trim() ? (
+            <div className="wt-library-chips" role="group" aria-label="Filter by duration and equipment">
+              {DURATION_FILTERS.map(f => (
+                <button key={f.id} type="button" className={`wt-library-chip${durationFilter === f.id ? ' active' : ''}`}
+                  aria-pressed={durationFilter === f.id}
+                  onClick={() => setDurationFilter(durationFilter === f.id ? null : f.id)}>⏱ {f.label}</button>
+              ))}
+              {EQUIPMENT_FILTERS.map(f => (
+                <button key={f.id} type="button" className={`wt-library-chip${equipmentFilter === f.id ? ' active' : ''}`}
+                  aria-pressed={equipmentFilter === f.id}
+                  onClick={() => setEquipmentFilter(equipmentFilter === f.id ? null : f.id)}>{f.label}</button>
+              ))}
+            </div>
+
+            {libraryFiltering ? (
               loadingAllLibrary || !allLibrary ? (
                 <div className="wt-empty-state"><span>⏳</span> Searching…</div>
               ) : librarySearchResults.length === 0 ? (
-                <div className="wt-empty-state"><span>🔍</span> No programs match “{librarySearch.trim()}”.</div>
+                <div className="wt-empty-state"><span>🔍</span> No programs match{librarySearch.trim() ? ` “${librarySearch.trim()}”` : ' these filters'}.</div>
               ) : (
                 <div className="wt-library-grid">
                   {librarySearchResults.map(({ workout, category, level }) => {
@@ -3244,7 +3261,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                           <div className="wt-program-name">{workout.name}</div>
                           <div className="wt-program-meta">
                             <span className={`wt-program-dot wt-program-dot--${level}`} />
-                            {category === 'home' ? 'Home' : 'Gym'} · {level.charAt(0).toUpperCase() + level.slice(1)} · {exList.length} exercise{exList.length === 1 ? '' : 's'}
+                            {category === 'home' ? 'Home' : 'Gym'} · {level.charAt(0).toUpperCase() + level.slice(1)} · ~{meta.estMinutes} min · {exList.length} exercise{exList.length === 1 ? '' : 's'}
                           </div>
                           {exList.length > 0 && (
                             <div className="wt-program-preview">

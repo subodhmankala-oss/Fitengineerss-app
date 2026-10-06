@@ -69,3 +69,53 @@ export function searchLibrary(entries, query) {
     )
   );
 }
+
+// ─── Duration / equipment chips ───────────────────────────────────────────
+// Library programs carry no duration or equipment tags, so both are derived:
+// duration from planCardMeta's estMinutes, equipment from exercise names.
+
+export const DURATION_FILTERS = [
+  { id: 'short', label: '≤ 30 min', test: m => m <= 30 },
+  { id: 'medium', label: '30–45 min', test: m => m > 30 && m <= 45 },
+  { id: 'long', label: '45–60 min', test: m => m > 45 && m <= 60 },
+  { id: 'xl', label: '60+ min', test: m => m > 60 },
+];
+
+export const EQUIPMENT_FILTERS = [
+  { id: 'none', label: 'No equipment' },
+  { id: 'dumbbell', label: 'Dumbbells' },
+  { id: 'barbell', label: 'Barbell' },
+  { id: 'machine', label: 'Machines & cables' },
+];
+
+const EQUIPMENT_PATTERNS = {
+  dumbbell: /dumbbell|\bdb\b|kettlebell/,
+  barbell: /barbell|\bbb\b|smith|\bez\b|bench press|deadlift|\bsquat\b.*barbell/,
+  machine: /machine|cable|pulldown|pushdown|leg press|leg extension|leg curl|pec deck|seated row|lat pull|hack squat|assisted/,
+};
+
+// Set of equipment ids a program's exercises call for. 'none' means nothing
+// recognisable is needed (bodyweight).
+export function getProgramEquipment(exercises) {
+  const found = new Set();
+  (exercises || []).forEach(ex => {
+    const n = String(ex?.name || '').toLowerCase();
+    Object.entries(EQUIPMENT_PATTERNS).forEach(([id, re]) => {
+      // "Dumbbell Bench Press" is dumbbell work, not barbell.
+      if (id === 'barbell' && EQUIPMENT_PATTERNS.dumbbell.test(n)) return;
+      if (re.test(n)) found.add(id);
+    });
+  });
+  // Nothing recognisable needed -> bodyweight / no-equipment program.
+  if (!found.size) found.add('none');
+  return found;
+}
+
+// entries carry estMinutes + equipment (Set). Empty filter = no restriction.
+export function filterByChips(entries, { duration, equipment } = {}) {
+  const d = DURATION_FILTERS.find(f => f.id === duration);
+  return entries.filter(e =>
+    (!d || d.test(e.estMinutes)) &&
+    (!equipment || e.equipment?.has(equipment))
+  );
+}

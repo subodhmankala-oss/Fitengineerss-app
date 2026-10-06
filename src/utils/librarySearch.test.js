@@ -38,3 +38,28 @@ describe('librarySearch', () => {
     expect(matchesLibraryQuery('x', undefined, null)).toBe(false);
   });
 });
+
+import { getProgramEquipment, filterByChips } from './librarySearch';
+
+describe('chip filters', () => {
+  it('derives equipment from exercise names', () => {
+    expect([...getProgramEquipment([{ name: 'Dumbbell Curl' }, { name: 'Lat Pulldown' }])].sort()).toEqual(['dumbbell', 'machine']);
+    expect([...getProgramEquipment([{ name: 'Push Up' }, { name: 'Plank' }])]).toEqual(['none']);
+  });
+  it('does not count dumbbell presses as barbell', () => {
+    expect([...getProgramEquipment([{ name: 'Dumbbell Bench Press' }])]).toEqual(['dumbbell']);
+  });
+  it('filters by duration bucket and equipment', () => {
+    const list = [
+      { id: 1, estMinutes: 25, equipment: new Set(['none']) },
+      { id: 2, estMinutes: 45, equipment: new Set(['dumbbell']) },
+      { id: 3, estMinutes: 65, equipment: new Set(['barbell', 'machine']) },
+    ];
+    expect(filterByChips(list, { duration: 'short' }).map(e => e.id)).toEqual([1]);
+    expect(filterByChips(list, { duration: 'medium' }).map(e => e.id)).toEqual([2]);
+    expect(filterByChips(list, { duration: 'xl' }).map(e => e.id)).toEqual([3]);
+    expect(filterByChips(list, { equipment: 'machine' }).map(e => e.id)).toEqual([3]);
+    expect(filterByChips(list, { duration: 'short', equipment: 'dumbbell' })).toEqual([]);
+    expect(filterByChips(list, {})).toHaveLength(3);
+  });
+});

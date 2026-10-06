@@ -141,7 +141,9 @@ const RULES = [
   },
 
   // ── Back (pulling compounds) ──
-  { test: n => /(row|pulldown|pull.?up|chin.?up|lat |t.?bar|pendlay|pull through|v.?bar)/.test(n), muscles: ['Back', 'Biceps'] },
+  // "\blat " — a bare "lat " also matched the end of "flat", so Flat Bench
+  // Press was credited to Back/Biceps instead of Chest/Triceps.
+  { test: n => /(row|pulldown|pull.?up|chin.?up|\blat |t.?bar|pendlay|pull through|v.?bar)/.test(n), muscles: ['Back', 'Biceps'] },
 
   // ── Chest (pressing compounds) ──
   // "incline.*press"/"decline.*press" catches named variants that don't
@@ -170,4 +172,14 @@ export function getMuscleGroupsForExercise(exerciseName) {
   const result = rule ? rule.muscles : [];
   memo.set(key, result);
   return result;
+}
+
+// Add Exercise body picker: does this exercise mainly train `muscle`?
+// Primary mover only (a bench press is Chest, not Triceps). Falls back to the
+// catalog's own primary_muscle for names the rules above don't recognise.
+export function exerciseTargetsMuscle(exercise, muscle) {
+  if (!muscle) return true;
+  const groups = getMuscleGroupsForExercise(exercise?.name);
+  if (groups.length) return groups[0] === muscle;
+  return String(exercise?.primary_muscle || exercise?.primary || '').trim().toLowerCase() === muscle.toLowerCase();
 }

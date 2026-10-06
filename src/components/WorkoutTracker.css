@@ -5106,3 +5106,40 @@ html.keyboard-open .rest-timer-floating-card {
 @media (prefers-reduced-motion: reduce) {
   .hevy-set-row.set-row-exit { animation: none; }
 }
+
+/* Add Exercise body picker — tap a muscle on the diagram (or its chip) to
+   list exercises that mainly train it. */
+.exercise-body-toggle {
+  flex-shrink: 0;
+}
+.exercise-body-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--fg-rgb), 0.07);
+  background: rgba(var(--fg-rgb), 0.02);
+}
+.exercise-body-picker-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+}
+.exercise-body-picker-diagram {
+  width: 110px;
+  flex: 0 0 110px;
+}
+.exercise-body-picker-diagram .muscle-body-stack {
+  max-width: 110px;
+}
+.exercise-body-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 200px;
+}

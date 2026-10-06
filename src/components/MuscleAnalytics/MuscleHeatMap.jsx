@@ -27,7 +27,9 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
   />
 );
 
-const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
+// Also used by the Add Exercise picker's body filter, which has no weekly
+// stats: it passes colorFor/labelFor to color and label muscles itself.
+export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
   const bodySvg = view === 'front' ? BODY_FRONT_SVG : BODY_BACK_SVG;
   const bodyFillUrl = view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL;
   const layerMap = view === 'front' ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS;
@@ -86,12 +88,12 @@ const BodyDiagram = ({ view, statByMuscle, activeMuscle, onSelectMuscle }) => {
         const stat = statByMuscle[muscle];
         const tier = stat ? getHeatMapTier(stat) : null;
         const isActive = muscle === activeMuscle;
-        const label = `${muscle}: ${tier?.label ?? 'Not Trained'}, ${stat?.sets ?? 0} sets this week`;
+        const label = labelFor ? labelFor(muscle) : `${muscle}: ${tier?.label ?? 'Not Trained'}, ${stat?.sets ?? 0} sets this week`;
         return rawFiles.map((rawSvg, i) => (
           <MuscleLayer
             key={`${muscle}-${i}`}
             rawSvg={rawSvg}
-            color={tier?.color ?? '#64748b'}
+            color={colorFor ? colorFor(muscle) : (tier?.color ?? '#64748b')}
             isActive={isActive}
             onSelect={() => onSelectMuscle(muscle)}
             ariaLabel={label}

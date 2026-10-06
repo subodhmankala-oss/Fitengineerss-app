@@ -5168,3 +5168,22 @@ html.keyboard-open .rest-timer-floating-card {
   border-color: rgba(139, 92, 246, 0.5);
   color: var(--accent-text);
 }
+
+.wt-library-chips { display: block; overflow: visible; }
+.wt-library-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+.wt-library-chip-row::-webkit-scrollbar { display: none; }
+.wt-library-chip-label {
+  flex: 0 0 62px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

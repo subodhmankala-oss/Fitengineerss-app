@@ -111,11 +111,25 @@ export function getProgramEquipment(exercises) {
   return found;
 }
 
+export const FOCUS_FILTERS = ['Push', 'Pull', 'Legs', 'Core'].map(id => ({ id, label: id }));
+export const LEVEL_FILTERS = [
+  { id: 'beginner', label: '🌱 Beginner' },
+  { id: 'intermediate', label: '⚡ Intermediate' },
+  { id: 'advanced', label: '🔥 Advanced' },
+];
+export const PLACE_FILTERS = [
+  { id: 'gym', label: '🏋️ Gym' },
+  { id: 'home', label: '🏠 Home' },
+];
+
 // entries carry estMinutes + equipment (Set). Empty filter = no restriction.
-export function filterByChips(entries, { duration, equipment } = {}) {
+export function filterByChips(entries, { duration, equipment, focus, level, place } = {}) {
   const d = DURATION_FILTERS.find(f => f.id === duration);
   return entries.filter(e =>
     (!d || d.test(e.estMinutes)) &&
-    (!equipment || e.equipment?.has(equipment))
+    (!equipment || e.equipment?.has(equipment)) &&
+    (!focus || e.focus === focus) &&
+    (!level || e.level === level) &&
+    (!place || e.category === place)
   );
 }

@@ -63,3 +63,16 @@ describe('chip filters', () => {
     expect(filterByChips(list, {})).toHaveLength(3);
   });
 });
+
+describe('focus / level / place chips', () => {
+  const list = [
+    { id: 1, estMinutes: 30, equipment: new Set(['none']), focus: 'Push', level: 'beginner', category: 'home' },
+    { id: 2, estMinutes: 30, equipment: new Set(['none']), focus: 'Legs', level: 'advanced', category: 'gym' },
+  ];
+  it('filters each and combines them', () => {
+    expect(filterByChips(list, { focus: 'Legs' }).map(e => e.id)).toEqual([2]);
+    expect(filterByChips(list, { level: 'beginner' }).map(e => e.id)).toEqual([1]);
+    expect(filterByChips(list, { place: 'gym' }).map(e => e.id)).toEqual([2]);
+    expect(filterByChips(list, { place: 'gym', level: 'beginner' })).toEqual([]);
+  });
+});

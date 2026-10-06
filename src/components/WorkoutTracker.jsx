@@ -37,7 +37,7 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
-import { searchLibrary, filterByChips, getProgramEquipment, DURATION_FILTERS, EQUIPMENT_FILTERS } from '../utils/librarySearch';
+import { searchLibrary, filterByChips, getProgramEquipment, DURATION_FILTERS, EQUIPMENT_FILTERS, FOCUS_FILTERS, LEVEL_FILTERS, PLACE_FILTERS } from '../utils/librarySearch';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -312,7 +312,10 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   const [allLibrary, setAllLibrary] = useState(null);
   const [durationFilter, setDurationFilter] = useState(null);
   const [equipmentFilter, setEquipmentFilter] = useState(null);
-  const libraryFiltering = !!(librarySearch.trim() || durationFilter || equipmentFilter);
+  const [focusFilter, setFocusFilter] = useState(null);
+  const [levelFilter, setLevelFilter] = useState(null);
+  const [placeFilter, setPlaceFilter] = useState(null);
+  const libraryFiltering = !!(librarySearch.trim() || durationFilter || equipmentFilter || focusFilter || levelFilter || placeFilter);
   const [loadingAllLibrary, setLoadingAllLibrary] = useState(false);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
@@ -366,10 +369,10 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     const enriched = allLibrary.map(e => {
       const exercises = Array.isArray(e.workout.exercises) ? e.workout.exercises : [];
       const meta = getPlanCardMeta({ exercises, planName: e.workout.name });
-      return { ...e, muscles: meta.muscles, estMinutes: meta.estMinutes, equipment: getProgramEquipment(exercises) };
+      return { ...e, muscles: meta.muscles, estMinutes: meta.estMinutes, focus: meta.category, equipment: getProgramEquipment(exercises) };
     });
-    return filterByChips(searchLibrary(enriched, librarySearch), { duration: durationFilter, equipment: equipmentFilter });
-  }, [libraryFiltering, allLibrary, librarySearch, durationFilter, equipmentFilter]);
+    return filterByChips(searchLibrary(enriched, librarySearch), { duration: durationFilter, equipment: equipmentFilter, focus: focusFilter, level: levelFilter, place: placeFilter });
+  }, [libraryFiltering, allLibrary, librarySearch, durationFilter, equipmentFilter, focusFilter, levelFilter, placeFilter]);
 
   // Persist the Workout Library level so the next mount restores it — see
   // lastLevelKey above. (activeView itself is NOT mirrored on every change:
@@ -3220,16 +3223,22 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               )}
             </div>
 
-            <div className="wt-library-chips" role="group" aria-label="Filter by duration and equipment">
-              {DURATION_FILTERS.map(f => (
-                <button key={f.id} type="button" className={`wt-library-chip${durationFilter === f.id ? ' active' : ''}`}
-                  aria-pressed={durationFilter === f.id}
-                  onClick={() => setDurationFilter(durationFilter === f.id ? null : f.id)}>⏱ {f.label}</button>
-              ))}
-              {EQUIPMENT_FILTERS.map(f => (
-                <button key={f.id} type="button" className={`wt-library-chip${equipmentFilter === f.id ? ' active' : ''}`}
-                  aria-pressed={equipmentFilter === f.id}
-                  onClick={() => setEquipmentFilter(equipmentFilter === f.id ? null : f.id)}>{f.label}</button>
+            <div className="wt-library-chips" role="group" aria-label="Filter the Workout Library">
+              {[
+                ['Where', PLACE_FILTERS, placeFilter, setPlaceFilter, ''],
+                ['Level', LEVEL_FILTERS, levelFilter, setLevelFilter, ''],
+                ['Focus', FOCUS_FILTERS, focusFilter, setFocusFilter, ''],
+                ['Time', DURATION_FILTERS, durationFilter, setDurationFilter, '⏱ '],
+                ['Equipment', EQUIPMENT_FILTERS, equipmentFilter, setEquipmentFilter, ''],
+              ].map(([group, options, value, setValue, prefix]) => (
+                <div key={group} className="wt-library-chip-row">
+                  <span className="wt-library-chip-label">{group}</span>
+                  {options.map(f => (
+                    <button key={f.id} type="button" className={`wt-library-chip${value === f.id ? ' active' : ''}`}
+                      aria-pressed={value === f.id}
+                      onClick={() => setValue(value === f.id ? null : f.id)}>{prefix}{f.label}</button>
+                  ))}
+                </div>
               ))}
             </div>
 

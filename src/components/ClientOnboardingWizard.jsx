@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import databaseService from '../services/databaseService';
 import { togglePick, pickTag, MAX_PICKS } from '../utils/multiPick';
 import './ClientOnboardingWizard.css';
-import FounderMessageCard from './FounderMessageCard';
 
 const TOTAL_STEPS = 3;
 
@@ -17,8 +16,36 @@ function joinWithAnd(items) {
 }
 
 const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
+  const overlayRef = useRef(null);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Phone keyboards (iOS especially) cover the bottom of a fixed overlay
+  // without resizing it, so Age / Weight / Height ended up hidden behind the
+  // keyboard. Pad the overlay by the keyboard height and scroll the focused
+  // field into view.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = overlayRef.current;
+    if (!vv || !el) return undefined;
+    const sync = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      el.style.paddingBottom = kb > 80 ? `${kb + 20}px` : '';
+    };
+    const onFocusIn = (e) => {
+      if (!/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      setTimeout(() => {
+        sync();
+        e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 300);
+    };
+    vv.addEventListener('resize', sync);
+    el.addEventListener('focusin', onFocusIn);
+    return () => {
+      vv.removeEventListener('resize', sync);
+      el.removeEventListener('focusin', onFocusIn);
+    };
+  }, []);
 
   // Step 1 — Name + body stats. Prefill the name from whatever login captured
   // (e.g. a Google display name), but treat the "Warrior" placeholder as empty
@@ -417,7 +444,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const stepContent = [renderStep1, renderStep2, renderStep3];
 
   return (
-    <div className="cow-overlay">
+    <div className="cow-overlay" ref={overlayRef}>
       <div className="cow-card">
         {/* Header */}
         <div className="cow-header">
@@ -434,10 +461,6 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
 
         {/* Progress */}
         {renderProgressBar()}
-
-        {/* The founder's welcome / "stuck? reply" message — mainly for
-            people coming back after quitting sign-up midway. */}
-        <FounderMessageCard compact />
 
         {/* Step content */}
         <div className="cow-body">

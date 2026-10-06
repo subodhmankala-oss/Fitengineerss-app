@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
@@ -16,6 +16,7 @@ import { notifyEvent } from '../utils/pushNotify';
 import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
 import './WorkoutShareCard.css';
+import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { useTour } from '../context/useTour';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import ClockTimerModal from './ClockTimerModal';
@@ -35,11 +36,9 @@ import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
-import { PPLC_COLOR } from '../utils/planCardMeta';
-import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
-import { flattenLibrary, getRecentlyUsed, readFavoriteIds, toggleFavoriteId, getFavorites } from '../utils/librarySections';
-import useWorkoutLibrary from '../hooks/useWorkoutLibrary';
-import LibraryProgramCard from './LibraryProgramCard';
+import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
+import { getProgramTags } from '../utils/programCardTags';
+import LibraryProgramPreview from './LibraryProgramPreview';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -308,30 +307,10 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
   const [showAllLevelWorkouts, setShowAllLevelWorkouts] = useState(false);
-  // Library top sections — Recommended for you (same pick as the Home
-  // screen's NextWorkoutBanner), Recently used (from this client's own
-  // sessions) and Favorites (starred on this device).
-  const fullLibrary = useWorkoutLibrary();
-  const favoritesKey = `libraryFavorites_${localStorage.getItem('userId') || loggedInUser}`;
-  const [favoriteIds, setFavoriteIds] = useState(() => readFavoriteIds(favoritesKey));
-  const toggleFavorite = (id) => {
-    const next = toggleFavoriteId(favoriteIds, id);
-    setFavoriteIds(next);
-    try { localStorage.setItem(favoritesKey, JSON.stringify(next)); } catch { /* storage blocked — kept until reload */ }
-  };
-  const librarySections = useMemo(() => {
-    if (!fullLibrary) return null;
-    const entries = flattenLibrary(fullLibrary);
-    const own = sessions
-      .filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase())
-      .map(s => ({ date: s.date, planName: s.planName }));
-    const guidance = determineWorkoutGuidance(fullLibrary, own);
-    return {
-      recommended: guidance ? { workout: guidance.program, category: guidance.category, level: guidance.level } : null,
-      recent: getRecentlyUsed(entries, own),
-      favorites: getFavorites(entries, favoriteIds),
-    };
-  }, [fullLibrary, sessions, selectedClient, favoriteIds]);
+  // Library card tapped -> { workout, level } shown in LibraryProgramPreview
+  // (exercise list + Start), instead of starting the workout straight away.
+  const [previewProgram, setPreviewProgram] = useState(null);
+  const closeProgramPreview = useCallback(() => setPreviewProgram(null), []);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
   // Whether this client is actually connected to a coach. Initialized from the
@@ -3200,32 +3179,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               </div>
             </div>
 
-            {librarySections && [
-              ['⭐ Recommended for you', librarySections.recommended ? [librarySections.recommended] : []],
-              ['❤️ Favorites', librarySections.favorites],
-              ['🕘 Recently used', librarySections.recent],
-            ].filter(([, items]) => items.length > 0).map(([title, items]) => (
-              <div key={title} className="wt-library-section">
-                <h4 className="wt-library-section-title">{title}</h4>
-                <div className="wt-library-grid">
-                  {items.map(({ workout, category, level }) => (
-                    <LibraryProgramCard
-                      key={workout.id}
-                      workout={workout}
-                      category={category}
-                      level={level}
-                      showWhere
-                      isFavorite={favoriteIds.includes(workout.id)}
-                      onToggleFavorite={toggleFavorite}
-                      onStart={(w, lvl) => handleStartFromTemplate({ name: w.name, exercises: Array.isArray(w.exercises) ? w.exercises : [] }, lvl)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {librarySections && <h4 className="wt-library-section-title">📚 All programs</h4>}
-
             {/* Gym vs Home — every level exists in both, so this sits above
                 the level tabs rather than replacing one of them. Home
                 programs are bodyweight/no-equipment only. */}
@@ -3267,17 +3220,42 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               </div>
             ) : (
               <div className="wt-library-grid">
-                {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => (
-                  <LibraryProgramCard
-                    key={workout.id}
-                    workout={workout}
-                    category={genericCategory}
-                    level={genericLevel}
-                    isFavorite={favoriteIds.includes(workout.id)}
-                    onToggleFavorite={toggleFavorite}
-                    onStart={(w, lvl) => handleStartFromTemplate({ name: w.name, exercises: Array.isArray(w.exercises) ? w.exercises : [] }, lvl)}
-                  />
-                ))}
+                {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => {
+                  const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
+                  const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
+                  const tags = getProgramTags(exList, workout.name);
+                  return (
+                    <button
+                      key={workout.id}
+                      type="button"
+                      className={`wt-program-card wt-program-card--${genericLevel}`}
+                      onClick={() => setPreviewProgram({ workout, level: genericLevel })}
+                    >
+                      <div className="wt-program-tile">
+                        {meta.muscles.length > 1 ? (
+                          <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
+                        ) : (
+                          <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
+                        )}
+                      </div>
+                      <div className="wt-program-info">
+                        <div className="wt-program-name">{workout.name}</div>
+                        <div className="wt-program-meta">
+                          <span className={`wt-program-dot wt-program-dot--${genericLevel}`} />
+                          {exList.length} exercise{exList.length === 1 ? '' : 's'}
+                        </div>
+                        <div className="wt-program-tags">
+                          <span className={`wt-program-tag wt-program-tag--${genericLevel}`}>
+                            {genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1)}
+                          </span>
+                          <span className="wt-program-tag">⏱ ~{tags.minutes} min</span>
+                          {tags.equipment.map(e => <span key={e} className="wt-program-tag">{e}</span>)}
+                        </div>
+                      </div>
+                      <span className="wt-program-chevron">›</span>
+                    </button>
+                  );
+                })}
                 {!showAllLevelWorkouts && levelWorkouts.length > 4 && (
                   <button
                     type="button"
@@ -3290,6 +3268,18 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               </div>
             )}
           </div>
+
+          {previewProgram && (
+            <LibraryProgramPreview
+              workout={previewProgram.workout}
+              level={previewProgram.level}
+              onClose={closeProgramPreview}
+              onStart={(w, lvl) => {
+                setPreviewProgram(null);
+                handleStartFromTemplate({ name: w.name, exercises: Array.isArray(w.exercises) ? w.exercises : [] }, lvl);
+              }}
+            />
+          )}
 
           {/* Quick empty start CTA */}
           <div className="wt-blank-cta">

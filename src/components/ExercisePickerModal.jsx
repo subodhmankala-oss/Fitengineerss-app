@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, PICKER_HIDDEN_NAMES } from '../data/exerciseLibrary';
-import { getMuscleGroupsForExercise } from '../utils/muscleGroups';
+import { getMuscleGroupsForExercise, exerciseTargetsMuscle, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
+import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
+import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
 import CreateCustomExerciseModal from './CreateCustomExerciseModal';
@@ -56,6 +58,12 @@ const CLOSE_ANIM_MS = 240;
 export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove, onShowFormGuide, creatorMode = 'client', coachId = null, clientUserId = null, clientName = '' }) {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState('All');
+  // Body picker: tap a muscle on the diagram to list only exercises that
+  // mainly train it. Separate from the category chips — picking one clears
+  // the other, so the two never silently combine into an empty list.
+  const [bodyMuscle, setBodyMuscle] = useState(null);
+  const [showBody, setShowBody] = useState(false);
+  const [bodyView, setBodyView] = useState('front');
   const [exercises, setExercises] = useState([]);
   const [customExercises, setCustomExercises] = useState([]);
   const [showCreateExercise, setShowCreateExercise] = useState(false);
@@ -84,6 +92,8 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       // from the last time it was open — reset them fresh on every open.
       setQuery('');
       setTag('All');
+      setBodyMuscle(null);
+      setShowBody(false);
     } else {
       setClosing(true);
     }
@@ -114,6 +124,15 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   }, [open, creatorMode, coachId, clientUserId]);
 
   if (!mounted) return null;
+
+  // Picking a muscle closes the diagram so the filtered list has the room;
+  // the 🧍 chip keeps showing which muscle is active.
+  const pickBodyMuscle = (m) => {
+    setBodyMuscle(m);
+    setTag('All');
+    setShowBody(false);
+    listRef.current?.scrollTo?.({ top: 0 });
+  };
 
   // Merge, don't choose one-or-the-other: the DB-backed `exercises` table
   // used to fully replace EXERCISE_LIBRARY whenever it had any rows (which
@@ -169,7 +188,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     .filter(({ ex, rank }) => {
       const matchesSearch = rank !== -1;
       const matchesCategory = tag === 'All' || ex.category === tag;
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory && exerciseTargetsMuscle(ex, bodyMuscle);
     })
     .sort((a, b) => a.rank - b.rank || a.ex.name.localeCompare(b.ex.name))
     .map(({ ex }) => ex);
@@ -214,17 +233,68 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
         </div>
 
         <div className="exercise-filter-tags">
+          <button
+            type="button"
+            className={`filter-tag-btn exercise-body-toggle ${showBody || bodyMuscle ? 'active' : ''}`}
+            aria-expanded={showBody}
+            onClick={() => setShowBody(v => !v)}
+          >
+            🧍 {bodyMuscle || 'Body'}
+          </button>
+          {bodyMuscle && (
+            <button
+              type="button"
+              className="filter-tag-btn"
+              aria-label={`Clear ${bodyMuscle} filter`}
+              onClick={() => setBodyMuscle(null)}
+            >
+              ✕
+            </button>
+          )}
           {EXERCISE_CATEGORIES.map(t => (
             <button
               key={t}
               type="button"
-              className={`filter-tag-btn ${tag === t ? 'active' : ''}`}
-              onClick={() => setTag(t)}
+              className={`filter-tag-btn ${tag === t && !bodyMuscle ? 'active' : ''}`}
+              onClick={() => { setTag(t); setBodyMuscle(null); }}
             >
               {t}
             </button>
           ))}
         </div>
+
+        {showBody && (
+          <div className="exercise-body-picker">
+            <div className="heatmap-view-toggle">
+              <button type="button" className={bodyView === 'front' ? 'active' : ''} onClick={() => setBodyView('front')}>Front</button>
+              <button type="button" className={bodyView === 'back' ? 'active' : ''} onClick={() => setBodyView('back')}>Back</button>
+            </div>
+            <div className="exercise-body-picker-main">
+              <div className="exercise-body-picker-diagram">
+                <BodyDiagram
+                  view={bodyView}
+                  activeMuscle={bodyMuscle}
+                  colorFor={m => (m === bodyMuscle ? '#8b5cf6' : '#64748b')}
+                  labelFor={m => `Show ${m} exercises`}
+                  onSelectMuscle={pickBodyMuscle}
+                />
+              </div>
+              {/* Same muscles as tap targets — the SVG shapes are small on a phone. */}
+              <div className="exercise-body-picker-chips">
+                {Object.entries(MUSCLE_BODY_VIEW).filter(([, v]) => v === bodyView).map(([m]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`filter-tag-btn ${bodyMuscle === m ? 'active' : ''}`}
+                    onClick={() => pickBodyMuscle(m)}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="exercise-presets-list" ref={listRef}>
           {trimmed && !exactExists && (
@@ -254,7 +324,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
 
           {filtered.length === 0 && !trimmed ? (
             <div className="no-presets-found" style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ fontSize: '0.9rem' }}>No exercises in this category.</p>
+              <p style={{ fontSize: '0.9rem' }}>{bodyMuscle ? `No ${bodyMuscle} exercises found.` : 'No exercises in this category.'}</p>
             </div>
           ) : (
             filtered.map(ex => {

@@ -4704,6 +4704,14 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-program-dot--intermediate { background: #f59e0b; }
 .wt-program-dot--advanced { background: #ef4444; }
 
+.wt-program-preview {
+  font-size: 0.69rem;
+  color: rgba(148, 163, 184, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .wt-program-chevron {
   font-size: 1.5rem;
   line-height: 1;
@@ -5099,123 +5107,39 @@ html.keyboard-open .rest-timer-floating-card {
   .hevy-set-row.set-row-exit { animation: none; }
 }
 
-/* Workout Library card tags (difficulty / time / equipment) — shared with
-   the program preview sheet. */
-.wt-program-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
+/* Add Exercise body picker — tap a muscle on the diagram (or its chip) to
+   list exercises that mainly train it. */
+.exercise-body-toggle {
+  flex-shrink: 0;
 }
-.wt-program-tag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(var(--fg-rgb), 0.06);
-  color: var(--text-muted);
-  font-size: 0.66rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.wt-program-tag--beginner { color: var(--primary-accent-light); background: rgba(var(--fg-rgb), 0.06); }
-.wt-program-tag--intermediate { color: #f59e0b; background: rgba(245, 158, 11, 0.12); }
-.wt-program-tag--advanced { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
-
-/* Program preview bottom sheet. z-index clears .bottom-nav (1000). */
-.wt-preview-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-}
-.wt-preview-sheet {
-  width: 100%;
-  max-width: 560px;
-  max-height: 85vh;
+.exercise-body-picker {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-sizing: border-box;
-  padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
-  border-radius: 20px 20px 0 0;
-  background: var(--bg-card, #111827);
-  border: 1px solid rgba(var(--fg-rgb), 0.08);
-  border-bottom: none;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--fg-rgb), 0.07);
+  background: rgba(var(--fg-rgb), 0.02);
 }
-.wt-preview-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.wt-preview-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--text-main);
-}
-.wt-preview-close {
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(var(--fg-rgb), 0.06);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.wt-preview-sheet .wt-program-tag { font-size: 0.72rem; padding: 3px 10px; }
-.wt-preview-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.wt-preview-item {
+.exercise-body-picker-main {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(var(--fg-rgb), 0.04);
-}
-.wt-preview-num {
-  flex: 0 0 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(139, 92, 246, 0.16);
-  color: var(--accent-text);
-  font-size: 0.7rem;
-  font-weight: 800;
-  line-height: 22px;
-  text-align: center;
-}
-.wt-preview-name {
-  flex: 1;
-  min-width: 0;
-  color: var(--text-main);
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-.wt-preview-sets {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-  font-size: 0.74rem;
-}
-.wt-preview-start {
+  justify-content: center;
+  gap: 14px;
   width: 100%;
-  padding: 14px;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #8b5cf6, #6366f1);
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 800;
-  font-family: inherit;
-  cursor: pointer;
+}
+.exercise-body-picker-diagram {
+  width: 110px;
+  flex: 0 0 110px;
+}
+.exercise-body-picker-diagram .muscle-body-stack {
+  max-width: 110px;
+}
+.exercise-body-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 200px;
 }

@@ -37,8 +37,6 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
-import { getProgramTags } from '../utils/programCardTags';
-import LibraryProgramPreview from './LibraryProgramPreview';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -307,10 +305,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
   const [showAllLevelWorkouts, setShowAllLevelWorkouts] = useState(false);
-  // Library card tapped -> { workout, level } shown in LibraryProgramPreview
-  // (exercise list + Start), instead of starting the workout straight away.
-  const [previewProgram, setPreviewProgram] = useState(null);
-  const closeProgramPreview = useCallback(() => setPreviewProgram(null), []);
   // Set type popup menu: { exIdx, sIdx } when open, null when closed
   const [setTypeMenu, setSetTypeMenu] = useState(null);
   // Whether this client is actually connected to a coach. Initialized from the
@@ -3223,13 +3217,12 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => {
                   const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
                   const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
-                  const tags = getProgramTags(exList, workout.name);
                   return (
                     <button
                       key={workout.id}
                       type="button"
                       className={`wt-program-card wt-program-card--${genericLevel}`}
-                      onClick={() => setPreviewProgram({ workout, level: genericLevel })}
+                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel)}
                     >
                       <div className="wt-program-tile">
                         {meta.muscles.length > 1 ? (
@@ -3244,13 +3237,11 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                           <span className={`wt-program-dot wt-program-dot--${genericLevel}`} />
                           {exList.length} exercise{exList.length === 1 ? '' : 's'}
                         </div>
-                        <div className="wt-program-tags">
-                          <span className={`wt-program-tag wt-program-tag--${genericLevel}`}>
-                            {genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1)}
-                          </span>
-                          <span className="wt-program-tag">⏱ ~{tags.minutes} min</span>
-                          {tags.equipment.map(e => <span key={e} className="wt-program-tag">{e}</span>)}
-                        </div>
+                        {exList.length > 0 && (
+                          <div className="wt-program-preview">
+                            {exList.slice(0, 3).map(e => e.name).join(' · ')}{exList.length > 3 ? ` +${exList.length - 3}` : ''}
+                          </div>
+                        )}
                       </div>
                       <span className="wt-program-chevron">›</span>
                     </button>
@@ -3268,18 +3259,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
               </div>
             )}
           </div>
-
-          {previewProgram && (
-            <LibraryProgramPreview
-              workout={previewProgram.workout}
-              level={previewProgram.level}
-              onClose={closeProgramPreview}
-              onStart={(w, lvl) => {
-                setPreviewProgram(null);
-                handleStartFromTemplate({ name: w.name, exercises: Array.isArray(w.exercises) ? w.exercises : [] }, lvl);
-              }}
-            />
-          )}
 
           {/* Quick empty start CTA */}
           <div className="wt-blank-cta">

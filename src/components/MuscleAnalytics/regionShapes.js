@@ -28,6 +28,7 @@ import forearmRaw from './assets/muscle-forearm.svg?raw';
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw';
 import teresRaw from './assets/muscle-teres.svg?raw';
 import hamstringsRaw from './assets/muscle-hamstrings.svg?raw';
+import tibialisRaw from './assets/muscle-tibialis.svg?raw';
 
 // Pec spans y 68–102: thirds-ish, upper band a little deeper (clavicular head).
 const PEC_X = [55, 142];
@@ -87,11 +88,7 @@ export const REGION_SHAPES = {
   },
   Calves: { view: 'back', parts: [{ raw: muscle7Raw }], box: [71, 261, 130, 351] },
   // Tibialis anterior: FRONT of the shin, outer edge, knee to ankle.
-  Tibialis: {
-    view: 'front',
-    paths: ['M76,268 C72,282 73,302 77,325 L81,325 C83,302 84,284 82,268 Z', 'M124,268 C128,282 127,302 123,325 L119,325 C117,302 116,284 118,268 Z'],
-    box: [72, 266, 128, 327],
-  },
+  Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [72, 266, 128, 327] },
 };
 
 // Square zoom window around a region's box (with breathing room so the

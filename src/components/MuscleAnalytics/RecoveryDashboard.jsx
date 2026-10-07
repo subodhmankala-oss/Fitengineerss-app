@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { MUSCLE_GROUPS } from '../../utils/muscleGroups';
+import { MUSCLE_GROUPS, OPTIONAL_MUSCLES } from '../../utils/muscleGroups';
 import { getMuscleRecovery, formatEstimatedReady } from '../../utils/muscleAnalytics';
 
 const formatHoursAgo = (hours) => {
@@ -11,6 +11,9 @@ const formatHoursAgo = (hours) => {
 
 const RecoveryRow = ({ muscle, logs, now }) => {
   const recovery = useMemo(() => getMuscleRecovery(logs, muscle, now), [logs, muscle, now]);
+
+  // Optional muscles (Tibialis) only get a row once they've been trained.
+  if (!recovery && OPTIONAL_MUSCLES.has(muscle)) return null;
 
   if (!recovery) {
     return (

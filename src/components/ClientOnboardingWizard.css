@@ -242,6 +242,42 @@
   animation: cow-shake 0.3s ease;
 }
 
+/* Sex picker — a segmented control the same height as .cow-input. */
+.cow-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 12px;
+}
+
+.cow-seg.error {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.06);
+  animation: cow-shake 0.3s ease;
+}
+
+.cow-seg-btn {
+  padding: 10px 6px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.cow-seg-btn.selected {
+  background: rgba(139, 92, 246, 0.18);
+  color: var(--text-main);
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.55);
+}
+
 @keyframes cow-shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }

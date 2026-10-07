@@ -24,6 +24,7 @@ function toStep2() {
   type('e.g. Priya Sharma', 'Asha');
   type('10-digit mobile number', '9876543210');
   type('e.g. 28', '29');
+  fireEvent.click(screen.getByRole('radio', { name: 'Female' }));
   type('e.g. 72', '72');
   type('e.g. 175', '175');
   next();
@@ -103,6 +104,7 @@ describe('ClientOnboardingWizard — goal: pick up to 2, three steps', () => {
     await waitFor(() => expect(onComplete).toHaveBeenCalled());
     const payload = db.saveClientOnboardingData.mock.calls[0][0];
     expect(payload).toMatchObject({
+      sex: 'female',
       program: 'gut_repair',
       secondary_program: 'fat_loss',
       activity_level: 'lightly_active'

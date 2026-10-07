@@ -1520,6 +1520,8 @@ const databaseService = {
               weight_kg: parseFloat(profile.userWeight) || null,
               height_cm: parseFloat(profile.userHeight) || null,
               age: parseInt(profile.userAge) || null,
+              // Omitted (not null) when absent, like phone_number above.
+              sex: profile.userSex || undefined,
               activity_level: profile.userActivity,
               dietary_preference: profile.userDiet,
               calorie_target: parseInt(profile.userCalorieTarget) || null,
@@ -1616,6 +1618,8 @@ const databaseService = {
         weight_kg: parseFloat(profile.userWeight) || null,
         height_cm: parseFloat(profile.userHeight) || null,
         age: parseInt(profile.userAge) || null,
+        // Omitted (not null) when absent, like phone_number above.
+        sex: profile.userSex || undefined,
         activity_level: profile.userActivity,
         dietary_preference: profile.userDiet,
         calorie_target: parseInt(profile.userCalorieTarget) || null,
@@ -2393,6 +2397,7 @@ const databaseService = {
             // Gravatar lookup by email, then to initials, when this is null.
             userAvatarUrl: user.avatar_url || null,
             userAge: client?.age ? String(client.age) : '',
+            userSex: client?.sex || '',
             userHeight: client?.height_cm ? String(client.height_cm) : '',
             userWeight: client?.weight_kg ? String(client.weight_kg) : '',
             userActivity: client?.activity_level || '',
@@ -2470,6 +2475,7 @@ const databaseService = {
         id: userId,
         userName: mClient?.full_name || mUser?.full_name || mCoach?.brand_name || email.split('@')[0],
         userAge: mClient?.age ? String(mClient.age) : '',
+        userSex: mClient?.sex || '',
         userHeight: mClient?.height_cm ? String(mClient.height_cm) : '',
         userWeight: mClient?.weight_kg ? String(mClient.weight_kg) : '',
         userActivity: mClient?.activity_level || '',
@@ -2559,7 +2565,7 @@ const databaseService = {
   },
 
   // ─── CLIENT ONBOARDING WIZARD ───
-  async saveClientOnboardingData({ age, weight_kg, height_cm, program, secondary_program, activity_level, primary_concern, full_name, phone }) {
+  async saveClientOnboardingData({ age, sex, weight_kg, height_cm, program, secondary_program, activity_level, primary_concern, full_name, phone }) {
     const userId = localStorage.getItem('userId');
 
     // Persist the client's real name locally right away so the dashboard header
@@ -2573,6 +2579,7 @@ const databaseService = {
 
     // Update localStorage immediately
     if (age) localStorage.setItem('userAge', String(age));
+    if (sex) localStorage.setItem('userSex', sex);
     if (weight_kg) localStorage.setItem('userWeight', String(weight_kg));
     if (height_cm) localStorage.setItem('userHeight', String(height_cm));
     if (activity_level) localStorage.setItem('userActivity', activity_level);
@@ -2605,7 +2612,7 @@ const databaseService = {
     // Recompute macro targets from the values the client actually entered. Without
     // this, the Calories/Protein cards keep showing the signup seed defaults
     // (e.g. 2000 kcal / 120 g) regardless of what the client picked in the wizard.
-    const targets = calculateTargetsGeneric(weight_kg, height_cm, age, mappedActivity, mappedGoal);
+    const targets = calculateTargetsGeneric(weight_kg, height_cm, age, mappedActivity, mappedGoal, sex);
     localStorage.setItem('userCalorieTarget', String(targets.calories));
     localStorage.setItem('userProteinTarget', String(targets.protein));
     localStorage.setItem('userCarbsTarget', String(targets.carbs));
@@ -2622,6 +2629,7 @@ const databaseService = {
       fats_target: targets.fats
     };
     if (age) coreStats.age = parseInt(age);
+    if (sex) coreStats.sex = sex;
     if (weight_kg) coreStats.weight_kg = parseFloat(weight_kg);
     if (height_cm) coreStats.height_cm = parseFloat(height_cm);
     if (cleanPhone) coreStats.phone_number = cleanPhone;
@@ -2804,6 +2812,7 @@ const databaseService = {
             avatarUrl: c.users?.avatar_url || null,
             userName: c.full_name,
             userAge: String(c.age || ''),
+            userSex: c.sex || '',
             userHeight: String(c.height_cm || ''),
             userWeight: String(c.weight_kg || ''),
             userActivity: c.activity_level || '',
@@ -2841,6 +2850,7 @@ const databaseService = {
                 avatarUrl: c.users?.avatar_url || null,
                 userName: c.full_name,
                 userAge: String(c.age || ''),
+                userSex: c.sex || '',
                 userHeight: String(c.height_cm || ''),
                 userWeight: String(c.weight_kg || ''),
                 userActivity: c.activity_level || '',
@@ -2891,6 +2901,7 @@ const databaseService = {
         email: u?.email || `${c.full_name.toLowerCase().replace(/\s+/g, '')}@fitengineers.com`,
         userName: c.full_name,
         userAge: String(c.age || ''),
+        userSex: c.sex || '',
         userHeight: String(c.height_cm || ''),
         userWeight: String(c.weight_kg || ''),
         userActivity: c.activity_level || '',
@@ -2961,6 +2972,7 @@ const databaseService = {
             avatarUrl: c.users?.avatar_url || null,
             userName: c.full_name,
             userAge: String(c.age || ''),
+            userSex: c.sex || '',
             userHeight: String(c.height_cm || ''),
             userWeight: String(c.weight_kg || ''),
             userActivity: c.activity_level || '',
@@ -2993,6 +3005,7 @@ const databaseService = {
             avatarUrl: c.users?.avatar_url || null,
             userName: c.full_name,
             userAge: String(c.age || ''),
+            userSex: c.sex || '',
             userHeight: String(c.height_cm || ''),
             userWeight: String(c.weight_kg || ''),
             userActivity: c.activity_level || '',
@@ -3026,6 +3039,7 @@ const databaseService = {
         email: u?.email || '',
         userName: c.full_name,
         userAge: String(c.age || ''),
+        userSex: c.sex || '',
         userHeight: String(c.height_cm || ''),
         userWeight: String(c.weight_kg || ''),
         userActivity: c.activity_level || '',

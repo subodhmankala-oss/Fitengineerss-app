@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import databaseService from '../services/databaseService';
 import { togglePick, pickTag, MAX_PICKS } from '../utils/multiPick';
+import { SEX_OPTIONS } from '../utils/targets';
 import './ClientOnboardingWizard.css';
 
 const TOTAL_STEPS = 3;
@@ -63,6 +64,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     return p;
   });
   const [age, setAge] = useState('');
+  const [sex, setSex] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
 
@@ -79,7 +81,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
   const [step1Error, setStep1Error] = useState('');
   // Which step-1 field(s) specifically are empty/invalid — drives the red
   // border on that exact input, not just the shared error banner text below it.
-  const [step1FieldErrors, setStep1FieldErrors] = useState({ name: false, phone: false, age: false, weight: false, height: false });
+  const [step1FieldErrors, setStep1FieldErrors] = useState({ name: false, phone: false, age: false, sex: false, weight: false, height: false });
   // Steps 2-3 are option picks, not text fields, so "which field" is really
   // "did they pick anything yet" — one flag per step is enough to redden the
   // whole card/row group. All three steps are mandatory: nothing here is
@@ -101,6 +103,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         name: !name.trim(),
         phone: digitsOnly.length !== 10,
         age: !isInRange(age, 10, 100),
+        sex: !sex,
         weight: !isInRange(weight, 20, 300),
         height: !isInRange(height, 100, 250)
       };
@@ -108,6 +111,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         errors.name && 'your name',
         errors.phone && 'a valid 10-digit phone number',
         errors.age && 'your age (10–100)',
+        errors.sex && 'your sex',
         errors.weight && 'your weight in kg (20–300)',
         errors.height && 'your height in cm (100–250)'
       ].filter(Boolean);
@@ -116,7 +120,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
         setStep1Error(`Please enter ${joinWithAnd(problems)}.`);
         return;
       }
-      setStep1FieldErrors({ name: false, phone: false, age: false, weight: false, height: false });
+      setStep1FieldErrors({ name: false, phone: false, age: false, sex: false, weight: false, height: false });
       setStep1Error('');
     } else if (step === 2) {
       if (programs.length === 0) { setStep2Error('Please select a program to continue.'); return; }
@@ -153,6 +157,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
     // placeholder body stats are ever saved as if the client entered them.
     const payload = {
       age,
+      sex,
       weight_kg: weight,
       height_cm: height,
       program: programs[0],
@@ -305,6 +310,25 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
             min="10"
             max="100"
           />
+        </div>
+        {/* Sets the calorie target formula (men and women burn differently
+            at rest). */}
+        <div className="cow-field">
+          <label className="cow-label" id="cow-sex-label">Sex</label>
+          <div className={`cow-seg ${step1FieldErrors.sex ? 'error' : ''}`} role="radiogroup" aria-labelledby="cow-sex-label">
+            {SEX_OPTIONS.map(o => (
+              <button
+                key={o.id}
+                type="button"
+                role="radio"
+                aria-checked={sex === o.id}
+                className={`cow-seg-btn ${sex === o.id ? 'selected' : ''}`}
+                onClick={() => { setSex(o.id); if (step1FieldErrors.sex) setStep1FieldErrors(prev => ({ ...prev, sex: false })); }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="cow-field-row">
           <div className="cow-field">

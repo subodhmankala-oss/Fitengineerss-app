@@ -4,6 +4,7 @@ import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { useTheme } from '../context/useTheme';
 import { kgToDisplayWeight, displayWeightToKg } from '../utils/weightUnits';
+import { SEX_OPTIONS } from '../utils/targets';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
 import './ClientProfile.css';
@@ -58,6 +59,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
   const readProfile = () => ({
     userName: localStorage.getItem('userName') || '',
     userAge: localStorage.getItem('userAge') || '',
+    userSex: localStorage.getItem('userSex') || '',
     userHeight: localStorage.getItem('userHeight') || '',
     userWeight: localStorage.getItem('userWeight') || '',
     userGoal: localStorage.getItem('userGoal') || '',
@@ -142,7 +144,7 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
     databaseService.getUserProfileByEmail(userEmail).then(profile => {
       if (cancelled || !profile) return;
       const fresh = {};
-      ['userName', 'userAge', 'userHeight', 'userWeight', 'userGoal', 'userActivity', 'userDiet',
+      ['userName', 'userAge', 'userSex', 'userHeight', 'userWeight', 'userGoal', 'userActivity', 'userDiet',
         'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget'].forEach(key => {
         if (profile[key]) fresh[key] = String(profile[key]);
       });
@@ -257,6 +259,13 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
             <div className="cp-field cp-field--border">
               <label className="cp-field-label">Age</label>
               <input className="cp-field-input cp-field-input--right" type="number" value={form.userAge} onChange={e => handleField('userAge', e.target.value)} placeholder="yrs" />
+            </div>
+            <div className="cp-field cp-field--border">
+              <label className="cp-field-label" htmlFor="cp-sex">Sex</label>
+              <select id="cp-sex" className="cp-field-select" value={form.userSex} onChange={e => handleField('userSex', e.target.value)}>
+                {!form.userSex && <option value="">Select</option>}
+                {SEX_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
             </div>
             <div className="cp-field cp-field--border">
               <label className="cp-field-label">Height <span className="cp-field-unit">(cm)</span></label>

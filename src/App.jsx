@@ -1533,7 +1533,7 @@ function App() {
 
             // New user! Preserve onboarding keys but clear all old tracker data & monthly history
             const keysToKeep = [
-              'onboardingComplete', 'onboardingCompleted', 'userName', 'userAge', 'userHeight', 'userWeight',
+              'onboardingComplete', 'onboardingCompleted', 'userName', 'userAge', 'userSex', 'userHeight', 'userWeight',
               'userActivity', 'userGoal', 'userIssue', 'userDiet',
               'userCalorieTarget', 'userProteinTarget', 'userCarbsTarget', 'userFatsTarget',
               'userEmail', 'rememberedEmail', 'rememberedPassword', 'lastUserName',
@@ -1578,6 +1578,7 @@ function App() {
               email: tempStorage['userEmail'] || localStorage.getItem('userEmail'),
               userName: tempStorage['userName'] || newName,
               userAge: tempStorage['userAge'],
+              userSex: tempStorage['userSex'],
               userHeight: tempStorage['userHeight'],
               userWeight: tempStorage['userWeight'],
               userActivity: tempStorage['userActivity'],

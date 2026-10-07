@@ -8,17 +8,20 @@
 //
 // Two intentional differences from a bit-for-bit match, both explicit
 // product choices:
-// - Gender isn't a field this app collects. Mifflin-St Jeor's male/female
-//   forms differ only in the final constant (+5 male, -161 female); this
-//   uses the average of the two (-78) rather than adding a new field.
+// - Mifflin-St Jeor's male/female forms differ only in the final constant
+//   (+5 male, -161 female). Sex was added to the profile on 2026-10-07;
+//   a client who hasn't picked one yet uses the average of the two (-78),
+//   which is what every target before then was calculated with.
 // - No rounding to "nice" numbers (nearest-50 calories, nearest-5 grams) —
 //   values are left at calculator.net's raw precision instead.
-export const calculateTargetsGeneric = (wVal, hVal, aVal, actVal, goalVal) => {
+const SEX_CONSTANT = { male: 5, female: -161 };
+
+export const calculateTargetsGeneric = (wVal, hVal, aVal, actVal, goalVal, sexVal) => {
   const w = parseFloat(wVal) || 70;
   const h = parseFloat(hVal) || 170;
   const a = parseInt(aVal) || 28;
 
-  const bmr = 10 * w + 6.25 * h - 5 * a - 78;
+  const bmr = 10 * w + 6.25 * h - 5 * a + (SEX_CONSTANT[sexVal] ?? -78);
 
   // Matches calculator.net's own activity-multiplier values exactly (their
   // 6-tier list collapsed onto this app's existing 4 labels — Sedentary,
@@ -73,6 +76,11 @@ export const PROGRAM_TO_FITNESS_GOAL = {
   muscle_building: 'Muscle Building',
   gut_repair: 'Gut Health'
 };
+
+export const SEX_OPTIONS = [
+  { id: 'male', label: 'Male' },
+  { id: 'female', label: 'Female' },
+];
 
 export const ACTIVITY_TO_LABEL = {
   sedentary: 'Sedentary',

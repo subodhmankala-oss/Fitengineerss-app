@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { MUSCLE_TO_PPLC } from '../utils/muscleGroups';
@@ -65,8 +65,14 @@ const assignedDateLabel = (isoString) => {
 // Log Sets routine picker, so they present a plan the exact same way.
 // markOpenedOnStart: Home's card passes false and leaves the marking to
 // WorkoutTracker, which only marks a plan once it has actually started it.
-const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true }) => {
+// onOpenExercise: when given (Log Sets picker only — Home's card omits it), the
+// "N exercises" count becomes a toggle that expands the plan's exercise list,
+// and each name opens that exercise's history sheet. `customized` flags a
+// plan whose exercises were swapped for today's session.
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, onOpenExercise, customized = false }) => {
+  const [expanded, setExpanded] = useState(false);
   const meta = getPlanCardMeta(plan);
+  const exerciseList = Array.isArray(plan.exercises) ? plan.exercises : [];
   const isTemplate = source === 'self';
   const isUnopened = source === 'coach' && plan.id && !getOpenedPlanIds().has(plan.id);
   const handleStart = () => {
@@ -107,7 +113,18 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true })
           ) : (
             <span><ClockIcon /> {meta.estMinutes} min</span>
           )}
-          <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
+          {onOpenExercise ? (
+            <button
+              type="button"
+              className={`wt-plan-expand-btn ${expanded ? 'open' : ''}`}
+              aria-expanded={expanded}
+              onClick={() => setExpanded(v => !v)}
+            >
+              <DumbbellIcon /> {meta.exerciseCount} exercises <span className="wt-plan-expand-caret" aria-hidden="true">▾</span>
+            </button>
+          ) : (
+            <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
+          )}
         </div>
 
         {meta.muscles.length > 0 && (
@@ -137,6 +154,26 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true })
           </button>
         )}
       </div>
+
+      {onOpenExercise && expanded && (
+        <div className="wt-plan-exercises">
+          {exerciseList.map((ex, i) => (
+            <button
+              key={`${ex.name}-${i}`}
+              type="button"
+              className="wt-plan-exercise-row"
+              title="View exercise history"
+              onClick={() => onOpenExercise(ex.name)}
+            >
+              <span className="wt-plan-exercise-name">{ex.name}</span>
+              <span className="wt-plan-exercise-sets">
+                {Array.isArray(ex.sets) ? `${ex.sets.length} ${ex.sets.length === 1 ? 'set' : 'sets'}` : ''} ›
+              </span>
+            </button>
+          ))}
+          {customized && <p className="wt-plan-customized">Swapped for today's session. The saved plan isn't changed.</p>}
+        </div>
+      )}
     </div>
   );
 };

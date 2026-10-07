@@ -5078,6 +5078,82 @@ html.keyboard-open .rest-timer-floating-card {
   margin-top: 2px;
 }
 
+/* Expandable exercise list (Log Sets picker only) — wraps below the card's
+   thumb/body/Start row at full width. */
+.wt-plan-card:has(.wt-plan-exercises) {
+  flex-wrap: wrap;
+}
+
+.wt-plan-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  margin-left: -8px;
+  font: inherit;
+  color: var(--accent-text);
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.wt-plan-expand-btn:active {
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.wt-plan-expand-caret {
+  display: inline-block;
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+
+.wt-plan-expand-btn.open .wt-plan-expand-caret {
+  transform: rotate(180deg);
+}
+
+.wt-plan-exercises {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
+  padding-top: 4px;
+}
+
+.wt-plan-exercise-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 2px;
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.05);
+  cursor: pointer;
+}
+
+.wt-plan-exercise-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-main);
+  min-width: 0;
+}
+
+.wt-plan-exercise-sets {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.wt-plan-customized {
+  margin: 8px 0 2px;
+  font-size: 0.7rem;
+  color: var(--accent-text);
+}
+
 .wt-muscle-chip {
   display: flex;
   align-items: center;

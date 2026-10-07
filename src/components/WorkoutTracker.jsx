@@ -368,6 +368,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     try {
       const plans = await databaseService.getWorkoutPlansForUser(getPlanOwnerId());
       setClientPlans(plans || []);
+      setPlanOverrides({});
     } catch (e) {
       console.error('Error fetching client plans:', e);
     } finally {
@@ -449,6 +450,13 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   const [historyModalExercise, setHistoryModalExercise] = useState(null);
+  // Set when the history sheet was opened from a plan card (before a workout
+  // starts): its suggestion chips then SWAP into that plan for today's session
+  // instead of adding to a live workout.
+  const [historyModalPlan, setHistoryModalPlan] = useState(null);
+  // Today's swaps, per plan: { [planKey]: exercises[] }. Never written back to
+  // the saved plan — startPlan just reads it. Cleared whenever plans refetch.
+  const [planOverrides, setPlanOverrides] = useState({});
   // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
   // Kept in localStorage alongside the restored session, so a stopwatch
   // running when the phone reloaded the page carries on — see
@@ -2591,6 +2599,13 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // and silently zeroes out weight when used on a real per-set plan. This is
   // the one correct path; both the Coach Plans card (Templates view) and the
   // Start Workout Session launcher (Log view) route through it.
+  const planKeyOf = (plan) => plan.id || plan.planName;
+  const effectivePlanExercises = (plan) => {
+    const swapped = planOverrides[planKeyOf(plan)];
+    if (swapped) return swapped;
+    return Array.isArray(plan.exercises) ? plan.exercises : [];
+  };
+
   const startPlan = (plan, source) => {
     // Guard the malformed/empty case explicitly: `plan.exercises` used to
     // be mapped directly, so a null one threw a TypeError and an empty
@@ -2599,7 +2614,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     // normalized now (see normalizePlanExercises), so reaching here with
     // nothing means the stored plan genuinely has no exercises; say that
     // instead of opening a blank logger.
-    const planExercises = Array.isArray(plan.exercises) ? plan.exercises : [];
+    const planExercises = effectivePlanExercises(plan);
     if (planExercises.length === 0) {
       triggerToast('⚠️ This plan has no exercises saved. Open it in the editor to rebuild it.');
       return;
@@ -2729,9 +2744,9 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     : 0;
 
   // Shared by the exercise picker and the history modal's suggestion chips.
-  const addExerciseToWorkout = (name) => {
-    const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
-    if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+  // Starting sets for an exercise being brought in fresh: what the client did
+  // last time if they've done it, else one default set.
+  const buildStartingSets = (name) => {
     let newSet;
     const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
@@ -2748,9 +2763,35 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     }
     // Done before? Start from exactly what the client did last time —
     // every set, ready for a single tap each — instead of one default set.
-    const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
-    setLogExercises(prev => [...prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }]);
+    return setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
+  };
+
+  const addExerciseToWorkout = (name) => {
+    const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
+    if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+    const sets = buildStartingSets(name);
+    setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
+  };
+
+  // History sheet opened from a plan card: swap the opened exercise for the
+  // tapped suggestion, for today's session only.
+  const openPlanExerciseHistory = (plan, name) => {
+    setHistoryModalPlan(plan);
+    setHistoryModalExercise(name);
+  };
+
+  const swapPlanExercise = (newName) => {
+    const plan = historyModalPlan;
+    const oldName = historyModalExercise;
+    if (!plan || !oldName) return;
+    const next = effectivePlanExercises(plan).map(ex => (
+      ex.name === oldName ? { name: newName, sets: buildStartingSets(newName) } : ex
+    ));
+    setPlanOverrides(prev => ({ ...prev, [planKeyOf(plan)]: next }));
+    setHistoryModalExercise(null);
+    setHistoryModalPlan(null);
+    triggerToast(`Swapped ${oldName} for ${newName} in today's session.`);
   };
 
   return (
@@ -3376,9 +3417,11 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                   {visibleCoachPlans.map(plan => (
                     <PlanCard
                       key={plan.id || plan.planName}
-                      plan={plan}
+                      plan={{ ...plan, exercises: effectivePlanExercises(plan) }}
                       source="coach"
                       onStart={() => startPlan(plan, 'coach')}
+                      onOpenExercise={(name) => openPlanExerciseHistory(plan, name)}
+                      customized={!!planOverrides[planKeyOf(plan)]}
                     />
                   ))}
                 </div>
@@ -3401,7 +3444,17 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
               ) : (
                 <div className="wt-plan-list">
-                  {visibleTemplatePlans.map(plan => <PlanCard key={plan.id} plan={plan} source="self" onStart={() => startPlan(plan, 'self')} onDelete={() => handleDeleteTemplate(plan)} />)}
+                  {visibleTemplatePlans.map(plan => (
+                    <PlanCard
+                      key={plan.id}
+                      plan={{ ...plan, exercises: effectivePlanExercises(plan) }}
+                      source="self"
+                      onStart={() => startPlan(plan, 'self')}
+                      onDelete={() => handleDeleteTemplate(plan)}
+                      onOpenExercise={(name) => openPlanExerciseHistory(plan, name)}
+                      customized={!!planOverrides[planKeyOf(plan)]}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -4552,9 +4605,10 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
         exerciseName={historyModalExercise}
         sessions={sessions}
         clientName={selectedClient}
-        addedNames={logExercises.map(le => le.name)}
-        onAddExercise={isLoggingWorkout ? addExerciseToWorkout : undefined}
-        onClose={() => setHistoryModalExercise(null)}
+        addedNames={(historyModalPlan ? effectivePlanExercises(historyModalPlan) : logExercises).map(le => le.name)}
+        onAddExercise={historyModalPlan ? swapPlanExercise : (isLoggingWorkout ? addExerciseToWorkout : undefined)}
+        swapMode={!!historyModalPlan}
+        onClose={() => { setHistoryModalExercise(null); setHistoryModalPlan(null); }}
       />
 
       {/* Unticked Finish Warning Dialog Modal */}

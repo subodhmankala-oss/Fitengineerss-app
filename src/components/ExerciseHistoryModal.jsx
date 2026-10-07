@@ -125,8 +125,9 @@ function getRecommendedExercises(exerciseName) {
 // Only one of the two is ever passed by a given caller.
 // onAddExercise/addedNames: when a workout is being logged, the suggestion
 // chips become "+ add" buttons (already-added ones show ✓). Omit onAddExercise
-// and they stay plain labels.
-export default function ExerciseHistoryModal({ exerciseName, sessions, clientName, rawLogs, onClose, onAddExercise, addedNames = [] }) {
+// and they stay plain labels. swapMode (opened from a plan card): tapping
+// swaps the opened exercise instead of adding another.
+export default function ExerciseHistoryModal({ exerciseName, sessions, clientName, rawLogs, onClose, onAddExercise, addedNames = [], swapMode = false }) {
   const [range, setRange] = useState('weekly');
 
   const exIsCardio = exerciseName ? isCardioExercise(exerciseName) : false;
@@ -267,7 +268,7 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
         {recommended.length > 0 && (
           <div className="ex-history-recs">
             <div className="ex-history-recs-title">
-              💡 Same muscle, try these{onAddExercise ? ' — tap to add to your workout' : ''}
+              💡 Same muscle, try these{onAddExercise ? (swapMode ? ' — tap to swap into this plan' : ' — tap to add to your workout') : ''}
             </div>
             <div className="ex-history-recs-list">
               {recommended.map(rec => {
@@ -281,7 +282,7 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
                     disabled={added}
                     onClick={() => onAddExercise(rec.name)}
                   >
-                    {added ? '✓' : '+'} {rec.name}
+                    {added ? '✓' : (swapMode ? '⇄' : '+')} {rec.name}
                   </button>
                 );
               })}

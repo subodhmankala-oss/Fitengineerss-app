@@ -2524,6 +2524,7 @@ const databaseService = {
     if (profile.userCoachId) localStorage.setItem('userCoachId', profile.userCoachId);
     if (profile.userClientId) localStorage.setItem('userClientId', profile.userClientId);
     if (profile.userAge) localStorage.setItem('userAge', profile.userAge);
+    if (profile.userSex) localStorage.setItem('userSex', profile.userSex);
     if (profile.userHeight) localStorage.setItem('userHeight', profile.userHeight);
     if (profile.userWeight) localStorage.setItem('userWeight', profile.userWeight);
     if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
@@ -2562,6 +2563,29 @@ const databaseService = {
     if (profile.primaryConcern) localStorage.setItem('userPrimaryConcern', profile.primaryConcern);
     if (profile.primary_concern) localStorage.setItem('userPrimaryConcern', profile.primary_concern);
     localStorage.setItem('onboardingComplete', 'true');
+  },
+
+  // ─── CLIENT SEX (required) ───
+  // Writes ONLY clients.sex for the signed-in client — used by
+  // SexRequiredPrompt for clients who onboarded before sex was asked. Not
+  // saveUserProfile: that upserts every profile field from the caller.
+  // Calorie/macro targets are left alone (a coach may have set them).
+  async saveClientSex(sex) {
+    if (sex !== 'male' && sex !== 'female') throw new Error('Pick Male or Female.');
+    if (isSupabaseConfigured && supabase) {
+      const userId = await resolveCanonicalUserId();
+      if (!userId) throw new Error('Cannot resolve your account — please log in again.');
+      const row = await restUpdate(`clients?user_id=eq.${userId}`, { sex });
+      if (!row) throw new Error('Could not find your profile — please try again.');
+    } else {
+      const mockClients = this.getMockTable('clients');
+      const mClient = mockClients.find(c => c.user_id === localStorage.getItem('userId'));
+      if (mClient) {
+        mClient.sex = sex;
+        this.saveMockTable('clients', mockClients);
+      }
+    }
+    localStorage.setItem('userSex', sex);
   },
 
   // ─── CLIENT ONBOARDING WIZARD ───

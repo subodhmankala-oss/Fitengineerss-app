@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Onboarding from './components/Onboarding';
 import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
+import SexRequiredPrompt from './components/SexRequiredPrompt';
 // Lazy-loaded: each of these is only ever needed for ONE role/route at a
 // time (a client never runs TrainerDashboard's code, a returning user never
 // runs ClientOnboardingWizard's, etc.), but a plain static import ships all
@@ -1083,6 +1084,7 @@ function App() {
 
           if (profile) {
             if (profile.userAge && profile.userAge !== 'null' && profile.userAge !== 'NaN') localStorage.setItem('userAge', profile.userAge);
+            if (profile.userSex) localStorage.setItem('userSex', profile.userSex);
             if (profile.userHeight && profile.userHeight !== 'null' && profile.userHeight !== 'NaN') localStorage.setItem('userHeight', profile.userHeight);
             if (profile.userWeight && profile.userWeight !== 'null' && profile.userWeight !== 'NaN') localStorage.setItem('userWeight', profile.userWeight);
             if (profile.userActivity) localStorage.setItem('userActivity', profile.userActivity);
@@ -1922,6 +1924,8 @@ function App() {
   return (
     <div className="app-container">
       <TourOverlay />
+      {/* Clients who onboarded before sex was asked must pick one first. */}
+      <SexRequiredPrompt />
 
       <main className="main-content">
         <Suspense fallback={<LazyScreenFallback />}>{renderContent()}</Suspense>

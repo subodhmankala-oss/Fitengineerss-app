@@ -65,6 +65,8 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   // Filters by the sub-group alone, not the category too — Shrugs are tagged
   // Shoulders but belong under Back › Upper Back.
   const [subgroup, setSubgroup] = useState(null);
+  // Tapping the already-active category chip again folds its region row away.
+  const [regionsHidden, setRegionsHidden] = useState(false);
   // Body picker: tap a muscle on the diagram to list only exercises that
   // mainly train it. Separate from the category chips — picking one clears
   // the other, so the two never silently combine into an empty list.
@@ -100,6 +102,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       setQuery('');
       setTag('All');
       setSubgroup(null);
+      setRegionsHidden(false);
       setBodyMuscle(null);
       setShowBody(false);
     } else {
@@ -139,6 +142,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     setBodyMuscle(m);
     setTag('All');
     setSubgroup(null);
+    setRegionsHidden(false);
     setShowBody(false);
     listRef.current?.scrollTo?.({ top: 0 });
   };
@@ -202,7 +206,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     .sort((a, b) => a.rank - b.rank || a.ex.name.localeCompare(b.ex.name))
     .map(({ ex }) => ex);
   const exactExists = activeLibrary.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
-  const subgroups = !bodyMuscle && EXERCISE_SUBGROUPS[tag];
+  const subgroups = !bodyMuscle && !regionsHidden && EXERCISE_SUBGROUPS[tag];
   const subgroupHint = subgroups && subgroups.find(sg => sg.id === subgroup)?.hint;
 
   return (
@@ -267,12 +271,20 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
               key={t}
               type="button"
               className={`filter-tag-btn ${tag === t && !bodyMuscle ? 'active' : ''}`}
-              onClick={() => { setTag(t); setSubgroup(null); setBodyMuscle(null); }}
+              onClick={() => {
+                // Same chip again → fold the regions away (and drop any
+                // region filter, so the list never narrows invisibly).
+                const sameChip = tag === t && !bodyMuscle && EXERCISE_SUBGROUPS[t];
+                setRegionsHidden(sameChip ? !regionsHidden : false);
+                setTag(t);
+                setSubgroup(null);
+                setBodyMuscle(null);
+              }}
             >
               {t}
               {/* Caret marks the chips that open a row of regions. */}
               {EXERCISE_SUBGROUPS[t] && (
-                <span className={`filter-tag-caret ${tag === t && !bodyMuscle ? 'open' : ''}`} aria-hidden="true">▾</span>
+                <span className={`filter-tag-caret ${tag === t && !bodyMuscle && !regionsHidden ? 'open' : ''}`} aria-hidden="true">▾</span>
               )}
             </button>
           ))}

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { femaleWarp, femaleWarpInverse } from './femaleBodyWarp';
 import { warpSvg } from './svgWarp';
 import { getBodyArt, FRONT_MUSCLE_LAYERS, SOURCE_FILL_PLACEHOLDER } from './muscleBodyShapes';
+import { REGION_SHAPES, getRegionShape, regionCrop } from './regionShapes';
 
 describe('femaleWarp', () => {
   for (const view of ['front', 'back']) {
@@ -75,5 +76,25 @@ describe('getBodyArt', () => {
     expect(female.front.bodyMaskStyle.maskImage).toMatch(/^url\("data:image\/svg\+xml,/); // armpit slivers cut out
     expect(getBodyArt('male').front.bodyMaskStyle).toBeNull();
     expect(getBodyArt('female')).toBe(female); // built once, cached
+  });
+});
+
+describe('female region shapes (Add Exercise icons)', () => {
+  it('every region has a female version with a crop inside the canvas', () => {
+    for (const r of Object.keys(REGION_SHAPES)) {
+      const f = getRegionShape(r, 'female');
+      expect(f.view).toBe(REGION_SHAPES[r].view);
+      const c = regionCrop(r, 200, 369, 'female');
+      expect(c.x).toBeGreaterThanOrEqual(0);
+      expect(c.y).toBeGreaterThanOrEqual(0);
+      expect(c.x + c.w).toBeLessThanOrEqual(200.001);
+      expect(c.y + c.h).toBeLessThanOrEqual(369.001);
+    }
+  });
+
+  it('chest bands are cut from the female bust, not the male pec', () => {
+    const upper = getRegionShape('Upper Chest', 'female');
+    expect(upper.parts[0].raw).toContain('path-female-chest-left');
+    expect(getRegionShape('Upper Chest', 'male')).toBe(REGION_SHAPES['Upper Chest']);
   });
 });

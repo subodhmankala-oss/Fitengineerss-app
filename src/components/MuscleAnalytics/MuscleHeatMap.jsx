@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
+import { useBodySex } from './bodySex';
 import {
   getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
@@ -27,8 +28,9 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
 
 // Also used by the Add Exercise picker's body filter, which has no weekly
 // stats: it passes colorFor/labelFor to color and label muscles itself.
-// `sex` is the client's profile sex — 'female' draws the female figure.
-export const BodyDiagram = ({ view, sex, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
+// Male or female figure per the viewed client's profile sex (useBodySex).
+export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
+  const sex = useBodySex();
   const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl, bodyMaskStyle } = getBodyArt(sex)[view];
 
   return (
@@ -119,7 +121,7 @@ export const BodyDiagram = ({ view, sex, statByMuscle = {}, activeMuscle, onSele
  * that's a distinct, second-level switch (which side of the body), not the
  * same kind of choice as the outer Heat Map/Recovery tab.
  */
-const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, sex }) => {
+const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
   const [view, setView] = useState('front');
 
   const statByMuscle = useMemo(
@@ -148,7 +150,7 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, sex }) => {
       </div>
 
       <div className="muscle-body-wrapper">
-        <BodyDiagram view={view} sex={sex} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} />
+        <BodyDiagram view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} />
       </div>
 
       {/* Quick-tap chips under the diagram — same regions, easier tap target

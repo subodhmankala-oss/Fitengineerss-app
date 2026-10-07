@@ -112,3 +112,10 @@ export function warpSvg(text, warp) {
     return tag;
   });
 }
+
+/** A bare path `d` string (already in canvas coordinates) through `warp`. */
+export function warpPathD(d, warp) {
+  const segs = parsePath(d);
+  for (const s of segs) s.p = s.p.map(warp);
+  return serialize(segs);
+}

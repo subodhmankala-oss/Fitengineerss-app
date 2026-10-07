@@ -67,9 +67,8 @@ const ShareIconButton = ({ onClick, title }) => (
  * Phase 1 of "Weekly Muscle Analytics": header stats + Section 1 (Muscle
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
- * `sex` is the client's profile sex; 'female' draws the heat map's female figure.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, sex = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null }) => {
   const weekStartStr = weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
@@ -223,7 +222,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
 
         {mapTab === 'heatmap' ? (
-          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={setSelectedMuscle} activeMuscle={selectedMuscle} sex={sex} />
+          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={setSelectedMuscle} activeMuscle={selectedMuscle} />
         ) : (
           <RecoveryDashboard logs={logs} />
         )}

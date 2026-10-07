@@ -15,6 +15,7 @@ import './WorkoutTracker.css';
 // visually identical (same chart widgets, session cards, heatmap).
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
+import { BodySexContext } from './MuscleAnalytics/bodySex';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
 import { getSetTypeVisual } from '../utils/setTypes';
@@ -4400,6 +4401,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   });
 
   return (
+    // Muscle drawings anywhere in here (icons, heat map, exercise picker)
+    // show the selected client's figure — see MuscleAnalytics/bodySex.js.
+    <BodySexContext.Provider value={selectedClient?.userSex || null}>
     <div className="trainer-dashboard-container animate-scale-in">
       {/* Desktop-only left icon sidebar for the super-admin (Instagram-style
           app shell — requested 2026-08-24). CSS-only concern: fixed
@@ -7905,7 +7909,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
-                            sex={selectedClient?.userSex}
                             onShareBalance={() => {
                               // Same computation NeglectedMuscles.jsx uses for
                               // its list — zero sets logged in the currently
@@ -9982,6 +9985,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       )}
       <SetNumberPad active={getActiveLiveSetField()} activeKey={activeLiveSetKey} onClose={closeLiveSetField} />
     </div>
+    </BodySexContext.Provider>
   );
 };
 

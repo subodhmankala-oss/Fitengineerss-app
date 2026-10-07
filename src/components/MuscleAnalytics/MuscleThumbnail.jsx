@@ -1,11 +1,11 @@
 import React from 'react';
 import { MUSCLE_BODY_VIEW, MUSCLE_TO_PPLC } from '../../utils/muscleGroups';
 import {
-  BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  MUSCLE_CROP, BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
+  getBodyArt, MUSCLE_CROP, FACE_MASK, FACE_MASK_GRADIENT,
   SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
-import { REGION_SHAPES, regionCrop, clipStyle } from './regionShapes';
+import { getRegionShape, regionCrop, clipStyle } from './regionShapes';
+import { useBodySex } from './bodySex';
 
 // Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
 // FACE_MASK there for why. Front-view crops (Chest, Shoulders, Biceps, Core,
@@ -41,6 +41,18 @@ const ScalpMaskLayer = ({ gradientId }) => (
 
 const CANVAS_W = 200, CANVAS_H = 369;
 
+// The body behind every icon's colored muscles: gap-fill backdrop, body
+// artwork, face/scalp patch and (female front) bust shading — the same
+// layers, in the same order, as the full heat map's BodyDiagram.
+const BodyBase = ({ art, view, gid }) => (
+  <>
+    <img src={art.fillUrl} alt="" className="muscle-thumb-layer" style={art.bodyMaskStyle ?? undefined} />
+    <div className="muscle-thumb-layer" style={art.bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={{ __html: art.bodySvg }} />
+    {view === 'front' ? <FaceMaskLayer gradientId={`face-${gid}`} /> : <ScalpMaskLayer gradientId={`scalp-${gid}`} />}
+    {art.underlayUrl && <img src={art.underlayUrl} alt="" className="muscle-thumb-layer" />}
+  </>
+);
+
 /**
  * Small zoomed-in body-diagram icon for a single muscle, used on the Muscle
  * Balance Overview cards in place of a plain "CH"/"BA"/"SH" text badge.
@@ -51,12 +63,13 @@ const CANVAS_W = 200, CANVAS_H = 369;
  * the tap target.
  */
 const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, size = 64 }) {
+  const sex = useBodySex();
   const view = MUSCLE_BODY_VIEW[muscle];
   const crop = MUSCLE_CROP[muscle];
   if (!view || !crop) return null;
 
-  const bodySvg = view === 'front' ? BODY_FRONT_SVG : BODY_BACK_SVG;
-  const rawFiles = (view === 'front' ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS)[muscle] || [];
+  const art = getBodyArt(sex)[view];
+  const rawFiles = art.layers[muscle] || [];
   const scale = size / crop.w;
 
   return (
@@ -79,16 +92,7 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
           transform: `scale(${scale}) translate(${-crop.x}px, ${-crop.y}px)`,
         }}
       >
-        <img
-          src={view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL}
-          alt=""
-          className="muscle-thumb-layer"
-        />
-
-        <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
-
-        {view === 'front' && <FaceMaskLayer gradientId={`thumbFace-${muscle}`} />}
-        {view === 'back' && <ScalpMaskLayer gradientId={`thumbScalp-${muscle}`} />}
+        <BodyBase art={art} view={view} gid={`thumb-${muscle}`} />
 
         {rawFiles.map((rawSvg, i) => (
           <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
@@ -104,10 +108,11 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
  * colored. Shapes and clip windows live in regionShapes.js.
  */
 export const RegionThumbnail = React.memo(function RegionThumbnail({ region, color, size = 64 }) {
-  const shape = REGION_SHAPES[region];
-  const crop = regionCrop(region, CANVAS_W, CANVAS_H);
+  const sex = useBodySex();
+  const shape = getRegionShape(region, sex);
+  const crop = regionCrop(region, CANVAS_W, CANVAS_H, sex);
   if (!shape || !crop) return null;
-  const isFront = shape.view === 'front';
+  const art = getBodyArt(sex)[shape.view];
   const gid = region.replace(/\W+/g, '');
 
   return (
@@ -120,9 +125,7 @@ export const RegionThumbnail = React.memo(function RegionThumbnail({ region, col
           transform: `scale(${size / crop.w}) translate(${-crop.x}px, ${-crop.y}px)`,
         }}
       >
-        <img src={isFront ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL} alt="" className="muscle-thumb-layer" />
-        <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: isFront ? BODY_FRONT_SVG : BODY_BACK_SVG }} />
-        {isFront ? <FaceMaskLayer gradientId={`regionFace-${gid}`} /> : <ScalpMaskLayer gradientId={`regionScalp-${gid}`} />}
+        <BodyBase art={art} view={shape.view} gid={`region-${gid}`} />
 
         {(shape.parts || []).map((part, i) => (
           <div
@@ -185,9 +188,11 @@ function unionMuscleCrop(muscles) {
  * is mostly back-visible muscles and would render almost empty on front.
  */
 export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 64 }) => {
+  const sex = useBodySex();
   const isFront = view !== 'back';
   const trainedSet = new Set(trainedMuscles);
-  const layers = isFront ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS;
+  const art = getBodyArt(sex)[isFront ? 'front' : 'back'];
+  const layers = art.layers;
   const visibleMuscles = trainedMuscles.filter(m => layers[m]);
 
   const crop = unionMuscleCrop(visibleMuscles);
@@ -206,13 +211,7 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
           transformOrigin: 'top left',
         }}
       >
-        <img src={isFront ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL} alt="" className="muscle-thumb-layer" />
-
-        <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: isFront ? BODY_FRONT_SVG : BODY_BACK_SVG }} />
-
-        {isFront
-          ? <FaceMaskLayer gradientId="thumbFace-fullbody" />
-          : <ScalpMaskLayer gradientId="thumbScalp-fullbody" />}
+        <BodyBase art={art} view={isFront ? 'front' : 'back'} gid="fullbody" />
 
         {Object.entries(layers)
           .filter(([muscle]) => trainedSet.has(muscle))

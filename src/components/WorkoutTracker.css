@@ -3267,6 +3267,22 @@ html.keyboard-open .rest-timer-floating-card {
   color: var(--accent-text);
 }
 
+.exercise-subgroup-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.exercise-subgroup-hint-row .muscle-thumb {
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+.exercise-subgroup-hint-row .exercise-subgroup-hint {
+  margin: 0;
+}
+
 .exercise-subgroup-hint {
   margin: 6px 0 0;
   font-size: 0.7rem;

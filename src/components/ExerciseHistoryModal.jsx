@@ -87,15 +87,15 @@ function getTrainingStatus(entries) {
   const perWeek = recent28.length / 4;
 
   if (gap > 21) {
-    return { key: 'neglected', label: 'Neglected', icon: '🔴', tone: 'danger', detail: `Last trained ${formatDaysAgo(gap).toLowerCase()} — this needs to get back into rotation.` };
+    return { key: 'neglected', label: 'Neglected', icon: '🔴', tone: 'danger', detail: `Last trained ${formatDaysAgo(gap).toLowerCase()} — this needs to get back into rotation.`, action: 'Do this exercise in your next workout, or swap in one of the alternatives below.' };
   }
   if (perWeek >= 1.75) {
     return { key: 'optimal', label: 'Optimally Trained', icon: '✅', tone: 'success', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — solid, consistent frequency.` };
   }
   if (perWeek >= 1) {
-    return { key: 'low', label: 'Slightly Undertrained', icon: '🟡', tone: 'warning', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — a touch below the ~2x/week most muscle groups respond best to.` };
+    return { key: 'low', label: 'Slightly Undertrained', icon: '🟡', tone: 'warning', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — a touch below the ~2x/week most muscle groups respond best to.`, action: 'Add one more session this week — or work in one of the alternatives below.' };
   }
-  return { key: 'under', label: 'Undertrained', icon: '🟠', tone: 'orange', detail: `Only ~${perWeek.toFixed(1)}x/week over the last 4 weeks — this muscle group is falling behind.` };
+  return { key: 'under', label: 'Undertrained', icon: '🟠', tone: 'orange', detail: `Only ~${perWeek.toFixed(1)}x/week over the last 4 weeks — this muscle group is falling behind.`, action: 'Aim for 2 sessions a week. Add this exercise to another workout day, or work in one of the alternatives below.' };
 }
 
 // A handful of alternate exercises hitting the same primary muscle (falling
@@ -255,8 +255,22 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
           <div>
             <div className="ex-history-status-label">{status.label}</div>
             <div className="ex-history-status-detail">{status.detail}</div>
+            {status.action && (
+              <div className="ex-history-status-action">👉 {status.action}</div>
+            )}
           </div>
         </div>
+
+        {recommended.length > 0 && (
+          <div className="ex-history-recs">
+            <div className="ex-history-recs-title">💡 Same muscle, try these</div>
+            <div className="ex-history-recs-list">
+              {recommended.map(rec => (
+                <span key={rec.name} className="ex-history-rec-chip">{rec.name}</span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="guide-tab-bar">
           {RANGE_TABS.map(t => (
@@ -330,23 +344,6 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
                 })}
               </div>
             </>
-          )}
-
-          {recommended.length > 0 && (
-            <div className="ex-history-recs">
-              <div className="ex-history-recs-title">💡 Try these to balance it out</div>
-              <p className="ex-history-recs-sub">
-                {inferPrimary(exerciseName)} isn't getting enough work lately — these hit the same muscle group.
-              </p>
-              <div className="ex-history-recs-list">
-                {recommended.map(rec => (
-                  <div key={rec.name} className="ex-history-rec-chip">
-                    <span className="ex-history-rec-name">{rec.name}</span>
-                    <span className="ex-history-rec-cat">{rec.category}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           )}
         </div>
       </div>

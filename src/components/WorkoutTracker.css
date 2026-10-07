@@ -846,6 +846,48 @@
   padding: 2px 4px 6px;
 }
 
+/* Optional per-exercise average heart rate (bike, cross trainer, rowing,
+   HIIT, battle rope) — shared with the coach Live Log. */
+.ex-hr-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 2px;
+  padding: 0 4px;
+}
+
+.ex-hr-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tint-red);
+}
+
+.ex-hr-hint {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.ex-hr-input.set-value-btn {
+  width: 72px;
+  height: 40px;
+  box-sizing: border-box;
+  background: rgba(var(--bg-app-rgb), 0.5);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 4px;
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  scroll-margin-block: 190px;
+}
+
+.ex-hr-input.set-value-btn.is-active {
+  border-color: var(--tint-red);
+}
+
 .ex-card-actions {
   display: flex;
   align-items: center;

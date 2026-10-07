@@ -19,7 +19,7 @@ import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
 import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, usesHeartRate, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
@@ -2019,6 +2019,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // clients.weight_kg snapshot on selectedClient.userWeight — see the
   // matching comment on the Weight (kg) stat tile above.
   const resolvedClientWeightKg = parseFloat(clientMeasurements[0]?.measurements?.weight) || parseFloat(selectedClient?.userWeight) || DEFAULT_BODY_WEIGHT_KG;
+  // The client's sex/age for the heart-rate calorie formula (see usesHeartRate).
+  const clientHeartRateProfile = { sex: selectedClient?.userSex || '', age: selectedClient?.userAge || '' };
 
   const liveElapsedSeconds = computeElapsedSeconds(liveTimerStartedAt, livePauseIntervals);
   // computeLiveCalories only counts COMPLETED sets, so an in-progress cardio
@@ -2064,7 +2066,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       return s + estimateCardioKcal(ex.name, km, elapsed, resolvedClientWeightKg);
     }, 0);
   }, 0);
-  const liveCaloriesBase = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg);
+  const liveCaloriesBase = computeLiveCalories(liveExercises, liveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg, clientHeartRateProfile);
   const liveCalories = { ...liveCaloriesBase, totalKcal: Math.round((liveCaloriesBase.totalKcal + liveRunningCardioKcal) * 10) / 10 };
 
   // Push the Live Log session to workout_drafts once there's actually
@@ -2325,6 +2327,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       };
     }));
     setLiveSetTypeMenu(null);
+  };
+
+  // Same per-exercise average heart rate as the client logger (handleExerciseHrChange).
+  const handleLiveExerciseHrChange = (exIdx, value) => {
+    setLiveExercises(prev => prev.map((ex, idx) => (idx === exIdx ? { ...ex, avgHr: value } : ex)));
   };
 
   const handleLiveSetChange = (exIdx, setIdx, field, value) => {
@@ -2639,6 +2646,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
+          // Saved to that exercise's workout_logs.avg_heart_rate_bpm rows.
+          ...(parseInt(ex.avgHr) > 0 ? { avgHr: parseInt(ex.avgHr) } : {}),
           sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
@@ -2671,7 +2680,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         // the live bar above was already showing the coach. Cardio calories
         // scale with the CLIENT's bodyweight, not the coach's own.
         durationSeconds: effectiveLiveTimerStartedAt ? computeElapsedSeconds(effectiveLiveTimerStartedAt, livePauseIntervals) : null,
-        caloriesBurned: effectiveLiveTimerStartedAt ? computeLiveCalories(exercisesForCalc, effectiveLiveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg).totalKcal : null
+        caloriesBurned: effectiveLiveTimerStartedAt ? computeLiveCalories(exercisesForCalc, effectiveLiveTimerStartedAt, livePauseIntervals, resolvedClientWeightKg, clientHeartRateProfile).totalKcal : null
       };
 
       await databaseService.saveWorkoutSession(session);
@@ -9419,6 +9428,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             })}
                           </div>
                         </div>
+
+                        {usesHeartRate(ex.name) && (() => {
+                          const hrKey = `hr-${exIdx}`;
+                          registerLiveSetField(hrKey, {
+                            value: ex.avgHr || '',
+                            mode: 'integer',
+                            label: `${ex.name} · Avg heart rate`,
+                            onValue: (v) => handleLiveExerciseHrChange(exIdx, v),
+                          });
+                          return (
+                            <div className="ex-hr-row">
+                              <span className="ex-hr-label">♥ Avg heart rate <span className="ex-hr-hint">optional, from their watch</span></span>
+                              <SetValueField
+                                value={ex.avgHr || ''}
+                                placeholder="bpm"
+                                active={activeLiveSetKey === hrKey}
+                                onOpen={() => openLiveSetField(hrKey)}
+                                className="ex-hr-input"
+                              />
+                            </div>
+                          );
+                        })()}
 
                         <div className="ex-card-actions">
                           <button

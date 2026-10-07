@@ -8,7 +8,7 @@ import ExerciseCardMenu from './ExerciseCardMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, usesHeartRate, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -162,6 +162,13 @@ const availablePrograms = [
 const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
   .filter((ex, idx, arr) => arr.findIndex(e => e.name.toLowerCase() === ex.name.toLowerCase()) === idx)
   .sort((a, b) => a.name.localeCompare(b.name));
+
+// The client's own sex/age (Profile), which the heart-rate calorie formula
+// needs alongside an exercise's avgHr — see heartRateActiveKcalPerMin.
+const readHeartRateProfile = () => ({
+  sex: localStorage.getItem('userSex') || '',
+  age: localStorage.getItem('userAge') || '',
+});
 
 // onWorkoutSaved: App.jsx sends the client to Home → Muscle Balance Overview
 // once a workout is saved (after the summary card is closed, if one shows).
@@ -1753,6 +1760,12 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     }));
   };
 
+  // One average heart rate per exercise (what a watch reports per activity);
+  // only offered where usesHeartRate() says it prices better than pace.
+  const handleExerciseHrChange = (exerciseIndex, value) => {
+    setLogExercises(prev => prev.map((ex, idx) => (idx === exerciseIndex ? { ...ex, avgHr: value } : ex)));
+  };
+
   const handleSetChange = (exerciseIndex, setIndex, field, value) => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
@@ -2283,6 +2296,8 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
+          // Saved to that exercise's workout_logs.avg_heart_rate_bpm rows.
+          ...(parseInt(ex.avgHr) > 0 ? { avgHr: parseInt(ex.avgHr) } : {}),
           sets: ex.sets
             .filter(s => s.isCompleted)
             .map(s => ({
@@ -2313,7 +2328,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     // stripped formattedExercises) still carries completedAt on each set.
     const finalDurationSeconds = effectiveTimerStartedAt ? computeElapsedSeconds(effectiveTimerStartedAt, workoutPauseIntervals) : null;
     const clientBodyWeightKg = parseFloat(localStorage.getItem('userWeight')) || DEFAULT_BODY_WEIGHT_KG;
-    const finalCalories = effectiveTimerStartedAt ? computeLiveCalories(activeExercises, effectiveTimerStartedAt, workoutPauseIntervals, clientBodyWeightKg).totalKcal : null;
+    const finalCalories = effectiveTimerStartedAt ? computeLiveCalories(activeExercises, effectiveTimerStartedAt, workoutPauseIntervals, clientBodyWeightKg, readHeartRateProfile()).totalKcal : null;
 
     const newSession = {
       id: `session-${Date.now()}`,
@@ -2725,7 +2740,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     }, 0);
   }, 0);
   const liveOwnWorkoutKcal = isLoggingWorkout
-    ? Math.round((computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals, bodyWeightKgForLiveKcal).totalKcal + liveRunningCardioKcal) * 10) / 10
+    ? Math.round((computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals, bodyWeightKgForLiveKcal, readHeartRateProfile()).totalKcal + liveRunningCardioKcal) * 10) / 10
     : 0;
 
   return (
@@ -4148,6 +4163,28 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                         })}
                       </div>
                     </div>
+
+                    {usesHeartRate(ex.name) && (() => {
+                      const hrKey = `hr-${exIdx}`;
+                      registerSetField(hrKey, {
+                        value: ex.avgHr || '',
+                        mode: 'integer',
+                        label: `${ex.name} · Avg heart rate`,
+                        onValue: (v) => handleExerciseHrChange(exIdx, v),
+                      });
+                      return (
+                        <div className="ex-hr-row">
+                          <span className="ex-hr-label">♥ Avg heart rate <span className="ex-hr-hint">optional, from your watch</span></span>
+                          <SetValueField
+                            value={ex.avgHr || ''}
+                            placeholder="bpm"
+                            active={activeSetKey === hrKey}
+                            onOpen={() => openSetField(hrKey)}
+                            className="ex-hr-input"
+                          />
+                        </div>
+                      );
+                    })()}
 
                     <div className="ex-card-actions">
                       <button

@@ -75,12 +75,13 @@ const STATUS_TAG_LABEL = {
   high: 'High',
 };
 
-// "3 × 10" when the sets share the same reps, else just the set count.
+// "3 sets × 10 reps" when the sets share the same reps, else just the set count.
 const formatSetsLabel = (sets) => {
   if (!Array.isArray(sets) || sets.length === 0) return '';
   const reps = sets.map(st => st && st.reps);
   const same = reps[0] && reps.every(r => String(r) === String(reps[0]));
-  return same ? `${sets.length} × ${reps[0]}` : `${sets.length} ${sets.length === 1 ? 'set' : 'sets'}`;
+  const setWord = sets.length === 1 ? 'set' : 'sets';
+  return same ? `${sets.length} ${setWord} × ${reps[0]} reps` : `${sets.length} ${setWord}`;
 };
 
 // expandable: (Log Sets picker only — Home's card omits it) turns the "N exercises"

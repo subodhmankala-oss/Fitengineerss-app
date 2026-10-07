@@ -63,40 +63,52 @@ function timedHoldMET(exerciseName) {
 // realistic ~250-300kcal for that pace) — km alone doesn't capture effort;
 // the same 10km is an easy jog or a hard sprint depending on how long it
 // took, and cycling covers far more ground per unit of effort than running.
-// Speed (derived from distance/time) picks the right intensity bracket
-// instead.
+// Speed (derived from distance/time) picks the intensity instead.
+//
+// Each activity is a curve through the Compendium's [km/h, MET] reference
+// points, interpolated linearly between them and flat beyond the ends. These
+// used to be step brackets, so a hair of speed could jump the price: 6.39
+// km/h walking was 3.5 MET and 6.41 was 5.0 (+43%), and a 7.9 km/h jog got
+// the 6.0 floor meant for 6.4. A brisk 6 km/h walk sat below every published
+// "brisk walking" range (2026-10-07).
 const INCLINE_WALK_ASSUMED_GRADE = 0.05;
+
+// Compendium walking, level firm surface: 2.0-5.0 mph.
+const WALK_CURVE = [[3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 7.0], [8.0, 8.3]];
+// Compendium running: 4-12 mph. At 8.0 km/h it meets the walking curve.
+const RUN_CURVE = [[6.4, 6.0], [8.0, 8.3], [8.4, 9.0], [9.7, 9.8], [10.8, 10.5], [11.3, 11.0], [12.1, 11.5],
+  [12.9, 11.8], [13.8, 12.3], [14.5, 12.8], [16.1, 14.5], [17.7, 16.0], [19.3, 19.0]];
+// Compendium bicycling, each bracket's MET at its midpoint speed: leisure
+// <16 km/h 4.0, 16-19 6.8, 19-22.5 8.0, 22.5-25.7 10.0, 25.7-30.6 12.0, >32 15.8.
+const CYCLE_CURVE = [[14.5, 4.0], [17.5, 6.8], [20.9, 8.0], [24.1, 10.0], [28.2, 12.0], [33.0, 15.8]];
+// Rowing Machine and swimming used to fall through to the running ladder —
+// a normal 2:30/500m erg pace (12 km/h) priced as an 11.0 MET run, ~50%
+// high, and every realistic swim (all < 8 km/h) got the running floor of
+// 6.0 whatever the effort. Rowing by erg split (watts ~ 2.8 / pace^3):
+// ~2:51/500m light (4.8), ~100 W moderate (7.0), ~150 W vigorous (8.5),
+// ~200 W very vigorous (12.0). Swimming by lap pace: slow/moderate freestyle
+// (5.8), ~50 yd/min (8.3), ~75 yd/min and faster (9.8).
+const ROW_CURVE = [[9.5, 4.8], [11.5, 7.0], [13.5, 8.5], [15.5, 12.0]];
+const SWIM_CURVE = [[2.0, 5.8], [3.4, 8.3], [4.5, 9.8]];
+
+function interpolate(curve, x) {
+  if (x <= curve[0][0]) return curve[0][1];
+  for (let i = 1; i < curve.length; i++) {
+    const [x1, y1] = curve[i];
+    if (x <= x1) {
+      const [x0, y0] = curve[i - 1];
+      return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+    }
+  }
+  return curve[curve.length - 1][1];
+}
 
 function cardioMET(exerciseName, speedKmh) {
   const n = (exerciseName || '').toLowerCase();
 
-  if (/cycl|bik/.test(n)) {
-    if (speedKmh < 16) return 4.0;   // leisure
-    if (speedKmh < 19) return 6.8;   // light effort
-    if (speedKmh < 22.5) return 8.0; // moderate
-    if (speedKmh < 25.7) return 10.0; // vigorous
-    if (speedKmh < 30.6) return 12.0; // racing pace
-    return 15.8; // >30.6 km/h, competitive
-  }
-  // Rowing Machine and swimming used to fall through to the running ladder
-  // below — a normal 2:30/500m erg pace (12 km/h) priced as an 11.0 MET run,
-  // ~50% high, and every realistic swim (all < 8 km/h) got the running
-  // floor of 6.0 whatever the effort. Own brackets from the Compendium
-  // instead. Rowing by erg split (watts ~ 2.8 / pace^3): slower than ~2:51/
-  // 500m light (4.8), ~100 W moderate (7.0), ~150 W vigorous (8.5), ~200 W
-  // very vigorous (12.0). Swimming by lap pace: slow/moderate freestyle
-  // (5.8), ~50 yd/min (8.3), ~75 yd/min and faster (9.8).
-  if (/rowing machine/.test(n)) {
-    if (speedKmh < 10.5) return 4.8;  // slower than ~2:51/500m
-    if (speedKmh < 12.5) return 7.0;  // to ~2:24/500m
-    if (speedKmh < 14.6) return 8.5;  // to ~2:03/500m
-    return 12.0;
-  }
-  if (/\bswim/.test(n)) {
-    if (speedKmh < 2.7) return 5.8;
-    if (speedKmh < 4.1) return 8.3;
-    return 9.8;
-  }
+  if (/cycl|bik/.test(n)) return interpolate(CYCLE_CURVE, speedKmh);
+  if (/rowing machine/.test(n)) return interpolate(ROW_CURVE, speedKmh);
+  if (/\bswim/.test(n)) return interpolate(SWIM_CURVE, speedKmh);
   if (/cross trainer|elliptical/.test(n)) return 5.0;
   // Incline Walk was a flat 6.0 MET at any speed, so a slow 4.5 km/h walk
   // priced like a steep climb. The ACSM walking equation (VO2 = 3.5 + 0.1 x
@@ -106,36 +118,16 @@ function cardioMET(exerciseName, speedKmh) {
     const metersPerMin = speedKmh * 1000 / 60;
     return (3.5 + 0.1 * metersPerMin + 1.8 * metersPerMin * INCLINE_WALK_ASSUMED_GRADE) / 3.5;
   }
-  // "Treadmill" has no case of its own before this point, so a treadmill
-  // set fell all the way through to the generic running ladder below
-  // (floor 6.0 MET) no matter how slow it actually was — a treadmill WALK
-  // logged at 6 km/h priced at running intensity instead of the walk
-  // bracket's 3.5 MET. Confirmed 2026-08-19: 3km/30min read 220.5 kcal on
-  // "Treadmill" vs the correct 128.6 kcal "Walking" gives for the identical
-  // pace -- 71% overcounted. Only short-circuits at walking speed; a faster
-  // treadmill RUN still falls through to the running ladder below exactly
-  // as before, so this doesn't touch that case.
-  // Up to 7.2 km/h is still a walk (Compendium: 4.0-4.5 mph brisk walking,
-  // 5.0 MET). The cut-off used to be 6.4, so "Treadmill Run" logged at 3.23 km
-  // in 30 min (6.46 km/h) priced as a 6.0 MET run (2026-10-07).
-  if (/treadmill/.test(n) && speedKmh < 7.2) {
-    if (speedKmh < 4.8) return 2.8;
-    return speedKmh < 6.4 ? 3.5 : 5.0;
-  }
-  if (/\bwalk/.test(n)) {
-    if (speedKmh < 4.8) return 2.8;
-    if (speedKmh < 6.4) return 3.5;
-    return 5.0;
-  }
-  // Running / jogging (and any other custom cardio exercise) — pace brackets.
-  if (speedKmh < 8.0) return 6.0;
-  if (speedKmh < 9.7) return 8.3;
-  if (speedKmh < 10.8) return 9.8;
-  if (speedKmh < 11.9) return 10.5;
-  if (speedKmh < 12.9) return 11.0;
-  if (speedKmh < 13.9) return 11.8;
-  if (speedKmh < 16.1) return 12.8;
-  return 14.5; // faster than 16.1 km/h
+  // Walking pace on anything but an explicit run/jog is a walk: a treadmill
+  // "run" at walking speed used to price as running (2026-08-19: 3 km/30 min
+  // read 220.5 kcal on "Treadmill" vs 128.6 as "Walking"; 2026-10-07:
+  // "Treadmill Run" at 6.46 km/h). Below 8.0 km/h the walking curve applies;
+  // it meets the running curve exactly there (8.3 MET), so the hand-off has
+  // no step. A named walk stays a walk above that.
+  const isRun = /\brun|jog/.test(n) && !/treadmill/.test(n);
+  if (/\bwalk/.test(n) || (!isRun && speedKmh < 8.0)) return interpolate(WALK_CURVE, speedKmh);
+  // Running / jogging (and any other custom cardio exercise).
+  return interpolate(RUN_CURVE, speedKmh);
 }
 
 // Standard MET calorie formula: kcal = MET x 3.5 x weightKg / 200 x minutes.
@@ -275,10 +267,14 @@ const STRENGTH_SECONDS_PER_REP = 3.0;
 // ~3 s per rep left a weights day at a third of its real burn: a 95-minute,
 // 28-set chest day saved as 129.5 kcal, next to 372 for a 59-minute cardio
 // day (2026-10-07). Recovery is credited only from the real time between one
-// set's tick and the next (pauses excluded), capped at 90 s per set, at a
-// light 3.0 MET. No credit before the first set or after the last.
-const RECOVERY_MET = 3.0;
-const MAX_RECOVERY_SECONDS_PER_SET = 90;
+// set's tick and the next (pauses excluded), at 3.5 MET (Compendium 02054,
+// "resistance training, multiple exercises, 8-15 reps", a whole-session
+// average), capped at 180 s per set (the upper end of standard 2-3 min rest
+// for heavy compound sets; anything longer is idle). No credit before the
+// first set or after the last. A first cut at 90 s / 3.0 MET still left that
+// 95-minute day at 261 kcal, well under the ~370 the Compendium gives it.
+const RECOVERY_MET = 3.5;
+const MAX_RECOVERY_SECONDS_PER_SET = 180;
 
 // Shared MET-based estimator for any reps-driven set that has no logged
 // duration of its own (bodyweight calisthenics AND regular weighted

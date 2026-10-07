@@ -41,9 +41,9 @@ describe('cardio calories when only distance or only time is logged', () => {
     computeLiveCalories([{ name, sets: [done(set)] }], 1, [], kg).totalKcal;
 
   // The confirmed case: "Treadmill Run 2.9 km", no time -> saved as 0 kcal.
-  // Typical running pace 9 km/h -> ~19.3 min at 8.3 MET (7.3 active) for 70 kg.
+  // Typical running pace 9 km/h -> ~19.3 min at 9.37 MET (8.4 to 9.7 km/h = 9.0 to 9.8) for 70 kg.
   it('counts a km-only run from the typical pace instead of 0', () => {
-    expect(kcalFor('Treadmill Run', { distanceKm: '2.9', time: '' })).toBeCloseTo(172.9, 0);
+    expect(kcalFor('Treadmill Run', { distanceKm: '2.9', time: '' })).toBeCloseTo(198.2, 0);
   });
 
   it('counts a time-only set from the typical pace instead of 0', () => {
@@ -58,8 +58,8 @@ describe('cardio calories when only distance or only time is logged', () => {
   });
 
   it('still uses the real pace when both are logged', () => {
-    // 10 km in 20 min cycling = 30 km/h -> 12.0 MET, 11 active: 11 x 3.5 x 70 / 200 x 20 = 269.5
-    expect(kcalFor('Cycling', { distanceKm: '10', time: '20:00' })).toBeCloseTo(269.5, 1);
+    // 10 km in 20 min = 30 km/h -> 13.43 MET (28.2 to 33 km/h = 12.0 to 15.8): 12.43 x 3.5 x 70 / 200 x 20 = 304.4
+    expect(kcalFor('Cycling', { distanceKm: '10', time: '20:00' })).toBeCloseTo(304.4, 1);
   });
 
   it('counts nothing when neither distance nor time is logged', () => {
@@ -67,7 +67,7 @@ describe('cardio calories when only distance or only time is logged', () => {
   });
 
   it('matches the live estimate for the same km-only set', () => {
-    expect(estimateCardioKcal('Treadmill Run', '2.9', 0)).toBeCloseTo(172.9, 0);
+    expect(estimateCardioKcal('Treadmill Run', '2.9', 0)).toBeCloseTo(198.2, 0);
   });
 });
 
@@ -110,20 +110,20 @@ describe('rowing machine and swimming calories', () => {
   // active kcal = (MET - 1) x 3.5 x kg / 200 x minutes; 70 kg -> 1.225 x (MET - 1) per minute
   const perMin = (met) => (met - 1) * 3.5 * 70 / 200;
 
-  it('prices a 2:30/500m erg (5 km in 25 min) at 7.0 MET, not as an 11.0 MET run', () => {
-    expect(kcalFor('Rowing Machine', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(7.0) * 25, 0);
+  it('prices a 2:30/500m erg (5 km in 25 min) at ~7.4 MET (7.0 at 11.5 km/h to 8.5 at 13.5), not as an 11.0 MET run', () => {
+    expect(kcalFor('Rowing Machine', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(7.375) * 25, 0);
   });
 
   it('steps rowing intensity up with pace', () => {
-    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '12:00' })).toBeCloseTo(perMin(4.8) * 12, 1); // 10 km/h
-    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '09:00' })).toBeCloseTo(perMin(8.5) * 9, 1);  // 13.3 km/h
-    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '08:00' })).toBeCloseTo(perMin(12.0) * 8, 1); // 15 km/h
+    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '12:00' })).toBeCloseTo(perMin(5.35) * 12, 1); // 10 km/h
+    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '09:00' })).toBeCloseTo(perMin(8.375) * 9, 1);  // 13.3 km/h
+    expect(kcalFor('Rowing Machine', { distanceKm: '2', time: '08:00' })).toBeCloseTo(perMin(11.125) * 8, 1); // 15 km/h
   });
 
   it('prices swimming by swim pace, not the running floor', () => {
     expect(kcalFor('Swimming', { distanceKm: '1', time: '30:00' })).toBeCloseTo(perMin(5.8) * 30, 1); // 2 km/h
-    expect(kcalFor('Swimming', { distanceKm: '1', time: '20:00' })).toBeCloseTo(perMin(8.3) * 20, 1); // 3 km/h
-    expect(kcalFor('Swimming', { distanceKm: '1', time: '14:00' })).toBeCloseTo(perMin(9.8) * 14, 1); // 4.3 km/h
+    expect(kcalFor('Swimming', { distanceKm: '1', time: '20:00' })).toBeCloseTo(perMin(5.8 + 2.5 / 1.4) * 20, 0); // 3 km/h
+    expect(kcalFor('Swimming', { distanceKm: '1', time: '14:00' })).toBeCloseTo(perMin(8.3 + 1.5 * (60 / 14 - 3.4) / 1.1) * 14, 1); // 4.3 km/h
   });
 
   it('auto-fills km from swim and erg pace, not running pace', () => {
@@ -131,8 +131,8 @@ describe('rowing machine and swimming calories', () => {
     expect(estimateCardioDistanceKm('Rowing Machine', 1500)).toBe(5);  // 25 min at 12 km/h
   });
 
-  it('leaves running unchanged', () => {
-    expect(kcalFor('Running', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(11.0) * 25, 0); // 12 km/h
+  it('prices running from the running curve', () => {
+    expect(kcalFor('Running', { distanceKm: '5', time: '25:00' })).toBeCloseTo(perMin(11.4375) * 25, 0); // 12 km/h
   });
 });
 
@@ -225,8 +225,8 @@ describe('Jump Rope (reps field holds skips)', () => {
 describe('recovery between sets', () => {
   const at = (sec) => 1_000_000 + sec * 1000;
   const set = (completedSec, fields) => ({ isCompleted: true, completedAt: at(completedSec), ...fields });
-  // 70 kg, 3.0 MET recovery (2.0 active): 2 x 3.5 x 70 / 200 = 2.45 kcal/min
-  const recoveryKcal = (seconds) => 2.45 * seconds / 60;
+  // 70 kg, 3.5 MET recovery (2.5 active): 2.5 x 3.5 x 70 / 200 = 3.0625 kcal/min
+  const recoveryKcal = (seconds) => 3.0625 * seconds / 60;
   const bench = (reps) => (6 * (70 + 50) - 70) * 3.5 / 200 * (reps * 3 / 60);
   const kcal = (exercises, pauses = []) => computeLiveCalories(exercises, at(0), pauses, 70).totalKcal;
 
@@ -236,9 +236,9 @@ describe('recovery between sets', () => {
     expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(60), 1);
   });
 
-  it('caps recovery at 90 s however long the break was', () => {
+  it('caps recovery at 180 s however long the break was', () => {
     const sets = [set(30, { reps: '10', weight: '50' }), set(30 + 600, { reps: '10', weight: '50' })];
-    expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(90), 1);
+    expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(180), 1);
   });
 
   it('credits nothing after the last set or for sets ticked back to back', () => {
@@ -264,10 +264,11 @@ describe('recovery between sets', () => {
 
   // Reported 2026-10-07, 89.8 kg client: a 95-minute, 28-set chest day saved
   // 129.5 kcal next to 372.4 for a 59-minute treadmill + bike day.
-  it('brings a long weights day level with a similar-length cardio day', () => {
+  // His 28 sets over 95 minutes average a tick every ~200 s.
+  it('puts a 95-minute weights day above a 59-minute cardio day', () => {
     const kg = 89.8;
     let t = 0;
-    const lift = (name, reps, weight) => { t += 180; return { name, sets: [set(t, { reps: String(reps), weight: String(weight) })] }; };
+    const lift = (name, reps, weight) => { t += 200; return { name, sets: [set(t, { reps: String(reps), weight: String(weight) })] }; };
     const exercises = [];
     [[12, 50], [6, 65], [5, 70], [2, 72.5]].forEach(([r, w]) => exercises.push(lift('Barbell Bench Press', r, w)));
     [[12, 45], [10, 50], [6, 55]].forEach(([r, w]) => exercises.push(lift('Incline Dumbbell Press', r, w)));
@@ -283,16 +284,18 @@ describe('recovery between sets', () => {
       { name: 'Stationary Bike HIIT', sets: [set(2700, { distanceKm: '4.5', time: '15:00' })] },
     ], at(0), [], kg).totalKcal;
 
-    expect(weights).toBeGreaterThan(200);
+    // Compendium 3.5 MET over 95 min at 89.8 kg = ~373 active kcal.
+    expect(weights).toBeGreaterThan(340);
+    expect(weights).toBeLessThan(450);
     expect(cardio).toBeLessThan(340);
-    expect(weights / cardio).toBeGreaterThan(0.6);
+    expect(weights).toBeGreaterThan(cardio);
   });
 });
 
 describe('Treadmill brisk walk', () => {
-  it('prices 6.46 km/h on a treadmill as a brisk walk (5.0 MET), not a run', () => {
-    // 4.0 active x 3.5 x 89.8 / 200 x 30 = 188.6 (was 235.7 at the 6.0 running floor)
-    expect(estimateCardioKcal('Treadmill Run', '3.23', 1800, 89.8)).toBeCloseTo(188.6, 1);
+  it('prices 6.46 km/h on a treadmill as a brisk walk (5.15 MET), not a run', () => {
+    // walking curve 6.4 -> 5.0, 7.2 -> 7.0: 5.15 MET, 4.15 active x 3.5 x 89.8 / 200 x 30 = 195.7 (was 235.7 as a run)
+    expect(estimateCardioKcal('Treadmill Run', '3.23', 1800, 89.8)).toBeCloseTo(195.7, 1);
   });
 
   it('still prices a real treadmill run at running pace', () => {
@@ -319,5 +322,36 @@ describe('Incline Walk and active (net) calories', () => {
 
   it('never goes negative for a near-resting effort', () => {
     expect(kcalFor('Walking', { distanceKm: '0.1', time: '30:00' })).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('published per-hour ranges by body weight', () => {
+  // Published tables list TOTAL kcal (resting burn included); the app shows
+  // ACTIVE kcal, so add back 1 MET (1.05 kcal per kg per hour) to compare.
+  const totalPerHour = (name, kmh, kg) => estimateCardioKcal(name, String(kmh), 3600, kg) + 1.05 * kg;
+  const ranges = {
+    'Walking 5.6': [[60, 230, 280], [70, 270, 330], [80, 310, 375], [90, 350, 420]],
+    'Cycling 18': [[60, 350, 450], [70, 410, 525], [80, 470, 600], [90, 530, 675]],
+    'Treadmill Run 10': [[60, 550, 700], [70, 640, 815], [80, 730, 930], [90, 820, 1050]],
+  };
+  Object.entries(ranges).forEach(([key, rows]) => {
+    const [name, kmh] = [key.slice(0, key.lastIndexOf(' ')), parseFloat(key.slice(key.lastIndexOf(' ') + 1))];
+    it(`${name} at ${kmh} km/h lands in range at 60-90 kg`, () => {
+      rows.forEach(([kg, lo, hi]) => {
+        const kcal = totalPerHour(name, kmh, kg);
+        expect(kcal).toBeGreaterThanOrEqual(lo);
+        expect(kcal).toBeLessThanOrEqual(hi);
+      });
+    });
+  });
+
+  it('has no price cliffs: a 0.02 km/h change never moves an hour by more than 2% (the old steps jumped up to 43%)', () => {
+    ['Walking', 'Treadmill', 'Running', 'Cycling', 'Rowing Machine', 'Swimming'].forEach(name => {
+      for (let kmh = 2; kmh <= 30; kmh += 0.1) {
+        const a = estimateCardioKcal(name, String(kmh), 3600, 70);
+        const b = estimateCardioKcal(name, String(kmh + 0.02), 3600, 70);
+        expect(Math.abs(b - a)).toBeLessThanOrEqual(Math.max(1, a * 0.02));
+      }
+    });
   });
 });

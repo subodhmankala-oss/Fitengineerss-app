@@ -91,6 +91,7 @@ pushes every path point of the body AND each muscle overlay through it, so the
 overlays stay registered. `body-front-fill-female.png` / `body-back-fill-female.png`
 are the gap-fill backdrops pushed through the same warp (its inverse, bilinear
 sampling, in a browser canvas) — regenerate them if any warp number changes.
-`female-front-underlay.svg` (the bust, as soft shading) is drawn for this app on
-top of the warped front body. All of these are modified
+`female-chest.svg` (the female Chest overlay: one rounded bust shape per side,
+replacing the male pectoralis muscle-4) and `female-front-underlay.svg` (matching
+bust shading) are drawn for this app directly on the warped front canvas. All of these are modified
 derivatives of the CC BY-SA artwork above and carry the same license.

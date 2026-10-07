@@ -66,7 +66,7 @@ function radial(r, a, T) {
 }
 
 // Soft downward bulge under each pec (front view only).
-const BUST = [{ x: -17.5 }, { x: 17.5 }].map(b => ({ ...b, y: 99, rx: 16, ry: 17, dy: 7 }));
+const BUST = [{ x: -17.5 }, { x: 17.5 }].map(b => ({ ...b, y: 100, rx: 16, ry: 19, dy: 11 }));
 function bustDy(r, y) {
   let dy = 0;
   for (const b of BUST) {

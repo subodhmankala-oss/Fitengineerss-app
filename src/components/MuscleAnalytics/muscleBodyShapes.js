@@ -34,6 +34,7 @@ import bodyBackFillUrl from './assets/body-back-fill.png'; // Gap-filled backdro
 import bodyFrontFillFemaleUrl from './assets/body-front-fill-female.png'; // Same backdrop, through femaleBodyWarp.js
 import bodyBackFillFemaleUrl from './assets/body-back-fill-female.png';
 import femaleFrontUnderlayUrl from './assets/female-front-underlay.svg';
+import femaleChestRaw from './assets/female-chest.svg?raw'; // Already in warped coordinates — see that file
 import { warpSvg } from './svgWarp';
 import { femaleWarp } from './femaleBodyWarp';
 
@@ -362,10 +363,12 @@ const MALE_ART = {
 // arm and the obliques overlay — it read as a stray spike. These two shapes
 // (measured from the warped body and muscle-14 overlay, 2026-10-07) are cut
 // out of the body + gap-fill layers with a CSS mask; the muscle overlays on
-// top are untouched.
+// top are untouched. The cut starts at the artwork's own armpit crease and
+// slopes down to the obliques, so the gap reads as an armpit fold, not a
+// punched hole.
 const FEMALE_FRONT_CUTOUTS = [
-  'M68.2,121 C68.2,117.5 70,115.3 72.3,115.3 C74,115.3 74.6,117.3 74.4,120.5 L74.4,124 L74.7,132 L75,138.5 L74.3,136 L73.1,130 L71.3,124.2 L70.3,122.3 Z',
-  'M130,121 C130,117.5 128.4,115.3 126.2,115.3 C124.6,115.3 124,117.3 124.2,120.5 L124.2,124 L123.8,132 L123.2,138.5 L123.9,136 L124.5,130 L125.9,124.2 L126.9,122.3 Z',
+  'M68.6,121.6 C70.6,121.6 73.2,123.4 74.6,126.5 L74.7,132 L75,138.5 L74.3,136 L73.1,130 L71.3,124.2 L70.3,122.3 Z',
+  'M129.8,121.6 C127.8,121.6 125.4,123.4 124,126.5 L123.8,132 L123.2,138.5 L123.9,136 L124.5,130 L125.9,124.2 L126.9,122.3 Z',
 ];
 const maskStyleCutting = cutouts => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 369.03" preserveAspectRatio="none"><path fill-rule="evenodd" d="M0,0H200V369.03H0Z ${cutouts.join(' ')}"/></svg>`;
@@ -384,8 +387,12 @@ function buildFemaleArt() {
       bodyMaskStyle: cutouts ? maskStyleCutting(cutouts) : null,
     };
   };
+  const front = view('front', BODY_FRONT_SVG, bodyFrontFillFemaleUrl, FRONT_MUSCLE_LAYERS, femaleFrontUnderlayUrl, FEMALE_FRONT_CUTOUTS);
+  // The warped male pectoral still reads as a man's chest, so the female
+  // figure's Chest is its own bust shape (drawn on the warped canvas).
+  front.layers.Chest = [femaleChestRaw];
   return {
-    front: view('front', BODY_FRONT_SVG, bodyFrontFillFemaleUrl, FRONT_MUSCLE_LAYERS, femaleFrontUnderlayUrl, FEMALE_FRONT_CUTOUTS),
+    front,
     back: view('back', BODY_BACK_SVG, bodyBackFillFemaleUrl, BACK_MUSCLE_LAYERS, null),
   };
 }

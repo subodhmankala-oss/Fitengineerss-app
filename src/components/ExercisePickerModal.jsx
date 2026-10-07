@@ -268,9 +268,19 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
               onClick={() => { setTag(t); setSubgroup(null); setBodyMuscle(null); }}
             >
               {t}
+              {/* Caret marks the chips that open a row of regions. */}
+              {EXERCISE_SUBGROUPS[t] && (
+                <span className={`filter-tag-caret ${tag === t && !bodyMuscle ? 'open' : ''}`} aria-hidden="true">▾</span>
+              )}
             </button>
           ))}
         </div>
+
+        {tag === 'All' && !bodyMuscle && !trimmed && (
+          <p className="exercise-subgroup-hint exercise-subgroup-tip">
+            Tap a muscle with ▾ to narrow down — Upper Chest, Mid Back, Obliques, Biceps heads, Tibialis…
+          </p>
+        )}
 
         {subgroups && (
           <div className="exercise-subgroup-row">

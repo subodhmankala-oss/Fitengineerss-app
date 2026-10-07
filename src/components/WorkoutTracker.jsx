@@ -369,7 +369,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     try {
       const plans = await databaseService.getWorkoutPlansForUser(getPlanOwnerId());
       setClientPlans(plans || []);
-      setPlanOverrides({});
     } catch (e) {
       console.error('Error fetching client plans:', e);
     } finally {
@@ -451,13 +450,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [activeGuideExercise, setActiveGuideExercise] = useState(null);
   const [historyModalExercise, setHistoryModalExercise] = useState(null);
-  // Set when the history sheet was opened from a plan card (before a workout
-  // starts): its suggestion chips then SWAP into that plan for today's session
-  // instead of adding to a live workout.
-  const [historyModalPlan, setHistoryModalPlan] = useState(null);
-  // Today's swaps, per plan: { [planKey]: exercises[] }. Never written back to
-  // the saved plan — startPlan just reads it. Cleared whenever plans refetch.
-  const [planOverrides, setPlanOverrides] = useState({});
   // Timed exercise stopwatches: { "exIdx,sIdx": { isRunning, startedAt, pausedDuration } }
   // Kept in localStorage alongside the restored session, so a stopwatch
   // running when the phone reloaded the page carries on — see
@@ -2600,13 +2592,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   // and silently zeroes out weight when used on a real per-set plan. This is
   // the one correct path; both the Coach Plans card (Templates view) and the
   // Start Workout Session launcher (Log view) route through it.
-  const planKeyOf = (plan) => plan.id || plan.planName;
-  const effectivePlanExercises = (plan) => {
-    const swapped = planOverrides[planKeyOf(plan)];
-    if (swapped) return swapped;
-    return Array.isArray(plan.exercises) ? plan.exercises : [];
-  };
-
   const startPlan = (plan, source) => {
     // Guard the malformed/empty case explicitly: `plan.exercises` used to
     // be mapped directly, so a null one threw a TypeError and an empty
@@ -2615,7 +2600,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     // normalized now (see normalizePlanExercises), so reaching here with
     // nothing means the stored plan genuinely has no exercises; say that
     // instead of opening a blank logger.
-    const planExercises = effectivePlanExercises(plan);
+    const planExercises = Array.isArray(plan.exercises) ? plan.exercises : [];
     if (planExercises.length === 0) {
       triggerToast('⚠️ This plan has no exercises saved. Open it in the editor to rebuild it.');
       return;
@@ -2773,26 +2758,6 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     const sets = buildStartingSets(name);
     setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
-  };
-
-  // History sheet opened from a plan card: swap the opened exercise for the
-  // tapped suggestion, for today's session only.
-  const openPlanExerciseHistory = (plan, name) => {
-    setHistoryModalPlan(plan);
-    setHistoryModalExercise(name);
-  };
-
-  const swapPlanExercise = (newName) => {
-    const plan = historyModalPlan;
-    const oldName = historyModalExercise;
-    if (!plan || !oldName) return;
-    const next = effectivePlanExercises(plan).map(ex => (
-      ex.name === oldName ? { name: newName, sets: buildStartingSets(newName) } : ex
-    ));
-    setPlanOverrides(prev => ({ ...prev, [planKeyOf(plan)]: next }));
-    setHistoryModalExercise(null);
-    setHistoryModalPlan(null);
-    triggerToast(`Swapped ${oldName} for ${newName} in today's session.`);
   };
 
   return (
@@ -3418,12 +3383,11 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                   {visibleCoachPlans.map(plan => (
                     <PlanCard
                       key={plan.id || plan.planName}
-                      plan={{ ...plan, exercises: effectivePlanExercises(plan) }}
+                      plan={plan}
                       source="coach"
                       onStart={() => startPlan(plan, 'coach')}
-                      onOpenExercise={(name) => openPlanExerciseHistory(plan, name)}
+                      onOpenExercise={setHistoryModalExercise}
                       getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
-                      customized={!!planOverrides[planKeyOf(plan)]}
                     />
                   ))}
                 </div>
@@ -3449,13 +3413,12 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                   {visibleTemplatePlans.map(plan => (
                     <PlanCard
                       key={plan.id}
-                      plan={{ ...plan, exercises: effectivePlanExercises(plan) }}
+                      plan={plan}
                       source="self"
                       onStart={() => startPlan(plan, 'self')}
                       onDelete={() => handleDeleteTemplate(plan)}
-                      onOpenExercise={(name) => openPlanExerciseHistory(plan, name)}
+                      onOpenExercise={setHistoryModalExercise}
                       getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
-                      customized={!!planOverrides[planKeyOf(plan)]}
                     />
                   ))}
                 </div>
@@ -4608,10 +4571,9 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
         exerciseName={historyModalExercise}
         sessions={sessions}
         clientName={selectedClient}
-        addedNames={(historyModalPlan ? effectivePlanExercises(historyModalPlan) : logExercises).map(le => le.name)}
-        onAddExercise={historyModalPlan ? swapPlanExercise : (isLoggingWorkout ? addExerciseToWorkout : undefined)}
-        swapMode={!!historyModalPlan}
-        onClose={() => { setHistoryModalExercise(null); setHistoryModalPlan(null); }}
+        addedNames={logExercises.map(le => le.name)}
+        onAddExercise={isLoggingWorkout ? addExerciseToWorkout : undefined}
+        onClose={() => setHistoryModalExercise(null)}
       />
 
       {/* Unticked Finish Warning Dialog Modal */}

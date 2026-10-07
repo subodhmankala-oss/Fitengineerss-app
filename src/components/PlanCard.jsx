@@ -75,9 +75,8 @@ const formatSetsLabel = (sets) => {
 
 // onOpenExercise: when given (Log Sets picker only — Home's card omits it), the
 // "N exercises" count becomes a toggle that expands the plan's exercise list,
-// and each name opens that exercise's history sheet. `customized` flags a
-// plan whose exercises were swapped for today's session.
-const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, onOpenExercise, getExerciseStatus, customized = false }) => {
+// and each name opens that exercise's history sheet.
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, onOpenExercise, getExerciseStatus }) => {
   const [expanded, setExpanded] = useState(false);
   const meta = getPlanCardMeta(plan);
   const exerciseList = Array.isArray(plan.exercises) ? plan.exercises : [];
@@ -187,7 +186,6 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
               </button>
             );
           })}
-          {customized && <p className="wt-plan-customized">Swapped for today's session. The saved plan isn't changed.</p>}
         <button type="button" className="wt-plan-start-wide" onClick={handleStart}>
           ▶ Start workout
         </button>

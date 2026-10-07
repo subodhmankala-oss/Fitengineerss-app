@@ -5188,11 +5188,6 @@ html.keyboard-open .rest-timer-floating-card {
   cursor: pointer;
 }
 
-.wt-plan-customized {
-  margin: 8px 0 2px;
-  font-size: 0.7rem;
-  color: var(--accent-text);
-}
 
 .wt-muscle-chip {
   display: flex;

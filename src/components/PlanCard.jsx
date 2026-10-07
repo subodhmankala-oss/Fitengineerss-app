@@ -83,10 +83,10 @@ const formatSetsLabel = (sets) => {
   return same ? `${sets.length} × ${reps[0]}` : `${sets.length} ${sets.length === 1 ? 'set' : 'sets'}`;
 };
 
-// onOpenExercise: when given (Log Sets picker only — Home's card omits it), the
-// "N exercises" count becomes a toggle that expands the plan's exercise list,
-// and each name opens that exercise's history sheet.
-const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, onOpenExercise, getExerciseStatus }) => {
+// expandable: (Log Sets picker only — Home's card omits it) turns the "N exercises"
+// count into a View/Hide toggle that lists the plan's exercises read-only, each
+// with its training status (getExerciseStatus) and sets × reps.
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, expandable = false, getExerciseStatus }) => {
   const [expanded, setExpanded] = useState(false);
   const meta = getPlanCardMeta(plan);
   const exerciseList = Array.isArray(plan.exercises) ? plan.exercises : [];
@@ -131,7 +131,7 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
             <span><ClockIcon /> {meta.estMinutes} min</span>
           )}
           <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
-          {onOpenExercise && (
+          {expandable && (
             <button
               type="button"
               className={`wt-plan-expand-btn ${expanded ? 'open' : ''}`}
@@ -171,17 +171,14 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
         )}
       </div>
 
-      {onOpenExercise && expanded && (
+      {expandable && expanded && (
         <div className="wt-plan-exercises">
           {exerciseList.map((ex, i) => {
             const status = getExerciseStatus ? getExerciseStatus(ex.name) : null;
             return (
-              <button
+              <div
                 key={`${ex.name}-${i}`}
-                type="button"
                 className="wt-plan-exercise-row"
-                title="View exercise history"
-                onClick={() => onOpenExercise(ex.name)}
               >
                 <span className="wt-plan-exercise-name">{ex.name}</span>
                 <span className="wt-plan-exercise-right">
@@ -190,9 +187,9 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
                       {STATUS_TAG_LABEL[status.key]}
                     </span>
                   )}
-                  <span className="wt-plan-exercise-sets">{formatSetsLabel(ex.sets)} ›</span>
+                  <span className="wt-plan-exercise-sets">{formatSetsLabel(ex.sets)}</span>
                 </span>
-              </button>
+              </div>
             );
           })}
         <button type="button" className="wt-plan-start-wide" onClick={handleStart}>

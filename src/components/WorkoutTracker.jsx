@@ -3386,7 +3386,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                       plan={plan}
                       source="coach"
                       onStart={() => startPlan(plan, 'coach')}
-                      onOpenExercise={setHistoryModalExercise}
+                      expandable
                       getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                     />
                   ))}
@@ -3417,7 +3417,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                       source="self"
                       onStart={() => startPlan(plan, 'self')}
                       onDelete={() => handleDeleteTemplate(plan)}
-                      onOpenExercise={setHistoryModalExercise}
+                      expandable
                       getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                     />
                   ))}

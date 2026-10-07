@@ -5128,11 +5128,7 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 10px;
   padding: 11px 2px;
   font: inherit;
-  text-align: left;
-  background: none;
-  border: none;
   border-bottom: 1px solid rgba(var(--fg-rgb), 0.05);
-  cursor: pointer;
 }
 
 .wt-plan-exercise-name {

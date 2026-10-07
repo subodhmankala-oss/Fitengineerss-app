@@ -4402,26 +4402,29 @@ html.keyboard-open .rest-timer-floating-card {
   color: var(--text-main);
 }
 
+/* Same 20px side gutter as the status card above, so the block lines up with
+   it instead of running to the sheet's edges; equal space above and below. */
 .ex-history-recs {
-  margin: 10px 0 4px;
+  margin: 14px 20px;
+  flex-shrink: 0;
 }
 
 .ex-history-recs-title {
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   font-weight: 800;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .ex-history-recs-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ex-history-rec-chip {
-  padding: 5px 11px;
-  font-size: 0.76rem;
+  padding: 9px 16px;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.12);

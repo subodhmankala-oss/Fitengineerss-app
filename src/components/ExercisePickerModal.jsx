@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, PICKER_HIDDEN_NAMES } from '../data/exerciseLibrary';
 import { getMuscleGroupsForExercise, exerciseTargetsMuscle, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
-import { EXERCISE_SUBGROUPS, exerciseInSubgroup, subgroupSearchText } from '../data/exerciseSubgroups';
+import { EXERCISE_SUBGROUPS, exerciseInSubgroup, subgroupSearchText, getExerciseSubgroups } from '../data/exerciseSubgroups';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
-import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
+import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
 import CreateCustomExerciseModal from './CreateCustomExerciseModal';
 
@@ -17,7 +17,7 @@ import CreateCustomExerciseModal from './CreateCustomExerciseModal';
 // This wrapper defers the expensive SVG mount until the row has actually
 // scrolled near the visible area, so the initial paint only pays for the
 // dozen or so rows on screen instead of the whole list.
-function LazyMuscleIcon({ rootRef, muscle, color, size }) {
+function LazyMuscleIcon({ rootRef, muscle, region, color, size }) {
   const wrapperRef = useRef(null);
   const [inView, setInView] = useState(false);
 
@@ -40,7 +40,9 @@ function LazyMuscleIcon({ rootRef, muscle, color, size }) {
 
   return (
     <div ref={wrapperRef} style={{ width: size, height: size }}>
-      {inView && <MuscleThumbnail muscle={muscle} color={color} size={size} />}
+      {inView && (region
+        ? <RegionThumbnail region={region} color={color} size={size} />
+        : <MuscleThumbnail muscle={muscle} color={color} size={size} />)}
     </div>
   );
 }
@@ -303,7 +305,12 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                 </button>
               ))}
             </div>
-            {subgroupHint && <p className="exercise-subgroup-hint">{subgroupHint}</p>}
+            {subgroupHint && (
+              <div className="exercise-subgroup-hint-row">
+                <RegionThumbnail region={subgroup} color="#8b5cf6" size={44} />
+                <p className="exercise-subgroup-hint">{subgroupHint}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -374,6 +381,11 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
             filtered.map(ex => {
               const already = addedSet.has(ex.name.toLowerCase());
               const primaryMuscle = getMuscleGroupsForExercise(ex.name)[0];
+              // Icon shows just the region: the picked sub-group, or the
+              // exercise's only region (Seated Cable Row → Mid Back, Tibialis
+              // Raise → front of the shin). Several regions → whole muscle.
+              const exRegions = getExerciseSubgroups(ex.name);
+              const iconRegion = subgroup || (exRegions.length === 1 ? exRegions[0] : null);
               // Keying by ex.name alone breaks the moment two rows in
               // activeLibrary share a name — e.g. a super-admin browsing a
               // coach's clients sees every custom_exercises row on the
@@ -399,8 +411,8 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                     style={{ '--status-color': '#60a5fa' }}
                     onClick={(e) => { e.stopPropagation(); onShowFormGuide?.(ex.name); }}
                   >
-                    {primaryMuscle ? (
-                      <LazyMuscleIcon rootRef={listRef} muscle={primaryMuscle} color="#60a5fa" size={38} />
+                    {primaryMuscle || iconRegion ? (
+                      <LazyMuscleIcon key={iconRegion || primaryMuscle} rootRef={listRef} muscle={primaryMuscle} region={iconRegion} color="#60a5fa" size={38} />
                     ) : (
                       <div className="preset-icon-monogram" aria-hidden="true">
                         {ex.name.charAt(0).toUpperCase()}

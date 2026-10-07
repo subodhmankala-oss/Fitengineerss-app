@@ -5,6 +5,7 @@ import {
   MUSCLE_CROP, BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
   SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
+import { REGION_SHAPES, regionCrop, clipStyle } from './regionShapes';
 
 // Same featureless-face patch as the full heat map (MuscleHeatMap.jsx) — see
 // FACE_MASK there for why. Front-view crops (Chest, Shoulders, Biceps, Core,
@@ -92,6 +93,52 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
         {rawFiles.map((rawSvg, i) => (
           <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />
         ))}
+      </div>
+    </div>
+  );
+});
+
+/**
+ * Same icon as MuscleThumbnail, but for a sub-group region (Mid Back, Upper
+ * Chest, Biceps Long Head, Tibialis…) — only that part of the muscle is
+ * colored. Shapes and clip windows live in regionShapes.js.
+ */
+export const RegionThumbnail = React.memo(function RegionThumbnail({ region, color, size = 64 }) {
+  const shape = REGION_SHAPES[region];
+  const crop = regionCrop(region, CANVAS_W, CANVAS_H);
+  if (!shape || !crop) return null;
+  const isFront = shape.view === 'front';
+  const gid = region.replace(/\W+/g, '');
+
+  return (
+    <div className="muscle-thumb" style={{ width: size, height: size }} aria-hidden="true">
+      <div
+        className="muscle-thumb-canvas"
+        style={{
+          width: CANVAS_W,
+          height: CANVAS_H,
+          transform: `scale(${size / crop.w}) translate(${-crop.x}px, ${-crop.y}px)`,
+        }}
+      >
+        <img src={isFront ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL} alt="" className="muscle-thumb-layer" />
+        <div className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: isFront ? BODY_FRONT_SVG : BODY_BACK_SVG }} />
+        {isFront ? <FaceMaskLayer gradientId={`regionFace-${gid}`} /> : <ScalpMaskLayer gradientId={`regionScalp-${gid}`} />}
+
+        {(shape.parts || []).map((part, i) => (
+          <div
+            key={i}
+            className="muscle-thumb-layer"
+            style={{ clipPath: clipStyle(part.clip) }}
+            dangerouslySetInnerHTML={{ __html: recolorSvg(part.raw, color, false) }}
+          />
+        ))}
+        {shape.paths && (
+          <svg viewBox={`0 0 ${CANVAS_W} 369.03`} className="muscle-thumb-layer">
+            {shape.paths.map((d, i) => (
+              <path key={i} d={d} fill={color} stroke="#0f1420" strokeWidth="1.2" strokeOpacity="0.9" />
+            ))}
+          </svg>
+        )}
       </div>
     </div>
   );

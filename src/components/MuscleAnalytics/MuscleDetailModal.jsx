@@ -1,16 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useCountUp } from '../../hooks/useCountUp';
+import MuscleThumbnail from './MuscleThumbnail';
 import { shiftLocalDateString, getLocalDateString } from '../../utils/dateUtils';
 import {
   getWeeklyMuscleStats, getExerciseBreakdownForMuscle, getBestLiftForMuscle,
   getPersonalRecordsForMuscle, getWeeklySetsTrendForMuscle, getMuscleGrowthScore,
   getMuscleRecovery, getHeatMapTier
 } from '../../utils/muscleAnalytics';
-
-const MUSCLE_ABBREV = {
-  Chest: 'CH', Back: 'BA', Shoulders: 'SH', Biceps: 'BI', Triceps: 'TR',
-  Forearms: 'FA', Core: 'CO', Glutes: 'GL', Quads: 'QD', Hamstrings: 'HS', Calves: 'CA'
-};
 
 const StatBlock = ({ label, value, suffix = '' }) => {
   const animated = useCountUp(typeof value === 'number' ? value : 0, 700);
@@ -96,7 +92,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
 
         <div className="muscle-detail-header">
           <span className="muscle-detail-icon" style={{ '--status-color': tier.color }}>
-            {MUSCLE_ABBREV[muscle] || muscle.slice(0, 2).toUpperCase()}
+            <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={52} />
           </span>
           <div className="muscle-detail-title-group">
             <h3>{muscle}</h3>

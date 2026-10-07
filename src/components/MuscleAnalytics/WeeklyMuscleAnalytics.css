@@ -682,17 +682,7 @@
 }
 
 .muscle-detail-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 800;
-  color: var(--status-color);
-  background: color-mix(in srgb, var(--status-color) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--status-color) 40%, transparent);
   flex-shrink: 0;
 }
 

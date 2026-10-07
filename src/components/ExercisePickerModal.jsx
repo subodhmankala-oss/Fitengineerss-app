@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EXERCISE_LIBRARY, EXERCISE_CATEGORIES, PICKER_HIDDEN_NAMES } from '../data/exerciseLibrary';
 import { getMuscleGroupsForExercise, exerciseTargetsMuscle, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
+import { EXERCISE_SUBGROUPS, exerciseInSubgroup, subgroupSearchText } from '../data/exerciseSubgroups';
 import { BodyDiagram } from './MuscleAnalytics/MuscleHeatMap';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import MuscleThumbnail from './MuscleAnalytics/MuscleThumbnail';
@@ -58,6 +59,10 @@ const CLOSE_ANIM_MS = 240;
 export default function ExercisePickerModal({ open, onClose, addedNames = [], onAdd, onRemove, onShowFormGuide, creatorMode = 'client', coachId = null, clientUserId = null, clientName = '' }) {
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState('All');
+  // Region inside the picked category (Upper Chest, Mid Back, Obliques…).
+  // Filters by the sub-group alone, not the category too — Shrugs are tagged
+  // Shoulders but belong under Back › Upper Back.
+  const [subgroup, setSubgroup] = useState(null);
   // Body picker: tap a muscle on the diagram to list only exercises that
   // mainly train it. Separate from the category chips — picking one clears
   // the other, so the two never silently combine into an empty list.
@@ -92,6 +97,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       // from the last time it was open — reset them fresh on every open.
       setQuery('');
       setTag('All');
+      setSubgroup(null);
       setBodyMuscle(null);
       setShowBody(false);
     } else {
@@ -130,6 +136,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const pickBodyMuscle = (m) => {
     setBodyMuscle(m);
     setTag('All');
+    setSubgroup(null);
     setShowBody(false);
     listRef.current?.scrollTo?.({ top: 0 });
   };
@@ -179,7 +186,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     if (nameLower.includes(q)) return 2;
     const category = (ex.category || '').toLowerCase();
     const muscle = (ex.primary_muscle || ex.primary || '').toLowerCase();
-    if (category.includes(q) || muscle.includes(q)) return 3;
+    if (category.includes(q) || muscle.includes(q) || subgroupSearchText(ex.name).includes(q)) return 3;
     return -1;
   };
 
@@ -187,12 +194,14 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     .map(ex => ({ ex, rank: rankExercise(ex) }))
     .filter(({ ex, rank }) => {
       const matchesSearch = rank !== -1;
-      const matchesCategory = tag === 'All' || ex.category === tag;
+      const matchesCategory = subgroup ? exerciseInSubgroup(ex.name, subgroup) : (tag === 'All' || ex.category === tag);
       return matchesSearch && matchesCategory && exerciseTargetsMuscle(ex, bodyMuscle);
     })
     .sort((a, b) => a.rank - b.rank || a.ex.name.localeCompare(b.ex.name))
     .map(({ ex }) => ex);
   const exactExists = activeLibrary.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
+  const subgroups = !bodyMuscle && EXERCISE_SUBGROUPS[tag];
+  const subgroupHint = subgroups && subgroups.find(sg => sg.id === subgroup)?.hint;
 
   return (
     <div className={`payment-gateway-backdrop exercise-modal-backdrop ${closing ? 'closing' : ''}`}>
@@ -256,12 +265,37 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
               key={t}
               type="button"
               className={`filter-tag-btn ${tag === t && !bodyMuscle ? 'active' : ''}`}
-              onClick={() => { setTag(t); setBodyMuscle(null); }}
+              onClick={() => { setTag(t); setSubgroup(null); setBodyMuscle(null); }}
             >
               {t}
             </button>
           ))}
         </div>
+
+        {subgroups && (
+          <div className="exercise-subgroup-row">
+            <div className="exercise-filter-tags exercise-subgroup-tags">
+              <button
+                type="button"
+                className={`filter-tag-btn ${!subgroup ? 'active' : ''}`}
+                onClick={() => setSubgroup(null)}
+              >
+                All {tag}
+              </button>
+              {subgroups.map(sg => (
+                <button
+                  key={sg.id}
+                  type="button"
+                  className={`filter-tag-btn ${subgroup === sg.id ? 'active' : ''}`}
+                  onClick={() => { setSubgroup(sg.id); listRef.current?.scrollTo?.({ top: 0 }); }}
+                >
+                  {sg.id}
+                </button>
+              ))}
+            </div>
+            {subgroupHint && <p className="exercise-subgroup-hint">{subgroupHint}</p>}
+          </div>
+        )}
 
         {showBody && (
           <div className="exercise-body-picker">
@@ -324,7 +358,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
 
           {filtered.length === 0 && !trimmed ? (
             <div className="no-presets-found" style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ fontSize: '0.9rem' }}>{bodyMuscle ? `No ${bodyMuscle} exercises found.` : 'No exercises in this category.'}</p>
+              <p style={{ fontSize: '0.9rem' }}>{bodyMuscle ? `No ${bodyMuscle} exercises found.` : subgroup ? `No ${subgroup} exercises found.` : 'No exercises in this category.'}</p>
             </div>
           ) : (
             filtered.map(ex => {

@@ -45,7 +45,9 @@ export const LARGE_MUSCLES = new Set(['Chest', 'Back', 'Shoulders', 'Quads', 'Ha
 // `test` receives the lowercased exercise name.
 const RULES = [
   // ── Isolation arms (checked before compound "press"/"row" rules) ──
-  { test: n => /(triceps|tricep|skullcrusher|pushdown|kickback|close.?grip)/.test(n) && !/(chest dip|^dip$|bench)/.test(n), muscles: ['Triceps'] },
+  // "glute" excluded: Glute Kickback is a hip move, not a triceps kickback.
+  // "pulldown"/"row" excluded: Lat Pulldown (Close Grip) is a back move.
+  { test: n => /(triceps|tricep|skullcrusher|pushdown|kickback|close.?grip)/.test(n) && !/(chest dip|^dip$|bench|glute|pulldown|\brow)/.test(n), muscles: ['Triceps'] },
   // Checked before the generic "curl" rule below — "Wrist Curl" and
   // "Reverse Curl" both contain "curl" and would otherwise be misclassified
   // as Biceps. Reverse Curl (pronated/overhand grip) is brachioradialis/
@@ -58,7 +60,7 @@ const RULES = [
   // Farmer Walk under Forearms. Without this rule these sets mapped to NO
   // muscle group and were silently dropped from every analytics number.
   { test: n => /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n), muscles: ['Forearms', 'Shoulders'] },
-  { test: n => /(bicep|curl)/.test(n) && !/(leg curl|hip curl|wrist curl)/.test(n), muscles: ['Biceps'] },
+  { test: n => /(bicep|curl)/.test(n) && !/(leg curl|hip curl|wrist curl|hamstring|nordic)/.test(n), muscles: ['Biceps'] },
 
   // ── Shoulders (rotator cuff) ──
   // Checked BEFORE the calf rule below: coaches type this exercise freehand
@@ -73,10 +75,13 @@ const RULES = [
   // "calves", rather than the bare substring "calf" — the loose version
   // matched any custom name that merely contained those four letters.
   { test: n => /\bcalves\b/.test(n) || (/\bcalf\b/.test(n) && /(raise|press|extension|curl)/.test(n)), muscles: ['Calves'] },
+  // Tibialis (front of the shin) has no group of its own in this taxonomy;
+  // it's lower-leg work, so it's credited alongside the calves.
+  { test: n => /tibialis|tib bar/.test(n), muscles: ['Calves'] },
   { test: n => /(glute|hip thrust|glute bridge|hip abduction|hip adduction)/.test(n), muscles: ['Glutes'] },
   // "kettlebell swing" added: a hip-hinge posterior-chain move, classified
   // the same as Romanian Deadlift / Good Morning here.
-  { test: n => /(hamstring|romanian|stiff.?leg|leg curl|good morning|single.?leg deadlift|kettlebell swing)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
+  { test: n => /(hamstring|nordic|romanian|stiff.?leg|leg curl|good morning|single.?leg deadlift|kettlebell swing)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
   { test: n => /(leg extension)/.test(n), muscles: ['Quads'] },
   // "box jump" added alongside "box squat" — both explosive quad/glute moves.
   // "Side Hops" and "Steppers" added (2026-08-25 coverage audit): both are
@@ -97,7 +102,7 @@ const RULES = [
   // (see exerciseLibrary.js's isBodyweightExercise comment: they used to be
   // stuck under isWarmupExercise instead, contributing zero to calories —
   // same principle applies here, they belong in Core, not unmapped).
-  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?|bird dog|cat camel)/.test(n), muscles: ['Core'] },
+  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n), muscles: ['Core'] },
   { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Core', 'Back'] },
   // Burpee: full-body conditioning move: Core (plank/crunch phase) + Quads
   // (jump/squat phase) is the most representative 2-muscle credit available
@@ -124,13 +129,13 @@ const RULES = [
   // classified the same as Face Pull/Reverse Fly.
   { test: n => /(rear delt|reverse fly|face pull|pull apart)/.test(n), muscles: ['Shoulders', 'Back'] },
   { test: n => /(shrug)/.test(n), muscles: ['Shoulders', 'Back'] },
-  { test: n => /(lateral raise|side lateral|front raise|upright row)/.test(n), muscles: ['Shoulders'] },
+  { test: n => /(lateral raise|side lateral|front raise|upright row|y raise)/.test(n), muscles: ['Shoulders'] },
   // "shoulders?\s*press" (not just singular "shoulder press") — "Shoulders
   // Press" is this app's own default/most-used exercise name (see
   // WorkoutTracker.jsx) and was previously falling through unmapped because
   // the plural form didn't match the old singular-only regex.
   {
-    test: n => /(shoulders?\s*press|overhead press|arnold|military press|behind neck|clean and press|push press|behind.?the.?neck)/.test(n)
+    test: n => /(shoulders?\s*press|overhead press|arnold|military press|behind neck|clean and press|push press|behind.?the.?neck|landmine press)/.test(n)
       // "Dumbbell Press (Seated)" has "seated" AFTER "press" ("Press
       // (Seated)"), so a single sequential "seated.*press" pattern misses
       // it — check both words appear anywhere, order-independent, instead.
@@ -143,6 +148,8 @@ const RULES = [
   // ── Back (pulling compounds) ──
   // "\blat " — a bare "lat " also matched the end of "flat", so Flat Bench
   // Press was credited to Back/Biceps instead of Chest/Triceps.
+  // Pullovers: a straight-arm lat move with the chest assisting, no biceps.
+  { test: n => /pullover/.test(n), muscles: ['Back', 'Chest'] },
   { test: n => /(row|pulldown|pull.?up|chin.?up|\blat |t.?bar|pendlay|pull through|v.?bar)/.test(n), muscles: ['Back', 'Biceps'] },
 
   // ── Chest (pressing compounds) ──
@@ -155,7 +162,7 @@ const RULES = [
   // judgment call — the name alone doesn't specify chest vs. shoulder, and a
   // flat smith-machine bench press is the more common gym-vernacular default
   // for an unqualified "Press (Smith Machine)" than a shoulder press.
-  { test: n => /(bench|chest|fly|pec deck|push.?up|crossover|dip|around the world|floor press|incline.*press|decline.*press|smith machine)/.test(n), muscles: ['Chest', 'Triceps'] },
+  { test: n => /(bench|chest|fly|pec deck|push.?up|crossover|dip|around the world|floor press|incline.*press|decline.*press|smith machine|svend)/.test(n), muscles: ['Chest', 'Triceps'] },
 ];
 
 const memo = new Map();

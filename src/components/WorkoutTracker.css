@@ -3235,6 +3235,27 @@ html.keyboard-open .rest-timer-floating-card {
   flex-shrink: 0;
 }
 
+/* Region chips under a category (Upper Chest, Mid Back, Obliques…) —
+   smaller and indented so they read as a level below the category row. */
+.exercise-subgroup-row {
+  flex-shrink: 0;
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(var(--accent-rgb), 0.35);
+}
+
+.exercise-subgroup-tags .filter-tag-btn {
+  padding: 4px 10px;
+  font-size: 0.68rem;
+}
+
+.exercise-subgroup-hint {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
 .filter-tag-btn {
   padding: 6px 12px;
   font-size: 0.72rem;

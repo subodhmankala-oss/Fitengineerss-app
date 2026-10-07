@@ -29,6 +29,9 @@ import rearDeltRaw from './assets/muscle-rear-delt.svg?raw';
 import teresRaw from './assets/muscle-teres.svg?raw';
 import hamstringsRaw from './assets/muscle-hamstrings.svg?raw';
 import tibialisRaw from './assets/muscle-tibialis.svg?raw';
+import femaleChestRaw from './assets/female-chest.svg?raw';
+import { warpSvg, warpPathD } from './svgWarp';
+import { femaleWarp } from './femaleBodyWarp';
 
 // Pec spans y 68–102: thirds-ish, upper band a little deeper (clavicular head).
 const PEC_X = [55, 142];
@@ -91,10 +94,63 @@ export const REGION_SHAPES = {
   Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [69, 266, 132, 331] },
 };
 
+// ── Female figure ──
+// The female body (see getBodyArt in muscleBodyShapes.js) is the same art
+// through femaleWarp, so every region goes through it too: overlays are
+// warped, hand-drawn paths are warped, and clip windows / boxes become the
+// bounding box of the warped rectangle. Chest is the exception — the female
+// figure has its own bust overlay (female-chest.svg, y 74–113), so its three
+// bands are re-cut on that shape instead.
+const FEMALE_CHEST_BANDS = {
+  'Upper Chest': [72, 86], 'Mid Chest': [86, 97], 'Lower Chest': [97, 115],
+};
+
+function warpBox([x0, y0, x1, y1], warp) {
+  const pts = [];
+  for (let i = 0; i <= 6; i++) {
+    const tx = x0 + (x1 - x0) * i / 6, ty = y0 + (y1 - y0) * i / 6;
+    pts.push([tx, y0], [tx, y1], [x0, ty], [x1, ty]);
+  }
+  const w = pts.map(warp);
+  return [Math.min(...w.map(p => p[0])), Math.min(...w.map(p => p[1])), Math.max(...w.map(p => p[0])), Math.max(...w.map(p => p[1]))];
+}
+
+const femaleShapes = new Map();
+const warpedRaw = new Map();
+function femaleRegionShape(region) {
+  if (femaleShapes.has(region)) return femaleShapes.get(region);
+  const shape = REGION_SHAPES[region];
+  let out = shape;
+  if (shape) {
+    const warp = femaleWarp(shape.view);
+    const raw = r => {
+      const key = shape.view + r;
+      if (!warpedRaw.has(key)) warpedRaw.set(key, warpSvg(r, warp));
+      return warpedRaw.get(key);
+    };
+    const band = FEMALE_CHEST_BANDS[region];
+    out = band
+      ? { view: 'front', parts: [{ raw: femaleChestRaw, clip: [55, band[0], 144, band[1]] }], box: [66, Math.max(74, band[0]), 133, Math.min(113, band[1])] }
+      : {
+        view: shape.view,
+        parts: shape.parts?.map(p => ({ raw: raw(p.raw), clip: p.clip && warpBox(p.clip, warp) })),
+        paths: shape.paths?.map(d => warpPathD(d, warp)),
+        box: warpBox(shape.box, warp),
+      };
+  }
+  femaleShapes.set(region, out);
+  return out;
+}
+
+/** The region's shape on the male (default) or female figure. */
+export function getRegionShape(region, sex) {
+  return sex === 'female' ? femaleRegionShape(region) : REGION_SHAPES[region];
+}
+
 // Square zoom window around a region's box (with breathing room so the
 // surrounding body shows where it is), kept inside the canvas.
-export function regionCrop(region, canvasW = 200, canvasH = 369) {
-  const shape = REGION_SHAPES[region];
+export function regionCrop(region, canvasW = 200, canvasH = 369, sex = null) {
+  const shape = getRegionShape(region, sex);
   if (!shape) return null;
   const [x0, y0, x1, y1] = shape.box;
   const side = Math.min(canvasW, Math.max(70, Math.max(x1 - x0, y1 - y0) * 1.35));

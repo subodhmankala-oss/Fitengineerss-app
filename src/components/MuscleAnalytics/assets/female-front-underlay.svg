@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 369.03" width="200" height="369.03">
+  <!-- Bust shading for the female heat-map figure (front view), drawn for this app on the canvas of
+       body-front.svg as warped by femaleBodyWarp.js, matching the female Chest overlay
+       (female-chest.svg). Shading only — no solid fill — so the chest keeps the artwork's own detail:
+       soft tissue tone, a highlight for volume, and blurred shadows along the under-crease (which sits
+       exactly on the overlay's lower edge, so no second line shows), the outer sides and the cleavage.
+       Rendered under the muscle overlays, so a colored Chest tints it while the shading shows the shape. -->
+  <defs>
+    <filter id="blurL" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.4"/></filter>
+    <filter id="blurM" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="blurS" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.9"/></filter>
+  </defs>
+  <!-- tissue tone over the bust: softens (doesn't erase) the male pec striations -->
+  <g filter="url(#blurL)" fill="#efefef" fill-opacity="0.45">
+    <path d="M97.5,80 C93,77 85,76.5 78.5,79.5 C72.5,82.5 68.5,88 67.5,94 C66.5,100 69,105.5 73.5,109 C77,111.5 80,112.3 82.3,112.2 C87,112 92,108.5 95,104 C97.5,100 98.2,95 98.2,90 C98.2,86 98,83 97.5,80 Z"/>
+    <path d="M101.1,80 C105.6,77 113.6,76.5 120.1,79.5 C126.1,82.5 130.1,88 131.1,94 C132.1,100 129.6,106.2 125.1,109.7 C121.6,112.2 118.6,113 116.3,112.9 C111.6,112.7 106.6,109.2 103.6,104.7 C101.1,100 100.4,95 100.4,90 C100.4,86 100.6,83 101.1,80 Z"/>
+  </g>
+  <!-- volume highlight, upper-centre of each -->
+  <g filter="url(#blurM)" fill="#ffffff" fill-opacity="0.6">
+    <ellipse cx="83.5" cy="95" rx="7.5" ry="6.5"/>
+    <ellipse cx="115.1" cy="95.5" rx="7.5" ry="6.5"/>
+  </g>
+  <!-- lower-half shading, so each reads round -->
+  <g filter="url(#blurM)" fill="#000" fill-opacity="0.12">
+    <path d="M68.5,100 C70.5,106.5 76.5,112 82.3,112 C88,112 93,108 95.5,102.5 C92,106 87.5,107.5 82.5,107.5 C76.5,107.5 71.5,104.5 68.5,100 Z"/>
+    <path d="M130.1,100.7 C128.1,107.2 122.1,112.7 116.3,112.7 C110.6,112.7 105.6,108.7 103.1,103.2 C106.6,106.7 111.1,108.2 116.1,108.2 C122.1,108.2 127.1,105.2 130.1,100.7 Z"/>
+  </g>
+  <!-- under-crease, outer side and cleavage shadows -->
+  <g filter="url(#blurS)" fill="none" stroke="#000" stroke-linecap="round">
+    <path stroke-opacity="0.4" stroke-width="2.3" d="M68,103 C71,108.5 77,112.4 82.3,112.4 C87,112.2 92,108.6 95,104"/>
+    <path stroke-opacity="0.4" stroke-width="2.3" d="M130.6,103.7 C127.6,109.2 121.6,113.1 116.3,113.1 C111.6,112.9 106.6,109.3 103.6,104.7"/>
+    <path stroke-opacity="0.2" stroke-width="2.4" d="M67.2,87 C66,92 66.3,97.5 68,103"/>
+    <path stroke-opacity="0.2" stroke-width="2.4" d="M131.4,87 C132.6,92 132.3,97.5 130.6,103.7"/>
+    <path stroke-opacity="0.24" stroke-width="1.5" d="M99.3,94 C99.1,98 99.1,102 99.3,106"/>
+  </g>
+</svg>

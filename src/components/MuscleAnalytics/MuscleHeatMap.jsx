@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
+import { useBodySex } from './bodySex';
 import {
-  BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
-  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
+  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -29,10 +28,10 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
 
 // Also used by the Add Exercise picker's body filter, which has no weekly
 // stats: it passes colorFor/labelFor to color and label muscles itself.
+// Male or female figure per the viewed client's profile sex (useBodySex).
 export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
-  const bodySvg = view === 'front' ? BODY_FRONT_SVG : BODY_BACK_SVG;
-  const bodyFillUrl = view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL;
-  const layerMap = view === 'front' ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS;
+  const sex = useBodySex();
+  const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl, bodyMaskStyle } = getBodyArt(sex)[view];
 
   return (
     <div className="muscle-body-stack">
@@ -40,9 +39,9 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           in muscleBodyShapes.js) so they read as pale skin instead of the
           dark card showing through. Masked by the body artwork itself, same
           as the SVG layers below it. */}
-      <img src={bodyFillUrl} alt="" className="muscle-svg-layer" aria-hidden="true" />
+      <img src={bodyFillUrl} alt="" className="muscle-svg-layer" aria-hidden="true" style={bodyMaskStyle ?? undefined} />
 
-      <div className="muscle-svg-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
+      <div className="muscle-svg-layer" style={bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={{ __html: bodySvg }} />
 
       {/* Featureless-face patch (front view only) — see FACE_MASK in
           muscleBodyShapes.js for why the vendored face is masked instead of
@@ -83,6 +82,10 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           />
         </svg>
       )}
+
+      {/* Female figure, front only: the bust (soft shading), beneath the
+          muscle overlays so a colored Chest still sits on top of it. */}
+      {underlayUrl && <img src={underlayUrl} alt="" className="muscle-svg-layer" aria-hidden="true" />}
 
       {Object.entries(layerMap).map(([muscle, rawFiles]) => {
         const stat = statByMuscle[muscle];

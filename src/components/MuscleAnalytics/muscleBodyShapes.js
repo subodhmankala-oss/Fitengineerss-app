@@ -31,6 +31,12 @@ import hamstringsRaw from './assets/muscle-hamstrings.svg?raw'; // Whole hamstri
 import tibialisRaw from './assets/muscle-tibialis.svg?raw'; // Tibialis anterior, front of the shin (hand-drawn — see assets/SOURCES.md)
 import bodyFrontFillUrl from './assets/body-front-fill.png'; // Gap-filled backdrop (generated — see below)
 import bodyBackFillUrl from './assets/body-back-fill.png'; // Gap-filled backdrop (generated — see below)
+import bodyFrontFillFemaleUrl from './assets/body-front-fill-female.png'; // Same backdrop, through femaleBodyWarp.js
+import bodyBackFillFemaleUrl from './assets/body-back-fill-female.png';
+import femaleFrontUnderlayUrl from './assets/female-front-underlay.svg';
+import femaleChestRaw from './assets/female-chest.svg?raw'; // Already in warped coordinates — see that file
+import { warpSvg } from './svgWarp';
+import { femaleWarp } from './femaleBodyWarp';
 
 // ── Body tone ──
 // The vendored artwork is a dark greyscale ramp (front: #303030→#cfcfcf,
@@ -335,6 +341,68 @@ export const BACK_MUSCLE_LAYERS = {
   Hamstrings: [hamstringsRaw],
   Calves: [muscle7Raw],
 };
+
+// ── Female figure ──
+// The vendored artwork is a male figure. For clients whose profile sex is
+// "female" the heat map draws the same artwork pushed through one smooth
+// warp (femaleBodyWarp.js: smaller head and jaw, much narrower shoulders,
+// slimmer arms, narrow waist, wider hips, rounder chest), applied to the body
+// AND every muscle overlay, so the overlays stay exactly registered and
+// recolor/tap the same way. On the front, one picture layer with no muscle
+// data sits on the body (under the overlays): the bust, as soft shading.
+//
+// Warped lazily on first use and cached: it's a one-off parse of the
+// vendored path data, and male-only screens never pay for it.
+const MALE_ART = {
+  front: { bodySvg: BODY_FRONT_SVG, fillUrl: BODY_FRONT_FILL_URL, layers: FRONT_MUSCLE_LAYERS, underlayUrl: null, bodyMaskStyle: null },
+  back: { bodySvg: BODY_BACK_SVG, fillUrl: BODY_BACK_FILL_URL, layers: BACK_MUSCLE_LAYERS, underlayUrl: null, bodyMaskStyle: null },
+};
+
+// Female front only: once the warp pulls the arms in, a thin sliver of the
+// male artwork's lat edge is left hanging into each armpit gap, between the
+// arm and the obliques overlay — it read as a stray spike. These two shapes
+// (measured from the warped body and muscle-14 overlay, 2026-10-07) are cut
+// out of the body + gap-fill layers with a CSS mask; the muscle overlays on
+// top are untouched. The cut starts at the artwork's own armpit crease and
+// slopes down to the obliques, so the gap reads as an armpit fold, not a
+// punched hole.
+const FEMALE_FRONT_CUTOUTS = [
+  'M68.6,121.6 C70.6,121.6 73.2,123.4 74.6,126.5 L74.7,132 L75,138.5 L74.3,136 L73.1,130 L71.3,124.2 L70.3,122.3 Z',
+  'M129.8,121.6 C127.8,121.6 125.4,123.4 124,126.5 L123.8,132 L123.2,138.5 L123.9,136 L124.5,130 L125.9,124.2 L126.9,122.3 Z',
+];
+const maskStyleCutting = cutouts => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 369.03" preserveAspectRatio="none"><path fill-rule="evenodd" d="M0,0H200V369.03H0Z ${cutouts.join(' ')}"/></svg>`;
+  const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  return { WebkitMaskImage: url, maskImage: url, WebkitMaskSize: '100% 100%', maskSize: '100% 100%' };
+};
+let femaleArt = null;
+function buildFemaleArt() {
+  const view = (name, bodySvg, fillUrl, layers, underlayUrl, cutouts) => {
+    const warp = femaleWarp(name);
+    return {
+      bodySvg: warpSvg(bodySvg, warp),
+      fillUrl,
+      layers: Object.fromEntries(Object.entries(layers).map(([m, files]) => [m, files.map(f => warpSvg(f, warp))])),
+      underlayUrl,
+      bodyMaskStyle: cutouts ? maskStyleCutting(cutouts) : null,
+    };
+  };
+  const front = view('front', BODY_FRONT_SVG, bodyFrontFillFemaleUrl, FRONT_MUSCLE_LAYERS, femaleFrontUnderlayUrl, FEMALE_FRONT_CUTOUTS);
+  // The warped male pectoral still reads as a man's chest, so the female
+  // figure's Chest is its own bust shape (drawn on the warped canvas).
+  front.layers.Chest = [femaleChestRaw];
+  return {
+    front,
+    back: view('back', BODY_BACK_SVG, bodyBackFillFemaleUrl, BACK_MUSCLE_LAYERS, null),
+  };
+}
+
+/** Body artwork for a profile sex ('female' → female figure; anything else, including unset, → male). */
+export function getBodyArt(sex) {
+  if (sex !== 'female') return MALE_ART;
+  if (!femaleArt) femaleArt = buildFemaleArt();
+  return femaleArt;
+}
 
 // NOTE ON FOREARMS: wger's asset set has no forearm/brachioradialis file.
 // Rather than hand-drawing an approximate shape (an earlier attempt looked

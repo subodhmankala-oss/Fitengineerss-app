@@ -82,3 +82,16 @@ raster backdrop for the same two vendored SVGs — see `BODY_FRONT_FILL_URL`
 in `muscleBodyShapes.js` for how they're generated and why. As modified
 derivatives of the CC BY-SA artwork above, they carry the same license and
 attribution/share-alike obligations.
+
+**Female figure** (2026-10-07). There is no female version of this artwork, so for
+clients whose profile sex is "female" the heat map warps the same files at runtime:
+`femaleBodyWarp.js` is one smooth reshaping per view (smaller head and jaw, narrower
+shoulders, slimmer arms, narrow waist, wider hips, rounder chest) and `svgWarp.js`
+pushes every path point of the body AND each muscle overlay through it, so the
+overlays stay registered. `body-front-fill-female.png` / `body-back-fill-female.png`
+are the gap-fill backdrops pushed through the same warp (its inverse, bilinear
+sampling, in a browser canvas) — regenerate them if any warp number changes.
+`female-chest.svg` (the female Chest overlay: one rounded bust shape per side,
+replacing the male pectoralis muscle-4) and `female-front-underlay.svg` (matching
+bust shading) are drawn for this app directly on the warped front canvas. All of these are modified
+derivatives of the CC BY-SA artwork above and carry the same license.

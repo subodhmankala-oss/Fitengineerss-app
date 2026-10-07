@@ -884,3 +884,26 @@
   line-height: 1.5;
   margin: 0;
 }
+
+.detail-rec-summary {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.detail-rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-rec-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+}

@@ -682,17 +682,7 @@
 }
 
 .muscle-detail-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 800;
-  color: var(--status-color);
-  background: color-mix(in srgb, var(--status-color) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--status-color) 40%, transparent);
   flex-shrink: 0;
 }
 
@@ -893,4 +883,27 @@
   color: var(--text-subtle);
   line-height: 1.5;
   margin: 0;
+}
+
+.detail-rec-summary {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.detail-rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-rec-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
 }

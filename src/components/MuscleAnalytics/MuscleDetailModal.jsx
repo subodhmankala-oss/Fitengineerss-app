@@ -1,16 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useCountUp } from '../../hooks/useCountUp';
+import MuscleThumbnail from './MuscleThumbnail';
 import { shiftLocalDateString, getLocalDateString } from '../../utils/dateUtils';
 import {
   getWeeklyMuscleStats, getExerciseBreakdownForMuscle, getBestLiftForMuscle,
   getPersonalRecordsForMuscle, getWeeklySetsTrendForMuscle, getMuscleGrowthScore,
-  getMuscleRecovery, getHeatMapTier
+  getMuscleRecovery, getHeatMapTier, RECOMMENDED_EXERCISES
 } from '../../utils/muscleAnalytics';
-
-const MUSCLE_ABBREV = {
-  Chest: 'CH', Back: 'BA', Shoulders: 'SH', Biceps: 'BI', Triceps: 'TR',
-  Forearms: 'FA', Core: 'CO', Glutes: 'GL', Quads: 'QD', Hamstrings: 'HS', Calves: 'CA'
-};
 
 const StatBlock = ({ label, value, suffix = '' }) => {
   const animated = useCountUp(typeof value === 'number' ? value : 0, 700);
@@ -89,6 +85,18 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
   if (!muscle || !weeklyStat) return null;
   const tier = getHeatMapTier(weeklyStat);
 
+  // Remaining sets to reach the weekly target, split across up to 3 of the
+  // muscle's recommended exercises (~3 sets each, remainder to the first ones).
+  const setsLeft = Math.max(0, weeklyStat.target - weeklyStat.sets);
+  const recExercises = RECOMMENDED_EXERCISES[muscle] || [];
+  const planCount = Math.min(recExercises.length, Math.max(1, Math.ceil(setsLeft / 3)));
+  const plan = setsLeft > 0
+    ? recExercises.slice(0, planCount).map((name, i) => ({
+        name,
+        sets: Math.floor(setsLeft / planCount) + (i < setsLeft % planCount ? 1 : 0)
+      }))
+    : [];
+
   return (
     <div className={`muscle-detail-backdrop ${isClosing ? 'closing' : ''}`} onClick={handleClose}>
       <div className={`muscle-detail-sheet ${isClosing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
@@ -96,7 +104,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
 
         <div className="muscle-detail-header">
           <span className="muscle-detail-icon" style={{ '--status-color': tier.color }}>
-            {MUSCLE_ABBREV[muscle] || muscle.slice(0, 2).toUpperCase()}
+            <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={52} />
           </span>
           <div className="muscle-detail-title-group">
             <h3>{muscle}</h3>
@@ -116,6 +124,28 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
           {recovery && (
             <p className="detail-meta-line">Last trained {recovery.hoursSince < 24 ? `${recovery.hoursSince}h ago` : `${Math.floor(recovery.hoursSince / 24)}d ago`} · {recovery.bucket.label}</p>
           )}
+
+          {/* Recommended exercises + sets still needed this week */}
+          <div className="detail-section">
+            <span className="detail-section-title">Recommended This Week</span>
+            <p className="detail-rec-summary">
+              {setsLeft > 0
+                ? <><strong>{setsLeft} more set{setsLeft === 1 ? '' : 's'}</strong> to hit your weekly target of {weeklyStat.target} (ideal range {weeklyStat.min}–{weeklyStat.max}).</>
+                : weeklyStat.sets > weeklyStat.max
+                  ? <>You're past the {weeklyStat.min}–{weeklyStat.max} set range ({weeklyStat.sets} sets) — ease off and let {muscle} recover.</>
+                  : <>Weekly target of {weeklyStat.target} sets reached ({weeklyStat.sets} done). Nice work.</>}
+            </p>
+            {recExercises.length > 0 && (
+              <div className="detail-rec-list">
+                {(plan.length > 0 ? plan : recExercises.map(name => ({ name, sets: 0 }))).map(ex => (
+                  <div key={ex.name} className="detail-rec-row">
+                    <span className="detail-exercise-name">{ex.name}</span>
+                    {ex.sets > 0 && <span className="detail-exercise-sets">{ex.sets} sets</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Progress Trend */}
           <div className="detail-section">

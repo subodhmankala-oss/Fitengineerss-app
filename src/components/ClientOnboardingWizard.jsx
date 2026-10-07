@@ -312,7 +312,7 @@ const ClientOnboardingWizard = ({ onComplete, onBackToLogin }) => {
           />
         </div>
         {/* Sets the calorie target formula (men and women burn differently
-            at rest) and the heart-rate calorie formula. */}
+            at rest). */}
         <div className="cow-field">
           <label className="cow-label" id="cow-sex-label">Sex</label>
           <div className={`cow-seg ${step1FieldErrors.sex ? 'error' : ''}`} role="radiogroup" aria-labelledby="cow-sex-label">

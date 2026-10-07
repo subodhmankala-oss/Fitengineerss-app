@@ -1865,10 +1865,8 @@ const databaseService = {
                 // rate monitor (see useHeartRateMonitor) — same "duplicated
                 // onto every row, read back from any one" pattern as
                 // duration_seconds/calories_burned above. NULL when no
-                // monitor was connected. An exercise's own avg HR, typed by
-                // the client from their watch (see usesHeartRate), wins for
-                // that exercise's rows.
-                avg_heart_rate_bpm: ex.avgHr != null ? ex.avgHr : (session.avgHeartRate != null ? session.avgHeartRate : null),
+                // monitor was connected.
+                avg_heart_rate_bpm: session.avgHeartRate != null ? session.avgHeartRate : null,
                 max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null,
                 session_id: sessionId,
                 session_row: sessionId ? sessionRow++ : null

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise, usesHeartRate } from './liveWorkoutTimer';
+import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise } from './liveWorkoutTimer';
 import { isBodyweightExercise } from '../data/exerciseLibrary';
 
 describe('computeRestSecondsRemaining', () => {
@@ -353,41 +353,5 @@ describe('published per-hour ranges by body weight', () => {
         expect(Math.abs(b - a)).toBeLessThanOrEqual(Math.max(1, a * 0.02));
       }
     });
-  });
-});
-
-describe('heart-rate calories (Keytel 2005)', () => {
-  const done = (fields) => ({ isCompleted: true, completedAt: 1, ...fields });
-  const kcal = (ex, kg, profile) => computeLiveCalories([ex], 1, [], kg, profile).totalKcal;
-  const bike = (avgHr) => ({ name: 'Cycling', avgHr, sets: [done({ distanceKm: '9', time: '30:00' })] });
-  const man = { sex: 'male', age: 35 };
-
-  it('prices a bike by heart rate when sex, age and avg HR are known', () => {
-    // (-55.0969 + 0.6309 x 130 + 0.1988 x 90 + 0.2017 x 35) / 4.184 = 12.398 kcal/min gross,
-    // minus resting 3.5 x 90 / 200 = 1.575 -> 10.823 x 30 min = 324.7
-    expect(kcal(bike('130'), 90, man)).toBeCloseTo(324.7, 0);
-  });
-
-  it('uses the female equation for a woman', () => {
-    // (-20.4022 + 0.4472 x 140 - 0.1263 x 65 + 0.074 x 30) / 4.184 = 8.656, minus 1.1375 -> 7.518 x 20 = 150.4
-    const ex = { name: 'Cross Trainer', avgHr: '140', sets: [done({ distanceKm: '', time: '20:00' })] };
-    expect(kcal(ex, 65, { sex: 'female', age: 30 })).toBeCloseTo(150.4, 0);
-  });
-
-  it('falls back to pace when sex is unspecified, age is missing or HR is not an exercise HR', () => {
-    const byPace = kcal(bike(''), 90, man);
-    expect(kcal(bike('130'), 90, { sex: 'unspecified', age: 35 })).toBe(byPace);
-    expect(kcal(bike('130'), 90, { sex: 'male', age: '' })).toBe(byPace);
-    expect(kcal(bike('55'), 90, man)).toBe(byPace);
-    expect(kcal(bike('130'), 90)).toBe(byPace);
-  });
-
-  it('ignores heart rate for walking, running and weights', () => {
-    const walk = { name: 'Walking', sets: [done({ distanceKm: '3', time: '30:00' })] };
-    expect(kcal({ ...walk, avgHr: '150' }, 90, man)).toBe(kcal(walk, 90, man));
-    expect(usesHeartRate('Treadmill Run')).toBe(false);
-    expect(usesHeartRate('Bench Press')).toBe(false);
-    ['Cycling', 'Stationary Bike HIIT', 'Cross Trainer', 'Rowing Machine', 'Air Rowing', 'Battle Rope'].forEach(n =>
-      expect(usesHeartRate(n)).toBe(true));
   });
 });

@@ -529,24 +529,20 @@ export function remapSetTimersForSetRemoval(exIdx, removedSetIdx, timers) {
 // from the real gap until the next set's tick: completion timestamps only,
 // never "now", so the total still stays put while the clock runs.
 // sessionStartedAt is unused; it stays so every caller's argument positions
-// still line up. profile ({ sex, age }) lets an exercise's avgHr (see
-// usesHeartRate) price its work by heart rate.
-export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG, profile = {}) {
+// still line up.
+export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   let workKcal = 0;
   // Every completed set, warm-ups included: each tick bounds the gap before it.
   const ticks = [];
 
   exercises.forEach((ex) => {
     const isWarmup = isWarmupExercise(ex.name);
-    const hrKcalPerMin = usesHeartRate(ex.name) ? heartRateActiveKcalPerMin(ex.avgHr, bodyWeightKg, profile) : null;
     ex.sets.forEach((set) => {
       if (!set.isCompleted || !set.completedAt) return;
       // Warm-up moves (Arm Circle, Leg Swing) count nothing themselves.
-      const work = isWarmup
+      const { kcal, workSeconds, recovers } = isWarmup
         ? { kcal: 0, workSeconds: 0, recovers: false }
         : setWork(ex.name, set, bodyWeightKg);
-      const { workSeconds, recovers } = work;
-      const kcal = hrKcalPerMin != null && workSeconds > 0 ? hrKcalPerMin * workSeconds / 60 : work.kcal;
       workKcal += kcal;
       ticks.push({ at: set.completedAt, workSeconds, recovers });
     });
@@ -567,35 +563,6 @@ export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals
     workKcal: Math.round(workKcal * 10) / 10,
     restKcal: Math.round(restKcal * 10) / 10,
   };
-}
-
-// Exercises where the logged pace can't see the real effort — a bike's or
-// rower's resistance, an elliptical's incline, interval intensity — so the
-// client's average heart rate (typed from their watch) prices them instead.
-// Walking and running stay on pace: the Compendium curves above are within
-// ~10% there, tighter than a heart-rate estimate (~25%). Weights stay on MET:
-// straining raises heart rate without matching calorie burn.
-const HEART_RATE_RE = /cycl|bik|cross trainer|elliptical|rowing|hiit|battle rope/i;
-
-export function usesHeartRate(exerciseName) {
-  return HEART_RATE_RE.test(exerciseName || '');
-}
-
-// Keytel et al. 2005 (J Sports Sci 23:289), the no-VO2max form most watches
-// use: gross kcal/min from heart rate, weight, age and sex, minus the
-// resting 1 MET like every other estimate here. null when it can't apply —
-// sex unspecified, no age, or a heart rate outside a real exercise range —
-// so the caller falls back to the MET estimate.
-export function heartRateActiveKcalPerMin(avgHr, bodyWeightKg, { sex, age } = {}) {
-  const hr = parseFloat(avgHr);
-  const a = parseFloat(age);
-  if (!(hr >= 80 && hr <= 220) || !(a > 0) || !(bodyWeightKg > 0)) return null;
-  let kjPerMin;
-  if (sex === 'male') kjPerMin = -55.0969 + 0.6309 * hr + 0.1988 * bodyWeightKg + 0.2017 * a;
-  else if (sex === 'female') kjPerMin = -20.4022 + 0.4472 * hr - 0.1263 * bodyWeightKg + 0.074 * a;
-  else return null;
-  const active = kjPerMin / 4.184 - RESTING_MET * 3.5 * bodyWeightKg / 200;
-  return active > 0 ? active : null;
 }
 
 // One completed set's work: kcal, how many seconds of the clock the work

@@ -20,11 +20,11 @@ import muscle6Raw from './assets/muscle-6.svg?raw';   // Rectus abdominis
 import muscle7Raw from './assets/muscle-7.svg?raw';   // Gastrocnemius
 import muscle8Raw from './assets/muscle-8.svg?raw';   // Gluteus maximus
 import muscle9Raw from './assets/muscle-9.svg?raw';   // Trapezius
-import muscle10Raw from './assets/muscle-10.svg?raw'; // Quadriceps femoris
+import quadsRaw from './assets/muscle-quads-traced.svg?raw'; // Quadriceps (hand-traced, one shape per thigh — see assets/SOURCES.md)
 import muscle12Raw from './assets/muscle-12.svg?raw'; // Latissimus dorsi
 import muscle13Raw from './assets/muscle-13.svg?raw'; // Brachialis
 import muscle14Raw from './assets/muscle-14.svg?raw'; // Obliquus externus abdominis
-import forearmRaw from './assets/muscle-forearm.svg?raw'; // Forearms (generated — see below)
+import forearmRaw from './assets/muscle-forearm-traced.svg?raw'; // Forearms (hand-traced, one shape per arm — see assets/SOURCES.md)
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw'; // Posterior deltoid (generated — see below)
 import teresRaw from './assets/muscle-teres.svg?raw'; // Infraspinatus / teres major+minor (generated — see below)
 import hamstringsRaw from './assets/muscle-hamstrings.svg?raw'; // Whole hamstring group (generated — see below)
@@ -307,7 +307,7 @@ export const MUSCLE_CROP = {
   Forearms: { x: 1.3, y: 59.55, w: 195, h: 195 },
   Core: { x: 24.3, y: 73.1, w: 149.6, h: 149.6 },
   Glutes: { x: 12.35, y: 109.5, w: 174.9, h: 174.9 },
-  Quads: { x: 21.36, y: 139.31, w: 155.98, h: 155.98 },
+  Quads: { x: 18.3, y: 133.6, w: 162, h: 162 },
   Hamstrings: { x: 29.26, y: 170.26, w: 141.68, h: 141.68 },
   Calves: { x: 2.85, y: 174, w: 195, h: 195 },
   Tibialis: { x: 56.5, y: 254.5, w: 88, h: 88 },
@@ -323,7 +323,7 @@ export const FRONT_MUSCLE_LAYERS = {
   Biceps: [muscle1Raw, muscle13Raw],
   Core: [muscle6Raw, muscle14Raw],
   Forearms: [forearmRaw],
-  Quads: [muscle10Raw],
+  Quads: [quadsRaw],
   Tibialis: [tibialisRaw],
 };
 

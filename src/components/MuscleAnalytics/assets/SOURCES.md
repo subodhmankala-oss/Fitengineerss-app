@@ -63,6 +63,14 @@ hand-traced over the rendered `body-back.svg` and mirrored about x=100 by
 heat map uses instead of wger's muscle-11 (biceps femoris only). Same caveat:
 re-trace if `body-back.svg` changes.
 
+**Quads and Forearms** are hand-traced too (2026-10-07), replacing wger's muscle-10
+(`muscle-10.svg`, still in this folder but no longer used) and the generated
+`muscle-forearm.svg`. `muscle-quads-traced.svg` / `muscle-forearm-traced.svg`
+hold one smooth shape per thigh / arm, drawn over the rendered `body-front.svg`.
+Only one side of each was traced (left thigh, right forearm); the other side is
+that shape mirrored about the muscle's own centre line (x = 99.3 for the thighs,
+98.8 for the arms, measured from the old overlays).
+
 **Tibialis** (tibialis anterior → Tibialis, front view) has no wger file either.
 `muscle-tibialis.svg` is two shapes hand-traced (2026-10-07) over the rendered
 `body-front.svg` lower legs, one per shin (knee y≈266 to ankle y≈331) — the

@@ -21,10 +21,10 @@ import muscle6Raw from './assets/muscle-6.svg?raw';   // Rectus abdominis
 import muscle7Raw from './assets/muscle-7.svg?raw';   // Gastrocnemius
 import muscle8Raw from './assets/muscle-8.svg?raw';   // Gluteus maximus
 import muscle9Raw from './assets/muscle-9.svg?raw';   // Trapezius
-import muscle10Raw from './assets/muscle-10.svg?raw'; // Quadriceps femoris
+import quadsRaw from './assets/muscle-quads-traced.svg?raw'; // Quadriceps (hand-traced)
 import muscle12Raw from './assets/muscle-12.svg?raw'; // Latissimus dorsi
 import muscle14Raw from './assets/muscle-14.svg?raw'; // Obliquus externus abdominis
-import forearmRaw from './assets/muscle-forearm.svg?raw';
+import forearmRaw from './assets/muscle-forearm-traced.svg?raw';
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw';
 import teresRaw from './assets/muscle-teres.svg?raw';
 import hamstringsRaw from './assets/muscle-hamstrings.svg?raw';
@@ -69,7 +69,7 @@ export const REGION_SHAPES = {
   'Biceps Short Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_INNER), box: [44, 94, 153, 131] },
   'Triceps Long Head': { view: 'back', parts: clipped(muscle5Raw, TRICEPS_INNER), box: [42, 93, 158, 131] },
   'Triceps Lateral Head': { view: 'back', parts: clipped(muscle5Raw, TRICEPS_OUTER), box: [42, 93, 158, 131] },
-  Forearms: { view: 'front', parts: [{ raw: forearmRaw }], box: [24, 141, 173, 173] },
+  Forearms: { view: 'front', parts: [{ raw: forearmRaw }], box: [25, 124, 173, 178] },
 
   // Rectus abdominis spans y 116–182.
   'Upper Abs': { view: 'front', parts: [{ raw: muscle6Raw, clip: [80, 114, 117, 149] }], box: [82, 116, 115, 149] },
@@ -77,7 +77,7 @@ export const REGION_SHAPES = {
   Obliques: { view: 'front', parts: [{ raw: muscle14Raw }], box: [67, 113, 131, 177] },
   'Deep Core': { view: 'front', parts: [{ raw: muscle6Raw }, { raw: muscle14Raw }], box: [67, 113, 131, 182] },
 
-  Quads: { view: 'front', parts: [{ raw: muscle10Raw }], box: [63, 184, 135, 250] },
+  Quads: { view: 'front', parts: [{ raw: quadsRaw }], box: [64, 174, 135, 256] },
   Hamstrings: { view: 'back', parts: [{ raw: hamstringsRaw }], box: [65, 196, 135, 272] },
   Glutes: { view: 'back', parts: [{ raw: muscle8Raw }], box: [61, 157, 138, 237] },
   // Adductors: the inner strip of each thigh, below the groin.

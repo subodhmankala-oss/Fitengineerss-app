@@ -12,6 +12,7 @@ import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
+import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
 import { notifyEvent } from '../utils/pushNotify';
 import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
@@ -3421,6 +3422,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                       source="coach"
                       onStart={() => startPlan(plan, 'coach')}
                       onOpenExercise={(name) => openPlanExerciseHistory(plan, name)}
+                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                       customized={!!planOverrides[planKeyOf(plan)]}
                     />
                   ))}
@@ -3452,6 +3454,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                       onStart={() => startPlan(plan, 'self')}
                       onDelete={() => handleDeleteTemplate(plan)}
                       onOpenExercise={(name) => openPlanExerciseHistory(plan, name)}
+                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                       customized={!!planOverrides[planKeyOf(plan)]}
                     />
                   ))}

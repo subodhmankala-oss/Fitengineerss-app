@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { daysAgo, formatDaysAgo, getTrainingStatus } from '../utils/exerciseTrainingStatus';
 import { isCardioExercise, isTimedExercise, inferPrimary, inferCategory, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 
 // Tapping an exercise's name in the logger (or trainer's live log) opens
@@ -61,42 +62,6 @@ function shortBucketTick(key, range) {
   return key;
 }
 
-function daysAgo(dateStr) {
-  const then = new Date(`${dateStr}T00:00:00`);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.round((now - then) / 86400000);
-}
-
-function formatDaysAgo(n) {
-  if (n <= 0) return 'Today';
-  if (n === 1) return 'Yesterday';
-  return `${n} days ago`;
-}
-
-// Training-status read: how consistently has this exercise been trained
-// lately? Based on session frequency over the trailing 28 days, with a
-// hard override to "Neglected" once it's been untouched for 3+ weeks
-// regardless of how it was trained before that window.
-function getTrainingStatus(entries) {
-  if (!entries || entries.length === 0) {
-    return { key: 'none', label: 'Not Yet Trained', icon: '⚪', tone: 'neutral', detail: 'No sessions logged for this exercise yet.' };
-  }
-  const gap = daysAgo(entries[0].date);
-  const recent28 = entries.filter(e => daysAgo(e.date) <= 28);
-  const perWeek = recent28.length / 4;
-
-  if (gap > 21) {
-    return { key: 'neglected', label: 'Neglected', icon: '🔴', tone: 'danger', detail: `Last trained ${formatDaysAgo(gap).toLowerCase()} — this needs to get back into rotation.`, action: 'Do this exercise in your next workout, or swap in one of the alternatives below.' };
-  }
-  if (perWeek >= 1.75) {
-    return { key: 'optimal', label: 'Optimally Trained', icon: '✅', tone: 'success', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — solid, consistent frequency.` };
-  }
-  if (perWeek >= 1) {
-    return { key: 'low', label: 'Slightly Undertrained', icon: '🟡', tone: 'warning', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — a touch below the ~2x/week most muscle groups respond best to.`, action: 'Add one more session this week — or work in one of the alternatives below.' };
-  }
-  return { key: 'under', label: 'Undertrained', icon: '🟠', tone: 'orange', detail: `Only ~${perWeek.toFixed(1)}x/week over the last 4 weeks — this muscle group is falling behind.`, action: 'Aim for 2 sessions a week. Add this exercise to another workout day, or work in one of the alternatives below.' };
-}
 
 // A handful of alternate exercises hitting the same primary muscle (falling
 // back to the same broad category), so an undertrained/neglected read comes

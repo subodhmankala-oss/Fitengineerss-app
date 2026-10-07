@@ -65,11 +65,19 @@ const assignedDateLabel = (isoString) => {
 // Log Sets routine picker, so they present a plan the exact same way.
 // markOpenedOnStart: Home's card passes false and leaves the marking to
 // WorkoutTracker, which only marks a plan once it has actually started it.
+// "3 × 10" when the sets share the same reps, else just the set count.
+const formatSetsLabel = (sets) => {
+  if (!Array.isArray(sets) || sets.length === 0) return '';
+  const reps = sets.map(st => st && st.reps);
+  const same = reps[0] && reps.every(r => String(r) === String(reps[0]));
+  return same ? `${sets.length} × ${reps[0]}` : `${sets.length} ${sets.length === 1 ? 'set' : 'sets'}`;
+};
+
 // onOpenExercise: when given (Log Sets picker only — Home's card omits it), the
 // "N exercises" count becomes a toggle that expands the plan's exercise list,
 // and each name opens that exercise's history sheet. `customized` flags a
 // plan whose exercises were swapped for today's session.
-const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, onOpenExercise, customized = false }) => {
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, onOpenExercise, getExerciseStatus, customized = false }) => {
   const [expanded, setExpanded] = useState(false);
   const meta = getPlanCardMeta(plan);
   const exerciseList = Array.isArray(plan.exercises) ? plan.exercises : [];
@@ -157,21 +165,33 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
 
       {onOpenExercise && expanded && (
         <div className="wt-plan-exercises">
-          {exerciseList.map((ex, i) => (
-            <button
-              key={`${ex.name}-${i}`}
-              type="button"
-              className="wt-plan-exercise-row"
-              title="View exercise history"
-              onClick={() => onOpenExercise(ex.name)}
-            >
-              <span className="wt-plan-exercise-name">{ex.name}</span>
-              <span className="wt-plan-exercise-sets">
-                {Array.isArray(ex.sets) ? `${ex.sets.length} ${ex.sets.length === 1 ? 'set' : 'sets'}` : ''} ›
-              </span>
-            </button>
-          ))}
+          {exerciseList.map((ex, i) => {
+            const status = getExerciseStatus ? getExerciseStatus(ex.name) : null;
+            const flagged = status && (status.key === 'neglected' || status.key === 'under' || status.key === 'low');
+            return (
+              <button
+                key={`${ex.name}-${i}`}
+                type="button"
+                className="wt-plan-exercise-row"
+                title="View exercise history"
+                onClick={() => onOpenExercise(ex.name)}
+              >
+                <span className="wt-plan-exercise-name">{ex.name}</span>
+                <span className="wt-plan-exercise-right">
+                  {flagged && (
+                    <span className={`wt-plan-status-tag wt-plan-status-tag--${status.key}`}>
+                      {status.key === 'neglected' ? 'Neglected' : status.key === 'under' ? 'Undertrained' : 'Slightly low'}
+                    </span>
+                  )}
+                  <span className="wt-plan-exercise-sets">{formatSetsLabel(ex.sets)} ›</span>
+                </span>
+              </button>
+            );
+          })}
           {customized && <p className="wt-plan-customized">Swapped for today's session. The saved plan isn't changed.</p>}
+        <button type="button" className="wt-plan-start-wide" onClick={handleStart}>
+          ▶ Start workout
+        </button>
         </div>
       )}
     </div>

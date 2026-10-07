@@ -1297,6 +1297,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Exercise history sheet — opened by tapping an exercise's name in the
   // Live Log; reads from rawWorkoutLogs (already scoped to selectedClient).
   const [historyModalExercise, setHistoryModalExercise] = useState(null);
+  // Which list its suggestion chips add to: 'editor' (Send plan) | 'live'.
+  const [historyModalSource, setHistoryModalSource] = useState('live');
   // The exercises table has real video_url/setup/execution/tip data for the
   // curated preset list (see databaseService.seedExerciseLibrary) — same
   // source the client's Form Guide already uses. Fetched once here so the
@@ -8230,7 +8232,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               <div className="live-logger-exercise-card">
                                 <div className="live-logger-ex-header">
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                                    <span className="live-logger-ex-name">{ex.name}</span>
+                                    <span
+                                      className="live-logger-ex-name ex-name-clickable"
+                                      role="button"
+                                      tabIndex={0}
+                                      title="View exercise history"
+                                      onClick={() => { setHistoryModalSource('editor'); setHistoryModalExercise(ex.name); }}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalSource('editor'); setHistoryModalExercise(ex.name); } }}
+                                      // Same tap-to-focus scroll suppression as the Live Log name.
+                                      onPointerDown={(e) => e.preventDefault()}
+                                    >
+                                      {ex.name}
+                                    </span>
                                     <button
                                       type="button"
                                       className="btn-form-guide-sm"
@@ -9013,8 +9026,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               role="button"
                               tabIndex={0}
                               title="View exercise history"
-                              onClick={() => setHistoryModalExercise(ex.name)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalExercise(ex.name); } }}
+                              onClick={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHistoryModalSource('live'); setHistoryModalExercise(ex.name); } }}
                               // See the matching comment in WorkoutTracker.jsx
                               // — suppresses the browser's default tap-to-
                               // focus scroll (iOS Safari in particular) on
@@ -9872,8 +9885,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       <ExerciseHistoryModal
         exerciseName={historyModalExercise}
         rawLogs={rawWorkoutLogs}
-        addedNames={liveExercises.map(e => e.name)}
-        onAddExercise={handleLiveAddExercise}
+        addedNames={(historyModalSource === 'editor' ? editorExercises : liveExercises).map(e => e.name)}
+        onAddExercise={historyModalSource === 'editor' ? handleAddExerciseToEditor : handleLiveAddExercise}
         onClose={() => setHistoryModalExercise(null)}
       />
 

@@ -123,7 +123,10 @@ function getRecommendedExercises(exerciseName) {
 //   the caller (see rawWorkoutLogs in TrainerDashboard), so no clientName
 //   filtering happens here for this shape.
 // Only one of the two is ever passed by a given caller.
-export default function ExerciseHistoryModal({ exerciseName, sessions, clientName, rawLogs, onClose }) {
+// onAddExercise/addedNames: when a workout is being logged, the suggestion
+// chips become "+ add" buttons (already-added ones show ✓). Omit onAddExercise
+// and they stay plain labels.
+export default function ExerciseHistoryModal({ exerciseName, sessions, clientName, rawLogs, onClose, onAddExercise, addedNames = [] }) {
   const [range, setRange] = useState('weekly');
 
   const exIsCardio = exerciseName ? isCardioExercise(exerciseName) : false;
@@ -263,11 +266,25 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
 
         {recommended.length > 0 && (
           <div className="ex-history-recs">
-            <div className="ex-history-recs-title">💡 Same muscle, try these</div>
+            <div className="ex-history-recs-title">
+              💡 Same muscle, try these{onAddExercise ? ' — tap to add to your workout' : ''}
+            </div>
             <div className="ex-history-recs-list">
-              {recommended.map(rec => (
-                <span key={rec.name} className="ex-history-rec-chip">{rec.name}</span>
-              ))}
+              {recommended.map(rec => {
+                if (!onAddExercise) return <span key={rec.name} className="ex-history-rec-chip">{rec.name}</span>;
+                const added = addedNames.some(n => n.toLowerCase() === rec.name.toLowerCase());
+                return (
+                  <button
+                    key={rec.name}
+                    type="button"
+                    className={`ex-history-rec-chip ex-history-rec-chip--tap ${added ? 'ex-history-rec-chip--added' : ''}`}
+                    disabled={added}
+                    onClick={() => onAddExercise(rec.name)}
+                  >
+                    {added ? '✓' : '+'} {rec.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

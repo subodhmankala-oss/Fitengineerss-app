@@ -9872,6 +9872,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       <ExerciseHistoryModal
         exerciseName={historyModalExercise}
         rawLogs={rawWorkoutLogs}
+        addedNames={liveExercises.map(e => e.name)}
+        onAddExercise={handleLiveAddExercise}
         onClose={() => setHistoryModalExercise(null)}
       />
 

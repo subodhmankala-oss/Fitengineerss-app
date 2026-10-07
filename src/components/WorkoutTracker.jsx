@@ -2728,6 +2728,31 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     ? Math.round((computeLiveCalories(logExercises, workoutTimerStartedAt, workoutPauseIntervals, bodyWeightKgForLiveKcal).totalKcal + liveRunningCardioKcal) * 10) / 10
     : 0;
 
+  // Shared by the exercise picker and the history modal's suggestion chips.
+  const addExerciseToWorkout = (name) => {
+    const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
+    if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+    let newSet;
+    const bodyweight = isBodyweightExercise(name);
+    if (isCardioExercise(name)) {
+      newSet = { distanceKm: '', time: '', isCompleted: false };
+    } else if (isTimedExercise(name) && bodyweight) {
+      // Foot Fires: keeps a weight field alongside the time field.
+      newSet = { time: '', weight: '0', isCompleted: false };
+    } else if (isTimedExercise(name)) {
+      newSet = { time: '', isCompleted: false };
+    } else if (bodyweight || isWarmupExercise(name)) {
+      newSet = { reps: 10, weight: '0', isCompleted: false };
+    } else {
+      newSet = { reps: 10, weight: '5.0', isCompleted: false };
+    }
+    // Done before? Start from exactly what the client did last time —
+    // every set, ready for a single tap each — instead of one default set.
+    const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
+    setLogExercises(prev => [...prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }]);
+    triggerToast(`Added ${name} to active workout!`);
+  };
+
   return (
     <>
       <div className="workout-tracker-container animate-slide-up">
@@ -4312,29 +4337,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
         addedNames={logExercises.map(le => le.name)}
         creatorMode="client"
         clientUserId={getPlanOwnerId()}
-        onAdd={(name) => {
-          const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
-          if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
-          let newSet;
-          const bodyweight = isBodyweightExercise(name);
-          if (isCardioExercise(name)) {
-            newSet = { distanceKm: '', time: '', isCompleted: false };
-          } else if (isTimedExercise(name) && bodyweight) {
-            // Foot Fires: keeps a weight field alongside the time field.
-            newSet = { time: '', weight: '0', isCompleted: false };
-          } else if (isTimedExercise(name)) {
-            newSet = { time: '', isCompleted: false };
-          } else if (bodyweight || isWarmupExercise(name)) {
-            newSet = { reps: 10, weight: '0', isCompleted: false };
-          } else {
-            newSet = { reps: 10, weight: '5.0', isCompleted: false };
-          }
-          // Done before? Start from exactly what the client did last time —
-          // every set, ready for a single tap each — instead of one default set.
-          const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
-          setLogExercises(prev => [...prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }]);
-          triggerToast(`Added ${name} to active workout!`);
-        }}
+        onAdd={addExerciseToWorkout}
         onRemove={(name) => {
           setLogExercises(prev => prev.filter(le => le.name.toLowerCase() !== name.toLowerCase()));
           triggerToast(`Removed ${name}.`);
@@ -4549,6 +4552,8 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
         exerciseName={historyModalExercise}
         sessions={sessions}
         clientName={selectedClient}
+        addedNames={logExercises.map(le => le.name)}
+        onAddExercise={isLoggingWorkout ? addExerciseToWorkout : undefined}
         onClose={() => setHistoryModalExercise(null)}
       />
 

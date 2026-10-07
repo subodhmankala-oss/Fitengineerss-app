@@ -4429,6 +4429,24 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 20px;
 }
 
+.ex-history-rec-chip--tap {
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.ex-history-rec-chip--tap:active {
+  transform: scale(0.96);
+}
+
+.ex-history-rec-chip--added {
+  cursor: default;
+  opacity: 0.6;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.05);
+  border-color: rgba(var(--fg-rgb), 0.1);
+}
+
 /* ═══════════════════════════════════════════
    GENERIC WORKOUT TEMPLATES VIEW
    ═══════════════════════════════════════════ */

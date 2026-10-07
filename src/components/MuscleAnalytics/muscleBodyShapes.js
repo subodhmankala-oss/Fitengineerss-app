@@ -28,6 +28,7 @@ import forearmRaw from './assets/muscle-forearm.svg?raw'; // Forearms (generated
 import rearDeltRaw from './assets/muscle-rear-delt.svg?raw'; // Posterior deltoid (generated — see below)
 import teresRaw from './assets/muscle-teres.svg?raw'; // Infraspinatus / teres major+minor (generated — see below)
 import hamstringsRaw from './assets/muscle-hamstrings.svg?raw'; // Whole hamstring group (generated — see below)
+import tibialisRaw from './assets/muscle-tibialis.svg?raw'; // Tibialis anterior, front of the shin (hand-drawn — see assets/SOURCES.md)
 import bodyFrontFillUrl from './assets/body-front-fill.png'; // Gap-filled backdrop (generated — see below)
 import bodyBackFillUrl from './assets/body-back-fill.png'; // Gap-filled backdrop (generated — see below)
 
@@ -309,6 +310,7 @@ export const MUSCLE_CROP = {
   Quads: { x: 21.36, y: 139.31, w: 155.98, h: 155.98 },
   Hamstrings: { x: 29.26, y: 170.26, w: 141.68, h: 141.68 },
   Calves: { x: 2.85, y: 174, w: 195, h: 195 },
+  Tibialis: { x: 59, y: 255.5, w: 82, h: 82 },
   Back: { x: 2.5, y: 0, w: 195, h: 195 },
 };
 
@@ -322,6 +324,7 @@ export const FRONT_MUSCLE_LAYERS = {
   Core: [muscle6Raw, muscle14Raw],
   Forearms: [forearmRaw],
   Quads: [muscle10Raw],
+  Tibialis: [tibialisRaw],
 };
 
 export const BACK_MUSCLE_LAYERS = {

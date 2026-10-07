@@ -460,3 +460,31 @@ describe('getMuscleGroupsForExercise — real exercise-name coverage audit', () 
     expect(unmapped).toEqual([]);
   });
 });
+
+describe('Tibialis (optional muscle)', () => {
+  const tibLog = log({ exercise_name: 'Tibialis Raise', weight_kg: 0, reps: 15 });
+
+  it('is its own front-of-shin group, not Calves', () => {
+    expect(getMuscleGroupsForExercise('Tibialis Raise')).toEqual(['Tibialis']);
+    expect(getMuscleGroupsForExercise('Standing Calf Raise')).toEqual(['Calves']);
+  });
+
+  it('is left out of a week with no tibialis sets, so it is never "neglected"', () => {
+    const stats = getWeeklyMuscleStats([log({})], '2026-07-20', '2026-07-26');
+    expect(stats.find(s => s.muscle === 'Tibialis')).toBeUndefined();
+    expect(stats.find(s => s.muscle === 'Calves')).toBeDefined();
+    expect(getNeglectedMuscles([log({})], new Date('2026-07-21T12:00:00')).map(m => m.muscle)).not.toContain('Tibialis');
+  });
+
+  it('shows up once trained, with its lighter 4–10 set target', () => {
+    const stats = getWeeklyMuscleStats([tibLog], '2026-07-20', '2026-07-26');
+    const tib = stats.find(s => s.muscle === 'Tibialis');
+    expect(tib.sets).toBe(1);
+    expect([tib.min, tib.max]).toEqual([4, 10]);
+  });
+
+  it('the detail screen can still ask for an untrained row', () => {
+    const stats = getWeeklyMuscleStats([], '2026-07-20', '2026-07-26', { includeUntrained: true });
+    expect(stats.find(s => s.muscle === 'Tibialis').sets).toBe(0);
+  });
+});

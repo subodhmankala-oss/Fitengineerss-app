@@ -65,8 +65,8 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
 
   // getWeeklyMuscleStats is a generic range aggregator despite its name —
   // reused here with a 30-day window for "Monthly Sets" (see muscleAnalytics.js).
-  const weeklyStat = useMemo(() => getWeeklyMuscleStats(logs, weekStart, todayStr).find(m => m.muscle === muscle), [logs, weekStart, todayStr, muscle]);
-  const monthlyStat = useMemo(() => getWeeklyMuscleStats(logs, monthStart, todayStr).find(m => m.muscle === muscle), [logs, monthStart, todayStr, muscle]);
+  const weeklyStat = useMemo(() => getWeeklyMuscleStats(logs, weekStart, todayStr, { includeUntrained: true }).find(m => m.muscle === muscle), [logs, weekStart, todayStr, muscle]);
+  const monthlyStat = useMemo(() => getWeeklyMuscleStats(logs, monthStart, todayStr, { includeUntrained: true }).find(m => m.muscle === muscle), [logs, monthStart, todayStr, muscle]);
   const breakdown = useMemo(() => getExerciseBreakdownForMuscle(logs, muscle, weekStart, todayStr), [logs, muscle, weekStart, todayStr]);
   const bestLift = useMemo(() => getBestLiftForMuscle(logs, muscle), [logs, muscle]);
   const personalRecords = useMemo(() => getPersonalRecordsForMuscle(logs, muscle, 3), [logs, muscle]);

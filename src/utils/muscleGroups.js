@@ -14,14 +14,20 @@
 
 export const MUSCLE_GROUPS = [
   'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
-  'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves'
+  'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves', 'Tibialis'
 ];
+
+// Muscles most people never train directly. Tracked and drawn like any
+// other, but left out of a week's stats when they got 0 sets there — so
+// they never show as Neglected, never trigger a "zero sets" insight and
+// never pull down the Balance score for someone who doesn't train them.
+export const OPTIONAL_MUSCLES = new Set(['Tibialis']);
 
 // Push / Pull / Legs / Core categorization (Section 3 — Training Distribution).
 export const MUSCLE_TO_PPLC = {
   Chest: 'Push', Shoulders: 'Push', Triceps: 'Push',
   Back: 'Pull', Biceps: 'Pull', Forearms: 'Pull',
-  Glutes: 'Legs', Quads: 'Legs', Hamstrings: 'Legs', Calves: 'Legs',
+  Glutes: 'Legs', Quads: 'Legs', Hamstrings: 'Legs', Calves: 'Legs', Tibialis: 'Legs',
   Core: 'Core'
 };
 
@@ -32,7 +38,7 @@ export const MUSCLE_TO_PPLC = {
 // draw a muscle on both views — Shoulders renders the anterior delt on the
 // front and the rear delt on the back.
 export const MUSCLE_BODY_VIEW = {
-  Chest: 'front', Shoulders: 'front', Biceps: 'front', Forearms: 'front', Core: 'front', Quads: 'front',
+  Chest: 'front', Shoulders: 'front', Biceps: 'front', Forearms: 'front', Core: 'front', Quads: 'front', Tibialis: 'front',
   Back: 'back', Triceps: 'back', Glutes: 'back', Hamstrings: 'back', Calves: 'back'
 };
 
@@ -75,9 +81,9 @@ const RULES = [
   // "calves", rather than the bare substring "calf" — the loose version
   // matched any custom name that merely contained those four letters.
   { test: n => /\bcalves\b/.test(n) || (/\bcalf\b/.test(n) && /(raise|press|extension|curl)/.test(n)), muscles: ['Calves'] },
-  // Tibialis (front of the shin) has no group of its own in this taxonomy;
-  // it's lower-leg work, so it's credited alongside the calves.
-  { test: n => /tibialis|tib bar/.test(n), muscles: ['Calves'] },
+  // Tibialis anterior: the FRONT of the shin, its own group (not Calves,
+  // which sit on the back of the lower leg).
+  { test: n => /tibialis|tib bar/.test(n), muscles: ['Tibialis'] },
   { test: n => /(glute|hip thrust|glute bridge|hip abduction|hip adduction)/.test(n), muscles: ['Glutes'] },
   // "kettlebell swing" added: a hip-hinge posterior-chain move, classified
   // the same as Romanian Deadlift / Good Morning here.

@@ -20,7 +20,7 @@
 // muscle-balance nudge, and Node's own ESM resolver requires the extension.
 // Confirmed 2026-08-11: omitting it threw "Cannot find module './muscleGroups'"
 // under `vercel dev`.
-import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, getMuscleGroupsForExercise } from './muscleGroups.js';
+import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, OPTIONAL_MUSCLES, getMuscleGroupsForExercise } from './muscleGroups.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from './dateUtils.js';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary.js';
 
@@ -30,8 +30,10 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../dat
 // and used for the completion % (midpoint of the optimal band).
 export const MUSCLE_TARGETS = MUSCLE_GROUPS.reduce((acc, muscle) => {
   const large = LARGE_MUSCLES.has(muscle);
-  const min = large ? 12 : 8;
-  const max = large ? 20 : 15;
+  // Optional muscles (Tibialis) are accessory work: a lighter 4–10 band.
+  const optional = OPTIONAL_MUSCLES.has(muscle);
+  const min = large ? 12 : optional ? 4 : 8;
+  const max = large ? 20 : optional ? 10 : 15;
   acc[muscle] = { min, max, target: Math.round((min + max) / 2) };
   return acc;
 }, {});
@@ -116,9 +118,11 @@ const inRange = (dateStr, startStr, endStr) => dateStr >= startStr && dateStr <=
  * @param {Array} logs - raw workout_logs rows (log_date, exercise_name, weight_kg, reps, set_type, created_at)
  * @param {string} weekStartStr - YYYY-MM-DD (inclusive)
  * @param {string} weekEndStr - YYYY-MM-DD (inclusive)
+ * @param {{includeUntrained?: boolean}} [opts] - keep OPTIONAL_MUSCLES rows
+ *   that got 0 sets (the muscle detail screen needs a row to show)
  * @returns {Array<{muscle, sets, volume, days, min, max, target, completionPercent, status}>}
  */
-export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr) {
+export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUntrained = false } = {}) {
   const bySets = {};
   const byVolume = {};
   const byDays = {};
@@ -145,7 +149,7 @@ export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr) {
     const status = classifyStatus(sets, { min, max });
     const completionPercent = Math.round((sets / target) * 100);
     return { muscle, sets, volume, days, min, max, target, completionPercent, status };
-  });
+  }).filter(s => includeUntrained || s.sets > 0 || !OPTIONAL_MUSCLES.has(s.muscle));
 }
 
 // Average completion% across all 11 muscles — used as an honest stand-in for
@@ -254,6 +258,7 @@ export const RECOMMENDED_EXERCISES = {
   Quads: ['Barbell Squat', 'Leg Press', 'Leg Extension'],
   Hamstrings: ['Romanian Deadlift', 'Leg Curl (Lying)', 'Good Morning'],
   Calves: ['Calf Raise (Standing)', 'Seated Calf Raise', 'Calf Raise (Machine)'],
+  Tibialis: ['Tibialis Raise', 'Tib Bar Raise', 'Seated Tibialis Raise'],
 };
 
 /**
@@ -293,6 +298,8 @@ export function getNeglectedMuscles(logs, now = new Date(), dayThreshold = 7) {
       const info = getLastTrainedInfo(logs, muscle, now);
       return { muscle, daysSince: info ? info.daysSince : null, lastDate: info ? info.lastDate : null, recommendedExercises: RECOMMENDED_EXERCISES[muscle] || [] };
     })
+    // Never-trained optional muscles (Tibialis) aren't "neglected" — see OPTIONAL_MUSCLES.
+    .filter(m => !(m.daysSince === null && OPTIONAL_MUSCLES.has(m.muscle)))
     .filter(m => m.daysSince === null || m.daysSince >= dayThreshold)
     .sort((a, b) => {
       if (a.daysSince === null && b.daysSince === null) return 0;

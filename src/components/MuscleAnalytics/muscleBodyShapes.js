@@ -353,22 +353,39 @@ export const BACK_MUSCLE_LAYERS = {
 // Warped lazily on first use and cached: it's a one-off parse of the
 // vendored path data, and male-only screens never pay for it.
 const MALE_ART = {
-  front: { bodySvg: BODY_FRONT_SVG, fillUrl: BODY_FRONT_FILL_URL, layers: FRONT_MUSCLE_LAYERS, underlayUrl: null },
-  back: { bodySvg: BODY_BACK_SVG, fillUrl: BODY_BACK_FILL_URL, layers: BACK_MUSCLE_LAYERS, underlayUrl: null },
+  front: { bodySvg: BODY_FRONT_SVG, fillUrl: BODY_FRONT_FILL_URL, layers: FRONT_MUSCLE_LAYERS, underlayUrl: null, bodyMaskStyle: null },
+  back: { bodySvg: BODY_BACK_SVG, fillUrl: BODY_BACK_FILL_URL, layers: BACK_MUSCLE_LAYERS, underlayUrl: null, bodyMaskStyle: null },
+};
+
+// Female front only: once the warp pulls the arms in, a thin sliver of the
+// male artwork's lat edge is left hanging into each armpit gap, between the
+// arm and the obliques overlay — it read as a stray spike. These two shapes
+// (measured from the warped body and muscle-14 overlay, 2026-10-07) are cut
+// out of the body + gap-fill layers with a CSS mask; the muscle overlays on
+// top are untouched.
+const FEMALE_FRONT_CUTOUTS = [
+  'M68.2,121 C68.2,117.5 70,115.3 72.3,115.3 C74,115.3 74.6,117.3 74.4,120.5 L74.4,124 L74.7,132 L75,138.5 L74.3,136 L73.1,130 L71.3,124.2 L70.3,122.3 Z',
+  'M130,121 C130,117.5 128.4,115.3 126.2,115.3 C124.6,115.3 124,117.3 124.2,120.5 L124.2,124 L123.8,132 L123.2,138.5 L123.9,136 L124.5,130 L125.9,124.2 L126.9,122.3 Z',
+];
+const maskStyleCutting = cutouts => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 369.03" preserveAspectRatio="none"><path fill-rule="evenodd" d="M0,0H200V369.03H0Z ${cutouts.join(' ')}"/></svg>`;
+  const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  return { WebkitMaskImage: url, maskImage: url, WebkitMaskSize: '100% 100%', maskSize: '100% 100%' };
 };
 let femaleArt = null;
 function buildFemaleArt() {
-  const view = (name, bodySvg, fillUrl, layers, underlayUrl) => {
+  const view = (name, bodySvg, fillUrl, layers, underlayUrl, cutouts) => {
     const warp = femaleWarp(name);
     return {
       bodySvg: warpSvg(bodySvg, warp),
       fillUrl,
       layers: Object.fromEntries(Object.entries(layers).map(([m, files]) => [m, files.map(f => warpSvg(f, warp))])),
       underlayUrl,
+      bodyMaskStyle: cutouts ? maskStyleCutting(cutouts) : null,
     };
   };
   return {
-    front: view('front', BODY_FRONT_SVG, bodyFrontFillFemaleUrl, FRONT_MUSCLE_LAYERS, femaleFrontUnderlayUrl),
+    front: view('front', BODY_FRONT_SVG, bodyFrontFillFemaleUrl, FRONT_MUSCLE_LAYERS, femaleFrontUnderlayUrl, FEMALE_FRONT_CUTOUTS),
     back: view('back', BODY_BACK_SVG, bodyBackFillFemaleUrl, BACK_MUSCLE_LAYERS, null),
   };
 }

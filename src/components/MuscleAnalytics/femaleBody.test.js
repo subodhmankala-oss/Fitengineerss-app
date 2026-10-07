@@ -72,6 +72,8 @@ describe('getBodyArt', () => {
       }
     }
     expect(female.front.underlayUrl).toBeTruthy();
+    expect(female.front.bodyMaskStyle.maskImage).toMatch(/^url\("data:image\/svg\+xml,/); // armpit slivers cut out
+    expect(getBodyArt('male').front.bodyMaskStyle).toBeNull();
     expect(getBodyArt('female')).toBe(female); // built once, cached
   });
 });

@@ -29,7 +29,7 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
 // stats: it passes colorFor/labelFor to color and label muscles itself.
 // `sex` is the client's profile sex — 'female' draws the female figure.
 export const BodyDiagram = ({ view, sex, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
-  const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl } = getBodyArt(sex)[view];
+  const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl, bodyMaskStyle } = getBodyArt(sex)[view];
 
   return (
     <div className="muscle-body-stack">
@@ -37,9 +37,9 @@ export const BodyDiagram = ({ view, sex, statByMuscle = {}, activeMuscle, onSele
           in muscleBodyShapes.js) so they read as pale skin instead of the
           dark card showing through. Masked by the body artwork itself, same
           as the SVG layers below it. */}
-      <img src={bodyFillUrl} alt="" className="muscle-svg-layer" aria-hidden="true" />
+      <img src={bodyFillUrl} alt="" className="muscle-svg-layer" aria-hidden="true" style={bodyMaskStyle ?? undefined} />
 
-      <div className="muscle-svg-layer" dangerouslySetInnerHTML={{ __html: bodySvg }} />
+      <div className="muscle-svg-layer" style={bodyMaskStyle ?? undefined} dangerouslySetInnerHTML={{ __html: bodySvg }} />
 
       {/* Featureless-face patch (front view only) — see FACE_MASK in
           muscleBodyShapes.js for why the vendored face is masked instead of

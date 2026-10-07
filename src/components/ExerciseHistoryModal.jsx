@@ -218,16 +218,19 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
           </div>
         )}
 
-        <div className={`ex-history-status-card ex-history-status-card--${status.tone}`}>
-          <span className="ex-history-status-icon">{status.icon}</span>
-          <div>
-            <div className="ex-history-status-label">{status.label}</div>
-            <div className="ex-history-status-detail">{status.detail}</div>
-            {status.action && (
-              <div className="ex-history-status-action">👉 {status.action}</div>
-            )}
+        {/* Nothing logged yet: the empty state below already says so. */}
+        {status.key !== 'none' && (
+          <div className={`ex-history-status-card ex-history-status-card--${status.tone}`}>
+            <span className="ex-history-status-icon">{status.icon}</span>
+            <div>
+              <div className="ex-history-status-label">{status.label}</div>
+              <div className="ex-history-status-detail">{status.detail}</div>
+              {status.action && (
+                <div className="ex-history-status-action">👉 {status.action}</div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {recommended.length > 0 && (
           <div className="ex-history-recs">

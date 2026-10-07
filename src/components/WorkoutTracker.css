@@ -3233,6 +3233,8 @@ html.keyboard-open .rest-timer-floating-card {
 
 .exercise-filter-tags .filter-tag-btn {
   flex-shrink: 0;
+  padding: 7px 14px;
+  font-size: 0.85rem;
 }
 
 /* Region chips under a category (Upper Chest, Mid Back, Obliques…) —

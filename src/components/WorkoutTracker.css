@@ -4393,58 +4393,40 @@ html.keyboard-open .rest-timer-floating-card {
 }
 .ex-history-status-card--neutral .ex-history-status-label { color: var(--text-muted); }
 
-/* ── Recommended-exercises footer ──────────────────────────────────────── */
+/* ── Suggested alternatives, shown right under the status card ─────────── */
+.ex-history-status-action {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-main);
+}
+
 .ex-history-recs {
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(var(--fg-rgb), 0.08);
+  margin: 10px 0 4px;
 }
 
 .ex-history-recs-title {
-  font-size: 0.86rem;
-  font-weight: 800;
-  color: var(--text-main);
-  margin-bottom: 4px;
-}
-
-.ex-history-recs-sub {
   font-size: 0.76rem;
+  font-weight: 800;
   color: var(--text-muted);
-  margin: 0 0 12px;
-  line-height: 1.4;
+  margin-bottom: 6px;
 }
 
 .ex-history-recs-list {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .ex-history-rec-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  background: rgba(var(--fg-rgb), 0.03);
-  border: 1px solid rgba(var(--fg-rgb), 0.06);
-  border-radius: 10px;
-}
-
-.ex-history-rec-name {
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.ex-history-rec-cat {
-  font-size: 0.66rem;
+  padding: 5px 11px;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.12);
-  padding: 3px 8px;
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   border-radius: 20px;
-  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════

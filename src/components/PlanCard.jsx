@@ -121,17 +121,16 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
           ) : (
             <span><ClockIcon /> {meta.estMinutes} min</span>
           )}
-          {onOpenExercise ? (
+          <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
+          {onOpenExercise && (
             <button
               type="button"
               className={`wt-plan-expand-btn ${expanded ? 'open' : ''}`}
               aria-expanded={expanded}
               onClick={() => setExpanded(v => !v)}
             >
-              <DumbbellIcon /> {meta.exerciseCount} exercises <span className="wt-plan-expand-caret" aria-hidden="true">▾</span>
+              {expanded ? 'Hide' : 'View'} <span className="wt-plan-expand-caret" aria-hidden="true">▾</span>
             </button>
-          ) : (
-            <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
           )}
         </div>
 

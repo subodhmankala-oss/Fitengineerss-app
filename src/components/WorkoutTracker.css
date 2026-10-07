@@ -5088,19 +5088,19 @@ html.keyboard-open .rest-timer-floating-card {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  margin-left: -8px;
+  padding: 3px 10px;
   font: inherit;
+  font-weight: 700;
   color: var(--accent-text);
-  background: transparent;
-  border: none;
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: 20px;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .wt-plan-expand-btn:active {
-  background: rgba(var(--accent-rgb), 0.12);
+  background: rgba(var(--accent-rgb), 0.24);
 }
 
 .wt-plan-expand-caret {

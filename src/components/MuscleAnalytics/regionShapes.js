@@ -88,7 +88,7 @@ export const REGION_SHAPES = {
   },
   Calves: { view: 'back', parts: [{ raw: muscle7Raw }], box: [71, 261, 130, 351] },
   // Tibialis anterior: FRONT of the shin, outer edge, knee to ankle.
-  Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [72, 266, 128, 327] },
+  Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [69, 266, 132, 331] },
 };
 
 // Square zoom window around a region's box (with breathing room so the

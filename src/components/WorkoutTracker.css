@@ -3233,6 +3233,8 @@ html.keyboard-open .rest-timer-floating-card {
 
 .exercise-filter-tags .filter-tag-btn {
   flex-shrink: 0;
+  padding: 7px 14px;
+  font-size: 0.85rem;
 }
 
 /* Region chips under a category (Upper Chest, Mid Back, Obliques…) —
@@ -3247,14 +3249,23 @@ html.keyboard-open .rest-timer-floating-card {
 .exercise-subgroup-tags .filter-tag-btn {
   padding: 4px 10px;
   font-size: 0.68rem;
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.28);
+  color: #b9a5f5;
 }
 
-/* Purple (not the category row's blue) so the active region chip can't be
-   mistaken for the active category chip above it. */
-.exercise-subgroup-tags .filter-tag-btn.active {
+.exercise-subgroup-tags .filter-tag-btn:hover {
   background: rgba(139, 92, 246, 0.16);
-  border-color: rgba(139, 92, 246, 0.45);
-  color: #a78bfa;
+  color: #d4c8fb;
+}
+
+/* Purple (not the category row's blue) so the whole region row, selected or
+   not, can't be mistaken for the category chips above it. */
+.exercise-subgroup-tags .filter-tag-btn.active {
+  background: rgba(139, 92, 246, 0.32);
+  border-color: rgba(139, 92, 246, 0.75);
+  color: #ede9fe;
+  font-weight: 700;
 }
 
 .filter-tag-caret {

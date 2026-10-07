@@ -115,8 +115,12 @@ function cardioMET(exerciseName, speedKmh) {
   // pace -- 71% overcounted. Only short-circuits at walking speed; a faster
   // treadmill RUN still falls through to the running ladder below exactly
   // as before, so this doesn't touch that case.
-  if (/treadmill/.test(n) && speedKmh < 6.4) {
-    return speedKmh < 4.8 ? 2.8 : 3.5;
+  // Up to 7.2 km/h is still a walk (Compendium: 4.0-4.5 mph brisk walking,
+  // 5.0 MET). The cut-off used to be 6.4, so "Treadmill Run" logged at 3.23 km
+  // in 30 min (6.46 km/h) priced as a 6.0 MET run (2026-10-07).
+  if (/treadmill/.test(n) && speedKmh < 7.2) {
+    if (speedKmh < 4.8) return 2.8;
+    return speedKmh < 6.4 ? 3.5 : 5.0;
   }
   if (/\bwalk/.test(n)) {
     if (speedKmh < 4.8) return 2.8;
@@ -259,9 +263,22 @@ const STRENGTH_MET = 6.0;
 // calisthenics rep (BODYWEIGHT_SECONDS_PER_REP above) — a controlled
 // eccentric under external load typically runs ~3s/rep tempo.
 const STRENGTH_SECONDS_PER_REP = 3.0;
-// No rest credit: a weighted set counts only the reps actually logged. A 60 s
-// rest credit per set (added 2026-09-24) was removed on 2026-10-01 — clients
-// should see calories for the work they entered, nothing extra.
+// No flat rest credit: a 60 s credit per set (added 2026-09-24) was removed on
+// 2026-10-01, because it credited time that may never have happened. Recovery
+// between sets is counted instead from the real gap between ticks; see
+// RECOVERY_MET below.
+
+// Breathing and heart rate stay up for a minute or two after a hard set (the
+// body is repaying the set's oxygen debt), so the gap before the next set is
+// not idle time. The Compendium's 3.5-6.0 MET figures for weight training are
+// whole-session averages that include this recovery. Applying 6.0 MET only to
+// ~3 s per rep left a weights day at a third of its real burn: a 95-minute,
+// 28-set chest day saved as 129.5 kcal, next to 372 for a 59-minute cardio
+// day (2026-10-07). Recovery is credited only from the real time between one
+// set's tick and the next (pauses excluded), capped at 90 s per set, at a
+// light 3.0 MET. No credit before the first set or after the last.
+const RECOVERY_MET = 3.0;
+const MAX_RECOVERY_SECONDS_PER_SET = 90;
 
 // Shared MET-based estimator for any reps-driven set that has no logged
 // duration of its own (bodyweight calisthenics AND regular weighted
@@ -512,43 +529,105 @@ export function remapSetTimersForSetRemoval(exIdx, removedSetIdx, timers) {
 // cardio/timed/bodyweight sets (the plain strength formula doesn't use it,
 // since it already has a real logged weight to work with) — defaults to an
 // average adult when the caller doesn't have the client's actual weight.
-// _pauseIntervals is unused (with no idle burn there is nothing to pause); it
-// stays so every caller's argument positions still line up.
-export function computeLiveCalories(exercises, sessionStartedAt, _pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+// Weighted, bodyweight and timed sets also earn recovery (see RECOVERY_MET),
+// from the real gap until the next set's tick: completion timestamps only,
+// never "now", so the total still stays put while the clock runs.
+// sessionStartedAt is unused; it stays so every caller's argument positions
+// still line up.
+export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   let workKcal = 0;
+  // Every completed set, warm-ups included: each tick bounds the gap before it.
+  const ticks = [];
 
   exercises.forEach((ex) => {
-    // Warm-up moves (Arm Circle, Leg Swing) never have a weight to log, so
-    // reps x 0 x rate is already 0 — this check is just explicit about it
-    // rather than relying on that incidentally being true.
-    if (isWarmupExercise(ex.name)) return;
+    const isWarmup = isWarmupExercise(ex.name);
     ex.sets.forEach((set) => {
       if (!set.isCompleted || !set.completedAt) return;
-      if (set.distanceKm !== undefined) {
-        workKcal += cardioKcal(ex.name, set.distanceKm, parseTimeStringToSeconds(set.time), bodyWeightKg);
-      } else if (set.time !== undefined) {
-        // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
-        workKcal += timedHoldKcal(parseTimeStringToSeconds(set.time), bodyWeightKg, ex.name);
-      } else if (isJumpRopeExercise(ex.name)) {
-        // reps holds skips for jump rope — see jumpRopeKcal.
-        workKcal += jumpRopeKcal(parseFloat(set.reps) || 0, parseFloat(set.weight) || 0, bodyWeightKg);
-      } else if (isLoadedCarryExercise(ex.name)) {
-        // reps holds meters for these — see loadedCarryKcal.
-        workKcal += loadedCarryKcal(ex.name, parseFloat(set.reps) || 0, parseFloat(set.weight) || 0, bodyWeightKg);
-      } else if (isBodyweightExercise(ex.name)) {
-        const reps = parseFloat(set.reps) || 0;
-        const addedWeight = parseFloat(set.weight) || 0;
-        workKcal += bodyweightKcal(ex.name, reps, bodyWeightKg, addedWeight);
-      } else {
-        const reps = parseFloat(set.reps) || 0;
-        const weight = parseFloat(set.weight) || 0;
-        workKcal += strengthKcal(reps, weight, bodyWeightKg);
-      }
+      // Warm-up moves (Arm Circle, Leg Swing) count nothing themselves.
+      const { kcal, workSeconds, recovers } = isWarmup
+        ? { kcal: 0, workSeconds: 0, recovers: false }
+        : setWork(ex.name, set, bodyWeightKg);
+      workKcal += kcal;
+      ticks.push({ at: set.completedAt, workSeconds, recovers });
     });
   });
 
-  const rounded = Math.round(workKcal * 10) / 10;
-  return { totalKcal: rounded, workKcal: rounded, restKcal: 0 };
+  // Each gap holds the previous set's recovery plus this set's own work.
+  ticks.sort((a, b) => a.at - b.at);
+  let recoverySeconds = 0;
+  for (let i = 1; i < ticks.length; i++) {
+    if (!ticks[i - 1].recovers) continue;
+    const gap = activeSecondsBetween(ticks[i - 1].at, ticks[i].at, pauseIntervals) - ticks[i].workSeconds;
+    recoverySeconds += Math.min(MAX_RECOVERY_SECONDS_PER_SET, Math.max(0, gap));
+  }
+  const restKcal = activeKcal(RECOVERY_MET, bodyWeightKg, bodyWeightKg, recoverySeconds / 60);
+
+  return {
+    totalKcal: Math.round((workKcal + restKcal) * 10) / 10,
+    workKcal: Math.round(workKcal * 10) / 10,
+    restKcal: Math.round(restKcal * 10) / 10,
+  };
+}
+
+// One completed set's work: kcal, how many seconds of the clock the work
+// itself took, and whether a recovery gap follows it (cardio is continuous
+// effort already priced by its own pace, so it doesn't).
+function setWork(exerciseName, set, bodyWeightKg) {
+  if (set.distanceKm !== undefined) {
+    const seconds = parseTimeStringToSeconds(set.time);
+    const kcal = cardioKcal(exerciseName, set.distanceKm, seconds, bodyWeightKg);
+    const km = parseFloat(set.distanceKm) || 0;
+    const workSeconds = seconds > 0 ? seconds : km > 0 ? km / averageCardioSpeedKmh(exerciseName) * 3600 : 0;
+    return { kcal, workSeconds, recovers: false };
+  }
+  if (set.time !== undefined) {
+    // Timed hold (plank etc.) — no reps/weight, duration-driven instead.
+    const seconds = parseTimeStringToSeconds(set.time) || 0;
+    return { kcal: timedHoldKcal(seconds, bodyWeightKg, exerciseName), workSeconds: seconds, recovers: seconds > 0 };
+  }
+  const reps = parseFloat(set.reps) || 0;
+  const weight = parseFloat(set.weight) || 0;
+  if (isJumpRopeExercise(exerciseName)) {
+    // reps holds skips for jump rope — see jumpRopeKcal.
+    return {
+      kcal: jumpRopeKcal(reps, weight, bodyWeightKg),
+      workSeconds: Math.min(reps, MAX_PLAUSIBLE_SKIPS_PER_SET) * JUMP_ROPE_SECONDS_PER_SKIP,
+      recovers: reps > 0,
+    };
+  }
+  if (isLoadedCarryExercise(exerciseName)) {
+    // reps holds meters for these — see loadedCarryKcal.
+    const metersPerSecond = isBodyweightExercise(exerciseName) ? HIGH_KNEES_WALK_METERS_PER_SECOND : CARRY_METERS_PER_SECOND;
+    return {
+      kcal: loadedCarryKcal(exerciseName, reps, weight, bodyWeightKg),
+      workSeconds: Math.min(reps, MAX_PLAUSIBLE_CARRY_METERS) / metersPerSecond,
+      recovers: reps > 0,
+    };
+  }
+  if (isBodyweightExercise(exerciseName)) {
+    return {
+      kcal: bodyweightKcal(exerciseName, reps, bodyWeightKg, weight),
+      workSeconds: Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET) * BODYWEIGHT_SECONDS_PER_REP,
+      recovers: reps > 0,
+    };
+  }
+  return {
+    kcal: strengthKcal(reps, weight, bodyWeightKg),
+    workSeconds: Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET) * STRENGTH_SECONDS_PER_REP,
+    recovers: reps > 0,
+  };
+}
+
+// Active (unpaused) seconds between two timestamps — pauses are clipped to
+// the window, so one still open or overlapping the edges can't over-subtract.
+function activeSecondsBetween(start, end, pauseIntervals = []) {
+  if (!start || !end || end <= start) return 0;
+  const paused = (pauseIntervals || []).reduce((sum, p) => {
+    const from = Math.max(p.pausedAt || 0, start);
+    const to = Math.min(p.resumedAt || end, end);
+    return sum + Math.max(0, to - from);
+  }, 0);
+  return Math.max(0, (end - start - paused) / 1000);
 }
 
 // Sums (reps × weight) across every set in a finished session's exercises —

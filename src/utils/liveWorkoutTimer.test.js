@@ -225,8 +225,8 @@ describe('Jump Rope (reps field holds skips)', () => {
 describe('recovery between sets', () => {
   const at = (sec) => 1_000_000 + sec * 1000;
   const set = (completedSec, fields) => ({ isCompleted: true, completedAt: at(completedSec), ...fields });
-  // 70 kg, 3.0 MET recovery (2.0 active): 2 x 3.5 x 70 / 200 = 2.45 kcal/min
-  const recoveryKcal = (seconds) => 2.45 * seconds / 60;
+  // 70 kg, 3.5 MET recovery (2.5 active): 2.5 x 3.5 x 70 / 200 = 3.0625 kcal/min
+  const recoveryKcal = (seconds) => 3.0625 * seconds / 60;
   const bench = (reps) => (6 * (70 + 50) - 70) * 3.5 / 200 * (reps * 3 / 60);
   const kcal = (exercises, pauses = []) => computeLiveCalories(exercises, at(0), pauses, 70).totalKcal;
 
@@ -236,9 +236,9 @@ describe('recovery between sets', () => {
     expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(60), 1);
   });
 
-  it('caps recovery at 90 s however long the break was', () => {
+  it('caps recovery at 180 s however long the break was', () => {
     const sets = [set(30, { reps: '10', weight: '50' }), set(30 + 600, { reps: '10', weight: '50' })];
-    expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(90), 1);
+    expect(kcal([{ name: 'Bench Press', sets }])).toBeCloseTo(2 * bench(10) + recoveryKcal(180), 1);
   });
 
   it('credits nothing after the last set or for sets ticked back to back', () => {
@@ -264,10 +264,11 @@ describe('recovery between sets', () => {
 
   // Reported 2026-10-07, 89.8 kg client: a 95-minute, 28-set chest day saved
   // 129.5 kcal next to 372.4 for a 59-minute treadmill + bike day.
-  it('brings a long weights day level with a similar-length cardio day', () => {
+  // His 28 sets over 95 minutes average a tick every ~200 s.
+  it('puts a 95-minute weights day above a 59-minute cardio day', () => {
     const kg = 89.8;
     let t = 0;
-    const lift = (name, reps, weight) => { t += 180; return { name, sets: [set(t, { reps: String(reps), weight: String(weight) })] }; };
+    const lift = (name, reps, weight) => { t += 200; return { name, sets: [set(t, { reps: String(reps), weight: String(weight) })] }; };
     const exercises = [];
     [[12, 50], [6, 65], [5, 70], [2, 72.5]].forEach(([r, w]) => exercises.push(lift('Barbell Bench Press', r, w)));
     [[12, 45], [10, 50], [6, 55]].forEach(([r, w]) => exercises.push(lift('Incline Dumbbell Press', r, w)));
@@ -283,9 +284,11 @@ describe('recovery between sets', () => {
       { name: 'Stationary Bike HIIT', sets: [set(2700, { distanceKm: '4.5', time: '15:00' })] },
     ], at(0), [], kg).totalKcal;
 
-    expect(weights).toBeGreaterThan(200);
+    // Compendium 3.5 MET over 95 min at 89.8 kg = ~373 active kcal.
+    expect(weights).toBeGreaterThan(340);
+    expect(weights).toBeLessThan(450);
     expect(cardio).toBeLessThan(340);
-    expect(weights / cardio).toBeGreaterThan(0.6);
+    expect(weights).toBeGreaterThan(cardio);
   });
 });
 

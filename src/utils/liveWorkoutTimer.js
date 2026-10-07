@@ -275,10 +275,14 @@ const STRENGTH_SECONDS_PER_REP = 3.0;
 // ~3 s per rep left a weights day at a third of its real burn: a 95-minute,
 // 28-set chest day saved as 129.5 kcal, next to 372 for a 59-minute cardio
 // day (2026-10-07). Recovery is credited only from the real time between one
-// set's tick and the next (pauses excluded), capped at 90 s per set, at a
-// light 3.0 MET. No credit before the first set or after the last.
-const RECOVERY_MET = 3.0;
-const MAX_RECOVERY_SECONDS_PER_SET = 90;
+// set's tick and the next (pauses excluded), at 3.5 MET (Compendium 02054,
+// "resistance training, multiple exercises, 8-15 reps", a whole-session
+// average), capped at 180 s per set (the upper end of standard 2-3 min rest
+// for heavy compound sets; anything longer is idle). No credit before the
+// first set or after the last. A first cut at 90 s / 3.0 MET still left that
+// 95-minute day at 261 kcal, well under the ~370 the Compendium gives it.
+const RECOVERY_MET = 3.5;
+const MAX_RECOVERY_SECONDS_PER_SET = 180;
 
 // Shared MET-based estimator for any reps-driven set that has no logged
 // duration of its own (bodyweight calisthenics AND regular weighted

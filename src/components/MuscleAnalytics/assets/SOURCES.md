@@ -64,9 +64,10 @@ heat map uses instead of wger's muscle-11 (biceps femoris only). Same caveat:
 re-trace if `body-back.svg` changes.
 
 **Tibialis** (tibialis anterior → Tibialis, front view) has no wger file either.
-`muscle-tibialis.svg` is two hand-drawn shapes on the front-outer edge of each
-shin (knee y≈268 to ankle y≈325), measured against the rendered
-`body-front.svg`, in the same format/style as the other overlays.
+`muscle-tibialis.svg` is two shapes hand-traced (2026-10-07) over the rendered
+`body-front.svg` lower legs, one per shin (knee y≈266 to ankle y≈331) — the
+legs aren't mirror-symmetric, so each was traced separately — in the same
+format/style as the other overlays.
 
 **`body-front-fill.png` / `body-back-fill.png`** are a derived, gap-filled
 raster backdrop for the same two vendored SVGs — see `BODY_FRONT_FILL_URL`

@@ -310,7 +310,7 @@ export const MUSCLE_CROP = {
   Quads: { x: 21.36, y: 139.31, w: 155.98, h: 155.98 },
   Hamstrings: { x: 29.26, y: 170.26, w: 141.68, h: 141.68 },
   Calves: { x: 2.85, y: 174, w: 195, h: 195 },
-  Tibialis: { x: 59, y: 255.5, w: 82, h: 82 },
+  Tibialis: { x: 56.5, y: 254.5, w: 88, h: 88 },
   Back: { x: 2.5, y: 0, w: 195, h: 195 },
 };
 

@@ -2,9 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import {
-  BODY_FRONT_SVG, BODY_BACK_SVG, FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS,
-  BODY_FRONT_FILL_URL, BODY_BACK_FILL_URL, FACE_MASK, FACE_MASK_GRADIENT,
-  SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
+  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -29,10 +27,9 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
 
 // Also used by the Add Exercise picker's body filter, which has no weekly
 // stats: it passes colorFor/labelFor to color and label muscles itself.
-export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
-  const bodySvg = view === 'front' ? BODY_FRONT_SVG : BODY_BACK_SVG;
-  const bodyFillUrl = view === 'front' ? BODY_FRONT_FILL_URL : BODY_BACK_FILL_URL;
-  const layerMap = view === 'front' ? FRONT_MUSCLE_LAYERS : BACK_MUSCLE_LAYERS;
+// `sex` is the client's profile sex — 'female' draws the female figure.
+export const BodyDiagram = ({ view, sex, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
+  const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl } = getBodyArt(sex)[view];
 
   return (
     <div className="muscle-body-stack">
@@ -84,6 +81,10 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
         </svg>
       )}
 
+      {/* Female figure, front only: the bust (soft shading), beneath the
+          muscle overlays so a colored Chest still sits on top of it. */}
+      {underlayUrl && <img src={underlayUrl} alt="" className="muscle-svg-layer" aria-hidden="true" />}
+
       {Object.entries(layerMap).map(([muscle, rawFiles]) => {
         const stat = statByMuscle[muscle];
         const tier = stat ? getHeatMapTier(stat) : null;
@@ -118,7 +119,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
  * that's a distinct, second-level switch (which side of the body), not the
  * same kind of choice as the outer Heat Map/Recovery tab.
  */
-const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
+const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, sex }) => {
   const [view, setView] = useState('front');
 
   const statByMuscle = useMemo(
@@ -147,7 +148,7 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
       </div>
 
       <div className="muscle-body-wrapper">
-        <BodyDiagram view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} />
+        <BodyDiagram view={view} sex={sex} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} />
       </div>
 
       {/* Quick-tap chips under the diagram — same regions, easier tap target

@@ -1735,6 +1735,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               setWeekOffset={setWeekOffset}
               weekNavBtnStyle={weekNavBtnStyle}
               focusSection={initialMuscleSection}
+              sex={localStorage.getItem('userSex')}
             />
           )}
         </div>

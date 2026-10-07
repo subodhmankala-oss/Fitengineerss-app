@@ -7905,6 +7905,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
+                            sex={selectedClient?.userSex}
                             onShareBalance={() => {
                               // Same computation NeglectedMuscles.jsx uses for
                               // its list — zero sets logged in the currently

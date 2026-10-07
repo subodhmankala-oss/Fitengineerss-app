@@ -3241,12 +3241,20 @@ html.keyboard-open .rest-timer-floating-card {
   flex-shrink: 0;
   margin-top: 6px;
   padding-left: 10px;
-  border-left: 2px solid rgba(var(--accent-rgb), 0.35);
+  border-left: 2px solid rgba(139, 92, 246, 0.45);
 }
 
 .exercise-subgroup-tags .filter-tag-btn {
   padding: 4px 10px;
   font-size: 0.68rem;
+}
+
+/* Purple (not the category row's blue) so the active region chip can't be
+   mistaken for the active category chip above it. */
+.exercise-subgroup-tags .filter-tag-btn.active {
+  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(139, 92, 246, 0.45);
+  color: #a78bfa;
 }
 
 .filter-tag-caret {

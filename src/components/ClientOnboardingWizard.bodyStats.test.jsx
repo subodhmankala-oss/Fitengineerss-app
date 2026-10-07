@@ -47,7 +47,7 @@ describe('ClientOnboardingWizard step 1 body stats', () => {
     type('e.g. Priya Sharma', 'Asha');
     type('10-digit mobile number', '9876543210');
     type('e.g. 28', '29');
-    fireEvent.click(screen.getByRole('radio', { name: 'Prefer not to say' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Female' }));
     type('e.g. 72', '64.5');
     type('e.g. 175', '162');
     next();

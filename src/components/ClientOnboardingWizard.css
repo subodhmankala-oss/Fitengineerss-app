@@ -245,7 +245,7 @@
 /* Sex picker — a segmented control the same height as .cow-input. */
 .cow-seg {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   padding: 4px;
   background: rgba(var(--fg-rgb), 0.04);

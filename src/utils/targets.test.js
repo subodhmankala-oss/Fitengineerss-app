@@ -11,8 +11,8 @@ describe('calculateTargetsGeneric sex constant (Mifflin-St Jeor)', () => {
     expect(kcal('female')).toBe(Math.round((1643.75 - 161) * 1.2));
   });
 
-  it('keeps the old average (-78) when sex is unspecified or missing', () => {
-    expect(kcal('unspecified')).toBe(Math.round((1643.75 - 78) * 1.2));
-    expect(kcal(undefined)).toBe(kcal('unspecified'));
+  it('keeps the old average (-78) when no sex is saved yet', () => {
+    expect(kcal(undefined)).toBe(Math.round((1643.75 - 78) * 1.2));
+    expect(kcal('')).toBe(kcal(undefined));
   });
 });

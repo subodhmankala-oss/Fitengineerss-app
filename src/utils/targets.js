@@ -10,8 +10,8 @@
 // product choices:
 // - Mifflin-St Jeor's male/female forms differ only in the final constant
 //   (+5 male, -161 female). Sex was added to the profile on 2026-10-07;
-//   'unspecified' or missing uses the average of the two (-78), which is
-//   what every target before then was calculated with.
+//   a client who hasn't picked one yet uses the average of the two (-78),
+//   which is what every target before then was calculated with.
 // - No rounding to "nice" numbers (nearest-50 calories, nearest-5 grams) —
 //   values are left at calculator.net's raw precision instead.
 const SEX_CONSTANT = { male: 5, female: -161 };
@@ -80,7 +80,6 @@ export const PROGRAM_TO_FITNESS_GOAL = {
 export const SEX_OPTIONS = [
   { id: 'male', label: 'Male' },
   { id: 'female', label: 'Female' },
-  { id: 'unspecified', label: 'Prefer not to say' },
 ];
 
 export const ACTIVITY_TO_LABEL = {

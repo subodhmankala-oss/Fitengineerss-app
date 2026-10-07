@@ -4122,18 +4122,29 @@ html.keyboard-open .rest-timer-floating-card {
    Reuses .guide-sheet-* / .guide-tab-* — no image section, so header is
    its own row instead of a close button floating over a video.
    ═══════════════════════════════════════════ */
+/* The whole sheet scrolls as ONE page (stats, status, suggestions, then the
+   history). It used to pin everything above the tabs and scroll only a small
+   box below them, which left the history cramped under a tall fixed block. */
 .ex-history-sheet {
   height: auto;
-  max-height: 85vh;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
+/* Only the title + close button stay pinned while scrolling. */
 .ex-history-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px 0;
+  padding: 16px 20px 10px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
 }
 
 .ex-history-header .guide-ex-name {
@@ -4162,7 +4173,10 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .ex-history-content {
-  padding: 16px 20px 20px;
+  padding: 16px 20px 28px;
+  /* Scrolls with the sheet, not in its own box. */
+  flex: none;
+  overflow: visible;
 }
 
 .ex-history-empty {
@@ -4416,10 +4430,25 @@ html.keyboard-open .rest-timer-floating-card {
   margin-bottom: 10px;
 }
 
+/* One swipeable row instead of a wrapping stack of 2-3 rows. */
 .ex-history-recs-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+  overflow-x: auto;
+  margin: 0 -20px;
+  padding: 0 20px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ex-history-recs-list::-webkit-scrollbar {
+  display: none;
+}
+
+.ex-history-recs-list .ex-history-rec-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ex-history-rec-chip {

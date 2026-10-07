@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MuscleThumbnail, { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { MUSCLE_TO_PPLC } from '../utils/muscleGroups';
@@ -65,8 +65,31 @@ const assignedDateLabel = (isoString) => {
 // Log Sets routine picker, so they present a plan the exact same way.
 // markOpenedOnStart: Home's card passes false and leaves the marking to
 // WorkoutTracker, which only marks a plan once it has actually started it.
-const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true }) => {
+// Short row labels for getTrainingStatus keys.
+const STATUS_TAG_LABEL = {
+  none: 'Never trained',
+  neglected: 'Neglected',
+  under: 'Undertrained',
+  low: 'Low',
+  optimal: 'Optimal',
+  high: 'High',
+};
+
+// "3 × 10" when the sets share the same reps, else just the set count.
+const formatSetsLabel = (sets) => {
+  if (!Array.isArray(sets) || sets.length === 0) return '';
+  const reps = sets.map(st => st && st.reps);
+  const same = reps[0] && reps.every(r => String(r) === String(reps[0]));
+  return same ? `${sets.length} × ${reps[0]}` : `${sets.length} ${sets.length === 1 ? 'set' : 'sets'}`;
+};
+
+// expandable: (Log Sets picker only — Home's card omits it) turns the "N exercises"
+// count into a View/Hide toggle that lists the plan's exercises read-only, each
+// with its training status (getExerciseStatus) and sets × reps.
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, expandable = false, getExerciseStatus }) => {
+  const [expanded, setExpanded] = useState(false);
   const meta = getPlanCardMeta(plan);
+  const exerciseList = Array.isArray(plan.exercises) ? plan.exercises : [];
   const isTemplate = source === 'self';
   const isUnopened = source === 'coach' && plan.id && !getOpenedPlanIds().has(plan.id);
   const handleStart = () => {
@@ -108,6 +131,16 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true })
             <span><ClockIcon /> {meta.estMinutes} min</span>
           )}
           <span><DumbbellIcon /> {meta.exerciseCount} exercises</span>
+          {expandable && (
+            <button
+              type="button"
+              className={`wt-plan-expand-btn ${expanded ? 'open' : ''}`}
+              aria-expanded={expanded}
+              onClick={() => setExpanded(v => !v)}
+            >
+              {expanded ? 'Hide' : 'View'} <span className="wt-plan-expand-caret" aria-hidden="true">▾</span>
+            </button>
+          )}
         </div>
 
         {meta.muscles.length > 0 && (
@@ -137,6 +170,33 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true })
           </button>
         )}
       </div>
+
+      {expandable && expanded && (
+        <div className="wt-plan-exercises">
+          {exerciseList.map((ex, i) => {
+            const status = getExerciseStatus ? getExerciseStatus(ex.name) : null;
+            return (
+              <div
+                key={`${ex.name}-${i}`}
+                className="wt-plan-exercise-row"
+              >
+                <span className="wt-plan-exercise-name">{ex.name}</span>
+                <span className="wt-plan-exercise-right">
+                  {status && (
+                    <span className={`wt-plan-status-tag wt-plan-status-tag--${status.key}`}>
+                      {STATUS_TAG_LABEL[status.key]}
+                    </span>
+                  )}
+                  <span className="wt-plan-exercise-sets">{formatSetsLabel(ex.sets)}</span>
+                </span>
+              </div>
+            );
+          })}
+        <button type="button" className="wt-plan-start-wide" onClick={handleStart}>
+          ▶ Start workout
+        </button>
+        </div>
+      )}
     </div>
   );
 };

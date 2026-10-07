@@ -12,6 +12,7 @@ import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
+import { getExerciseStatusFromSessions } from '../utils/exerciseTrainingStatus';
 import { notifyEvent } from '../utils/pushNotify';
 import { getMuscleGroupsForExercise, MUSCLE_TO_PPLC, MUSCLE_BODY_VIEW } from '../utils/muscleGroups';
 import WorkoutShareCard from './WorkoutShareCard';
@@ -2729,9 +2730,9 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     : 0;
 
   // Shared by the exercise picker and the history modal's suggestion chips.
-  const addExerciseToWorkout = (name) => {
-    const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
-    if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+  // Starting sets for an exercise being brought in fresh: what the client did
+  // last time if they've done it, else one default set.
+  const buildStartingSets = (name) => {
     let newSet;
     const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
@@ -2748,8 +2749,14 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     }
     // Done before? Start from exactly what the client did last time —
     // every set, ready for a single tap each — instead of one default set.
-    const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
-    setLogExercises(prev => [...prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }]);
+    return setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
+  };
+
+  const addExerciseToWorkout = (name) => {
+    const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
+    if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+    const sets = buildStartingSets(name);
+    setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
   };
 
@@ -3379,6 +3386,8 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                       plan={plan}
                       source="coach"
                       onStart={() => startPlan(plan, 'coach')}
+                      expandable
+                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                     />
                   ))}
                 </div>
@@ -3401,7 +3410,17 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
               ) : (
                 <div className="wt-plan-list">
-                  {visibleTemplatePlans.map(plan => <PlanCard key={plan.id} plan={plan} source="self" onStart={() => startPlan(plan, 'self')} onDelete={() => handleDeleteTemplate(plan)} />)}
+                  {visibleTemplatePlans.map(plan => (
+                    <PlanCard
+                      key={plan.id}
+                      plan={plan}
+                      source="self"
+                      onStart={() => startPlan(plan, 'self')}
+                      onDelete={() => handleDeleteTemplate(plan)}
+                      expandable
+                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                    />
+                  ))}
                 </div>
               )}
             </div>

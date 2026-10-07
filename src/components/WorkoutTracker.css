@@ -5078,6 +5078,128 @@ html.keyboard-open .rest-timer-floating-card {
   margin-top: 2px;
 }
 
+/* Expandable exercise list (Log Sets picker only) — wraps below the card's
+   thumb/body/Start row at full width. */
+.wt-plan-card:has(.wt-plan-exercises) {
+  flex-wrap: wrap;
+}
+
+.wt-plan-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.wt-plan-expand-btn:active {
+  background: rgba(var(--accent-rgb), 0.24);
+}
+
+.wt-plan-expand-caret {
+  display: inline-block;
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+
+.wt-plan-expand-btn.open .wt-plan-expand-caret {
+  transform: rotate(180deg);
+}
+
+.wt-plan-exercises {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
+  padding-top: 4px;
+}
+
+.wt-plan-exercise-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 2px;
+  font: inherit;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.05);
+}
+
+.wt-plan-exercise-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-main);
+  min-width: 0;
+}
+
+.wt-plan-exercise-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wt-plan-exercise-sets {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.wt-plan-status-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 10px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.07);
+}
+
+.wt-plan-status-tag--optimal {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.wt-plan-status-tag--high {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.wt-plan-status-tag--low {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.wt-plan-status-tag--under {
+  color: #fb923c;
+  background: rgba(249, 115, 22, 0.16);
+}
+
+.wt-plan-status-tag--neglected {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.wt-plan-start-wide {
+  margin-top: 10px;
+  width: 100%;
+  padding: 11px;
+  background: var(--primary-accent-light);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+
 .wt-muscle-chip {
   display: flex;
   align-items: center;

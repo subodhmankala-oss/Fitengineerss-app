@@ -26,6 +26,9 @@ export function getTrainingStatus(entries) {
   if (gap > 21) {
     return { key: 'neglected', label: 'Neglected', icon: '🔴', tone: 'danger', detail: `Last trained ${formatDaysAgo(gap).toLowerCase()} — this needs to get back into rotation.`, action: 'Do this exercise in your next workout, or swap in one of the alternatives below.' };
   }
+  if (perWeek >= 3.5) {
+    return { key: 'high', label: 'Highly Trained', icon: '🔵', tone: 'success', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — you're hitting this a lot. Make sure you're recovering between sessions.` };
+  }
   if (perWeek >= 1.75) {
     return { key: 'optimal', label: 'Optimally Trained', icon: '✅', tone: 'success', detail: `~${perWeek.toFixed(1)}x/week over the last 4 weeks — solid, consistent frequency.` };
   }

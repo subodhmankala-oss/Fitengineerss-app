@@ -65,6 +65,16 @@ const assignedDateLabel = (isoString) => {
 // Log Sets routine picker, so they present a plan the exact same way.
 // markOpenedOnStart: Home's card passes false and leaves the marking to
 // WorkoutTracker, which only marks a plan once it has actually started it.
+// Short row labels for getTrainingStatus keys.
+const STATUS_TAG_LABEL = {
+  none: 'Never trained',
+  neglected: 'Neglected',
+  under: 'Undertrained',
+  low: 'Low',
+  optimal: 'Optimal',
+  high: 'High',
+};
+
 // "3 × 10" when the sets share the same reps, else just the set count.
 const formatSetsLabel = (sets) => {
   if (!Array.isArray(sets) || sets.length === 0) return '';
@@ -165,7 +175,6 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
         <div className="wt-plan-exercises">
           {exerciseList.map((ex, i) => {
             const status = getExerciseStatus ? getExerciseStatus(ex.name) : null;
-            const flagged = status && (status.key === 'neglected' || status.key === 'under' || status.key === 'low');
             return (
               <button
                 key={`${ex.name}-${i}`}
@@ -176,9 +185,9 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, o
               >
                 <span className="wt-plan-exercise-name">{ex.name}</span>
                 <span className="wt-plan-exercise-right">
-                  {flagged && (
+                  {status && (
                     <span className={`wt-plan-status-tag wt-plan-status-tag--${status.key}`}>
-                      {status.key === 'neglected' ? 'Neglected' : status.key === 'under' ? 'Undertrained' : 'Slightly low'}
+                      {STATUS_TAG_LABEL[status.key]}
                     </span>
                   )}
                   <span className="wt-plan-exercise-sets">{formatSetsLabel(ex.sets)} ›</span>

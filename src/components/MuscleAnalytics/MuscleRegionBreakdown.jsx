@@ -25,7 +25,8 @@ function action(r) {
 const UNTRAINED_COLOR = '#a78bfa';
 
 /**
- * "Inside Back" (or Chest/Shoulders) on the muscle detail screen: each region
+ * "Inside Back" (or Glutes, Biceps… every muscle but Tibialis — see
+ * muscleRegions.js) on the muscle detail screen: each region
  * of the muscle — Lats, Trapezius, Mid Back, Rotator Cuff, Lower Back — with
  * its own heat-map status for the week. Tap a row for a plain explanation,
  * what to do, what was logged there and suggested exercises. `focusRegion`

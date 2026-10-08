@@ -95,6 +95,25 @@ export const REGION_SHAPES = {
   Calves: { view: 'back', parts: [{ raw: muscle7Raw }], box: [71, 261, 130, 351] },
   // Tibialis anterior: FRONT of the shin, outer edge, knee to ankle.
   Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [69, 266, 132, 331] },
+
+  // Parts of the single-chip muscles (muscleRegions.js), for the muscle
+  // detail screen's "Inside Glutes" etc. Same clip-the-overlay approach.
+  // Forearm, palms forward: thumb side (extensors, brachioradialis) is the
+  // outer edge, the palm-side flexors the inner.
+  'Forearm Flexors': { view: 'front', parts: clipped(forearmRaw, [[38, 120, 62, 180], [138, 120, 162, 180]]), box: [38, 124, 162, 178] },
+  'Forearm Extensors': { view: 'front', parts: clipped(forearmRaw, [[22, 120, 38, 180], [162, 120, 176, 180]]), box: [25, 124, 173, 178] },
+  // Gluteus medius sits above and outside the max: the top band of the glute.
+  'Glute Max': { view: 'back', parts: [{ raw: muscle8Raw, clip: [58, 176, 142, 240] }], box: [61, 176, 138, 237] },
+  'Glute Med': { view: 'back', parts: [{ raw: muscle8Raw, clip: [58, 154, 142, 176] }], box: [61, 157, 138, 176] },
+  // Rectus femoris: the middle strip of each thigh; the vasti either side.
+  'Rectus Femoris': { view: 'front', parts: clipped(quadsRaw, [[74, 172, 90, 258], [110, 172, 126, 258]]), box: [74, 174, 126, 256] },
+  'Vastus Muscles': { view: 'front', parts: clipped(quadsRaw, [[62, 172, 74, 258], [90, 172, 110, 258], [126, 172, 137, 258]]), box: [64, 174, 135, 256] },
+  // Hamstrings, seen from behind: the body's left leg is on the left.
+  'Outer Hamstring': { view: 'back', parts: clipped(hamstringsRaw, [[63, 194, 83, 274], [117, 194, 137, 274]]), box: [65, 196, 135, 272] },
+  'Inner Hamstrings': { view: 'back', parts: clipped(hamstringsRaw, [[83, 194, 117, 274]]), box: [80, 196, 120, 272] },
+  // Gastrocnemius is the upper calf bulge; the soleus shows below it.
+  Gastrocnemius: { view: 'back', parts: [{ raw: muscle7Raw, clip: [68, 258, 133, 322] }], box: [71, 261, 130, 322] },
+  Soleus: { view: 'back', parts: [{ raw: muscle7Raw, clip: [68, 322, 133, 354] }], box: [71, 322, 130, 351] },
 };
 
 // ── Female figure ──

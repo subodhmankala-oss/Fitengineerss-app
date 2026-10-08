@@ -182,7 +182,7 @@ const memo = new Map();
 // the rules already classify keeps exactly the same numbers.
 const MUSCLE_TEXT_RULES = [
   [/tibialis/, 'Tibialis'],
-  [/trapez|\btraps?\b|rhomboid|latissimus|\blats?\b|erector|lower back|\bback\b|teres|spinal/, 'Back'],
+  [/trapez|\btraps?\b|rhomboid|latissimus|\blats?\b|erector|lower back|\bback\b|teres|infraspinatus|spinal/, 'Back'],
   [/delt|shoulder|rotator/, 'Shoulders'],
   [/pec|chest/, 'Chest'],
   [/bicep|brachialis/, 'Biceps'],

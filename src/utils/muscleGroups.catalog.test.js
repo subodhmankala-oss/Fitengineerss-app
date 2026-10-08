@@ -5,6 +5,7 @@ describe('catalog primary-muscle fallback', () => {
   it('maps free text onto the existing 12 groups', () => {
     expect(parseMuscleText('Lower Trapezius, Latissimus Dorsi')).toEqual(['Back']);
     expect(parseMuscleText('Rear Delts / Rhomboids')).toEqual(['Shoulders', 'Back']);
+    expect(parseMuscleText('Teres Major, Teres Minor, Infraspinatus')).toEqual(['Back']);
   });
 
   it('only applies when no name rule matches; credits primary + first different secondary', () => {

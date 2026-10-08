@@ -259,6 +259,7 @@ export const RECOMMENDED_EXERCISES = {
   Hamstrings: ['Romanian Deadlift', 'Leg Curl (Lying)', 'Good Morning'],
   Calves: ['Calf Raise (Standing)', 'Seated Calf Raise', 'Calf Raise (Machine)'],
   Tibialis: ['Tibialis Raise', 'Tib Bar Raise', 'Seated Tibialis Raise'],
+  'Rotator Cuff': ['External Rotation (Cable)', 'External Rotation (Band)', 'Side-Lying External Rotation'],
 };
 
 /**

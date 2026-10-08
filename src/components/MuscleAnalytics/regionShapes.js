@@ -67,6 +67,7 @@ export const REGION_SHAPES = {
   // Outer edge of the deltoid cap, seen from the front.
   'Side Delts': { view: 'front', parts: clipped(muscle2Raw, [[45, 60, 59, 100], [138, 60, 152, 100]]), box: [45, 64, 152, 99] },
   'Rear Delts': { view: 'back', parts: [{ raw: rearDeltRaw }], box: [43, 64, 157, 103] },
+  'Rotator Cuff': { view: 'back', parts: [{ raw: teresRaw }], box: [61, 77, 139, 101] },
 
   'Biceps Long Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_OUTER), box: [44, 94, 153, 131] },
   'Biceps Short Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_INNER), box: [44, 94, 153, 131] },

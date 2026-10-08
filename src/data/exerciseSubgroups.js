@@ -46,6 +46,7 @@ export const EXERCISE_SUBGROUPS = {
     { id: 'Front Delts', hint: 'Anterior deltoid — overhead presses, front raises', test: n => /front raise|overhead press|shoulders? press|military|arnold|behind neck|push press|landmine press|clean and press/.test(n) || (/seated/.test(n) && /press/.test(n) && !/chest|leg|calf/.test(n)) },
     { id: 'Side Delts', hint: 'Lateral deltoid — lateral raises, upright rows (width)', test: n => /lateral raise|upright row|y raise/.test(n) && !REAR_DELT(n) },
     { id: 'Rear Delts', hint: 'Posterior deltoid — reverse flyes, face pulls', test: REAR_DELT },
+    { id: 'Rotator Cuff', hint: 'Infraspinatus + teres, over the shoulder blade — external rotations', test: n => /rotator|external rotation|internal rotation/.test(n) },
   ],
   Arms: [
     { id: 'Biceps Long Head', hint: 'Outer biceps — elbow behind the body or neutral grip (incline, Bayesian, hammer)', test: n => IS_BICEPS(n) && (LONG_CURL(n) || !SHORT_CURL(n)) },

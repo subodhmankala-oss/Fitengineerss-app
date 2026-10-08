@@ -318,6 +318,8 @@ export const MUSCLE_CROP = {
   Calves: { x: 2.85, y: 174, w: 195, h: 195 },
   Tibialis: { x: 56.5, y: 254.5, w: 88, h: 88 },
   Back: { x: 2.5, y: 0, w: 195, h: 195 },
+  // Same 2.2x-padded, centered rule; teres bbox x 61.8–138.2, y 77.7–100.5.
+  'Rotator Cuff': { x: 16, y: 5.1, w: 168, h: 168 },
 };
 
 // Which vendored file(s) render for each of this app's 11 muscle groups,
@@ -334,7 +336,8 @@ export const FRONT_MUSCLE_LAYERS = {
 };
 
 export const BACK_MUSCLE_LAYERS = {
-  Back: [muscle12Raw, muscle9Raw, teresRaw],
+  Back: [muscle12Raw, muscle9Raw],
+  'Rotator Cuff': [teresRaw],
   Shoulders: [rearDeltRaw],
   Triceps: [muscle5Raw],
   Glutes: [muscle8Raw],

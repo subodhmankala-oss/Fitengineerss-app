@@ -92,7 +92,8 @@ const MuscleThumbnail = React.memo(function MuscleThumbnail({ muscle, color, siz
           transform: `scale(${scale}) translate(${-crop.x}px, ${-crop.y}px)`,
         }}
       >
-        <BodyBase art={art} view={view} gid={`thumb-${muscle}`} />
+        {/* Spaces would break the url(#id) gradient refs ("Rotator Cuff"). */}
+        <BodyBase art={art} view={view} gid={`thumb-${muscle.replace(/\W+/g, '')}`} />
 
         {rawFiles.map((rawSvg, i) => (
           <div key={i} className="muscle-thumb-layer" dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, color, false) }} />

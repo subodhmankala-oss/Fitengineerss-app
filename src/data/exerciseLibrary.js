@@ -98,6 +98,8 @@ const REGION_NAMES = [
   'Landmine Press', 'Incline Chest Press (Machine)',
   // Back
   'Inverted Row', 'Scapular Pull-up', 'Kelso Shrug', 'Cable Y Raise', 'Reverse Hyperextension',
+  // Rotator cuff (infraspinatus / teres)
+  'External Rotation (Cable)', 'External Rotation (Band)', 'Side-Lying External Rotation',
   // Arms
   'Bayesian Cable Curl', 'Drag Curl', 'Spider Curl', 'Cross Body Hammer Curl', 'Reverse Grip Pushdown',
   // Core
@@ -122,7 +124,7 @@ export function inferCategory(name) {
   // excluded so they land in Legs instead of Arms.
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n) && !/leg curl|nordic|hamstring|glute/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?|nordic|tibialis|tib bar)/.test(n)) return 'Legs';
-  if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart|y raise|landmine press)/.test(n)) return 'Shoulders';
+  if (/(rotator|external rotation|internal rotation|shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart|y raise|landmine press)/.test(n)) return 'Shoulders';
   if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar|pullover)/.test(n)) return 'Back';
   if (/(bench|chest|fly|pec deck|push-?up|push up|dip|crossover|around the world|floor press|press)/.test(n)) return 'Chest';
   // Compound/full-body moves that don't isolate one region (Ball Slam,
@@ -153,6 +155,7 @@ export function inferPrimary(name) {
   if (/side hops?/.test(n)) return 'Calves';
   if (/deadlift/.test(n)) return 'Posterior Chain';
   if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope|shoulder taps?|flutter kick|heel taps?|hollow|woodchop|pallof|side bend|windshield wiper)/.test(n)) return 'Core / Abs';
+  if (/rotator|external rotation|internal rotation/.test(n)) return 'Rotator Cuff';
   if (/(rear delt|reverse fly|face pull)/.test(n)) return 'Rear Delts';
   if (/shrug/.test(n)) return 'Trapezius';
   if (/(lateral raise|side lateral|y raise)/.test(n)) return 'Side Delts';

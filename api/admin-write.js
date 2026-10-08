@@ -103,6 +103,9 @@ async function handleSaveExercise(req, res) {
       },
       p_admin_email: SUPER_ADMIN_EMAIL
     });
+    // Re-adding an exercise that was previously deleted un-hides it. Best
+    // effort — the save itself already succeeded.
+    await setExerciseHidden(exercise.name, false).catch(e => console.warn('admin-write unhide failed:', e.message));
     return res.status(200).json({ exercise: Array.isArray(data) ? data[0] : data });
   } catch (err) {
     console.error('admin-write save-exercise error:', err);
@@ -123,6 +126,47 @@ async function handleDeleteExercise(req, res) {
   } catch (err) {
     console.error('admin-write delete-exercise error:', err);
     return res.status(502).json({ error: err.message || 'Failed to delete exercise.' });
+  }
+}
+
+// hidden_exercises (sql/hidden_exercises.sql) is the tombstone list for
+// exercises that ship in the code-defined EXERCISE_LIBRARY. Deleting the DB
+// row alone isn't enough for those — every screen merges the static list
+// back in, so the exercise reappears on the next load. Names are stored
+// lowercased so the match is case-insensitive, same as the merge itself.
+async function setExerciseHidden(name, hidden) {
+  const key = String(name || '').trim().toLowerCase();
+  if (!key) return;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const resp = hidden
+    ? await fetch(`${supabaseUrl}/rest/v1/hidden_exercises?on_conflict=name`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify({ name: key })
+      })
+    : await fetch(`${supabaseUrl}/rest/v1/hidden_exercises?name=eq.${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+        headers
+      });
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => null);
+    throw new Error((data && (data.message || data.error)) || `hidden_exercises update failed (${resp.status})`);
+  }
+}
+
+async function handleHideExercise(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller || caller.email !== SUPER_ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Not authorized to modify the exercise library.' });
+  }
+  const { name } = req.body || {};
+  if (!name || typeof name !== 'string') return res.status(400).json({ error: 'name is required.' });
+  try {
+    await setExerciseHidden(name, true);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('admin-write hide-exercise error:', err);
+    return res.status(502).json({ error: err.message || 'Failed to hide exercise.' });
   }
 }
 
@@ -217,6 +261,7 @@ async function handleSetClientPaused(req, res) {
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
+  'hide-exercise': handleHideExercise,
   'seed-exercises': handleSeedExercises,
   'set-client-total-sessions': handleSetClientTotalSessions,
   'set-client-program-dates': handleSetClientProgramDates,

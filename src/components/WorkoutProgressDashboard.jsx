@@ -19,6 +19,7 @@ import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
+import { queueWorkoutAdd } from '../utils/pendingWorkoutAdds';
 import './WorkoutProgressDashboard.css';
 
 // One flag per client, set permanently the moment they take any action on
@@ -1747,6 +1748,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               setWeekOffset={setWeekOffset}
               weekNavBtnStyle={weekNavBtnStyle}
               focusSection={initialMuscleSection}
+              // "+ Add" on a muscle-region suggestion queues it for the
+              // Workouts tab, which adds it to the session on open.
+              onAddExercise={queueWorkoutAdd}
+              onGoToWorkout={onNavigateToWorkouts}
             />
           )}
         </div>

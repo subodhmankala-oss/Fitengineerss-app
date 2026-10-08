@@ -22,6 +22,23 @@ const REGIONS_BY_MUSCLE = {
   Shoulders: EXERCISE_SUBGROUPS.Shoulders,
 };
 
+// Plain-language "what is this muscle and what does it do" for each region,
+// shown on the detail screen instead of the picker's terse anatomy hint.
+export const REGION_PLAIN = {
+  Lats: 'The big wing-shaped muscles down the sides of your back. They pull your arms down and back, and make your back look wider.',
+  Trapezius: 'The muscle from your neck out to your shoulders. It lifts and holds up your shoulders.',
+  'Mid Back': 'The muscles between your shoulder blades. They squeeze the blades together and keep you standing tall.',
+  'Rotator Cuff': 'Small muscles over each shoulder blade. They turn your arm and keep the shoulder joint stable and safe.',
+  'Lower Back': 'The muscles along your lower spine. They keep your back straight when you bend, lift or stand.',
+  'Upper Chest': 'The top of your chest, just under the collarbone.',
+  'Mid Chest': 'The middle and biggest part of your chest.',
+  'Lower Chest': 'The bottom edge of your chest.',
+  'Front Delts': 'The front of your shoulder. It lifts your arm forward and overhead.',
+  'Side Delts': 'The outside of your shoulder. It lifts your arm out to the side and gives your shoulders width.',
+  'Rear Delts': 'The back of your shoulder. It pulls your arm backward and helps your posture.',
+  Other: "Exercises for this muscle that don't focus on one part.",
+};
+
 export function hasRegions(muscle) {
   return Boolean(REGIONS_BY_MUSCLE[muscle]);
 }
@@ -58,13 +75,13 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
   const regions = REGIONS_BY_MUSCLE[muscle];
   if (!regions) return [];
 
-  const rows = new Map(regions.map(r => [r.id, { id: r.id, hint: r.hint, sets: 0, byExercise: {} }]));
+  const rows = new Map(regions.map(r => [r.id, { id: r.id, hint: REGION_PLAIN[r.id] || r.hint, sets: 0, byExercise: {} }]));
   (logs || []).forEach(log => {
     if (!isCountableSet(log)) return;
     if (log.log_date < startStr || log.log_date > endStr) return;
     if (!getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) return;
     const id = regionOf(muscle, log.exercise_name) || 'Other';
-    if (!rows.has(id)) rows.set(id, { id, hint: 'Exercises that don\'t fit one region', sets: 0, byExercise: {} });
+    if (!rows.has(id)) rows.set(id, { id, hint: REGION_PLAIN.Other, sets: 0, byExercise: {} });
     const row = rows.get(id);
     row.sets += 1;
     row.byExercise[log.exercise_name] = (row.byExercise[log.exercise_name] || 0) + 1;
@@ -77,7 +94,9 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
     const out = [];
     for (const name of candidates) {
       if (out.length >= 3) break;
-      if (out.includes(name)) continue;
+      // "Deadlift" and "Deadlift (Barbell)" are one suggestion, not two.
+      const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+      if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;
       if (regionOf(muscle, name) !== id) continue;
       if (!getMuscleGroupsForExercise(name).includes(muscle)) continue;
       out.push(name);

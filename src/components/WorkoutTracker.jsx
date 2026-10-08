@@ -38,6 +38,7 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
+import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -869,7 +870,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     databaseService.resolveUserId().then(id => {
       if (cancelled || !id) return;
       setOwnUserId(id);
-      databaseService.getWorkoutDraft(id, 'self').then(dbDraft => {
+      return databaseService.getWorkoutDraft(id, 'self').then(dbDraft => {
         // Only ever auto-load a draft this client started themselves. A
         // 'coach' draft means the coach's Live Log is actively editing that
         // same session right now — pulling it into the client's own form too
@@ -915,10 +916,16 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
           setActiveView('log');
         }
       }).catch(() => {});
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => { if (!cancelled) setDraftCheckDone(true); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Exercises queued from the Home screen's muscle detail ("+ Add" on a
+  // suggestion — see utils/pendingWorkoutAdds.js). Drained only once the DB
+  // draft check above has settled, so a session restored from the DB isn't
+  // clobbered by (or doesn't clobber) a freshly started one.
+  const [draftCheckDone, setDraftCheckDone] = useState(false);
 
   const draftSaveTimerRef = useRef(null);
   // The draft waiting out the debounce below, if any.
@@ -2766,6 +2773,35 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
   };
+
+  // Drain the queue (see draftCheckDone above). The helpers it needs are
+  // re-created every render, so they're read through a ref refreshed after
+  // each commit instead of listed as deps (which would re-run it every render).
+  const pendingAddsHelpersRef = useRef(null);
+  useEffect(() => {
+    pendingAddsHelpersRef.current = { buildStartingSets, startWorkoutClock, triggerToast };
+  });
+  useEffect(() => {
+    if (!draftCheckDone) return;
+    const names = takePendingWorkoutAdds();
+    if (!names.length) return;
+    const { buildStartingSets, startWorkoutClock, triggerToast } = pendingAddsHelpersRef.current;
+    const toEntry = name => (isBodyweightExercise(name) ? { name, sets: buildStartingSets(name), bodyweightMode: true } : { name, sets: buildStartingSets(name) });
+    if (isLoggingWorkout) {
+      setLogExercises(prev => [...prev, ...names.filter(n => !prev.some(le => le.name.toLowerCase() === n.toLowerCase())).map(toEntry)]);
+    } else {
+      // Same as "+ Start empty workout", with the queued exercises after the warm-ups.
+      setLogExercises([...getDefaultWarmupExercises(), ...names.map(toEntry)]);
+      setTemplateName('Custom Session');
+      setLogClient(loggedInUser);
+      setLogDate(getLocalDateString());
+      setLoggingLevel(null);
+      startWorkoutClock();
+      setIsLoggingWorkout(true);
+    }
+    setActiveView('log');
+    triggerToast(`Added ${names.join(', ')} to your workout!`);
+  }, [draftCheckDone, isLoggingWorkout, loggedInUser]);
 
   return (
     <>

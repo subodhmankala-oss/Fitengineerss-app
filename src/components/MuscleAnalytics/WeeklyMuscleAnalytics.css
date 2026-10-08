@@ -970,17 +970,100 @@
 }
 
 .detail-region-body {
-  padding: 0 12px 10px 54px;
+  padding: 2px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.detail-region-hint,
+/* What the muscle is / does — main reading text, not a caption. */
+.detail-region-explain {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+/* Where it stands + what to do, in the region's status color. */
+.detail-region-action {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--status-color) 16%, transparent);
+  border-left: 3px solid var(--status-color);
+}
+
 .detail-region-line {
-  margin: 4px 0 0;
-  font-size: 0.75rem;
+  margin: 0;
+  font-size: 0.82rem;
   line-height: 1.4;
   color: var(--text-muted);
 }
 
 .detail-region-line strong {
   color: var(--text-main);
+}
+
+.detail-region-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-region-add {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-region-add.static {
+  cursor: default;
+}
+
+.detail-region-add-label {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--text-on-accent);
+  background: var(--accent-soft);
+}
+
+.detail-region-add.added {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.detail-region-add.added .detail-region-add-label {
+  background: #10b981;
+}
+
+.detail-region-go {
+  margin-top: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
 }

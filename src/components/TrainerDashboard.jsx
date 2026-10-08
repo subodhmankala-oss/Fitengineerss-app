@@ -436,8 +436,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // DB + fallback (244) — same number, two different answers. Confirmed
       // 2026-08-12.
       const dbExerciseNames = new Set((exercises || []).map(e => (e.name || '').toLowerCase()));
+      const deletedExerciseNames = (await databaseService.getHiddenExerciseNames?.()) || new Set();
       const mergedExerciseCount = (exercises || []).length
-        + EXERCISE_LIBRARY.filter(e => !dbExerciseNames.has(e.name.toLowerCase())).length;
+        + EXERCISE_LIBRARY.filter(e => !dbExerciseNames.has(e.name.toLowerCase()) && !deletedExerciseNames.has(e.name.toLowerCase())).length;
       setExerciseCount(mergedExerciseCount);
     } catch (e) {
       console.error('Error fetching admin data:', e);

@@ -32,7 +32,10 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
   const fetchExercises = async () => {
     setLoading(true);
     try {
-      const data = await databaseService.getExerciseLibrary();
+      const [data, hidden] = await Promise.all([
+        databaseService.getExerciseLibrary(),
+        databaseService.getHiddenExerciseNames()
+      ]);
       // Merge, don't choose one-or-the-other — same reasoning as the
       // client/coach ExercisePickerModal: a brand new exercise shipped in
       // code (e.g. "Steppers") only gets INSERTed into the DB by the
@@ -41,12 +44,12 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
       // static-only exercise silently never showed up here even though the
       // picker (which does this same merge) already offered it to clients.
       // These fallback rows have no `id` — editing one and saving creates
-      // it as a real DB row for the first time; deleting is disabled for
-      // them below since there's nothing in the DB yet to delete.
+      // it as a real DB row for the first time; deleting one just hides it
+      // (see handleDelete). Hidden names are skipped here.
       const dbNames = new Set(data.map(e => (e.name || '').toLowerCase()));
       const merged = [
         ...data,
-        ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase())).map(e => ({
+        ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()) && !hidden.has(e.name.toLowerCase())).map(e => ({
           name: e.name,
           category: e.category,
           primary_muscle: e.primary,
@@ -173,20 +176,31 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
   };
 
   const handleDelete = async (ex) => {
-    // Fallback rows merged in from the static EXERCISE_LIBRARY (see
-    // fetchExercises) have no `id` — there's nothing in the DB yet to
-    // delete. The button is disabled for these too; this is just a guard.
-    if (!ex.id) return;
     if (!window.confirm(`Delete "${ex.name}" from the exercise library? This can't be undone.`)) return;
-    setDeletingId(ex.id);
+    const rowKey = ex.id || ex.name;
+    setDeletingId(rowKey);
     try {
-      const res = await databaseService.deleteExercise(ex.id);
-      if (!res.success) {
-        alert('Failed to delete exercise: ' + (res.error || 'unknown error'));
-        return;
+      // A code-defined exercise is merged back in from the static
+      // EXERCISE_LIBRARY on every load whenever it has no DB row, so deleting
+      // the row alone made it reappear. Tombstone it first (also covers the
+      // fallback rows that have no DB row/`id` at all).
+      const isStatic = EXERCISE_LIBRARY.some(e => e.name.toLowerCase() === (ex.name || '').toLowerCase());
+      if (isStatic) {
+        const hid = await databaseService.hideExercise(ex.name);
+        if (!hid.success) {
+          alert('Failed to delete exercise: ' + (hid.error || 'unknown error'));
+          return;
+        }
+      }
+      if (ex.id) {
+        const res = await databaseService.deleteExercise(ex.id);
+        if (!res.success) {
+          alert('Failed to delete exercise: ' + (res.error || 'unknown error'));
+          return;
+        }
       }
       setExercises(prev => {
-        const next = prev.filter(e => e.id !== ex.id);
+        const next = prev.filter(e => (e.id || e.name) !== rowKey);
         if (onExerciseCountChange) onExerciseCountChange(next.length);
         return next;
       });
@@ -410,22 +424,22 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                         </button>
                         <button
                           onClick={() => handleDelete(ex)}
-                          disabled={deletingId === ex.id || !ex.id}
-                          title={ex.id ? 'Delete this exercise' : "Not saved to the database yet — edit and save it first"}
+                          disabled={deletingId === (ex.id || ex.name)}
+                          title="Delete this exercise"
                           style={{
                             background: 'rgba(239,68,68,0.1)',
                             border: '1px solid rgba(239,68,68,0.3)',
                             color: 'var(--tint-red)',
                             padding: '6px 12px',
                             borderRadius: '6px',
-                            cursor: (deletingId === ex.id || !ex.id) ? 'default' : 'pointer',
+                            cursor: deletingId === (ex.id || ex.name) ? 'default' : 'pointer',
                             fontSize: '0.75rem',
                             fontWeight: 700,
-                            opacity: (deletingId === ex.id || !ex.id) ? 0.5 : 1,
+                            opacity: deletingId === (ex.id || ex.name) ? 0.5 : 1,
                             transition: 'all 0.15s ease'
                           }}
                         >
-                          {deletingId === ex.id ? '⏳' : '🗑️'}
+                          {deletingId === (ex.id || ex.name) ? '⏳' : '🗑️'}
                         </button>
                       </div>
                     </td>

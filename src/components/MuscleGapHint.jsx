@@ -45,7 +45,7 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
           <button type="button" className="muscle-gap-toggle" onClick={toggle} aria-expanded={!collapsed}>
             <span className="muscle-gap-title">💡 <strong>{gaps.length}</strong> behind this week</span>
           </button>
-          {!collapsed && onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>Muscle map →</button>}
+          {onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap} tabIndex={collapsed ? -1 : 0}>Muscle map →</button>}
         </span>
         {/* Arrow in a circle: a bare tiny ▾ didn't read as "this folds". */}
         <button type="button" className="muscle-gap-fold" onClick={toggle} aria-expanded={!collapsed} aria-label={collapsed ? 'Show suggestions' : 'Hide suggestions'}>
@@ -54,7 +54,9 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
           </svg>
         </button>
       </div>
-      {!collapsed && (<>
+      {/* Stays mounted so it can animate: the body's height eases between 0
+          and its natural size (grid 0fr -> 1fr), cards fade with it. */}
+      <div className="muscle-gap-body" aria-hidden={collapsed}>
       <div className="muscle-gap-cards">
         {gaps.map(g => {
           const isAdded = added.has(g.suggestion.toLowerCase());
@@ -75,7 +77,7 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
           );
         })}
       </div>
-      </>)}
+      </div>
     </div>
   );
 };

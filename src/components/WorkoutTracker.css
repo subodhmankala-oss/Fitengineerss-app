@@ -5427,6 +5427,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .muscle-gap-link {
   flex-shrink: 0;
+  transition: opacity 0.2s ease;
   padding: 0;
   background: none;
   border: none;
@@ -5441,17 +5442,45 @@ html.keyboard-open .rest-timer-floating-card {
   color: var(--text-muted);
 }
 
-/* One swipeable row, bleeding to the panel's edges so it's obvious it scrolls. */
+/* Fold animation: grid rows ease 0fr -> 1fr (a height animation without
+   knowing the height). The wrapper bleeds to the panel's edges so the row
+   still visibly scrolls off them. visibility flips after the fade so folded
+   chips can't be tabbed to. */
+.muscle-gap-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin: 0 -12px;
+  padding: 0 12px;
+  opacity: 1;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, margin-top 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
+  margin-top: 10px;
+}
+
+.muscle-gap-hint--collapsed .muscle-gap-body {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  visibility: hidden;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease, margin-top 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.32s;
+}
+
+/* One swipeable row. */
 .muscle-gap-cards {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 0;
   scroll-snap-type: x proximity;
-  margin: 10px -12px 0;
-  padding: 0 12px 2px;
+  padding-bottom: 2px;
+  transition: padding-bottom 0.32s cubic-bezier(0.4, 0, 0.2, 1);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+}
+
+.muscle-gap-hint--collapsed .muscle-gap-cards {
+  padding-bottom: 0;
 }
 
 .muscle-gap-cards::-webkit-scrollbar {
@@ -5469,7 +5498,6 @@ html.keyboard-open .rest-timer-floating-card {
   background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid rgba(var(--fg-rgb), 0.06);
   scroll-snap-align: start;
-  scroll-margin-left: 12px;
 }
 
 .muscle-gap-card-label {
@@ -5490,4 +5518,18 @@ html.keyboard-open .rest-timer-floating-card {
   padding: 6px 12px;
   font-size: 0.8rem;
   white-space: nowrap;
+}
+
+.muscle-gap-hint--collapsed .muscle-gap-link {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-gap-body,
+  .muscle-gap-hint--collapsed .muscle-gap-body,
+  .muscle-gap-fold svg,
+  .muscle-gap-link {
+    transition: none;
+  }
 }

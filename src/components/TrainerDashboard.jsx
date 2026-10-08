@@ -1416,6 +1416,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Workout History tab timeframe filter: 'weekly' (last 7 days), 'daily'
   // (today), or 'monthly' (last 30 days) — same control as Workout Summary.
   const [historyTimeframe, setHistoryTimeframe] = useState('weekly');
+  // Card the Muscles view scrolls to on open ('heatmap' from the Live Log's
+  // "Muscle map →" link); cleared once the coach picks a timeframe.
+  const [muscleMapFocus, setMuscleMapFocus] = useState(null);
   // Selected date for the Daily view / calendar heatmap clicks — mirrors the
   // client's own WorkoutProgressDashboard selectedDateStr.
   const [historyDateStr, setHistoryDateStr] = useState(() => getLocalDateString());
@@ -3477,6 +3480,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setLastCoachNoteSentAt(null);
     setSessionReminderSentMsg('');
     setHistoryTimeframe('weekly');
+    setMuscleMapFocus(null);
     setHistoryDateStr(getLocalDateString());
     setHistoryWeekOffset(0);
     databaseService.getLatestCoachNoteSentAt(client.id).then(setLastCoachNoteSentAt);
@@ -3921,6 +3925,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       setClientMeasurements(history);
       setLoadingMeasurements(false);
     }
+  };
+
+  // "Muscle map →" on the behind-this-week hint (Live Log and Send plan),
+  // same link as the client's logger: this client's Workout history →
+  // Muscles, at the heat map. The live session / plan being built stays in
+  // state, so the Live Log or Send plan tab picks up where it was.
+  const openClientMuscleMap = () => {
+    setHistoryWeekOffset(0);
+    setHistoryTimeframe('muscles');
+    setMuscleMapFocus('heatmap');
+    handleTabChange('workout');
   };
 
   // Coach override for a bad measurement entry (e.g. a blank row saved during
@@ -7329,7 +7344,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         key={tf}
                         type="button"
                         className={`wsum-timeframe-btn ${historyTimeframe === tf ? 'active' : ''}`}
-                        onClick={() => setHistoryTimeframe(tf)}
+                        onClick={() => { setHistoryTimeframe(tf); setMuscleMapFocus(null); }}
                       >
                         {tf.charAt(0).toUpperCase() + tf.slice(1)}
                       </button>
@@ -7977,6 +7992,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
+                            focusSection={muscleMapFocus}
                             // "+ Add" on a muscle-part suggestion goes into
                             // this client's Live Log (once), same as the
                             // client's own map adds to their workout.
@@ -8660,6 +8676,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           logs={rawWorkoutLogs}
                           addedNames={editorExercises.map(le => le.name)}
                           onAdd={handleAddExerciseToEditor}
+                          onOpenMuscleMap={openClientMuscleMap}
                         />
                         <button
                           type="button"
@@ -9565,6 +9582,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     logs={liveGapLogs}
                     addedNames={liveExercises.map(le => le.name)}
                     onAdd={handleLiveAddExercise}
+                    onOpenMuscleMap={openClientMuscleMap}
                   />
 
                   {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}

@@ -27,4 +27,13 @@ describe('MuscleGapHint', () => {
     fireEvent.click(screen.getByRole('button', { name: /behind this week/ }));
     expect(document.querySelectorAll('.muscle-gap-card').length).toBeGreaterThan(3);
   });
+
+  it('folds and unfolds from the labeled Hide / Show button', () => {
+    localStorage.setItem('userId', 'u2');
+    render(<MuscleGapHint logs={logs} onAdd={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Hide/ }));
+    expect(document.querySelectorAll('.muscle-gap-card').length).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: /^Show/ }));
+    expect(document.querySelectorAll('.muscle-gap-card').length).toBeGreaterThan(3);
+  });
 });

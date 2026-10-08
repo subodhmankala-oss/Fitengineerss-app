@@ -5392,15 +5392,36 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 800;
 }
 
-.muscle-gap-chevron {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-  transform: rotate(-90deg);
+.muscle-gap-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.muscle-gap-chevron.open {
-  transform: none;
+/* Hide / Show pill: an obvious, labeled fold control. */
+.muscle-gap-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.muscle-gap-fold svg {
+  transition: transform 0.2s ease;
+}
+
+/* Arrow points down to "Show" (it'll open), up to "Hide" (it'll fold). */
+.muscle-gap-fold svg.open {
+  transform: rotate(180deg);
 }
 
 .muscle-gap-link {

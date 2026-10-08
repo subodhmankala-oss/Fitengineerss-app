@@ -5,6 +5,7 @@ import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data
 import { adaptiveTimeout } from '../utils/networkQuality';
 import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
+import { setCatalogMuscles } from '../utils/muscleGroups';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -6398,6 +6399,9 @@ const databaseService = {
         result = mockEx.sort((a, b) => a.name.localeCompare(b.name));
       }
       exerciseLibraryCache = result;
+      // Feed the catalog's Primary Muscle text to the muscle analytics so a
+      // newly added exercise the name rules don't recognise still counts.
+      setCatalogMuscles(result);
       return result;
     })();
 

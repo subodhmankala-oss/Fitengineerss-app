@@ -11,6 +11,8 @@ import {
   getWeeklyMuscleStats, getPPLCDistribution, generateWeeklyInsights,
   getRecommendations, compareWeeks, getAverageCompletion, classifyTrend
 } from '../../utils/muscleAnalytics';
+import { subscribeCatalogMuscles } from '../../utils/muscleGroups';
+import databaseService from '../../services/databaseService';
 import { shiftLocalDateString } from '../../utils/dateUtils';
 import { useCountUp } from '../../hooks/useCountUp';
 import './WeeklyMuscleAnalytics.css';
@@ -107,9 +109,22 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The exercise catalog's Primary Muscle text feeds the muscle mapping for
+  // exercises no name rule recognises (see muscleGroups.setCatalogMuscles).
+  // It loads async, so make sure it's loaded and recompute once it lands.
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  useEffect(() => {
+    const unsub = subscribeCatalogMuscles(() => setCatalogVersion(v => v + 1));
+    databaseService.getExerciseLibrary().catch(() => {});
+    return unsub;
+  }, []);
+
   const muscleStats = useMemo(
-    () => getWeeklyMuscleStats(logs, weekStartStr, weekEndStr),
-    [logs, weekStartStr, weekEndStr]
+    () => {
+      void catalogVersion; // recompute when the catalog mapping changes
+      return getWeeklyMuscleStats(logs, weekStartStr, weekEndStr);
+    },
+    [logs, weekStartStr, weekEndStr, catalogVersion]
   );
 
   const pplc = useMemo(() => getPPLCDistribution(muscleStats), [muscleStats]);
@@ -122,8 +137,11 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const prevWeekEndStr = useMemo(() => shiftLocalDateString(weekEndStr, -7), [weekEndStr]);
 
   const comparison = useMemo(
-    () => compareWeeks(logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr),
-    [logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr]
+    () => {
+      void catalogVersion;
+      return compareWeeks(logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr);
+    },
+    [logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr, catalogVersion]
   );
 
   const balanceTrend = useMemo(() => {

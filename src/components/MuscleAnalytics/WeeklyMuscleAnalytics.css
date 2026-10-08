@@ -1013,20 +1013,13 @@
   background: currentColor;
 }
 
-/* Sets vs target: the target range is the green band, the fill is the sets. */
+/* Progress toward the target: full at the top of the range. */
 .detail-region-bar {
   position: relative;
   height: 6px;
   border-radius: 999px;
   background: rgba(var(--fg-rgb), 0.08);
   overflow: hidden;
-}
-
-.detail-region-bar-band {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: rgba(16, 185, 129, 0.28);
 }
 
 .detail-region-bar-fill {

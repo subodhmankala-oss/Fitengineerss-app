@@ -63,9 +63,9 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
           const isOpen = open === r.id;
           const color = r.sets === 0 && r.band ? UNTRAINED_COLOR : (r.tier?.color ?? '#64748b');
           const act = action(r);
-          // Bar scale runs a bit past the band's top so "over" visibly overflows it.
-          const scaleMax = r.band ? Math.max(r.band.max + 2, r.sets) : 1;
-          const pct = v => `${Math.min(100, (v / scaleMax) * 100)}%`;
+          // Plain progress toward the target: full at the top of the range.
+          // Going over is shown by the bar's color (orange/red), not its length.
+          const fill = r.band ? `${Math.min(100, (r.sets / r.band.max) * 100)}%` : '0%';
           const showSuggestions = r.suggestions.length > 0 && r.band && r.sets < r.band.min;
           return (
             <div
@@ -87,8 +87,7 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
                   </span>
                   {r.band && (
                     <span className="detail-region-bar" aria-hidden="true">
-                      <span className="detail-region-bar-band" style={{ left: pct(r.band.min), width: `calc(${pct(r.band.max)} - ${pct(r.band.min)})` }} />
-                      <span className="detail-region-bar-fill" style={{ width: pct(r.sets) }} />
+                      <span className="detail-region-bar-fill" style={{ width: fill }} />
                     </span>
                   )}
                   <span className="detail-region-sets">

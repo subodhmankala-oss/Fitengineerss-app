@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RegionThumbnail } from './MuscleThumbnail';
 import '../exerciseRecChips.css';
+import { daysAgo, formatDaysAgo } from '../../utils/exerciseTrainingStatus';
 
 // One plain sentence telling the client where this part stands and what to
 // do, plus its tone: 'todo' (below range), 'good' (in range), 'over'.
@@ -100,10 +101,19 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
                 <div className="detail-region-body">
                   <p className="detail-region-explain">{r.hint}</p>
                   {act && <p className={`detail-region-action detail-region-action--${act.tone}`}><span>{act.icon}</span>{act.text}</p>}
-                  <p className="detail-region-line">
-                    <strong>This week:</strong>{' '}
-                    {r.exercises.length > 0 ? r.exercises.map(e => `${e.name} (${e.sets} set${e.sets === 1 ? '' : 's'})`).join(', ') : 'nothing logged yet'}
-                  </p>
+                  {/* Untrained this week: the action box already says so, so
+                      this line adds what it can't — when it was last worked. */}
+                  {r.exercises.length > 0 ? (
+                    <p className="detail-region-line">
+                      <strong>This week:</strong> {r.exercises.map(e => `${e.name} (${e.sets} set${e.sets === 1 ? '' : 's'})`).join(', ')}
+                    </p>
+                  ) : (
+                    <p className="detail-region-line">
+                      {r.lastTrained
+                        ? <><strong>Last trained:</strong> {formatDaysAgo(daysAgo(r.lastTrained.date))} · {r.lastTrained.exercise}</>
+                        : <><strong>Never trained yet</strong> — a good one to start.</>}
+                    </p>
+                  )}
                   {/* Same chips as the logger's exercise history sheet
                       (ExerciseHistoryModal's "Same muscle, try these"). */}
                   {showSuggestions && (

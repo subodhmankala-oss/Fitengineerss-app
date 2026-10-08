@@ -66,7 +66,7 @@ export function regionBand(muscle) {
 
 /**
  * Splits `muscle`'s working sets in [startStr, endStr] by region.
- * @returns {Array<{id, hint, sets, band, tier, exercises: Array<{name, sets}>, suggestions: string[]}>}
+ * @returns {Array<{id, hint, sets, band, tier, lastTrained: {date, exercise}|null, exercises: Array<{name, sets}>, suggestions: string[]}>}
  *   one row per region (0-set regions included), plus an "Other" row only if
  *   some sets matched no region. `tier` is the heat map's Not Trained/Low/
  *   Optimal/High/Very High for the region against `band` (null for Other).
@@ -76,11 +76,16 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
   if (!regions) return [];
 
   const rows = new Map(regions.map(r => [r.id, { id: r.id, hint: REGION_PLAIN[r.id] || r.hint, sets: 0, byExercise: {} }]));
+  // Most recent session per region up to the window's end (any earlier week
+  // too), so an untrained part can say when it was last worked, not just "0".
+  const last = {};
   (logs || []).forEach(log => {
     if (!isCountableSet(log)) return;
-    if (log.log_date < startStr || log.log_date > endStr) return;
+    if (!log.log_date || log.log_date > endStr) return;
     if (!getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) return;
     const id = regionOf(muscle, log.exercise_name) || 'Other';
+    if (!last[id] || log.log_date > last[id].date) last[id] = { date: log.log_date, exercise: log.exercise_name };
+    if (log.log_date < startStr) return;
     if (!rows.has(id)) rows.set(id, { id, hint: REGION_PLAIN.Other, sets: 0, byExercise: {} });
     const row = rows.get(id);
     row.sets += 1;
@@ -114,6 +119,7 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
     ...row,
     band: row.id === 'Other' ? null : band,
     tier: row.id === 'Other' ? null : tierFor(row.sets),
+    lastTrained: last[row.id] || null,
     exercises: Object.entries(byExercise).map(([name, sets]) => ({ name, sets })).sort((a, b) => b.sets - a.sets),
     suggestions: row.id === 'Other' ? [] : suggestionsFor(row.id),
   }));

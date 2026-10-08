@@ -43,5 +43,11 @@ describe('Rotator cuff is part of Back', () => {
     expect(rows['Mid Back'].tier.label).toBe('Very High');
     expect(rows['Lower Back'].tier.label).toBe('Not Trained');
     expect(rows['Lower Back'].suggestions.length).toBeGreaterThan(0);
+    // Untrained this week: when it was last worked instead.
+    expect(rows['Lower Back'].lastTrained).toBeNull();
+    const older = [...logs, { exercise_name: 'Back Extension', log_date: '2026-09-25', weight_kg: 0, reps: 12 }];
+    const rows2 = Object.fromEntries(getRegionBreakdownForMuscle(older, 'Back', '2026-10-01', '2026-10-07').map(r => [r.id, r]));
+    expect(rows2['Lower Back'].sets).toBe(0);
+    expect(rows2['Lower Back'].lastTrained).toEqual({ date: '2026-09-25', exercise: 'Back Extension' });
   });
 });

@@ -99,6 +99,11 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
         sets: Math.floor(setsLeft / planCount) + (i < setsLeft % planCount ? 1 : 0)
       }))
     : [];
+  const recSummary = setsLeft > 0
+    ? <><strong>{setsLeft} more set{setsLeft === 1 ? '' : 's'}</strong> to hit your weekly target of {weeklyStat.target} (ideal range {weeklyStat.min}–{weeklyStat.max}).</>
+    : weeklyStat.sets > weeklyStat.max
+      ? <>You're past the {weeklyStat.min}–{weeklyStat.max} set range ({weeklyStat.sets} sets) — ease off and let {muscle} recover.</>
+      : <>Weekly target of {weeklyStat.target} sets reached ({weeklyStat.sets} done). Nice work.</>;
 
   return (
     <div className={`muscle-detail-backdrop ${isClosing ? 'closing' : ''}`} onClick={handleClose}>
@@ -128,18 +133,18 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
             <p className="detail-meta-line">Last trained {recovery.hoursSince < 24 ? `${recovery.hoursSince}h ago` : `${Math.floor(recovery.hoursSince / 24)}d ago`} · {recovery.bucket.label}</p>
           )}
 
+          {/* Muscles with parts: just the whole-muscle "sets still needed"
+              line here — each part below has its own target and exercises,
+              so a second whole-muscle exercise plan would only disagree. */}
+          {regions.length > 0 && <p className="detail-rec-summary">{recSummary}</p>}
+
           <MuscleRegionBreakdown muscle={muscle} regions={regions} focusRegion={focusRegion} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
 
-          {/* Recommended exercises + sets still needed this week */}
+          {/* No parts (Tibialis): recommended exercises + sets still needed */}
+          {regions.length === 0 && (
           <div className="detail-section">
             <span className="detail-section-title">Recommended This Week</span>
-            <p className="detail-rec-summary">
-              {setsLeft > 0
-                ? <><strong>{setsLeft} more set{setsLeft === 1 ? '' : 's'}</strong> to hit your weekly target of {weeklyStat.target} (ideal range {weeklyStat.min}–{weeklyStat.max}).</>
-                : weeklyStat.sets > weeklyStat.max
-                  ? <>You're past the {weeklyStat.min}–{weeklyStat.max} set range ({weeklyStat.sets} sets) — ease off and let {muscle} recover.</>
-                  : <>Weekly target of {weeklyStat.target} sets reached ({weeklyStat.sets} done). Nice work.</>}
-            </p>
+            <p className="detail-rec-summary">{recSummary}</p>
             {recExercises.length > 0 && (
               <div className="detail-rec-list">
                 {(plan.length > 0 ? plan : recExercises.map(name => ({ name, sets: 0 }))).map(ex => (
@@ -151,6 +156,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
               </div>
             )}
           </div>
+          )}
 
           {/* Progress Trend */}
           <div className="detail-section">

@@ -3,13 +3,14 @@ import { getMuscleGaps } from '../utils/muscleRegions';
 import './exerciseRecChips.css';
 
 /**
- * Log Sets nudge above "Add Exercise": the muscles/parts that are behind this
- * week, with one-tap chips that add a fitting exercise to the workout and a
- * link to the full muscle map. Counts the session in progress too, so it
- * updates as sets are ticked off.
+ * Log Sets nudge above "Add Exercise": every muscle/part that is behind this
+ * week, as one swipeable row of small cards (part + sets vs target, and a
+ * one-tap chip that adds a fitting exercise to the workout), plus a link to
+ * the full muscle map. Counts the session in progress too, so it updates as
+ * sets are ticked off.
  */
-const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap, limit = 3 }) => {
-  const gaps = useMemo(() => getMuscleGaps(logs).slice(0, limit), [logs, limit]);
+const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
+  const gaps = useMemo(() => getMuscleGaps(logs), [logs]);
   const added = new Set(addedNames.map(n => n.toLowerCase()));
 
   if (!gaps.length) {
@@ -24,30 +25,28 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap, limit = 
   return (
     <div className="muscle-gap-hint">
       <div className="muscle-gap-head">
-        <span className="muscle-gap-title">💡 Behind this week</span>
+        <span className="muscle-gap-title">💡 {gaps.length} behind this week</span>
         {onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>See muscle map →</button>}
       </div>
-      <p className="muscle-gap-names">
-        {gaps.map((g, i) => (
-          <React.Fragment key={g.label}>
-            {i > 0 && <span className="muscle-gap-dot"> · </span>}
-            <strong>{g.label}</strong> <span className="muscle-gap-count">{g.sets}/{g.min}</span>
-          </React.Fragment>
-        ))}
-      </p>
-      <div className="muscle-gap-chips">
+      {gaps.length > 1 && <p className="muscle-gap-sub">Swipe to see them all — tap one to add it</p>}
+      <div className="muscle-gap-cards">
         {gaps.map(g => {
           const isAdded = added.has(g.suggestion.toLowerCase());
           return (
-            <button
-              key={g.label}
-              type="button"
-              className={`ex-history-rec-chip ex-history-rec-chip--tap ${isAdded ? 'ex-history-rec-chip--added' : ''}`}
-              disabled={isAdded}
-              onClick={() => onAdd(g.suggestion)}
-            >
-              {isAdded ? '✓' : '+'} {g.suggestion}
-            </button>
+            <div key={g.label} className="muscle-gap-card">
+              <span className="muscle-gap-card-label">
+                <strong>{g.label}</strong>
+                <span className="muscle-gap-count">{g.sets}/{g.min} sets</span>
+              </span>
+              <button
+                type="button"
+                className={`ex-history-rec-chip ex-history-rec-chip--tap ${isAdded ? 'ex-history-rec-chip--added' : ''}`}
+                disabled={isAdded}
+                onClick={() => onAdd(g.suggestion)}
+              >
+                {isAdded ? '✓' : '+'} {g.suggestion}
+              </button>
+            </div>
           );
         })}
       </div>

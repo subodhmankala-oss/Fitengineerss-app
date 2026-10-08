@@ -140,12 +140,20 @@ export function getMuscleGaps(logs, today = getLocalDateString()) {
     if (hasRegions(stat.muscle)) {
       getRegionBreakdownForMuscle(logs, stat.muscle, start, today).forEach(r => {
         if (!r.band || r.sets >= r.band.min || !r.suggestions.length) return;
-        gaps.push({ label: r.id, sets: r.sets, min: r.band.min, suggestion: r.suggestions[0] });
+        gaps.push({ label: r.id, sets: r.sets, min: r.band.min, options: r.suggestions });
       });
     } else if (stat.sets < stat.min) {
-      const suggestion = (RECOMMENDED_EXERCISES[stat.muscle] || [])[0];
-      if (suggestion) gaps.push({ label: stat.muscle, sets: stat.sets, min: stat.min, suggestion });
+      const options = RECOMMENDED_EXERCISES[stat.muscle] || [];
+      if (options.length) gaps.push({ label: stat.muscle, sets: stat.sets, min: stat.min, options });
     }
   });
-  return gaps.sort((a, b) => (a.sets === 0) !== (b.sets === 0) ? (a.sets === 0 ? -1 : 1) : a.sets / a.min - b.sets / b.min);
+  gaps.sort((a, b) => (a.sets === 0) !== (b.sets === 0) ? (a.sets === 0 ? -1 : 1) : a.sets / a.min - b.sets / b.min);
+  // One exercise per gap, never the same one twice (Face Pull fits both
+  // Trapezius and Rear Delts): take each gap's first option not used yet.
+  const used = new Set();
+  return gaps.map(({ options, ...g }) => {
+    const suggestion = options.find(o => !used.has(o.toLowerCase())) || options[0];
+    used.add(suggestion.toLowerCase());
+    return { ...g, suggestion };
+  });
 }

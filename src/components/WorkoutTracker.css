@@ -5392,40 +5392,58 @@ html.keyboard-open .rest-timer-floating-card {
   cursor: pointer;
 }
 
-.muscle-gap-names {
-  margin: 6px 0 10px;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--text-main);
-}
-
-.muscle-gap-count {
+.muscle-gap-sub {
+  margin: 2px 0 0;
   font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--gap-tone);
-}
-
-.muscle-gap-dot {
   color: var(--text-muted);
 }
 
-/* One swipeable row, bleeding to the card's edges. */
-.muscle-gap-chips {
+/* One swipeable row of small cards, bleeding to the hint's edges. */
+.muscle-gap-cards {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
-  margin: 0 -14px 0 -14px;
+  scroll-snap-type: x proximity;
+  margin: 10px -14px 0;
   padding: 0 14px 2px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
 
-.muscle-gap-chips::-webkit-scrollbar {
+.muscle-gap-cards::-webkit-scrollbar {
   display: none;
 }
 
-.muscle-gap-chips .ex-history-rec-chip {
+.muscle-gap-card {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  scroll-snap-align: start;
+}
+
+.muscle-gap-card-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 2px;
+  font-size: 0.82rem;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.muscle-gap-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gap-tone);
+}
+
+.muscle-gap-card .ex-history-rec-chip {
   white-space: nowrap;
 }

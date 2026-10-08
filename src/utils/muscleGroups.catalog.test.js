@@ -66,5 +66,7 @@ describe('Log Sets "Behind this week" gaps', () => {
     expect(gaps.slice(firstTrained).every(g => g.sets > 0)).toBe(true);
     expect(gaps.find(g => g.label === 'Lats')).toMatchObject({ sets: 1, min: 2 });
     gaps.forEach(g => expect(typeof g.suggestion).toBe('string'));
+    const names = gaps.map(g => g.suggestion.toLowerCase());
+    expect(new Set(names).size).toBe(names.length); // no exercise suggested twice
   });
 });

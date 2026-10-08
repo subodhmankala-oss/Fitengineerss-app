@@ -1008,50 +1008,32 @@
   color: var(--text-main);
 }
 
-.detail-region-suggestions {
+.detail-region-recs-title {
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+/* One swipeable row, bleeding to the row card's edges (12px padding). */
+.detail-region-chips {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -12px;
+  padding: 0 12px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
-.detail-region-add {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(var(--fg-rgb), 0.05);
-  border: 1px solid rgba(var(--fg-rgb), 0.1);
-  color: var(--text-main);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
+.detail-region-chips::-webkit-scrollbar {
+  display: none;
 }
 
-.detail-region-add.static {
-  cursor: default;
-}
-
-.detail-region-add-label {
+.detail-region-chips .ex-history-rec-chip {
   flex-shrink: 0;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  color: var(--text-on-accent);
-  background: var(--accent-soft);
-}
-
-.detail-region-add.added {
-  cursor: default;
-  opacity: 0.75;
-}
-
-.detail-region-add.added .detail-region-add-label {
-  background: #10b981;
+  white-space: nowrap;
 }
 
 .detail-region-go {

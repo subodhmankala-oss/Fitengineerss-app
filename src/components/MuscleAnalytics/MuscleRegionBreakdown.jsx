@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RegionThumbnail } from './MuscleThumbnail';
+import '../exerciseRecChips.css';
 
 // One plain sentence telling the client where this part stands and what to do.
 function actionText(r) {
@@ -80,29 +81,31 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
                     <strong>This week:</strong>{' '}
                     {r.exercises.length > 0 ? r.exercises.map(e => `${e.name} (${e.sets} set${e.sets === 1 ? '' : 's'})`).join(', ') : 'nothing logged yet'}
                   </p>
+                  {/* Same chips as the logger's exercise history sheet
+                      (ExerciseHistoryModal's "Same muscle, try these"). */}
                   {showSuggestions && (
-                    <>
-                      <p className="detail-region-line"><strong>Try one of these:</strong></p>
-                      <div className="detail-region-suggestions">
+                    <div className="detail-region-recs">
+                      <div className="detail-region-recs-title">
+                        💡 Try these{onAddExercise ? ' — tap to add to your workout' : ''}
+                      </div>
+                      <div className="detail-region-chips">
                         {r.suggestions.map(name => {
+                          if (!onAddExercise) return <span key={name} className="ex-history-rec-chip">{name}</span>;
                           const isAdded = added.has(name);
-                          return onAddExercise ? (
+                          return (
                             <button
                               key={name}
                               type="button"
-                              className={`detail-region-add${isAdded ? ' added' : ''}`}
-                              onClick={() => !isAdded && add(name)}
+                              className={`ex-history-rec-chip ex-history-rec-chip--tap ${isAdded ? 'ex-history-rec-chip--added' : ''}`}
                               disabled={isAdded}
+                              onClick={() => add(name)}
                             >
-                              <span>{name}</span>
-                              <span className="detail-region-add-label">{isAdded ? '✓ Added' : '+ Add'}</span>
+                              {isAdded ? '✓' : '+'} {name}
                             </button>
-                          ) : (
-                            <span key={name} className="detail-region-add static"><span>{name}</span></span>
                           );
                         })}
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}

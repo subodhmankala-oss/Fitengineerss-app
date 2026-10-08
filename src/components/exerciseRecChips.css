@@ -1,0 +1,32 @@
+/* Exercise suggestion chips ("+ Lat Pulldown" / "✓ Lat Pulldown").
+   Shared by the exercise history sheet in the logger (ExerciseHistoryModal)
+   and the muscle detail screen's region suggestions (MuscleRegionBreakdown),
+   which load on different tabs, so the style can't live in either one's CSS. */
+
+.ex-history-rec-chip {
+  padding: 9px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 20px;
+}
+
+.ex-history-rec-chip--tap {
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.ex-history-rec-chip--tap:active {
+  transform: scale(0.96);
+}
+
+.ex-history-rec-chip--added {
+  cursor: default;
+  opacity: 0.6;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.05);
+  border-color: rgba(var(--fg-rgb), 0.1);
+}

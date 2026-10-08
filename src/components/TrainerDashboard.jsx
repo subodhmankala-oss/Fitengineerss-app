@@ -49,6 +49,8 @@ import MonthlyReportComposer from './MonthlyReportComposer';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
+import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
+import MuscleGapHint from './MuscleGapHint';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -2229,7 +2231,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setTimeout(() => setLiveToast(''), 3500);
   };
 
+  // New exercises slide in, same as the client logger (hooks/useExerciseEnterAnimation.js).
+  const { markEntering: markExerciseEntering, enterRef: exerciseEnterRef } = useExerciseEnterAnimation();
+
+  // What's behind this week for the client being logged: their saved sets
+  // plus the sets already ticked off in this live session (not saved yet).
+  const liveGapLogs = useMemo(() => {
+    const rows = [...rawWorkoutLogs];
+    liveExercises.forEach(ex => (ex.sets || []).forEach(set => {
+      if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: liveDate, set_type: set.isWarmup ? 'warmup' : null });
+    }));
+    return rows;
+  }, [rawWorkoutLogs, liveExercises, liveDate]);
+
   const handleLiveAddExercise = (name) => {
+    markExerciseEntering(name);
     let newSet;
     const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
@@ -4108,6 +4124,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   };
 
   const handleAddExerciseToEditor = (name) => {
+    markExerciseEntering(name);
     let newSet;
     // Same set-shape rules as the live logger's own exercise picker (see
     // WorkoutTracker's ExercisePickerModal onAdd) — this editor previously
@@ -8274,7 +8291,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             const allSetsEditorBw = exIsBodyweight && ex.sets.every(s => getSetEditorBwMode(ex, s));
                             const exIsWarmup = isWarmupExercise(ex.name);
                             return (
-                              <div key={getEditorItemKey(exIdx)} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
+                              <div key={getEditorItemKey(exIdx)} ref={exerciseEnterRef(ex.name)} className="ex-reorder-row" style={getEditorRowStyle(exIdx)}>
                               <div className={`ex-reorder-morph ${isEditorReordering ? 'is-reordering' : ''}`}>
                               <div className="ex-reorder-full">
                               <div className="live-logger-exercise-card">
@@ -9062,7 +9079,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     const allSetsLiveBw = exIsBodyweight && ex.sets.every(s => getSetLiveBwMode(ex, s));
                     const exIsWarmup = isWarmupExercise(ex.name);
                     return (
-                      <div key={getLiveItemKey(exIdx)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
+                      <div key={getLiveItemKey(exIdx)} ref={exerciseEnterRef(ex.name)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
                       <div className={`ex-reorder-morph ${isLiveReordering ? 'is-reordering' : ''}`}>
                       <div className="ex-reorder-full">
                       <div className="live-logger-exercise-card">
@@ -9526,6 +9543,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       for the duration of an active reorder drag. */}
                   {!isLiveReordering && (
                   <>
+                  {/* What this client is behind on this week — same hint as
+                      their own logger; chips add straight into the live log. */}
+                  <MuscleGapHint
+                    logs={liveGapLogs}
+                    addedNames={liveExercises.map(le => le.name)}
+                    onAdd={handleLiveAddExercise}
+                  />
+
                   {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
                   <button
                     type="button"

@@ -612,7 +612,7 @@ async function handleAdminCoaches(req, res) {
   try {
     // Same last_login-might-not-be-migrated fallback getAllCoaches has had.
     const select = (withLastLogin) =>
-      `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at${withLastLogin ? ',last_login' : ''})&status=eq.approved&order=created_at.asc`;
+      `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,phone,payment_status,created_at${withLastLogin ? ',last_login' : ''})&status=eq.approved&order=created_at.asc`;
     let coaches;
     try {
       coaches = await svcSelect(select(true), 'admin-coaches');

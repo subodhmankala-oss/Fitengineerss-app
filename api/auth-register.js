@@ -79,6 +79,12 @@ async function handleRegisterEmail(req, res) {
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
   }
+  // The signup form already enforces this; enforce it server-side too so a
+  // direct API call can't create a coach with no number. (The Google path
+  // stays optional — Google supplies none; the app prompts for it after.)
+  if (!/^\+91\d{10}$/.test(String(phone || ''))) {
+    return res.status(400).json({ error: 'A valid 10-digit phone number is required.' });
+  }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);
   const anonClient = createClient(supabaseUrl, anonKey);

@@ -28,7 +28,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
 
   // Newest sign-ups first, so a new coach is always at the top.
   const filteredCoaches = coachesList.filter(coach =>
-    matchesSearch(searchQuery, [coach.name, coach.email, coach.brand])
+    matchesSearch(searchQuery, [coach.name, coach.email, coach.brand, coach.phone])
   ).sort(compareNewestJoinFirst(coach => coach.signup_date));
   const newSignupCount = coachesList.filter(coach => isNewSignup(coach.signup_date)).length;
 
@@ -86,6 +86,9 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                       {isNewSignup(coach.signup_date) && <span style={{ marginLeft: '6px' }}><NewBadge /></span>}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{coach.email}</div>
+                    <div style={{ fontSize: '0.74rem', color: coach.phone ? 'var(--text-muted)' : '#f59e0b' }}>
+                      {coach.phone ? `📞 ${coach.phone}` : '📞 No phone number'}
+                    </div>
                     {coach.signup_date && (
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                         🗓️ Joined {formatJoined(coach.signup_date)}

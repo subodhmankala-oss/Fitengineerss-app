@@ -2570,6 +2570,31 @@ const databaseService = {
   // SexRequiredPrompt for clients who onboarded before sex was asked. Not
   // saveUserProfile: that upserts every profile field from the caller.
   // Calorie/macro targets are left alone (a coach may have set them).
+  // Phone-only write for the "phone required" prompt shown to coaches who
+  // signed up via Google (which supplies none). Deliberately NOT
+  // saveCoachSelfProfile, which rewrites every business field from the form
+  // and would null out whatever the coach hasn't filled in yet.
+  async saveCoachPhone(phone) {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (digits.length !== 10) throw new Error('Please enter a valid 10-digit phone number.');
+    const full = `+91${digits}`;
+    if (isSupabaseConfigured && supabase) {
+      const userId = await resolveCanonicalUserId();
+      if (!userId) throw new Error('Cannot resolve your account — please log in again.');
+      try {
+        const row = await restUpdate(`users?id=eq.${encodeURIComponent(userId)}`, { phone: full });
+        if (!row) throw new Error('Could not find your profile — please try again.');
+      } catch (e) {
+        // users.phone is UNIQUE — same friendly message as the signup API.
+        if (e?.code === '23505' || /phone/i.test(e?.message || '') && /unique|duplicate/i.test(e?.message || '')) {
+          throw new Error('That phone number is already registered to another account. Use a different number.');
+        }
+        throw e;
+      }
+    }
+    localStorage.setItem('userPhone', full);
+  },
+
   async saveClientSex(sex) {
     if (sex !== 'male' && sex !== 'female') throw new Error('Pick Male or Female.');
     if (isSupabaseConfigured && supabase) {
@@ -5032,6 +5057,7 @@ const databaseService = {
           id: coachUserId,
           name: coach.users?.full_name || 'Coach',
           email: coach.users?.email || '',
+          phone: coach.users?.phone || '',
           brand: coach.brand_name || 'Fit Engineers',
           payment_status: coach.users?.payment_status || 'active',
           experienceYears: coach.experience_years ?? null,
@@ -5054,14 +5080,14 @@ const databaseService = {
         let data;
         try {
           data = await restSelect(
-            `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at,last_login)&status=eq.approved&order=created_at.asc`
+            `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,phone,payment_status,created_at,last_login)&status=eq.approved&order=created_at.asc`
           );
         } catch (e) {
           // last_login might not be migrated in yet — retry without it rather
           // than losing the whole coaches list (same fallback as getAllUsers).
           if (String(e.message).includes('400')) {
             data = await restSelect(
-              `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at)&status=eq.approved&order=created_at.asc`
+              `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,phone,payment_status,created_at)&status=eq.approved&order=created_at.asc`
             );
           } else {
             throw e;
@@ -5082,6 +5108,7 @@ const databaseService = {
               id: coachUserId,
               name: coach.users?.full_name || 'Coach',
               email: coach.users?.email || '',
+              phone: coach.users?.phone || '',
               brand: coach.brand_name || 'Fit Engineers',
               payment_status: coach.users?.payment_status || 'active',
               experienceYears: coach.experience_years ?? null,

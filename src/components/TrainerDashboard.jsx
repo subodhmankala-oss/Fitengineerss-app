@@ -7977,6 +7977,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
                             bareCards
+                            // "+ Add" on a muscle-part suggestion goes into
+                            // this client's Live Log (once), same as the
+                            // client's own map adds to their workout.
+                            onAddExercise={name => {
+                              if (!liveExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) handleLiveAddExercise(name);
+                            }}
+                            onGoToWorkout={() => handleTabChange('livelog')}
+                            addTargetLabel="the Live Log"
                             onShareBalance={() => {
                               // Same computation NeglectedMuscles.jsx uses for
                               // its list — zero sets logged in the currently

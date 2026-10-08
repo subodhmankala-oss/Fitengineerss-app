@@ -35,9 +35,11 @@ const UNTRAINED_COLOR = '#a78bfa';
  *
  * onAddExercise (client's own view only): suggestions get a "+ Add" button
  * that queues the exercise for their workout; onGoToWorkout then offers a
- * shortcut to the logger.
+ * shortcut to the logger. The coach's view of a client passes them too,
+ * adding to that client's Live Log, with addTargetLabel ("the Live Log")
+ * naming where the exercise goes.
  */
-const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExercise = null, onGoToWorkout = null }) => {
+const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const [open, setOpen] = useState(focusRegion);
   const [added, setAdded] = useState(() => new Set());
   const focusRef = useRef(null);
@@ -119,7 +121,7 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
                   {showSuggestions && (
                     <div className="detail-region-recs">
                       <div className="detail-region-recs-title">
-                        💡 Try these{onAddExercise ? ' — tap to add to your workout' : ''}
+                        💡 Try these{onAddExercise ? ` — tap to add to ${addTargetLabel || 'your workout'}` : ''}
                       </div>
                       <div className="detail-region-chips">
                         {r.suggestions.map(name => {
@@ -148,7 +150,7 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
       </div>
       {added.size > 0 && onGoToWorkout && (
         <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
-          {added.size} added — go to my workout →
+          {added.size} added — {addTargetLabel ? `open ${addTargetLabel}` : 'go to my workout'} →
         </button>
       )}
     </div>

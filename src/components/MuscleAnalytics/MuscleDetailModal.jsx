@@ -55,7 +55,7 @@ const TrendSparkline = ({ weeks }) => {
  * already works (ExercisePickerModal, Form Guide sheet, payment modal).
  * Opened by tapping a Section 1 card or a Section 2 heat map region.
  */
-const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExercise = null, onGoToWorkout = null }) => {
+const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const now = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => getLocalDateString(now), [now]);
   const weekStart = useMemo(() => shiftLocalDateString(todayStr, -6), [todayStr]);
@@ -128,7 +128,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
             <p className="detail-meta-line">Last trained {recovery.hoursSince < 24 ? `${recovery.hoursSince}h ago` : `${Math.floor(recovery.hoursSince / 24)}d ago`} · {recovery.bucket.label}</p>
           )}
 
-          <MuscleRegionBreakdown muscle={muscle} regions={regions} focusRegion={focusRegion} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} />
+          <MuscleRegionBreakdown muscle={muscle} regions={regions} focusRegion={focusRegion} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
 
           {/* Recommended exercises + sets still needed this week */}
           <div className="detail-section">

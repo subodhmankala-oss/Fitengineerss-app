@@ -14,22 +14,19 @@
 
 export const MUSCLE_GROUPS = [
   'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
-  'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves', 'Tibialis', 'Rotator Cuff'
+  'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves', 'Tibialis'
 ];
 
 // Muscles most people never train directly. Tracked and drawn like any
 // other, but left out of a week's stats when they got 0 sets there — so
 // they never show as Neglected, never trigger a "zero sets" insight and
 // never pull down the Balance score for someone who doesn't train them.
-// Rotator Cuff = infraspinatus + teres minor/major, the patch over each
-// shoulder blade on the back view (assets/muscle-teres.svg, which used to be
-// drawn as part of Back).
-export const OPTIONAL_MUSCLES = new Set(['Tibialis', 'Rotator Cuff']);
+export const OPTIONAL_MUSCLES = new Set(['Tibialis']);
 
 // Push / Pull / Legs / Core categorization (Section 3 — Training Distribution).
 export const MUSCLE_TO_PPLC = {
   Chest: 'Push', Shoulders: 'Push', Triceps: 'Push',
-  Back: 'Pull', Biceps: 'Pull', Forearms: 'Pull', 'Rotator Cuff': 'Pull',
+  Back: 'Pull', Biceps: 'Pull', Forearms: 'Pull',
   Glutes: 'Legs', Quads: 'Legs', Hamstrings: 'Legs', Calves: 'Legs', Tibialis: 'Legs',
   Core: 'Core'
 };
@@ -42,7 +39,7 @@ export const MUSCLE_TO_PPLC = {
 // front and the rear delt on the back.
 export const MUSCLE_BODY_VIEW = {
   Chest: 'front', Shoulders: 'front', Biceps: 'front', Forearms: 'front', Core: 'front', Quads: 'front', Tibialis: 'front',
-  Back: 'back', 'Rotator Cuff': 'back', Triceps: 'back', Glutes: 'back', Hamstrings: 'back', Calves: 'back'
+  Back: 'back', Triceps: 'back', Glutes: 'back', Hamstrings: 'back', Calves: 'back'
 };
 
 // "Large" muscles get the 12–20 weekly target band, "small" muscles 8–15,
@@ -76,9 +73,10 @@ const RULES = [
   // and "Rotator calf" is a common misspelling of "Rotator cuff", which the
   // substring /calf/ rule then credited to Calves (a real bug — a 1 kg
   // shoulder-rehab movement showed up as calf training). Matching "rotator"
-  // first claims both the correct spelling and that typo. Credited to the
-  // Rotator Cuff group (infraspinatus/teres) — previously Shoulders.
-  { test: n => /rotator|external rotation|internal rotation|infraspinatus|\bteres\b/.test(n), muscles: ['Rotator Cuff'] },
+  // first claims both the correct spelling and that typo. The rotator cuff
+  // (infraspinatus/teres, over the shoulder blade) is drawn and counted as
+  // part of Back — previously Shoulders.
+  { test: n => /rotator|external rotation|internal rotation|infraspinatus|\bteres\b/.test(n), muscles: ['Back'] },
 
   // ── Legs (isolation first, then compound) ──
   // Requires an actual calf MOVEMENT (raise/press/extension) or the plural
@@ -186,7 +184,7 @@ const memo = new Map();
 // the rules already classify keeps exactly the same numbers.
 const MUSCLE_TEXT_RULES = [
   [/tibialis/, 'Tibialis'],
-  [/teres|infraspinatus|supraspinatus|subscapularis|rotator/, 'Rotator Cuff'],
+  [/teres|infraspinatus|supraspinatus|subscapularis|rotator/, 'Back'],
   [/trapez|\btraps?\b|rhomboid|latissimus|\blats?\b|erector|lower back|\bback\b|spinal/, 'Back'],
   [/delt|shoulder|rotator/, 'Shoulders'],
   [/pec|chest/, 'Chest'],

@@ -40,13 +40,13 @@ export const EXERCISE_SUBGROUPS = {
     { id: 'Lats', hint: 'Latissimus dorsi + teres major — pulldowns, pull-ups, pullovers (width)', test: n => /pulldown|pull.?up|chin.?up|pullover|lat pull|(one|single).?arm.*row|meadows|straight.?arm|underhand/.test(n) && !/scapular/.test(n) },
     { id: 'Upper Back', hint: 'Upper traps — shrugs, rack pulls, upright rows', test: n => /shrug|rack pull|face pull|y raise|upright row|upward rotation/.test(n) && !/kelso/.test(n) },
     { id: 'Mid Back', hint: 'Rhomboids, middle & lower traps, rear delts — rows (thickness)', test: n => (/\brows?\b/.test(n) && !/upright|straight.?arm/.test(n)) || /reverse fly|rear delt|face pull|pull apart|scapular|kelso|chest.?supported/.test(n) },
+    { id: 'Rotator Cuff', hint: 'Infraspinatus + teres, over the shoulder blade — external rotations', test: n => /rotator|external rotation|internal rotation/.test(n) },
     { id: 'Lower Back', hint: 'Erector spinae — hinges and back extensions', test: n => /back extension|hyperextension|superman|good morning|deadlift|rack pull|bird dog|cat camel/.test(n) && !/single.?leg/.test(n) },
   ],
   Shoulders: [
     { id: 'Front Delts', hint: 'Anterior deltoid — overhead presses, front raises', test: n => /front raise|overhead press|shoulders? press|military|arnold|behind neck|push press|landmine press|clean and press/.test(n) || (/seated/.test(n) && /press/.test(n) && !/chest|leg|calf/.test(n)) },
     { id: 'Side Delts', hint: 'Lateral deltoid — lateral raises, upright rows (width)', test: n => /lateral raise|upright row|y raise/.test(n) && !REAR_DELT(n) },
     { id: 'Rear Delts', hint: 'Posterior deltoid — reverse flyes, face pulls', test: REAR_DELT },
-    { id: 'Rotator Cuff', hint: 'Infraspinatus + teres, over the shoulder blade — external rotations', test: n => /rotator|external rotation|internal rotation/.test(n) },
   ],
   Arms: [
     { id: 'Biceps Long Head', hint: 'Outer biceps — elbow behind the body or neutral grip (incline, Bayesian, hammer)', test: n => IS_BICEPS(n) && (LONG_CURL(n) || !SHORT_CURL(n)) },

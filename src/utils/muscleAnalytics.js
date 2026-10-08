@@ -51,7 +51,8 @@ const STATUS = {
   HIGH_VOLUME: { key: 'high_volume', label: 'High Volume', emoji: '🔵', color: 'high-volume' },
 };
 
-function classifyStatus(sets, { min, max }) {
+// Exported for the muscle detail screen's per-region breakdown (muscleRegions.js).
+export function classifyStatus(sets, { min, max }) {
   if (sets === 0) return STATUS.NEGLECTED;
   if (sets > max) return STATUS.HIGH_VOLUME;
   if (sets >= min) return STATUS.OPTIMAL;
@@ -248,7 +249,8 @@ export function getMuscleRecovery(logs, muscle, now = new Date(), intensityMulti
 // short (3 per muscle) and intentionally simple — not a full program builder.
 export const RECOMMENDED_EXERCISES = {
   Chest: ['Bench Press', 'Incline Dumbbell Press', 'Cable Fly'],
-  Back: ['Barbell Row', 'Lat Pulldown', 'Seated Cable Row'],
+  // External Rotation: the rotator cuff (infraspinatus/teres) is part of Back.
+  Back: ['Barbell Row', 'Lat Pulldown', 'Seated Cable Row', 'External Rotation (Cable)'],
   Shoulders: ['Shoulder Press (Dumbbell)', 'Lateral Raise', 'Face Pull'],
   Biceps: ['Barbell Curl', 'Incline Dumbbell Curl', 'Hammer Curl'],
   Triceps: ['Triceps Pushdown', 'Skullcrusher', 'Overhead Triceps Extension'],
@@ -259,7 +261,6 @@ export const RECOMMENDED_EXERCISES = {
   Hamstrings: ['Romanian Deadlift', 'Leg Curl (Lying)', 'Good Morning'],
   Calves: ['Calf Raise (Standing)', 'Seated Calf Raise', 'Calf Raise (Machine)'],
   Tibialis: ['Tibialis Raise', 'Tib Bar Raise', 'Seated Tibialis Raise'],
-  'Rotator Cuff': ['External Rotation (Cable)', 'External Rotation (Band)', 'Side-Lying External Rotation'],
 };
 
 /**

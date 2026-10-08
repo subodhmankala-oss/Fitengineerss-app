@@ -5,7 +5,7 @@ describe('catalog primary-muscle fallback', () => {
   it('maps free text onto the existing 12 groups', () => {
     expect(parseMuscleText('Lower Trapezius, Latissimus Dorsi')).toEqual(['Back']);
     expect(parseMuscleText('Rear Delts / Rhomboids')).toEqual(['Shoulders', 'Back']);
-    expect(parseMuscleText('Teres Major, Teres Minor, Infraspinatus')).toEqual(['Rotator Cuff']);
+    expect(parseMuscleText('Teres Major, Teres Minor, Infraspinatus')).toEqual(['Back']);
   });
 
   it('only applies when no name rule matches; credits primary + first different secondary', () => {
@@ -22,15 +22,26 @@ describe('catalog primary-muscle fallback', () => {
   });
 });
 
-describe('Rotator Cuff group', () => {
-  it('rotator-cuff exercises credit Rotator Cuff, not Shoulders or Back', async () => {
-    expect(getMuscleGroupsForExercise('External Rotation (Cable)')).toEqual(['Rotator Cuff']);
-    expect(getMuscleGroupsForExercise('Rotator calf')).toEqual(['Rotator Cuff']);
-    // Face Pull keeps its existing credit.
+describe('Rotator cuff is part of Back', () => {
+  it('rotator-cuff exercises credit Back; Back suggests one', async () => {
+    expect(getMuscleGroupsForExercise('External Rotation (Cable)')).toEqual(['Back']);
+    expect(getMuscleGroupsForExercise('Rotator calf')).toEqual(['Back']);
     expect(getMuscleGroupsForExercise('Face Pull')).toEqual(['Shoulders', 'Back']);
-    const { RECOMMENDED_EXERCISES, getWeeklyMuscleStats } = await import('./muscleAnalytics');
-    RECOMMENDED_EXERCISES['Rotator Cuff'].forEach(n => expect(getMuscleGroupsForExercise(n)).toEqual(['Rotator Cuff']));
-    // Optional like Tibialis: no card until it's trained.
-    expect(getWeeklyMuscleStats([], '2026-10-01', '2026-10-07').some(s => s.muscle === 'Rotator Cuff')).toBe(false);
+    const { RECOMMENDED_EXERCISES } = await import('./muscleAnalytics');
+    expect(RECOMMENDED_EXERCISES.Back).toContain('External Rotation (Cable)');
+  });
+
+  it('the Back breakdown gives each region its own status', async () => {
+    const { getRegionBreakdownForMuscle, regionBand } = await import('./muscleRegions');
+    expect(regionBand('Back')).toEqual({ min: 2, max: 4, target: 3 });
+    const set = (name, n) => Array.from({ length: n }, () => ({ exercise_name: name, log_date: '2026-10-06', weight_kg: 10, reps: 10 }));
+    const logs = [...set('External Rotation (Cable)', 3), ...set('Lat Pulldown', 1), ...set('Barbell Row', 6)];
+    const rows = Object.fromEntries(getRegionBreakdownForMuscle(logs, 'Back', '2026-10-01', '2026-10-07').map(r => [r.id, r]));
+    expect(rows['Rotator Cuff'].sets).toBe(3);
+    expect(rows['Rotator Cuff'].tier.label).toBe('Optimal');
+    expect(rows.Lats.tier.label).toBe('Low');
+    expect(rows['Mid Back'].tier.label).toBe('Very High');
+    expect(rows['Lower Back'].tier.label).toBe('Not Trained');
+    expect(rows['Lower Back'].suggestions.length).toBeGreaterThan(0);
   });
 });

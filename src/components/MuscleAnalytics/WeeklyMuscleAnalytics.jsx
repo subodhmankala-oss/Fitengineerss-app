@@ -80,6 +80,10 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     `${bareCards ? 'muscle-analytics-bare-card' : 'chart-widget-card glass-panel'}${extra ? ` ${extra}` : ''}`;
   const weekEndStr = weekDays[6];
   const [selectedMuscle, setSelectedMuscle] = useState(null);
+  // Which part of the muscle was tapped on the body diagram (e.g. Back →
+  // Rotator Cuff); the detail screen highlights it. Null from a card/chip tap.
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const selectMuscle = (muscle, region = null) => { setSelectedMuscle(muscle); setSelectedRegion(region); };
   const [balanceTab, setBalanceTab] = useState('balance'); // 'balance' | 'neglected'
   const [insightsTab, setInsightsTab] = useState('insights'); // 'insights' | 'comparison' | 'recommendations'
   const [mapTab, setMapTab] = useState('heatmap'); // 'heatmap' | 'recovery'
@@ -203,7 +207,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
             <p className="muscle-analytics-subtext">Working sets per muscle group, measured against your weekly target.</p>
             <div className="muscle-card-grid">
               {muscleStats.map((stat, i) => (
-                <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => setSelectedMuscle(stat.muscle)} />
+                <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => selectMuscle(stat.muscle)} />
               ))}
             </div>
             <div className="muscle-status-legend">
@@ -240,7 +244,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
 
         {mapTab === 'heatmap' ? (
-          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={setSelectedMuscle} activeMuscle={selectedMuscle} />
+          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} />
         ) : (
           <RecoveryDashboard logs={logs} />
         )}
@@ -274,7 +278,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} logs={logs} onClose={() => setSelectedMuscle(null)} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} logs={logs} onClose={() => selectMuscle(null)} />
       )}
     </div>
   );

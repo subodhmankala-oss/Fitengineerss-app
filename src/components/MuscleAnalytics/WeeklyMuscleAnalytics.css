@@ -907,3 +907,80 @@
   background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid rgba(var(--fg-rgb), 0.06);
 }
+
+/* Muscle detail: per-region breakdown ("Inside Back") — MuscleRegionBreakdown.jsx */
+.detail-region-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-region-row {
+  border-radius: 10px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  overflow: hidden;
+}
+
+.detail-region-row.focused {
+  border-color: var(--status-color);
+  box-shadow: 0 0 0 1px var(--status-color) inset;
+}
+
+.detail-region-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 12px 7px 8px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-region-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detail-region-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.detail-region-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--status-color);
+  white-space: nowrap;
+}
+
+.detail-region-sets {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+.detail-region-body {
+  padding: 0 12px 10px 54px;
+}
+
+.detail-region-hint,
+.detail-region-line {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.detail-region-line strong {
+  color: var(--text-main);
+}

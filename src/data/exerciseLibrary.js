@@ -124,8 +124,8 @@ export function inferCategory(name) {
   // excluded so they land in Legs instead of Arms.
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n) && !/leg curl|nordic|hamstring|glute/.test(n)) return 'Arms';
   if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?|nordic|tibialis|tib bar)/.test(n)) return 'Legs';
-  if (/(rotator|external rotation|internal rotation|shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart|y raise|landmine press)/.test(n)) return 'Shoulders';
-  if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar|pullover)/.test(n)) return 'Back';
+  if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart|y raise|landmine press)/.test(n)) return 'Shoulders';
+  if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar|pullover|rotator|external rotation|internal rotation)/.test(n)) return 'Back';
   if (/(bench|chest|fly|pec deck|push-?up|push up|dip|crossover|around the world|floor press|press)/.test(n)) return 'Chest';
   // Compound/full-body moves that don't isolate one region (Ball Slam,
   // Burpee, Jumping Jack) fall through every regex above to here — this

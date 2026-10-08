@@ -3,7 +3,7 @@ import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
 import {
-  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
+  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -98,7 +98,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
             rawSvg={rawSvg}
             color={colorFor ? colorFor(muscle) : (tier?.color ?? '#64748b')}
             isActive={isActive}
-            onSelect={() => onSelectMuscle(muscle)}
+            onSelect={() => onSelectMuscle(muscle, LAYER_REGIONS[view]?.[muscle]?.[i] ?? null)}
             ariaLabel={label}
           />
         ));

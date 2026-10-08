@@ -2789,9 +2789,34 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     return rows;
   }, [sessions, logExercises, isLoggingWorkout, logDate, loggedInUser]);
 
+  // Newly added exercises grow open from the top (height 0 -> natural, with a
+  // short slide + fade) instead of popping in, which also eases the buttons
+  // below them down rather than jumping. Done with the Web Animations API
+  // because the target height is only known after layout. The names wait in
+  // this set until their row mounts; each runs once.
+  const enteringExercisesRef = useRef(new Set());
+  const animateExerciseEnter = (name) => (el) => {
+    if (!el) return;
+    const key = name.toLowerCase();
+    if (!enteringExercisesRef.current.has(key)) return;
+    enteringExercisesRef.current.delete(key);
+    if (typeof el.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const h = el.getBoundingClientRect().height;
+    const anim = el.animate(
+      [
+        { height: '0px', opacity: 0, transform: 'translateY(-18px)', overflow: 'hidden' },
+        { height: `${h}px`, opacity: 1, transform: 'translateY(0)', overflow: 'hidden' },
+      ],
+      { duration: 420, easing: 'cubic-bezier(0.22, 0.8, 0.25, 1)' }
+    );
+    // Once it has landed, bring it fully into view (no-op if already visible).
+    anim.onfinish = () => el.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  };
+
   const addExerciseToWorkout = (name) => {
     const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
     if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+    enteringExercisesRef.current.add(name.toLowerCase());
     const sets = buildStartingSets(name);
     setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
@@ -3647,7 +3672,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
-                  <div key={getLogItemKey(exIdx)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
+                  <div key={getLogItemKey(exIdx)} ref={animateExerciseEnter(ex.name)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
                   <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
                   <div className="ex-reorder-full">
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>

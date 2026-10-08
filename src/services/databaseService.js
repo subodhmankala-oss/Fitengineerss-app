@@ -340,6 +340,7 @@ const REST_BASE = isSupabaseConfigured ? `${supabaseUrl}/rest/v1` : '';
 // the emptiness-check round-trip specifically, since once we've confirmed
 // the table is non-empty this session there's no need to keep re-asking.
 let exerciseLibraryCache = null;
+let hiddenExerciseNamesCache = null;
 let exerciseLibraryFetchPromise = null;
 let seededOnce = false;
 
@@ -6355,6 +6356,59 @@ const databaseService = {
   invalidateExerciseLibraryCache() {
     exerciseLibraryCache = null;
     exerciseLibraryFetchPromise = null;
+    hiddenExerciseNamesCache = null;
+  },
+
+  // Lowercased names of code-defined (static) exercises the admin deleted —
+  // see sql/hidden_exercises.sql. Every screen that merges the static
+  // EXERCISE_LIBRARY back in must skip these, otherwise a deleted exercise
+  // reappears on the next load. Never throws: if the table is missing or the
+  // read fails, nothing is hidden (the old behaviour).
+  async getHiddenExerciseNames() {
+    if (hiddenExerciseNamesCache) return hiddenExerciseNamesCache;
+    let names = [];
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const rows = await restSelect('hidden_exercises?select=name');
+        names = (rows || []).map(r => (r.name || '').toLowerCase());
+      } else {
+        names = this.getMockTable('hidden_exercises').map(r => (r.name || '').toLowerCase());
+      }
+    } catch (err) {
+      console.warn('[exercises] hidden list read failed, showing everything:', err);
+      return new Set();
+    }
+    hiddenExerciseNamesCache = new Set(names);
+    return hiddenExerciseNamesCache;
+  },
+
+  // Tombstone a code-defined exercise so the static merge stops re-adding it
+  // after its DB row (if any) is deleted.
+  async hideExercise(name) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+        }
+        const res = await fetch('/api/admin-write?action=hide-exercise', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return { success: false, error: (data && data.error) || 'Hide failed' };
+      } catch (err) {
+        console.error('Error hiding exercise:', err);
+        return { success: false, error: err.message || 'Hide failed' };
+      }
+    } else {
+      const key = (name || '').toLowerCase();
+      const rows = this.getMockTable('hidden_exercises');
+      if (!rows.some(r => r.name === key)) this.saveMockTable('hidden_exercises', [...rows, { name: key }]);
+    }
+    this.invalidateExerciseLibraryCache();
+    return { success: true };
   },
 
   async getExerciseLibrary({ forceRefresh = false } = {}) {

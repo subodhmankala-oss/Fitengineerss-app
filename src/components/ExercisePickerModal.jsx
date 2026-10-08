@@ -75,6 +75,8 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const [bodyView, setBodyView] = useState('front');
   const [exercises, setExercises] = useState([]);
   const [customExercises, setCustomExercises] = useState([]);
+  // Code-defined exercises the admin deleted (see getHiddenExerciseNames).
+  const [deletedNames, setDeletedNames] = useState(() => new Set());
   const [showCreateExercise, setShowCreateExercise] = useState(false);
   // Mirrors `open` but lags behind on close, so the slide-down animation has
   // something to animate before the modal actually leaves the DOM. `closing`
@@ -116,6 +118,9 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
       databaseService.getExerciseLibrary()
         .then(setExercises)
         .catch(err => console.error('Failed to fetch exercises in picker modal:', err));
+      Promise.resolve(databaseService.getHiddenExerciseNames?.())
+        .then(names => { if (names) setDeletedNames(names); })
+        .catch(() => {});
       // Scoped to just this coach's own library (or this client's own, in
       // client mode) — see getCustomExercisesForViewer's comment on why an
       // unscoped call hands a super-admin coach every OTHER coach's and
@@ -171,7 +176,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const activeLibrary = [
     ...exercises,
     ...customExercises.filter(e => !dbNames.has(e.name.toLowerCase())),
-    ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()) && !customNames.has(e.name.toLowerCase()))
+    ...EXERCISE_LIBRARY.filter(e => !dbNames.has(e.name.toLowerCase()) && !customNames.has(e.name.toLowerCase()) && !deletedNames.has(e.name.toLowerCase()))
   ].filter(e => !hiddenNames.has((e.name || '').toLowerCase()));
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();

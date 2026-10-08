@@ -52,6 +52,41 @@ describe('Rotator cuff is part of Back', () => {
   });
 });
 
+describe('Every muscle but Tibialis has an "Inside" breakdown', () => {
+  const set = (name, n) => Array.from({ length: n }, () => ({ exercise_name: name, log_date: '2026-10-06', weight_kg: 10, reps: 10 }));
+
+  it('each region has a body icon and a plain explanation', async () => {
+    const { getRegionBreakdownForMuscle, hasRegions, REGION_PLAIN } = await import('./muscleRegions');
+    const { REGION_SHAPES } = await import('../components/MuscleAnalytics/regionShapes');
+    const { MUSCLE_GROUPS } = await import('./muscleGroups');
+    MUSCLE_GROUPS.forEach(m => {
+      expect(hasRegions(m)).toBe(m !== 'Tibialis');
+      getRegionBreakdownForMuscle([], m, '2026-10-01', '2026-10-07').forEach(r => {
+        expect(REGION_SHAPES[r.id], r.id).toBeTruthy();
+        expect(REGION_PLAIN[r.id], r.id).toBeTruthy();
+        expect(r.suggestions.length, r.id).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  it('single-chip muscles split by movement, with no "Other" row', async () => {
+    const { getRegionBreakdownForMuscle } = await import('./muscleRegions');
+    const rows = (logs, m) => Object.fromEntries(getRegionBreakdownForMuscle(logs, m, '2026-10-01', '2026-10-07').map(r => [r.id, r.sets]));
+    expect(rows([...set('Hip Thrust', 4), ...set('Hip Abduction (Machine)', 2)], 'Glutes')).toEqual({ 'Glute Max': 4, 'Glute Med': 2 });
+    expect(rows([...set('Calf Raise (Standing)', 3), ...set('Seated Calf Raise', 3)], 'Calves')).toEqual({ Gastrocnemius: 3, Soleus: 3 });
+    expect(rows([...set('Romanian Deadlift', 3), ...set('Leg Curl (Lying)', 2)], 'Hamstrings')).toEqual({ 'Outer Hamstring': 3, 'Inner Hamstrings': 2 });
+    expect(rows([...set('Barbell Squat', 4), ...set('Leg Extension', 2)], 'Quads')).toEqual({ 'Rectus Femoris': 2, 'Vastus Muscles': 4 });
+  });
+
+  it('a set that works both heads is shared between them', async () => {
+    const { getRegionBreakdownForMuscle } = await import('./muscleRegions');
+    const rows = Object.fromEntries(getRegionBreakdownForMuscle([...set('Barbell Curl', 3), ...set('Preacher Curl', 2)], 'Biceps', '2026-10-01', '2026-10-07').map(r => [r.id, r]));
+    expect(rows['Biceps Long Head'].sets).toBe(1.5);
+    expect(rows['Biceps Short Head'].sets).toBe(3.5);
+    expect(rows['Biceps Long Head'].exercises).toEqual([{ name: 'Barbell Curl', sets: 3 }]);
+  });
+});
+
 describe('Log Sets "Behind this week" gaps', () => {
   it('lists untrained parts first, each with one exercise to add', async () => {
     const { getMuscleGaps } = await import('./muscleRegions');

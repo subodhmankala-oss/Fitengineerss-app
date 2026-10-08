@@ -15,13 +15,67 @@ import { getMuscleGroupsForExercise } from './muscleGroups';
 import { isCountableSet, RECOMMENDED_EXERCISES, MUSCLE_TARGETS, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
 import { getLocalDateString, shiftLocalDateString } from './dateUtils';
 
-// Muscle groups whose regions are worth showing. The picker's category keys
-// that name a single heat-map muscle.
+// Every heat-map muscle that is really several muscles (or heads), split
+// into its regions. Back/Chest/Shoulders/Biceps/Triceps/Core reuse the Add
+// Exercise picker's sub-groups; the leg and forearm muscles are one chip each
+// in the picker, so their parts are defined here. One region of each of those
+// is the catch-all ("any calf raise that isn't bent-knee works the
+// gastrocnemius"), so nothing lands in "Other". Tibialis is one muscle and
+// has no breakdown.
+//
+// `split`: an exercise matching several regions (a plain Barbell Curl works
+// both biceps heads) gives each an equal share of the set, so the regions
+// still add up to the muscle's total. Without it the first match takes the
+// whole set (Back's Face Pull counts once, in Trapezius).
+const ARMS = EXERCISE_SUBGROUPS.Arms;
+const GLUTE_MED = n => /abduct|clam ?shell|fire hydrant|lateral (band )?walk|monster walk|side.?lying (leg|hip)|crab walk|hip hike|side.?step/.test(n);
+const SOLEUS = n => /seated|bent.?knee/.test(n);
+const RECTUS_FEMORIS = n => /leg extension|knee extension|sissy|reverse nordic/.test(n);
+const INNER_HAMSTRINGS = n => /curl|nordic|glute.?ham|\bghr\b/.test(n);
+const FOREARM_EXTENSORS = n => /reverse (wrist )?curl|wrist extension|hammer|zottman|radial deviation/.test(n);
+
 const REGIONS_BY_MUSCLE = {
-  Back: EXERCISE_SUBGROUPS.Back,
-  Chest: EXERCISE_SUBGROUPS.Chest,
-  Shoulders: EXERCISE_SUBGROUPS.Shoulders,
+  Back: { regions: EXERCISE_SUBGROUPS.Back },
+  Chest: { regions: EXERCISE_SUBGROUPS.Chest },
+  Shoulders: { regions: EXERCISE_SUBGROUPS.Shoulders },
+  Biceps: { regions: ARMS.filter(r => r.id.startsWith('Biceps')), split: true },
+  Triceps: { regions: ARMS.filter(r => r.id.startsWith('Triceps')), split: true },
+  Core: { regions: EXERCISE_SUBGROUPS.Core, split: true },
+  Forearms: {
+    regions: [
+      { id: 'Forearm Flexors', test: n => !FOREARM_EXTENSORS(n) },
+      { id: 'Forearm Extensors', test: FOREARM_EXTENSORS },
+    ],
+  },
+  Glutes: {
+    regions: [
+      { id: 'Glute Max', test: n => !GLUTE_MED(n) },
+      { id: 'Glute Med', test: GLUTE_MED },
+    ],
+  },
+  Quads: {
+    regions: [
+      { id: 'Rectus Femoris', test: RECTUS_FEMORIS },
+      { id: 'Vastus Muscles', test: n => !RECTUS_FEMORIS(n) },
+    ],
+  },
+  Hamstrings: {
+    regions: [
+      { id: 'Outer Hamstring', test: n => !INNER_HAMSTRINGS(n) },
+      { id: 'Inner Hamstrings', test: INNER_HAMSTRINGS },
+    ],
+  },
+  Calves: {
+    regions: [
+      { id: 'Gastrocnemius', test: n => !SOLEUS(n) },
+      { id: 'Soleus', test: SOLEUS },
+    ],
+  },
 };
+
+// The Log Sets "behind this week" nudge keeps to the upper-body parts it was
+// built for; every other muscle is nudged there as a whole muscle.
+const GAP_REGION_MUSCLES = new Set(['Back', 'Chest', 'Shoulders']);
 
 // Plain-language "what is this muscle and what does it do" for each region,
 // shown on the detail screen instead of the picker's terse anatomy hint.
@@ -37,6 +91,24 @@ export const REGION_PLAIN = {
   'Front Delts': 'The front of your shoulder. It lifts your arm forward and overhead.',
   'Side Delts': 'The outside of your shoulder. It lifts your arm out to the side and gives your shoulders width.',
   'Rear Delts': 'The back of your shoulder. It pulls your arm backward and helps your posture.',
+  'Biceps Long Head': 'The outer part of your biceps. It builds the "peak" — hammer and incline curls hit it most.',
+  'Biceps Short Head': 'The inner part of your biceps. It adds thickness — preacher and concentration curls hit it most.',
+  'Triceps Long Head': 'The biggest part of your triceps, at the back of the arm. Moves with your arm overhead hit it most.',
+  'Triceps Lateral Head': 'The outer "horseshoe" of your triceps. Pushdowns, kickbacks and close-grip presses hit it most.',
+  'Upper Abs': 'The top half of your six-pack. It curls your chest toward your hips, like in a crunch.',
+  'Lower Abs': 'The bottom half of your six-pack. It lifts your legs and curls your hips up, like in a leg raise.',
+  Obliques: 'The muscles on the sides of your waist. They twist your body and bend it to the side.',
+  'Deep Core': 'The deep muscles under your abs. They hold your spine steady, like in a plank.',
+  'Forearm Flexors': 'The palm side of your forearm. It closes your grip and bends your wrist — wrist curls, carries and hangs.',
+  'Forearm Extensors': 'The back and thumb side of your forearm. It opens your hand and lifts your wrist — reverse and hammer curls.',
+  'Glute Max': 'The big muscle of your bum. It drives your hips forward — hip thrusts, bridges, squats and lunges.',
+  'Glute Med': 'The upper-outer part of your hip. It moves your leg out to the side and keeps your hips and knees stable.',
+  'Rectus Femoris': 'The middle muscle down the front of your thigh. It straightens the knee and lifts the leg — leg extensions hit it most.',
+  'Vastus Muscles': 'The outer and inner muscles of the front of your thigh. They straighten your knee in squats, leg presses and lunges.',
+  'Outer Hamstring': 'The outer side of the back of your thigh. Hip hinges like Romanian deadlifts hit it most.',
+  'Inner Hamstrings': 'The inner side of the back of your thigh. Leg curls and Nordic curls hit it most.',
+  Gastrocnemius: 'The big calf muscle you can see. Calf raises with straight knees hit it most.',
+  Soleus: 'The flat calf muscle underneath, down toward the ankle. Calf raises with bent knees (seated) hit it most.',
   Other: "Exercises for this muscle that don't focus on one part.",
 };
 
@@ -44,19 +116,21 @@ export function hasRegions(muscle) {
   return Boolean(REGIONS_BY_MUSCLE[muscle]);
 }
 
-// First matching region, in the sub-group list's order. An exercise that fits
-// two regions (Face Pull: upper + mid back) is counted once, in the first.
-function regionOf(muscle, name) {
+// The region(s) an exercise credits, in the list's order: every match for a
+// `split` muscle, else only the first (Face Pull: upper + mid back → upper).
+function regionsOf(muscle, name) {
+  const cfg = REGIONS_BY_MUSCLE[muscle];
+  if (!cfg) return [];
   const n = String(name || '').toLowerCase();
-  const hit = (REGIONS_BY_MUSCLE[muscle] || []).find(r => r.test(n));
-  return hit ? hit.id : null;
+  const hits = cfg.regions.filter(r => r.test(n)).map(r => r.id);
+  return cfg.split ? hits : hits.slice(0, 1);
 }
 
 // A region's weekly band is its share of the whole muscle's band, split
 // evenly across the regions (Back 12–20 over 5 regions → 2–4 sets each).
 // Hitting every region's band therefore lands the whole muscle in range.
 export function regionBand(muscle) {
-  const regions = REGIONS_BY_MUSCLE[muscle];
+  const regions = REGIONS_BY_MUSCLE[muscle]?.regions;
   const band = MUSCLE_TARGETS[muscle];
   if (!regions || !band) return null;
   const n = regions.length;
@@ -69,11 +143,12 @@ export function regionBand(muscle) {
  * Splits `muscle`'s working sets in [startStr, endStr] by region.
  * @returns {Array<{id, hint, sets, band, tier, lastTrained: {date, exercise}|null, exercises: Array<{name, sets}>, suggestions: string[]}>}
  *   one row per region (0-set regions included), plus an "Other" row only if
- *   some sets matched no region. `tier` is the heat map's Not Trained/Low/
+ *   some sets matched no region. For a `split` muscle `sets` can be a
+ *   fraction (a set shared by two heads); `exercises[].sets` stays whole. `tier` is the heat map's Not Trained/Low/
  *   Optimal/High/Very High for the region against `band` (null for Other).
  */
 export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
-  const regions = REGIONS_BY_MUSCLE[muscle];
+  const regions = REGIONS_BY_MUSCLE[muscle]?.regions;
   if (!regions) return [];
 
   const rows = new Map(regions.map(r => [r.id, { id: r.id, hint: REGION_PLAIN[r.id] || r.hint, sets: 0, byExercise: {} }]));
@@ -84,13 +159,16 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
     if (!isCountableSet(log)) return;
     if (!log.log_date || log.log_date > endStr) return;
     if (!getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) return;
-    const id = regionOf(muscle, log.exercise_name) || 'Other';
-    if (!last[id] || log.log_date > last[id].date) last[id] = { date: log.log_date, exercise: log.exercise_name };
-    if (log.log_date < startStr) return;
-    if (!rows.has(id)) rows.set(id, { id, hint: REGION_PLAIN.Other, sets: 0, byExercise: {} });
-    const row = rows.get(id);
-    row.sets += 1;
-    row.byExercise[log.exercise_name] = (row.byExercise[log.exercise_name] || 0) + 1;
+    const ids = regionsOf(muscle, log.exercise_name);
+    if (!ids.length) ids.push('Other');
+    ids.forEach(id => {
+      if (!last[id] || log.log_date > last[id].date) last[id] = { date: log.log_date, exercise: log.exercise_name };
+      if (log.log_date < startStr) return;
+      if (!rows.has(id)) rows.set(id, { id, hint: REGION_PLAIN.Other, sets: 0, byExercise: {} });
+      const row = rows.get(id);
+      row.sets += 1 / ids.length;
+      row.byExercise[log.exercise_name] = (row.byExercise[log.exercise_name] || 0) + 1;
+    });
   });
 
   // Suggestions: the muscle's own recommended list first, then the library,
@@ -103,7 +181,7 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
       // "Deadlift" and "Deadlift (Barbell)" are one suggestion, not two.
       const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
       if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;
-      if (regionOf(muscle, name) !== id) continue;
+      if (!regionsOf(muscle, name).includes(id)) continue;
       if (!getMuscleGroupsForExercise(name).includes(muscle)) continue;
       out.push(name);
     }
@@ -118,6 +196,8 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
 
   return [...rows.values()].map(({ byExercise, ...row }) => ({
     ...row,
+    // Halves stay halves; float noise from adding thirds/quarters doesn't.
+    sets: Math.round(row.sets * 10) / 10,
     band: row.id === 'Other' ? null : band,
     tier: row.id === 'Other' ? null : tierFor(row.sets),
     lastTrained: last[row.id] || null,
@@ -137,7 +217,7 @@ export function getMuscleGaps(logs, today = getLocalDateString()) {
   const start = shiftLocalDateString(today, -6);
   const gaps = [];
   getWeeklyMuscleStats(logs, start, today).forEach(stat => {
-    if (hasRegions(stat.muscle)) {
+    if (GAP_REGION_MUSCLES.has(stat.muscle)) {
       getRegionBreakdownForMuscle(logs, stat.muscle, start, today).forEach(r => {
         if (!r.band || r.sets >= r.band.min || !r.suggestions.length) return;
         gaps.push({ label: r.id, sets: r.sets, min: r.band.min, options: r.suggestions });

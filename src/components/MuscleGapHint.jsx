@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { getMuscleGaps } from '../utils/muscleRegions';
 import './exerciseRecChips.css';
 
@@ -9,8 +9,22 @@ import './exerciseRecChips.css';
  * the full muscle map. Counts the session in progress too, so it updates as
  * sets are ticked off.
  */
+// Folded/unfolded is a per-user, per-phone preference: a client who folds it
+// keeps it folded in every workout until they open it again.
+const collapsedKey = () => `muscleGapHintCollapsed_${localStorage.getItem('userId') || 'anon'}`;
+const readCollapsed = () => {
+  try { return localStorage.getItem(collapsedKey()) === '1'; } catch { return false; }
+};
+
 const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
   const gaps = useMemo(() => getMuscleGaps(logs), [logs]);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = () => {
+    setCollapsed(c => {
+      try { localStorage.setItem(collapsedKey(), c ? '0' : '1'); } catch { /* ignore */ }
+      return !c;
+    });
+  };
   const added = new Set(addedNames.map(n => n.toLowerCase()));
 
   if (!gaps.length) {
@@ -23,11 +37,15 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
   }
 
   return (
-    <div className="muscle-gap-hint">
+    <div className={`muscle-gap-hint${collapsed ? ' muscle-gap-hint--collapsed' : ''}`}>
       <div className="muscle-gap-head">
-        <span className="muscle-gap-title">💡 {gaps.length} behind this week</span>
-        {onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>See muscle map →</button>}
+        <button type="button" className="muscle-gap-toggle" onClick={toggle} aria-expanded={!collapsed}>
+          <span className="muscle-gap-title">💡 {gaps.length} behind this week</span>
+          <span className={`muscle-gap-chevron${collapsed ? '' : ' open'}`} aria-hidden="true">▾</span>
+        </button>
+        {!collapsed && onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>See muscle map →</button>}
       </div>
+      {!collapsed && (<>
       {gaps.length > 1 && <p className="muscle-gap-sub">Swipe to see them all — tap one to add it</p>}
       <div className="muscle-gap-cards">
         {gaps.map(g => {
@@ -50,6 +68,7 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
           );
         })}
       </div>
+      </>)}
     </div>
   );
 };

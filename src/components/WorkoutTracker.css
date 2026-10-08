@@ -5374,6 +5374,37 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 10px;
 }
 
+/* Tapping the title folds the card to this one line (remembered per user). */
+.muscle-gap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.muscle-gap-chevron {
+  font-size: 1rem;
+  color: var(--text-main);
+  transition: transform 0.2s ease;
+  transform: rotate(-90deg);
+}
+
+.muscle-gap-chevron.open {
+  transform: none;
+}
+
+.muscle-gap-hint--collapsed {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .muscle-gap-title {
   font-size: 0.9rem;
   font-weight: 800;

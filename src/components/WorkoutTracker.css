@@ -5346,3 +5346,86 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 6px;
   max-width: 200px;
 }
+
+/* "Behind this week" hint above Add Exercise (MuscleGapHint.jsx). Violet =
+   the muscle detail screen's to-do color. */
+.muscle-gap-hint {
+  --gap-tone: #a78bfa;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--gap-tone) 12%, transparent), transparent 70%), rgba(var(--fg-rgb), 0.04);
+  border: 1px solid color-mix(in srgb, var(--gap-tone) 35%, transparent);
+  border-left: 4px solid var(--gap-tone);
+}
+
+.muscle-gap-hint--good {
+  --gap-tone: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.muscle-gap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.muscle-gap-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.muscle-gap-link {
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.muscle-gap-names {
+  margin: 6px 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+
+.muscle-gap-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gap-tone);
+}
+
+.muscle-gap-dot {
+  color: var(--text-muted);
+}
+
+/* One swipeable row, bleeding to the card's edges. */
+.muscle-gap-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -14px 0 -14px;
+  padding: 0 14px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.muscle-gap-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.muscle-gap-chips .ex-history-rec-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

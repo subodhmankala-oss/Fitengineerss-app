@@ -51,3 +51,20 @@ describe('Rotator cuff is part of Back', () => {
     expect(rows2['Lower Back'].lastTrained).toEqual({ date: '2026-09-25', exercise: 'Back Extension' });
   });
 });
+
+describe('Log Sets "Behind this week" gaps', () => {
+  it('lists untrained parts first, each with one exercise to add', async () => {
+    const { getMuscleGaps } = await import('./muscleRegions');
+    const set = (name, n, date = '2026-10-06') => Array.from({ length: n }, () => ({ exercise_name: name, log_date: date }));
+    const logs = [...set('Barbell Row', 3), ...set('Lat Pulldown', 1), ...set('Bench Press', 5)];
+    const gaps = getMuscleGaps(logs, '2026-10-07');
+    const labels = gaps.map(g => g.label);
+    expect(labels).toContain('Lower Back');
+    expect(labels).not.toContain('Mid Back'); // 3 sets: in range
+    expect(labels).not.toContain('Mid Chest'); // 5 sets: in range
+    const firstTrained = gaps.findIndex(g => g.sets > 0);
+    expect(gaps.slice(firstTrained).every(g => g.sets > 0)).toBe(true);
+    expect(gaps.find(g => g.label === 'Lats')).toMatchObject({ sets: 1, min: 2 });
+    gaps.forEach(g => expect(typeof g.suggestion).toBe('string'));
+  });
+});

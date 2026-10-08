@@ -12,7 +12,8 @@
 import { EXERCISE_SUBGROUPS } from '../data/exerciseSubgroups';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import { getMuscleGroupsForExercise } from './muscleGroups';
-import { isCountableSet, RECOMMENDED_EXERCISES, MUSCLE_TARGETS, classifyStatus, getHeatMapTier } from './muscleAnalytics';
+import { isCountableSet, RECOMMENDED_EXERCISES, MUSCLE_TARGETS, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
+import { getLocalDateString, shiftLocalDateString } from './dateUtils';
 
 // Muscle groups whose regions are worth showing. The picker's category keys
 // that name a single heat-map muscle.
@@ -123,4 +124,28 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
     exercises: Object.entries(byExercise).map(([name, sets]) => ({ name, sets })).sort((a, b) => b.sets - a.sets),
     suggestions: row.id === 'Other' ? [] : suggestionsFor(row.id),
   }));
+}
+
+/**
+ * What's under-trained over the last 7 days, worked out from flat per-set
+ * rows: regions for Back/Chest/Shoulders (same as the muscle detail screen's
+ * "Inside Back"), whole muscles for the rest. Untrained first, then by how
+ * far short. One suggested exercise each.
+ * @returns {Array<{label, sets, min, suggestion}>}
+ */
+export function getMuscleGaps(logs, today = getLocalDateString()) {
+  const start = shiftLocalDateString(today, -6);
+  const gaps = [];
+  getWeeklyMuscleStats(logs, start, today).forEach(stat => {
+    if (hasRegions(stat.muscle)) {
+      getRegionBreakdownForMuscle(logs, stat.muscle, start, today).forEach(r => {
+        if (!r.band || r.sets >= r.band.min || !r.suggestions.length) return;
+        gaps.push({ label: r.id, sets: r.sets, min: r.band.min, suggestion: r.suggestions[0] });
+      });
+    } else if (stat.sets < stat.min) {
+      const suggestion = (RECOMMENDED_EXERCISES[stat.muscle] || [])[0];
+      if (suggestion) gaps.push({ label: stat.muscle, sets: stat.sets, min: stat.min, suggestion });
+    }
+  });
+  return gaps.sort((a, b) => (a.sets === 0) !== (b.sets === 0) ? (a.sets === 0 ? -1 : 1) : a.sets / a.min - b.sets / b.min);
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
@@ -39,6 +39,7 @@ import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import MuscleGapHint from './MuscleGapHint';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -167,7 +168,8 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
 
 // onWorkoutSaved: App.jsx sends the client to Home → Muscle Balance Overview
 // once a workout is saved (after the summary card is closed, if one shows).
-const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
+// onOpenMuscleMap: Home → Muscles → Heat Map (the "Behind this week" hint's link).
+const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
 
   // ─── In-progress workout draft persistence ───
@@ -2766,6 +2768,27 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     return setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
   };
 
+  // Flat per-set rows for MuscleGapHint: this client's saved sessions plus
+  // the sets already ticked off in the session in progress (not saved yet,
+  // so never double-counted), so the hint updates as the workout goes.
+  const muscleGapLogs = useMemo(() => {
+    const me = loggedInUser.toLowerCase();
+    const rows = [];
+    sessions.forEach(s => {
+      if (s.clientName && s.clientName.toLowerCase() !== me) return;
+      const date = String(s.date || '').slice(0, 10);
+      (s.exercises || []).forEach(ex => (ex.sets || []).forEach(set => {
+        rows.push({ exercise_name: ex.name, log_date: date, set_type: set.isWarmup ? 'warmup' : (set.setType || null) });
+      }));
+    });
+    if (isLoggingWorkout) {
+      logExercises.forEach(ex => (ex.sets || []).forEach(set => {
+        if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: logDate, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null });
+      }));
+    }
+    return rows;
+  }, [sessions, logExercises, isLoggingWorkout, logDate, loggedInUser]);
+
   const addExerciseToWorkout = (name) => {
     const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
     if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
@@ -4275,6 +4298,15 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 );
               })}
             </div>
+
+            {/* What's behind this week, right where the next exercise gets
+                picked — chips add straight into this workout. */}
+            <MuscleGapHint
+              logs={muscleGapLogs}
+              addedNames={logExercises.map(le => le.name)}
+              onAdd={addExerciseToWorkout}
+              onOpenMuscleMap={onOpenMuscleMap}
+            />
 
             {/* Add Exercise — picker button kept at the bottom of the list. */}
             <div className="live-add-ex-box">

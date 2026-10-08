@@ -8645,6 +8645,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
                       {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}
                       <div className="add-exercise-selector-box" style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.05)', paddingTop: '16px', marginBottom: '24px' }}>
+                        {/* What this client is behind on this week, so the
+                            plan can cover it — chips add to the plan. */}
+                        <MuscleGapHint
+                          logs={rawWorkoutLogs}
+                          addedNames={editorExercises.map(le => le.name)}
+                          onAdd={handleAddExerciseToEditor}
+                        />
                         <button
                           type="button"
                           className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth"

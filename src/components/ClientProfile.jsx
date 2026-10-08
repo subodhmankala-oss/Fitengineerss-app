@@ -50,7 +50,22 @@ export default function ClientProfile({ handleLogout, onReplayDemoTour, initialS
   // Lets App.jsx jump straight to a sub-section (e.g. Measurements, from the
   // measurement-reminder push notification's deep link) instead of landing
   // on the plain settings list and leaving the user to find it themselves.
-  const [activeSection, setActiveSection] = useState(initialSection);
+  // With no deep link, reopen the sub-section the user was in so a
+  // pull-to-refresh (full reload) doesn't drop them back on the list.
+  const [activeSection, setActiveSection] = useState(() => {
+    if (initialSection) return initialSection;
+    try {
+      const saved = localStorage.getItem('profileSection');
+      if (['profile', 'account', 'notifications', 'workouts', 'measurements', 'units', 'theme', 'whatsnew'].includes(saved)) return saved;
+    } catch { /* storage unavailable */ }
+    return null;
+  });
+  useEffect(() => {
+    try {
+      if (activeSection) localStorage.setItem('profileSection', activeSection);
+      else localStorage.removeItem('profileSection');
+    } catch { /* storage unavailable */ }
+  }, [activeSection]);
   useEffect(() => {
     if (activeSection && dotSections.has(activeSection)) onSectionOpen?.(activeSection);
   }, [activeSection, dotSections, onSectionOpen]);

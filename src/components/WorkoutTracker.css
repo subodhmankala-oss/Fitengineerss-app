@@ -5392,25 +5392,26 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 800;
 }
 
-.muscle-gap-actions {
+.muscle-gap-lead {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
 }
 
-/* Hide / Show pill: an obvious, labeled fold control. */
+/* Fold control: just an arrow in a circle. */
 .muscle-gap-fold {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
   background: rgba(var(--fg-rgb), 0.06);
-  border: 1px solid rgba(var(--fg-rgb), 0.1);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
   color: var(--text-main);
   cursor: pointer;
 }
@@ -5419,7 +5420,7 @@ html.keyboard-open .rest-timer-floating-card {
   transition: transform 0.2s ease;
 }
 
-/* Arrow points down to "Show" (it'll open), up to "Hide" (it'll fold). */
+/* Arrow points down when folded (tap to open), up when open (tap to fold). */
 .muscle-gap-fold svg.open {
   transform: rotate(180deg);
 }

@@ -41,19 +41,18 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
   return (
     <div className={`muscle-gap-hint${collapsed ? ' muscle-gap-hint--collapsed' : ''}`}>
       <div className="muscle-gap-head">
-        <button type="button" className="muscle-gap-toggle" onClick={toggle} aria-expanded={!collapsed}>
-          <span className="muscle-gap-title">💡 <strong>{gaps.length}</strong> behind this week</span>
-        </button>
-        <span className="muscle-gap-actions">
-          {!collapsed && onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>Muscle map →</button>}
-          {/* A labeled pill, not a bare arrow: a tiny ▾ didn't read as "this folds". */}
-          <button type="button" className="muscle-gap-fold" onClick={toggle} aria-expanded={!collapsed}>
-            {collapsed ? 'Show' : 'Hide'}
-            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className={collapsed ? '' : 'open'}>
-              <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        <span className="muscle-gap-lead">
+          <button type="button" className="muscle-gap-toggle" onClick={toggle} aria-expanded={!collapsed}>
+            <span className="muscle-gap-title">💡 <strong>{gaps.length}</strong> behind this week</span>
           </button>
+          {!collapsed && onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>Muscle map →</button>}
         </span>
+        {/* Arrow in a circle: a bare tiny ▾ didn't read as "this folds". */}
+        <button type="button" className="muscle-gap-fold" onClick={toggle} aria-expanded={!collapsed} aria-label={collapsed ? 'Show suggestions' : 'Hide suggestions'}>
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className={collapsed ? '' : 'open'}>
+            <path d="M3 5.25 7 9.25 11 5.25" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
       {!collapsed && (<>
       <div className="muscle-gap-cards">

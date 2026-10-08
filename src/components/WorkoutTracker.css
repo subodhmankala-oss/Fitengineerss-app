@@ -5347,24 +5347,12 @@ html.keyboard-open .rest-timer-floating-card {
   max-width: 200px;
 }
 
-/* "Behind this week" hint above Add Exercise (MuscleGapHint.jsx). Violet =
-   the muscle detail screen's to-do color. */
+/* "Behind this week" hint above Add Exercise (MuscleGapHint.jsx). Kept
+   deliberately quiet: no panel, just a muted header line and a row of slim
+   chips, so it never competes with the sets being logged. */
 .muscle-gap-hint {
   --gap-tone: #a78bfa;
-  margin: 4px 0 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: linear-gradient(100deg, color-mix(in srgb, var(--gap-tone) 12%, transparent), transparent 70%), rgba(var(--fg-rgb), 0.04);
-  border: 1px solid color-mix(in srgb, var(--gap-tone) 35%, transparent);
-  border-left: 4px solid var(--gap-tone);
-}
-
-.muscle-gap-hint--good {
-  --gap-tone: #10b981;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  margin: 2px 0 14px;
 }
 
 .muscle-gap-head {
@@ -5374,13 +5362,13 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 10px;
 }
 
-/* Tapping the title folds the card to this one line (remembered per user). */
+/* Tapping the title folds the hint to this one line (remembered per user). */
 .muscle-gap-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding: 0;
+  padding: 2px 0;
   background: none;
   border: none;
   font: inherit;
@@ -5389,9 +5377,20 @@ html.keyboard-open .rest-timer-floating-card {
   cursor: pointer;
 }
 
+.muscle-gap-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.muscle-gap-title strong {
+  color: var(--gap-tone);
+  font-weight: 800;
+}
+
 .muscle-gap-chevron {
-  font-size: 1rem;
-  color: var(--text-main);
+  font-size: 0.7rem;
+  color: var(--text-muted);
   transition: transform 0.2s ease;
   transform: rotate(-90deg);
 }
@@ -5400,44 +5399,31 @@ html.keyboard-open .rest-timer-floating-card {
   transform: none;
 }
 
-.muscle-gap-hint--collapsed {
-  padding-top: 10px;
-  padding-bottom: 10px;
-}
-
-.muscle-gap-title {
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: var(--text-main);
-}
-
 .muscle-gap-link {
   flex-shrink: 0;
   padding: 0;
   background: none;
   border: none;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
   cursor: pointer;
 }
 
-.muscle-gap-sub {
-  margin: 2px 0 0;
-  font-size: 0.75rem;
+.muscle-gap-hint--good .muscle-gap-title {
   color: var(--text-muted);
 }
 
-/* One swipeable row of small cards, bleeding to the hint's edges. */
+/* One swipeable row, bleeding to the screen edge so it's obvious it scrolls. */
 .muscle-gap-cards {
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: 14px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  margin: 10px -14px 0;
-  padding: 0 14px 2px;
+  margin: 8px -16px 0 0;
+  padding: 0 16px 2px 0;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -5451,30 +5437,26 @@ html.keyboard-open .rest-timer-floating-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 12px;
-  background: rgba(var(--fg-rgb), 0.04);
-  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  gap: 5px;
   scroll-snap-align: start;
 }
 
 .muscle-gap-card-label {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-left: 2px;
-  font-size: 0.82rem;
-  color: var(--text-main);
+  padding-left: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
 .muscle-gap-count {
-  font-size: 0.72rem;
-  font-weight: 700;
   color: var(--gap-tone);
+  font-weight: 700;
 }
 
+/* Slimmer than the history sheet's chips — same look, smaller footprint. */
 .muscle-gap-card .ex-history-rec-chip {
+  padding: 6px 12px;
+  font-size: 0.8rem;
   white-space: nowrap;
 }

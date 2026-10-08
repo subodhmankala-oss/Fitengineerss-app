@@ -30,8 +30,10 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
   if (!gaps.length) {
     return (
       <div className="muscle-gap-hint muscle-gap-hint--good">
-        <span className="muscle-gap-title">✅ Every muscle is on track this week</span>
-        {onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>See muscle map →</button>}
+        <div className="muscle-gap-head">
+          <span className="muscle-gap-title">✅ Every muscle is on track this week</span>
+          {onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>Muscle map →</button>}
+        </div>
       </div>
     );
   }
@@ -40,21 +42,19 @@ const MuscleGapHint = ({ logs, addedNames = [], onAdd, onOpenMuscleMap }) => {
     <div className={`muscle-gap-hint${collapsed ? ' muscle-gap-hint--collapsed' : ''}`}>
       <div className="muscle-gap-head">
         <button type="button" className="muscle-gap-toggle" onClick={toggle} aria-expanded={!collapsed}>
-          <span className="muscle-gap-title">💡 {gaps.length} behind this week</span>
+          <span className="muscle-gap-title">💡 <strong>{gaps.length}</strong> behind this week</span>
           <span className={`muscle-gap-chevron${collapsed ? '' : ' open'}`} aria-hidden="true">▾</span>
         </button>
-        {!collapsed && onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>See muscle map →</button>}
+        {!collapsed && onOpenMuscleMap && <button type="button" className="muscle-gap-link" onClick={onOpenMuscleMap}>Muscle map →</button>}
       </div>
       {!collapsed && (<>
-      {gaps.length > 1 && <p className="muscle-gap-sub">Swipe to see them all — tap one to add it</p>}
       <div className="muscle-gap-cards">
         {gaps.map(g => {
           const isAdded = added.has(g.suggestion.toLowerCase());
           return (
             <div key={g.label} className="muscle-gap-card">
               <span className="muscle-gap-card-label">
-                <strong>{g.label}</strong>
-                <span className="muscle-gap-count">{g.sets}/{g.min} sets</span>
+                {g.label} · <span className="muscle-gap-count">{g.sets}/{g.min}</span>
               </span>
               <button
                 type="button"

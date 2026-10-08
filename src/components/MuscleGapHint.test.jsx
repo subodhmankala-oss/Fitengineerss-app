@@ -17,7 +17,7 @@ describe('MuscleGapHint', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /behind this week/ }));
     expect(document.querySelectorAll('.muscle-gap-card').length).toBe(0);
-    expect(screen.queryByText('See muscle map →')).toBeNull();
+    expect(screen.queryByText('Muscle map →')).toBeNull();
     expect(screen.getByText(/behind this week/)).toBeTruthy();
 
     cleanup();

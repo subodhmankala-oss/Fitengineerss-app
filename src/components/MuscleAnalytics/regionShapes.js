@@ -45,6 +45,10 @@ const TRICEPS_INNER = [[53.5, 90, 65, 134], [135, 90, 146.4, 134]];
 const TRICEPS_OUTER = [[41, 90, 53.5, 134], [146.4, 90, 159, 134]];
 const clipped = (raw, clips) => clips.map(clip => ({ raw, clip }));
 
+// The two arms are ~90px apart, so an icon framing a region's whole `box`
+// zooms out to the full figure. Arm regions frame one arm (`iconBox`).
+const ARM_ICON = { biceps: [44, 94, 64, 131], triceps: [42, 93, 65, 131], forearm: [25, 124, 62, 178] };
+
 export const REGION_SHAPES = {
   'Upper Chest': { view: 'front', parts: pecBand(66, 79), box: [58, 67, 139, 79] },
   'Mid Chest': { view: 'front', parts: pecBand(79, 89), box: [58, 79, 139, 89] },
@@ -71,11 +75,11 @@ export const REGION_SHAPES = {
   'Rear Delts': { view: 'back', parts: [{ raw: rearDeltRaw }], box: [43, 64, 157, 103] },
   'Rotator Cuff': { view: 'back', parts: [{ raw: teresRaw }], box: [61, 77, 139, 101] },
 
-  'Biceps Long Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_OUTER), box: [44, 94, 153, 131] },
-  'Biceps Short Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_INNER), box: [44, 94, 153, 131] },
-  'Triceps Long Head': { view: 'back', parts: clipped(muscle5Raw, TRICEPS_INNER), box: [42, 93, 158, 131] },
-  'Triceps Lateral Head': { view: 'back', parts: clipped(muscle5Raw, TRICEPS_OUTER), box: [42, 93, 158, 131] },
-  Forearms: { view: 'front', parts: [{ raw: forearmRaw }], box: [25, 124, 173, 178] },
+  'Biceps Long Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_OUTER), box: [44, 94, 153, 131], iconBox: ARM_ICON.biceps },
+  'Biceps Short Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_INNER), box: [44, 94, 153, 131], iconBox: ARM_ICON.biceps },
+  'Triceps Long Head': { view: 'back', parts: clipped(muscle5Raw, TRICEPS_INNER), box: [42, 93, 158, 131], iconBox: ARM_ICON.triceps },
+  'Triceps Lateral Head': { view: 'back', parts: clipped(muscle5Raw, TRICEPS_OUTER), box: [42, 93, 158, 131], iconBox: ARM_ICON.triceps },
+  Forearms: { view: 'front', parts: [{ raw: forearmRaw }], box: [25, 124, 173, 178], iconBox: ARM_ICON.forearm },
 
   // Rectus abdominis spans y 116–182.
   'Upper Abs': { view: 'front', parts: [{ raw: muscle6Raw, clip: [80, 114, 117, 149] }], box: [82, 116, 115, 149] },
@@ -100,8 +104,8 @@ export const REGION_SHAPES = {
   // detail screen's "Inside Glutes" etc. Same clip-the-overlay approach.
   // Forearm, palms forward: thumb side (extensors, brachioradialis) is the
   // outer edge, the palm-side flexors the inner.
-  'Forearm Flexors': { view: 'front', parts: clipped(forearmRaw, [[38, 120, 62, 180], [138, 120, 162, 180]]), box: [38, 124, 162, 178] },
-  'Forearm Extensors': { view: 'front', parts: clipped(forearmRaw, [[22, 120, 38, 180], [162, 120, 176, 180]]), box: [25, 124, 173, 178] },
+  'Forearm Flexors': { view: 'front', parts: clipped(forearmRaw, [[38, 120, 62, 180], [138, 120, 162, 180]]), box: [38, 124, 162, 178], iconBox: ARM_ICON.forearm },
+  'Forearm Extensors': { view: 'front', parts: clipped(forearmRaw, [[22, 120, 38, 180], [162, 120, 176, 180]]), box: [25, 124, 173, 178], iconBox: ARM_ICON.forearm },
   // Gluteus medius sits above and outside the max: the top band of the glute.
   'Glute Max': { view: 'back', parts: [{ raw: muscle8Raw, clip: [58, 176, 142, 240] }], box: [61, 176, 138, 237] },
   'Glute Med': { view: 'back', parts: [{ raw: muscle8Raw, clip: [58, 154, 142, 176] }], box: [61, 157, 138, 176] },
@@ -158,6 +162,7 @@ function femaleRegionShape(region) {
         parts: shape.parts?.map(p => ({ raw: raw(p.raw), clip: p.clip && warpBox(p.clip, warp) })),
         paths: shape.paths?.map(d => warpPathD(d, warp)),
         box: warpBox(shape.box, warp),
+        iconBox: shape.iconBox && warpBox(shape.iconBox, warp),
       };
   }
   femaleShapes.set(region, out);
@@ -174,7 +179,7 @@ export function getRegionShape(region, sex) {
 export function regionCrop(region, canvasW = 200, canvasH = 369, sex = null) {
   const shape = getRegionShape(region, sex);
   if (!shape) return null;
-  const [x0, y0, x1, y1] = shape.box;
+  const [x0, y0, x1, y1] = shape.iconBox || shape.box;
   const side = Math.min(canvasW, Math.max(70, Math.max(x1 - x0, y1 - y0) * 1.35));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const x = Math.max(0, Math.min(canvasW - side, cx - side / 2));

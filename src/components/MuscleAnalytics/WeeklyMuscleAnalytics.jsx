@@ -12,6 +12,7 @@ import {
   getRecommendations, compareWeeks, getAverageCompletion, classifyTrend
 } from '../../utils/muscleAnalytics';
 import { subscribeCatalogMuscles } from '../../utils/muscleGroups';
+import { getRegionBreakdownForMuscle } from '../../utils/muscleRegions';
 import databaseService from '../../services/databaseService';
 import { shiftLocalDateString } from '../../utils/dateUtils';
 import { useCountUp } from '../../hooks/useCountUp';
@@ -131,6 +132,14 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     [logs, weekStartStr, weekEndStr, catalogVersion]
   );
 
+  // Heat map draws Back as its parts (Lats / Upper / Mid / Rotator Cuff /
+  // Lower Back), each in its own color; see BodyDiagram's regionSplit.
+  const regionSplit = useMemo(() => {
+    void catalogVersion;
+    const back = getRegionBreakdownForMuscle(logs, 'Back', weekStartStr, weekEndStr).filter(r => r.tier);
+    return { Back: Object.fromEntries(back.map(r => [r.id, r.tier])) };
+  }, [logs, weekStartStr, weekEndStr, catalogVersion]);
+
   const pplc = useMemo(() => getPPLCDistribution(muscleStats), [muscleStats]);
   const insights = useMemo(() => generateWeeklyInsights(muscleStats, pplc), [muscleStats, pplc]);
   const recommendations = useMemo(() => getRecommendations(muscleStats), [muscleStats]);
@@ -244,7 +253,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
 
         {mapTab === 'heatmap' ? (
-          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} />
+          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} />
         ) : (
           <RecoveryDashboard logs={logs} />
         )}

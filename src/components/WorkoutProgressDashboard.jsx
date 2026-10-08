@@ -41,7 +41,19 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // initialTimeframe carries the ?openMuscleMap=1 deep link (see App.jsx) —
   // lazy init so it only wins on first mount, same as the weekly/daily/
   // monthly toggle buttons below normally would.
-  const [timeframe, setTimeframe] = useState(() => initialTimeframe || 'muscles');
+  // Otherwise the last view the user was on, so a pull-to-refresh (full
+  // reload) doesn't bounce Daily/Weekly/Monthly back to Muscles.
+  const [timeframe, setTimeframe] = useState(() => {
+    if (initialTimeframe) return initialTimeframe;
+    try {
+      const saved = localStorage.getItem('homeTimeframe');
+      if (['muscles', 'daily', 'weekly', 'monthly'].includes(saved)) return saved;
+    } catch { /* storage unavailable */ }
+    return 'muscles';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('homeTimeframe', timeframe); } catch { /* storage unavailable */ }
+  }, [timeframe]);
   // 0 = current week, -1 = last week, and so on — lets the weekly view page
   // back through previous weeks instead of only ever showing the current one.
   const [weekOffset, setWeekOffset] = useState(0);

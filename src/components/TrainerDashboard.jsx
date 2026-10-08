@@ -78,6 +78,18 @@ const DEMO_CLIENT = {
 // unread-dot handling around clientNotifications below).
 const CLIENT_DETAIL_TABS = ['plans', 'livelog', 'workout', 'measurements'];
 
+// Where the coach was (dashboard section + open client + client tab), so a
+// pull-to-refresh / reload returns here instead of the client directory.
+const COACH_VIEW_KEY = 'coachLastView';
+const readSavedCoachView = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(COACH_VIEW_KEY) || 'null');
+    return v && typeof v === 'object' ? v : null;
+  } catch {
+    return null;
+  }
+};
+
 // notifications.type values for the super-admin's sign-up alerts — same list
 // as SIGNUP_ALERT_TYPES in api/_adminAlert.js (server-only module, so not
 // imported here).
@@ -140,7 +152,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // see it once the tour is dismissed.
   const coachTour = useCoachTour();
   const showDemoClientRow = coachTour.step > 0;
-  const [viewMode, setViewMode] = useState('coach'); // 'coach' or 'admin'
+  const [savedCoachView] = useState(readSavedCoachView);
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = savedCoachView?.viewMode;
+    if (saved === 'payments') return 'payments';
+    if (saved === 'admin' && superAdmin) return 'admin';
+    return 'coach';
+  }); // 'coach', 'admin' or 'payments'
   // The app is a fixed-width "phone frame" everywhere else (index.css
   // --app-max-width: 480px) — deliberately, for the coach/client mobile UI.
   // subodhmankala@gmail.com is the one account that only ever uses this
@@ -3231,6 +3249,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setRestoredPlanDraft(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients]);
+
+  // Reopen the client (and tab) the coach was on before a reload. A push
+  // deep link or an unsaved Plan Editor draft is a more specific intent and
+  // wins. Runs once, when the client list has finished loading; no deps array
+  // so it always sees the current handlers (the ref makes it one-shot).
+  const coachViewRestoredRef = useRef(false);
+  useEffect(() => {
+    if (coachViewRestoredRef.current || loadingClients) return;
+    coachViewRestoredRef.current = true;
+    if (deepLinkClient?.id || localStorage.getItem('coachPlanEditorDraft')) return;
+    if (selectedClient || !savedCoachView?.clientId) return;
+    const match = clients.find(c => c.id === savedCoachView.clientId);
+    if (!match) return;
+    handleSelectClient(match);
+    const tab = savedCoachView.detailTab;
+    if (tab && tab !== 'plans' && (CLIENT_DETAIL_TABS.includes(tab) || tab === 'chat')) handleTabChange(tab);
+  });
+
+  // Remember the current view for the restore above. Held back until that
+  // restore has run so the defaults can't overwrite what it needs to read.
+  useEffect(() => {
+    if (!coachViewRestoredRef.current) return;
+    try {
+      localStorage.setItem(COACH_VIEW_KEY, JSON.stringify({
+        viewMode,
+        clientId: selectedClient?.id || null,
+        detailTab: selectedClient ? detailTab : null,
+      }));
+    } catch { /* storage unavailable — restore just won't happen */ }
+  }, [viewMode, selectedClient, detailTab]);
 
   // Coach sets this client's coaching-program length. Persisted via the
   // coach↔client-scoped RPC; drives the client's home progress card.

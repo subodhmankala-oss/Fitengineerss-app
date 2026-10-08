@@ -236,6 +236,13 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
   const { isExitingSet, beginExit, handleAnimationEnd: handleExitAnimationEnd, registerRow } = useExitingSetRow();
 
   const [activeView, setActiveView] = useState(savedWorkoutDraft ? 'log' : (loadLastTab() || 'analytics')); // 'analytics', 'log', or 'programs'
+  // Segmented-tab taps are remembered so a reload (pull-to-refresh) returns to
+  // the same sub-tab. Programmatic switches deliberately aren't — see the note
+  // above lastLevelKey's effect.
+  const selectView = (view) => {
+    setActiveView(view);
+    try { localStorage.setItem(lastTabKey, view); } catch { /* ignore quota/serialization errors */ }
+  };
   const [sessions, setSessions] = useState([]);
   const [clientProfiles, setClientProfiles] = useState([]);
   const [selectedClient, setSelectedClient] = useState(loggedInUser);
@@ -2774,21 +2781,21 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
       <div className="workouts-segmented-tabs">
         <button 
           className={`tab-item-btn ${activeView === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveView('analytics')}
+          onClick={() => selectView('analytics')}
         >
           📈 Progress
         </button>
         <button
           data-tour="wt-tab-log"
           className={`tab-item-btn ${activeView === 'log' ? 'active' : ''}`}
-          onClick={() => setActiveView('log')}
+          onClick={() => selectView('log')}
         >
           📝 Log Sets
         </button>
         <button
           data-tour="wt-tab-templates"
           className={`tab-item-btn ${activeView === 'templates' ? 'active' : ''}`}
-          onClick={() => setActiveView('templates')}
+          onClick={() => selectView('templates')}
         >
           🏋️ Library
         </button>

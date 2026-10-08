@@ -5348,11 +5348,15 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 /* "Behind this week" hint above Add Exercise (MuscleGapHint.jsx). Kept
-   deliberately quiet: no panel, just a muted header line and a row of slim
-   chips, so it never competes with the sets being logged. */
+   deliberately quiet: a soft panel with a muted header line and a row of
+   light tiles, so it never competes with the sets being logged. */
 .muscle-gap-hint {
   --gap-tone: #a78bfa;
   margin: 2px 0 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
 }
 
 .muscle-gap-head {
@@ -5415,15 +5419,15 @@ html.keyboard-open .rest-timer-floating-card {
   color: var(--text-muted);
 }
 
-/* One swipeable row, bleeding to the screen edge so it's obvious it scrolls. */
+/* One swipeable row, bleeding to the panel's edges so it's obvious it scrolls. */
 .muscle-gap-cards {
   display: flex;
   flex-wrap: nowrap;
-  gap: 14px;
+  gap: 8px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  margin: 8px -16px 0 0;
-  padding: 0 16px 2px 0;
+  margin: 10px -12px 0;
+  padding: 0 12px 2px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -5437,8 +5441,13 @@ html.keyboard-open .rest-timer-floating-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
   scroll-snap-align: start;
+  scroll-margin-left: 12px;
 }
 
 .muscle-gap-card-label {

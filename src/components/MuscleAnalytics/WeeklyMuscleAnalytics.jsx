@@ -100,15 +100,38 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const heatMapCardRef = useRef(null);
   useEffect(() => {
     if (!focusSection) return undefined;
-    // Deferred a tick: on mount, the heat map's own SVG/animated stat counts
-    // are still settling into their final layout, and scrolling immediately
-    // measures against that not-yet-final geometry — landing short (or
-    // scrolling again after animations shift it below the fold anyway).
-    const t = setTimeout(() => {
+    // One scroll a tick after mount used to land short ("stays half there"):
+    // the logs, the balance cards above and their count-up animations keep
+    // growing the page for a second or two AFTER that scroll, pushing the
+    // target back down. So: one smooth scroll, then keep re-aligning the
+    // target to the top of the scroll container (.main-content) until it
+    // holds still, for up to ~3 s — and stop the moment the client touches
+    // or scrolls themselves.
+    let stopped = false;
+    const timers = [];
+    const stop = () => { stopped = true; };
+    let container = null;
+    const align = (behavior) => {
       const target = focusSection === 'heatmap' ? heatMapCardRef.current : balanceCardRef.current;
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
-    return () => clearTimeout(t);
+      if (!target) return 0;
+      container = container || target.closest('.main-content') || document.scrollingElement;
+      const containerTop = container === document.scrollingElement ? 0 : container.getBoundingClientRect().top;
+      const offset = target.getBoundingClientRect().top - containerTop;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      const next = Math.max(0, Math.min(maxScroll, container.scrollTop + offset));
+      if (Math.abs(next - container.scrollTop) > 4) container.scrollTo({ top: next, behavior });
+      return Math.abs(next - container.scrollTop);
+    };
+    timers.push(setTimeout(() => {
+      align('smooth');
+      ['touchstart', 'wheel', 'pointerdown', 'keydown'].forEach(ev => container?.addEventListener(ev, stop, { passive: true, once: true }));
+    }, 150));
+    // Corrections, after the smooth scroll has had time to finish.
+    [800, 1300, 1900, 2600, 3300].forEach(ms => timers.push(setTimeout(() => { if (!stopped) align('instant'); }, ms)));
+    return () => {
+      timers.forEach(clearTimeout);
+      ['touchstart', 'wheel', 'pointerdown', 'keydown'].forEach(ev => container?.removeEventListener(ev, stop));
+    };
     // Intentionally once-only, on mount — this only ever exists to honor a
     // deep link's initial destination, not to re-scroll on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps

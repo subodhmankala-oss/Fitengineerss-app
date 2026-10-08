@@ -31,7 +31,7 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel, clip }) => 
 // Also used by the Add Exercise picker's body filter, which has no weekly
 // stats: it passes colorFor/labelFor to color and label muscles itself.
 // Male or female figure per the viewed client's profile sex (useBodySex).
-// regionSplit: { Back: { Lats: tier, 'Upper Back': tier, ... } } draws that
+// regionSplit: { Back: { Lats: tier, Trapezius: tier, ... } } draws that
 // muscle as its separate regions (regionShapes.js), each in its own heat-map
 // color and each opening the muscle with that region picked out, instead of
 // one block in the whole muscle's color.

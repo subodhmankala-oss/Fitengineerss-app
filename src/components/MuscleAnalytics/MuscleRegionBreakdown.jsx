@@ -3,7 +3,7 @@ import { RegionThumbnail } from './MuscleThumbnail';
 
 /**
  * "Inside Back" (or Chest/Shoulders) on the muscle detail screen: each region
- * of the muscle — Lats, Upper Back, Mid Back, Rotator Cuff, Lower Back — with
+ * of the muscle — Lats, Trapezius, Mid Back, Rotator Cuff, Lower Back — with
  * its own heat-map status for the week. Tap a row for what was logged there
  * and what to add. `focusRegion` (the part of the body diagram that was
  * tapped) starts expanded, highlighted and scrolled into view.

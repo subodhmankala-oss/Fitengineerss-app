@@ -54,7 +54,7 @@ export const REGION_SHAPES = {
   // Trapezius runs y 43–116: the neck/shoulder part is the upper traps; the
   // part between the shoulder blades (plus teres/infraspinatus) is where the
   // rhomboids and middle/lower traps sit.
-  'Upper Back': { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 40, 140, 76] }], box: [66, 43, 135, 76] },
+  Trapezius: { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 40, 140, 76] }], box: [66, 43, 135, 76] },
   // Teres/infraspinatus is its own region (Rotator Cuff) now, so Mid Back is
   // just the lower trapezius band; the heat map draws the regions side by side.
   'Mid Back': { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 76, 140, 117] }], box: [62, 76, 138, 117] },

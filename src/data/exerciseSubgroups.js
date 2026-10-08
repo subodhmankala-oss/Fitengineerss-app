@@ -1,6 +1,6 @@
 // ─── EXERCISE SUB-GROUPS ───
 // Finer regions inside each Add Exercise category chip: Upper/Mid/Lower
-// Chest, Lats/Upper/Mid/Lower Back (rhomboids, traps, erectors), biceps and
+// Chest, Lats/Trapezius/Mid/Lower Back/Rotator Cuff (traps, rhomboids, erectors), biceps and
 // triceps heads, Upper/Lower Abs + Obliques, and the leg muscles down to
 // Tibialis. Driven by the exercise NAME (same approach as muscleGroups.js),
 // so DB rows, the static library and custom exercises all classify the same
@@ -38,7 +38,7 @@ export const EXERCISE_SUBGROUPS = {
   ],
   Back: [
     { id: 'Lats', hint: 'Latissimus dorsi + teres major — pulldowns, pull-ups, pullovers (width)', test: n => /pulldown|pull.?up|chin.?up|pullover|lat pull|(one|single).?arm.*row|meadows|straight.?arm|underhand/.test(n) && !/scapular/.test(n) },
-    { id: 'Upper Back', hint: 'Upper traps — shrugs, rack pulls, upright rows', test: n => /shrug|rack pull|face pull|y raise|upright row|upward rotation/.test(n) && !/kelso/.test(n) },
+    { id: 'Trapezius', hint: 'Upper trapezius, neck to shoulders — shrugs, rack pulls, upright rows', test: n => /shrug|rack pull|face pull|y raise|upright row|upward rotation/.test(n) && !/kelso/.test(n) },
     { id: 'Mid Back', hint: 'Rhomboids, middle & lower traps, rear delts — rows (thickness)', test: n => (/\brows?\b/.test(n) && !/upright|straight.?arm/.test(n)) || /reverse fly|rear delt|face pull|pull apart|scapular|kelso|chest.?supported/.test(n) },
     { id: 'Rotator Cuff', hint: 'Infraspinatus + teres, over the shoulder blade — external rotations', test: n => /rotator|external rotation|internal rotation/.test(n) },
     { id: 'Lower Back', hint: 'Erector spinae — hinges and back extensions', test: n => /back extension|hyperextension|superman|good morning|deadlift|rack pull|bird dog|cat camel/.test(n) && !/single.?leg/.test(n) },

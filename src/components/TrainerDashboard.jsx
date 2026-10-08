@@ -3927,6 +3927,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     }
   };
 
+  // "Muscle map →" on the behind-this-week hint (Live Log and Send plan),
+  // same link as the client's logger: this client's Workout history →
+  // Muscles, at the heat map. The live session / plan being built stays in
+  // state, so the Live Log or Send plan tab picks up where it was.
+  const openClientMuscleMap = () => {
+    setHistoryWeekOffset(0);
+    setHistoryTimeframe('muscles');
+    setMuscleMapFocus('heatmap');
+    handleTabChange('workout');
+  };
+
   // Coach override for a bad measurement entry (e.g. a blank row saved during
   // the "stuck on Saving…" bug) — an insert-only history table means the
   // client herself can't undo a bad save, and it still burns her 15-day
@@ -8665,6 +8676,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           logs={rawWorkoutLogs}
                           addedNames={editorExercises.map(le => le.name)}
                           onAdd={handleAddExerciseToEditor}
+                          onOpenMuscleMap={openClientMuscleMap}
                         />
                         <button
                           type="button"
@@ -9570,15 +9582,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     logs={liveGapLogs}
                     addedNames={liveExercises.map(le => le.name)}
                     onAdd={handleLiveAddExercise}
-                    // Same "Muscle map →" link as the client's logger: this
-                    // client's Workout history → Muscles, at the heat map.
-                    // The live session stays in state (and its draft).
-                    onOpenMuscleMap={() => {
-                      setHistoryWeekOffset(0);
-                      setHistoryTimeframe('muscles');
-                      setMuscleMapFocus('heatmap');
-                      handleTabChange('workout');
-                    }}
+                    onOpenMuscleMap={openClientMuscleMap}
                   />
 
                   {/* Add Exercise — opens the shared Hevy-style picker (same as client) */}

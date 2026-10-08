@@ -920,7 +920,7 @@
   position: relative;
   border-radius: 14px;
   background:
-    linear-gradient(100deg, color-mix(in srgb, var(--status-color) 16%, transparent) 0%, transparent 70%),
+    linear-gradient(100deg, color-mix(in srgb, var(--status-color) 10%, transparent) 0%, transparent 55%),
     rgba(var(--fg-rgb), 0.04);
   border: 1px solid color-mix(in srgb, var(--status-color) 28%, transparent);
   overflow: hidden;
@@ -1085,7 +1085,7 @@
 
 /* Where it stands + what to do, colored by what to do about it. */
 .detail-region-action {
-  --tone: #f59e0b;
+  --tone: #a78bfa;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -1096,8 +1096,8 @@
   font-weight: 800;
   line-height: 1.4;
   color: var(--text-main);
-  background: color-mix(in srgb, var(--tone) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
 }
 
 .detail-region-action--good { --tone: #10b981; }

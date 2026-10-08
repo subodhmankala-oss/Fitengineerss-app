@@ -17,10 +17,11 @@ function action(r) {
   return { tone: 'over', icon: '⚠️', text: `${sets} sets — more than needed (aim for ${range}). Ease off and let it recover.` };
 }
 
-// An untrained part is a to-do here, not a dead row: amber (matching the 🎯
+// An untrained part is a to-do here, not a dead row: violet (matching the 🎯
 // action box) instead of the heat map's grey, which also hid which part of
-// the body the icon shows.
-const UNTRAINED_COLOR = '#f59e0b';
+// the body the icon shows. Violet, not amber: amber washed over the dark card
+// read as brown, and it's clear of every heat-map color.
+const UNTRAINED_COLOR = '#a78bfa';
 
 /**
  * "Inside Back" (or Chest/Shoulders) on the muscle detail screen: each region

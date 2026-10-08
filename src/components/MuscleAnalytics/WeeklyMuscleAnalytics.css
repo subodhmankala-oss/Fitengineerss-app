@@ -907,3 +907,252 @@
   background: rgba(var(--fg-rgb), 0.04);
   border: 1px solid rgba(var(--fg-rgb), 0.06);
 }
+
+/* Muscle detail: per-region breakdown ("Inside Back") — MuscleRegionBreakdown.jsx */
+.detail-region-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Each part: status-colored edge + a wash of that color fading across. */
+.detail-region-row {
+  position: relative;
+  border-radius: 14px;
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--status-color) 10%, transparent) 0%, transparent 55%),
+    rgba(var(--fg-rgb), 0.04);
+  border: 1px solid color-mix(in srgb, var(--status-color) 28%, transparent);
+  overflow: hidden;
+  animation: regionRowIn 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--row-delay, 0ms);
+}
+
+.detail-region-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--status-color);
+}
+
+.detail-region-row.focused {
+  border-color: var(--status-color);
+  box-shadow: 0 0 0 1px var(--status-color) inset, 0 6px 22px color-mix(in srgb, var(--status-color) 22%, transparent);
+}
+
+@keyframes regionRowIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.detail-region-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px 10px 14px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-region-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--status-color) 55%, transparent);
+}
+
+.detail-region-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-region-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.detail-region-name {
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+/* Solid little badge with a dot, in the part's status color. */
+.detail-region-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--status-color);
+  background: color-mix(in srgb, var(--status-color) 18%, transparent);
+}
+
+.detail-region-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Progress toward the target: full at the top of the range. */
+.detail-region-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(var(--fg-rgb), 0.08);
+  overflow: hidden;
+}
+
+.detail-region-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--status-color);
+  transform-origin: left;
+  animation: regionBarFill 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--row-delay, 0ms) + 150ms);
+}
+
+@keyframes regionBarFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.detail-region-sets {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.detail-region-sets strong {
+  color: var(--text-main);
+  font-weight: 800;
+}
+
+.detail-region-chevron {
+  flex-shrink: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.detail-region-chevron.open {
+  transform: rotate(90deg);
+}
+
+.detail-region-body {
+  padding: 2px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: regionRowIn 0.25s ease both;
+}
+
+/* What the muscle is / does — main reading text, not a caption. */
+.detail-region-explain {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-main);
+}
+
+/* Where it stands + what to do, colored by what to do about it. */
+.detail-region-action {
+  --tone: #a78bfa;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
+}
+
+.detail-region-action--good { --tone: #10b981; }
+.detail-region-action--over { --tone: #ef4444; }
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-region-row,
+  .detail-region-body,
+  .detail-region-bar-fill {
+    animation: none;
+  }
+}
+
+.detail-region-line {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.detail-region-line strong {
+  color: var(--text-main);
+}
+
+.detail-region-recs-title {
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+/* One swipeable row, bleeding to the row card's edges (12px padding). */
+.detail-region-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -12px;
+  padding: 0 12px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.detail-region-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.detail-region-chips .ex-history-rec-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.detail-region-go {
+  margin-top: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}

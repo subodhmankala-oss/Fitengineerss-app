@@ -20,7 +20,7 @@ describe('exercise sub-groups', () => {
   it('splits back into lats / upper / mid (rhomboids) / lower', () => {
     expect(inSg('Lat Pulldown', 'Lats')).toBe(true);
     expect(inSg('Pull-up', 'Lats')).toBe(true);
-    expect(inSg('Shrug (Dumbbell)', 'Upper Back')).toBe(true);
+    expect(inSg('Shrug (Dumbbell)', 'Trapezius')).toBe(true);
     expect(inSg('Seated Cable Row', 'Mid Back')).toBe(true);
     expect(inSg('Wide-Grip Seated Row', 'Mid Back')).toBe(true);
     expect(inSg('One Arm Dumbbell Row', 'Lats')).toBe(true);

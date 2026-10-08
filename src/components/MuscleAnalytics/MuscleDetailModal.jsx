@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useCountUp } from '../../hooks/useCountUp';
 import MuscleThumbnail from './MuscleThumbnail';
+import MuscleRegionBreakdown from './MuscleRegionBreakdown';
+import { getRegionBreakdownForMuscle } from '../../utils/muscleRegions';
 import { shiftLocalDateString, getLocalDateString } from '../../utils/dateUtils';
 import {
   getWeeklyMuscleStats, getExerciseBreakdownForMuscle, getBestLiftForMuscle,
@@ -53,7 +55,7 @@ const TrendSparkline = ({ weeks }) => {
  * already works (ExercisePickerModal, Form Guide sheet, payment modal).
  * Opened by tapping a Section 1 card or a Section 2 heat map region.
  */
-const MuscleDetailModal = ({ muscle, logs, onClose }) => {
+const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExercise = null, onGoToWorkout = null }) => {
   const now = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => getLocalDateString(now), [now]);
   const weekStart = useMemo(() => shiftLocalDateString(todayStr, -6), [todayStr]);
@@ -69,6 +71,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
   const trend = useMemo(() => getWeeklySetsTrendForMuscle(logs, muscle, 6, now), [logs, muscle, now]);
   const growth = useMemo(() => getMuscleGrowthScore(logs, muscle, now), [logs, muscle, now]);
   const recovery = useMemo(() => getMuscleRecovery(logs, muscle, now), [logs, muscle, now]);
+  const regions = useMemo(() => getRegionBreakdownForMuscle(logs, muscle, weekStart, todayStr), [logs, muscle, weekStart, todayStr]);
 
   // Closing is animated: the sheet slides back down and the backdrop fades
   // out BEFORE the parent unmounts this component (the parent just does
@@ -124,6 +127,8 @@ const MuscleDetailModal = ({ muscle, logs, onClose }) => {
           {recovery && (
             <p className="detail-meta-line">Last trained {recovery.hoursSince < 24 ? `${recovery.hoursSince}h ago` : `${Math.floor(recovery.hoursSince / 24)}d ago`} · {recovery.bucket.label}</p>
           )}
+
+          <MuscleRegionBreakdown muscle={muscle} regions={regions} focusRegion={focusRegion} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} />
 
           {/* Recommended exercises + sets still needed this week */}
           <div className="detail-section">

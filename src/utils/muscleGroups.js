@@ -73,8 +73,10 @@ const RULES = [
   // and "Rotator calf" is a common misspelling of "Rotator cuff", which the
   // substring /calf/ rule then credited to Calves (a real bug — a 1 kg
   // shoulder-rehab movement showed up as calf training). Matching "rotator"
-  // first claims both the correct spelling and that typo for Shoulders.
-  { test: n => /rotator|external rotation|internal rotation/.test(n), muscles: ['Shoulders'] },
+  // first claims both the correct spelling and that typo. The rotator cuff
+  // (infraspinatus/teres, over the shoulder blade) is drawn and counted as
+  // part of Back — previously Shoulders.
+  { test: n => /rotator|external rotation|internal rotation|infraspinatus|\bteres\b/.test(n), muscles: ['Back'] },
 
   // ── Legs (isolation first, then compound) ──
   // Requires an actual calf MOVEMENT (raise/press/extension) or the plural
@@ -173,16 +175,94 @@ const RULES = [
 
 const memo = new Map();
 
+// ── Catalog fallback ──
+// The admin Exercise Library lets the admin type free-text Primary/Secondary
+// muscles (e.g. "Lower Trapezius, Latissimus Dorsi"). Those never fed the
+// analytics, so an exercise whose NAME matches none of the RULES above was
+// credited to no muscle. This maps that text onto the same 12 groups (no new
+// groups) and is consulted ONLY when no name rule matched — so every exercise
+// the rules already classify keeps exactly the same numbers.
+const MUSCLE_TEXT_RULES = [
+  [/tibialis/, 'Tibialis'],
+  [/teres|infraspinatus|supraspinatus|subscapularis|rotator/, 'Back'],
+  [/trapez|\btraps?\b|rhomboid|latissimus|\blats?\b|erector|lower back|\bback\b|spinal/, 'Back'],
+  [/delt|shoulder|rotator/, 'Shoulders'],
+  [/pec|chest/, 'Chest'],
+  [/bicep|brachialis/, 'Biceps'],
+  [/tricep/, 'Triceps'],
+  [/forearm|brachioradialis|grip|wrist/, 'Forearms'],
+  [/\babs?\b|abdominal|core|oblique|transverse/, 'Core'],
+  [/glute|abductor|adductor|hip/, 'Glutes'],
+  [/quad|thigh/, 'Quads'],
+  [/hamstring/, 'Hamstrings'],
+  [/calf|calves|soleus|gastroc/, 'Calves']
+];
+
+// Free text ("Lower Trapezius, Latissimus Dorsi") → canonical groups, in
+// order of appearance, de-duped.
+export function parseMuscleText(text) {
+  const out = [];
+  String(text || '').toLowerCase().split(/[,/;&+]|\band\b/).forEach(part => {
+    const hit = MUSCLE_TEXT_RULES.find(([re]) => re.test(part));
+    if (hit && !out.includes(hit[1])) out.push(hit[1]);
+  });
+  return out;
+}
+
+// Same 1–2 credit convention as the rules above: the primary muscle, plus the
+// first DIFFERENT group from the rest of the primary field or the secondary
+// field. "Lower Trapezius, Latissimus Dorsi" + "Rhomboids, Forearms" is
+// [Back, Forearms] (Rhomboids is Back again, so it adds nothing).
+// Falls back to Category only if both fields resolve to nothing.
+function groupsFromCatalogRow(row) {
+  const primary = parseMuscleText(row.primary_muscle);
+  const secondary = parseMuscleText(row.secondary_muscle);
+  const out = [];
+  if (primary.length) out.push(primary[0]);
+  const second = [...primary.slice(1), ...secondary].find(m => !out.includes(m));
+  if (second) out.push(second);
+  if (!out.length) return parseMuscleText(row.category).slice(0, 1);
+  return out;
+}
+
+let catalogMuscles = new Map();
+const catalogListeners = new Set();
+
+// Called with the DB exercise rows each time the library loads.
+export function setCatalogMuscles(rows) {
+  const next = new Map();
+  (rows || []).forEach(row => {
+    const name = (row?.name || '').trim().toLowerCase();
+    if (!name) return;
+    const groups = groupsFromCatalogRow(row);
+    if (groups.length) next.set(name, groups);
+  });
+  const changed = next.size !== catalogMuscles.size
+    || [...next].some(([k, v]) => (catalogMuscles.get(k) || []).join() !== v.join());
+  if (!changed) return;
+  catalogMuscles = next;
+  memo.clear();
+  catalogListeners.forEach(fn => fn());
+}
+
+// Lets a mounted screen re-render once the catalog lands (the library loads
+// async, usually after the first analytics render). Returns an unsubscribe.
+export function subscribeCatalogMuscles(fn) {
+  catalogListeners.add(fn);
+  return () => catalogListeners.delete(fn);
+}
+
 // Returns an array of 1–2 canonical muscle group names for a given exercise
-// name. Unrecognized/custom exercise names return [] (no muscle credited) —
-// callers should treat that as "excluded from analytics", not an error.
+// name. Name rules win; otherwise the catalog's Primary/Secondary muscle text
+// is used. Unrecognized/custom exercise names return [] (no muscle credited)
+// — callers should treat that as "excluded from analytics", not an error.
 export function getMuscleGroupsForExercise(exerciseName) {
   if (!exerciseName) return [];
   const key = exerciseName.trim().toLowerCase();
   if (memo.has(key)) return memo.get(key);
 
   const rule = RULES.find(r => r.test(key));
-  const result = rule ? rule.muscles : [];
+  const result = rule ? rule.muscles : (catalogMuscles.get(key) || []);
   memo.set(key, result);
   return result;
 }

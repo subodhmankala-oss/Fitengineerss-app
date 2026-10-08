@@ -11,6 +11,9 @@ import {
   getWeeklyMuscleStats, getPPLCDistribution, generateWeeklyInsights,
   getRecommendations, compareWeeks, getAverageCompletion, classifyTrend
 } from '../../utils/muscleAnalytics';
+import { subscribeCatalogMuscles } from '../../utils/muscleGroups';
+import { getRegionBreakdownForMuscle } from '../../utils/muscleRegions';
+import databaseService from '../../services/databaseService';
 import { shiftLocalDateString } from '../../utils/dateUtils';
 import { useCountUp } from '../../hooks/useCountUp';
 import './WeeklyMuscleAnalytics.css';
@@ -68,7 +71,7 @@ const ShareIconButton = ({ onClick, title }) => (
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onGoToWorkout = null }) => {
   const weekStartStr = weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
@@ -78,6 +81,10 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     `${bareCards ? 'muscle-analytics-bare-card' : 'chart-widget-card glass-panel'}${extra ? ` ${extra}` : ''}`;
   const weekEndStr = weekDays[6];
   const [selectedMuscle, setSelectedMuscle] = useState(null);
+  // Which part of the muscle was tapped on the body diagram (e.g. Back →
+  // Rotator Cuff); the detail screen highlights it. Null from a card/chip tap.
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const selectMuscle = (muscle, region = null) => { setSelectedMuscle(muscle); setSelectedRegion(region); };
   const [balanceTab, setBalanceTab] = useState('balance'); // 'balance' | 'neglected'
   const [insightsTab, setInsightsTab] = useState('insights'); // 'insights' | 'comparison' | 'recommendations'
   const [mapTab, setMapTab] = useState('heatmap'); // 'heatmap' | 'recovery'
@@ -93,24 +100,68 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const heatMapCardRef = useRef(null);
   useEffect(() => {
     if (!focusSection) return undefined;
-    // Deferred a tick: on mount, the heat map's own SVG/animated stat counts
-    // are still settling into their final layout, and scrolling immediately
-    // measures against that not-yet-final geometry — landing short (or
-    // scrolling again after animations shift it below the fold anyway).
-    const t = setTimeout(() => {
+    // One scroll a tick after mount used to land short ("stays half there"):
+    // the logs, the balance cards above and their count-up animations keep
+    // growing the page for a second or two AFTER that scroll, pushing the
+    // target back down. So: one smooth scroll, then keep re-aligning the
+    // target to the top of the scroll container (.main-content) until it
+    // holds still, for up to ~3 s — and stop the moment the client touches
+    // or scrolls themselves.
+    let stopped = false;
+    const timers = [];
+    const stop = () => { stopped = true; };
+    let container = null;
+    const align = (behavior) => {
       const target = focusSection === 'heatmap' ? heatMapCardRef.current : balanceCardRef.current;
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
-    return () => clearTimeout(t);
+      if (!target) return 0;
+      container = container || target.closest('.main-content') || document.scrollingElement;
+      const containerTop = container === document.scrollingElement ? 0 : container.getBoundingClientRect().top;
+      const offset = target.getBoundingClientRect().top - containerTop;
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      const next = Math.max(0, Math.min(maxScroll, container.scrollTop + offset));
+      if (Math.abs(next - container.scrollTop) > 4) container.scrollTo({ top: next, behavior });
+      return Math.abs(next - container.scrollTop);
+    };
+    timers.push(setTimeout(() => {
+      align('smooth');
+      ['touchstart', 'wheel', 'pointerdown', 'keydown'].forEach(ev => container?.addEventListener(ev, stop, { passive: true, once: true }));
+    }, 150));
+    // Corrections, after the smooth scroll has had time to finish.
+    [800, 1300, 1900, 2600, 3300].forEach(ms => timers.push(setTimeout(() => { if (!stopped) align('instant'); }, ms)));
+    return () => {
+      timers.forEach(clearTimeout);
+      ['touchstart', 'wheel', 'pointerdown', 'keydown'].forEach(ev => container?.removeEventListener(ev, stop));
+    };
     // Intentionally once-only, on mount — this only ever exists to honor a
     // deep link's initial destination, not to re-scroll on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The exercise catalog's Primary Muscle text feeds the muscle mapping for
+  // exercises no name rule recognises (see muscleGroups.setCatalogMuscles).
+  // It loads async, so make sure it's loaded and recompute once it lands.
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  useEffect(() => {
+    const unsub = subscribeCatalogMuscles(() => setCatalogVersion(v => v + 1));
+    databaseService.getExerciseLibrary().catch(() => {});
+    return unsub;
+  }, []);
+
   const muscleStats = useMemo(
-    () => getWeeklyMuscleStats(logs, weekStartStr, weekEndStr),
-    [logs, weekStartStr, weekEndStr]
+    () => {
+      void catalogVersion; // recompute when the catalog mapping changes
+      return getWeeklyMuscleStats(logs, weekStartStr, weekEndStr);
+    },
+    [logs, weekStartStr, weekEndStr, catalogVersion]
   );
+
+  // Heat map draws Back as its parts (Lats / Upper / Mid / Rotator Cuff /
+  // Lower Back), each in its own color; see BodyDiagram's regionSplit.
+  const regionSplit = useMemo(() => {
+    void catalogVersion;
+    const back = getRegionBreakdownForMuscle(logs, 'Back', weekStartStr, weekEndStr).filter(r => r.tier);
+    return { Back: Object.fromEntries(back.map(r => [r.id, r.tier])) };
+  }, [logs, weekStartStr, weekEndStr, catalogVersion]);
 
   const pplc = useMemo(() => getPPLCDistribution(muscleStats), [muscleStats]);
   const insights = useMemo(() => generateWeeklyInsights(muscleStats, pplc), [muscleStats, pplc]);
@@ -122,8 +173,11 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const prevWeekEndStr = useMemo(() => shiftLocalDateString(weekEndStr, -7), [weekEndStr]);
 
   const comparison = useMemo(
-    () => compareWeeks(logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr),
-    [logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr]
+    () => {
+      void catalogVersion;
+      return compareWeeks(logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr);
+    },
+    [logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr, catalogVersion]
   );
 
   const balanceTrend = useMemo(() => {
@@ -185,7 +239,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
             <p className="muscle-analytics-subtext">Working sets per muscle group, measured against your weekly target.</p>
             <div className="muscle-card-grid">
               {muscleStats.map((stat, i) => (
-                <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => setSelectedMuscle(stat.muscle)} />
+                <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => selectMuscle(stat.muscle)} />
               ))}
             </div>
             <div className="muscle-status-legend">
@@ -222,7 +276,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
 
         {mapTab === 'heatmap' ? (
-          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={setSelectedMuscle} activeMuscle={selectedMuscle} />
+          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} />
         ) : (
           <RecoveryDashboard logs={logs} />
         )}
@@ -256,7 +310,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} logs={logs} onClose={() => setSelectedMuscle(null)} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} />
       )}
     </div>
   );

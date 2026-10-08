@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import './exerciseRecChips.css';
 import { daysAgo, formatDaysAgo, getTrainingStatus } from '../utils/exerciseTrainingStatus';
 import { isCardioExercise, isTimedExercise, inferPrimary, inferCategory, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 

@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
+import { getRegionShape, clipStylePct } from './regionShapes';
 import {
-  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg
+  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS
 } from './muscleBodyShapes';
 
 const LEGEND = [
@@ -14,9 +15,10 @@ const LEGEND = [
   { key: 'very_high', color: '#ef4444', label: 'Very High' },
 ];
 
-const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
+const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel, clip }) => (
   <div
     className="muscle-region interactive muscle-svg-layer"
+    style={clip ? { clipPath: clipStylePct(clip) } : undefined}
     role="button"
     tabIndex={0}
     aria-label={ariaLabel}
@@ -29,7 +31,11 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel }) => (
 // Also used by the Add Exercise picker's body filter, which has no weekly
 // stats: it passes colorFor/labelFor to color and label muscles itself.
 // Male or female figure per the viewed client's profile sex (useBodySex).
-export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor }) => {
+// regionSplit: { Back: { Lats: tier, Trapezius: tier, ... } } draws that
+// muscle as its separate regions (regionShapes.js), each in its own heat-map
+// color and each opening the muscle with that region picked out, instead of
+// one block in the whole muscle's color.
+export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor, regionSplit = null }) => {
   const sex = useBodySex();
   const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl, bodyMaskStyle } = getBodyArt(sex)[view];
 
@@ -88,6 +94,34 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
       {underlayUrl && <img src={underlayUrl} alt="" className="muscle-svg-layer" aria-hidden="true" />}
 
       {Object.entries(layerMap).map(([muscle, rawFiles]) => {
+        const split = regionSplit?.[muscle];
+        if (split) {
+          return Object.entries(split).flatMap(([region, regionTier]) => {
+            const shape = getRegionShape(region, sex);
+            if (!shape || shape.view !== view) return [];
+            const color = regionTier?.color ?? '#64748b';
+            const select = () => onSelectMuscle(muscle, region);
+            const label = `${muscle}, ${region}: ${regionTier?.label ?? 'Not Trained'}`;
+            const layers = (shape.parts || []).map((part, i) => (
+              <MuscleLayer key={`${region}-${i}`} rawSvg={part.raw} clip={part.clip} color={color} isActive={muscle === activeMuscle} onSelect={select} ariaLabel={label} />
+            ));
+            if (shape.paths) {
+              layers.push(
+                // Wrapped like MuscleLayer: the CSS only lets paths INSIDE an
+                // .interactive layer take taps.
+                <div key={`${region}-paths`} className="muscle-region interactive muscle-svg-layer" role="button" tabIndex={0} aria-label={label} onClick={select}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } }}>
+                  <svg viewBox="0 0 200 369.03">
+                    {shape.paths.map((d, i) => (
+                      <path key={i} d={d} fill={color} stroke="#0f1420" strokeWidth={muscle === activeMuscle ? 1.6 : 0.8} strokeOpacity="0.9" />
+                    ))}
+                  </svg>
+                </div>
+              );
+            }
+            return layers;
+          });
+        }
         const stat = statByMuscle[muscle];
         const tier = stat ? getHeatMapTier(stat) : null;
         const isActive = muscle === activeMuscle;
@@ -98,7 +132,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
             rawSvg={rawSvg}
             color={colorFor ? colorFor(muscle) : (tier?.color ?? '#64748b')}
             isActive={isActive}
-            onSelect={() => onSelectMuscle(muscle)}
+            onSelect={() => onSelectMuscle(muscle, LAYER_REGIONS[view]?.[muscle]?.[i] ?? null)}
             ariaLabel={label}
           />
         ));
@@ -121,7 +155,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
  * that's a distinct, second-level switch (which side of the body), not the
  * same kind of choice as the outer Heat Map/Recovery tab.
  */
-const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
+const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit = null }) => {
   const [view, setView] = useState('front');
 
   const statByMuscle = useMemo(
@@ -150,7 +184,7 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle }) => {
       </div>
 
       <div className="muscle-body-wrapper">
-        <BodyDiagram view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} />
+        <BodyDiagram view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} regionSplit={regionSplit} />
       </div>
 
       {/* Quick-tap chips under the diagram — same regions, easier tap target

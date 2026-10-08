@@ -1724,6 +1724,14 @@ function App() {
             setDeepLinkNonce((n) => n + 1);
             setActiveTab('home');
           }}
+          // Mid-workout is fine: the session is a saved draft and Home shows
+          // the Resume Workout banner.
+          onOpenMuscleMap={() => {
+            setDeepLinkOpenMuscleMap(true);
+            setDeepLinkMuscleSection('heatmap');
+            setDeepLinkNonce((n) => n + 1);
+            setActiveTab('home');
+          }}
         />
       );
       case 'profile': return (

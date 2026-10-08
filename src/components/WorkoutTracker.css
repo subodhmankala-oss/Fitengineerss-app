@@ -4451,33 +4451,8 @@ html.keyboard-open .rest-timer-floating-card {
   white-space: nowrap;
 }
 
-.ex-history-rec-chip {
-  padding: 9px 16px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--accent-text);
-  background: rgba(var(--accent-rgb), 0.12);
-  border: 1px solid rgba(var(--accent-rgb), 0.25);
-  border-radius: 20px;
-}
-
-.ex-history-rec-chip--tap {
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-
-.ex-history-rec-chip--tap:active {
-  transform: scale(0.96);
-}
-
-.ex-history-rec-chip--added {
-  cursor: default;
-  opacity: 0.6;
-  color: var(--text-muted);
-  background: rgba(var(--fg-rgb), 0.05);
-  border-color: rgba(var(--fg-rgb), 0.1);
-}
+/* .ex-history-rec-chip itself lives in exerciseRecChips.css (shared with the
+   muscle detail screen's "Inside Back" suggestions). */
 
 /* ═══════════════════════════════════════════
    GENERIC WORKOUT TEMPLATES VIEW
@@ -5370,4 +5345,191 @@ html.keyboard-open .rest-timer-floating-card {
   flex-wrap: wrap;
   gap: 6px;
   max-width: 200px;
+}
+
+/* "Behind this week" hint above Add Exercise (MuscleGapHint.jsx). Kept
+   deliberately quiet: a soft panel with a muted header line and a row of
+   light tiles, so it never competes with the sets being logged. */
+.muscle-gap-hint {
+  --gap-tone: #a78bfa;
+  margin: 2px 0 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+}
+
+.muscle-gap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Tapping the title folds the hint to this one line (remembered per user). */
+.muscle-gap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.muscle-gap-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.muscle-gap-title strong {
+  color: var(--gap-tone);
+  font-weight: 800;
+}
+
+.muscle-gap-lead {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+/* Fold control: just an arrow in a circle. */
+.muscle-gap-fold {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.06);
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.muscle-gap-fold svg {
+  transition: transform 0.2s ease;
+}
+
+/* Arrow points down when folded (tap to open), up when open (tap to fold). */
+.muscle-gap-fold svg.open {
+  transform: rotate(180deg);
+}
+
+.muscle-gap-link {
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.muscle-gap-hint--good .muscle-gap-title {
+  color: var(--text-muted);
+}
+
+/* Fold animation: grid rows ease 0fr -> 1fr (a height animation without
+   knowing the height). The wrapper bleeds to the panel's edges so the row
+   still visibly scrolls off them. visibility flips after the fade so folded
+   chips can't be tabbed to. */
+.muscle-gap-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin: 0 -12px;
+  padding: 0 12px;
+  opacity: 1;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, margin-top 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
+  margin-top: 10px;
+}
+
+.muscle-gap-hint--collapsed .muscle-gap-body {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  visibility: hidden;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease, margin-top 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.32s;
+}
+
+/* One swipeable row. */
+.muscle-gap-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 0;
+  scroll-snap-type: x proximity;
+  padding-bottom: 2px;
+  transition: padding-bottom 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.muscle-gap-hint--collapsed .muscle-gap-cards {
+  padding-bottom: 0;
+}
+
+.muscle-gap-cards::-webkit-scrollbar {
+  display: none;
+}
+
+.muscle-gap-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  scroll-snap-align: start;
+}
+
+.muscle-gap-card-label {
+  padding-left: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.muscle-gap-count {
+  color: var(--gap-tone);
+  font-weight: 700;
+}
+
+/* Slimmer than the history sheet's chips — same look, smaller footprint. */
+.muscle-gap-card .ex-history-rec-chip {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.muscle-gap-hint--collapsed .muscle-gap-link {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-gap-body,
+  .muscle-gap-hint--collapsed .muscle-gap-body,
+  .muscle-gap-fold svg,
+  .muscle-gap-link {
+    transition: none;
+  }
 }

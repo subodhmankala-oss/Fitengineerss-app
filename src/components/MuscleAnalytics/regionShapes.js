@@ -54,8 +54,10 @@ export const REGION_SHAPES = {
   // Trapezius runs y 43–116: the neck/shoulder part is the upper traps; the
   // part between the shoulder blades (plus teres/infraspinatus) is where the
   // rhomboids and middle/lower traps sit.
-  'Upper Back': { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 40, 140, 76] }], box: [66, 43, 135, 76] },
-  'Mid Back': { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 76, 140, 117] }, { raw: teresRaw }], box: [62, 76, 138, 117] },
+  Trapezius: { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 40, 140, 76] }], box: [66, 43, 135, 76] },
+  // Teres/infraspinatus is its own region (Rotator Cuff) now, so Mid Back is
+  // just the lower trapezius band; the heat map draws the regions side by side.
+  'Mid Back': { view: 'back', parts: [{ raw: muscle9Raw, clip: [60, 76, 140, 117] }], box: [62, 76, 138, 117] },
   // Erector spinae: two columns either side of the lumbar spine.
   'Lower Back': {
     view: 'back',
@@ -67,6 +69,7 @@ export const REGION_SHAPES = {
   // Outer edge of the deltoid cap, seen from the front.
   'Side Delts': { view: 'front', parts: clipped(muscle2Raw, [[45, 60, 59, 100], [138, 60, 152, 100]]), box: [45, 64, 152, 99] },
   'Rear Delts': { view: 'back', parts: [{ raw: rearDeltRaw }], box: [43, 64, 157, 103] },
+  'Rotator Cuff': { view: 'back', parts: [{ raw: teresRaw }], box: [61, 77, 139, 101] },
 
   'Biceps Long Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_OUTER), box: [44, 94, 153, 131] },
   'Biceps Short Head': { view: 'front', parts: clipped(muscle1Raw, BICEPS_INNER), box: [44, 94, 153, 131] },
@@ -158,6 +161,15 @@ export function regionCrop(region, canvasW = 200, canvasH = 369, sex = null) {
   const x = Math.max(0, Math.min(canvasW - side, cx - side / 2));
   const y = Math.max(0, Math.min(canvasH - side, cy - side / 2));
   return { x, y, w: side, h: side };
+}
+
+// Same clip as a percentage inset, for layers drawn at any size (the heat
+// map's body stack is responsive, not the native 200px canvas).
+export function clipStylePct(clip, canvasW = 200, canvasH = 369.03) {
+  if (!clip) return undefined;
+  const [x0, y0, x1, y1] = clip;
+  const pct = (v, total) => `${+((v / total) * 100).toFixed(3)}%`;
+  return `inset(${pct(y0, canvasH)} ${pct(canvasW - x1, canvasW)} ${pct(canvasH - y1, canvasH)} ${pct(x0, canvasW)})`;
 }
 
 // CSS clip-path for a part's clip window, in the canvas's native px.

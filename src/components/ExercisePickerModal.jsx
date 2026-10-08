@@ -63,7 +63,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const [tag, setTag] = useState('All');
   // Region inside the picked category (Upper Chest, Mid Back, Obliques…).
   // Filters by the sub-group alone, not the category too — Shrugs are tagged
-  // Shoulders but belong under Back › Upper Back.
+  // Shoulders but belong under Back › Trapezius.
   const [subgroup, setSubgroup] = useState(null);
   // Tapping the already-active category chip again folds its region row away.
   const [regionsHidden, setRegionsHidden] = useState(false);

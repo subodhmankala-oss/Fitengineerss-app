@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
@@ -38,6 +38,9 @@ import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, a
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
+import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import MuscleGapHint from './MuscleGapHint';
+import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
 // fresh workout log (empty start or from a plan/template), so a warm-up is
@@ -166,7 +169,8 @@ const allExerciseOptions = [...presetExercises, ...EXERCISE_LIBRARY]
 
 // onWorkoutSaved: App.jsx sends the client to Home → Muscle Balance Overview
 // once a workout is saved (after the summary card is closed, if one shows).
-const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
+// onOpenMuscleMap: Home → Muscles → Heat Map (the "Behind this week" hint's link).
+const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const loggedInUser = localStorage.getItem('userName') || 'Warrior';
 
   // ─── In-progress workout draft persistence ───
@@ -869,7 +873,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     databaseService.resolveUserId().then(id => {
       if (cancelled || !id) return;
       setOwnUserId(id);
-      databaseService.getWorkoutDraft(id, 'self').then(dbDraft => {
+      return databaseService.getWorkoutDraft(id, 'self').then(dbDraft => {
         // Only ever auto-load a draft this client started themselves. A
         // 'coach' draft means the coach's Live Log is actively editing that
         // same session right now — pulling it into the client's own form too
@@ -915,10 +919,16 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
           setActiveView('log');
         }
       }).catch(() => {});
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => { if (!cancelled) setDraftCheckDone(true); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Exercises queued from the Home screen's muscle detail ("+ Add" on a
+  // suggestion — see utils/pendingWorkoutAdds.js). Drained only once the DB
+  // draft check above has settled, so a session restored from the DB isn't
+  // clobbered by (or doesn't clobber) a freshly started one.
+  const [draftCheckDone, setDraftCheckDone] = useState(false);
 
   const draftSaveTimerRef = useRef(null);
   // The draft waiting out the debounce below, if any.
@@ -2759,13 +2769,67 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
     return setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
   };
 
+  // Flat per-set rows for MuscleGapHint: this client's saved sessions plus
+  // the sets already ticked off in the session in progress (not saved yet,
+  // so never double-counted), so the hint updates as the workout goes.
+  const muscleGapLogs = useMemo(() => {
+    const me = loggedInUser.toLowerCase();
+    const rows = [];
+    sessions.forEach(s => {
+      if (s.clientName && s.clientName.toLowerCase() !== me) return;
+      const date = String(s.date || '').slice(0, 10);
+      (s.exercises || []).forEach(ex => (ex.sets || []).forEach(set => {
+        rows.push({ exercise_name: ex.name, log_date: date, set_type: set.isWarmup ? 'warmup' : (set.setType || null) });
+      }));
+    });
+    if (isLoggingWorkout) {
+      logExercises.forEach(ex => (ex.sets || []).forEach(set => {
+        if (set.isCompleted) rows.push({ exercise_name: ex.name, log_date: logDate, set_type: set.isWarmup || set.setType === 'warmup' ? 'warmup' : null });
+      }));
+    }
+    return rows;
+  }, [sessions, logExercises, isLoggingWorkout, logDate, loggedInUser]);
+
+  // New exercises slide in (see hooks/useExerciseEnterAnimation.js).
+  const { markEntering, enterRef } = useExerciseEnterAnimation();
+
   const addExerciseToWorkout = (name) => {
     const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
     if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
+    markEntering(name);
     const sets = buildStartingSets(name);
     setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
   };
+
+  // Drain the queue (see draftCheckDone above). The helpers it needs are
+  // re-created every render, so they're read through a ref refreshed after
+  // each commit instead of listed as deps (which would re-run it every render).
+  const pendingAddsHelpersRef = useRef(null);
+  useEffect(() => {
+    pendingAddsHelpersRef.current = { buildStartingSets, startWorkoutClock, triggerToast };
+  });
+  useEffect(() => {
+    if (!draftCheckDone) return;
+    const names = takePendingWorkoutAdds();
+    if (!names.length) return;
+    const { buildStartingSets, startWorkoutClock, triggerToast } = pendingAddsHelpersRef.current;
+    const toEntry = name => (isBodyweightExercise(name) ? { name, sets: buildStartingSets(name), bodyweightMode: true } : { name, sets: buildStartingSets(name) });
+    if (isLoggingWorkout) {
+      setLogExercises(prev => [...prev, ...names.filter(n => !prev.some(le => le.name.toLowerCase() === n.toLowerCase())).map(toEntry)]);
+    } else {
+      // Same as "+ Start empty workout", with the queued exercises after the warm-ups.
+      setLogExercises([...getDefaultWarmupExercises(), ...names.map(toEntry)]);
+      setTemplateName('Custom Session');
+      setLogClient(loggedInUser);
+      setLogDate(getLocalDateString());
+      setLoggingLevel(null);
+      startWorkoutClock();
+      setIsLoggingWorkout(true);
+    }
+    setActiveView('log');
+    triggerToast(`Added ${names.join(', ')} to your workout!`);
+  }, [draftCheckDone, isLoggingWorkout, loggedInUser]);
 
   return (
     <>
@@ -3588,7 +3652,7 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
                 return (
-                  <div key={getLogItemKey(exIdx)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
+                  <div key={getLogItemKey(exIdx)} ref={enterRef(ex.name)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
                   <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
                   <div className="ex-reorder-full">
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
@@ -4239,6 +4303,15 @@ const WorkoutTracker = ({ onWorkoutSaved } = {}) => {
                 );
               })}
             </div>
+
+            {/* What's behind this week, right where the next exercise gets
+                picked — chips add straight into this workout. */}
+            <MuscleGapHint
+              logs={muscleGapLogs}
+              addedNames={logExercises.map(le => le.name)}
+              onAdd={addExerciseToWorkout}
+              onOpenMuscleMap={onOpenMuscleMap}
+            />
 
             {/* Add Exercise — picker button kept at the bottom of the list. */}
             <div className="live-add-ex-box">

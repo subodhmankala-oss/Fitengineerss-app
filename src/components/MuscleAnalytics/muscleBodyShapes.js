@@ -342,6 +342,15 @@ export const BACK_MUSCLE_LAYERS = {
   Calves: [muscle7Raw],
 };
 
+// Which region (exerciseSubgroups.js id) each overlay file above stands for,
+// by index into that muscle's layer list — so tapping the shoulder blade
+// opens Back with "Rotator Cuff" picked out. null = spans several regions
+// (the trapezius covers both upper and mid back).
+export const LAYER_REGIONS = {
+  front: { Shoulders: ['Front Delts'] },
+  back: { Back: ['Lats', null, 'Rotator Cuff'], Shoulders: ['Rear Delts'] },
+};
+
 // ── Female figure ──
 // The vendored artwork is a male figure. For clients whose profile sex is
 // "female" the heat map draws the same artwork pushed through one smooth

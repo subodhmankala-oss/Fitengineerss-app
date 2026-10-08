@@ -71,7 +71,7 @@ const ShareIconButton = ({ onClick, title }) => (
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onGoToWorkout = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const weekStartStr = weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
@@ -310,7 +310,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
       )}
     </div>
   );

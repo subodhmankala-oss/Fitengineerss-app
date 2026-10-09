@@ -124,7 +124,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
   const viewportRef = useRef(null);
   const stackRef = useRef(null);
   const [flash, setFlash] = useState(null); // "muscle|region" just tapped
-  const [zoom, setZoom] = useState(null); // { s, ox, oy } — scale + origin as fractions
+  const [zoom, setZoom] = useState(null); // { s, tx, ty, geo } — see geometry()
   const [anchors, setAnchors] = useState(null); // parts and where they sit
   // Gesture state lives in a ref and moves the figure straight through the
   // DOM (one frame at a time), so a drag never waits on a React render; the
@@ -156,16 +156,36 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     flashTimer.current = setTimeout(() => { setFlash(null); onSelectMuscle(muscle, region || null); }, 160);
   };
 
-  const fraction = (x, y) => {
+  // Zoom is translate + scale in px inside the viewport, which is the full
+  // width of the card: the figure sits centered at rest, and once zoomed it
+  // fills the whole width instead of the figure's own narrow box. `geo` is
+  // the layout it was worked out against (stack offset/size, viewport size).
+  const geometry = () => {
+    const v = viewportRef.current, st = stackRef.current;
+    return { L: st.offsetLeft, T: st.offsetTop, w: st.offsetWidth, h: st.offsetHeight, vw: v.clientWidth, vh: v.clientHeight };
+  };
+  // Keep the figure covering the viewport (or centered, when it's smaller).
+  const fit = (s, tx, ty, geo) => {
+    const axis = (t, size, vsize, off) => {
+      const scaled = size * s;
+      return scaled <= vsize ? (vsize - scaled) / 2 - off : clamp(t, vsize - off - scaled, -off);
+    };
+    return { s, tx: axis(tx, geo.w, geo.vw, geo.L), ty: axis(ty, geo.h, geo.vh, geo.T), geo };
+  };
+  const local = (x, y) => {
     const r = viewportRef.current.getBoundingClientRect();
-    return { fx: clamp((x - r.left) / r.width, 0, 1), fy: clamp((y - r.top) / r.height, 0, 1), w: r.width, h: r.height };
+    return { vx: x - r.left, vy: y - r.top };
   };
 
   const onClick = (e) => {
     if (g.current.moved) { g.current.moved = false; return; }
     if (zoomable && !zoom && g.current.type !== 'mouse') {
-      const { fx, fy } = fraction(e.clientX, e.clientY);
-      setZoom({ s: ZOOM_IN, ox: fx, oy: fy });
+      // Zoom in centered on the tapped spot — only for taps on the figure.
+      const geo = geometry();
+      const { vx, vy } = local(e.clientX, e.clientY);
+      const px = vx - geo.L, py = vy - geo.T;
+      if (px < 0 || py < 0 || px > geo.w || py > geo.h) return;
+      setZoom(fit(ZOOM_IN, geo.vw / 2 - geo.L - px * ZOOM_IN, geo.vh / 2 - geo.T - py * ZOOM_IN, geo));
       return;
     }
     const direct = e.target.closest?.('.muscle-region.interactive');
@@ -174,40 +194,48 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     else if (zoom) setZoom(null);
   };
 
+  const transformOf = z => `translate(${z.tx}px, ${z.ty}px) scale(${z.s})`;
   // Mid-gesture: write the transform straight onto the figure.
   const applyLive = () => {
     const s = g.current;
     cancelAnimationFrame(s.frame);
     s.frame = requestAnimationFrame(() => {
-      const el = stackRef.current;
-      if (!el || !s.live) return;
-      el.style.transform = `scale(${s.live.s})`;
-      el.style.transformOrigin = `${s.live.ox * 100}% ${s.live.oy * 100}%`;
+      if (stackRef.current && s.live) stackRef.current.style.transform = transformOf(s.live);
     });
   };
-  const beginGesture = (pointerId) => {
+  const beginGesture = () => {
     const s = g.current;
     if (!s.moved) {
       s.moved = true;
       stackRef.current?.classList.add('gesturing');
     }
-    try { viewportRef.current.setPointerCapture(pointerId); } catch { /* pointer already gone */ }
   };
 
   const onPointerDown = (e) => {
     const s = g.current;
     s.type = e.pointerType || 'mouse';
+    // A new touch starts a fresh gesture. Without this, a finger whose
+    // "up" never reached the figure (lifted outside it, or while the
+    // detail sheet was opening) stayed counted, and every later one-finger
+    // drag was read as a pinch — the figure stopped moving.
+    if (e.isPrimary) { s.pointers.clear(); s.pinch = null; }
     s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (!zoomable) return;
+    // Keep receiving this finger's moves and lift even off the figure.
+    if (s.type !== 'mouse') {
+      try { viewportRef.current.setPointerCapture(e.pointerId); } catch { /* already gone */ }
+    }
     if (s.pointers.size === 1) {
       s.moved = false;
-      s.live = zoom ? { ...zoom } : null;
-      s.start = { x: e.clientX, y: e.clientY, ox: zoom?.ox ?? 0.5, oy: zoom?.oy ?? 0.5 };
+      s.live = zoom;
+      s.start = { x: e.clientX, y: e.clientY, tx: zoom?.tx ?? 0, ty: zoom?.ty ?? 0 };
     } else if (s.pointers.size === 2) {
       const [a, b] = [...s.pointers.values()];
-      const mid = fraction((a.x + b.x) / 2, (a.y + b.y) / 2);
-      const cur = s.live || zoom;
-      s.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: cur?.s ?? 1, ox: cur ? cur.ox : mid.fx, oy: cur ? cur.oy : mid.fy };
+      const geo = s.live?.geo ?? geometry();
+      const cur = s.live ?? { s: 1, tx: 0, ty: 0, geo };
+      const { vx, vy } = local((a.x + b.x) / 2, (a.y + b.y) / 2);
+      // The spot of the figure between the fingers stays between them.
+      s.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: cur.s, vx, vy, cx: (vx - geo.L - cur.tx) / cur.s, cy: (vy - geo.T - cur.ty) / cur.s, geo };
     }
   };
 
@@ -217,18 +245,16 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (s.pointers.size === 2 && s.pinch) {
       const [a, b] = [...s.pointers.values()];
-      beginGesture(e.pointerId);
-      s.live = { s: clamp(s.pinch.s * (Math.hypot(a.x - b.x, a.y - b.y) / s.pinch.dist), 1, ZOOM_MAX), ox: s.pinch.ox, oy: s.pinch.oy };
+      const p = s.pinch;
+      const scale = clamp(p.s * (Math.hypot(a.x - b.x, a.y - b.y) / p.dist), 1, ZOOM_MAX);
+      beginGesture();
+      s.live = fit(scale, p.vx - p.geo.L - p.cx * scale, p.vy - p.geo.T - p.cy * scale, p.geo);
       applyLive();
     } else if (s.pointers.size === 1 && s.live && s.start) {
       const dx = e.clientX - s.start.x, dy = e.clientY - s.start.y;
       if (!s.moved && Math.hypot(dx, dy) < 6) return;
-      beginGesture(e.pointerId);
-      // Moving the origin by d shifts the figure by -(scale - 1)·d, so this
-      // keeps the spot under the finger under the finger.
-      const { w, h } = fraction(e.clientX, e.clientY);
-      const k = Math.max(0.01, s.live.s - 1);
-      s.live = { ...s.live, ox: clamp(s.start.ox - dx / (w * k), 0, 1), oy: clamp(s.start.oy - dy / (h * k), 0, 1) };
+      beginGesture();
+      s.live = fit(s.live.s, s.start.tx + dx, s.start.ty + dy, s.live.geo);
       applyLive();
     }
   };
@@ -241,23 +267,21 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
       // Pinch → one finger left: carry on as a pan from where it is now.
       const [p] = [...s.pointers.values()];
       s.pinch = null;
-      s.start = { x: p.x, y: p.y, ox: s.live?.ox ?? 0.5, oy: s.live?.oy ?? 0.5 };
+      s.start = { x: p.x, y: p.y, tx: s.live?.tx ?? 0, ty: s.live?.ty ?? 0 };
     } else if (s.pointers.size === 0) {
       s.pinch = null;
       stackRef.current?.classList.remove('gesturing');
       if (s.moved && s.live) {
         cancelAnimationFrame(s.frame);
+        const el = stackRef.current;
         if (s.live.s < 1.15) {
-          // Pinched back to full size. React may never have set these (a
-          // pinch from 1×), so clear them here too.
-          if (stackRef.current) { stackRef.current.style.transform = ''; stackRef.current.style.transformOrigin = ''; }
+          // Pinched back to full size. React may never have set the
+          // transform (a pinch from 1×), so clear it here too.
+          if (el) el.style.transform = '';
           setZoom(null);
         } else {
-          if (stackRef.current) {
-            stackRef.current.style.transform = `scale(${s.live.s})`;
-            stackRef.current.style.transformOrigin = `${s.live.ox * 100}% ${s.live.oy * 100}%`;
-          }
-          setZoom({ ...s.live });
+          if (el) el.style.transform = transformOf(s.live);
+          setZoom(s.live);
         }
       }
     }
@@ -274,7 +298,8 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
   // parts are listed.
   let inView = [];
   if (zoom && anchors) {
-    const vis = [zoom.ox - zoom.ox / zoom.s, zoom.oy - zoom.oy / zoom.s, zoom.ox + (1 - zoom.ox) / zoom.s, zoom.oy + (1 - zoom.oy) / zoom.s];
+    const { s: k, tx, ty, geo } = zoom;
+    const vis = [(-geo.L - tx) / (k * geo.w), (-geo.T - ty) / (k * geo.h), (geo.vw - geo.L - tx) / (k * geo.w), (geo.vh - geo.T - ty) / (k * geo.h)];
     inView = anchors.flatMap(a => {
       const spot = a.spots.find(p => p.cx >= vis[0] && p.cx <= vis[2] && p.cy >= vis[1] && p.cy <= vis[3]);
       if (!spot) return [];
@@ -290,7 +315,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     <div
       ref={stackRef}
       className={`muscle-body-stack${zoomable ? ' zoomable' : ''}`}
-      style={zoom ? { transform: `scale(${zoom.s})`, transformOrigin: `${zoom.ox * 100}% ${zoom.oy * 100}%` } : undefined}
+      style={zoom ? { transform: transformOf(zoom) } : undefined}
       onClick={zoomable ? undefined : onClick}
       onPointerDown={zoomable ? undefined : onPointerDown}
       onPointerUp={zoomable ? undefined : onPointerUp}

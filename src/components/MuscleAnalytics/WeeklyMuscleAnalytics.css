@@ -529,13 +529,13 @@
   aspect-ratio: 200 / 369;
 }
 
-/* Heat map zoom (BodyDiagram `zoomable`): a fixed window the figure scales
-   inside. The stack eases between zoom levels except mid-gesture, when it
-   follows the fingers directly. */
+/* Heat map zoom (BodyDiagram `zoomable`): a card-wide window the figure
+   scales inside — centered at rest; zoomed in, it fills the whole width.
+   The stack eases between zoom levels except mid-gesture, when it follows
+   the fingers directly. */
 .muscle-body-viewport {
   position: relative;
   width: 100%;
-  max-width: 220px;
   overflow: hidden;
   border-radius: 14px;
   cursor: zoom-in;
@@ -548,6 +548,8 @@
   box-shadow: inset 0 0 0 1px rgba(var(--fg-rgb), 0.08);
 }
 .muscle-body-stack.zoomable {
+  margin: 0 auto;
+  transform-origin: 0 0;
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .muscle-body-stack.zoomable.gesturing {

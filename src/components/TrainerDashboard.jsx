@@ -7318,7 +7318,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
               {/* Condition tab rendering */}
               {detailTab === 'workout' && (
-                <div className="workout-history-content">
+                <div className={`workout-history-content${historyTimeframe === 'muscles' ? ' is-muscles' : ''}`}>
                   {/* Monthly progress report — coach reviews last month vs the
                       two before it (computed from the same rawWorkoutLogs
                       this tab already shows), adds a message, sends. Lives

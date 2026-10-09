@@ -112,9 +112,9 @@ function measureAnchors(stack) {
 // Tapping: a tap picks the part under the finger or, failing that, the
 // nearest one within a fingertip (SNAP_PX), which flashes before it opens.
 // `zoomable` (the heat map) adds touch zoom: the first tap zooms in around
-// that spot and lists the parts in view as chips under the figure (names
-// on the body itself covered the very parts you were aiming for); a tap on
-// a part or a chip opens it. Drag pans, pinch zooms, "Whole body" zooms
+// that spot, tags the parts in view with small see-through names (where
+// they fit) and lists them all as chips under the figure; a tap on a part
+// or a chip opens it. Drag pans, pinch zooms, "Whole body" zooms
 // out. A mouse click skips the zoom step. onZoomChange(bool) lets the
 // parent swap its own chips out. Remount (key) per view to reset the zoom.
 export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor, regionSplit = null, zoomable = false, onZoomChange = null }) => {
@@ -296,19 +296,42 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
   // The parts in view, top to bottom, as tap targets under the figure. A
   // muscle's leftover overlay (Biceps' brachialis) is skipped when its named
   // parts are listed.
+  //
+  // Names on the figure too: small see-through tags (taps pass through
+  // them) in the first of each part's spots that is in view and clear of
+  // the tags already placed, bigger parts first; a part with no room just
+  // keeps its chip. Sizes are in figure fractions at the current zoom.
   let inView = [];
+  const tags = [];
   if (zoom && anchors) {
     const { s: k, tx, ty, geo } = zoom;
     const vis = [(-geo.L - tx) / (k * geo.w), (-geo.T - ty) / (k * geo.h), (geo.vw - geo.L - tx) / (k * geo.w), (geo.vh - geo.T - ty) / (k * geo.h)];
+    const inside = p => p.cx >= vis[0] && p.cx <= vis[2] && p.cy >= vis[1] && p.cy <= vis[3];
     inView = anchors.flatMap(a => {
-      const spot = a.spots.find(p => p.cx >= vis[0] && p.cx <= vis[2] && p.cy >= vis[1] && p.cy <= vis[3]);
+      const spot = a.spots.find(inside);
       if (!spot) return [];
       const [muscle, region] = a.key.split('|');
-      return [{ key: a.key, muscle, region, label: a.label, y: spot.cy, x: spot.cx }];
+      return [{ key: a.key, muscle, region, label: a.label, y: spot.cy, x: spot.cx, spots: a.spots }];
     });
-    inView = inView
-      .filter(p => p.region || !inView.some(o => o.muscle === p.muscle && o.region))
-      .sort((p, q) => (Math.abs(p.y - q.y) < 0.02 ? p.x - q.x : p.y - q.y));
+    inView = inView.filter(p => p.region || !inView.some(o => o.muscle === p.muscle && o.region));
+
+    const fx = px => px / (k * geo.w), fy = px => px / (k * geo.h);
+    const overlaps = (b, t) => b[0] < t[2] && t[0] < b[2] && b[1] < t[3] && t[1] < b[3];
+    // Keep clear of the "Whole body" button (top-left, ~120×40 px).
+    const taken = [[vis[0], vis[1], vis[0] + fx(124), vis[1] + fy(42)]];
+    inView.forEach(p => {
+      const w = fx(p.label.length * 5.4 + 10), h = fy(16);
+      for (const sp of p.spots) {
+        if (!inside(sp)) continue;
+        const cx = clamp(sp.cx, vis[0] + w / 2, vis[2] - w / 2), cy = clamp(sp.cy, vis[1] + h / 2, vis[3] - h / 2);
+        const box = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+        if (taken.some(t => overlaps(box, t))) continue;
+        taken.push(box);
+        tags.push({ key: p.key, label: p.label, cx, cy });
+        break;
+      }
+    });
+    inView.sort((p, q) => (Math.abs(p.y - q.y) < 0.02 ? p.x - q.x : p.y - q.y));
   }
 
   const stack = (
@@ -433,6 +456,17 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           );
         });
       })}
+
+      {tags.map(t => (
+        <span
+          key={t.key}
+          className="body-part-tag"
+          style={{ left: `${t.cx * 100}%`, top: `${t.cy * 100}%`, transform: `translate(-50%, -50%) scale(${1 / zoom.s})` }}
+          aria-hidden="true"
+        >
+          {t.label}
+        </span>
+      ))}
     </div>
   );
 

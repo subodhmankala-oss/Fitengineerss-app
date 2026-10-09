@@ -556,6 +556,25 @@
   transition: none;
 }
 
+/* Part names on the zoomed figure: small and see-through so the color
+   underneath still reads, and never in the way of a tap. */
+.body-part-tag {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(15, 20, 32, 0.55);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.muscle-body-stack.gesturing .body-part-tag {
+  opacity: 0;
+}
+
 .muscle-body-zoom-wrap {
   display: flex;
   flex-direction: column;

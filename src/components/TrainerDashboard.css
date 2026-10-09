@@ -110,6 +110,20 @@
   padding-right: var(--screen-gutter);
 }
 
+/* Send plan editor on phones — edge-to-edge like the Live Log's exercise
+   list: cancel .workout-plans-content's gutter and drop the side border +
+   rounded corners, so the card spans the full screen width. Its own 16px
+   inner padding keeps the content aligned with the rest of the page. */
+@media (max-width: 720px) {
+  .workout-plans-content .plan-editor-card {
+    margin-left: calc(-1 * var(--screen-gutter));
+    margin-right: calc(-1 * var(--screen-gutter));
+    border-left: none !important;
+    border-right: none !important;
+    border-radius: 0 !important;
+  }
+}
+
 /* .workout-history-content used to carry the same blanket gutter as the
    siblings above — but nearly everything inside it (chart-widget-card,
    day-stats-overview, the session cards) is a reusable card component that

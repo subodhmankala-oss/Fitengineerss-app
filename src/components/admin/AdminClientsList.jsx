@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getActivityStatus, isNewSignup, compareNewestJoinFirst, formatJoined } from '../../utils/activityStatus';
 import AdminSearchBox from './AdminSearchBox';
+import AdminWhatsappNudge from './AdminWhatsappNudge';
 import { matchesSearch } from '../../utils/matchesSearch';
 
 export default function AdminClientsList({
@@ -115,6 +116,16 @@ export default function AdminClientsList({
           );
         })}
       </div>
+
+      {/* Quiet clients only — key resets the panel when switching tiles. */}
+      {(activityFilter === 'inactive-long' || activityFilter === 'never') && (
+        <AdminWhatsappNudge
+          key={activityFilter}
+          clients={filteredClients}
+          coachesList={coachesList}
+          tileLabel={summaryTiles.find(t => t.key === activityFilter)?.label}
+        />
+      )}
 
       {unreadReplyIds.size > 0 && (
         <button

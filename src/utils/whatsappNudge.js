@@ -1,4 +1,5 @@
-// Helpers for the admin "WhatsApp these clients" panel (AdminWhatsappNudge).
+// Helpers for the admin "WhatsApp these clients" panel (AdminWhatsappNudge)
+// and the coach home's "gone quiet" card (CoachQuietClients).
 
 export const FOUNDER_COACH_EMAIL = 'subodhmankala@gmail.com';
 export const APP_LINK = 'https://fitengineerss-app.vercel.app';
@@ -26,4 +27,13 @@ export const buildNudgeMessage = (template, client) => {
   const firstName = (client.userName || '').trim().split(/\s+/)[0] || 'there';
   const body = (template || '').replace(/\{name\}/gi, firstName).trim();
   return `${body}\n\n${APP_LINK}`;
+};
+
+// Opens WhatsApp with the number + text filled in: the app on phones, WhatsApp
+// Web on desktop (whatsapp:// has nothing listening on desktop).
+export const openWhatsapp = (phone, text) => {
+  const qs = new URLSearchParams({ phone, text });
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  if (isMobile) window.location.href = `whatsapp://send?${qs.toString()}`;
+  else window.open(`https://web.whatsapp.com/send?${qs.toString()}`, '_blank', 'noopener,noreferrer');
 };

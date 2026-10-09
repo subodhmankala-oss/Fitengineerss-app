@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { APP_LINK, toWhatsappNumber, isFounderAudience, buildNudgeMessage } from '../../utils/whatsappNudge';
+import { APP_LINK, toWhatsappNumber, isFounderAudience, buildNudgeMessage, openWhatsapp } from '../../utils/whatsappNudge';
 
 // "WhatsApp these clients as the Fitengineers team" for the admin Clients
 // tab's 6+ days inactive / Never logged in tiles. Only people the founder is
@@ -28,13 +28,6 @@ const writeStore = (key, value) => {
 };
 
 const DEFAULT_DRAFT = 'Hi {name}! 👋 It\'s the Fitengineers team. We noticed you haven\'t opened the app in a while — your plan is waiting for you. Tap the link below to jump back in.';
-
-const openWhatsapp = (phone, text) => {
-  const qs = new URLSearchParams({ phone, text });
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-  if (isMobile) window.location.href = `whatsapp://send?${qs.toString()}`;
-  else window.open(`https://web.whatsapp.com/send?${qs.toString()}`, '_blank', 'noopener,noreferrer');
-};
 
 export default function AdminWhatsappNudge({ clients = [], coachesList = [], tileLabel }) {
   const [open, setOpen] = useState(false);

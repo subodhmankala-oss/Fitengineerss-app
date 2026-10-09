@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 're
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
-import { getRegionShape, clipStylePct, REGION_SHAPES } from './regionShapes';
+import { getRegionShape, clipStylePct, clipBox, REGION_SHAPES } from './regionShapes';
 import {
   getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS,
   FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS
@@ -26,10 +26,10 @@ const LEGEND = [
 // the keyboard itself.
 const layerProps = ({ muscle, region, clip, flash, ariaLabel, onSelect }) => ({
   className: `muscle-region interactive muscle-svg-layer${flash ? ' tap-flash' : ''}`,
-  style: clip ? { clipPath: clipStylePct(clip) } : undefined,
+  style: clip ? { clipPath: clipStylePct(clip, 200, CANVAS_H, SEAM_GAP) } : undefined,
   'data-muscle': muscle,
   'data-region': region || '',
-  'data-clip': clip ? clip.join(',') : undefined,
+  'data-clip': clip ? clipBox(clip).join(',') : undefined,
   role: 'button',
   tabIndex: 0,
   'aria-label': ariaLabel,
@@ -41,6 +41,10 @@ const MuscleLayer = ({ rawSvg, color, isActive, ...rest }) => (
 );
 
 const CANVAS_H = 369.03;
+// Hairline between two parts cut from one overlay (units of the art), and
+// the color it shows — the same dark as the seams between muscles.
+const SEAM_GAP = 0.35;
+const SEAM_COLOR = '#0f1420';
 // How far from a part a tap may land and still pick it (screen px, about a
 // fingertip). Searched outward in rings, so the closest part wins.
 const SNAP_PX = 22;
@@ -455,7 +459,14 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           const covered = new Set(Object.keys(split).flatMap(r => (REGION_SHAPES[r]?.parts || []).map(p => p.raw)));
           const stat = statByMuscle[muscle];
           const tier = stat ? getHeatMapTier(stat) : null;
-          const rest = rawFiles.flatMap((rawSvg, i) => (covered.has(MALE_LAYERS[view][muscle]?.[i]) ? [] : [
+          // The overlays the regions ARE cut from are drawn once underneath in
+          // the seam color: the hairline gap between two parts (SEAM_GAP,
+          // or built into a polygon clip) shows it as a dividing line, so
+          // two parts in the same color still read as two.
+          const rest = rawFiles.flatMap((rawSvg, i) => (covered.has(MALE_LAYERS[view][muscle]?.[i]) ? [
+            <div key={`${muscle}-seam-${i}`} className="muscle-svg-layer" aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, SEAM_COLOR, false) }} />,
+          ] : [
             <MuscleLayer key={`${muscle}-${i}`} rawSvg={rawSvg} color={tier?.color ?? '#64748b'} isActive={muscle === activeMuscle}
               muscle={muscle} flash={flash === `${muscle}|`} onSelect={() => onSelectMuscle(muscle)} ariaLabel={`${muscle}: ${tier?.label ?? 'Not Trained'}`} />,
           ]));

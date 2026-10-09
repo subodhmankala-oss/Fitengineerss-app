@@ -49,6 +49,27 @@ const clipped = (raw, clips) => clips.map(clip => ({ raw, clip }));
 // zooms out to the full figure. Arm regions frame one arm (`iconBox`).
 const ARM_ICON = { biceps: [44, 94, 64, 131], triceps: [42, 93, 65, 131], forearm: [25, 124, 62, 178] };
 
+// Forearm centre line, elbow to wrist, measured from the traced overlay's
+// own width at each height (2026-10-09). Each side's polygon runs along it,
+// pulled back by half the seam gap so a thin line shows between the two.
+const FOREARM_MID = {
+  left: [[43.3, 118], [42.6, 144], [39.7, 156], [33.5, 168], [31, 182]],
+  right: [[154.3, 118], [155, 144], [157.9, 156], [164.1, 168], [166.5, 182]],
+};
+const HALF_SEAM = 0.35;
+const shiftX = (pts, dx) => pts.map(([x, y]) => [x + dx, y]);
+const FOREARM = {
+  // Outer = away from the body: smaller x on the left arm, larger on the right.
+  extensors: [
+    [[20, 118], ...shiftX(FOREARM_MID.left, -HALF_SEAM), [20, 182]],
+    [...shiftX(FOREARM_MID.right, HALF_SEAM), [180, 182], [180, 118]],
+  ],
+  flexors: [
+    [...shiftX(FOREARM_MID.left, HALF_SEAM), [56, 182], [56, 118]],
+    [[144, 118], ...shiftX(FOREARM_MID.right, -HALF_SEAM), [144, 182]],
+  ],
+};
+
 export const REGION_SHAPES = {
   'Upper Chest': { view: 'front', parts: pecBand(66, 79), box: [58, 67, 139, 79] },
   'Mid Chest': { view: 'front', parts: pecBand(79, 89), box: [58, 79, 139, 89] },
@@ -105,9 +126,11 @@ export const REGION_SHAPES = {
   // Parts of the single-chip muscles (muscleRegions.js), for the muscle
   // detail screen's "Inside Glutes" etc. Same clip-the-overlay approach.
   // Forearm, palms forward: thumb side (extensors, brachioradialis) is the
-  // outer edge, the palm-side flexors the inner.
-  'Forearm Flexors': { view: 'front', parts: clipped(forearmRaw, [[38, 120, 62, 180], [138, 120, 162, 180]]), box: [38, 124, 162, 178], iconBox: ARM_ICON.forearm },
-  'Forearm Extensors': { view: 'front', parts: clipped(forearmRaw, [[22, 120, 38, 180], [162, 120, 176, 180]]), box: [25, 124, 173, 178], iconBox: ARM_ICON.forearm },
+  // outer edge, the palm-side flexors the inner. The forearm slants, so the
+  // two are split ALONG it (polygon clips either side of its centre line)
+  // — a straight vertical cut made a top and a bottom half instead.
+  'Forearm Flexors': { view: 'front', parts: clipped(forearmRaw, FOREARM.flexors), box: [31, 124, 169, 178], iconBox: ARM_ICON.forearm },
+  'Forearm Extensors': { view: 'front', parts: clipped(forearmRaw, FOREARM.extensors), box: [25, 124, 173, 178], iconBox: ARM_ICON.forearm },
   // Gluteus medius sits above and outside the max: the top band of the glute.
   'Glute Max': { view: 'back', parts: [{ raw: muscle8Raw, clip: [58, 176, 142, 240] }], box: [61, 176, 138, 237] },
   'Glute Med': { view: 'back', parts: [{ raw: muscle8Raw, clip: [58, 154, 142, 176] }], box: [61, 157, 138, 176] },
@@ -161,7 +184,7 @@ function femaleRegionShape(region) {
       ? { view: 'front', parts: [{ raw: femaleChestRaw, clip: [55, band[0], 144, band[1]] }], box: [66, Math.max(74, band[0]), 133, Math.min(113, band[1])] }
       : {
         view: shape.view,
-        parts: shape.parts?.map(p => ({ raw: raw(p.raw), clip: p.clip && warpBox(p.clip, warp) })),
+        parts: shape.parts?.map(p => ({ raw: raw(p.raw), clip: p.clip && (isPoly(p.clip) ? p.clip.map(warp) : warpBox(p.clip, warp)) })),
         paths: shape.paths?.map(d => warpPathD(d, warp)),
         box: warpBox(shape.box, warp),
         iconBox: shape.iconBox && warpBox(shape.iconBox, warp),
@@ -190,19 +213,33 @@ export function regionCrop(region, canvasW = 200, canvasH = 369, sex = null) {
   return { x, y, w: side, h: side };
 }
 
-// Same clip as a percentage inset, for layers drawn at any size (the heat
-// map's body stack is responsive, not the native 200px canvas).
-export function clipStylePct(clip, canvasW = 200, canvasH = 369.03) {
+// A clip is either a [x0, y0, x1, y1] window or a polygon, [[x, y], ...].
+const isPoly = clip => Array.isArray(clip[0]);
+
+/** A clip's bounding [x0, y0, x1, y1] window. */
+export function clipBox(clip) {
+  if (!clip || !isPoly(clip)) return clip;
+  const xs = clip.map(p => p[0]), ys = clip.map(p => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
+// Same clip as percentages, for layers drawn at any size (the heat map's
+// body stack is responsive, not the native 200px canvas). `gap` pulls a
+// window's edges in by that many units, so two parts cut from one overlay
+// leave a thin seam between them (polygons have theirs built in).
+export function clipStylePct(clip, canvasW = 200, canvasH = 369.03, gap = 0) {
   if (!clip) return undefined;
-  const [x0, y0, x1, y1] = clip;
   const pct = (v, total) => `${+((v / total) * 100).toFixed(3)}%`;
-  return `inset(${pct(y0, canvasH)} ${pct(canvasW - x1, canvasW)} ${pct(canvasH - y1, canvasH)} ${pct(x0, canvasW)})`;
+  if (isPoly(clip)) return `polygon(${clip.map(([x, y]) => `${pct(x, canvasW)} ${pct(y, canvasH)}`).join(', ')})`;
+  const [x0, y0, x1, y1] = clip;
+  return `inset(${pct(y0 + gap, canvasH)} ${pct(canvasW - x1 + gap, canvasW)} ${pct(canvasH - y1 + gap, canvasH)} ${pct(x0 + gap, canvasW)})`;
 }
 
 // CSS clip-path for a part's clip window, in the canvas's native px.
 export function clipStyle(clip, canvasW = 200, canvasH = 369.03) {
   if (!clip) return undefined;
-  const [x0, y0, x1, y1] = clip;
   const px = v => `${+v.toFixed(2)}px`;
+  if (isPoly(clip)) return `polygon(${clip.map(([x, y]) => `${px(x)} ${px(y)}`).join(', ')})`;
+  const [x0, y0, x1, y1] = clip;
   return `inset(${px(y0)} ${px(canvasW - x1)} ${px(canvasH - y1)} ${px(x0)})`;
 }

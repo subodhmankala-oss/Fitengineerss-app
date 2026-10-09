@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getActivityStatus, isNewSignup, compareNewestJoinFirst, formatJoined } from '../../utils/activityStatus';
 import AdminSearchBox from './AdminSearchBox';
+import AdminWhatsappNudge from './AdminWhatsappNudge';
 import { matchesSearch } from '../../utils/matchesSearch';
 
 export default function AdminClientsList({
@@ -49,7 +50,9 @@ export default function AdminClientsList({
     const matchesGoal = goalFilter === 'All' || c.userGoal === goalFilter;
     const matchesActivity = matchesActivityFilter(c);
     const coachName = coachesList.find(co => co.id === c.coach_id)?.name;
-    if (onlyNewReplies && !unreadReplyIds.has(c.id)) return false;
+    // Only while there are unread replies — once the last one is marked read
+    // the toggle button disappears, and a still-on filter would hide everyone.
+    if (onlyNewReplies && unreadReplyIds.size > 0 && !unreadReplyIds.has(c.id)) return false;
     return matchesGoal && matchesActivity &&
       matchesSearch(searchQuery, [c.userName, c.email, c.phone, coachName]);
   }).sort(compareNewestJoinFirst(c => c.joined_at));
@@ -115,6 +118,17 @@ export default function AdminClientsList({
           );
         })}
       </div>
+
+      {/* Everyone in the selected tile (not narrowed by search/goal/replies);
+          key resets the panel when switching tiles. */}
+      {(activityFilter === 'inactive-long' || activityFilter === 'never') && (
+        <AdminWhatsappNudge
+          key={activityFilter}
+          clients={clients.filter(matchesActivityFilter)}
+          coachesList={coachesList}
+          tileLabel={summaryTiles.find(t => t.key === activityFilter)?.label}
+        />
+      )}
 
       {unreadReplyIds.size > 0 && (
         <button

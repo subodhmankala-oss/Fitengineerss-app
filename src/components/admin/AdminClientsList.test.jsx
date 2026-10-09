@@ -65,6 +65,18 @@ describe('AdminClientsList component', () => {
     expect(onMark).toHaveBeenCalledWith('client-1');
   });
 
+  it('shows everyone again once the last unread reply is marked read', () => {
+    const props = {
+      clients: mockClients, loadingClients: false, coachesList: mockCoaches,
+      founderReplies: { 'client-1': { reply: 'Sure', at: '2026-10-03T11:29:03Z' } }
+    };
+    const { rerender } = render(<AdminClientsList {...props} unreadReplyIds={new Set(['client-1'])} />);
+    fireEvent.click(screen.getByText(/1 new reply from clients/));
+    expect(screen.queryByText('Subodh Guest')).toBeNull();
+    rerender(<AdminClientsList {...props} unreadReplyIds={new Set()} />);
+    expect(screen.getByText('Subodh Guest')).toBeTruthy();
+  });
+
   it('should render the list of clients correctly', () => {
     render(
       <AdminClientsList

@@ -85,7 +85,9 @@ export const REGION_SHAPES = {
   'Upper Abs': { view: 'front', parts: [{ raw: muscle6Raw, clip: [80, 114, 117, 149] }], box: [82, 116, 115, 149] },
   'Lower Abs': { view: 'front', parts: [{ raw: muscle6Raw, clip: [80, 149, 117, 184] }], box: [82, 149, 115, 182] },
   Obliques: { view: 'front', parts: [{ raw: muscle14Raw }], box: [67, 113, 131, 177] },
-  'Deep Core': { view: 'front', parts: [{ raw: muscle6Raw }, { raw: muscle14Raw }], box: [67, 113, 131, 182] },
+  // Lies under the abs and obliques: an icon shows the whole area, but the
+  // heat map leaves it off so it doesn't paint over those three.
+  'Deep Core': { view: 'front', parts: [{ raw: muscle6Raw }, { raw: muscle14Raw }], box: [67, 113, 131, 182], hiddenOnMap: true },
 
   Quads: { view: 'front', parts: [{ raw: quadsRaw }], box: [64, 174, 135, 256] },
   Hamstrings: { view: 'back', parts: [{ raw: hamstringsRaw }], box: [65, 196, 135, 272] },
@@ -163,6 +165,7 @@ function femaleRegionShape(region) {
         paths: shape.paths?.map(d => warpPathD(d, warp)),
         box: warpBox(shape.box, warp),
         iconBox: shape.iconBox && warpBox(shape.iconBox, warp),
+        hiddenOnMap: shape.hiddenOnMap,
       };
   }
   femaleShapes.set(region, out);

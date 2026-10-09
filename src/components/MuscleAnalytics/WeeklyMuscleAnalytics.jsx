@@ -11,8 +11,8 @@ import {
   getWeeklyMuscleStats, getPPLCDistribution, generateWeeklyInsights,
   getRecommendations, compareWeeks, getAverageCompletion, classifyTrend
 } from '../../utils/muscleAnalytics';
-import { subscribeCatalogMuscles } from '../../utils/muscleGroups';
-import { getRegionBreakdownForMuscle } from '../../utils/muscleRegions';
+import { subscribeCatalogMuscles, MUSCLE_GROUPS } from '../../utils/muscleGroups';
+import { getRegionBreakdownForMuscle, hasRegions } from '../../utils/muscleRegions';
 import databaseService from '../../services/databaseService';
 import { shiftLocalDateString } from '../../utils/dateUtils';
 import { useCountUp } from '../../hooks/useCountUp';
@@ -155,12 +155,15 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     [logs, weekStartStr, weekEndStr, catalogVersion]
   );
 
-  // Heat map draws Back as its parts (Lats / Upper / Mid / Rotator Cuff /
-  // Lower Back), each in its own color; see BodyDiagram's regionSplit.
+  // Heat map draws every muscle that has parts (Back: Lats / Trapezius / Mid
+  // Back…, Glutes: Max / Med…) as those parts, each in its own color — the
+  // same parts as the muscle detail screen; see BodyDiagram's regionSplit.
   const regionSplit = useMemo(() => {
     void catalogVersion;
-    const back = getRegionBreakdownForMuscle(logs, 'Back', weekStartStr, weekEndStr).filter(r => r.tier);
-    return { Back: Object.fromEntries(back.map(r => [r.id, r.tier])) };
+    return Object.fromEntries(MUSCLE_GROUPS.filter(hasRegions).map(m => {
+      const parts = getRegionBreakdownForMuscle(logs, m, weekStartStr, weekEndStr).filter(r => r.tier);
+      return [m, Object.fromEntries(parts.map(r => [r.id, r.tier]))];
+    }));
   }, [logs, weekStartStr, weekEndStr, catalogVersion]);
 
   const pplc = useMemo(() => getPPLCDistribution(muscleStats), [muscleStats]);

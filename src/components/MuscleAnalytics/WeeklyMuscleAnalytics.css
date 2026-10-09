@@ -552,6 +552,11 @@
   transform-origin: 0 0;
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+/* Zoomed in, the parts' outlines keep their resting thickness instead of
+   growing with the zoom (4× turned a fine seam into a heavy black rim). */
+.muscle-body-viewport.zoomed .muscle-region path {
+  vector-effect: non-scaling-stroke;
+}
 .muscle-body-stack.zoomable.gesturing {
   transition: none;
 }

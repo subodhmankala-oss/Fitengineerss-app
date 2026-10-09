@@ -2,10 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
-import { getRegionShape, clipStylePct } from './regionShapes';
+import { getRegionShape, clipStylePct, REGION_SHAPES } from './regionShapes';
 import {
-  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS
+  getBodyArt, FACE_MASK, FACE_MASK_GRADIENT, SCALP_MASK, SCALP_MASK_GRADIENT, recolorSvg, LAYER_REGIONS,
+  FRONT_MUSCLE_LAYERS, BACK_MUSCLE_LAYERS
 } from './muscleBodyShapes';
+
+// The un-warped overlay files, to tell which of a muscle's layers its regions
+// are cut from (the female figure's layers are warped copies, so compare by
+// index against these).
+const MALE_LAYERS = { front: FRONT_MUSCLE_LAYERS, back: BACK_MUSCLE_LAYERS };
 
 const LEGEND = [
   { key: 'not_trained', color: 'var(--text-subtle)', label: 'Not Trained' },
@@ -31,10 +37,11 @@ const MuscleLayer = ({ rawSvg, color, isActive, onSelect, ariaLabel, clip }) => 
 // Also used by the Add Exercise picker's body filter, which has no weekly
 // stats: it passes colorFor/labelFor to color and label muscles itself.
 // Male or female figure per the viewed client's profile sex (useBodySex).
-// regionSplit: { Back: { Lats: tier, Trapezius: tier, ... } } draws that
-// muscle as its separate regions (regionShapes.js), each in its own heat-map
-// color and each opening the muscle with that region picked out, instead of
-// one block in the whole muscle's color.
+// regionSplit: { Back: { Lats: tier, Trapezius: tier, ... }, Glutes: {...} }
+// draws each listed muscle as its separate regions (regionShapes.js), each in
+// its own heat-map color and each opening the muscle with that region picked
+// out, instead of one block in the whole muscle's color. Regions that can't
+// be seen (Deep Core, under the abs) are left off (`hiddenOnMap`).
 export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMuscle, colorFor, labelFor, regionSplit = null }) => {
   const sex = useBodySex();
   const { bodySvg, fillUrl: bodyFillUrl, layers: layerMap, underlayUrl, bodyMaskStyle } = getBodyArt(sex)[view];
@@ -96,9 +103,17 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
       {Object.entries(layerMap).map(([muscle, rawFiles]) => {
         const split = regionSplit?.[muscle];
         if (split) {
-          return Object.entries(split).flatMap(([region, regionTier]) => {
+          // Overlays no region is cut from (Biceps' brachialis) still show,
+          // in the whole muscle's color, under the regions.
+          const covered = new Set(Object.keys(split).flatMap(r => (REGION_SHAPES[r]?.parts || []).map(p => p.raw)));
+          const stat = statByMuscle[muscle];
+          const tier = stat ? getHeatMapTier(stat) : null;
+          const rest = rawFiles.flatMap((rawSvg, i) => (covered.has(MALE_LAYERS[view][muscle]?.[i]) ? [] : [
+            <MuscleLayer key={`${muscle}-${i}`} rawSvg={rawSvg} color={tier?.color ?? '#64748b'} isActive={muscle === activeMuscle} onSelect={() => onSelectMuscle(muscle)} ariaLabel={`${muscle}: ${tier?.label ?? 'Not Trained'}`} />,
+          ]));
+          return rest.concat(Object.entries(split).flatMap(([region, regionTier]) => {
             const shape = getRegionShape(region, sex);
-            if (!shape || shape.view !== view) return [];
+            if (!shape || shape.view !== view || shape.hiddenOnMap) return [];
             const color = regionTier?.color ?? '#64748b';
             const select = () => onSelectMuscle(muscle, region);
             const label = `${muscle}, ${region}: ${regionTier?.label ?? 'Not Trained'}`;
@@ -120,7 +135,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
               );
             }
             return layers;
-          });
+          }));
         }
         const stat = statByMuscle[muscle];
         const tier = stat ? getHeatMapTier(stat) : null;

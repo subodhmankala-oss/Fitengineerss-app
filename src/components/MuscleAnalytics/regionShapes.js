@@ -100,7 +100,7 @@ export const REGION_SHAPES = {
   },
   Calves: { view: 'back', parts: [{ raw: muscle7Raw }], box: [71, 261, 130, 351] },
   // Tibialis anterior: FRONT of the shin, outer edge, knee to ankle.
-  Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [69, 266, 132, 331] },
+  Tibialis: { view: 'front', parts: [{ raw: tibialisRaw }], box: [69, 266, 132, 336] },
 
   // Parts of the single-chip muscles (muscleRegions.js), for the muscle
   // detail screen's "Inside Glutes" etc. Same clip-the-overlay approach.

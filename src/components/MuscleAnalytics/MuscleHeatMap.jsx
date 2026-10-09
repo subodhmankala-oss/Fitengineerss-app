@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { MUSCLE_BODY_VIEW } from '../../utils/muscleGroups';
 import { getHeatMapTier } from '../../utils/muscleAnalytics';
 import { useBodySex } from './bodySex';
@@ -129,11 +129,14 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
   // Gesture state lives in a ref and moves the figure straight through the
   // DOM (one frame at a time), so a drag never waits on a React render; the
   // result is committed to `zoom` when the fingers lift.
-  const g = useRef({ pointers: new Map(), moved: false, type: 'mouse', start: null, pinch: null, live: null, frame: 0 });
+  const g = useRef({ pointers: new Map(), moved: false, type: 'mouse', start: null, pinch: null, live: null, base: null, frame: 0, settle: 0 });
   const flashTimer = useRef(null);
+  // Where the figure was on screen just before a tap zoomed in or out, so the
+  // change can glide from there (see the layout effect below).
+  const flip = useRef(null);
   useEffect(() => {
     const s = g.current;
-    return () => { clearTimeout(flashTimer.current); cancelAnimationFrame(s.frame); };
+    return () => { clearTimeout(flashTimer.current); clearTimeout(s.settle); cancelAnimationFrame(s.frame); };
   }, []);
 
   const zoomed = Boolean(zoom);
@@ -156,10 +159,17 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     flashTimer.current = setTimeout(() => { setFlash(null); onSelectMuscle(muscle, region || null); }, 160);
   };
 
-  // Zoom is translate + scale in px inside the viewport, which is the full
+  // Zoom is a scale + offset in px inside the viewport, which is the full
   // width of the card: the figure sits centered at rest, and once zoomed it
   // fills the whole width instead of the figure's own narrow box. `geo` is
-  // the layout it was worked out against (stack offset/size, viewport size).
+  // the layout it was worked out against (stack offset/size, viewport size);
+  // tx/ty are relative to the figure's resting spot (geo.L, geo.T).
+  //
+  // A zoom at rest is drawn at its REAL size (width = w·s, moved by a plain
+  // translate), not with transform: scale. A scaled element is painted once
+  // at 1× and magnified as a picture — iPhones keep that, so every edge went
+  // blocky. Laid out at full size, the vector art is redrawn sharp. Only the
+  // in-between moments (the glide in/out, a drag or pinch) use a scale.
   const geometry = () => {
     const v = viewportRef.current, st = stackRef.current;
     return { L: st.offsetLeft, T: st.offsetTop, w: st.offsetWidth, h: st.offsetHeight, vw: v.clientWidth, vh: v.clientHeight };
@@ -176,6 +186,43 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     const r = viewportRef.current.getBoundingClientRect();
     return { vx: x - r.left, vy: y - r.top };
   };
+  // The figure's on-screen box relative to the viewport, before a tap
+  // changes the zoom.
+  const rememberSpot = () => {
+    const v = viewportRef.current.getBoundingClientRect(), r = stackRef.current.getBoundingClientRect();
+    flip.current = { x: r.left - v.left, y: r.top - v.top, w: r.width };
+  };
+  const zoomTo = z => { rememberSpot(); setZoom(z); };
+
+  // Glide from the remembered box to the new one: start the figure where it
+  // was (a scale on top of its new size), then let the CSS transition run to
+  // its resting transform — which is scale-free, so it ends up sharp.
+  useLayoutEffect(() => {
+    const el = stackRef.current, from = flip.current;
+    flip.current = null;
+    if (!el || !from) return;
+    // From the layout, not getBoundingClientRect: React's new transform has
+    // already started a CSS transition, so the measured box would be its
+    // starting point. Layout box (offset*) + transform origin 0 0: a
+    // translate(x, y) scale(k) puts the figure at offset + (x, y), k wide.
+    const rest = el.style.transform;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${from.x - el.offsetLeft}px, ${from.y - el.offsetTop}px) scale(${from.w / el.offsetWidth})`;
+    void el.offsetWidth; // commit the start position before transitioning
+    el.style.transition = '';
+    el.style.transform = rest;
+  }, [zoom]);
+
+  const restTransform = z => `translate(${Math.round(z.geo.L + z.tx)}px, ${Math.round(z.geo.T + z.ty)}px)`;
+  const stackStyle = z => (z ? {
+    position: 'absolute', left: 0, top: 0, margin: 0, maxWidth: 'none',
+    width: z.geo.w * z.s, height: z.geo.h * z.s, transform: restTransform(z),
+  } : undefined);
+  // Mid-gesture `live` zoom, drawn as a scale on top of whatever the figure
+  // is laid out as right now (`base`: the zoom at rest, or none).
+  const liveTransform = (live, base) => (base
+    ? `translate(${base.geo.L + live.tx}px, ${base.geo.T + live.ty}px) scale(${live.s / base.s})`
+    : `translate(${live.tx}px, ${live.ty}px) scale(${live.s})`);
 
   const onClick = (e) => {
     if (g.current.moved) { g.current.moved = false; return; }
@@ -185,28 +232,28 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
       const { vx, vy } = local(e.clientX, e.clientY);
       const px = vx - geo.L, py = vy - geo.T;
       if (px < 0 || py < 0 || px > geo.w || py > geo.h) return;
-      setZoom(fit(ZOOM_IN, geo.vw / 2 - geo.L - px * ZOOM_IN, geo.vh / 2 - geo.T - py * ZOOM_IN, geo));
+      zoomTo(fit(ZOOM_IN, geo.vw / 2 - geo.L - px * ZOOM_IN, geo.vh / 2 - geo.T - py * ZOOM_IN, geo));
       return;
     }
     const direct = e.target.closest?.('.muscle-region.interactive');
     const layer = direct || findPartAt(stackRef.current, e.clientX, e.clientY);
     if (layer) select(layer.dataset.muscle, layer.dataset.region);
-    else if (zoom) setZoom(null);
+    else if (zoom) zoomTo(null);
   };
 
-  const transformOf = z => `translate(${z.tx}px, ${z.ty}px) scale(${z.s})`;
   // Mid-gesture: write the transform straight onto the figure.
   const applyLive = () => {
     const s = g.current;
     cancelAnimationFrame(s.frame);
     s.frame = requestAnimationFrame(() => {
-      if (stackRef.current && s.live) stackRef.current.style.transform = transformOf(s.live);
+      if (stackRef.current && s.live) stackRef.current.style.transform = liveTransform(s.live, s.base);
     });
   };
   const beginGesture = () => {
     const s = g.current;
     if (!s.moved) {
       s.moved = true;
+      clearTimeout(s.settle);
       stackRef.current?.classList.add('gesturing');
     }
   };
@@ -227,6 +274,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     }
     if (s.pointers.size === 1) {
       s.moved = false;
+      s.base = zoom;
       s.live = zoom;
       s.start = { x: e.clientX, y: e.clientY, tx: zoom?.tx ?? 0, ty: zoom?.ty ?? 0 };
     } else if (s.pointers.size === 2) {
@@ -270,20 +318,23 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
       s.start = { x: p.x, y: p.y, tx: s.live?.tx ?? 0, ty: s.live?.ty ?? 0 };
     } else if (s.pointers.size === 0) {
       s.pinch = null;
-      stackRef.current?.classList.remove('gesturing');
+      const el = stackRef.current;
       if (s.moved && s.live) {
         cancelAnimationFrame(s.frame);
-        const el = stackRef.current;
         if (s.live.s < 1.15) {
           // Pinched back to full size. React may never have set the
           // transform (a pinch from 1×), so clear it here too.
           if (el) el.style.transform = '';
           setZoom(null);
         } else {
-          if (el) el.style.transform = transformOf(s.live);
+          // Re-laid out at the new size; the scale goes away (sharp again).
           setZoom(s.live);
         }
       }
+      // Transitions stay off until that new layout has been drawn, so it
+      // doesn't animate from the gesture's scaled look.
+      clearTimeout(s.settle);
+      s.settle = setTimeout(() => el?.classList.remove('gesturing'), 60);
     }
   };
 
@@ -320,7 +371,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     // Keep clear of the "Whole body" button (top-left, ~120×40 px).
     const taken = [[vis[0], vis[1], vis[0] + fx(124), vis[1] + fy(42)]];
     inView.forEach(p => {
-      const w = fx(p.label.length * 5.4 + 10), h = fy(16);
+      const w = fx(p.label.length * 6 + 12), h = fy(17);
       for (const sp of p.spots) {
         if (!inside(sp)) continue;
         const cx = clamp(sp.cx, vis[0] + w / 2, vis[2] - w / 2), cy = clamp(sp.cy, vis[1] + h / 2, vis[3] - h / 2);
@@ -338,7 +389,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     <div
       ref={stackRef}
       className={`muscle-body-stack${zoomable ? ' zoomable' : ''}`}
-      style={zoom ? { transform: transformOf(zoom) } : undefined}
+      style={stackStyle(zoom)}
       onClick={zoomable ? undefined : onClick}
       onPointerDown={zoomable ? undefined : onPointerDown}
       onPointerUp={zoomable ? undefined : onPointerUp}
@@ -456,13 +507,20 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           );
         });
       })}
+    </div>
+  );
 
+  // The names sit in their own unscaled layer over the figure, placed in
+  // viewport px. Inside the scaled figure the phone magnified them as a
+  // picture (blurry); here they are drawn at their real size. Keyed by the
+  // zoom so they fade in again once the figure settles after each move.
+  const tagLayer = zoom && tags.length > 0 && (
+    <div key={`${zoom.s}|${zoom.tx}|${zoom.ty}`} className="body-part-tags" aria-hidden="true">
       {tags.map(t => (
         <span
           key={t.key}
           className="body-part-tag"
-          style={{ left: `${t.cx * 100}%`, top: `${t.cy * 100}%`, transform: `translate(-50%, -50%) scale(${1 / zoom.s})` }}
-          aria-hidden="true"
+          style={{ left: zoom.geo.L + zoom.tx + t.cx * zoom.geo.w * zoom.s, top: zoom.geo.T + zoom.ty + t.cy * zoom.geo.h * zoom.s }}
         >
           {t.label}
         </span>
@@ -476,7 +534,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
       <div
         ref={viewportRef}
         className={`muscle-body-viewport${zoom ? ' zoomed' : ''}`}
-        style={{ touchAction: zoom ? 'none' : 'pan-y' }}
+        style={{ touchAction: zoom ? 'none' : 'pan-y', height: zoom ? zoom.geo.vh : undefined }}
         onClick={onClick}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -484,12 +542,13 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
         onPointerCancel={onPointerUp}
       >
         {stack}
+        {tagLayer}
         {zoom && (
           <button
             type="button"
             className="muscle-body-zoom-out"
             onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); setZoom(null); }}
+            onClick={e => { e.stopPropagation(); zoomTo(null); }}
           >
             ← Whole body
           </button>

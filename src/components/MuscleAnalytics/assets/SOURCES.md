@@ -72,10 +72,13 @@ that shape mirrored about the muscle's own centre line (x = 99.3 for the thighs,
 98.8 for the arms, measured from the old overlays).
 
 **Tibialis** (tibialis anterior → Tibialis, front view) has no wger file either.
-`muscle-tibialis.svg` is two shapes hand-traced (2026-10-07) over the rendered
-`body-front.svg` lower legs, one per shin (knee y≈266 to ankle y≈331) — the
-legs aren't mirror-symmetric, so each was traced separately — in the same
-format/style as the other overlays.
+`muscle-tibialis.svg` is two shapes, one per shin (knee y≈267 to ankle
+y≈335), in the same format/style as the other overlays. First hand-traced
+(2026-10-07) as a stair-stepped polyline, which looked blocky once the heat
+map zooms in; redrawn 2026-10-09 by the app owner on a sketch pad over
+`body-front.svg` by placing points, stored as one smooth closed Catmull-Rom
+curve per shin (cubic Béziers). The legs aren't mirror-symmetric, so each
+shin has its own points.
 
 **`body-front-fill.png` / `body-back-fill.png`** are a derived, gap-filled
 raster backdrop for the same two vendored SVGs — see `BODY_FRONT_FILL_URL`

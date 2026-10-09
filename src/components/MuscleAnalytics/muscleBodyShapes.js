@@ -200,6 +200,11 @@ export const BODY_BACK_SVG = ensureViewBox(lightenGreys(bodyBackRaw, BODY_TONE_O
 //   4. Fill eligible pixels with the color of their nearest real painted
 //      neighbour (multi-source flood fill), so each gap blends into its
 //      own local shading instead of one flat tone for the whole body.
+//   5. Erode the result's alpha by 2px (a 5×5 min filter, ~0.7 native
+//      units), so the raster's own edge sits just inside the vector
+//      outline. Its anti-aliased edge row poked ~1px past the SVG; at the
+//      heat map's 2.5–4× zoom on a phone that one row became a jagged white
+//      staircase around the whole silhouette and the armpit gaps.
 //
 // Regenerate (no CLI tool — needs a real browser canvas to rasterize the
 // SVG): ask Claude to re-run the gap-fill script against the current

@@ -55,11 +55,19 @@ const TrendSparkline = ({ weeks }) => {
  * already works (ExercisePickerModal, Form Guide sheet, payment modal).
  * Opened by tapping a Section 1 card or a Section 2 heat map region.
  */
-const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStart: browsedStart = null, weekEnd: browsedEnd = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const now = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => getLocalDateString(now), [now]);
-  const weekStart = useMemo(() => shiftLocalDateString(todayStr, -6), [todayStr]);
+  // The week the analytics page is showing (so a part colored on the heat map
+  // for Sept 7–13 opens with Sept 7–13's numbers), else the last 7 days.
+  // `todayStr` is that week's last day; the trend and growth score end there
+  // too. Recovery stays "right now".
+  const todayStr = useMemo(() => browsedEnd || getLocalDateString(now), [browsedEnd, now]);
+  const weekStart = useMemo(() => browsedStart || shiftLocalDateString(todayStr, -6), [browsedStart, todayStr]);
   const monthStart = useMemo(() => shiftLocalDateString(todayStr, -29), [todayStr]);
+  // A past week reads "that week" instead of "this week".
+  const pastWeek = Boolean(browsedEnd) && browsedEnd < getLocalDateString(now);
+  const weekWord = pastWeek ? 'that week' : 'this week';
+  const weekEndDate = useMemo(() => (browsedEnd ? new Date(`${browsedEnd}T12:00:00`) : now), [browsedEnd, now]);
 
   // getWeeklyMuscleStats is a generic range aggregator despite its name —
   // reused here with a 30-day window for "Monthly Sets" (see muscleAnalytics.js).
@@ -68,8 +76,8 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
   const breakdown = useMemo(() => getExerciseBreakdownForMuscle(logs, muscle, weekStart, todayStr), [logs, muscle, weekStart, todayStr]);
   const bestLift = useMemo(() => getBestLiftForMuscle(logs, muscle), [logs, muscle]);
   const personalRecords = useMemo(() => getPersonalRecordsForMuscle(logs, muscle, 3), [logs, muscle]);
-  const trend = useMemo(() => getWeeklySetsTrendForMuscle(logs, muscle, 6, now), [logs, muscle, now]);
-  const growth = useMemo(() => getMuscleGrowthScore(logs, muscle, now), [logs, muscle, now]);
+  const trend = useMemo(() => getWeeklySetsTrendForMuscle(logs, muscle, 6, weekEndDate), [logs, muscle, weekEndDate]);
+  const growth = useMemo(() => getMuscleGrowthScore(logs, muscle, weekEndDate), [logs, muscle, weekEndDate]);
   const recovery = useMemo(() => getMuscleRecovery(logs, muscle, now), [logs, muscle, now]);
   const regions = useMemo(() => getRegionBreakdownForMuscle(logs, muscle, weekStart, todayStr), [logs, muscle, weekStart, todayStr]);
 
@@ -116,7 +124,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
           </span>
           <div className="muscle-detail-title-group">
             <h3>{muscle}</h3>
-            <span className="muscle-status-pill" style={{ color: tier.color }}>{tier.label} this week</span>
+            <span className="muscle-status-pill" style={{ color: tier.color }}>{tier.label} {weekWord}</span>
           </div>
           <button type="button" className="muscle-detail-close" onClick={handleClose} aria-label="Close">✕</button>
         </div>
@@ -166,9 +174,9 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, onAddExe
 
           {/* Exercises + Exercise Contribution */}
           <div className="detail-section">
-            <span className="detail-section-title">Exercises This Week</span>
+            <span className="detail-section-title">Exercises {pastWeek ? 'That Week' : 'This Week'}</span>
             {breakdown.length === 0 ? (
-              <p className="detail-empty-line">No exercises logged for {muscle} this week.</p>
+              <p className="detail-empty-line">No exercises logged for {muscle} {weekWord}.</p>
             ) : (
               <div className="detail-exercise-list">
                 {breakdown.map(ex => (

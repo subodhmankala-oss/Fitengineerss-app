@@ -313,7 +313,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={weekStartStr} weekEnd={weekEndStr} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
       )}
     </div>
   );

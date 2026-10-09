@@ -45,6 +45,24 @@ const CANVAS_H = 369.03;
 // the color it shows — the same dark as the seams between muscles.
 const SEAM_GAP = 0.35;
 const SEAM_COLOR = '#0f1420';
+
+// The seam copy is clipped to everything EXCEPT the parts (each part a hole
+// in one evenodd polygon, joined to the canvas corner by a there-and-back
+// bridge), so it only shows in the hairline gaps. The overlays are
+// see-through, so an unclipped dark copy under the parts darkened every
+// split muscle. Null when a part takes the whole overlay (no seam needed).
+function seamClipStyle(clips) {
+  if (!clips.length || clips.some(c => !c)) return null;
+  const pt = ([x, y]) => `${+((x / 200) * 100).toFixed(3)}% ${+((y / CANVAS_H) * 100).toFixed(3)}%`;
+  const holes = clips.map(c => {
+    if (Array.isArray(c[0])) return c;
+    const [x0, y0, x1, y1] = c.map((v, k) => v + (k < 2 ? SEAM_GAP : -SEAM_GAP));
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  });
+  const pts = [[0, 0], [200, 0], [200, CANVAS_H], [0, CANVAS_H], [0, 0]];
+  holes.forEach(h => pts.push(...h, h[0], [0, 0]));
+  return `polygon(evenodd, ${pts.map(pt).join(', ')})`;
+}
 // How far from a part a tap may land and still pick it (screen px, about a
 // fingertip). Searched outward in rings, so the closest part wins.
 const SNAP_PX = 22;
@@ -463,10 +481,18 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           // the seam color: the hairline gap between two parts (SEAM_GAP,
           // or built into a polygon clip) shows it as a dividing line, so
           // two parts in the same color still read as two.
-          const rest = rawFiles.flatMap((rawSvg, i) => (covered.has(MALE_LAYERS[view][muscle]?.[i]) ? [
-            <div key={`${muscle}-seam-${i}`} className="muscle-svg-layer" aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, SEAM_COLOR, false) }} />,
-          ] : [
+          // Only the gaps show it (seamClipStyle).
+          const partClips = maleRaw => Object.keys(split).flatMap(r => {
+            const sexParts = getRegionShape(r, sex)?.parts || [];
+            return (REGION_SHAPES[r]?.parts || []).flatMap((p, k) => (p.raw === maleRaw ? [sexParts[k]?.clip ?? null] : []));
+          });
+          const rest = rawFiles.flatMap((rawSvg, i) => (covered.has(MALE_LAYERS[view][muscle]?.[i]) ? (() => {
+            const clipPath = seamClipStyle(partClips(MALE_LAYERS[view][muscle][i]));
+            return clipPath ? [
+              <div key={`${muscle}-seam-${i}`} className="muscle-svg-layer" aria-hidden="true" style={{ clipPath }}
+                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, SEAM_COLOR, false) }} />,
+            ] : [];
+          })() : [
             <MuscleLayer key={`${muscle}-${i}`} rawSvg={rawSvg} color={tier?.color ?? '#64748b'} isActive={muscle === activeMuscle}
               muscle={muscle} flash={flash === `${muscle}|`} onSelect={() => onSelectMuscle(muscle)} ariaLabel={`${muscle}: ${tier?.label ?? 'Not Trained'}`} />,
           ]));

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import Avatar from './Avatar';
 import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
+import CoachQuietClients from './CoachQuietClients';
 import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
@@ -6109,6 +6110,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 600
                 }}>{liveToast}</div>
               )}
+
+              {/* This coach's clients who haven't opened the app in 3+ days
+                  (or ever), each with a pre-written WhatsApp check-in. */}
+              <CoachQuietClients clients={myClients} onOpenClient={handleSelectClient} />
 
               {/* Client finished a workout, no coach note sent yet — fallback
                   for a missed "workout completed" push. Lives on the home

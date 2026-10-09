@@ -320,7 +320,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
     // Keep clear of the "Whole body" button (top-left, ~120×40 px).
     const taken = [[vis[0], vis[1], vis[0] + fx(124), vis[1] + fy(42)]];
     inView.forEach(p => {
-      const w = fx(p.label.length * 5.4 + 10), h = fy(16);
+      const w = fx(p.label.length * 6 + 12), h = fy(17);
       for (const sp of p.spots) {
         if (!inside(sp)) continue;
         const cx = clamp(sp.cx, vis[0] + w / 2, vis[2] - w / 2), cy = clamp(sp.cy, vis[1] + h / 2, vis[3] - h / 2);
@@ -456,13 +456,20 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           );
         });
       })}
+    </div>
+  );
 
+  // The names sit in their own unscaled layer over the figure, placed in
+  // viewport px. Inside the scaled figure the phone magnified them as a
+  // picture (blurry); here they are drawn at their real size. Keyed by the
+  // zoom so they fade in again once the figure settles after each move.
+  const tagLayer = zoom && tags.length > 0 && (
+    <div key={`${zoom.s}|${zoom.tx}|${zoom.ty}`} className="body-part-tags" aria-hidden="true">
       {tags.map(t => (
         <span
           key={t.key}
           className="body-part-tag"
-          style={{ left: `${t.cx * 100}%`, top: `${t.cy * 100}%`, transform: `translate(-50%, -50%) scale(${1 / zoom.s})` }}
-          aria-hidden="true"
+          style={{ left: zoom.geo.L + zoom.tx + t.cx * zoom.geo.w * zoom.s, top: zoom.geo.T + zoom.ty + t.cy * zoom.geo.h * zoom.s }}
         >
           {t.label}
         </span>
@@ -484,6 +491,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
         onPointerCancel={onPointerUp}
       >
         {stack}
+        {tagLayer}
         {zoom && (
           <button
             type="button"

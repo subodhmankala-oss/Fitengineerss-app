@@ -557,22 +557,35 @@
 }
 
 /* Part names on the zoomed figure: small and see-through so the color
-   underneath still reads, and never in the way of a tap. */
+   underneath still reads, and never in the way of a tap. Their own unscaled
+   layer over the figure (sharp text); they fade in once the figure has
+   settled and hide while it's being dragged. */
+.body-part-tags {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  animation: bodyPartTagsIn 0.18s ease 0.26s both;
+}
+@keyframes bodyPartTagsIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.muscle-body-stack.gesturing ~ .body-part-tags {
+  visibility: hidden;
+}
 .body-part-tag {
   position: absolute;
-  z-index: 2;
-  padding: 1px 5px;
+  transform: translate(-50%, -50%);
+  padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(15, 20, 32, 0.55);
+  background: rgba(15, 20, 32, 0.6);
   color: #fff;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.4;
   white-space: nowrap;
-  pointer-events: none;
-}
-.muscle-body-stack.gesturing .body-part-tag {
-  opacity: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
 .muscle-body-zoom-wrap {

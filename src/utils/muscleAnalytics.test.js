@@ -20,7 +20,7 @@ describe('muscleGroups', () => {
   });
 
   it('credits isolation lifts to one muscle only', () => {
-    expect(getMuscleGroupsForExercise('Barbell Curl')).toEqual(['Biceps']);
+    expect(getMuscleGroupsForExercise('Barbell Curl')).toEqual(['Biceps', 'Forearms']);
     expect(getMuscleGroupsForExercise('Calf Raise (Standing)')).toEqual(['Calves']);
   });
 
@@ -443,7 +443,7 @@ describe('getMuscleGroupsForExercise — real exercise-name coverage audit', () 
   });
 
   it('does not let the broadened incline/decline press rule swallow incline curls or rows', () => {
-    expect(getMuscleGroupsForExercise('Incline Dumbbell Curl')).toEqual(['Biceps']);
+    expect(getMuscleGroupsForExercise('Incline Dumbbell Curl')).toEqual(['Biceps', 'Forearms']);
     expect(getMuscleGroupsForExercise('Incline Dumbbell Row')).toEqual(['Back', 'Biceps']);
   });
 

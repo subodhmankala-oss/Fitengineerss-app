@@ -66,6 +66,10 @@ const RULES = [
   // Farmer Walk under Forearms. Without this rule these sets mapped to NO
   // muscle group and were silently dropped from every analytics number.
   { test: n => /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n), muscles: ['Forearms', 'Shoulders'] },
+  // Hammer curls (neutral grip, incl. Cross Body): brachialis/biceps plus the
+  // brachioradialis, so they credit Forearms too. Must precede the generic
+  // curl rule below, which would otherwise claim them as Biceps only.
+  { test: n => /hammer/.test(n) && /curl/.test(n), muscles: ['Biceps', 'Forearms'] },
   { test: n => /(bicep|curl)/.test(n) && !/(leg curl|hip curl|wrist curl|hamstring|nordic)/.test(n), muscles: ['Biceps'] },
 
   // ── Shoulders (rotator cuff) ──

@@ -20,7 +20,7 @@
 // muscle-balance nudge, and Node's own ESM resolver requires the extension.
 // Confirmed 2026-08-11: omitting it threw "Cannot find module './muscleGroups'"
 // under `vercel dev`.
-import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, OPTIONAL_MUSCLES, getMuscleGroupsForExercise } from './muscleGroups.js';
+import { MUSCLE_GROUPS, MUSCLE_TO_PPLC, LARGE_MUSCLES, OPTIONAL_MUSCLES, getMuscleGroupsForExercise, getMuscleWeight } from './muscleGroups.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from './dateUtils.js';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise } from '../data/exerciseLibrary.js';
 
@@ -135,15 +135,18 @@ export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUn
     const muscles = getMuscleGroupsForExercise(log.exercise_name);
     if (muscles.length === 0) return; // unrecognized exercise name — excluded, not guessed
     const volume = getSetVolumeKg(log);
+    // Primary muscle gets the whole set, the secondary a fraction of it.
     muscles.forEach(m => {
-      bySets[m] += 1;
-      byVolume[m] += volume;
+      const w = getMuscleWeight(log.exercise_name, m);
+      bySets[m] += w;
+      byVolume[m] += volume * w;
       byDays[m].add(log.log_date);
     });
   });
 
   return MUSCLE_GROUPS.map(muscle => {
-    const sets = bySets[muscle];
+    // Halves and quarters stay as they are; float noise from adding them doesn't.
+    const sets = Math.round(bySets[muscle] * 100) / 100;
     const days = byDays[muscle].size;
     const volume = Math.round(byVolume[muscle]);
     const { min, max, target } = MUSCLE_TARGETS[muscle];
@@ -217,7 +220,7 @@ export function getMuscleRecovery(logs, muscle, now = new Date(), intensityMulti
   logs.forEach(log => {
     if (!isWorkingSet(log)) return;
     if (log.log_date !== lastSessionDate) return;
-    if (getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) lastSessionSets += 1;
+    lastSessionSets += getMuscleWeight(log.exercise_name, muscle);
   });
 
   const large = LARGE_MUSCLES.has(muscle);
@@ -480,20 +483,21 @@ export function getExerciseBreakdownForMuscle(logs, muscle, startStr, endStr) {
   logs.forEach(log => {
     if (!isWorkingSet(log)) return;
     if (!inRange(log.log_date, startStr, endStr)) return;
-    if (!getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) return;
+    const share = getMuscleWeight(log.exercise_name, muscle);
+    if (!share) return;
     const name = log.exercise_name;
     if (!byExercise[name]) byExercise[name] = { exerciseName: name, sets: 0, volume: 0, maxWeight: 0 };
     const weight = parseFloat(log.weight_kg) || 0;
     const reps = parseInt(log.reps, 10) || 0;
-    byExercise[name].sets += 1;
-    byExercise[name].volume += weight * reps;
+    byExercise[name].sets += share;
+    byExercise[name].volume += weight * reps * share;
     if (weight > byExercise[name].maxWeight) byExercise[name].maxWeight = weight;
   });
 
   const list = Object.values(byExercise);
   const totalSets = list.reduce((sum, e) => sum + e.sets, 0);
   return list
-    .map(e => ({ ...e, volume: Math.round(e.volume), contributionPercent: totalSets > 0 ? Math.round((e.sets / totalSets) * 100) : 0 }))
+    .map(e => ({ ...e, sets: Math.round(e.sets * 100) / 100, volume: Math.round(e.volume), contributionPercent: totalSets > 0 ? Math.round((e.sets / totalSets) * 100) : 0 }))
     .sort((a, b) => b.sets - a.sets);
 }
 
@@ -560,9 +564,9 @@ export function getWeeklySetsTrendForMuscle(logs, muscle, weeksBack = 6, now = n
     logs.forEach(log => {
       if (!isWorkingSet(log)) return;
       if (!inRange(log.log_date, start, end)) return;
-      if (getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) sets += 1;
+      sets += getMuscleWeight(log.exercise_name, muscle);
     });
-    weeks.push({ weekStart: start, weekEnd: end, sets });
+    weeks.push({ weekStart: start, weekEnd: end, sets: Math.round(sets * 100) / 100 });
   }
   return weeks;
 }

@@ -66,7 +66,13 @@ const RULES = [
   // Farmer Walk under Forearms. Without this rule these sets mapped to NO
   // muscle group and were silently dropped from every analytics number.
   { test: n => /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n), muscles: ['Forearms', 'Shoulders'] },
-  { test: n => /(bicep|curl)/.test(n) && !/(leg curl|hip curl|wrist curl|hamstring|nordic)/.test(n), muscles: ['Biceps'] },
+  // Hammer curls (neutral grip, incl. Cross Body): brachialis/biceps plus the
+  // brachioradialis, so they credit Forearms too. Must precede the generic
+  // curl rule below, which would otherwise claim them as Biceps only.
+  { test: n => /hammer/.test(n) && /curl/.test(n), muscles: ['Biceps', 'Forearms'] },
+  // Any other curl: the forearms only hold the grip, so they get a quarter
+  // set rather than the usual secondary half (see SECONDARY_WEIGHT).
+  { test: n => /(bicep|curl)/.test(n) && !/(leg curl|hip curl|wrist curl|hamstring|nordic)/.test(n), muscles: ['Biceps', 'Forearms'], secondaryWeight: 0.25 },
 
   // ── Shoulders (rotator cuff) ──
   // Checked BEFORE the calf rule below: coaches type this exercise freehand
@@ -173,7 +179,12 @@ const RULES = [
   { test: n => /(bench|chest|fly|pec deck|push.?up|crossover|dip|around the world|floor press|incline.*press|decline.*press|smith machine|svend)/.test(n), muscles: ['Chest', 'Triceps'] },
 ];
 
+// How much of a set the second-listed (secondary) muscle gets: a bench press
+// set is 1 Chest set + 0.5 Triceps set. A rule's `secondaryWeight` overrides it.
+export const SECONDARY_WEIGHT = 0.5;
+
 const memo = new Map();
+const weightMemo = new Map();
 
 // ── Catalog fallback ──
 // The admin Exercise Library lets the admin type free-text Primary/Secondary
@@ -242,6 +253,7 @@ export function setCatalogMuscles(rows) {
   if (!changed) return;
   catalogMuscles = next;
   memo.clear();
+  weightMemo.clear();
   catalogListeners.forEach(fn => fn());
 }
 
@@ -265,6 +277,22 @@ export function getMuscleGroupsForExercise(exerciseName) {
   const result = rule ? rule.muscles : (catalogMuscles.get(key) || []);
   memo.set(key, result);
   return result;
+}
+
+// Fraction of a set one working set of this exercise counts toward `muscle`:
+// 1 for the primary muscle, SECONDARY_WEIGHT (or the rule's override) for the
+// secondary, 0 if the exercise doesn't train it.
+export function getMuscleWeight(exerciseName, muscle) {
+  const groups = getMuscleGroupsForExercise(exerciseName);
+  const i = groups.indexOf(muscle);
+  if (i < 0) return 0;
+  if (i === 0) return 1;
+  const key = exerciseName.trim().toLowerCase();
+  if (!weightMemo.has(key)) {
+    const rule = RULES.find(r => r.test(key));
+    weightMemo.set(key, rule?.secondaryWeight ?? SECONDARY_WEIGHT);
+  }
+  return weightMemo.get(key);
 }
 
 // Add Exercise body picker: does this exercise mainly train `muscle`?

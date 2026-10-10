@@ -11,7 +11,7 @@
 
 import { EXERCISE_SUBGROUPS } from '../data/exerciseSubgroups';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
-import { getMuscleGroupsForExercise } from './muscleGroups';
+import { getMuscleWeight } from './muscleGroups';
 import { isCountableSet, RECOMMENDED_EXERCISES, MUSCLE_TARGETS, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
 import { getLocalDateString, shiftLocalDateString } from './dateUtils';
 
@@ -158,7 +158,8 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
   (logs || []).forEach(log => {
     if (!isCountableSet(log)) return;
     if (!log.log_date || log.log_date > endStr) return;
-    if (!getMuscleGroupsForExercise(log.exercise_name).includes(muscle)) return;
+    const share = getMuscleWeight(log.exercise_name, muscle);
+    if (!share) return;
     const ids = regionsOf(muscle, log.exercise_name);
     if (!ids.length) ids.push('Other');
     ids.forEach(id => {
@@ -166,8 +167,8 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
       if (log.log_date < startStr) return;
       if (!rows.has(id)) rows.set(id, { id, hint: REGION_PLAIN.Other, sets: 0, byExercise: {} });
       const row = rows.get(id);
-      row.sets += 1 / ids.length;
-      row.byExercise[log.exercise_name] = (row.byExercise[log.exercise_name] || 0) + 1;
+      row.sets += share / ids.length;
+      row.byExercise[log.exercise_name] = (row.byExercise[log.exercise_name] || 0) + share;
     });
   });
 
@@ -182,7 +183,9 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
       const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
       if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;
       if (!regionsOf(muscle, name).includes(id)) continue;
-      if (!getMuscleGroupsForExercise(name).includes(muscle)) continue;
+      // Only suggest moves that really work it (a curl's quarter set of
+      // forearm grip work doesn't make it a forearm exercise).
+      if (getMuscleWeight(name, muscle) < 0.5) continue;
       out.push(name);
     }
     return out;
@@ -197,11 +200,11 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
   return [...rows.values()].map(({ byExercise, ...row }) => ({
     ...row,
     // Halves stay halves; float noise from adding thirds/quarters doesn't.
-    sets: Math.round(row.sets * 10) / 10,
+    sets: Math.round(row.sets * 100) / 100,
     band: row.id === 'Other' ? null : band,
     tier: row.id === 'Other' ? null : tierFor(row.sets),
     lastTrained: last[row.id] || null,
-    exercises: Object.entries(byExercise).map(([name, sets]) => ({ name, sets })).sort((a, b) => b.sets - a.sets),
+    exercises: Object.entries(byExercise).map(([name, sets]) => ({ name, sets: Math.round(sets * 100) / 100 })).sort((a, b) => b.sets - a.sets),
     suggestions: row.id === 'Other' ? [] : suggestionsFor(row.id),
   }));
 }

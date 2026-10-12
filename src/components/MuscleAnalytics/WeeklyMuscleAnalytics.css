@@ -1242,6 +1242,13 @@
   white-space: nowrap;
 }
 
+/* Ticked suggestion: solid accent with a ✓, tap again to un-tick. */
+.detail-region-chips .detail-region-chip--on {
+  color: var(--text-on-accent);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
 .detail-region-go {
   margin-top: 8px;
   width: 100%;
@@ -1254,4 +1261,8 @@
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.muscle-queued-bar {
+  margin: 0 0 12px;
 }

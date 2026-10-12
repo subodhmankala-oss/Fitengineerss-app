@@ -8009,9 +8009,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             // "+ Add" on a muscle-part suggestion goes into
                             // this client's Live Log (once), same as the
                             // client's own map adds to their workout.
+                            // Un-ticking takes it back out — unless a set of
+                            // it is already done, which stays logged.
                             onAddExercise={name => {
                               if (!liveExercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) handleLiveAddExercise(name);
                             }}
+                            onRemoveExercise={name => {
+                              const idx = liveExercises.findIndex(ex => ex.name.toLowerCase() === name.toLowerCase());
+                              if (idx === -1) return;
+                              if (liveExercises[idx].sets?.some(st => st.isCompleted)) {
+                                triggerLiveToast(`${name} has a finished set, so it stays in the Live Log.`);
+                                return;
+                              }
+                              handleLiveRemoveExercise(idx);
+                            }}
+                            addedNames={liveExercises.map(ex => ex.name)}
                             onGoToWorkout={() => handleTabChange('livelog')}
                             addTargetLabel="the Live Log"
                             onShareBalance={() => {

@@ -19,7 +19,7 @@ import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
-import { queueWorkoutAdd } from '../utils/pendingWorkoutAdds';
+import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import './WorkoutProgressDashboard.css';
 
 // One flag per client, set permanently the moment they take any action on
@@ -58,6 +58,9 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // 0 = current week, -1 = last week, and so on — lets the weekly view page
   // back through previous weeks instead of only ever showing the current one.
   const [weekOffset, setWeekOffset] = useState(0);
+  // Exercises ticked on a muscle's "Try these" chips, waiting for the
+  // Workouts tab (see utils/pendingWorkoutAdds.js).
+  const [queuedAdds, setQueuedAdds] = useState(() => getPendingWorkoutAdds());
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -1749,8 +1752,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               weekNavBtnStyle={weekNavBtnStyle}
               focusSection={initialMuscleSection}
               // "+ Add" on a muscle-region suggestion queues it for the
-              // Workouts tab, which adds it to the session on open.
-              onAddExercise={queueWorkoutAdd}
+              // Workouts tab, which adds it to the session on open. Tapping
+              // a ticked chip un-queues it; ticks from every muscle add up.
+              onAddExercise={name => { queueWorkoutAdd(name); setQueuedAdds(getPendingWorkoutAdds()); }}
+              onRemoveExercise={name => { unqueueWorkoutAdd(name); setQueuedAdds(getPendingWorkoutAdds()); }}
+              addedNames={queuedAdds}
+              addedCount={queuedAdds.length}
               onGoToWorkout={onNavigateToWorkouts}
             />
           )}

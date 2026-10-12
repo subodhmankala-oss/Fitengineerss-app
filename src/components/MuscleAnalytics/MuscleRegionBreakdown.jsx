@@ -33,15 +33,20 @@ const UNTRAINED_COLOR = '#a78bfa';
  * (the part of the body diagram that was tapped) starts expanded,
  * highlighted and scrolled into view.
  *
- * onAddExercise (client's own view only): suggestions get a "+ Add" button
- * that queues the exercise for their workout; onGoToWorkout then offers a
+ * onAddExercise (client's own view only): suggestions become tick-chips
+ * that queue the exercise for their workout; onGoToWorkout then offers a
  * shortcut to the logger. The coach's view of a client passes them too,
  * adding to that client's Live Log, with addTargetLabel ("the Live Log")
  * naming where the exercise goes.
+ *
+ * addedNames is the parent's real list (the client's queue / the Live Log),
+ * so a chip ticked on Back still shows ✓ after opening Chest, and tapping a
+ * ✓ chip again un-ticks it through onRemoveExercise. addedCount overrides
+ * the "N added" count (the client's whole queue, across every muscle).
  */
-const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const [open, setOpen] = useState(focusRegion);
-  const [added, setAdded] = useState(() => new Set());
+  const added = new Set(addedNames.map(n => n.toLowerCase()));
   const focusRef = useRef(null);
 
   useEffect(() => {
@@ -53,10 +58,12 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
 
   if (!regions.length) return null;
 
-  const add = (name) => {
-    onAddExercise(name);
-    setAdded(prev => new Set(prev).add(name));
+  const toggle = (name) => {
+    if (!added.has(name.toLowerCase())) onAddExercise(name);
+    else onRemoveExercise?.(name);
   };
+  const sheetSuggestions = new Set(regions.flatMap(r => r.suggestions.map(n => n.toLowerCase())));
+  const count = addedCount ?? [...sheetSuggestions].filter(n => added.has(n)).length;
 
   return (
     <div className="detail-section">
@@ -126,14 +133,16 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
                       <div className="detail-region-chips">
                         {r.suggestions.map(name => {
                           if (!onAddExercise) return <span key={name} className="ex-history-rec-chip">{name}</span>;
-                          const isAdded = added.has(name);
+                          const isAdded = added.has(name.toLowerCase());
                           return (
                             <button
                               key={name}
                               type="button"
-                              className={`ex-history-rec-chip ex-history-rec-chip--tap ${isAdded ? 'ex-history-rec-chip--added' : ''}`}
-                              disabled={isAdded}
-                              onClick={() => add(name)}
+                              className={`ex-history-rec-chip ex-history-rec-chip--tap ${isAdded ? 'detail-region-chip--on' : ''}`}
+                              aria-pressed={isAdded}
+                              disabled={isAdded && !onRemoveExercise}
+                              title={isAdded ? `Remove ${name}` : `Add ${name}`}
+                              onClick={() => toggle(name)}
                             >
                               {isAdded ? '✓' : '+'} {name}
                             </button>
@@ -148,9 +157,11 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
           );
         })}
       </div>
-      {added.size > 0 && onGoToWorkout && (
+      {count > 0 && onGoToWorkout && (
         <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
-          {added.size} added — {addTargetLabel ? `open ${addTargetLabel}` : 'go to my workout'} →
+          {addTargetLabel
+            ? `${count} added — open ${addTargetLabel} →`
+            : `Add ${count} exercise${count === 1 ? '' : 's'} to my workout →`}
         </button>
       )}
     </div>

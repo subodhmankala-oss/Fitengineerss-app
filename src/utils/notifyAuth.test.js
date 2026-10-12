@@ -14,7 +14,7 @@ describe('authorizeNotify', () => {
   });
 
   it("lets only the client's own coach send coach→client notifications", () => {
-    ['coach_note', 'monthly_report', 'session_reminder', 'renewal_reminder', 'plan_assigned', 'measurement_reminder_manual'].forEach(event => {
+    ['coach_note', 'monthly_report', 'session_reminder', 'renewal_reminder', 'plan_assigned', 'measurement_reminder_manual', 'session_handed_over'].forEach(event => {
       expect(check(event, as(COACH, { role: 'coach' })).ok).toBe(true);
       expect(check(event, as(OTHER_COACH, { role: 'coach' }))).toMatchObject({ ok: false, status: 403 });
       expect(check(event, as(CLIENT))).toMatchObject({ ok: false, status: 403 });

@@ -1067,6 +1067,14 @@ async function handleNotifyUser(req, res) {
       title = await getCoachDisplayName(client?.coach_id);
       body = planName ? `Sent you a new plan: "${planName}"` : 'Sent you a new workout plan';
       url = '/?tab=workouts';
+    } else if (event === 'session_handed_over') {
+      // Coach had to leave mid Live Log and handed the session over (see
+      // TrainerDashboard.jsx's handleHandOverLiveSession). It opens as the
+      // client's own in-progress workout.
+      targetUserId = clientUserId;
+      title = await getCoachDisplayName(client?.coach_id);
+      body = planName ? `Handed "${planName}" to you. Finish the rest in the app.` : 'Handed your session to you. Finish the rest in the app.';
+      url = '/?tab=workouts';
     } else if (event === 'measurement_reminder_manual') {
       // Coach-triggered version of the automated 15-day sweep's client push
       // (runMeasurementReminderSweep) — same message/deep-link, but fired on

@@ -30,7 +30,8 @@ const FROM_COACH_EVENTS = new Set([
   'session_reminder',
   'renewal_reminder',
   'plan_assigned',
-  'measurement_reminder_manual'
+  'measurement_reminder_manual',
+  'session_handed_over'
 ]);
 
 // Either side can create a custom exercise for this client.

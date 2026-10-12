@@ -961,7 +961,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             <span style={{ fontSize: '1.4rem' }}>⏱️</span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-amber)' }}>
-                {activeDraft.source === 'coach' ? 'Your coach is logging a session for you' : 'Workout in progress'}
+                {activeDraft.source === 'coach' ? 'Your coach is logging a session for you'
+                  : activeDraft.coachId ? 'Your coach handed this session to you' : 'Workout in progress'}
               </div>
               {/* Live duration + calories, recomputed from the draft's timer
                   timestamps (idle = timer not started yet, so no clock shown). */}

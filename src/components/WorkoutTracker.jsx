@@ -40,7 +40,8 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
-import { buildWarmupExercises } from '../utils/warmupBlocks';
+import { buildWarmupExercises, getWarmupPosition } from '../utils/warmupBlocks';
+import WarmupStrip from './WarmupStrip';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -3659,6 +3660,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
                   <div className="ex-reorder-full">
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
+                    <WarmupStrip position={getWarmupPosition(logExercises, exIdx)} />
                     <div className="ex-card-header">
                       <div className="ex-card-title-group">
                         <h5

@@ -171,3 +171,18 @@ export function buildWarmupExercises({ programName, exercises, category, date = 
 
   return picked.map(item => ({ name: item.name, sets: warmupSets(item) }));
 }
+
+// True for an exercise in the session's warm-up block: every set is a
+// warm-up set. Drives the "Warm-up 1 of 3" strip on the logger cards.
+export function isWarmupBlockExercise(ex) {
+  const sets = ex?.sets || [];
+  return sets.length > 0 && sets.every(s => s.isWarmup || s.setType === 'warmup');
+}
+
+// { n, total } for the warm-up strip on exercises[idx] ("Warm-up 2 of 3"),
+// or null when that exercise isn't part of the warm-up block.
+export function getWarmupPosition(exercises, idx) {
+  if (!isWarmupBlockExercise(exercises?.[idx])) return null;
+  const warmupIdxs = exercises.map((ex, i) => (isWarmupBlockExercise(ex) ? i : -1)).filter(i => i >= 0);
+  return { n: warmupIdxs.indexOf(idx) + 1, total: warmupIdxs.length };
+}

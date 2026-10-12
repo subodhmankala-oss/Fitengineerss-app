@@ -61,5 +61,8 @@ describe('Exercises queued from the muscle detail screen', () => {
 
     render(<TourProvider><WorkoutTracker /></TourProvider>);
     await waitFor(() => expect(exerciseNames()).toEqual(['Biceps Curls', 'External Rotation (Cable)']));
+    // Never done before: an empty kg box (faint "kg"), not a made-up weight.
+    const added = Array.from(document.querySelectorAll('h5')).find(h => h.textContent.trim() === 'External Rotation (Cable)').closest('.hevy-exercise-card');
+    expect(added.querySelector('.col-weight .set-value-placeholder')?.textContent).toBe('kg');
   });
 });

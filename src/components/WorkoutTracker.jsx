@@ -2807,7 +2807,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     } else if (bodyweight || isWarmupExercise(name)) {
       newSet = { reps: 10, weight: '0', isCompleted: false };
     } else {
-      newSet = { reps: 10, weight: '5.0', isCompleted: false };
+      // Empty kg box (shows a faint "kg"), never a made-up weight — the
+      // client types what they actually lift.
+      newSet = { reps: 10, weight: '', isCompleted: false };
     }
     // Done before? Start from exactly what the client did last time —
     // every set, ready for a single tap each — instead of one default set.

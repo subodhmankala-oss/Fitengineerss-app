@@ -186,7 +186,7 @@ describe('NextWorkoutBanner', () => {
     ];
     const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Next up: Beginner Lower & Core/)).not.toBeNull();
-    const focus = container.querySelector('.next-workout-focus').textContent;
+    const focus = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent).join(' · ');
     expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new this week · 🎯 \w+ finisher/);
   });
 
@@ -195,7 +195,7 @@ describe('NextWorkoutBanner', () => {
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
     const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
-    expect(container.querySelector('.next-workout-focus').textContent).toBe('🔥 Warm-up');
+    expect(Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent)).toEqual(['🔥 Warm-up']);
   });
 
   it('keeps showing guidance even with many sessions logged (no session-count cutoff)', async () => {

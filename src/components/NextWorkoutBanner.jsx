@@ -161,19 +161,43 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToProgram(); } }}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+        display: 'flex', flexDirection: 'column', gap: '10px',
         background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
-        borderRadius: 0, padding: '12px 14px', marginBottom: '4px', cursor: 'pointer'
+        borderRadius: 0, padding: '18px 16px', marginBottom: '4px', cursor: 'pointer'
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{body}</div>
-        {focus && (
-          <div className="next-workout-focus" style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-text)', marginTop: '4px' }}>{focus}</div>
-        )}
+        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>{body}</div>
       </div>
-      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap', flexShrink: 0 }}>Go →</span>
+      {focus.length > 0 && (
+        <div className="next-workout-focus" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {focus.map(part => (
+            <span
+              key={part}
+              className="next-workout-focus-pill"
+              style={{
+                fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-text)',
+                background: 'rgba(var(--accent-rgb), 0.12)', border: '1px solid rgba(var(--accent-rgb), 0.25)',
+                borderRadius: '999px', padding: '4px 10px'
+              }}
+            >
+              {part}
+            </span>
+          ))}
+        </div>
+      )}
+      {/* The whole card is the tap target; this is what it looks like. */}
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'block', textAlign: 'center', fontSize: '0.95rem', fontWeight: 800,
+          color: '#fff', background: 'var(--primary-accent, rgb(var(--accent-rgb)))',
+          borderRadius: 'var(--radius-sm)', padding: '11px 14px'
+        }}
+      >
+        Start workout →
+      </span>
     </div>
   );
 }
@@ -181,8 +205,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
 // "Today's focus" line: what this program will look like when it opens —
 // the same warm-up / weekly swaps / neglected-muscle finisher the logger
 // builds (handleStartFromTemplate), so the banner never promises something
-// the session doesn't have. e.g. "🔥 Warm-up · 🔄 2 new this week · 🎯 Core
-// finisher (15 days)".
+// the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new this week",
+// "🎯 Core finisher (15 days)"].
 function todaysFocus(program, level, category, logs) {
   const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
@@ -195,7 +219,7 @@ function todaysFocus(program, level, category, logs) {
     const { muscle, daysSince } = finisher.finisherFor;
     parts.push(`🎯 ${muscle} finisher${daysSince == null ? '' : ` (${daysSince} days)`}`);
   }
-  return parts.join(' · ');
+  return parts;
 }
 
 // The level just cleared, for the 'leveled-up' message ("completed every

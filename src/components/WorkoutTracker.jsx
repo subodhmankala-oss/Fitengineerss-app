@@ -41,6 +41,7 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import { buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { fillWeightBelow } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
@@ -1806,9 +1807,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const handleSetChange = (exerciseIndex, setIndex, field, value) => {
     setLogExercises(prev => prev.map((ex, idx) => {
       if (idx === exerciseIndex) {
-        return {
-          ...ex,
-          sets: ex.sets.map((s, sIdx) => {
+        const sets = ex.sets.map((s, sIdx) => {
             if (sIdx === setIndex) {
               // Edited by hand (or by its own stopwatch) — the late PREV
               // pre-fill must not overwrite it (see fillPendingPrevSets),
@@ -1819,11 +1818,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               const clearedGhost = field === 'weight' ? { weightFromPrev: false }
                 : field === 'reps' ? { repsFromPrev: false }
                 : {};
-              return { ...set, [field]: value, ...clearedGhost };
+              const { weightAutofilled: _wa, ...typed } = set;
+              return { ...typed, [field]: value, ...clearedGhost };
             }
             return s;
-          })
-        };
+          });
+        // A kg typed here carries down to the empty boxes below (see utils/fillWeightBelow.js).
+        return { ...ex, sets: field === 'weight' ? fillWeightBelow(sets, setIndex, value) : sets };
       }
       return ex;
     }));

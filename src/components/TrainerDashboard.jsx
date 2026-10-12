@@ -41,7 +41,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { getWarmupPosition, isWarmupBlockExercise } from '../utils/warmupBlocks';
+import { getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
@@ -9155,11 +9155,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       <div className="ex-reorder-full">
                       {/* Warm-up block → compact rows in one "🔥 Warm-up"
                           card, same as the client's logger (WarmupMoveRow). */}
-                      {isWarmupBlockExercise(ex) ? (
+                      {isWarmupCardExercise(ex) ? (
                         <WarmupMoveRow
                           ex={ex}
-                          isFirst={!isWarmupBlockExercise(liveExercises[exIdx - 1])}
-                          isLast={!isWarmupBlockExercise(liveExercises[exIdx + 1])}
+                          isFirst={!isWarmupCardExercise(liveExercises[exIdx - 1])}
+                          isLast={!isWarmupCardExercise(liveExercises[exIdx + 1])}
                           onOpenHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
                           onRepsChange={(setIdx, v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
                           onTick={(setIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[setIdx].isCompleted

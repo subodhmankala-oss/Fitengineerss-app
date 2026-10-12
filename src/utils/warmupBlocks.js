@@ -1,4 +1,4 @@
-import { inferCategory, isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
+import { inferCategory, isCardioExercise, isTimedExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 
 // ─── Weekly warm-up blocks for Workout Library programs ───
 // Every library program opens with a ~5 min warm-up: 1 light cardio move +
@@ -177,6 +177,14 @@ export function buildWarmupExercises({ programName, exercises, category, date = 
 export function isWarmupBlockExercise(ex) {
   const sets = ex?.sets || [];
   return sets.length > 0 && sets.every(s => s.isWarmup || s.setType === 'warmup');
+}
+
+// True for an exercise the logger shows as a row of the "🔥 Warm-up" card
+// (WarmupMoveRow): the warm-up block, plus Arm Circle / Leg Swing by name —
+// a session started before their sets were tagged (a resumed draft) still
+// has them untagged.
+export function isWarmupCardExercise(ex) {
+  return isWarmupBlockExercise(ex) || isWarmupExercise(ex?.name);
 }
 
 // { n, total } for the warm-up strip on exercises[idx] ("Warm-up 2 of 3"),

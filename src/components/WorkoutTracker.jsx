@@ -40,7 +40,7 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
-import { buildWarmupExercises, getWarmupPosition, isWarmupBlockExercise } from '../utils/warmupBlocks';
+import { buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
@@ -3744,11 +3744,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   <div className="ex-reorder-full">
                   {/* The warm-up block's moves render as compact rows that
                       stack into one "🔥 Warm-up" card (see WarmupMoveRow). */}
-                  {isWarmupBlockExercise(ex) ? (
+                  {isWarmupCardExercise(ex) ? (
                     <WarmupMoveRow
                       ex={ex}
-                      isFirst={!isWarmupBlockExercise(logExercises[exIdx - 1])}
-                      isLast={!isWarmupBlockExercise(logExercises[exIdx + 1])}
+                      isFirst={!isWarmupCardExercise(logExercises[exIdx - 1])}
+                      isLast={!isWarmupCardExercise(logExercises[exIdx + 1])}
                       onOpenHistory={() => setHistoryModalExercise(ex.name)}
                       onRepsChange={(sIdx, v) => handleSetChange(exIdx, sIdx, 'reps', v)}
                       onTick={(sIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[sIdx].isCompleted

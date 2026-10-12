@@ -137,3 +137,27 @@ describe('Start Empty Workout warm-up', () => {
     expect(screen.getByLabelText('Arm Circle reps').disabled).toBe(true);
   });
 });
+
+describe('Resumed workout from before the Warm-up card', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('still groups untagged Arm Circle + Leg Swing into the Warm-up card', async () => {
+    localStorage.setItem('userName', 'TestClient');
+    localStorage.setItem('userId', 'u1');
+    localStorage.setItem('workoutDraft_u1', JSON.stringify({
+      isLoggingWorkout: true,
+      logExercises: [
+        { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+        { name: 'Leg Swing', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+        { name: 'Biceps Curls', sets: [{ reps: 12, weight: '5', isCompleted: false }] },
+      ],
+      logClient: 'TestClient', logDate: '2026-10-12', templateName: 'Custom Session', activeTemplateName: '',
+      saveAsTemplate: false, workoutTimerStatus: 'running', workoutTimerStartedAt: Date.now() - 60000,
+      workoutPauseIntervals: [], savedAt: Date.now(),
+    }));
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    expect(await screen.findByLabelText('Complete Leg Swing')).toBeTruthy();
+    expect(Array.from(document.querySelectorAll('.warmup-move-name')).map(el => el.textContent)).toEqual(['Arm Circle', 'Leg Swing']);
+    expect(Array.from(document.querySelectorAll('h5')).map(el => el.textContent.trim())).toContain('Biceps Curls');
+  });
+});

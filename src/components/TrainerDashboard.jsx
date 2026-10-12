@@ -9872,13 +9872,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     )}
 
                   {/* Running late: hand the rest of today's session to the
-                      client to finish on their phone (handleHandOverLiveSession). */}
+                      client to finish on their phone (handleHandOverLiveSession),
+                      or save now and carry the not-started exercises to
+                      their next session (the tick box). One card, two choices. */}
                   {!isLiveReordering && liveHasDoneSets && liveHasSetsLeft && (
                     <div className="live-handover-card">
                       <div className="live-handover-title">🏃 Running late or need to leave?</div>
-                      <div className="live-handover-text">
-                        Hand over the remaining exercises to {liveClientFirstName} so they can finish today's session on their phone.
-                      </div>
                       <button
                         type="button"
                         className="live-handover-btn"
@@ -9887,16 +9886,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       >
                         📲 Hand over to {liveClientFirstName}
                       </button>
+                      <div className="live-handover-text">{liveClientFirstName} finishes today's session on their phone.</div>
+                      {liveSkipped.length > 0 && (
+                        <>
+                          <div className="live-handover-or"><span>or, if you save now</span></div>
+                          <label className="live-handover-carry">
+                            <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} />
+                            <span>
+                              <strong>Do {liveSkipped.length === 1 ? '1 unfinished exercise' : `${liveSkipped.length} unfinished exercises`} next time</strong>
+                              <small>{liveSkipped.join(', ')}</small>
+                            </span>
+                          </label>
+                        </>
+                      )}
                     </div>
-                  )}
-
-                  {!isLiveReordering && liveSkipped.length > 0 && liveHasDoneSets && (
-                    <label className="leftover-finish-note" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} style={{ marginTop: '3px' }} />
-                      <span>
-                        <strong>Saving now instead?</strong> Add {liveSkipped.join(', ')} to {liveClientFirstName}'s next session.
-                      </span>
-                    </label>
                   )}
 
                   {!isLiveReordering && (

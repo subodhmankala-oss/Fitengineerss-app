@@ -77,11 +77,11 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
   it('saving with the tick box on queues them for this client', async () => {
     renderLiveLog();
     await loadPlan();
-    expect(screen.queryByText(/Saving now instead\?/)).toBeNull(); // nothing done yet
+    expect(screen.queryByText(/unfinished exercises? next time/)).toBeNull(); // nothing done yet
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]); // one Squat set
-    const note = await screen.findByText(/Saving now instead\?/);
-    expect(note.closest('label').textContent).toContain('Add Leg Curl, Calf Raise to Asha');
+    const note = await screen.findByText(/unfinished exercises? next time/);
+    expect(note.closest('label').textContent).toContain('Leg Curl, Calf Raise');
 
     fireEvent.click(screen.getByText('💾 Save Workout Session'));
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());
@@ -93,7 +93,7 @@ describe('Coach Live Log: not-started exercises move to the next session', { tim
     renderLiveLog();
     await loadPlan();
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
-    const box = (await screen.findByText(/Saving now instead\?/)).closest('label').querySelector('input');
+    const box = (await screen.findByText(/unfinished exercises? next time/)).closest('label').querySelector('input');
     fireEvent.click(box);
     fireEvent.click(screen.getByText('💾 Save Workout Session'));
     await waitFor(() => expect(databaseService.saveWorkoutSession).toHaveBeenCalled());

@@ -116,4 +116,23 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     expect(notifyEvent).not.toHaveBeenCalledWith('session_handed_over', expect.anything());
     expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0);
   });
+
+  it('puts warm-up moves at the top of the handed-over session', async () => {
+    databaseService.handOverLiveSession.mockResolvedValue('ok');
+    databaseService.getWorkoutPlansForUser.mockResolvedValue([{ id: 'p2', planName: 'Mixed', exercises: [
+      { name: 'Squat', sets: [set] },
+      { name: 'Arm Circle', sets: [set] },
+      { name: 'Leg Curl', sets: [set] },
+    ] }]);
+    renderLiveLog();
+    const planSelect = (await screen.findByText('Load from Existing Plan:', {}, SLOW)).parentElement.querySelector('select');
+    fireEvent.change(planSelect, { target: { value: 'p2' } });
+    await waitFor(() => expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
+    await handOver();
+
+    await waitFor(() => expect(databaseService.handOverLiveSession).toHaveBeenCalled());
+    const names = databaseService.handOverLiveSession.mock.calls[0][0].exercises.map(ex => ex.name);
+    expect(names).toEqual(['Arm Circle', 'Squat', 'Leg Curl']);
+  });
 });

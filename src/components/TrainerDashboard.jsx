@@ -42,6 +42,7 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { warmupsFirst } from '../utils/warmupsFirst';
 import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -2065,7 +2066,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       coachId: resolvedCoachId,
       planName: livePlanName,
       logDate: liveDate,
-      exercises: liveExercises,
+      exercises: warmupsFirst(liveExercises),
       timerStatus: liveTimerStatus,
       timerStartedAt: liveTimerStartedAt,
       pauseIntervals: livePauseIntervals

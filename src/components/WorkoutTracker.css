@@ -5533,3 +5533,15 @@ html.keyboard-open .rest-timer-floating-card {
     transition: none;
   }
 }
+
+/* Warm-up block exercises (WarmupCaption): a small caption under the
+   name, same amber as the "W" set label. */
+.ex-card-title-stack {
+  min-width: 0;
+}
+.warmup-caption {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #d97706;
+}

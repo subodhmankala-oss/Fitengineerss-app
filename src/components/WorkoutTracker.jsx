@@ -40,6 +40,8 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
+import { buildWarmupExercises, getWarmupPosition } from '../utils/warmupBlocks';
+import WarmupCaption from './WarmupCaption';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -2530,8 +2532,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // ─── Start a workout from a generic template ───
   // `level` ('beginner' | 'intermediate' | 'advanced' | undefined) is only
   // passed when starting from the difficulty-leveled Workout Library — see
-  // loggingLevel above.
-  const handleStartFromTemplate = (template, level = null) => {
+  // loggingLevel above. Every template opens with this week's warm-up block
+  // for its day type and Gym/Home `category` (see utils/warmupBlocks).
+  const handleStartFromTemplate = (template, level = null, category = genericCategory) => {
+    const warmups = buildWarmupExercises({ programName: template.name, exercises: template.exercises, category });
     const exercises = template.exercises.map(ex => {
       const targetReps = parseInt(String(ex.reps).split('–')[0]) || 10;
       return {
@@ -2554,7 +2558,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         }, findPreviousLoggedSet(ex.name, setIdx)), 'template'))
       };
     });
-    setLogExercises(exercises);
+    setLogExercises([...warmups, ...exercises]);
     setSetTimers({});
     setTemplateName(template.name);
     setActiveTemplateName(template.name);
@@ -2564,7 +2568,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     startWorkoutClock();
     setIsLoggingWorkout(true);
     setActiveView('log');
-    triggerToast(`Starting ${template.name} — fill in your weights and mark sets done!`);
+    triggerToast(`Starting ${template.name} — warm up first, then fill in your weights and mark sets done!`);
   };
 
   // ─── Deep-link auto-start from the Home screen's guidance banner ───
@@ -2598,7 +2602,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
     if (!payload.name || !Array.isArray(payload.exercises)) return;
-    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null);
+    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null, payload.category || genericCategory);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -3325,7 +3329,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       key={workout.id}
                       type="button"
                       className={`wt-program-card wt-program-card--${genericLevel}`}
-                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel)}
+                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel, genericCategory)}
                     >
                       <div className="wt-program-tile">
                         {meta.muscles.length > 1 ? (
@@ -3657,6 +3661,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   <div className="ex-reorder-full">
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
                     <div className="ex-card-header">
+                      <div className="ex-card-title-stack">
                       <div className="ex-card-title-group">
                         <h5
                           className="ex-name-clickable"
@@ -3707,6 +3712,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         >
                           🎬 Form Guide
                         </button>
+                      </div>
+                        <WarmupCaption position={getWarmupPosition(logExercises, exIdx)} />
                       </div>
                       <ExerciseCardMenu
                         name={ex.name}

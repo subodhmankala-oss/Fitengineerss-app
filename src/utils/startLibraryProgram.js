@@ -17,7 +17,8 @@ export function startLibraryProgram(userId, category, level, program) {
     localStorage.setItem(`workoutTrackerAutoStart_${userId}`, JSON.stringify({
       name: program.name,
       exercises: program.exercises,
-      level
+      level,
+      category
     }));
   } catch { /* ignore quota/serialization errors */ }
 }

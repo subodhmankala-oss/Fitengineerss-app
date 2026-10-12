@@ -41,6 +41,8 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
+import { getWarmupPosition } from '../utils/warmupBlocks';
+import WarmupCaption from './WarmupCaption';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
@@ -9123,6 +9125,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       <div className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
+                          <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                             <span
                               className="live-logger-ex-name ex-name-clickable"
@@ -9147,6 +9150,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             >
                               🎬 Form Guide
                             </button>
+                          </div>
+                            <WarmupCaption position={getWarmupPosition(liveExercises, exIdx)} />
                           </div>
                           <ExerciseCardMenu
                             name={ex.name}

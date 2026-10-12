@@ -1242,6 +1242,13 @@
   white-space: nowrap;
 }
 
+/* Ticked suggestion: solid accent with a ✓, tap again to un-tick. */
+.detail-region-chips .detail-region-chip--on {
+  color: var(--text-on-accent);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
 .detail-region-go {
   margin-top: 8px;
   width: 100%;
@@ -1253,5 +1260,63 @@
   font: inherit;
   font-size: 0.88rem;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.muscle-queued-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.muscle-queued-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.muscle-queued-clear {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.muscle-queued-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.muscle-queued-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 4px 5px 11px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: var(--radius-full);
+}
+
+.muscle-queued-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.08);
+  color: var(--text-muted);
+  font-size: 0.65rem;
   cursor: pointer;
 }

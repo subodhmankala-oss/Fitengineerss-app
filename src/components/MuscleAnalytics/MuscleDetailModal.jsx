@@ -55,7 +55,7 @@ const TrendSparkline = ({ weeks }) => {
  * already works (ExercisePickerModal, Form Guide sheet, payment modal).
  * Opened by tapping a Section 1 card or a Section 2 heat map region.
  */
-const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStart: browsedStart = null, weekEnd: browsedEnd = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStart: browsedStart = null, weekEnd: browsedEnd = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const now = useMemo(() => new Date(), []);
   // The week the analytics page is showing (so a part colored on the heat map
   // for Sept 7–13 opens with Sept 7–13's numbers), else the last 7 days.
@@ -146,7 +146,7 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStar
               so a second whole-muscle exercise plan would only disagree. */}
           {regions.length > 0 && <p className="detail-rec-summary">{recSummary}</p>}
 
-          <MuscleRegionBreakdown muscle={muscle} regions={regions} focusRegion={focusRegion} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
+          <MuscleRegionBreakdown muscle={muscle} regions={regions} focusRegion={focusRegion} onAddExercise={onAddExercise} onRemoveExercise={onRemoveExercise} addedNames={addedNames} addedCount={addedCount} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
 
           {/* No parts (Tibialis): recommended exercises + sets still needed */}
           {regions.length === 0 && (

@@ -71,7 +71,7 @@ const ShareIconButton = ({ onClick, title }) => (
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const weekStartStr = weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
@@ -219,6 +219,34 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
       </div>
 
+      {/* Client's own view: exercises ticked on any muscle's "Try these"
+          chips, sent to the logger together with one tap. */}
+      {addedCount > 0 && onGoToWorkout && !addTargetLabel && (
+        <div className={cardClass('muscle-queued-card')}>
+          <div className="muscle-queued-head">
+            <span className="muscle-queued-title">✅ Picked for your workout ({addedCount})</span>
+            {onRemoveExercise && (
+              <button type="button" className="muscle-queued-clear" onClick={() => addedNames.forEach(onRemoveExercise)}>
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="muscle-queued-chips">
+            {addedNames.map(name => (
+              <span key={name} className="muscle-queued-chip">
+                {name}
+                {onRemoveExercise && (
+                  <button type="button" aria-label={`Remove ${name}`} onClick={() => onRemoveExercise(name)}>✕</button>
+                )}
+              </span>
+            ))}
+          </div>
+          <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
+            Add {addedCount} exercise{addedCount === 1 ? '' : 's'} to my workout →
+          </button>
+        </div>
+      )}
+
       {/* ── Section 1 + Section 5, merged: Muscle Balance Overview and
           Neglected Muscles share one card via a left/right tab switcher
           (same toggle pattern as the heat map's Front/Back switch), instead
@@ -313,7 +341,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={weekStartStr} weekEnd={weekEndStr} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={weekStartStr} weekEnd={weekEndStr} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onRemoveExercise={onRemoveExercise} addedNames={addedNames} addedCount={addedCount} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
       )}
     </div>
   );

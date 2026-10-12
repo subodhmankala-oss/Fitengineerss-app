@@ -33,3 +33,12 @@ export function takePendingWorkoutAdds() {
   try { localStorage.removeItem(keyFor()); } catch { /* ignore */ }
   return list;
 }
+
+// Un-ticking a suggestion chip. Returns false if it wasn't queued.
+export function unqueueWorkoutAdd(name) {
+  const list = read();
+  const next = list.filter(n => n.toLowerCase() !== name.toLowerCase());
+  if (next.length === list.length) return false;
+  try { localStorage.setItem(keyFor(), JSON.stringify(next)); } catch { return false; }
+  return true;
+}

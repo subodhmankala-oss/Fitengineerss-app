@@ -21,7 +21,7 @@ import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
 import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
@@ -4485,6 +4485,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
     return matchesSearch && matchesGoal;
   });
+
+  // "Recent workouts" in the Live Log's Load from Existing Plan dropdown —
+  // the selected client's past sessions rebuilt as loadable plans, same as
+  // the client's own logger (see buildRecentWorkoutPlans). workoutLogs is
+  // already scoped to the one selected client.
+  const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, clientPlans.map(p => p.planName));
 
   return (
     // Muscle drawings anywhere in here (icons, heat map, exercise picker)
@@ -9026,13 +9032,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           }}
                         />
                       </div>
-                      {clientPlans.length > 0 && (
+                      {(clientPlans.length > 0 || recentWorkoutPlans.length > 0) && (
                         <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Load from Existing Plan:</label>
                           <select
                             defaultValue=""
                             onChange={e => {
-                              const plan = clientPlans.find(p => p.id === e.target.value);
+                              const plan = clientPlans.find(p => p.id === e.target.value)
+                                || recentWorkoutPlans.find(p => p.id === e.target.value);
                               if (plan) {
                                 setLivePlanName(plan.planName);
                                 // Weights start from the client's PREV values (see
@@ -9094,9 +9101,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 volume from this client's past logged sessions under
                                 each plan's name) — see rankTemplatesByPerformance —
                                 not just the 10 most recent. */}
-                            {rankTemplatesByPerformance(clientPlans, workoutLogs, 10).map(p => (
-                              <option key={p.id} value={p.id}>{p.planName}</option>
-                            ))}
+                            {recentWorkoutPlans.length > 0 && (
+                              <optgroup label="Recent workouts">
+                                {recentWorkoutPlans.map(p => (
+                                  <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {clientPlans.length > 0 && (
+                              <optgroup label="Saved plans">
+                                {rankTemplatesByPerformance(clientPlans, workoutLogs, 10).map(p => (
+                                  <option key={p.id} value={p.id}>{p.planName}</option>
+                                ))}
+                              </optgroup>
+                            )}
                           </select>
                         </div>
                       )}

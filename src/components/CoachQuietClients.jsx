@@ -25,9 +25,20 @@ const writeSent = (value) => {
   try { localStorage.setItem(SENT_KEY, JSON.stringify(value)); } catch { /* private mode — ticks just won't persist */ }
 };
 
+// Whole-card collapse, remembered per device. Open by default.
+const OPEN_KEY = 'coachQuietClientsOpen';
+const readOpen = () => {
+  try { return localStorage.getItem(OPEN_KEY) !== '0'; } catch { return true; }
+};
+const writeOpen = (value) => {
+  try { localStorage.setItem(OPEN_KEY, value ? '1' : '0'); } catch { /* not persisted */ }
+};
+
 export default function CoachQuietClients({ clients = [], onOpenClient }) {
   const [expanded, setExpanded] = useState(false);
   const [sent, setSent] = useState(readSent);
+  const [open, setOpen] = useState(readOpen);
+  const toggleOpen = () => setOpen(v => { writeOpen(!v); return !v; });
 
   const quiet = getQuietClients(clients);
   if (quiet.length === 0) return null;
@@ -56,16 +67,26 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
       background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)',
       display: 'flex', flexDirection: 'column', gap: '8px'
     }}>
-      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
-        👀 {quiet.length} {quiet.length === 1 ? 'client has' : 'clients have'} gone quiet
-      </div>
-      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+      <button
+        type="button"
+        onClick={toggleOpen}
+        aria-expanded={open}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%',
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+          fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)'
+        }}
+      >
+        <span>👀 {quiet.length} {quiet.length === 1 ? 'client has' : 'clients have'} gone quiet</span>
+        <span aria-hidden="true" style={{ color: 'var(--text-muted)', fontSize: '0.8rem', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
+      </button>
+      {open && <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
         {unsentCount > 0
-          ? `Not in the app for ${QUIET_DAYS}+ days. A quick message from you usually brings them back.`
+          ? `Inactive for ${QUIET_DAYS}+ days. A quick message from you usually brings them back.`
           : 'All messaged — they drop off this list once they open the app.'}
-      </div>
+      </div>}
 
-      {shown.map(({ client, days }) => {
+      {open && shown.map(({ client, days }) => {
         const done = isSent(client);
         const hasPhone = !!toWhatsappNumber(client.phone);
         return (
@@ -102,7 +123,7 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
         );
       })}
 
-      {quiet.length > 3 && (
+      {open && quiet.length > 3 && (
         <button
           type="button"
           onClick={() => setExpanded(v => !v)}

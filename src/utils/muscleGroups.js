@@ -117,6 +117,9 @@ const RULES = [
   // stuck under isWarmupExercise instead, contributing zero to calories —
   // same principle applies here, they belong in Core, not unmapped).
   { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n), muscles: ['Core'] },
+  // Reverse hyper: hip extension with the torso fixed, so glutes lead and the
+  // lower back assists. Checked before the hyperextension rule below.
+  { test: n => /reverse hyper/.test(n), muscles: ['Glutes', 'Back'] },
   { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Core', 'Back'] },
   // Burpee: full-body conditioning move: Core (plank/crunch phase) + Quads
   // (jump/squat phase) is the most representative 2-muscle credit available
@@ -144,12 +147,15 @@ const RULES = [
   { test: n => /(rear delt|reverse fly|face pull|pull apart)/.test(n), muscles: ['Shoulders', 'Back'] },
   { test: n => /(shrug)/.test(n), muscles: ['Shoulders', 'Back'] },
   { test: n => /(lateral raise|side lateral|front raise|upright row|y raise)/.test(n), muscles: ['Shoulders'] },
+  // Landmine press: an angled press, so the upper chest helps more than the
+  // triceps do.
+  { test: n => /landmine press/.test(n), muscles: ['Shoulders', 'Chest'] },
   // "shoulders?\s*press" (not just singular "shoulder press") — "Shoulders
   // Press" is this app's own default/most-used exercise name (see
   // WorkoutTracker.jsx) and was previously falling through unmapped because
   // the plural form didn't match the old singular-only regex.
   {
-    test: n => /(shoulders?\s*press|overhead press|arnold|military press|behind neck|clean and press|push press|behind.?the.?neck|landmine press)/.test(n)
+    test: n => /(shoulders?\s*press|overhead press|arnold|military press|behind neck|clean and press|push press|behind.?the.?neck)/.test(n)
       // "Dumbbell Press (Seated)" has "seated" AFTER "press" ("Press
       // (Seated)"), so a single sequential "seated.*press" pattern misses
       // it — check both words appear anywhere, order-independent, instead.

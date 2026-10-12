@@ -187,6 +187,18 @@ export function isWarmupCardExercise(ex) {
   return isWarmupBlockExercise(ex) || isWarmupExercise(ex?.name);
 }
 
+// The list with `entry` added: a warm-up move (Arm Circle, Leg Swing …)
+// goes after the warm-ups already opening the session, before the first
+// working exercise, so it joins the one Warm-up card at the top. Anything
+// else is appended as before.
+export function addExerciseInOrder(exercises, entry) {
+  const list = exercises || [];
+  if (!isWarmupExercise(entry?.name)) return [...list, entry];
+  let at = 0;
+  while (at < list.length && isWarmupCardExercise(list[at])) at += 1;
+  return [...list.slice(0, at), entry, ...list.slice(at)];
+}
+
 // { n, total } for the warm-up strip on exercises[idx] ("Warm-up 2 of 3"),
 // or null when that exercise isn't part of the warm-up block.
 export function getWarmupPosition(exercises, idx) {

@@ -5551,3 +5551,92 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 700;
   color: var(--accent-text);
 }
+
+/* ─── Warm-up block as one card (WarmupMoveRow) ───
+   Each warm-up move is its own exercise row in the list; consecutive ones
+   stack flush, so only the first draws the top divider + header and only
+   the last closes the card with a little breathing room. */
+.warmup-move-card {
+  background: rgba(217, 119, 6, 0.06);
+  padding: 4px 16px;
+}
+.warmup-move-card--first {
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
+  padding-top: 12px;
+}
+.warmup-move-card--last {
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.06);
+  padding-bottom: 12px;
+}
+.warmup-move-head {
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #d97706;
+}
+.warmup-move-head span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.warmup-move-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 4px 0;
+}
+.warmup-move-line + .warmup-move-line,
+.warmup-move-card:not(.warmup-move-card--first) .warmup-move-line {
+  border-top: 1px dashed rgba(var(--fg-rgb), 0.07);
+}
+.warmup-move-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+.warmup-move-line--done .warmup-move-name {
+  color: var(--text-muted);
+}
+.warmup-move-sets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.warmup-move-set {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.warmup-move-reps {
+  width: 46px;
+  height: 38px;
+  padding: 0 4px;
+  text-align: center;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 8px;
+}
+.warmup-move-reps:disabled {
+  opacity: 0.6;
+}
+.warmup-move-unit,
+.warmup-move-time {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.warmup-move-time {
+  min-width: 40px;
+  text-align: right;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 vi.mock('../services/databaseService', () => {
   const svc = {
@@ -33,8 +33,9 @@ Element.prototype.scrollTo = vi.fn();
 
 const program = (name, ...exercises) => ({ name, exercises: exercises.map(n => ({ name: n, sets: 3, reps: '10' })) });
 
-// Exercise card titles in the logger, top to bottom.
-const cardTitles = () => Array.from(document.querySelectorAll('h5')).map(el => el.textContent.trim());
+// Exercise titles in the logger, top to bottom: full cards (h5) and the
+// warm-up card's compact rows.
+const cardTitles = () => Array.from(document.querySelectorAll('h5, .warmup-move-name')).map(el => el.textContent.trim());
 
 describe('Workout Library program opens with the weekly warm-up block', () => {
   beforeEach(() => {
@@ -62,10 +63,10 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     // The 2 swapped exercises say what they replace.
     expect(Array.from(document.querySelectorAll('.swap-caption')).map(el => el.textContent))
       .toEqual(thisWeek.filter(e => e.swappedFrom).map(e => `🔄 New this week · instead of ${e.swappedFrom}`));
-    // Warm-up sets carry the "W" label, and each card says it's a warm-up.
-    expect(document.querySelectorAll('.set-num-lbl.warmup').length).toBeGreaterThanOrEqual(3);
-    expect(Array.from(document.querySelectorAll('.warmup-caption')).map(el => el.textContent))
-      .toEqual(['🔥 Warm-up 1 of 3 · go light, about 5 min', '🔥 Warm-up 2 of 3', '🔥 Warm-up 3 of 3']);
+    // The 3 warm-up moves sit together in one "🔥 Warm-up" card.
+    expect(Array.from(document.querySelectorAll('.warmup-move-name')).map(el => el.textContent)).toEqual(expected);
+    expect(Array.from(document.querySelectorAll('.warmup-move-head')).map(el => el.textContent))
+      .toEqual(['🔥 Warm-up · go light, about 5 min']);
   });
 
   it('home day uses the home block, and never repeats an exercise', async () => {
@@ -113,5 +114,50 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('Start Empty Workout warm-up', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('shows Arm Circle + Leg Swing as one Warm-up card with reps + a tick each', async () => {
+    localStorage.setItem('userName', 'TestClient');
+    localStorage.setItem('userId', 'u1');
+    localStorage.setItem('workoutTrackerLastTab_u1', 'log');
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    fireEvent.click(await screen.findByText('Start Empty Workout'));
+
+    expect(document.querySelectorAll('.warmup-move-head')).toHaveLength(1);
+    expect(Array.from(document.querySelectorAll('.warmup-move-name')).map(el => el.textContent)).toEqual(['Arm Circle', 'Leg Swing']);
+    const reps = screen.getByLabelText('Arm Circle reps');
+    fireEvent.change(reps, { target: { value: '15' } });
+    expect(reps.value).toBe('15');
+    fireEvent.click(screen.getByLabelText('Complete Arm Circle'));
+    expect(screen.getByLabelText('Undo Arm Circle')).toBeTruthy();
+    expect(screen.getByLabelText('Arm Circle reps').disabled).toBe(true);
+  });
+});
+
+describe('Resumed workout from before the Warm-up card', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('still groups untagged Arm Circle + Leg Swing into the Warm-up card', async () => {
+    localStorage.setItem('userName', 'TestClient');
+    localStorage.setItem('userId', 'u1');
+    localStorage.setItem('workoutDraft_u1', JSON.stringify({
+      isLoggingWorkout: true,
+      logExercises: [
+        { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+        { name: 'Leg Swing', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+        { name: 'Biceps Curls', sets: [{ reps: 12, weight: '5', isCompleted: false }] },
+      ],
+      logClient: 'TestClient', logDate: '2026-10-12', templateName: 'Custom Session', activeTemplateName: '',
+      saveAsTemplate: false, workoutTimerStatus: 'running', workoutTimerStartedAt: Date.now() - 60000,
+      workoutPauseIntervals: [], savedAt: Date.now(),
+    }));
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    expect(await screen.findByLabelText('Complete Leg Swing')).toBeTruthy();
+    expect(Array.from(document.querySelectorAll('.warmup-move-name')).map(el => el.textContent)).toEqual(['Arm Circle', 'Leg Swing']);
+    expect(Array.from(document.querySelectorAll('h5')).map(el => el.textContent.trim())).toContain('Biceps Curls');
   });
 });

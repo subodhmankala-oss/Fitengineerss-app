@@ -40,8 +40,9 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
-import { buildWarmupExercises, getWarmupPosition } from '../utils/warmupBlocks';
+import { buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
+import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
@@ -50,11 +51,13 @@ import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 // fresh workout log (empty start or from a plan/template), so a warm-up is
 // there without the client having to add it themselves. Reps-only (no
 // weight, no calories — see isWarmupExercise), removable like any exercise.
+// Tagged as warm-up sets, like a library program's warm-up block, so they
+// group into the one "🔥 Warm-up" card and stay off the heat map and PREV.
 // Fresh array/object instances per call so nothing shares references across
 // sessions.
 const getDefaultWarmupExercises = () => [
-  { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
-  { name: 'Leg Swing', sets: [{ reps: '10', weight: '0', isCompleted: false }] },
+  { name: 'Arm Circle', sets: [{ reps: '10', weight: '0', isCompleted: false, isWarmup: true, setType: 'warmup' }] },
+  { name: 'Leg Swing', sets: [{ reps: '10', weight: '0', isCompleted: false, isWarmup: true, setType: 'warmup' }] },
 ];
 
 // Initial pre-hydrated historical progression logs for client "Sridhar"
@@ -3718,10 +3721,42 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 // never contradicts a row underneath showing a KG input.
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
+                const cardMenu = (
+                  <ExerciseCardMenu
+                    name={ex.name}
+                    onReorderPointerDown={startLogExerciseDrag(exIdx)}
+                    onMoveUp={() => moveLogExerciseByKeyboard(exIdx, -1)}
+                    onMoveDown={() => moveLogExerciseByKeyboard(exIdx, 1)}
+                    onRemove={() => {
+                      // Remap first — see remapSetTimersForExerciseRemoval's
+                      // comment in liveWorkoutTimer.js. Without this a
+                      // running stopwatch on any LATER exercise silently
+                      // reattached to whatever exercise shifted into its
+                      // old index.
+                      setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
+                      setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
+                    }}
+                  />
+                );
                 return (
                   <div key={getLogItemKey(exIdx)} ref={enterRef(ex.name)} className="ex-reorder-row" style={getLogRowStyle(exIdx)}>
                   <div className={`ex-reorder-morph ${isLogReordering ? 'is-reordering' : ''}`}>
                   <div className="ex-reorder-full">
+                  {/* The warm-up block's moves render as compact rows that
+                      stack into one "🔥 Warm-up" card (see WarmupMoveRow). */}
+                  {isWarmupCardExercise(ex) ? (
+                    <WarmupMoveRow
+                      ex={ex}
+                      isFirst={!isWarmupCardExercise(logExercises[exIdx - 1])}
+                      isLast={!isWarmupCardExercise(logExercises[exIdx + 1])}
+                      onOpenHistory={() => setHistoryModalExercise(ex.name)}
+                      onRepsChange={(sIdx, v) => handleSetChange(exIdx, sIdx, 'reps', v)}
+                      onTick={(sIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[sIdx].isCompleted
+                        ? (exIsCardio ? handleCardioSetComplete(exIdx, sIdx) : handleSetStopwatchComplete(exIdx, sIdx))
+                        : handleToggleSetCompleted(exIdx, sIdx)}
+                      menu={cardMenu}
+                    />
+                  ) : (
                   <div className="form-exercise-card hevy-exercise-card" data-tour={exIdx === 0 ? 'wt-log-exercise-card' : undefined}>
                     <div className="ex-card-header">
                       <div className="ex-card-title-stack">
@@ -3778,21 +3813,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       </div>
                         <ExerciseCaption warmupPosition={getWarmupPosition(logExercises, exIdx)} swappedFrom={ex.swappedFrom} finisherFor={ex.finisherFor} />
                       </div>
-                      <ExerciseCardMenu
-                        name={ex.name}
-                        onReorderPointerDown={startLogExerciseDrag(exIdx)}
-                        onMoveUp={() => moveLogExerciseByKeyboard(exIdx, -1)}
-                        onMoveDown={() => moveLogExerciseByKeyboard(exIdx, 1)}
-                        onRemove={() => {
-                          // Remap first — see remapSetTimersForExerciseRemoval's
-                          // comment in liveWorkoutTimer.js. Without this a
-                          // running stopwatch on any LATER exercise silently
-                          // reattached to whatever exercise shifted into its
-                          // old index.
-                          setSetTimers(prev => remapSetTimersForExerciseRemoval(exIdx, prev));
-                          setLogExercises(prev => prev.filter((_, idx) => idx !== exIdx));
-                        }}
-                      />
+                      {cardMenu}
                     </div>
 
                     {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
@@ -4352,6 +4373,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       </button>
                     </div>
                   </div>
+                  )}
                   </div>
                   <div className="ex-reorder-compact">
                     <div

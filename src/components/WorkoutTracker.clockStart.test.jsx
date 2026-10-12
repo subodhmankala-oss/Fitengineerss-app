@@ -73,11 +73,11 @@ describe('WorkoutTracker workout clock', () => {
     fireEvent.click(await screen.findByText('Start Empty Workout'));
     expect(notifyEvent).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getAllByTitle('Toggle Complete')[0]);
+    fireEvent.click(screen.getByLabelText('Complete Arm Circle'));
     expect(notifyEvent).toHaveBeenCalledTimes(1);
     expect(notifyEvent).toHaveBeenCalledWith('workout_started', expect.objectContaining({ clientUserId: expect.any(String) }));
 
-    fireEvent.click(screen.getAllByTitle('Toggle Complete')[1]);
+    fireEvent.click(screen.getByLabelText('Complete Leg Swing'));
     expect(notifyEvent).toHaveBeenCalledTimes(1);
   });
 });

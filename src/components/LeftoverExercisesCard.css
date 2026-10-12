@@ -86,3 +86,23 @@
 .leftover-finish-note strong {
   font-weight: 800;
 }
+
+/* Live Log "Have to leave? Hand over to <client>" link under Save. */
+.live-handover-link {
+  display: block;
+  width: 100%;
+  margin: 10px 0 0;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: var(--tint-amber);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+
+.live-handover-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

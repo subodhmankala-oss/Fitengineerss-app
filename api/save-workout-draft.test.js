@@ -20,6 +20,7 @@ const mockRes = () => {
 describe('api/save-workout-draft — per-source drafts', () => {
   let handler;
   let upserts;
+  let clientHasOpenSession;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -27,6 +28,7 @@ describe('api/save-workout-draft — per-source drafts', () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
     upserts = [];
+    clientHasOpenSession = false;
     global.fetch = vi.fn(async (url, opts = {}) => {
       const u = decodeURIComponent(String(url));
       const ok = (body) => ({ ok: true, status: 200, json: async () => body });
@@ -40,6 +42,7 @@ describe('api/save-workout-draft — per-source drafts', () => {
         return ok(IDS[email] ? [{ id: IDS[email] }] : []);
       }
       if (u.includes('/rest/v1/workout_drafts')) {
+        if (!u.includes('on_conflict') && clientHasOpenSession) return { ok: false, status: 409, json: async () => ({ code: '23505' }) };
         upserts.push({ url: u, record: JSON.parse(opts.body) });
         return ok(null);
       }
@@ -53,12 +56,12 @@ describe('api/save-workout-draft — per-source drafts', () => {
     vi.restoreAllMocks();
   });
 
-  const call = async (token, source) => {
+  const call = async (token, source, extra = {}) => {
     const res = mockRes();
     await handler({
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, host: 'app.example.com' },
-      body: { record: { user_id: CLIENT_ID, source, exercises: [] } }
+      body: { record: { user_id: CLIENT_ID, source, exercises: [] }, ...extra }
     }, res);
     return res;
   };
@@ -78,6 +81,27 @@ describe('api/save-workout-draft — per-source drafts', () => {
 
   it('rejects an unknown source', async () => {
     expect((await call('client-token', 'other')).statusCode).toBe(400);
+    expect(upserts).toHaveLength(0);
+  });
+
+  it('lets the coach hand their Live Log over as the client’s own session, insert-only', async () => {
+    expect((await call('coach-token', 'self', { handover: true })).statusCode).toBe(200);
+    expect(upserts).toHaveLength(1);
+    expect(upserts[0].url).not.toContain('on_conflict');
+    expect(upserts[0].record.source).toBe('self');
+  });
+
+  it('never replaces a session the client already has open on handover', async () => {
+    clientHasOpenSession = true;
+    const res = await call('coach-token', 'self', { handover: true });
+    expect(res.statusCode).toBe(409);
+    expect(res.body.code).toBe('client_session_open');
+    expect(upserts).toHaveLength(0);
+  });
+
+  it('rejects a handover from anyone but the client’s coach, or as the coach row', async () => {
+    expect((await call('client-token', 'self', { handover: true })).statusCode).toBe(403);
+    expect((await call('coach-token', 'coach', { handover: true })).statusCode).toBe(403);
     expect(upserts).toHaveLength(0);
   });
 });

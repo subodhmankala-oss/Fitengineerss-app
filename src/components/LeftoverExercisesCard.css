@@ -1,0 +1,88 @@
+.leftover-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  margin: 0 0 14px;
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  border-radius: 12px;
+}
+
+.leftover-icon {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.leftover-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.leftover-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-text);
+  margin-bottom: 2px;
+}
+
+.leftover-hint {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.leftover-names {
+  margin: 6px 0 10px;
+  padding-left: 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.leftover-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.leftover-add,
+.leftover-dismiss {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.leftover-add {
+  background: var(--primary-accent);
+  border: 1px solid var(--primary-accent);
+  color: #fff;
+}
+
+.leftover-dismiss {
+  background: transparent;
+  border: 1px solid rgba(var(--fg-rgb), 0.14);
+  color: var(--text-muted);
+}
+
+/* Live Log tick box above Save listing the not-started exercises. */
+.leftover-finish-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-main);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-left: 3px solid var(--primary-accent-light);
+  border-radius: 8px;
+}
+
+.leftover-finish-note strong {
+  font-weight: 800;
+}

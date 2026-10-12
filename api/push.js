@@ -1073,7 +1073,7 @@ async function handleNotifyUser(req, res) {
       // client's own in-progress workout.
       targetUserId = clientUserId;
       title = await getCoachDisplayName(client?.coach_id);
-      body = planName ? `Handed "${planName}" to you. Finish the rest in the app.` : 'Handed your session to you. Finish the rest in the app.';
+      body = planName ? `Your coach sent you the rest of "${planName}". Finish it in the app.` : "Your coach sent you the rest of today's workout. Finish it in the app.";
       url = '/?tab=workouts';
     } else if (event === 'measurement_reminder_manual') {
       // Coach-triggered version of the automated 15-day sweep's client push

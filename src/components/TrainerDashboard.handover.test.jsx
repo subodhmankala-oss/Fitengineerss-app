@@ -78,15 +78,15 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
   });
 
   const handOver = async () => {
-    fireEvent.click(await screen.findByText('📲 Hand over to Asha'));
-    fireEvent.click(screen.getByText('📲 Hand over'));
+    fireEvent.click(await screen.findByText('📲 Send the rest to Asha'));
+    fireEvent.click(screen.getByText('📲 Send'));
   };
 
   it('sends the session with its ticked sets, closes the Live Log and notifies the client', async () => {
     databaseService.handOverLiveSession.mockResolvedValue('ok');
     renderLiveLog();
     await loadPlan();
-    expect(screen.queryByText(/Running late/)).toBeNull(); // no set ticked yet
+    expect(screen.queryByText(/Need to leave early/)).toBeNull(); // no set ticked yet
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
     await handOver();
@@ -101,7 +101,7 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     await waitFor(() => expect(databaseService.deleteWorkoutDraft).toHaveBeenCalledWith(CLIENT.id, 'coach'));
     expect(notifyEvent).toHaveBeenCalledWith('session_handed_over', { clientUserId: CLIENT.id, planName: 'Leg Day' });
     await waitFor(() => expect(screen.queryAllByTitle('Mark complete')).toHaveLength(0));
-    expect(await screen.findByText(/Handed over to Asha/)).toBeTruthy();
+    expect(await screen.findByText(/Sent to Asha/)).toBeTruthy();
   });
 
   it("keeps the Live Log when the client already has a workout open", async () => {
@@ -111,7 +111,7 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
     await handOver();
 
-    expect(await screen.findByText(/Asha already has a workout open/)).toBeTruthy();
+    expect(await screen.findByText(/Asha already has a workout started/)).toBeTruthy();
     expect(databaseService.deleteWorkoutDraft).not.toHaveBeenCalledWith(CLIENT.id, 'coach');
     expect(notifyEvent).not.toHaveBeenCalledWith('session_handed_over', expect.anything());
     expect(screen.getAllByTitle('Mark complete').length).toBeGreaterThan(0);

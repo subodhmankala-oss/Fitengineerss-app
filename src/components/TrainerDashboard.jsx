@@ -2075,11 +2075,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setLiveHandingOver(false);
     setShowHandoverLiveModal(false);
     if (result === 'client_session_open') {
-      triggerLiveToast(`⚠️ ${firstName} already has a workout open on their phone. Save this session instead.`);
+      triggerLiveToast(`⚠️ ${firstName} already has a workout started on their phone. Tap Save instead.`);
       return;
     }
     if (result !== 'ok') {
-      triggerLiveToast('⚠️ Could not hand over. Check your connection and try again.');
+      triggerLiveToast('⚠️ Could not send it. Check your internet and try again.');
       return;
     }
     resetLiveTimer();
@@ -2089,7 +2089,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     await deleteLiveDraftAfterPendingSave(client.id).catch(() => {});
     refreshCoachActiveDrafts();
     notifyEvent('session_handed_over', { clientUserId: client.id, planName: livePlanName });
-    triggerLiveToast(`📲 Handed over to ${firstName}. They'll finish it on their phone.`);
+    triggerLiveToast(`✅ Sent to ${firstName}. They can finish it on their phone.`);
   };
 
   // Latest logged weight (clientMeasurements, freshest) beats the cached
@@ -9872,31 +9872,34 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     )}
 
                   {/* Running late: hand the rest of today's session to the
-                      client to finish on their phone (handleHandOverLiveSession). */}
+                      client to finish on their phone (handleHandOverLiveSession),
+                      or save now and carry the not-started exercises to
+                      their next session (the tick box). One card, two choices. */}
                   {!isLiveReordering && liveHasDoneSets && liveHasSetsLeft && (
                     <div className="live-handover-card">
-                      <div className="live-handover-title">🏃 Running late or need to leave?</div>
-                      <div className="live-handover-text">
-                        Hand over the remaining exercises to {liveClientFirstName} so they can finish today's session on their phone.
-                      </div>
+                      <div className="live-handover-title">🏃 Need to leave early?</div>
                       <button
                         type="button"
                         className="live-handover-btn"
                         onClick={() => setShowHandoverLiveModal(true)}
                         disabled={liveSaving || liveHandingOver}
                       >
-                        📲 Hand over to {liveClientFirstName}
+                        📲 Send the rest to {liveClientFirstName}
                       </button>
+                      <div className="live-handover-text">{liveClientFirstName} will log the remaining exercises on their phone.</div>
+                      {liveSkipped.length > 0 && (
+                        <>
+                          <div className="live-handover-or"><span>or save now</span></div>
+                          <label className="live-handover-carry">
+                            <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} />
+                            <span>
+                              <strong>Keep {liveSkipped.length === 1 ? '1 exercise' : `${liveSkipped.length} exercises`} for next session</strong>
+                              <small>Not done today: {liveSkipped.join(', ')}</small>
+                            </span>
+                          </label>
+                        </>
+                      )}
                     </div>
-                  )}
-
-                  {!isLiveReordering && liveSkipped.length > 0 && liveHasDoneSets && (
-                    <label className="leftover-finish-note" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} style={{ marginTop: '3px' }} />
-                      <span>
-                        <strong>Saving now instead?</strong> Add {liveSkipped.join(', ')} to {liveClientFirstName}'s next session.
-                      </span>
-                    </label>
                   )}
 
                   {!isLiveReordering && (
@@ -9968,12 +9971,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       {showHandoverLiveModal && selectedClient && (
         <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => !liveHandingOver && setShowHandoverLiveModal(false)}>
           <div className="payment-gateway-modal" onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>📲 HAND OVER</div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>📲 SEND THE REST</div>
             <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 700 }}>
-              Let {(selectedClient.userName || 'your client').split(/\s+/)[0]} finish on their phone?
+              Send the rest to {(selectedClient.userName || 'your client').split(/\s+/)[0]}?
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-              The sets you ticked stay done, the session clock keeps running, and the rest of the exercises open in their app to finish and save. Your Live Log for them closes.
+              Everything you ticked stays done. The remaining exercises open in their app, and they finish and save the workout. Your Live Log closes.
             </p>
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <button
@@ -10010,7 +10013,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   cursor: liveHandingOver ? 'default' : 'pointer'
                 }}
               >
-                {liveHandingOver ? '⏳ Handing over...' : '📲 Hand over'}
+                {liveHandingOver ? '⏳ Sending...' : '📲 Send'}
               </button>
             </div>
           </div>

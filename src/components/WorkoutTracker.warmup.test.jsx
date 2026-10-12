@@ -54,9 +54,8 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
       .toEqual([...expected, 'Bench Press', 'Cable Fly']);
     // Warm-up sets carry the "W" label, and each card says it's a warm-up.
     expect(document.querySelectorAll('.set-num-lbl.warmup').length).toBeGreaterThanOrEqual(3);
-    expect(Array.from(document.querySelectorAll('.warmup-strip-label')).map(el => el.textContent))
-      .toEqual(['🔥 Warm-up 1 of 3', '🔥 Warm-up 2 of 3', '🔥 Warm-up 3 of 3']);
-    expect(screen.getByText(/Go light, about 5 min/)).toBeTruthy();
+    expect(Array.from(document.querySelectorAll('.warmup-caption')).map(el => el.textContent))
+      .toEqual(['🔥 Warm-up 1 of 3 · go light, about 5 min', '🔥 Warm-up 2 of 3', '🔥 Warm-up 3 of 3']);
   });
 
   it('home day uses the home block', async () => {

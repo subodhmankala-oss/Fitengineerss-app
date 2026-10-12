@@ -5534,26 +5534,14 @@ html.keyboard-open .rest-timer-floating-card {
   }
 }
 
-/* Warm-up block cards (WarmupStrip) — same amber as the "W" set label. */
-.warmup-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 8px;
-  margin: -2px 0 8px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+/* Warm-up block exercises (WarmupCaption): a small caption under the
+   name, same amber as the "W" set label. */
+.ex-card-title-stack {
+  min-width: 0;
 }
-.warmup-strip-label {
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #d97706;
-  letter-spacing: 0.02em;
-}
-.warmup-strip-hint {
+.warmup-caption {
+  margin-top: 2px;
   font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-weight: 700;
+  color: #d97706;
 }

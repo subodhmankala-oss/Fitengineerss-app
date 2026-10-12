@@ -5607,6 +5607,16 @@ html.keyboard-open .rest-timer-floating-card {
 .warmup-move-line--done .warmup-move-name {
   color: var(--text-muted);
 }
+/* A move with several sets (a resumed or older session): the name keeps its
+   own line and the sets wrap underneath instead of squeezing it. */
+.warmup-move-line--multi {
+  flex-wrap: wrap;
+}
+.warmup-move-line--multi .warmup-move-sets {
+  order: 3;
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}
 .warmup-move-sets {
   display: flex;
   flex-wrap: wrap;

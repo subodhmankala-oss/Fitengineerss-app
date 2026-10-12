@@ -1,4 +1,4 @@
-import { isCardioExercise, isTimedExercise, isBodyweightExercise } from '../data/exerciseLibrary';
+import { isCardioExercise, isTimedExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 
 // "What did this client do last time?" lookups for the live logger's PREV
 // column and its pre-fill. Pure functions over the in-memory session list
@@ -122,10 +122,12 @@ export function fillPendingPrevSets(exercises, lookup) {
 // last time (same number of sets, reps, weight and warm-up/drop/failure
 // tags), so each one is a single tap. Only for rep-based exercises — cardio
 // and timed sets are durations measured live, not targets to repeat.
+// Warm-up moves (Arm Circle, Leg Swing …) are one quick set: history for
+// them can hold many sets, which would swell the Warm-up card.
 // Returns null when there's nothing to copy.
 export function setsFromPreviousExercise(exName, prevSets) {
   if (!prevSets || prevSets.length === 0) return null;
-  if (isCardioExercise(exName) || isTimedExercise(exName)) return null;
+  if (isCardioExercise(exName) || isTimedExercise(exName) || isWarmupExercise(exName)) return null;
   const bodyweight = isBodyweightExercise(exName);
   return prevSets.map(p => {
     const weight = String(Number(p.weight) || 0);

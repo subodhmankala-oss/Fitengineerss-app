@@ -104,4 +104,9 @@ describe('setsFromPreviousExercise', () => {
     expect(setsFromPreviousExercise('Treadmill', [{ distanceKm: 2, time: '10:00' }])).toBeNull();
     expect(setsFromPreviousExercise('Plank', [{ time: '01:00' }])).toBeNull();
   });
+  it('never copies a warm-up move’s history: it starts as one default set', () => {
+    const six = Array.from({ length: 6 }, () => ({ reps: 10, weight: 0 }));
+    expect(setsFromPreviousExercise('Arm Circle', six)).toBeNull();
+    expect(setsFromPreviousExercise('Leg Swing', six)).toBeNull();
+  });
 });

@@ -9489,7 +9489,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                           <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                             <SetValueField
                                               value={set.weight}
-                                              placeholder="0"
+                                              placeholder={/lat pull|plate/i.test(ex.name) ? 'plates' : 'kg'}
                                               active={activeLiveSetKey === weightKey}
                                               isGhost={set.weightFromPrev}
                                               onOpen={() => openLiveSetField(weightKey)}

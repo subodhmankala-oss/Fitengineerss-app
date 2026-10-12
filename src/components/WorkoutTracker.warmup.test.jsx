@@ -56,6 +56,9 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
       expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
     }
     expect(cardTitles().filter(t => all.includes(t))).toEqual(all);
+    // Never logged before, so no made-up weight: the kg box is empty.
+    const benchCard = Array.from(document.querySelectorAll('h5')).find(h => h.textContent.trim() === 'Bench Press').closest('.hevy-exercise-card');
+    expect(benchCard.querySelector('.col-weight .set-value-placeholder')?.textContent).toBe('kg');
     // The 2 swapped exercises say what they replace.
     expect(Array.from(document.querySelectorAll('.swap-caption')).map(el => el.textContent))
       .toEqual(thisWeek.filter(e => e.swappedFrom).map(e => `🔄 New this week · instead of ${e.swappedFrom}`));

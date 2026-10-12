@@ -563,7 +563,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 finisherFor: finisher.finisherFor,
                 // Same pre-fill as the program's own sets (handleStartFromTemplate).
                 sets: Array.from({ length: finisher.sets }, (_, setIdx) => applyPrevRepsAndWeight(
-                  { reps: finisher.reps, weight: '0', isCompleted: false, targetReps: finisher.reps },
+                  { reps: finisher.reps, weight: isBodyweightExercise(finisher.name) ? '0' : '', isCompleted: false, targetReps: finisher.reps },
                   findPreviousLoggedSetIn(history, loggedInUser, finisher.name, setIdx)
                 ))
               }]
@@ -2583,13 +2583,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         // instead of a flat 0 — set 1 gets set 1's last weight/reps, set 3
         // gets set 3's, etc., so PREV and the editable fields agree instead
         // of looking unrelated. Falls back to the template's target reps
-        // and 0 weight when nothing's been logged for that set before.
+        // when nothing's been logged for that set before, with the kg box
+        // left blank (BW for bodyweight moves) — a never-done exercise
+        // (often this week's swap or finisher) gets no made-up weight.
         // (Started from the Home banner, this runs on mount — before the
         // history has loaded — so markPrevPending has the pre-fill applied
         // once it arrives.)
         sets: Array.from({ length: ex.sets || 3 }, (_, setIdx) => markPrevPending(applyPrevRepsAndWeight({
           reps: targetReps,
-          weight: '0',
+          weight: isBodyweightExercise(ex.name) ? '0' : '',
           isCompleted: false,
           // Kept so the reps input can show the plan's target range as a
           // placeholder hint once the lifter clears the pre-filled number.
@@ -4252,7 +4254,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                                       <div className={`col-weight set-input-field ${exIsBodyweight ? 'bw-input-with-toggle' : ''}`}>
                                         <SetValueField
                                           value={set.weight}
-                                          placeholder="0"
+                                          placeholder={unit}
                                           disabled={set.isCompleted}
                                           active={activeSetKey === weightKey}
                                           isGhost={set.weightFromPrev}

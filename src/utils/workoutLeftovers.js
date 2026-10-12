@@ -1,13 +1,13 @@
-// Exercises the client didn't get to (time ran out) carried over to their
-// next workout. Only FULLY skipped exercises count, meaning not one set ticked.
-// A started exercise just saves the sets that were done. Warm-up moves are
-// never carried over.
+// Coach Live Log: exercises the client didn't get to (time ran out) carried
+// over to their next session. Only FULLY skipped exercises count, meaning not
+// one set ticked. A started exercise just saves the sets that were done.
+// Warm-up moves are never carried over. Coach-only for now; the client's own
+// logger doesn't use this.
 //
-// Stored per client in localStorage (like pendingWorkoutAdds), keyed by the
-// client's users.id: the client's own phone for WorkoutTracker, the coach's
-// device for the Live Log. The next logger session shows them on a card
-// (LeftoverExercisesCard) to add or dismiss, never auto-inserted, because
-// the next day may be a different muscle group.
+// Stored in localStorage on the coach's device (like pendingWorkoutAdds),
+// keyed by the client's users.id. The next Live Log session for that client
+// shows them on a card (LeftoverExercisesCard) to add or dismiss, never
+// auto-inserted, because the next day may be a different muscle group.
 
 import { isWarmupCardExercise } from './warmupBlocks';
 
@@ -48,7 +48,7 @@ export function getWorkoutLeftovers(ownerId, now = Date.now()) {
   return fresh;
 }
 
-// Called on every saved workout: leftovers the client did this time are
+// Called on every saved Live Log session: leftovers the client did this time are
 // cleared, and this session's skipped exercises are added (replacing an older
 // entry with the same name).
 export function updateWorkoutLeftovers(ownerId, { skipped = [], completed = [], date, planName }, now = Date.now()) {

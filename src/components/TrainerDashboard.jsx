@@ -2281,8 +2281,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     ]);
   };
 
-  // Exercises skipped in this client's last session (time ran out), same as
-  // the client's own logger — see utils/workoutLeftovers.js. Read straight
+  // Exercises not started in this client's last Live Log session (time ran
+  // out) — see utils/workoutLeftovers.js. Read straight
   // from localStorage each render (tiny); the tick re-renders after add/dismiss.
   const [, setLiveLeftoverTick] = useState(0);
   const liveLeftovers = selectedClient?.id
@@ -9173,7 +9173,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
                       edges, matching the app's standard flush logging layout. */}
-                  <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} forCoach />
+                  <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} />
 
                   <div className="live-logger-exercise-list">
                     {liveExercises.length === 0 && (

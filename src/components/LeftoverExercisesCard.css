@@ -70,7 +70,7 @@
   color: var(--text-muted);
 }
 
-/* Finish-flow note listing the skipped exercises being moved. */
+/* Live Log tick box above Save listing the not-started exercises. */
 .leftover-finish-note {
   margin: 0 0 12px;
   padding: 10px 12px;

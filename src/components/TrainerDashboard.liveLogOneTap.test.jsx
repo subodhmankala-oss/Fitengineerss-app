@@ -43,14 +43,13 @@ const renderLiveLog = () => render(
 // seconds on a busy machine or CI runner, well past the 1s findBy default.
 const SLOW = { timeout: 15000 };
 
-const deferred = () => {
-  let resolve;
-  const promise = new Promise(r => { resolve = r; });
-  return { promise, resolve };
-};
-
 // No jest-dom in this project — plain className check instead of toHaveClass.
 const hasClass = (el, cls) => el.className.split(/\s+/).includes(cls);
+
+const untickedSets = () => [
+  { reps: '8', weight: '40', isCompleted: false },
+  { reps: '8', weight: '40', isCompleted: false }
+];
 
 const twoSetDraft = (sets) => ({
   userId: CLIENT.id,
@@ -80,19 +79,26 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     localStorage.clear();
   });
 
-  it('gives sets created before the client history loaded their PREV kg once it lands', async () => {
-    const logs = deferred();
-    databaseService.getWorkoutLogsForUser.mockReturnValueOnce(logs.promise);
+  it('opens a fresh session with no placeholder exercise and no made-up weight', async () => {
     renderLiveLog();
+    expect(await screen.findByText('No exercises yet. Tap ➕ Add Exercise below to start.', {}, SLOW)).toBeTruthy();
+    expect(screen.queryByText('Shoulders Press')).toBeNull();
+    expect(screen.queryByTitle('Mark complete')).toBeNull();
+  });
 
-    // Starter exercise, opened while the history fetch is still pending.
-    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: '20' }).length).toBe(2);
-
-    logs.resolve([
+  it('a plan loaded into the Live Log starts from PREV kg, not the weight stored in the plan', async () => {
+    databaseService.getWorkoutLogsForUser.mockResolvedValue([
       { log_date: '2026-09-01', exercise_name: 'Shoulders Press', set_number: 1, reps: 10, weight_kg: 32.5 },
       { log_date: '2026-09-01', exercise_name: 'Shoulders Press', set_number: 2, reps: 8, weight_kg: 35 }
     ]);
+    databaseService.getWorkoutPlansForUser.mockResolvedValue([{
+      id: 'p1', planName: 'Shoulder Day',
+      exercises: [{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20' }, { reps: '10', weight: '20' }] }]
+    }]);
+    renderLiveLog();
+
+    const planSelect = (await screen.findByRole('option', { name: 'Shoulder Day' }, SLOW)).closest('select');
+    fireEvent.change(planSelect, { target: { value: 'p1' } });
 
     expect(await screen.findByRole('button', { name: '32.5' }, SLOW)).toBeTruthy();
     expect(screen.getByRole('button', { name: '35' })).toBeTruthy();
@@ -100,8 +106,9 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
   });
 
   it('saves the draft right away when a set is ticked, instead of after the debounce', async () => {
+    databaseService.getWorkoutDraft.mockResolvedValue(twoSetDraft(untickedSets()));
     renderLiveLog();
-    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Bench Press', {}, SLOW)).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
@@ -116,8 +123,9 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
   });
 
   it('starts a rest only from the Start Rest button, remembered for this client', async () => {
+    databaseService.getWorkoutDraft.mockResolvedValue(twoSetDraft(untickedSets()));
     renderLiveLog();
-    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Bench Press', {}, SLOW)).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getAllByText('⏱️ Start Rest')[0]);
 
@@ -125,8 +133,9 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
   });
 
   it('"✓ all" in the header completes every set of that exercise', async () => {
+    databaseService.getWorkoutDraft.mockResolvedValue(twoSetDraft(untickedSets()));
     renderLiveLog();
-    expect((await screen.findAllByText('Shoulders Press', {}, SLOW)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Bench Press', {}, SLOW)).length).toBeGreaterThan(0);
     await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
     expect(screen.getAllByTitle('Mark complete').length).toBe(2);
 

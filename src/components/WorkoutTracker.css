@@ -839,13 +839,6 @@
   color: var(--text-main);
 }
 
-.ex-progression-hint {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  padding: 2px 4px 6px;
-}
-
 .ex-card-actions {
   display: flex;
   align-items: center;

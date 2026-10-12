@@ -23,6 +23,7 @@ vi.mock('../services/databaseService', () => {
 vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 
 import WorkoutTracker from './WorkoutTracker';
+import databaseService from '../services/databaseService';
 import { TourProvider } from '../context/TourContext';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import { WARMUP_BLOCKS, getWarmupWeekIndex, buildWarmupExercises } from '../utils/warmupBlocks';
@@ -83,6 +84,29 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
       }
       expect(cardTitles().filter(t => all.includes(t))).toEqual(all);
       expect(new Set(all).size).toBe(all.length);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('adds one finisher for a neglected muscle that fits the day, once the history loads', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 12, 9, 0));
+    try {
+      // Everything a legs day can take trained recently except calves (20 days ago).
+      const row = (log_date, exercise_name) => ({ log_date, exercise_name, reps: 10, weight_kg: 20, set_type: null, plan_name: 'x', created_at: `${log_date}T08:00:00Z` });
+      databaseService.getWorkoutLogsForUser.mockResolvedValueOnce([
+        row('2026-10-10', 'Bench Press'), row('2026-10-10', 'Shoulder Press (Dumbbell)'), row('2026-10-10', 'Plank'),
+        row('2026-10-08', 'Barbell Squat'), row('2026-10-08', 'Romanian Deadlift'), row('2026-10-08', 'Hip Thrust'),
+        row('2026-09-22', 'Standing Calf Raise'),
+      ]);
+      const legs = program('Intermediate Legs', 'Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl (Seated)');
+      startLibraryProgram('u1', 'gym', 'intermediate', legs);
+      render(<TourProvider><WorkoutTracker /></TourProvider>);
+
+      expect(await screen.findByText('🎯 Finisher · Calves not trained in 20 days')).toBeTruthy();
+      expect(cardTitles().at(-1)).toBe('Standing Calf Raise');
+      expect(cardTitles().filter(t => t === 'Standing Calf Raise')).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }

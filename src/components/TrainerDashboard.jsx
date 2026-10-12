@@ -42,6 +42,7 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { warmupsFirst } from '../utils/warmupsFirst';
 import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -1569,6 +1570,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const restFinishHandledRef = useRef(false);
   const [restJustFinished, setRestJustFinished] = useState(false);
   const [showDiscardLiveModal, setShowDiscardLiveModal] = useState(false);
+  const [showHandoverLiveModal, setShowHandoverLiveModal] = useState(false);
+  const [liveHandingOver, setLiveHandingOver] = useState(false);
   // Which draft (from the client directory's "Live Log in progress" list) is
   // pending a discard confirmation — { userId, userName } or null when closed.
   const [discardDraftTarget, setDiscardDraftTarget] = useState(null);
@@ -2048,6 +2051,46 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     triggerLiveToast('🗑️ Live session discarded.');
   };
 
+  // Coach has to leave mid-session: the session (ticked sets, plan, session
+  // clock) becomes the client's own in-progress workout, which their logger
+  // resumes the next time they open the app. Their own open workout is never
+  // replaced (server refuses, coach is told). Only then is the coach's Live
+  // Log row deleted, so a failure leaves everything as it was.
+  const handleHandOverLiveSession = async () => {
+    if (!selectedClient || liveHandingOver) return;
+    const client = selectedClient;
+    const firstName = (client.userName || 'your client').split(/\s+/)[0];
+    setLiveHandingOver(true);
+    const result = await databaseService.handOverLiveSession({
+      userId: client.id,
+      coachId: resolvedCoachId,
+      planName: livePlanName,
+      logDate: liveDate,
+      exercises: warmupsFirst(liveExercises),
+      timerStatus: liveTimerStatus,
+      timerStartedAt: liveTimerStartedAt,
+      pauseIntervals: livePauseIntervals
+    });
+    setLiveHandingOver(false);
+    setShowHandoverLiveModal(false);
+    if (result === 'client_session_open') {
+      triggerLiveToast(`⚠️ ${firstName} already has a workout open on their phone. Save this session instead.`);
+      return;
+    }
+    if (result !== 'ok') {
+      triggerLiveToast('⚠️ Could not hand over. Check your connection and try again.');
+      return;
+    }
+    resetLiveTimer();
+    setLiveExercises([]);
+    setLiveSetTimers({});
+    setLivePlanName('');
+    await deleteLiveDraftAfterPendingSave(client.id).catch(() => {});
+    refreshCoachActiveDrafts();
+    notifyEvent('session_handed_over', { clientUserId: client.id, planName: livePlanName });
+    triggerLiveToast(`📲 Handed over to ${firstName}. They'll finish it on their phone.`);
+  };
+
   // Latest logged weight (clientMeasurements, freshest) beats the cached
   // clients.weight_kg snapshot on selectedClient.userWeight — see the
   // matching comment on the Weight (kg) stat tile above.
@@ -2299,10 +2342,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     clearWorkoutLeftovers(selectedClient.id);
     setLiveLeftoverTick(t => t + 1);
   };
-  // "Move not-started exercises to the next session" tick box above Save.
+  // "Carry over to next session" tick box above Save.
   const [liveCarryOver, setLiveCarryOver] = useState(true);
   const liveSkipped = findSkippedExercises(liveExercises);
   const liveHasDoneSets = liveExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => s.isCompleted));
+  // Sets still to do (warm-ups aside): what a handover leaves the client.
+  const liveHasSetsLeft = liveExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => !s.isCompleted));
+  const liveClientFirstName = (selectedClient?.userName || 'your client').split(/\s+/)[0];
 
   // Bodyweight exercises default to no added weight. An exercise added
   // before this toggle existed (or loaded from an older plan) has no
@@ -9838,10 +9884,31 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     </div>
                     )}
 
+                  {/* Running late: hand the rest of today's session to the
+                      client to finish on their phone (handleHandOverLiveSession). */}
+                  {!isLiveReordering && liveHasDoneSets && liveHasSetsLeft && (
+                    <div className="live-handover-card">
+                      <div className="live-handover-title">🏃 Running late or need to leave?</div>
+                      <div className="live-handover-text">
+                        Hand over the remaining exercises to {liveClientFirstName} so they can finish today's session on their phone.
+                      </div>
+                      <button
+                        type="button"
+                        className="live-handover-btn"
+                        onClick={() => setShowHandoverLiveModal(true)}
+                        disabled={liveSaving || liveHandingOver}
+                      >
+                        📲 Hand over to {liveClientFirstName}
+                      </button>
+                    </div>
+                  )}
+
                   {!isLiveReordering && liveSkipped.length > 0 && liveHasDoneSets && (
                     <label className="leftover-finish-note" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer' }}>
                       <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} style={{ marginTop: '3px' }} />
-                      <span>⏭ Move not-started exercises to {selectedClient?.userName ? `${selectedClient.userName}'s` : 'the'} next session: <strong>{liveSkipped.join(', ')}</strong></span>
+                      <span>
+                        <strong>Saving now instead?</strong> Add {liveSkipped.join(', ')} to {liveClientFirstName}'s next session.
+                      </span>
                     </label>
                   )}
 
@@ -9908,6 +9975,59 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             </div>
           )}
         </>
+      )}
+
+      {/* Hand over live session confirmation modal */}
+      {showHandoverLiveModal && selectedClient && (
+        <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => !liveHandingOver && setShowHandoverLiveModal(false)}>
+          <div className="payment-gateway-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>📲 HAND OVER</div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 700 }}>
+              Let {(selectedClient.userName || 'your client').split(/\s+/)[0]} finish on their phone?
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+              The sets you ticked stay done, the session clock keeps running, and the rest of the exercises open in their app to finish and save. Your Live Log for them closes.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setShowHandoverLiveModal(false)}
+                disabled={liveHandingOver}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(var(--fg-rgb), 0.06)',
+                  border: '1px solid rgba(var(--fg-rgb), 0.1)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleHandOverLiveSession}
+                disabled={liveHandingOver}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  cursor: liveHandingOver ? 'default' : 'pointer'
+                }}
+              >
+                {liveHandingOver ? '⏳ Handing over...' : '📲 Hand over'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Discard live session confirmation modal */}

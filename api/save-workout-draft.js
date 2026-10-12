@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
 
-  const { record, email: bodyEmailRaw } = req.body || {};
+  const { record, email: bodyEmailRaw, handover } = req.body || {};
   const targetUserId = record?.user_id;
   if (!record || !targetUserId) {
     return res.status(400).json({ error: 'record.user_id is required' });
@@ -104,6 +104,31 @@ export default async function handler(req, res) {
     if (record.source !== 'self' && record.source !== 'coach') {
       return res.status(400).json({ error: "record.source must be 'self' or 'coach'" });
     }
+    // The one exception: a coach handing their Live Log over to the client
+    // (coach has to leave mid-session) writes it as the client's own 'self'
+    // session so it resumes on the client's phone. Plain INSERT, never an
+    // upsert, so a session the client already has open is never replaced:
+    // the unique (user_id, source) key rejects it and the coach is told.
+    if (handover === true) {
+      if (record.source !== 'self' || !(isClientsOwnCoach || isSuperAdmin)) {
+        return res.status(403).json({ error: "Only the client's coach can hand a session over to them." });
+      }
+      const insertResp = await fetch(`${supabaseUrl}/rest/v1/workout_drafts`, {
+        method: 'POST',
+        headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(record)
+      });
+      if (insertResp.status === 409) {
+        return res.status(409).json({ error: 'The client already has a workout open.', code: 'client_session_open' });
+      }
+      if (!insertResp.ok) {
+        const errBody = await insertResp.json().catch(() => null);
+        console.error('save-workout-draft handover insert failed:', insertResp.status, errBody);
+        return res.status(502).json({ error: (errBody && (errBody.message || errBody.error)) || 'Failed to hand over the session.' });
+      }
+      return res.status(200).json({ success: true });
+    }
+
     const mayWriteSource = isSuperAdmin
       || (record.source === 'self' && isOwnDraft)
       || (record.source === 'coach' && isClientsOwnCoach);

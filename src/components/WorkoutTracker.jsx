@@ -39,6 +39,8 @@ import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import LeftoverExercisesCard from './LeftoverExercisesCard';
 import MuscleGapHint from './MuscleGapHint';
 import { buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
@@ -493,6 +495,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   }, []);
 
   const [showUntickedFinishModal, setShowUntickedFinishModal] = useState(false);
+  // Fully skipped exercises (time ran out) the client chose to move to their
+  // next workout from the unticked-finish popup. Stored on Confirm Save.
+  const [carryOverNames, setCarryOverNames] = useState([]);
+  // Leftovers from earlier workouts, shown on a card while logging. Read from
+  // localStorage on mount and re-read after a save/add/dismiss.
+  const leftoverOwnerId = ownUserId || localStorage.getItem('userId');
+  const [leftoverItems, setLeftoverItems] = useState(() => getWorkoutLeftovers(localStorage.getItem('userId')));
+  const refreshLeftovers = () => setLeftoverItems(getWorkoutLeftovers(leftoverOwnerId));
   const [showDiscardConfirmModal, setShowDiscardConfirmModal] = useState(false);
   // Rest/warmup timer popup (ClockTimerModal) — same utility as the coach's
   // Live Log, purely a stopwatch/timer overlay, no data saved.
@@ -2187,7 +2197,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
   };
 
-  const handleFinishWorkoutPress = (e) => {
+  // carryOver: the unticked-finish popup's "Finish & move to next workout" —
+  // finish with the sets done so far; fully skipped exercises go to the
+  // client's next workout (utils/workoutLeftovers.js), other unticked sets are
+  // dropped (the save step only keeps ticked sets).
+  const handleFinishWorkoutPress = (e, carryOver = false) => {
     if (e) e.preventDefault();
 
     const totalSetsCount = logExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
@@ -2201,10 +2215,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
 
-    if (completedSetsCount < totalSetsCount) {
+    if (completedSetsCount < totalSetsCount && !carryOver) {
       setShowUntickedFinishModal(true);
       return;
     }
+    setCarryOverNames(carryOver ? findSkippedExercises(logExercises) : []);
 
     // All sets ticked — now validate workout name. Real id is
     // 'workoutNameInputTop' (see the input further down); this used to look
@@ -2400,6 +2415,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
     const updated = [...sessions, newSession];
     saveSessionsToLocal(updated);
+
+    // Leftovers done this time are cleared; this session's skipped ones are queued.
+    updateWorkoutLeftovers(leftoverOwnerId, {
+      skipped: carryOverNames,
+      completed: formattedExercises.map(ex => ex.name),
+      date: logDate,
+      planName: newSession.planName
+    });
+    setCarryOverNames([]);
+    refreshLeftovers();
     
     // Save as client routine template if checked
     if (saveAsTemplate && formattedExercises.length > 0) {
@@ -2850,6 +2875,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const sets = buildStartingSets(name);
     setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
     triggerToast(`Added ${name} to active workout!`);
+  };
+
+  // Leftovers not already in this workout (a template may include them).
+  const visibleLeftovers = leftoverItems.filter(it => !logExercises.some(le => le.name.toLowerCase() === it.name.toLowerCase()));
+  const addLeftoversToWorkout = () => {
+    const names = visibleLeftovers.map(it => it.name);
+    names.forEach(markEntering);
+    setLogExercises(prev => [...prev, ...names.map(name => (isBodyweightExercise(name) ? { name, sets: buildStartingSets(name), bodyweightMode: true } : { name, sets: buildStartingSets(name) }))]);
+    clearWorkoutLeftovers(leftoverOwnerId, names);
+    refreshLeftovers();
+    triggerToast(`Added ${names.join(', ')} to your workout!`);
+  };
+  const dismissLeftovers = () => {
+    clearWorkoutLeftovers(leftoverOwnerId);
+    refreshLeftovers();
   };
 
   // Drain the queue (see draftCheckDone above). The helpers it needs are
@@ -3709,6 +3749,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             <div className="section-title-row" style={{ position: 'relative' }}>
               <p className="workout-log-instructions">Enter your reps and weights, then tick each set as you complete it.</p>
             </div>
+
+            <LeftoverExercisesCard items={visibleLeftovers} onAdd={addLeftoversToWorkout} onDismiss={dismissLeftovers} />
 
             <div className="exercises-input-list">
               {logExercises.map((ex, exIdx) => {
@@ -4604,6 +4646,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               </div>
             )}
 
+            {carryOverNames.length > 0 && (
+              <p className="leftover-finish-note" style={{ marginTop: '12px' }}>
+                ⏭ Moving to your next workout: <strong>{carryOverNames.join(', ')}</strong>
+              </p>
+            )}
+
             <div className="template-save-option-box" style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '12px', marginTop: '12px', textAlign: 'left', width: '100%' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)' }}>
                 <input 
@@ -4750,7 +4798,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       />
 
       {/* Unticked Finish Warning Dialog Modal */}
-      {showUntickedFinishModal && (
+      {showUntickedFinishModal && (() => {
+        // What "Finish & move to next workout" would do (see handleFinishWorkoutPress).
+        const finishSkipped = findSkippedExercises(logExercises);
+        const working = logExercises.filter(ex => !isWarmupCardExercise(ex));
+        const finishHasDoneSets = working.some(ex => ex.sets.some(s => s.isCompleted));
+        const finishHasPartial = working.some(ex => ex.sets.some(s => s.isCompleted) && ex.sets.some(s => !s.isCompleted));
+        return (
         <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowUntickedFinishModal(false)}>
           <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
@@ -4781,6 +4835,26 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
                 Alternatively, do you want to discard the workout session?
               </p>
+              {finishSkipped.length > 0 && finishHasDoneSets && (
+                <div style={{ marginTop: '16px' }}>
+                  <p className="leftover-finish-note">
+                    Out of time? <strong>{finishSkipped.join(', ')}</strong> {finishSkipped.length === 1 ? "hasn't" : "haven't"} been started.
+                    Finish now and {finishSkipped.length === 1 ? 'it' : 'they'}'ll be waiting in your next workout.
+                    {finishHasPartial && " Unticked sets on exercises you started won't be saved."}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-confirm-save-hevy"
+                    style={{ width: '100%', padding: '12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}
+                    onClick={() => {
+                      setShowUntickedFinishModal(false);
+                      handleFinishWorkoutPress(null, true);
+                    }}
+                  >
+                    ⏭ Finish &amp; move {finishSkipped.length} to next workout
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>
@@ -4818,7 +4892,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       <SetNumberPad active={getActiveSetField()} activeKey={activeSetKey} onClose={closeSetField} />
     </>
   );

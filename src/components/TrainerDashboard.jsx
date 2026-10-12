@@ -42,6 +42,8 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
+import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
@@ -2279,6 +2281,29 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     ]);
   };
 
+  // Exercises skipped in this client's last session (time ran out), same as
+  // the client's own logger — see utils/workoutLeftovers.js. Read straight
+  // from localStorage each render (tiny); the tick re-renders after add/dismiss.
+  const [, setLiveLeftoverTick] = useState(0);
+  const liveLeftovers = selectedClient?.id
+    ? getWorkoutLeftovers(selectedClient.id).filter(it => !liveExercises.some(ex => ex.name.toLowerCase() === it.name.toLowerCase()))
+    : [];
+  const handleAddLiveLeftovers = () => {
+    const names = liveLeftovers.map(it => it.name);
+    names.forEach(handleLiveAddExercise);
+    clearWorkoutLeftovers(selectedClient.id, names);
+    setLiveLeftoverTick(t => t + 1);
+    triggerLiveToast(`Added ${names.join(', ')}`);
+  };
+  const handleDismissLiveLeftovers = () => {
+    clearWorkoutLeftovers(selectedClient.id);
+    setLiveLeftoverTick(t => t + 1);
+  };
+  // "Move not-started exercises to the next session" tick box above Save.
+  const [liveCarryOver, setLiveCarryOver] = useState(true);
+  const liveSkipped = findSkippedExercises(liveExercises);
+  const liveHasDoneSets = liveExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => s.isCompleted));
+
   // Bodyweight exercises default to no added weight. An exercise added
   // before this toggle existed (or loaded from an older plan) has no
   // bodyweightMode field at all — infer it from whether any set already has
@@ -2722,6 +2747,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       };
 
       await databaseService.saveWorkoutSession(session);
+      // Leftovers done this time are cleared; this session's skipped ones are
+      // queued if the coach left the tick box on. With nothing ticked, every
+      // set was saved above, so nothing was skipped.
+      updateWorkoutLeftovers(selectedClient.id, {
+        skipped: liveCarryOver && completedCount > 0 ? findSkippedExercises(liveExercises) : [],
+        completed: formattedExercises.map(ex => ex.name),
+        date: liveDate,
+        planName: session.planName
+      });
+      setLiveLeftoverTick(t => t + 1);
       // Session is finished and saved to workout_logs — the open draft is done.
       await deleteLiveDraftAfterPendingSave(selectedClient.id);
       // ── Everything above this line is the actual save. Everything below is
@@ -9138,6 +9173,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   {/* Exercise List — edge-to-edge: bleeds past the dashboard's
                       16px outer padding so the table reaches the true screen
                       edges, matching the app's standard flush logging layout. */}
+                  <LeftoverExercisesCard items={liveLeftovers} onAdd={handleAddLiveLeftovers} onDismiss={handleDismissLiveLeftovers} forCoach />
+
                   <div className="live-logger-exercise-list">
                     {liveExercises.length === 0 && (
                       <div className="wt-empty-state">No exercises yet. Tap ➕ Add Exercise below to start.</div>
@@ -9800,6 +9837,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       </div>
                     </div>
                     )}
+
+                  {!isLiveReordering && liveSkipped.length > 0 && liveHasDoneSets && (
+                    <label className="leftover-finish-note" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} style={{ marginTop: '3px' }} />
+                      <span>⏭ Move not-started exercises to {selectedClient?.userName ? `${selectedClient.userName}'s` : 'the'} next session: <strong>{liveSkipped.join(', ')}</strong></span>
+                    </label>
+                  )}
 
                   {!isLiveReordering && (
                   /* Discard (left) + Save (right) — plain, un-elevated flow,

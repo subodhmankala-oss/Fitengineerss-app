@@ -41,8 +41,9 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { getWarmupPosition } from '../utils/warmupBlocks';
+import { getWarmupPosition, isWarmupBlockExercise } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
+import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
@@ -9139,10 +9140,34 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     // underneath showing a KG input.
                     const allSetsLiveBw = exIsBodyweight && ex.sets.every(s => getSetLiveBwMode(ex, s));
                     const exIsWarmup = isWarmupExercise(ex.name);
+                    const cardMenu = (
+                      <ExerciseCardMenu
+                        name={ex.name}
+                        onReorderPointerDown={startLiveExerciseDrag(exIdx)}
+                        onMoveUp={() => moveLiveExerciseByKeyboard(exIdx, -1)}
+                        onMoveDown={() => moveLiveExerciseByKeyboard(exIdx, 1)}
+                        onRemove={() => handleLiveRemoveExercise(exIdx)}
+                      />
+                    );
                     return (
                       <div key={getLiveItemKey(exIdx)} ref={exerciseEnterRef(ex.name)} className="ex-reorder-row" style={getLiveRowStyle(exIdx)}>
                       <div className={`ex-reorder-morph ${isLiveReordering ? 'is-reordering' : ''}`}>
                       <div className="ex-reorder-full">
+                      {/* Warm-up block → compact rows in one "🔥 Warm-up"
+                          card, same as the client's logger (WarmupMoveRow). */}
+                      {isWarmupBlockExercise(ex) ? (
+                        <WarmupMoveRow
+                          ex={ex}
+                          isFirst={!isWarmupBlockExercise(liveExercises[exIdx - 1])}
+                          isLast={!isWarmupBlockExercise(liveExercises[exIdx + 1])}
+                          onOpenHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
+                          onRepsChange={(setIdx, v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
+                          onTick={(setIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[setIdx].isCompleted
+                            ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx))
+                            : handleLiveToggleSet(exIdx, setIdx)}
+                          menu={cardMenu}
+                        />
+                      ) : (
                       <div className="live-logger-exercise-card">
                         {/* Exercise Header */}
                         <div className="live-logger-ex-header">
@@ -9174,13 +9199,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                             <ExerciseCaption warmupPosition={getWarmupPosition(liveExercises, exIdx)} swappedFrom={ex.swappedFrom} finisherFor={ex.finisherFor} />
                           </div>
-                          <ExerciseCardMenu
-                            name={ex.name}
-                            onReorderPointerDown={startLiveExerciseDrag(exIdx)}
-                            onMoveUp={() => moveLiveExerciseByKeyboard(exIdx, -1)}
-                            onMoveDown={() => moveLiveExerciseByKeyboard(exIdx, 1)}
-                            onRemove={() => handleLiveRemoveExercise(exIdx)}
-                          />
+                          {cardMenu}
                         </div>
 
                         {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
@@ -9579,6 +9598,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           >⏱️ Start Rest</button>
                         </div>
                       </div>
+                      )}
                       </div>
                       <div className="ex-reorder-compact">
                         <div

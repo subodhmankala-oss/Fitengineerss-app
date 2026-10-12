@@ -9886,14 +9886,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       >
                         📲 Send the rest to {liveClientFirstName}
                       </button>
-                      <div className="live-handover-text">{liveClientFirstName} will do the remaining exercises on their phone.</div>
+                      <div className="live-handover-text">{liveClientFirstName} will log the remaining exercises on their phone.</div>
                       {liveSkipped.length > 0 && (
                         <>
                           <div className="live-handover-or"><span>or save now</span></div>
                           <label className="live-handover-carry">
                             <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} />
                             <span>
-                              <strong>Keep {liveSkipped.length === 1 ? '1 exercise' : `${liveSkipped.length} exercises`} for next time</strong>
+                              <strong>Keep {liveSkipped.length === 1 ? '1 exercise' : `${liveSkipped.length} exercises`} for next session</strong>
                               <small>Not done today: {liveSkipped.join(', ')}</small>
                             </span>
                           </label>

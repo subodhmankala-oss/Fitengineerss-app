@@ -949,7 +949,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             setWorkoutPauseIntervals(dbDraft.pauseIntervals || []);
             // A 'self' draft carrying a coachId was handed over from the
             // coach's Live Log (the client's own saves always write null).
-            if (dbDraft.coachId) triggerToast('📲 Your coach handed this session to you. Ticked sets are saved, finish the rest.');
+            if (dbDraft.coachId) triggerToast('📲 Your coach sent you the rest of this workout. Finish the remaining exercises.');
           }
           setIsLoggingWorkout(true);
           setActiveView('log');

@@ -117,6 +117,9 @@ const RULES = [
   // stuck under isWarmupExercise instead, contributing zero to calories —
   // same principle applies here, they belong in Core, not unmapped).
   { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n), muscles: ['Core'] },
+  // Reverse hyper: hip extension with the torso fixed, so glutes lead and the
+  // lower back assists. Checked before the hyperextension rule below.
+  { test: n => /reverse hyper/.test(n), muscles: ['Glutes', 'Back'] },
   { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Core', 'Back'] },
   // Burpee: full-body conditioning move: Core (plank/crunch phase) + Quads
   // (jump/squat phase) is the most representative 2-muscle credit available

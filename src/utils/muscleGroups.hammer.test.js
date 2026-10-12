@@ -38,3 +38,14 @@ describe('landmine press', () => {
     expect(getMuscleGroupsForExercise('Shoulder Press')).toEqual(['Shoulders', 'Triceps']);
   });
 });
+
+describe('reverse hyperextension', () => {
+  it('credits Glutes, then half a set of Back', () => {
+    expect(getMuscleGroupsForExercise('Reverse Hyperextension')).toEqual(['Glutes', 'Back']);
+    expect(getMuscleWeight('Reverse Hyperextension', 'Glutes')).toBe(1);
+    expect(getMuscleWeight('Reverse Hyperextension', 'Back')).toBe(0.5);
+    expect(getMuscleWeight('Reverse Hyperextension', 'Core')).toBe(0);
+    expect(getMuscleGroupsForExercise('Back Extension')).toEqual(['Core', 'Back']);
+    expect(getMuscleGroupsForExercise('Hyperextension')).toEqual(['Core', 'Back']);
+  });
+});

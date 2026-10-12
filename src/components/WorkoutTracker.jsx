@@ -41,7 +41,8 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import { buildWarmupExercises, getWarmupPosition } from '../utils/warmupBlocks';
-import WarmupCaption from './WarmupCaption';
+import ExerciseCaption from './ExerciseCaption';
+import { applyWeeklySwaps } from '../utils/weeklySwaps';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -2533,13 +2534,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // `level` ('beginner' | 'intermediate' | 'advanced' | undefined) is only
   // passed when starting from the difficulty-leveled Workout Library — see
   // loggingLevel above. Every template opens with this week's warm-up block
-  // for its day type and Gym/Home `category` (see utils/warmupBlocks).
+  // for its day type and Gym/Home `category` (see utils/warmupBlocks), and a
+  // library program gets this week's exercise swaps (see utils/weeklySwaps).
   const handleStartFromTemplate = (template, level = null, category = genericCategory) => {
-    const warmups = buildWarmupExercises({ programName: template.name, exercises: template.exercises, category });
-    const exercises = template.exercises.map(ex => {
+    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category });
+    const warmups = buildWarmupExercises({ programName: template.name, exercises: programExercises, category });
+    const exercises = programExercises.map(ex => {
       const targetReps = parseInt(String(ex.reps).split('–')[0]) || 10;
       return {
         name: ex.name,
+        ...(ex.swappedFrom ? { swappedFrom: ex.swappedFrom } : {}),
         // Pre-fill each set with what the client actually lifted last time
         // instead of a flat 0 — set 1 gets set 1's last weight/reps, set 3
         // gets set 3's, etc., so PREV and the editable fields agree instead
@@ -3713,7 +3717,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           🎬 Form Guide
                         </button>
                       </div>
-                        <WarmupCaption position={getWarmupPosition(logExercises, exIdx)} />
+                        <ExerciseCaption warmupPosition={getWarmupPosition(logExercises, exIdx)} swappedFrom={ex.swappedFrom} />
                       </div>
                       <ExerciseCardMenu
                         name={ex.name}

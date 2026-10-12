@@ -5534,8 +5534,8 @@ html.keyboard-open .rest-timer-floating-card {
   }
 }
 
-/* Warm-up block exercises (WarmupCaption): a small caption under the
-   name, same amber as the "W" set label. */
+/* Small caption under a library exercise's name (ExerciseCaption): warm-up
+   block in the amber of the "W" set label, this week's swap in the accent. */
 .ex-card-title-stack {
   min-width: 0;
 }
@@ -5544,4 +5544,10 @@ html.keyboard-open .rest-timer-floating-card {
   font-size: 0.72rem;
   font-weight: 700;
   color: #d97706;
+}
+.swap-caption {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-text);
 }

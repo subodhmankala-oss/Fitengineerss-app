@@ -42,7 +42,7 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { getWarmupPosition } from '../utils/warmupBlocks';
-import WarmupCaption from './WarmupCaption';
+import ExerciseCaption from './ExerciseCaption';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
@@ -9151,7 +9151,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               🎬 Form Guide
                             </button>
                           </div>
-                            <WarmupCaption position={getWarmupPosition(liveExercises, exIdx)} />
+                            <ExerciseCaption warmupPosition={getWarmupPosition(liveExercises, exIdx)} swappedFrom={ex.swappedFrom} />
                           </div>
                           <ExerciseCardMenu
                             name={ex.name}

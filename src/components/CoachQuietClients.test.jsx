@@ -55,6 +55,19 @@ describe('CoachQuietClients', () => {
     expect(screen.queryByText(/✓ messaged/)).toBeNull();
   });
 
+  it('collapses and expands from the header, and remembers the choice', () => {
+    render(<CoachQuietClients clients={clients} />);
+    expect(screen.getByText(/Inactive for 3\+ days/)).toBeTruthy();
+    fireEvent.click(screen.getByText('👀 3 clients have gone quiet'));
+    expect(screen.queryByText('Twenty Days')).toBeNull();
+    expect(screen.getByText('👀 3 clients have gone quiet')).toBeTruthy();
+    cleanup();
+    render(<CoachQuietClients clients={clients} />);
+    expect(screen.queryByText('Twenty Days')).toBeNull();
+    fireEvent.click(screen.getByText('👀 3 clients have gone quiet'));
+    expect(screen.getByText('Twenty Days')).toBeTruthy();
+  });
+
   it('opens the client when their name is tapped', () => {
     const onOpen = vi.fn();
     render(<CoachQuietClients clients={clients} onOpenClient={onOpen} />);

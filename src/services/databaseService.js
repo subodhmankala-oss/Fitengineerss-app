@@ -4319,6 +4319,44 @@ const databaseService = {
     }
   },
 
+  // Coach has to leave mid Live Log: writes the session as the client's own
+  // 'self' draft (coach_id kept, which marks it as handed over) so their
+  // logger resumes it with the ticked sets intact. Server-only, insert-only:
+  // see api/save-workout-draft.js's handover branch. The caller deletes its
+  // 'coach' row afterwards. Returns 'ok', 'client_session_open' (the client
+  // already has a workout open, nothing was written) or 'failed'.
+  async handOverLiveSession(draft) {
+    if (!isSupabaseConfigured || !draft?.userId) return 'failed';
+    const record = {
+      user_id: draft.userId,
+      coach_id: draft.coachId || null,
+      source: 'self',
+      plan_name: draft.planName || null,
+      log_date: draft.logDate || null,
+      exercises: draft.exercises || [],
+      timer_status: draft.timerStatus || 'idle',
+      timer_started_at: draft.timerStartedAt ?? null,
+      pause_intervals: draft.pauseIntervals || [],
+      updated_at: new Date().toISOString()
+    };
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const resp = await fetch('/api/save-workout-draft', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ record, email, handover: true })
+      });
+      if (resp.ok) return 'ok';
+      const body = await resp.json().catch(() => null);
+      if (resp.status === 409 && body?.code === 'client_session_open') return 'client_session_open';
+      console.error('handOverLiveSession: /api/save-workout-draft', resp.status, body);
+      return 'failed';
+    } catch (e) {
+      console.error('handOverLiveSession failed:', e?.message || e);
+      return 'failed';
+    }
+  },
+
   // ─── BODY MEASUREMENTS (15-day progress, shared with coach) ───
   // History table: one row per save. The client saves their own; the coach
   // reads the same rows for a client read-only. The 15-day cadence is

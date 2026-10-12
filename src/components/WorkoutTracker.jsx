@@ -8,7 +8,7 @@ import ExerciseCardMenu from './ExerciseCardMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -2878,6 +2878,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     triggerToast(`Added ${names.join(', ')} to your workout!`);
   }, [draftCheckDone, isLoggingWorkout, loggedInUser]);
 
+  // "Recent workouts" in the Existing Plan dropdown — past sessions rebuilt
+  // as loadable plans, so a workout the client never ticked "Save as
+  // template" for can still be repeated. See buildRecentWorkoutPlans.
+  const recentWorkoutPlans = useMemo(() => buildRecentWorkoutPlans(
+    sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
+    clientPlans.map(p => p.planName)
+  ), [sessions, selectedClient, clientPlans]);
+
   return (
     <>
       <div className="workout-tracker-container animate-slide-up">
@@ -3570,13 +3578,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   placeholder="e.g. Push Day, Leg Day, Custom Session…"
                 />
               </div>
-              {clientPlans.length > 0 && (
+              {(clientPlans.length > 0 || recentWorkoutPlans.length > 0) && (
                 <div className="input-group">
                   <label>Existing Plan</label>
                   <select
                     defaultValue=""
                     onChange={(e) => {
-                      const plan = clientPlans.find(p => p.id === e.target.value);
+                      const plan = clientPlans.find(p => p.id === e.target.value)
+                        || recentWorkoutPlans.find(p => p.id === e.target.value);
                       // Same empty/malformed guard as startPlan above — loading
                       // an empty plan here used to wipe the current exercise
                       // list and replace it with nothing.
@@ -3629,13 +3638,24 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         volume from past sessions logged under each plan's
                         name) — see rankTemplatesByPerformance — not just the
                         10 most recent. */}
-                    {rankTemplatesByPerformance(
-                      clientPlans,
-                      sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase()),
-                      10
-                    ).map(p => (
-                      <option key={p.id} value={p.id}>{p.planName}</option>
-                    ))}
+                    {recentWorkoutPlans.length > 0 && (
+                      <optgroup label="Recent workouts">
+                        {recentWorkoutPlans.map(p => (
+                          <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {clientPlans.length > 0 && (
+                      <optgroup label="Saved plans">
+                        {rankTemplatesByPerformance(
+                          clientPlans,
+                          sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase()),
+                          10
+                        ).map(p => (
+                          <option key={p.id} value={p.id}>{p.planName}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               )}

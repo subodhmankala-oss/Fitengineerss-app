@@ -693,3 +693,57 @@ export function rankTemplatesByPerformance(templates, sessions, limit = 10) {
     .slice(0, limit)
     .map(s => s.plan);
 }
+
+// The "Recent workouts" group in the logger's Existing Plan dropdown. Saved
+// templates only exist when the client ticked "Save this session as a repeat
+// template" on the summary screen, so most past workouts never show up there
+// — this rebuilds plan-shaped entries straight from history instead, so
+// anything logged recently is one tap away without having been saved.
+//
+// One entry per workout name (case-insensitive, trimmed), taken from the
+// most recent session with that name; names that already exist as a saved
+// plan (`excludeNames`) are skipped so the dropdown doesn't list them twice.
+// `sessions` is the same {date, planName, exercises} shape that
+// rankTemplatesByPerformance takes. Sets keep only their reusable fields
+// (reps/weight/distanceKm/time) — the loaders blank `time` and pre-fill
+// weights from PREV the same as for a saved plan.
+export function buildRecentWorkoutPlans(sessions, excludeNames = [], limit = 5) {
+  const excluded = new Set(excludeNames.map(n => (n || '').trim().toLowerCase()));
+  const seen = new Set();
+  const recent = [];
+  const ordered = (sessions || [])
+    .map((s, idx) => ({ s, idx }))
+    // Latest date first; within one date, the later-logged session first.
+    .sort((a, b) => (String(b.s.date || '').localeCompare(String(a.s.date || ''))) || (b.idx - a.idx))
+    .map(({ s }) => s);
+  for (const s of ordered) {
+    if (recent.length >= limit) break;
+    const name = (s.planName || '').trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key) || excluded.has(key)) continue;
+    const exercises = (s.exercises || [])
+      .filter(ex => ex && ex.name && Array.isArray(ex.sets) && ex.sets.length > 0)
+      .map(ex => ({
+        name: ex.name,
+        sets: ex.sets.map(set => {
+          const out = {};
+          ['reps', 'weight', 'distanceKm', 'time'].forEach(k => {
+            if (set[k] !== undefined && set[k] !== null) out[k] = set[k];
+          });
+          return out;
+        })
+      }));
+    if (exercises.length === 0) continue;
+    seen.add(key);
+    recent.push({ id: `recent:${s.date}:${key}`, planName: name, date: s.date, exercises, createdBy: 'recent' });
+  }
+  return recent;
+}
+
+// Short "8 Oct" label for a YYYY-MM-DD date, shown next to each recent
+// workout in the dropdown.
+export function formatShortLogDate(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}

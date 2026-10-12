@@ -78,7 +78,16 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
         }}
       >
         <span>👀 {quiet.length} {quiet.length === 1 ? 'client has' : 'clients have'} gone quiet</span>
-        <span aria-hidden="true" style={{ color: 'var(--text-muted)', fontSize: '0.8rem', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
+        <span aria-hidden="true" style={{
+          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b'
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
       </button>
       {open && <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
         {unsentCount > 0

@@ -9172,7 +9172,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           ex={ex}
                           isFirst={!isWarmupCardExercise(liveExercises[exIdx - 1])}
                           isLast={!isWarmupCardExercise(liveExercises[exIdx + 1])}
-                          onOpenHistory={() => { setHistoryModalSource('live'); setHistoryModalExercise(ex.name); }}
+                          onShowFormGuide={() => handleShowFormGuide(ex.name)}
                           onRepsChange={(setIdx, v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
                           onTick={(setIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[setIdx].isCompleted
                             ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx))

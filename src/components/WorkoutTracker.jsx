@@ -3721,6 +3721,25 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 // never contradicts a row underneath showing a KG input.
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
+                const showFormGuide = () => {
+                  const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
+                                  findExerciseGuideMatch(allExerciseOptions, ex.name);
+                  if (matched) {
+                    setActiveGuideExercise(normalizeExerciseForGuide(matched));
+                  } else {
+                    setActiveGuideExercise({
+                      name: ex.name,
+                      category: 'Custom',
+                      videoFile: '',
+                      guide: {
+                        target: 'Primary Muscle Group',
+                        setup: 'Position yourself comfortably with stable support and check alignment.',
+                        execution: 'Control the weights through a full range of motion. Keep core tight.',
+                        tip: 'Focus on mind-muscle connection and avoid using momentum.'
+                      }
+                    });
+                  }
+                };
                 const cardMenu = (
                   <ExerciseCardMenu
                     name={ex.name}
@@ -3749,7 +3768,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       ex={ex}
                       isFirst={!isWarmupCardExercise(logExercises[exIdx - 1])}
                       isLast={!isWarmupCardExercise(logExercises[exIdx + 1])}
-                      onOpenHistory={() => setHistoryModalExercise(ex.name)}
+                      onShowFormGuide={showFormGuide}
                       onRepsChange={(sIdx, v) => handleSetChange(exIdx, sIdx, 'reps', v)}
                       onTick={(sIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[sIdx].isCompleted
                         ? (exIsCardio ? handleCardioSetComplete(exIdx, sIdx) : handleSetStopwatchComplete(exIdx, sIdx))
@@ -3788,25 +3807,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         <button
                           type="button"
                           className="btn-form-guide-sm"
-                          onClick={() => {
-                            const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
-                                            findExerciseGuideMatch(allExerciseOptions, ex.name);
-                            if (matched) {
-                              setActiveGuideExercise(normalizeExerciseForGuide(matched));
-                            } else {
-                              setActiveGuideExercise({
-                                name: ex.name,
-                                category: 'Custom',
-                                videoFile: '',
-                                guide: {
-                                  target: 'Primary Muscle Group',
-                                  setup: 'Position yourself comfortably with stable support and check alignment.',
-                                  execution: 'Control the weights through a full range of motion. Keep core tight.',
-                                  tip: 'Focus on mind-muscle connection and avoid using momentum.'
-                                }
-                              });
-                            }
-                          }}
+                          onClick={showFormGuide}
                         >
                           🎬 Form Guide
                         </button>

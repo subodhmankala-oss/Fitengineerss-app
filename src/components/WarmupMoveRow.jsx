@@ -8,9 +8,13 @@ import { isCardioExercise, isTimedExercise } from '../data/exerciseLibrary';
 // its own exercise in the session data (saving, calories, drafts, drag
 // reorder are unchanged) — only the rendering is grouped.
 //
+// Tapping the name (or 🎬) opens the Form Guide video — how to do the move
+// is what matters for a warm-up; its logged history is always empty, since
+// warm-up sets stay out of PREV and history.
+//
 // Rep moves get a reps box; cardio and timed moves show their target time
 // (ticking logs it, same as ticking a full card without running the timer).
-export default function WarmupMoveRow({ ex, isFirst, isLast, onOpenHistory, onRepsChange, onTick, menu }) {
+export default function WarmupMoveRow({ ex, isFirst, isLast, onShowFormGuide, onRepsChange, onTick, menu }) {
   const timeBased = isCardioExercise(ex.name) || isTimedExercise(ex.name);
   const done = ex.sets.length > 0 && ex.sets.every(s => s.isCompleted);
   return (
@@ -21,17 +25,27 @@ export default function WarmupMoveRow({ ex, isFirst, isLast, onOpenHistory, onRe
         </div>
       )}
       <div className={`warmup-move-line${done ? ' warmup-move-line--done' : ''}`}>
-        <span
-          className="warmup-move-name ex-name-clickable"
-          role="button"
-          tabIndex={0}
-          title="View exercise history"
-          onClick={onOpenHistory}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenHistory(); } }}
-          // Same tap-to-focus scroll guard as the full card's name.
-          onPointerDown={(e) => e.preventDefault()}
-        >
-          {ex.name}
+        <span className="warmup-move-title">
+          <span
+            className="warmup-move-name ex-name-clickable"
+            role="button"
+            tabIndex={0}
+            title={`How to do ${ex.name}`}
+            onClick={onShowFormGuide}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onShowFormGuide(); } }}
+            // Same tap-to-focus scroll guard as the full card's name.
+            onPointerDown={(e) => e.preventDefault()}
+          >
+            {ex.name}
+          </span>
+          <button
+            type="button"
+            className="warmup-move-guide"
+            aria-label={`Form guide for ${ex.name}`}
+            onClick={onShowFormGuide}
+          >
+            🎬
+          </button>
         </span>
         <div className="warmup-move-sets">
           {ex.sets.map((set, sIdx) => (

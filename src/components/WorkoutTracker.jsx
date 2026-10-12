@@ -34,7 +34,7 @@ import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
@@ -1268,11 +1268,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       : `${set.weight}${getExerciseUnit(exName)}`;
     return `${weightLabel} x ${set.reps}`;
   };
-
-  // "Last: 40kg×8 → try 42.5kg×8" shown under each exercise card — see
-  // buildProgressiveOverloadHint's own comment for the progression rule.
-  const getExerciseProgressionHint = (exName) =>
-    buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(sessions, selectedClient, exName));
 
   // Shared by every action that represents "the client has started doing
   // real work" — ticking a set complete, but also now pressing Play on a
@@ -3820,11 +3815,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       </div>
                       {cardMenu}
                     </div>
-
-                    {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
-                      const hint = getExerciseProgressionHint(ex.name);
-                      return hint ? <div className="ex-progression-hint">📈 {hint}</div> : null;
-                    })()}
 
                     {loggingLevel === 'beginner' && (() => {
                       // Beginner-only inline form video, shown right under the

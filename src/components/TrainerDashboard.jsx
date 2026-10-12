@@ -48,7 +48,7 @@ import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clea
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
-import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise, buildProgressiveOverloadHint } from '../utils/prevSets';
+import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -3960,12 +3960,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       : `${set.weight}kg`;
     return `${weightLabel} x ${set.reps}`;
   };
-
-  // "Last: 40kg×8 → try 42.5kg×8" under each Live Log exercise card — same
-  // helper and rule the client's own logger uses. workoutLogs is already
-  // scoped to the selected client (see findPreviousLoggedSet above).
-  const getExerciseProgressionHint = (exName) =>
-    buildProgressiveOverloadHint(exName, findPreviousExerciseSetsIn(workoutLogs, null, exName));
 
   const fetchClientChat = async (clientId) => {
     try {
@@ -9294,11 +9288,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           </div>
                           {cardMenu}
                         </div>
-
-                        {!exIsCardio && !isTimedExercise(ex.name) && !exIsWarmup && (() => {
-                          const hint = getExerciseProgressionHint(ex.name);
-                          return hint ? <div className="ex-progression-hint">📈 {hint}</div> : null;
-                        })()}
 
                         {/* Sets Table */}
                         <div className="hevy-sets-table">

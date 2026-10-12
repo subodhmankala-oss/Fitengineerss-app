@@ -41,7 +41,7 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import { buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
-import { fillWeightBelow } from '../utils/fillWeightBelow';
+import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
@@ -1819,12 +1819,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 : field === 'reps' ? { repsFromPrev: false }
                 : {};
               const { weightAutofilled: _wa, ...typed } = set;
-              return { ...typed, [field]: value, ...clearedGhost };
+              return { ...typed, [field]: field === 'weight' ? typedOverHint(set, value) : value, ...clearedGhost };
             }
             return s;
           });
         // A kg typed here carries down to the empty boxes below (see utils/fillWeightBelow.js).
-        return { ...ex, sets: field === 'weight' ? fillWeightBelow(sets, setIndex, value) : sets };
+        return { ...ex, sets: field === 'weight' ? fillWeightBelow(sets, setIndex, sets[setIndex].weight) : sets };
       }
       return ex;
     }));

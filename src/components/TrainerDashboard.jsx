@@ -42,7 +42,7 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
-import { fillWeightBelow } from '../utils/fillWeightBelow';
+import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -2414,10 +2414,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             : field === 'reps' ? { repsFromPrev: false }
             : {};
           const { weightAutofilled: _wa, ...typed } = set;
-          return { ...typed, [field]: value, ...clearedGhost };
+          return { ...typed, [field]: field === 'weight' ? typedOverHint(set, value) : value, ...clearedGhost };
         });
       // A kg typed here carries down to the empty boxes below (see utils/fillWeightBelow.js).
-      return { ...ex, sets: field === 'weight' ? fillWeightBelow(sets, setIdx, value) : sets };
+      return { ...ex, sets: field === 'weight' ? fillWeightBelow(sets, setIdx, sets[setIdx].weight) : sets };
     }));
   };
 

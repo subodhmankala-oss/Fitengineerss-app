@@ -78,7 +78,7 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
   });
 
   const handOver = async () => {
-    fireEvent.click(await screen.findByText(/Have to leave\? Hand over to Asha/));
+    fireEvent.click(await screen.findByText('📲 Hand over to Asha'));
     fireEvent.click(screen.getByText('📲 Hand over'));
   };
 
@@ -86,7 +86,7 @@ describe('Coach Live Log: hand over to the client', { timeout: 30000 }, () => {
     databaseService.handOverLiveSession.mockResolvedValue('ok');
     renderLiveLog();
     await loadPlan();
-    expect(screen.queryByText(/Have to leave/)).toBeNull(); // no set ticked yet
+    expect(screen.queryByText(/Running late/)).toBeNull(); // no set ticked yet
 
     fireEvent.click(screen.getAllByTitle('Mark complete')[0]);
     await handOver();

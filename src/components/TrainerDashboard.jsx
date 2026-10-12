@@ -2345,6 +2345,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [liveCarryOver, setLiveCarryOver] = useState(true);
   const liveSkipped = findSkippedExercises(liveExercises);
   const liveHasDoneSets = liveExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => s.isCompleted));
+  // Sets still to do (warm-ups aside): what a handover leaves the client.
+  const liveHasSetsLeft = liveExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => !s.isCompleted));
+  const liveClientFirstName = (selectedClient?.userName || 'your client').split(/\s+/)[0];
 
   // Bodyweight exercises default to no added weight. An exercise added
   // before this toggle existed (or loaded from an older plan) has no
@@ -9880,12 +9883,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     </div>
                     )}
 
+                  {/* Running late: hand the rest of today's session to the
+                      client to finish on their phone (handleHandOverLiveSession). */}
+                  {!isLiveReordering && liveHasDoneSets && liveHasSetsLeft && (
+                    <div className="live-handover-card">
+                      <div className="live-handover-title">🏃 Running late or need to leave?</div>
+                      <div className="live-handover-text">
+                        Hand over the remaining exercises to {liveClientFirstName} so they can finish today's session on their phone.
+                      </div>
+                      <button
+                        type="button"
+                        className="live-handover-btn"
+                        onClick={() => setShowHandoverLiveModal(true)}
+                        disabled={liveSaving || liveHandingOver}
+                      >
+                        📲 Hand over to {liveClientFirstName}
+                      </button>
+                    </div>
+                  )}
+
                   {!isLiveReordering && liveSkipped.length > 0 && liveHasDoneSets && (
                     <label className="leftover-finish-note" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer' }}>
                       <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} style={{ marginTop: '3px' }} />
                       <span>
-                        <strong>⏭ Carry over to next session</strong><br />
-                        Not done today: {liveSkipped.join(', ')}. {selectedClient?.userName ? `${selectedClient.userName}'s` : 'The'} next Live Log will offer to add them.
+                        <strong>Saving now instead?</strong> Add {liveSkipped.join(', ')} to {liveClientFirstName}'s next session.
                       </span>
                     </label>
                   )}
@@ -9944,17 +9965,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       {liveSaving ? '⏳ Saving...' : '💾 Save Workout Session'}
                     </button>
                   </div>
-                  )}
-
-                  {!isLiveReordering && liveHasDoneSets && (
-                    <button
-                      type="button"
-                      className="live-handover-link"
-                      onClick={() => setShowHandoverLiveModal(true)}
-                      disabled={liveSaving || liveHandingOver}
-                    >
-                      📲 Have to leave? Hand over to {(selectedClient?.userName || 'client').split(/\s+/)[0]}
-                    </button>
                   )}
                 </div>
               )}

@@ -9151,7 +9151,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               🎬 Form Guide
                             </button>
                           </div>
-                            <ExerciseCaption warmupPosition={getWarmupPosition(liveExercises, exIdx)} swappedFrom={ex.swappedFrom} />
+                            <ExerciseCaption warmupPosition={getWarmupPosition(liveExercises, exIdx)} swappedFrom={ex.swappedFrom} finisherFor={ex.finisherFor} />
                           </div>
                           <ExerciseCardMenu
                             name={ex.name}

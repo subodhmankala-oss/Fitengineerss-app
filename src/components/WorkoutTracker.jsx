@@ -43,6 +43,7 @@ import MuscleGapHint from './MuscleGapHint';
 import { buildWarmupExercises, getWarmupPosition } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
+import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -536,6 +537,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // prevPending and filled in by fillPendingPrev once the history arrives.
   // Without this every kg box of such a session read 0 and had to be typed.
   const prevHistoryReadyRef = useRef(false);
+  // A library program started before the history loaded can't know what's
+  // neglected yet — its finisher is picked once the history arrives (see
+  // fillPendingPrev), from what handleStartFromTemplate leaves here.
+  const pendingFinisherRef = useRef(null);
 
   useEffect(() => {
     const loggedInUser = localStorage.getItem('userName') || 'Warrior';
@@ -545,6 +550,27 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       prevHistoryReadyRef.current = true;
       setLogExercises(prev => fillPendingPrevSets(prev, (exName, setIdx) =>
         findPreviousLoggedSetIn(history, loggedInUser, exName, setIdx)));
+      const pending = pendingFinisherRef.current;
+      pendingFinisherRef.current = null;
+      if (pending) {
+        const finisher = pickNeglectedFinisher({ ...pending, sessions: history, clientName: loggedInUser });
+        // Only into the same, still-open session, and only once.
+        if (finisher) {
+          setLogExercises(prev => (
+            pending.exercises.every(ex => prev.some(p => p.name === ex.name)) && !prev.some(p => p.finisherFor)
+              ? [...prev, {
+                name: finisher.name,
+                finisherFor: finisher.finisherFor,
+                // Same pre-fill as the program's own sets (handleStartFromTemplate).
+                sets: Array.from({ length: finisher.sets }, (_, setIdx) => applyPrevRepsAndWeight(
+                  { reps: finisher.reps, weight: '0', isCompleted: false, targetReps: finisher.reps },
+                  findPreviousLoggedSetIn(history, loggedInUser, finisher.name, setIdx)
+                ))
+              }]
+              : prev
+          ));
+        }
+      }
     };
 
     // ─── Hydrate sessions: merge global + client-specific + coach-logged ───
@@ -2539,11 +2565,20 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const handleStartFromTemplate = (template, level = null, category = genericCategory) => {
     const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category });
     const warmups = buildWarmupExercises({ programName: template.name, exercises: programExercises, category });
-    const exercises = programExercises.map(ex => {
+    // A library program also gets one finisher for a neglected muscle that
+    // fits the day (see utils/neglectedFinisher) — now if the history is
+    // here, else once it arrives (pendingFinisherRef).
+    const finisherInput = { programName: template.name, exercises: programExercises, category, takenNames: warmups.map(w => w.name) };
+    const finisher = level && prevHistoryReadyRef.current
+      ? pickNeglectedFinisher({ ...finisherInput, sessions, clientName: loggedInUser })
+      : null;
+    pendingFinisherRef.current = level && !prevHistoryReadyRef.current ? finisherInput : null;
+    const exercises = [...programExercises, ...(finisher ? [finisher] : [])].map(ex => {
       const targetReps = parseInt(String(ex.reps).split('–')[0]) || 10;
       return {
         name: ex.name,
         ...(ex.swappedFrom ? { swappedFrom: ex.swappedFrom } : {}),
+        ...(ex.finisherFor ? { finisherFor: ex.finisherFor } : {}),
         // Pre-fill each set with what the client actually lifted last time
         // instead of a flat 0 — set 1 gets set 1's last weight/reps, set 3
         // gets set 3's, etc., so PREV and the editable fields agree instead
@@ -3717,7 +3752,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           🎬 Form Guide
                         </button>
                       </div>
-                        <ExerciseCaption warmupPosition={getWarmupPosition(logExercises, exIdx)} swappedFrom={ex.swappedFrom} />
+                        <ExerciseCaption warmupPosition={getWarmupPosition(logExercises, exIdx)} swappedFrom={ex.swappedFrom} finisherFor={ex.finisherFor} />
                       </div>
                       <ExerciseCardMenu
                         name={ex.name}

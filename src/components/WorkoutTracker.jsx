@@ -40,7 +40,7 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
-import { buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
@@ -2848,7 +2848,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
     markEntering(name);
     const sets = buildStartingSets(name);
-    setLogExercises(prev => [...prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }]);
+    setLogExercises(prev => addExerciseInOrder(prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }));
     triggerToast(`Added ${name} to active workout!`);
   };
 
@@ -2866,7 +2866,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const { buildStartingSets, startWorkoutClock, triggerToast } = pendingAddsHelpersRef.current;
     const toEntry = name => (isBodyweightExercise(name) ? { name, sets: buildStartingSets(name), bodyweightMode: true } : { name, sets: buildStartingSets(name) });
     if (isLoggingWorkout) {
-      setLogExercises(prev => [...prev, ...names.filter(n => !prev.some(le => le.name.toLowerCase() === n.toLowerCase())).map(toEntry)]);
+      setLogExercises(prev => names.filter(n => !prev.some(le => le.name.toLowerCase() === n.toLowerCase())).map(toEntry).reduce(addExerciseInOrder, prev));
     } else {
       // Same as "+ Start empty workout", with the queued exercises after the warm-ups.
       setLogExercises([...getDefaultWarmupExercises(), ...names.map(toEntry)]);

@@ -41,7 +41,7 @@ import { normalizeExerciseForGuide, findExerciseGuideMatch } from '../utils/vide
 import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
-import { getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -2275,10 +2275,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // Done before? Start from exactly what the client did last time — every
     // set, ready for a single tap each — instead of one default set.
     const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(workoutLogs, null, name)) || [newSet];
-    setLiveExercises(prev => [
-      ...prev,
-      bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }
-    ]);
+    setLiveExercises(prev => addExerciseInOrder(prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }));
   };
 
   // Exercises not started in this client's last Live Log session (time ran

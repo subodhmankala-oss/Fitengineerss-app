@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WARMUP_BLOCKS, getWorkoutDayType, getWarmupWeekIndex, buildWarmupExercises } from './warmupBlocks';
+import { WARMUP_BLOCKS, getWorkoutDayType, getWarmupWeekIndex, buildWarmupExercises, addExerciseInOrder } from './warmupBlocks';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn } from './prevSets';
 
 const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
@@ -133,5 +133,30 @@ describe('PREV skips warm-up-only entries', () => {
   it('still counts an entry that mixes warm-up and working sets', () => {
     const mixed = [{ clientName: 'a', date: '2026-10-10', exercises: [{ name: 'Squat', sets: [{ reps: '5', weight: '10', isWarmup: true }, { reps: '5', weight: '40' }] }] }];
     expect(findPreviousLoggedSetIn(mixed, 'a', 'Squat', 1)).toMatchObject({ weight: '40' });
+  });
+});
+
+describe('addExerciseInOrder', () => {
+  const work = name => ({ name, sets: [{ reps: '10', isCompleted: false }] });
+  const warm = name => ({ name, sets: [{ reps: '10', isWarmup: true, setType: 'warmup', isCompleted: false }] });
+  const names = list => list.map(ex => ex.name);
+
+  it('puts a warm-up move at the top when the session has none yet', () => {
+    expect(names(addExerciseInOrder([work('Bench Press'), work('Row')], work('Arm Circle'))))
+      .toEqual(['Arm Circle', 'Bench Press', 'Row']);
+  });
+
+  it('puts it after the warm-ups already opening the session', () => {
+    expect(names(addExerciseInOrder([warm('Cross Trainer'), warm('Leg Swing'), work('Squat')], work('Arm Circle'))))
+      .toEqual(['Cross Trainer', 'Leg Swing', 'Arm Circle', 'Squat']);
+  });
+
+  it('appends a normal exercise as before', () => {
+    expect(names(addExerciseInOrder([warm('Leg Swing'), work('Squat')], work('Bench Press'))))
+      .toEqual(['Leg Swing', 'Squat', 'Bench Press']);
+  });
+
+  it('handles an empty list', () => {
+    expect(names(addExerciseInOrder([], work('Arm Circle')))).toEqual(['Arm Circle']);
   });
 });

@@ -2341,7 +2341,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     clearWorkoutLeftovers(selectedClient.id);
     setLiveLeftoverTick(t => t + 1);
   };
-  // "Move not-started exercises to the next session" tick box above Save.
+  // "Carry over to next session" tick box above Save.
   const [liveCarryOver, setLiveCarryOver] = useState(true);
   const liveSkipped = findSkippedExercises(liveExercises);
   const liveHasDoneSets = liveExercises.some(ex => !isWarmupCardExercise(ex) && ex.sets.some(s => s.isCompleted));
@@ -9883,7 +9883,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   {!isLiveReordering && liveSkipped.length > 0 && liveHasDoneSets && (
                     <label className="leftover-finish-note" style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer' }}>
                       <input type="checkbox" checked={liveCarryOver} onChange={e => setLiveCarryOver(e.target.checked)} style={{ marginTop: '3px' }} />
-                      <span>⏭ Move not-started exercises to {selectedClient?.userName ? `${selectedClient.userName}'s` : 'the'} next session: <strong>{liveSkipped.join(', ')}</strong></span>
+                      <span>
+                        <strong>⏭ Carry over to next session</strong><br />
+                        Not done today: {liveSkipped.join(', ')}. {selectedClient?.userName ? `${selectedClient.userName}'s` : 'The'} next Live Log will offer to add them.
+                      </span>
                     </label>
                   )}
 

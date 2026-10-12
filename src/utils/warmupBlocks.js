@@ -186,3 +186,17 @@ export function getWarmupPosition(exercises, idx) {
   const warmupIdxs = exercises.map((ex, i) => (isWarmupBlockExercise(ex) ? i : -1)).filter(i => i >= 0);
   return { n: warmupIdxs.indexOf(idx) + 1, total: warmupIdxs.length };
 }
+
+// Every move the warm-up blocks (and their stand-ins) use, plus the picker's
+// own Warm Up names — what the exercise picker's "Warm Up" chip lists. These
+// keep their real category too (Squat stays under Legs), so a client can
+// find them under either chip.
+const WARMUP_MOVE_NAMES = new Set([
+  'arm circle', 'leg swing', 'bird dog', 'cat camel',
+  ...Object.values(WARMUP_BLOCKS).flatMap(byPlace => Object.values(byPlace).flat(2)).map(i => i.name.toLowerCase()),
+  ...Object.values(SUBSTITUTES).flatMap(bySlot => Object.values(bySlot).flat()).map(i => i.name.toLowerCase()),
+]);
+
+export function isWarmupMove(name) {
+  return WARMUP_MOVE_NAMES.has((name || '').toLowerCase());
+}

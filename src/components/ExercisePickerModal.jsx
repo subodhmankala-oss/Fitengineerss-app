@@ -7,6 +7,7 @@ import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import databaseService from '../services/databaseService';
 import CreateCustomExerciseModal from './CreateCustomExerciseModal';
+import { isWarmupMove } from '../utils/warmupBlocks';
 
 // MuscleThumbnail mounts a real anatomical body SVG (vendored, quite
 // detailed) plus a muscle-overlay SVG via dangerouslySetInnerHTML. That's
@@ -205,7 +206,11 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     .map(ex => ({ ex, rank: rankExercise(ex) }))
     .filter(({ ex, rank }) => {
       const matchesSearch = rank !== -1;
-      const matchesCategory = subgroup ? exerciseInSubgroup(ex.name, subgroup) : (tag === 'All' || ex.category === tag);
+      // "Warm Up" also lists every warm-up block move (Jumping Jack, Glute
+      // Bridge, Band Pull Apart …) on top of its own category, see isWarmupMove.
+      const matchesCategory = subgroup
+        ? exerciseInSubgroup(ex.name, subgroup)
+        : (tag === 'All' || ex.category === tag || (tag === 'Warm Up' && isWarmupMove(ex.name)));
       return matchesSearch && matchesCategory && exerciseTargetsMuscle(ex, bodyMuscle);
     })
     .sort((a, b) => a.rank - b.rank || a.ex.name.localeCompare(b.ex.name))

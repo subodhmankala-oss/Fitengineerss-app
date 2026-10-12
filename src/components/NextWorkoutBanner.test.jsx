@@ -170,6 +170,34 @@ describe('NextWorkoutBanner', () => {
     expect(screen.getByText(/Nice work on Beginner Full Body B! Next up: Beginner Lower & Core\./)).not.toBeNull();
   });
 
+  it("previews today's session: warm-up, this week's swap, and a neglected-muscle finisher", async () => {
+    const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+    mockLibrary({ gym: { beginner: [
+      { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
+      { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') },
+      { name: 'Beginner Lower & Core', exercises: ex('Dumbbell Squat', 'Glute Bridge', 'Calf Raise (Standing)', 'Crunch') }
+    ] } });
+    // 3 sessions, upper body + quads only: hamstrings never trained.
+    const row = (log_date, plan_name, exercise_name) => ({ log_date, plan_name, exercise_name, set_type: null });
+    const logs = [
+      row('2026-09-28', 'Beginner Full Body A', 'Goblet Squat'), row('2026-09-28', 'Beginner Full Body A', 'Push-up'),
+      row('2026-10-01', 'Beginner Full Body B', 'Leg Press'), row('2026-10-01', 'Beginner Full Body B', 'Seated Row (Machine)'),
+      row('2026-10-05', 'Beginner Full Body A', 'Dumbbell Row'), row('2026-10-07', 'Beginner Full Body B', 'Chest Press (Machine)')
+    ];
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Next up: Beginner Lower & Core/)).not.toBeNull();
+    const focus = container.querySelector('.next-workout-focus').textContent;
+    expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new this week · 🎯 \w+ finisher/);
+  });
+
+  it('shows no finisher until the client has 3 logged sessions', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
+    expect(container.querySelector('.next-workout-focus').textContent).toBe('🔥 Warm-up');
+  });
+
   it('keeps showing guidance even with many sessions logged (no session-count cutoff)', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = Array.from({ length: 20 }, (_, i) => ({

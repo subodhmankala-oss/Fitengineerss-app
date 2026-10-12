@@ -68,9 +68,10 @@ export function sessionsToLogRows(sessions, clientName) {
 // { name, sets, reps, finisherFor: { muscle, daysSince } } to append to the
 // program, or null. `exercises` is the program as it will be logged (after
 // this week's swaps); `takenNames` are any other names already in the
-// session (the warm-up block).
-export function pickNeglectedFinisher({ programName, exercises, category, sessions, clientName, takenNames = [], now = new Date() }) {
-  const rows = sessionsToLogRows(sessions, clientName);
+// session (the warm-up block). History is either the logger's `sessions`
+// (+ clientName) or workout_logs rows as `logRows` (the Home screen's).
+export function pickNeglectedFinisher({ programName, exercises, category, sessions, clientName, logRows, takenNames = [], now = new Date() }) {
+  const rows = logRows || sessionsToLogRows(sessions, clientName);
   if (new Set(rows.map(r => r.log_date)).size < MIN_SESSIONS) return null;
 
   const dayType = getWorkoutDayType(programName, exercises);

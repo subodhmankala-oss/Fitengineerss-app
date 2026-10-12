@@ -3,6 +3,9 @@ import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
+import { buildWarmupExercises } from '../utils/warmupBlocks';
+import { applyWeeklySwaps } from '../utils/weeklySwaps';
+import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
 // "new client nudge"), but that no longer fits a genuine ~3-month-per-level
@@ -149,6 +152,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
 
   const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program);
+  const focus = todaysFocus(program, level, category, logs);
 
   return (
     <div
@@ -165,10 +169,33 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{body}</div>
+        {focus && (
+          <div className="next-workout-focus" style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-text)', marginTop: '4px' }}>{focus}</div>
+        )}
       </div>
       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap', flexShrink: 0 }}>Go →</span>
     </div>
   );
+}
+
+// "Today's focus" line: what this program will look like when it opens —
+// the same warm-up / weekly swaps / neglected-muscle finisher the logger
+// builds (handleStartFromTemplate), so the banner never promises something
+// the session doesn't have. e.g. "🔥 Warm-up · 🔄 2 new this week · 🎯 Core
+// finisher (15 days)".
+function todaysFocus(program, level, category, logs) {
+  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category });
+  const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
+  const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
+  const swaps = exercises.filter(ex => ex.swappedFrom).length;
+  const parts = [];
+  if (warmups.length) parts.push('🔥 Warm-up');
+  if (swaps) parts.push(`🔄 ${swaps} new this week`);
+  if (finisher) {
+    const { muscle, daysSince } = finisher.finisherFor;
+    parts.push(`🎯 ${muscle} finisher${daysSince == null ? '' : ` (${daysSince} days)`}`);
+  }
+  return parts.join(' · ');
 }
 
 // The level just cleared, for the 'leveled-up' message ("completed every

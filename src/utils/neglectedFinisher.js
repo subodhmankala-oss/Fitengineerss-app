@@ -79,7 +79,9 @@ export function pickNeglectedFinisher({ programName, exercises, category, sessio
   if (!fits) return null;
 
   const program = exercises || [];
-  const trainedToday = new Set(program.flatMap(ex => getMuscleGroupsForExercise(ex.name)));
+  // Main movers only: a leg curl's half set of calves doesn't count as
+  // training calves today.
+  const trainedToday = new Set(program.map(ex => getMuscleGroupsForExercise(ex.name)[0]).filter(Boolean));
   const taken = new Set([...program.map(ex => ex.name), ...takenNames].map(n => n.toLowerCase()));
   const options = FINISHERS[category === 'home' ? 'home' : 'gym'];
 

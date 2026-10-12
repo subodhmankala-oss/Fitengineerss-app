@@ -12,6 +12,8 @@
 // counts as 1 working set for Chest AND 1 for Triceps, not a fractional
 // split). Isolation lifts credit one muscle only.
 
+import { isCardioExercise } from '../data/exerciseLibrary.js';
+
 export const MUSCLE_GROUPS = [
   'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
   'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves', 'Tibialis'
@@ -53,6 +55,8 @@ const RULES = [
   // ── Isolation arms (checked before compound "press"/"row" rules) ──
   // "glute" excluded: Glute Kickback is a hip move, not a triceps kickback.
   // "pulldown"/"row" excluded: Lat Pulldown (Close Grip) is a back move.
+  // Close grip bench: the narrow grip makes it triceps-led, chest assisting.
+  { test: n => /close.?grip/.test(n) && /bench/.test(n), muscles: ['Triceps', 'Chest'] },
   { test: n => /(triceps|tricep|skullcrusher|pushdown|kickback|close.?grip)/.test(n) && !/(chest dip|^dip$|bench|glute|pulldown|\brow)/.test(n), muscles: ['Triceps'] },
   // Checked before the generic "curl" rule below — "Wrist Curl" and
   // "Reverse Curl" both contain "curl" and would otherwise be misclassified
@@ -93,9 +97,14 @@ const RULES = [
   // which sit on the back of the lower leg).
   { test: n => /tibialis|tib bar/.test(n), muscles: ['Tibialis'] },
   { test: n => /(glute|hip thrust|glute bridge|hip abduction|hip adduction)/.test(n), muscles: ['Glutes'] },
+  // Cable Pull Through: a hip hinge, not a row (it used to hit the row rule).
+  { test: n => /pull.?through/.test(n), muscles: ['Glutes', 'Hamstrings'] },
+  // Leg curls bend the knee, which the calves (gastrocnemius) help with; the
+  // glutes don't.
+  { test: n => /leg curl/.test(n), muscles: ['Hamstrings', 'Calves'] },
   // "kettlebell swing" added: a hip-hinge posterior-chain move, classified
   // the same as Romanian Deadlift / Good Morning here.
-  { test: n => /(hamstring|nordic|romanian|stiff.?leg|leg curl|good morning|single.?leg deadlift|kettlebell swing)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
+  { test: n => /(hamstring|nordic|romanian|stiff.?leg|good morning|single.?leg deadlift|kettlebell swing)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
   { test: n => /(leg extension)/.test(n), muscles: ['Quads'] },
   // "box jump" added alongside "box squat" — both explosive quad/glute moves.
   // "Side Hops" and "Steppers" added (2026-08-25 coverage audit): both are
@@ -104,6 +113,8 @@ const RULES = [
   // lateral hopping conditioning move (see exerciseLibrary.js's mm:ss-timed
   // set shape for it), Steppers a marching/stepping drill alongside Step-up
   // in the exercise picker's A-Z list.
+  // Squat Press / thruster: a squat driven straight into an overhead press.
+  { test: n => /squat press|thruster/.test(n), muscles: ['Quads', 'Shoulders'] },
   { test: n => /(squat|lunge|leg press|step.?up|wall sit|split squat|hack squat|box squat|box jump|side hops?|steppers?)/.test(n), muscles: ['Quads', 'Glutes'] },
   { test: n => /(deadlift|rack pull|sumo)/.test(n), muscles: ['Hamstrings', 'Back'] },
 
@@ -116,11 +127,16 @@ const RULES = [
   // (see exerciseLibrary.js's isBodyweightExercise comment: they used to be
   // stuck under isWarmupExercise instead, contributing zero to calories —
   // same principle applies here, they belong in Core, not unmapped).
-  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|shoulder taps?|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n), muscles: ['Core'] },
+  // Shoulder Taps: a plank that loads one arm at a time, so the shoulders
+  // lead and the core holds the hips square.
+  { test: n => /shoulder taps?/.test(n), muscles: ['Shoulders', 'Core'] },
+  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n), muscles: ['Core'] },
   // Reverse hyper: hip extension with the torso fixed, so glutes lead and the
   // lower back assists. Checked before the hyperextension rule below.
   { test: n => /reverse hyper/.test(n), muscles: ['Glutes', 'Back'] },
-  { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Core', 'Back'] },
+  // Back extensions: the lower back (erector spinae) extends the spine, the
+  // glutes extend the hip.
+  { test: n => /(superman|hyperextension|back extension)/.test(n), muscles: ['Back', 'Glutes'] },
   // Burpee: full-body conditioning move: Core (plank/crunch phase) + Quads
   // (jump/squat phase) is the most representative 2-muscle credit available
   // in this taxonomy, rather than inventing a "full body" category.
@@ -170,7 +186,15 @@ const RULES = [
   // Press was credited to Back/Biceps instead of Chest/Triceps.
   // Pullovers: a straight-arm lat move with the chest assisting, no biceps.
   { test: n => /pullover/.test(n), muscles: ['Back', 'Chest'] },
-  { test: n => /(row|pulldown|pull.?up|chin.?up|\blat |t.?bar|pendlay|pull through|v.?bar)/.test(n), muscles: ['Back', 'Biceps'] },
+  // Straight-arm moves keep the elbow locked, so the biceps do nothing; the
+  // triceps long head helps pull the arm down.
+  { test: n => /straight.?arm/.test(n), muscles: ['Back', 'Triceps'] },
+  // Scapular pull-up: only the shoulder blades move, the elbows stay straight.
+  { test: n => /scap/.test(n) && /pull.?up/.test(n), muscles: ['Back'] },
+  // Chest-supported rows: "chest" here is the pad, not the muscle (the name
+  // otherwise falls through to the chest-press rule).
+  { test: n => /chest.?supported/.test(n), muscles: ['Back', 'Biceps'] },
+  { test: n => /(row|pulldown|pull.?up|chin.?up|\blat |t.?bar|pendlay|v.?bar)/.test(n), muscles: ['Back', 'Biceps'] },
 
   // ── Chest (pressing compounds) ──
   // "incline.*press"/"decline.*press" catches named variants that don't
@@ -280,7 +304,12 @@ export function getMuscleGroupsForExercise(exerciseName) {
   if (memo.has(key)) return memo.get(key);
 
   const rule = RULES.find(r => r.test(key));
-  const result = rule ? rule.muscles : (catalogMuscles.get(key) || []);
+  // Distance/duration cardio (Running, Cycling, Walking...) isn't a strength
+  // set. Its catalog text ("Cardio" / "Legs, Core") used to leak through as a
+  // full Core or Glutes set per session, so the fallback skips it.
+  const result = rule ? rule.muscles
+    : isCardioExercise(exerciseName) ? []
+    : (catalogMuscles.get(key) || []);
   memo.set(key, result);
   return result;
 }

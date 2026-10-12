@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getMuscleGroupsForExercise, getMuscleWeight } from './muscleGroups';
+import { getMuscleGroupsForExercise, getMuscleWeight, setCatalogMuscles } from './muscleGroups';
 import { getWeeklyMuscleStats } from './muscleAnalytics';
 
 const set = exercise_name => ({ log_date: '2026-07-20', exercise_name, weight_kg: 10, reps: 10, set_type: null });
@@ -45,7 +45,34 @@ describe('reverse hyperextension', () => {
     expect(getMuscleWeight('Reverse Hyperextension', 'Glutes')).toBe(1);
     expect(getMuscleWeight('Reverse Hyperextension', 'Back')).toBe(0.5);
     expect(getMuscleWeight('Reverse Hyperextension', 'Core')).toBe(0);
-    expect(getMuscleGroupsForExercise('Back Extension')).toEqual(['Core', 'Back']);
-    expect(getMuscleGroupsForExercise('Hyperextension')).toEqual(['Core', 'Back']);
+    expect(getMuscleGroupsForExercise('Back Extension')).toEqual(['Back', 'Glutes']);
+    expect(getMuscleGroupsForExercise('Hyperextension')).toEqual(['Back', 'Glutes']);
+  });
+});
+
+describe('exercise library audit fixes', () => {
+  const groups = n => getMuscleGroupsForExercise(n);
+  it('credits the muscles each move actually trains', () => {
+    expect(groups('Chest-Supported Dumbbell')).toEqual(['Back', 'Biceps']);
+    expect(groups('Cable Pull Through')).toEqual(['Glutes', 'Hamstrings']);
+    expect(groups('Straight arm cable row(Rope)')).toEqual(['Back', 'Triceps']);
+    expect(groups('Scapular Pull-up')).toEqual(['Back']);
+    expect(groups('Squat Press')).toEqual(['Quads', 'Shoulders']);
+    expect(groups('Close Grip Bench Press')).toEqual(['Triceps', 'Chest']);
+    expect(groups('Superman')).toEqual(['Back', 'Glutes']);
+    expect(groups('Seated Leg Curl  Machine')).toEqual(['Hamstrings', 'Calves']);
+    expect(groups('Shoulder Taps')).toEqual(['Shoulders', 'Core']);
+    // Unchanged neighbours of the rules above.
+    expect(groups('Seated Cable Row')).toEqual(['Back', 'Biceps']);
+    expect(groups('Barbell Squat')).toEqual(['Quads', 'Glutes']);
+    expect(groups('Romanian Deadlift')).toEqual(['Hamstrings', 'Glutes']);
+    expect(groups('Plank')).toEqual(['Core']);
+  });
+
+  it('distance cardio never falls back to its catalog text', () => {
+    setCatalogMuscles([{ name: 'Running', category: 'Cardio', primary_muscle: 'Cardio', secondary_muscle: 'Legs, Core' }]);
+    expect(groups('Running')).toEqual([]);
+    expect(setsOf([set('Running')], 'Core')).toBe(0);
+    setCatalogMuscles([]);
   });
 });

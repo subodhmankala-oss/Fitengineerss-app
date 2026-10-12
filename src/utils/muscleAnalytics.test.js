@@ -33,7 +33,7 @@ describe('muscleGroups', () => {
   });
 
   it('still classifies Leg Curl as Hamstrings, not Biceps', () => {
-    expect(getMuscleGroupsForExercise('Leg Curl (Lying)')).toEqual(['Hamstrings', 'Glutes']);
+    expect(getMuscleGroupsForExercise('Leg Curl (Lying)')).toEqual(['Hamstrings', 'Calves']);
   });
 });
 

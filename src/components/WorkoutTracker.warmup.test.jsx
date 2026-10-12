@@ -161,3 +161,19 @@ describe('Resumed workout from before the Warm-up card', () => {
     expect(Array.from(document.querySelectorAll('h5')).map(el => el.textContent.trim())).toContain('Biceps Curls');
   });
 });
+
+describe('Warm-up card form guide', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('tapping a warm-up move opens its Form Guide, not the empty history', async () => {
+    localStorage.setItem('userName', 'TestClient');
+    localStorage.setItem('userId', 'u1');
+    localStorage.setItem('workoutTrackerLastTab_u1', 'log');
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    fireEvent.click(await screen.findByText('Start Empty Workout'));
+    fireEvent.click(screen.getByLabelText('Form guide for Arm Circle'));
+    expect(screen.queryByText('No logged history yet for this exercise.')).toBeNull();
+    expect(document.querySelector('.guide-sheet')).not.toBeNull();
+    expect(document.querySelector('.guide-sheet').textContent).toContain('Arm Circle');
+  });
+});

@@ -5590,13 +5590,26 @@ html.keyboard-open .rest-timer-floating-card {
 .warmup-move-card:not(.warmup-move-card--first) .warmup-move-line {
   border-top: 1px dashed rgba(var(--fg-rgb), 0.07);
 }
-.warmup-move-name {
+.warmup-move-title {
   flex: 1;
   min-width: 0;
+}
+.warmup-move-name {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main);
   overflow-wrap: anywhere;
+}
+.warmup-move-guide {
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 0.8rem;
+  line-height: 1;
+  vertical-align: 1px;
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 6px;
+  cursor: pointer;
 }
 .warmup-move-line--done .warmup-move-name {
   color: var(--text-muted);

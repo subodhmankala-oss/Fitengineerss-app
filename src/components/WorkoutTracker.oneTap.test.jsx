@@ -140,7 +140,7 @@ describe('WorkoutTracker one-tap set logging', () => {
     fireEvent.click(screen.getByRole('button', { name: '42.5' }));
     fireEvent.keyDown(document, { key: '5' });
 
-    const edited = await screen.findByRole('button', { name: '42.55' });
+    const edited = await screen.findByRole('button', { name: '5' });
     expect(hasClass(edited, 'set-value-ghost')).toBe(false);
     // Reps wasn't touched, so it's still an unconfirmed guess.
     expect(hasClass(screen.getByRole('button', { name: '9' }), 'set-value-ghost')).toBe(true);

@@ -43,6 +43,7 @@ import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { warmupsFirst } from '../utils/warmupsFirst';
+import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
 import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
@@ -2445,9 +2446,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const handleLiveSetChange = (exIdx, setIdx, field, value) => {
     setLiveExercises(prev => prev.map((ex, idx) => {
       if (idx !== exIdx) return ex;
-      return {
-        ...ex,
-        sets: ex.sets.map((s, si) => {
+      const sets = ex.sets.map((s, si) => {
           if (si !== setIdx) return s;
           // Edited by hand (or by its own stopwatch) — the late PREV
           // pre-fill must not overwrite it (see fillPendingPrevSets), and
@@ -2457,9 +2456,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           const clearedGhost = field === 'weight' ? { weightFromPrev: false }
             : field === 'reps' ? { repsFromPrev: false }
             : {};
-          return { ...set, [field]: value, ...clearedGhost };
-        })
-      };
+          const { weightAutofilled: _wa, ...typed } = set;
+          return { ...typed, [field]: field === 'weight' ? typedOverHint(set, value) : value, ...clearedGhost };
+        });
+      // A kg typed here carries down to the empty boxes below (see utils/fillWeightBelow.js).
+      return { ...ex, sets: field === 'weight' ? fillWeightBelow(sets, setIdx, sets[setIdx].weight) : sets };
     }));
   };
 

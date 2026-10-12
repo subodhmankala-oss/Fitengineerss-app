@@ -2265,7 +2265,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     } else if (bodyweight || isWarmupExercise(name)) {
       newSet = { reps: '10', weight: '0', isCompleted: false };
     } else {
-      newSet = { reps: '10', weight: '20', isCompleted: false };
+      // Empty kg box (shows a faint "kg"), never a made-up weight — same as
+      // the client's own logger.
+      newSet = { reps: '10', weight: '', isCompleted: false };
     }
     // Done before? Start from exactly what the client did last time — every
     // set, ready for a single tap each — instead of one default set.
@@ -2322,7 +2324,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       if (isTimedExercise(ex.name)) {
         return { ...ex, sets: [...ex.sets, { time: '', isCompleted: false }] };
       }
-      const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '20' };
+      const last = ex.sets[ex.sets.length - 1] || { reps: '10', weight: '' };
       if (isBodyweightExercise(ex.name) && getLiveExBwMode(ex)) {
         // Bodyweight mode means exactly that — a new set shouldn't invent a
         // weight the coach never chose. The plate-increment suggestion

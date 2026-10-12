@@ -24,7 +24,7 @@ export default function WarmupMoveRow({ ex, isFirst, isLast, onShowFormGuide, on
           🔥 Warm-up <span>· go light, about 5 min</span>
         </div>
       )}
-      <div className={`warmup-move-line${done ? ' warmup-move-line--done' : ''}`}>
+      <div className={`warmup-move-line${done ? ' warmup-move-line--done' : ''}${ex.sets.length > 1 ? ' warmup-move-line--multi' : ''}`}>
         <span className="warmup-move-title">
           <span
             className="warmup-move-name ex-name-clickable"

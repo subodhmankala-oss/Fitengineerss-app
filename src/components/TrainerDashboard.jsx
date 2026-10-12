@@ -1539,9 +1539,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
   // ─── Live Session Logger States ───
   const [liveDate, setLiveDate] = useState(() => getLocalDateString());
-  const [liveExercises, setLiveExercises] = useState([
-    { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
-  ]);
+  // Starts empty: the coach adds what the client is actually doing (a
+  // placeholder exercise here used to come with a made-up 20 kg).
+  const [liveExercises, setLiveExercises] = useState([]);
   const [livePlanName, setLivePlanName] = useState('Live Routine');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
@@ -2828,10 +2828,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // Refresh the Workout Plan tab so the plan just saved above shows up
       // immediately if the coach switches to it.
       fetchClientPlans(selectedClient.id);
-      // Reset exercises for next session
-      setLiveExercises(applyLivePrev([
-        { name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }
-      ]));
+      // Reset exercises for next session — empty, no placeholder exercise.
+      setLiveExercises([]);
       setLiveSetTimers({});
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
@@ -3571,12 +3569,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           setRestJustFinished(false);
         }
       } else {
-        setLiveExercises(applyLivePrev([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]));
+        setLiveExercises([]);
         setLivePlanName('Live Routine');
         setLiveDate(getLocalDateString());
       }
     }).catch(() => {
-      setLiveExercises(applyLivePrev([{ name: 'Shoulders Press', sets: [{ reps: '10', weight: '20', isCompleted: false }, { reps: '10', weight: '20', isCompleted: false }] }]));
+      setLiveExercises([]);
       setLivePlanName('Live Routine');
       setLiveDate(getLocalDateString());
     });
@@ -9110,6 +9108,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       16px outer padding so the table reaches the true screen
                       edges, matching the app's standard flush logging layout. */}
                   <div className="live-logger-exercise-list">
+                    {liveExercises.length === 0 && (
+                      <div className="wt-empty-state">No exercises yet. Tap ➕ Add Exercise below to start.</div>
+                    )}
                     {liveExercises.map((ex, exIdx) => {
                     const exIsCardio = isCardioExercise(ex.name);
                     const exIsBodyweight = isBodyweightExercise(ex.name);

@@ -25,7 +25,8 @@ vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 import WorkoutTracker from './WorkoutTracker';
 import { TourProvider } from '../context/TourContext';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
-import { WARMUP_BLOCKS, getWarmupWeekIndex } from '../utils/warmupBlocks';
+import { WARMUP_BLOCKS, getWarmupWeekIndex, buildWarmupExercises } from '../utils/warmupBlocks';
+import { applyWeeklySwaps } from '../utils/weeklySwaps';
 
 Element.prototype.scrollTo = vi.fn();
 
@@ -42,33 +43,48 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
   });
   afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
-  it('gym upper day: this week’s 3 warm-ups first, then the program', async () => {
-    startLibraryProgram('u1', 'gym', 'intermediate', program('Intermediate Push', 'Bench Press', 'Cable Fly'));
+  it('gym upper day: this week’s 3 warm-ups first, then the program with this week’s swaps', async () => {
+    const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
+    startLibraryProgram('u1', 'gym', 'intermediate', push);
     render(<TourProvider><WorkoutTracker /></TourProvider>);
 
     const expected = WARMUP_BLOCKS.upper.gym[getWarmupWeekIndex(new Date())].map(i => i.name);
-    for (const name of [...expected, 'Bench Press', 'Cable Fly']) {
+    const thisWeek = applyWeeklySwaps({ programName: push.name, exercises: push.exercises, level: 'intermediate', category: 'gym' });
+    const all = [...expected, ...thisWeek.map(e => e.name)];
+    for (const name of all) {
       expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
     }
-    expect(cardTitles().filter(t => [...expected, 'Bench Press', 'Cable Fly'].includes(t)))
-      .toEqual([...expected, 'Bench Press', 'Cable Fly']);
+    expect(cardTitles().filter(t => all.includes(t))).toEqual(all);
+    // The 2 swapped exercises say what they replace.
+    expect(Array.from(document.querySelectorAll('.swap-caption')).map(el => el.textContent))
+      .toEqual(thisWeek.filter(e => e.swappedFrom).map(e => `🔄 New this week · instead of ${e.swappedFrom}`));
     // Warm-up sets carry the "W" label, and each card says it's a warm-up.
     expect(document.querySelectorAll('.set-num-lbl.warmup').length).toBeGreaterThanOrEqual(3);
     expect(Array.from(document.querySelectorAll('.warmup-caption')).map(el => el.textContent))
       .toEqual(['🔥 Warm-up 1 of 3 · go light, about 5 min', '🔥 Warm-up 2 of 3', '🔥 Warm-up 3 of 3']);
   });
 
-  it('home day uses the home block', async () => {
-    startLibraryProgram('u1', 'home', 'intermediate', program('Home Intermediate Lower Body', 'Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit'));
-    render(<TourProvider><WorkoutTracker /></TourProvider>);
+  it('home day uses the home block, and never repeats an exercise', async () => {
+    // A week whose home lower block has Glute Bridge, which this program
+    // already contains — the warm-up must use a stand-in instead.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 5, 9, 0));
+    try {
+      const lower = program('Home Intermediate Lower Body', 'Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit');
+      startLibraryProgram('u1', 'home', 'intermediate', lower);
+      render(<TourProvider><WorkoutTracker /></TourProvider>);
 
-    const block = WARMUP_BLOCKS.lower.home[getWarmupWeekIndex(new Date())].map(i => i.name);
-    // Glute Bridge is already in the program, so it is swapped out of the warm-up.
-    for (const name of block.filter(n => n !== 'Glute Bridge')) {
-      expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+      const thisWeek = applyWeeklySwaps({ programName: lower.name, exercises: lower.exercises, level: 'intermediate', category: 'home' });
+      const warmups = buildWarmupExercises({ programName: lower.name, exercises: thisWeek, category: 'home' }).map(e => e.name);
+      expect(warmups).toHaveLength(3);
+      const all = [...warmups, ...thisWeek.map(e => e.name)];
+      for (const name of all) {
+        expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+      }
+      expect(cardTitles().filter(t => all.includes(t))).toEqual(all);
+      expect(new Set(all).size).toBe(all.length);
+    } finally {
+      vi.useRealTimers();
     }
-    expect(cardTitles().filter(t => t === 'Glute Bridge')).toHaveLength(1);
-    expect(cardTitles().slice(0, 3)).toHaveLength(3);
-    expect(cardTitles().slice(0, 3)).not.toContain('Glute Bridge');
   });
 });

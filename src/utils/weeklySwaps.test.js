@@ -1,0 +1,108 @@
+import { describe, it, expect } from 'vitest';
+import { applyWeeklySwaps, SWAP_ALTERNATIVES } from './weeklySwaps';
+import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
+
+const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+const known = new Set(EXERCISE_LIBRARY.map(e => e.name.toLowerCase()));
+// In the shared exercises catalog, not the static library — the library
+// programs themselves use these exact spellings ("Pull-up", "Push Up").
+const CATALOG_ONLY = ['knee push ups', 'pull-up', 'push up'];
+
+const MON = new Date(2026, 9, 12);
+const weeks = (n) => Array.from({ length: n }, (_, i) => new Date(2026, 9, 12 + i * 7));
+
+describe('SWAP_ALTERNATIVES', () => {
+  it('only names exercises the app knows', () => {
+    const missing = [];
+    ['gym', 'home'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
+      if (!known.has(name.toLowerCase()) && !CATALOG_ONLY.includes(name.toLowerCase())) missing.push(name);
+    }));
+    expect(missing).toEqual([]);
+  });
+
+  it('never swaps to a cardio machine (different set shape: km + time)', () => {
+    ['gym', 'home'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
+      expect(isCardioExercise(name)).toBe(false);
+    }));
+  });
+});
+
+describe('applyWeeklySwaps', () => {
+  const push = ex('Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
+
+  it('beginner: 1 swap, the first exercise never swaps', () => {
+    const beginnerA = ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank');
+    weeks(6).forEach(date => {
+      const out = applyWeeklySwaps({ programName: 'Beginner Full Body A', exercises: beginnerA, level: 'beginner', category: 'gym', date });
+      expect(out.filter(e => e.swappedFrom)).toHaveLength(1);
+      expect(out[0].name).toBe('Goblet Squat');
+    });
+  });
+
+  it('intermediate: 2 swaps; the swapped ones keep sets/reps and say what they replace', () => {
+    const out = applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date: MON });
+    const swapped = out.filter(e => e.swappedFrom);
+    expect(swapped).toHaveLength(2);
+    swapped.forEach(e => {
+      expect(SWAP_ALTERNATIVES.gym[e.swappedFrom.toLowerCase()]).toContain(e.name);
+      expect(e).toMatchObject({ sets: 3, reps: '10' });
+    });
+    expect(out[0].name).toBe('Bench Press');
+  });
+
+  it('advanced strength: 1 swap, only among the last exercises', () => {
+    const strength = ex('Bench Press', 'Incline Barbell Press', 'Overhead Press (Barbell)', 'Close Grip Bench Press', 'Cable Overhead Triceps Extension');
+    weeks(6).forEach(date => {
+      const out = applyWeeklySwaps({ programName: 'Advanced Push (Strength)', exercises: strength, level: 'advanced', category: 'gym', date });
+      expect(out.slice(0, 3).map(e => e.name)).toEqual(['Bench Press', 'Incline Barbell Press', 'Overhead Press (Barbell)']);
+      expect(out.filter(e => e.swappedFrom)).toHaveLength(1);
+    });
+  });
+
+  it('core / conditioning days can swap any exercise (no main lift)', () => {
+    const cond = ex('Burpee', 'High Knees', 'Jumping Jack', 'Mountain Climber', 'Foot Fires');
+    const swappedPositions = new Set();
+    weeks(6).forEach(date => {
+      applyWeeklySwaps({ programName: 'Home Advanced Conditioning', exercises: cond, level: 'advanced', category: 'home', date })
+        .forEach((e, i) => e.swappedFrom && swappedPositions.add(i));
+    });
+    expect(swappedPositions.has(0)).toBe(true);
+  });
+
+  it('changes week to week, and every original exercise keeps coming back', () => {
+    const plans = weeks(4).map(date => applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date }).map(e => e.name).join('|'));
+    expect(plans[1]).not.toBe(plans[0]);
+    const swappedEver = new Set();
+    weeks(4).forEach(date => applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date })
+      .forEach(e => e.swappedFrom && swappedEver.add(e.swappedFrom)));
+    expect(swappedEver).toEqual(new Set(['Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown']));
+  });
+
+  it('is the same all week (Monday to Sunday)', () => {
+    const a = applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date: MON });
+    const b = applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date: new Date(2026, 9, 18) });
+    expect(b).toEqual(a);
+  });
+
+  it('home programs only get equipment-free alternatives', () => {
+    const homeUpper = ex('Push Up', 'Diamond Push-up', 'Explosive / Plyometric Push-Up', 'Superman', 'Plank');
+    weeks(8).forEach(date => {
+      applyWeeklySwaps({ programName: 'Home Intermediate Upper Body', exercises: homeUpper, level: 'intermediate', category: 'home', date })
+        .filter(e => e.swappedFrom)
+        .forEach(e => expect(SWAP_ALTERNATIVES.home[e.swappedFrom.toLowerCase()]).toContain(e.name));
+    });
+  });
+
+  it('never creates a duplicate exercise in the session', () => {
+    // Pull-up's first alternative is Lat Pulldown; Lat Pulldown's last is Pull-up.
+    const both = ex('Barbell Row', 'Lat Pulldown', 'Pull-up');
+    weeks(10).forEach(date => {
+      const names = applyWeeklySwaps({ programName: 'Pull', exercises: both, level: 'intermediate', category: 'gym', date }).map(e => e.name.toLowerCase());
+      expect(new Set(names).size).toBe(names.length);
+    });
+  });
+
+  it('leaves non-library templates alone', () => {
+    expect(applyWeeklySwaps({ programName: 'Push Day', exercises: push, level: null, category: 'gym', date: MON })).toEqual(push);
+  });
+});

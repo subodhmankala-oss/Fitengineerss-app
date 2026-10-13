@@ -4591,161 +4591,159 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 /* ─── Workout Library ─── */
-.wt-library-header {
+.wt-library {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 2px;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .wt-library-title {
-  font-size: 1.05rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: var(--text-main);
-  letter-spacing: -0.01em;
-  margin: 0 0 3px;
-}
-
-.wt-library-sub {
-  font-size: 0.73rem;
-  color: var(--text-muted);
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
-/* Level tab buttons */
-/* Gym vs Home category switch — sits directly above .wt-level-tabs, which
-   then filters within whichever category is picked. Deliberately quieter
-   than the level tabs (neutral accent, no per-option color) so the level
-   row stays the primary control. */
+/* One row: Gym / Home / Hyrox chips, then the level dropdown chip. */
+.wt-chip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .wt-category-toggle {
   display: flex;
   gap: 6px;
-  background: rgba(var(--fg-rgb), 0.03);
-  border: 1px solid rgba(var(--fg-rgb), 0.07);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 8px;
 }
 
 .wt-category-btn {
-  flex: 1;
-  padding: 7px 10px;
-  border-radius: 9px;
+  padding: 8px 16px;
+  border-radius: 999px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
-  letter-spacing: 0.01em;
 }
 
 .wt-category-btn:hover:not(.active) {
-  color: rgba(var(--fg-rgb), 0.7);
-  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.05);
 }
 
 .wt-category-btn.active {
-  background: rgba(139, 92, 246, 0.14);
-  color: var(--accent-text);
+  background: var(--primary-accent, #4f5fc4);
+  color: #fff;
 }
 
-.wt-level-tabs {
-  display: flex;
+.wt-level-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.wt-level-chip {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--fg-rgb), 0.14);
   background: rgba(var(--fg-rgb), 0.03);
-  border: 1px solid rgba(var(--fg-rgb), 0.07);
-  border-radius: 12px;
-  padding: 4px;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.wt-level-chip--beginner svg:first-child { color: var(--primary-accent-light); }
+.wt-level-chip--intermediate svg:first-child { color: #f59e0b; }
+.wt-level-chip--advanced svg:first-child { color: #ef4444; }
+
+.wt-level-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--bg-card, #fff);
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
 }
 
 .wt-level-tab {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
   font-family: inherit;
-  letter-spacing: 0.01em;
 }
 
-.wt-level-tab:hover:not(.active) {
-  color: rgba(var(--fg-rgb), 0.7);
-  background: rgba(var(--fg-rgb), 0.04);
+.wt-level-tab:hover {
+  background: rgba(var(--fg-rgb), 0.06);
 }
 
-.wt-level-tab.active.wt-level-tab--beginner {
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-text);
+.wt-level-tab.active {
+  background: rgba(var(--fg-rgb), 0.09);
+  font-weight: 800;
 }
 
-.wt-level-tab.active.wt-level-tab--intermediate {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
-}
-
-.wt-level-tab.active.wt-level-tab--advanced {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-}
-
-/* The bright amber/red read faintly on the pale tinted pill in light mode —
-   darker shades of the same colours keep the level colour but stay legible. */
-[data-theme="light"] .wt-level-tab.active.wt-level-tab--intermediate { color: #b45309; }
-[data-theme="light"] .wt-level-tab.active.wt-level-tab--advanced { color: #b91c1c; }
-
-/* Library card list */
-.wt-library-grid {
+/* Program list — rows, not cards, separated by hairlines. */
+.wt-program-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
-/* Program row card — typographic tile on the left, program info on the
-   right, whole card is the tap target (starts the workout). */
-.wt-program-card {
+.wt-program-row {
   display: flex;
   align-items: center;
   gap: 14px;
   width: 100%;
-  background: rgba(var(--fg-rgb), 0.04);
-  border: 1px solid rgba(var(--fg-rgb), 0.06);
-  border-radius: 16px;
-  padding: 12px;
-  cursor: pointer;
+  padding: 14px 2px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.07);
   text-align: left;
+  cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  color: var(--text-main);
 }
 
-.wt-program-card:hover {
-  background: rgba(var(--fg-rgb), 0.06);
-  border-color: rgba(var(--fg-rgb), 0.12);
+.wt-program-row:last-child {
+  border-bottom: none;
 }
 
-.wt-program-card:active {
-  transform: scale(0.99);
+.wt-program-row:active {
+  background: rgba(var(--fg-rgb), 0.04);
 }
 
-/* Muscle heat-map tile — the visual anchor of each row, showing which
-   muscles the program trains (same thumbnail as the coach-plan cards). */
+/* Muscle heat-map tile — shows which muscles the program trains. */
 .wt-program-tile {
-  width: 84px;
-  min-width: 84px;
-  height: 84px;
-  border-radius: 12px;
+  flex-shrink: 0;
+  width: 68px;
+  height: 68px;
+  border-radius: 14px;
   background: #eef1f5;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
   overflow: hidden;
 }
 
@@ -4758,39 +4756,31 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-program-name {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main);
   letter-spacing: -0.01em;
 }
 
 .wt-program-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wt-program-dot {
-  width: 6px;
-  height: 6px;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
 .wt-program-dot--beginner { background: var(--primary-accent-light); }
 .wt-program-dot--intermediate { background: #f59e0b; }
 .wt-program-dot--advanced { background: #ef4444; }
-
-.wt-program-preview {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  opacity: 0.85;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .wt-program-chevron {
   font-size: 1.5rem;

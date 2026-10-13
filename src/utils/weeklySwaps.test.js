@@ -27,6 +27,32 @@ describe('SWAP_ALTERNATIVES', () => {
   });
 });
 
+describe('trend programs (Zone 2, Hyrox, Pilates …)', () => {
+  it('Hyrox keeps Running first and never swaps the sled or the run', () => {
+    const hyrox = [
+      { name: 'Running', sets: 4, reps: '1 km' }, { name: 'Sled Push', sets: 4, reps: '25 m' },
+      { name: 'Air Rowing', sets: 4, reps: '500 m' }, { name: 'Farmer Walk', sets: 4, reps: '40 m' },
+      { name: 'Wall Ball', sets: 4, reps: '20' },
+    ];
+    weeks(8).forEach(date => {
+      const out = applyWeeklySwaps({ programName: 'Advanced Hyrox Engine', exercises: hyrox, level: 'advanced', category: 'gym', date });
+      expect(out.map(e => e.name).slice(0, 3)).toEqual(['Running', 'Sled Push', 'Air Rowing']);
+      out.filter(e => e.swappedFrom).forEach(e => expect(['Farmer Walk', 'Wall Ball']).toContain(e.swappedFrom));
+    });
+  });
+
+  it('the 12-3-30 walk and the Zone 2 cardio are never swapped away', () => {
+    const walk = ex('Incline Walk', 'Dead Bug', 'Bird dog', 'Plank');
+    const zone2 = ex('Cycling', 'Incline Walk', 'Bird dog', 'Dead Bug', 'Side Plank');
+    weeks(8).forEach(date => {
+      const a = applyWeeklySwaps({ programName: 'Beginner Incline Walk 12-3-30', exercises: walk, level: 'beginner', category: 'gym', date });
+      expect(a[0].name).toBe('Incline Walk');
+      const b = applyWeeklySwaps({ programName: 'Intermediate Zone 2 Cardio Base', exercises: zone2, level: 'intermediate', category: 'gym', date });
+      expect(b.slice(0, 2).map(e => e.name)).toEqual(['Cycling', 'Incline Walk']);
+    });
+  });
+});
+
 describe('applyWeeklySwaps', () => {
   const push = ex('Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
 

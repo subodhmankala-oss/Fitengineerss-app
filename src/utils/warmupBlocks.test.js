@@ -30,6 +30,11 @@ const LIBRARY = [
   ['Home Intermediate Upper Body', ex('Push Up', 'Diamond Push-up', 'Explosive / Plyometric Push-Up', 'Superman', 'Plank'), 'upper'],
   ['Home Intermediate Lower Body', ex('Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit'), 'lower'],
   ['Home Intermediate Core & Cardio', ex('Russian Twist', 'V Up', 'Sit Up', 'Mountain Climber', 'Burpee'), 'core'],
+  ['Beginner Incline Walk 12-3-30', ex('Incline Walk', 'Dead Bug', 'Bird dog', 'Plank'), 'core'],
+  ['Intermediate Zone 2 Cardio Base', ex('Cycling', 'Incline Walk', 'Bird dog', 'Dead Bug', 'Side Plank'), 'core'],
+  ['Advanced Hyrox Engine', ex('Running', 'Sled Push', 'Air Rowing', 'Farmer Walk', 'Wall Ball'), 'full'],
+  ['Intermediate Lower', ex('Goblet Squat', 'Romanian Deadlift', 'Hip Thrust', 'Step-up', 'Standing Calf Raise'), 'lower'],
+  ['Home Beginner Pilates Core & Mobility', ex('Hundred', 'Dead Bug', 'Bird dog', 'Glute Bridge'), 'core'],
 ];
 
 describe('getWorkoutDayType', () => {

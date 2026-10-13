@@ -242,3 +242,59 @@ exercise here is achievable with no equipment at all.
 | Jumping Jack | 4 x 30s | 45s |
 | Mountain Climber | 4 x 30s | 45s |
 | Foot Fires | 3 x 30s | 45s |
+
+---
+
+## Trend programs (Oct 2026)
+
+Added from 2026 fitness-trend research (ACSM, ClassPass, Life Time, Hyrox
+growth). SQL: `supabase_trend_workout_library.sql`. Cardio moves put their
+duration in the reps field ("30 min"), which the logger shows as the time
+target. Sled Push, Wall Ball and Hundred are new catalog exercises.
+
+### Beginner Incline Walk 12-3-30 (Gym)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Incline Walk | 1 x 30 min | – |
+| Dead Bug | 3 x 10 | 30s |
+| Bird dog | 3 x 10 | 30s |
+| Plank | 3 x 30s | 30s |
+
+12% incline at 3 mph; beginners can start at 6–8%.
+
+### Intermediate Zone 2 Cardio Base (Gym)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Cycling | 1 x 40 min | – |
+| Incline Walk | 1 x 20 min | – |
+| Bird dog | 3 x 10 | 30s |
+| Dead Bug | 3 x 12 | 30s |
+| Side Plank | 3 x 30s | 30s |
+
+Conversational pace, about 60–70% of max heart rate.
+
+### Intermediate Lower (Gym)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Goblet Squat | 4 x 10 | 90s |
+| Romanian Deadlift | 4 x 8 | 120s |
+| Hip Thrust | 3 x 10 | 90s |
+| Step-up | 3 x 10 | 60s |
+| Standing Calf Raise | 4 x 15 | 45s |
+
+### Advanced Hyrox Engine (Gym)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 4 x 1 km | 60s |
+| Sled Push | 4 x 25m | 60s |
+| Air Rowing | 4 x 500m | 60s |
+| Farmer Walk | 4 x 40m | 60s |
+| Wall Ball | 4 x 20 | 60s |
+
+### Home Beginner Pilates Core & Mobility (Home)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Hundred | 3 x 30s | 30s |
+| Dead Bug | 3 x 10 | 30s |
+| Bird dog | 3 x 10 | 30s |
+| Glute Bridge | 3 x 12 | 30s |

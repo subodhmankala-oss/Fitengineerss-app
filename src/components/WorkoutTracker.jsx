@@ -216,7 +216,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const loadLastCategory = () => {
     try {
       const saved = localStorage.getItem(lastCategoryKey);
-      return ['gym', 'home'].includes(saved) ? saved : null;
+      return ['gym', 'home', 'hyrox'].includes(saved) ? saved : null;
     } catch { return null; }
   };
   const loadWorkoutDraft = () => {
@@ -2604,6 +2604,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           reps: targetReps,
           weight: isBodyweightExercise(ex.name) ? '0' : '',
           isCompleted: false,
+          // A timed move (Plank 30s, SkiErg 4 min) shows its duration as the
+          // timer's target, the same as a coach plan's timed sets.
+          ...(isTimedExercise(ex.name) ? { targetTime: templateTargetTime(ex.reps) } : {}),
           // Kept so the reps input can show the plan's target range as a
           // placeholder hint once the lifter clears the pre-filled number.
           targetReps: ex.reps ? String(ex.reps) : null
@@ -3342,11 +3345,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               </div>
             </div>
 
-            {/* Gym vs Home — every level exists in both, so this sits above
-                the level tabs rather than replacing one of them. Home
-                programs are bodyweight/no-equipment only. */}
+            {/* Gym vs Home vs Hyrox — every level exists in each, so this
+                sits above the level tabs rather than replacing one of them.
+                Home programs are bodyweight/no-equipment only; Hyrox is race
+                training (runs + the 8 stations) and uses gym equipment. */}
             <div className="wt-category-toggle">
-              {[['gym', '🏋️ Gym'], ['home', '🏠 Home']].map(([cat, label]) => (
+              {[['gym', '🏋️ Gym'], ['home', '🏠 Home'], ['hyrox', '🏁 Hyrox']].map(([cat, label]) => (
                 <button
                   key={cat}
                   type="button"

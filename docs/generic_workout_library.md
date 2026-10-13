@@ -298,3 +298,54 @@ Conversational pace, about 60–70% of max heart rate.
 | Dead Bug | 3 x 10 | 30s |
 | Bird dog | 3 x 10 | 30s |
 | Glute Bridge | 3 x 12 | 30s |
+
+---
+
+## Hyrox section (Oct 2026)
+
+A third library section next to Gym and Home (`category = 'hyrox'`).
+SQL: `supabase_hyrox_section.sql`. Hyrox programs never swap exercises
+week to week and use the gym warm-ups. Advanced Hyrox Engine (above)
+moved here from Gym > Advanced.
+
+### Hyrox Starter (Beginner)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 3 x 500 m | 90s |
+| Sled Push | 3 x 15m | 90s |
+| Farmer Walk | 3 x 30m | 60s |
+| Wall Ball | 3 x 10 | 60s |
+
+### Hyrox Builder (Intermediate)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 4 x 1 km | 90s |
+| SkiErg | 4 x 2 min | 60s |
+| Sled Push | 4 x 20m | 90s |
+| Burpee Broad Jump | 3 x 10 | 60s |
+| Wall Ball | 3 x 15 | 60s |
+
+### Hyrox Strength (Intermediate)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Barbell Squat | 4 x 6 | 120s |
+| Romanian Deadlift | 4 x 8 | 90s |
+| Sled Pull | 4 x 20m | 90s |
+| Sandbag Lunge | 3 x 20m | 90s |
+| Farmer Walk | 4 x 40m | 60s |
+
+### Hyrox Half Race Sim (Advanced)
+All 8 stations in race order at half distance, with one 500 m run before
+each station (the 8 runs are one Running card with 8 sets).
+
+| Exercise | Sets x Reps |
+|---|---|
+| Running | 8 x 500 m |
+| SkiErg | 1 x 4 min |
+| Sled Push | 1 x 25m |
+| Sled Pull | 1 x 25m |
+| Burpee Broad Jump | 1 x 20 |
+| Air Rowing | 1 x 4 min |
+| Farmer Walk | 1 x 100m |
+| Sandbag Lunge | 1 x 50m |
+| Wall Ball | 1 x 50 |

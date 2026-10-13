@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 vi.mock('../services/databaseService', () => {
   const svc = {
@@ -25,6 +25,7 @@ vi.mock('../utils/pushNotify', () => ({ notifyEvent: vi.fn() }));
 import WorkoutTracker from './WorkoutTracker';
 import { TourProvider } from '../context/TourContext';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
+import databaseService from '../services/databaseService';
 
 Element.prototype.scrollTo = vi.fn();
 
@@ -55,5 +56,42 @@ describe('Library program with a cardio move (Incline Walk 12-3-30)', () => {
     expect(Array.from(card.querySelectorAll('.hevy-table-header span')).map(el => el.textContent.trim()).slice(0, 4))
       .toEqual(['SET', 'PREV', 'KM', 'TIME']);
     expect(card.querySelector('.cardio-time-input .set-value-placeholder').textContent).toBe('30:00');
+  });
+
+  it('a timed move shows its duration as the timer target (SkiErg 4 min → 04:00)', async () => {
+    startLibraryProgram('u1', 'hyrox', 'advanced', {
+      name: 'Hyrox Half Race Sim',
+      exercises: [{ name: 'Running', sets: 8, reps: '500 m' }, { name: 'SkiErg', sets: 2, reps: '4 min' }],
+    });
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    const card = (await screen.findAllByText('SkiErg'))
+      .map(el => el.closest('.hevy-exercise-card'))
+      .find(Boolean);
+    const placeholders = Array.from(card.querySelectorAll('.set-value-placeholder, input')).map(el => el.textContent || el.placeholder);
+    expect(placeholders.filter(t => t === '04:00')).toHaveLength(2);
+  });
+});
+
+describe('Workout Library Hyrox section', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
+
+  it('has a Hyrox button next to Gym and Home that loads the Hyrox programs', async () => {
+    localStorage.setItem('userName', 'TestClient');
+    localStorage.setItem('userId', 'u1');
+    localStorage.setItem('workoutTrackerLastTab_u1', 'templates');
+    databaseService.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => (
+      category === 'hyrox' && level === 'beginner'
+        ? [{ id: 'h1', name: 'Hyrox Starter', exercises: [{ name: 'Running', sets: 3, reps: '500 m' }] }]
+        : []
+    ));
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+
+    const buttons = Array.from(document.querySelectorAll('.wt-category-btn')).map(b => b.textContent);
+    expect(buttons).toEqual(['🏋️ Gym', '🏠 Home', '🏁 Hyrox']);
+    fireEvent.click(screen.getByText('🏁 Hyrox'));
+    fireEvent.click(screen.getByText(/Beginner/, { selector: 'button.wt-level-tab' }));
+    expect(await screen.findByText('Hyrox Starter')).toBeTruthy();
+    expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalledWith('beginner', 'hyrox');
+    expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('hyrox');
   });
 });

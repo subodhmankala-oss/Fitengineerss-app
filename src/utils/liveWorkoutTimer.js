@@ -607,6 +607,11 @@ function setWork(exerciseName, set, bodyWeightKg) {
       recovers: reps > 0,
     };
   }
+  // A weighted move with no kg typed (curls, extensions, pulldowns left at 0)
+  // has no load to price — without this the reps were costed as moving the
+  // client's own bodyweight and every such set earned work + recovery kcal,
+  // so a session of untouched 0 kg boxes still showed a real-looking burn.
+  if (weight <= 0) return { kcal: 0, workSeconds: 0, recovers: false };
   return {
     kcal: strengthKcal(reps, weight, bodyWeightKg),
     workSeconds: Math.min(reps, MAX_PLAUSIBLE_REPS_PER_SET) * STRENGTH_SECONDS_PER_REP,

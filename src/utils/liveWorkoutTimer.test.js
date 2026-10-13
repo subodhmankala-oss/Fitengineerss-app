@@ -355,3 +355,18 @@ describe('published per-hour ranges by body weight', () => {
     });
   });
 });
+
+describe('weighted strength sets left at 0 kg', () => {
+  const done = (set, at) => ({ isCompleted: true, completedAt: at, ...set });
+
+  it('earns no work or recovery kcal for a weighted move with no kg typed', () => {
+    const sets = [1, 2, 3].map((n) => done({ reps: '15', weight: '0' }, n * 60_000));
+    const r = computeLiveCalories([{ name: 'Bicep Curl (Dumbbell)', sets }], 1, [], 70);
+    expect(r.totalKcal).toBe(0);
+  });
+
+  it('still counts the same move once a weight is typed', () => {
+    const sets = [1, 2, 3].map((n) => done({ reps: '15', weight: '10' }, n * 60_000));
+    expect(computeLiveCalories([{ name: 'Bicep Curl (Dumbbell)', sets }], 1, [], 70).totalKcal).toBeGreaterThan(0);
+  });
+});

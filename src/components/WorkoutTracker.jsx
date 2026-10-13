@@ -316,6 +316,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const [genericLevel, setGenericLevel] = useState(loadLastLevel() || 'beginner');
   const [genericCategory, setGenericCategory] = useState(loadLastCategory() || 'gym');
   const [levelWorkouts, setLevelWorkouts] = useState([]);
+  const [levelMenuOpen, setLevelMenuOpen] = useState(false);
+  const levelMenuRef = useRef(null);
   // Difficulty level of the workout currently being logged, set only when the
   // session was started from the generic Workout Library (null for empty/
   // saved-template/coach-plan starts). Beginner-only exercises get an inline
@@ -340,15 +342,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   );
 
   // Load the difficulty-leveled generic workout library whenever the selected
-  // level or category (Gym/Home) changes.
+  // level or section (Gym/Home/Hyrox) changes.
   useEffect(() => {
     let cancelled = false;
     const loadLevelWorkouts = async () => {
       setLoadingLevelWorkouts(true);
       try {
         const workouts = await databaseService.getGenericWorkoutsByLevel(genericLevel, genericCategory);
-        // Newest first, so a program added to the library shows in the first
-        // four cards instead of behind "Show all". Display only — the Home
+        // Newest first, so a program added to the library leads its level
+        // instead of sitting behind "Show all". Display only — the Home
         // banner's rotation and the first-workout pick read their own copy,
         // oldest first, so a new client still starts at Full Body A.
         if (!cancelled) setLevelWorkouts([...(workouts || [])].reverse());
@@ -362,6 +364,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     loadLevelWorkouts();
     return () => { cancelled = true; };
   }, [genericLevel, genericCategory]);
+
+  // The level dropdown closes on a tap outside it or Escape.
+  useEffect(() => {
+    if (!levelMenuOpen) return undefined;
+    const onDown = (e) => { if (levelMenuRef.current && !levelMenuRef.current.contains(e.target)) setLevelMenuOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setLevelMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [levelMenuOpen]);
 
   // Persist the Workout Library level so the next mount restores it — see
   // lastLevelKey above. (activeView itself is NOT mirrored on every change:
@@ -3340,101 +3357,141 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       {activeView === 'templates' && (
         <div className="wt-templates-outer">
 
-          {/* Workout Library — Gym/Home × Beginner/Intermediate/Advanced */}
-          <div className="wt-section">
-            <div className="wt-library-header">
-              <div>
-                <h3 className="wt-library-title">Workout Library</h3>
-                <p className="wt-library-sub">Structured programs for every level</p>
-              </div>
-            </div>
+          {/* Workout Library — Gym/Home/Hyrox × Beginner/Intermediate/Advanced.
+              One row of section chips with the level as a
+              dropdown chip, the newest program as a featured card, then the
+              rest as a numbered list. */}
+          <div className="wt-section wt-library">
+            <h3 className="wt-library-title">Library</h3>
 
-            {/* Gym vs Home vs Hyrox — every level exists in each, so this
-                sits above the level tabs rather than replacing one of them.
-                Home programs are bodyweight/no-equipment only; Hyrox is race
-                training (runs + the 8 stations) and uses gym equipment. */}
-            <div className="wt-category-toggle">
-              {[['gym', '🏋️ Gym'], ['home', '🏠 Home'], ['hyrox', '🏁 Hyrox']].map(([cat, label]) => (
-                <button
-                  key={cat}
-                  type="button"
-                  className={`wt-category-btn${genericCategory === cat ? ' active' : ''}`}
-                  onClick={() => { setGenericCategory(cat); setShowAllLevelWorkouts(false); }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="wt-level-tabs" data-tour="wt-level-tabs">
-              {['beginner', 'intermediate', 'advanced'].map(level => (
-                <button
-                  key={level}
-                  className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
-                  onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); tour.advanceIfStep(3, 4); }}
-                >
-                  {level === 'beginner' && '🌱 '}
-                  {level === 'intermediate' && '⚡ '}
-                  {level === 'advanced' && '🔥 '}
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {loadingLevelWorkouts ? (
-              <div className="wt-empty-state">
-                <span>⏳</span> Loading {genericCategory} {genericLevel} workouts…
-              </div>
-            ) : levelWorkouts.length === 0 ? (
-              <div className="wt-empty-state">
-                <span>📭</span> No {genericCategory} {genericLevel} workouts available yet.
-              </div>
-            ) : (
-              <div className="wt-library-grid">
-                {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => {
-                  const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
-                  const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
-                  return (
-                    <button
-                      key={workout.id}
-                      type="button"
-                      className={`wt-program-card wt-program-card--${genericLevel}`}
-                      onClick={() => handleStartFromTemplate({ name: workout.name, exercises: exList }, genericLevel, genericCategory)}
-                    >
-                      <div className="wt-program-tile">
-                        {meta.muscles.length > 1 ? (
-                          <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={64} />
-                        ) : (
-                          <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={64} />
-                        )}
-                      </div>
-                      <div className="wt-program-info">
-                        <div className="wt-program-name">{workout.name}</div>
-                        <div className="wt-program-meta">
-                          <span className={`wt-program-dot wt-program-dot--${genericLevel}`} />
-                          {exList.length} exercise{exList.length === 1 ? '' : 's'}
-                        </div>
-                        {exList.length > 0 && (
-                          <div className="wt-program-preview">
-                            {exList.slice(0, 3).map(e => e.name).join(' · ')}{exList.length > 3 ? ` +${exList.length - 3}` : ''}
-                          </div>
-                        )}
-                      </div>
-                      <span className="wt-program-chevron">›</span>
-                    </button>
-                  );
-                })}
-                {!showAllLevelWorkouts && levelWorkouts.length > 4 && (
+            {/* Gym vs Home vs Hyrox. Home programs are bodyweight/no-equipment
+                only; Hyrox is race training (runs + the 8 stations) and uses
+                gym equipment. The level sits in the same row as a dropdown. */}
+            <div className="wt-chip-row">
+              <div className="wt-category-toggle">
+                {[['gym', 'Gym'], ['home', 'Home'], ['hyrox', 'Hyrox']].map(([cat, label]) => (
                   <button
+                    key={cat}
                     type="button"
-                    className="wt-show-all-btn"
-                    onClick={() => setShowAllLevelWorkouts(true)}
+                    className={`wt-category-btn${genericCategory === cat ? ' active' : ''}`}
+                    onClick={() => { setGenericCategory(cat); setShowAllLevelWorkouts(false); }}
                   >
-                    Show all {levelWorkouts.length} programs
+                    {label}
                   </button>
+                ))}
+              </div>
+
+              <div className="wt-level-menu" data-tour="wt-level-tabs" ref={levelMenuRef}>
+                <button
+                  type="button"
+                  className={`wt-level-chip wt-level-chip--${genericLevel}`}
+                  aria-haspopup="listbox"
+                  aria-expanded={levelMenuOpen}
+                  aria-label={`Difficulty level: ${genericLevel}`}
+                  onClick={() => setLevelMenuOpen(open => !open)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="3" y="14" width="4" height="7" rx="1" />
+                    <rect x="10" y="9" width="4" height="12" rx="1" opacity={genericLevel === 'beginner' ? 0.3 : 1} />
+                    <rect x="17" y="3" width="4" height="18" rx="1" opacity={genericLevel === 'advanced' ? 1 : 0.3} />
+                  </svg>
+                  <span>{genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1)}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </button>
+                {levelMenuOpen && (
+                  <div className="wt-level-popover" role="listbox" aria-label="Difficulty level">
+                    {['beginner', 'intermediate', 'advanced'].map(level => (
+                      <button
+                        key={level}
+                        type="button"
+                        role="option"
+                        aria-selected={genericLevel === level}
+                        className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
+                        onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); setLevelMenuOpen(false); tour.advanceIfStep(3, 4); }}
+                      >
+                        <span className={`wt-program-dot wt-program-dot--${level}`} />
+                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+
+            {(() => {
+              const startProgram = (workout, level) => handleStartFromTemplate(
+                { name: workout.name, exercises: Array.isArray(workout.exercises) ? workout.exercises : [] },
+                level,
+                genericCategory
+              );
+              const countLabel = (n) => `${n} exercise${n === 1 ? '' : 's'}`;
+              const previewOf = (exList) => `${exList.slice(0, 3).map(e => e.name).join(' · ')}${exList.length > 3 ? ` +${exList.length - 3}` : ''}`;
+
+              if (loadingLevelWorkouts) {
+                return (
+                  <div className="wt-empty-state">
+                    <span>⏳</span> Loading {genericCategory} workouts…
+                  </div>
+                );
+              }
+
+              if (levelWorkouts.length === 0) {
+                return (
+                  <div className="wt-empty-state">
+                    <span>📭</span> No {genericCategory} {genericLevel} workouts available yet.
+                  </div>
+                );
+              }
+
+              const [featured, ...rest] = levelWorkouts;
+              const featuredList = Array.isArray(featured.exercises) ? featured.exercises : [];
+              const featuredMeta = getPlanCardMeta({ exercises: featuredList, planName: featured.name });
+              const levelLabel = genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1);
+              const sectionLabel = genericCategory.charAt(0).toUpperCase() + genericCategory.slice(1);
+              return (
+                <>
+                  <button type="button" className={`wt-featured wt-featured--${genericLevel}`} onClick={() => startProgram(featured, genericLevel)}>
+                    <span className="wt-featured-chip">{sectionLabel} · {levelLabel}</span>
+                    <span className="wt-featured-body">
+                      <span className="wt-featured-text">
+                        <span className="wt-featured-name">{featured.name}</span>
+                        <span className="wt-featured-meta">{countLabel(featuredList.length)}{featuredList.length > 0 ? ` · ${previewOf(featuredList)}` : ''}</span>
+                      </span>
+                      <span className="wt-featured-tile">
+                        {featuredMeta.muscles.length > 1 ? (
+                          <FullBodyThumbnail trainedMuscles={featuredMeta.muscles} view={featuredMeta.view} size={56} />
+                        ) : (
+                          <MuscleThumbnail muscle={featuredMeta.primaryMuscle} color={featuredMeta.color} size={56} />
+                        )}
+                      </span>
+                    </span>
+                  </button>
+
+                  {rest.length > 0 && (
+                    <div className="wt-program-list">
+                      {(showAllLevelWorkouts ? rest : rest.slice(0, 4)).map((workout, i) => {
+                        const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
+                        return (
+                          <button key={workout.id} type="button" className="wt-program-row" onClick={() => startProgram(workout, genericLevel)}>
+                            <span className="wt-program-num">{String(i + 1).padStart(2, '0')}</span>
+                            <span className="wt-program-info">
+                              <span className="wt-program-name">{workout.name}</span>
+                              <span className="wt-program-meta">{countLabel(exList.length)}{exList.length > 0 ? ` · ${previewOf(exList)}` : ''}</span>
+                            </span>
+                            <span className="wt-program-chevron">›</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!showAllLevelWorkouts && rest.length > 4 && (
+                    <button type="button" className="wt-show-all-btn" onClick={() => setShowAllLevelWorkouts(true)}>
+                      Show all {levelWorkouts.length} programs
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Quick empty start CTA */}

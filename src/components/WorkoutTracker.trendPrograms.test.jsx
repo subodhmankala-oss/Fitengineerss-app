@@ -72,51 +72,70 @@ describe('Library program with a cardio move (Incline Walk 12-3-30)', () => {
   });
 });
 
-describe('Workout Library Hyrox section', () => {
+const libraryMock = {
+  'gym:beginner': ['Beginner Full Body A', 'Beginner Full Body B', 'Beginner Lower & Core', 'Beginner Incline Walk 12-3-30'],
+  'gym:intermediate': ['Intermediate Push', 'Intermediate Pull', 'Intermediate Legs', 'Intermediate Upper Body', 'Intermediate Core & Conditioning', 'Intermediate Zone 2 Cardio Base', 'Intermediate Lower'],
+  'gym:advanced': ['Advanced Push (Strength)'],
+  'hyrox:beginner': ['Hyrox Starter', 'Hyrox Foundations', 'Hyrox Run & Row'],
+};
+// As the database returns them: oldest first (created_at asc).
+const mockLibrary = () => databaseService.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => (
+  (libraryMock[`${category}:${level}`] || []).map((name, i) => ({
+    id: `${category}-${level}-${i}`,
+    name,
+    exercises: [{ name: name.includes('Zone 2') ? 'Cycling' : 'Goblet Squat', sets: 3, reps: '10' }],
+  }))
+));
+const openLibrary = () => {
+  localStorage.setItem('userName', 'TestClient');
+  localStorage.setItem('userId', 'u1');
+  localStorage.setItem('workoutTrackerLastTab_u1', 'templates');
+};
+const rowNames = () => Array.from(document.querySelectorAll('.wt-program-name')).map(el => el.textContent);
+
+describe('Workout Library screen', () => {
   afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
-  it('has a Hyrox button next to Gym and Home that loads the Hyrox programs', async () => {
-    localStorage.setItem('userName', 'TestClient');
-    localStorage.setItem('userId', 'u1');
-    localStorage.setItem('workoutTrackerLastTab_u1', 'templates');
-    databaseService.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => (
-      category === 'hyrox' && level === 'beginner'
-        ? [{ id: 'h1', name: 'Hyrox Starter', exercises: [{ name: 'Running', sets: 3, reps: '500 m' }] }]
-        : []
-    ));
+  it('has Gym / Home / Hyrox chips and a level dropdown, and no search box', async () => {
+    openLibrary();
+    mockLibrary();
     render(<TourProvider><WorkoutTracker /></TourProvider>);
+    await screen.findByText('Beginner Incline Walk 12-3-30');
+    expect(Array.from(document.querySelectorAll('.wt-category-btn')).map(b => b.textContent)).toEqual(['Gym', 'Home', 'Hyrox']);
+    expect(screen.queryByLabelText('Search programs')).toBeNull();
+    expect(screen.getByLabelText('Difficulty level: beginner')).toBeTruthy();
+  });
 
-    const buttons = Array.from(document.querySelectorAll('.wt-category-btn')).map(b => b.textContent);
-    expect(buttons).toEqual(['🏋️ Gym', '🏠 Home', '🏁 Hyrox']);
-    fireEvent.click(screen.getByText('🏁 Hyrox'));
-    fireEvent.click(screen.getByText(/Beginner/, { selector: 'button.wt-level-tab' }));
-    expect(await screen.findByText('Hyrox Starter')).toBeTruthy();
+  it('Hyrox chip loads the Hyrox programs, newest as the featured card', async () => {
+    openLibrary();
+    mockLibrary();
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+    await screen.findByText('Beginner Incline Walk 12-3-30');
+    fireEvent.click(screen.getByText('Hyrox'));
+    expect(await screen.findByText('Hyrox Run & Row')).toBeTruthy();
+    expect(document.querySelector('.wt-featured-name').textContent).toBe('Hyrox Run & Row');
+    expect(rowNames()).toEqual(['Hyrox Foundations', 'Hyrox Starter']);
     expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalledWith('beginner', 'hyrox');
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('hyrox');
   });
-});
 
-describe('Workout Library order', () => {
-  afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
-
-  it('shows the newest programs first, so a new one is in the first four cards', async () => {
-    localStorage.setItem('userName', 'TestClient');
-    localStorage.setItem('userId', 'u1');
-    localStorage.setItem('workoutTrackerLastTab_u1', 'templates');
-    localStorage.setItem('workoutTrackerLastLevel_u1', 'intermediate');
-    localStorage.setItem('workoutTrackerLastCategory_u1', 'gym');
-    // As the database returns them: oldest first (created_at asc).
-    const names = ['Intermediate Push', 'Intermediate Pull', 'Intermediate Legs', 'Intermediate Upper Body', 'Intermediate Core & Conditioning', 'Intermediate Zone 2 Cardio Base', 'Intermediate Lower'];
-    databaseService.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => (
-      level === 'intermediate' && category === 'gym'
-        ? names.map((name, i) => ({ id: `p${i}`, name, exercises: [{ name: 'Goblet Squat', sets: 3, reps: '10' }] }))
-        : []
-    ));
+  it('the level dropdown switches level, and the newest program leads with the rest numbered', async () => {
+    openLibrary();
+    mockLibrary();
     render(<TourProvider><WorkoutTracker /></TourProvider>);
+    await screen.findByText('Beginner Incline Walk 12-3-30');
+    expect(document.querySelector('.wt-level-popover')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Difficulty level: beginner'));
+    fireEvent.click(screen.getByRole('option', { name: 'Intermediate' }));
+    expect(document.querySelector('.wt-level-popover')).toBeNull();
 
-    await screen.findByText('Intermediate Lower');
-    expect(Array.from(document.querySelectorAll('.wt-program-name')).map(el => el.textContent))
-      .toEqual(['Intermediate Lower', 'Intermediate Zone 2 Cardio Base', 'Intermediate Core & Conditioning', 'Intermediate Upper Body']);
+    expect(await screen.findByText('Intermediate Lower')).toBeTruthy();
+    expect(document.querySelector('.wt-featured-name').textContent).toBe('Intermediate Lower');
+    // The featured card is the newest; the list is the next four, numbered.
+    expect(rowNames()).toEqual(['Intermediate Zone 2 Cardio Base', 'Intermediate Core & Conditioning', 'Intermediate Upper Body', 'Intermediate Legs']);
+    expect(Array.from(document.querySelectorAll('.wt-program-num')).map(el => el.textContent)).toEqual(['01', '02', '03', '04']);
     expect(screen.getByText('Show all 7 programs')).toBeTruthy();
+    fireEvent.click(screen.getByText('Show all 7 programs'));
+    expect(rowNames()).toHaveLength(6);
   });
 });

@@ -32,9 +32,6 @@ const STEPS = {
     title: 'Pick Your Level',
     desc: 'These are ready-made generic templates — Beginner, Intermediate or Advanced.',
     cta: { label: 'Next', action: 'next', to: 4 },
-    // The container isn't clickable — pick the first real level button inside it.
-    autoClick: true,
-    autoClickSelector: '[data-tour="wt-level-tabs"] .wt-level-tab',
   },
   4: {
     icon: '✍️',

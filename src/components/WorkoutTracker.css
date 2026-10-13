@@ -4654,21 +4654,52 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-level-tabs {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid rgba(var(--fg-rgb), 0.07);
-  border-radius: 12px;
-  padding: 4px;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.wt-level-current {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wt-level-current-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.wt-level-current-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.wt-level-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .wt-level-tab {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--fg-rgb), 0.14);
+  background: rgba(var(--fg-rgb), 0.03);
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -4677,29 +4708,22 @@ html.keyboard-open .rest-timer-floating-card {
 }
 
 .wt-level-tab:hover:not(.active) {
-  color: rgba(var(--fg-rgb), 0.7);
-  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 
-.wt-level-tab.active.wt-level-tab--beginner {
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-text);
+/* The picked level is a solid, high-contrast button in either theme (dark on
+   light, light on dark); its colour lives in the dot beside the level name. */
+.wt-level-tab.active {
+  background: var(--text-main);
+  border-color: var(--text-main);
+  color: var(--bg-app);
 }
 
-.wt-level-tab.active.wt-level-tab--intermediate {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
+@media (max-width: 420px) {
+  .wt-level-options { width: 100%; }
+  .wt-level-tab { flex: 1; padding: 8px 6px; }
 }
-
-.wt-level-tab.active.wt-level-tab--advanced {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-}
-
-/* The bright amber/red read faintly on the pale tinted pill in light mode —
-   darker shades of the same colours keep the level colour but stay legible. */
-[data-theme="light"] .wt-level-tab.active.wt-level-tab--intermediate { color: #b45309; }
-[data-theme="light"] .wt-level-tab.active.wt-level-tab--advanced { color: #b91c1c; }
 
 /* Library card list */
 .wt-library-grid {

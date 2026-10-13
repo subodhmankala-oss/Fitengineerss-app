@@ -3366,19 +3366,31 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               ))}
             </div>
 
+            {/* Difficulty is a different kind of choice from Gym/Home/Hyrox, so
+                it isn't another pill row: the picked level reads on the left
+                (with its colour dot) and the three levels are small buttons
+                on the right. */}
             <div className="wt-level-tabs" data-tour="wt-level-tabs">
-              {['beginner', 'intermediate', 'advanced'].map(level => (
-                <button
-                  key={level}
-                  className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
-                  onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); tour.advanceIfStep(3, 4); }}
-                >
-                  {level === 'beginner' && '🌱 '}
-                  {level === 'intermediate' && '⚡ '}
-                  {level === 'advanced' && '🔥 '}
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </button>
-              ))}
+              <div className="wt-level-current">
+                <span className="wt-level-current-label">Difficulty Level:</span>
+                <span className="wt-level-current-name">
+                  {genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1)}
+                  <span className={`wt-program-dot wt-program-dot--${genericLevel}`} />
+                </span>
+              </div>
+              <div className="wt-level-options">
+                {['beginner', 'intermediate', 'advanced'].map(level => (
+                  <button
+                    key={level}
+                    type="button"
+                    aria-pressed={genericLevel === level}
+                    className={`wt-level-tab wt-level-tab--${level}${genericLevel === level ? ' active' : ''}`}
+                    onClick={() => { setGenericLevel(level); setShowAllLevelWorkouts(false); tour.advanceIfStep(3, 4); }}
+                  >
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {loadingLevelWorkouts ? (

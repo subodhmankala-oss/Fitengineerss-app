@@ -349,3 +349,39 @@ each station (the 8 runs are one Running card with 8 sets).
 | Farmer Walk | 1 x 100m |
 | Sandbag Lunge | 1 x 50m |
 | Wall Ball | 1 x 50 |
+
+### Hyrox Run & Row (Beginner)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 4 x 400 m | 90s |
+| Air Rowing | 3 x 2 min | 60s |
+| Lunge | 3 x 10 | 60s |
+| Wall Ball | 3 x 10 | 60s |
+
+### Hyrox Foundations (Beginner)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Goblet Squat | 3 x 10 | 90s |
+| Kettlebell Swing | 3 x 12 | 60s |
+| Sled Pull | 3 x 15m | 90s |
+| Farmer Walk | 3 x 30m | 60s |
+
+### Hyrox Compromised Run (Intermediate)
+One 800 m run straight after each station round.
+
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 4 x 800 m | – |
+| Sandbag Lunge | 4 x 20m | 60s |
+| Air Rowing | 4 x 2 min | 60s |
+| Wall Ball | 4 x 15 | 60s |
+| Farmer Walk | 4 x 40m | 60s |
+
+### Hyrox Heavy Stations (Advanced)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Front Squat | 4 x 5 | 120s |
+| Sled Push | 5 x 20m | 120s |
+| Sled Pull | 5 x 20m | 120s |
+| Sandbag Lunge | 4 x 30m | 90s |
+| Wall Ball | 4 x 25 | 60s |

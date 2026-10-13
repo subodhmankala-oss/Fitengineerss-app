@@ -3359,8 +3359,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
           {/* Workout Library — Gym/Home/Hyrox × Beginner/Intermediate/Advanced.
               One row of section chips with the level as a
-              dropdown chip, the newest program as a featured card, then the
-              rest as a numbered list. */}
+              dropdown chip, then every program as a row with its muscle map. */}
           <div className="wt-section wt-library">
             <h3 className="wt-library-title">Library</h3>
 
@@ -3443,48 +3442,31 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 );
               }
 
-              const [featured, ...rest] = levelWorkouts;
-              const featuredList = Array.isArray(featured.exercises) ? featured.exercises : [];
-              const featuredMeta = getPlanCardMeta({ exercises: featuredList, planName: featured.name });
-              const levelLabel = genericLevel.charAt(0).toUpperCase() + genericLevel.slice(1);
-              const sectionLabel = genericCategory.charAt(0).toUpperCase() + genericCategory.slice(1);
               return (
                 <>
-                  <button type="button" className={`wt-featured wt-featured--${genericLevel}`} onClick={() => startProgram(featured, genericLevel)}>
-                    <span className="wt-featured-chip">{sectionLabel} · {levelLabel}</span>
-                    <span className="wt-featured-body">
-                      <span className="wt-featured-text">
-                        <span className="wt-featured-name">{featured.name}</span>
-                        <span className="wt-featured-meta">{countLabel(featuredList.length)}{featuredList.length > 0 ? ` · ${previewOf(featuredList)}` : ''}</span>
-                      </span>
-                      <span className="wt-featured-tile">
-                        {featuredMeta.muscles.length > 1 ? (
-                          <FullBodyThumbnail trainedMuscles={featuredMeta.muscles} view={featuredMeta.view} size={56} />
-                        ) : (
-                          <MuscleThumbnail muscle={featuredMeta.primaryMuscle} color={featuredMeta.color} size={56} />
-                        )}
-                      </span>
-                    </span>
-                  </button>
-
-                  {rest.length > 0 && (
-                    <div className="wt-program-list">
-                      {(showAllLevelWorkouts ? rest : rest.slice(0, 4)).map((workout, i) => {
-                        const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
-                        return (
-                          <button key={workout.id} type="button" className="wt-program-row" onClick={() => startProgram(workout, genericLevel)}>
-                            <span className="wt-program-num">{String(i + 1).padStart(2, '0')}</span>
-                            <span className="wt-program-info">
-                              <span className="wt-program-name">{workout.name}</span>
-                              <span className="wt-program-meta">{countLabel(exList.length)}{exList.length > 0 ? ` · ${previewOf(exList)}` : ''}</span>
-                            </span>
-                            <span className="wt-program-chevron">›</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {!showAllLevelWorkouts && rest.length > 4 && (
+                  <div className="wt-program-list">
+                    {(showAllLevelWorkouts ? levelWorkouts : levelWorkouts.slice(0, 4)).map(workout => {
+                      const exList = Array.isArray(workout.exercises) ? workout.exercises : [];
+                      const meta = getPlanCardMeta({ exercises: exList, planName: workout.name });
+                      return (
+                        <button key={workout.id} type="button" className="wt-program-row" onClick={() => startProgram(workout, genericLevel)}>
+                          <span className="wt-program-tile">
+                            {meta.muscles.length > 1 ? (
+                              <FullBodyThumbnail trainedMuscles={meta.muscles} view={meta.view} size={56} />
+                            ) : (
+                              <MuscleThumbnail muscle={meta.primaryMuscle} color={meta.color} size={56} />
+                            )}
+                          </span>
+                          <span className="wt-program-info">
+                            <span className="wt-program-name">{workout.name}</span>
+                            <span className="wt-program-meta">{countLabel(exList.length)}{exList.length > 0 ? ` · ${previewOf(exList)}` : ''}</span>
+                          </span>
+                          <span className="wt-program-chevron">›</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!showAllLevelWorkouts && levelWorkouts.length > 4 && (
                     <button type="button" className="wt-show-all-btn" onClick={() => setShowAllLevelWorkouts(true)}>
                       Show all {levelWorkouts.length} programs
                     </button>

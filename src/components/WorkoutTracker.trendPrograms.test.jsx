@@ -106,20 +106,19 @@ describe('Workout Library screen', () => {
     expect(screen.getByLabelText('Difficulty level: beginner')).toBeTruthy();
   });
 
-  it('Hyrox chip loads the Hyrox programs, newest as the featured card', async () => {
+  it('Hyrox chip loads the Hyrox programs, newest first', async () => {
     openLibrary();
     mockLibrary();
     render(<TourProvider><WorkoutTracker /></TourProvider>);
     await screen.findByText('Beginner Incline Walk 12-3-30');
     fireEvent.click(screen.getByText('Hyrox'));
     expect(await screen.findByText('Hyrox Run & Row')).toBeTruthy();
-    expect(document.querySelector('.wt-featured-name').textContent).toBe('Hyrox Run & Row');
-    expect(rowNames()).toEqual(['Hyrox Foundations', 'Hyrox Starter']);
+    expect(rowNames()).toEqual(['Hyrox Run & Row', 'Hyrox Foundations', 'Hyrox Starter']);
     expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalledWith('beginner', 'hyrox');
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('hyrox');
   });
 
-  it('the level dropdown switches level, and the newest program leads with the rest numbered', async () => {
+  it('the level dropdown switches level; every program is an equal row with a muscle map, newest first', async () => {
     openLibrary();
     mockLibrary();
     render(<TourProvider><WorkoutTracker /></TourProvider>);
@@ -130,12 +129,13 @@ describe('Workout Library screen', () => {
     expect(document.querySelector('.wt-level-popover')).toBeNull();
 
     expect(await screen.findByText('Intermediate Lower')).toBeTruthy();
-    expect(document.querySelector('.wt-featured-name').textContent).toBe('Intermediate Lower');
-    // The featured card is the newest; the list is the next four, numbered.
-    expect(rowNames()).toEqual(['Intermediate Zone 2 Cardio Base', 'Intermediate Core & Conditioning', 'Intermediate Upper Body', 'Intermediate Legs']);
-    expect(Array.from(document.querySelectorAll('.wt-program-num')).map(el => el.textContent)).toEqual(['01', '02', '03', '04']);
+    // No featured card and no numbers: just the first four rows, newest first.
+    expect(document.querySelector('.wt-featured')).toBeNull();
+    expect(document.querySelector('.wt-program-num')).toBeNull();
+    expect(rowNames()).toEqual(['Intermediate Lower', 'Intermediate Zone 2 Cardio Base', 'Intermediate Core & Conditioning', 'Intermediate Upper Body']);
+    expect(document.querySelectorAll('.wt-program-row .wt-program-tile svg').length).toBeGreaterThanOrEqual(4);
     expect(screen.getByText('Show all 7 programs')).toBeTruthy();
     fireEvent.click(screen.getByText('Show all 7 programs'));
-    expect(rowNames()).toHaveLength(6);
+    expect(rowNames()).toHaveLength(7);
   });
 });

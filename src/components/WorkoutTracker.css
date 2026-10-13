@@ -4705,80 +4705,7 @@ html.keyboard-open .rest-timer-floating-card {
   font-weight: 800;
 }
 
-/* Featured program — the newest in the picked level, as a tinted hero card. */
-.wt-featured {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  width: 100%;
-  padding: 16px;
-  border-radius: 22px;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--text-main);
-  background: rgba(var(--accent-rgb), 0.12);
-  transition: transform 0.15s ease;
-}
-
-.wt-featured--intermediate { background: rgba(245, 158, 11, 0.13); }
-.wt-featured--advanced { background: rgba(239, 68, 68, 0.11); }
-
-.wt-featured:active {
-  transform: scale(0.99);
-}
-
-.wt-featured-chip {
-  align-self: flex-start;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--bg-card, #fff);
-  color: var(--text-main);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.wt-featured-body {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.wt-featured-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.wt-featured-name {
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-}
-
-.wt-featured-meta {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-.wt-featured-tile {
-  flex-shrink: 0;
-  width: 72px;
-  height: 72px;
-  border-radius: 14px;
-  background: #eef1f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-/* Numbered list — rows, not cards, separated by hairlines. */
+/* Program list — rows, not cards, separated by hairlines. */
 .wt-program-list {
   display: flex;
   flex-direction: column;
@@ -4807,22 +4734,18 @@ html.keyboard-open .rest-timer-floating-card {
   background: rgba(var(--fg-rgb), 0.04);
 }
 
-.wt-program-num {
+/* Muscle heat-map tile — shows which muscles the program trains. */
+.wt-program-tile {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 68px;
+  height: 68px;
   border-radius: 14px;
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-text);
-  font-size: 0.85rem;
-  font-weight: 800;
+  background: #eef1f5;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
-
-.wt-program-num--intermediate { background: rgba(245, 158, 11, 0.14); }
-.wt-program-num--advanced { background: rgba(239, 68, 68, 0.12); }
 
 .wt-program-info {
   flex: 1;

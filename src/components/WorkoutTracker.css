@@ -4608,7 +4608,7 @@ html.keyboard-open .rest-timer-floating-card {
 
 .wt-library-sub {
   font-size: 0.73rem;
-  color: rgba(148, 163, 184, 0.55);
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -4633,7 +4633,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 9px;
   border: none;
   background: transparent;
-  color: rgba(148, 163, 184, 0.55);
+  color: var(--text-muted);
   font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
@@ -4667,7 +4667,7 @@ html.keyboard-open .rest-timer-floating-card {
   border-radius: 9px;
   border: none;
   background: transparent;
-  color: rgba(148, 163, 184, 0.55);
+  color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
@@ -4695,6 +4695,11 @@ html.keyboard-open .rest-timer-floating-card {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
 }
+
+/* The bright amber/red read faintly on the pale tinted pill in light mode —
+   darker shades of the same colours keep the level colour but stay legible. */
+[data-theme="light"] .wt-level-tab.active.wt-level-tab--intermediate { color: #b45309; }
+[data-theme="light"] .wt-level-tab.active.wt-level-tab--advanced { color: #b91c1c; }
 
 /* Library card list */
 .wt-library-grid {
@@ -4765,7 +4770,7 @@ html.keyboard-open .rest-timer-floating-card {
   gap: 6px;
   font-size: 0.72rem;
   font-weight: 600;
-  color: rgba(148, 163, 184, 0.75);
+  color: var(--text-muted);
 }
 
 .wt-program-dot {
@@ -4779,8 +4784,9 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-program-dot--advanced { background: #ef4444; }
 
 .wt-program-preview {
-  font-size: 0.69rem;
-  color: rgba(148, 163, 184, 0.5);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4789,7 +4795,8 @@ html.keyboard-open .rest-timer-floating-card {
 .wt-program-chevron {
   font-size: 1.5rem;
   line-height: 1;
-  color: rgba(148, 163, 184, 0.45);
+  color: var(--text-muted);
+  opacity: 0.7;
   padding-right: 2px;
 }
 

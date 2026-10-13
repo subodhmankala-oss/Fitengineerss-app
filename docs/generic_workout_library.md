@@ -385,3 +385,75 @@ One 800 m run straight after each station round.
 | Sled Pull | 5 x 20m | 120s |
 | Sandbag Lunge | 4 x 30m | 90s |
 | Wall Ball | 4 x 25 | 60s |
+
+### Hyrox Intervals (Intermediate)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 6 x 400 m | 60s |
+| SkiErg | 5 x 1 min | 60s |
+| Air Rowing | 5 x 1 min | 60s |
+| Burpee Broad Jump | 3 x 10 | 60s |
+| Wall Ball | 3 x 15 | 60s |
+
+### Hyrox Upper Strength (Intermediate)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Pull-up | 4 x 6 | 90s |
+| Dumbbell Row | 3 x 10 | 60s |
+| Overhead Press (Dumbbell) | 3 x 10 | 60s |
+| Farmer Walk | 3 x 40m | 60s |
+| Plank | 3 x 45s | 45s |
+
+### Hyrox Full Race Sim (Advanced)
+The full race at real distances, one 1 km run before each station. Best
+done about once a month (60-90 min).
+
+| Exercise | Sets x Reps |
+|---|---|
+| Running | 8 x 1 km |
+| SkiErg | 1 x 5 min |
+| Sled Push | 1 x 50m |
+| Sled Pull | 1 x 50m |
+| Burpee Broad Jump | 1 x 40 |
+| Air Rowing | 1 x 5 min |
+| Farmer Walk | 1 x 200m |
+| Sandbag Lunge | 1 x 100m |
+| Wall Ball | 1 x 100 |
+
+### Hyrox Threshold Run (Advanced)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Running | 5 x 1 km (race pace) | 90s |
+| SkiErg | 3 x 3 min | 90s |
+| Wall Ball | 3 x 20 | 60s |
+| Hanging Knee Raise | 3 x 12 | 60s |
+
+### Hyrox Station Circuit (Advanced)
+Five stations back to back, 5 rounds; rest after each round.
+
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Kettlebell Swing | 5 x 20 | – |
+| Burpee Broad Jump | 5 x 10 | – |
+| Sled Push | 5 x 15m | – |
+| Wall Ball | 5 x 20 | – |
+| Air Rowing | 5 x 1 min | 90s |
+
+### Hyrox Upper & Grip (Advanced)
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Pull-up | 5 x 5 | 120s |
+| Barbell Row | 4 x 8 | 90s |
+| Push Press | 4 x 6 | 90s |
+| Sled Pull | 4 x 25m | 90s |
+| Farmer Walk | 4 x 60m | 90s |
+
+### Hyrox Recovery Zone 2 (Advanced)
+An easy aerobic day between hard sessions.
+
+| Exercise | Sets x Reps | Rest |
+|---|---|---|
+| Cycling | 1 x 40 min | – |
+| SkiErg | 1 x 10 min | – |
+| Bird dog | 3 x 10 | 30s |
+| Side Plank | 3 x 30s | 30s |

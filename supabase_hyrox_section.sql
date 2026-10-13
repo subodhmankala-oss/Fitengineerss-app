@@ -90,3 +90,117 @@ SELECT 'Hyrox Half Race Sim', '[
   {"name": "Wall Ball", "sets": 1, "reps": "50", "rest": "0s", "order": 9}
 ]'::jsonb, true, 'advanced', 'hyrox'
 WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Half Race Sim' AND category = 'hyrox');
+
+-- ─── THIRD PROGRAM PER LEVEL (same 3-per-level pattern as Gym/Home) ───
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Run & Row', '[
+  {"name": "Running", "sets": 4, "reps": "400 m", "rest": "90s", "order": 1},
+  {"name": "Air Rowing", "sets": 3, "reps": "2 min", "rest": "60s", "order": 2},
+  {"name": "Lunge", "sets": 3, "reps": "10", "rest": "60s", "order": 3},
+  {"name": "Wall Ball", "sets": 3, "reps": "10", "rest": "60s", "order": 4}
+]'::jsonb, true, 'beginner', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Run & Row' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Foundations', '[
+  {"name": "Goblet Squat", "sets": 3, "reps": "10", "rest": "90s", "order": 1},
+  {"name": "Kettlebell Swing", "sets": 3, "reps": "12", "rest": "60s", "order": 2},
+  {"name": "Sled Pull", "sets": 3, "reps": "15m", "rest": "90s", "order": 3},
+  {"name": "Farmer Walk", "sets": 3, "reps": "30m", "rest": "60s", "order": 4}
+]'::jsonb, true, 'beginner', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Foundations' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Compromised Run', '[
+  {"name": "Running", "sets": 4, "reps": "800 m", "rest": "0s", "order": 1},
+  {"name": "Sandbag Lunge", "sets": 4, "reps": "20m", "rest": "60s", "order": 2},
+  {"name": "Air Rowing", "sets": 4, "reps": "2 min", "rest": "60s", "order": 3},
+  {"name": "Wall Ball", "sets": 4, "reps": "15", "rest": "60s", "order": 4},
+  {"name": "Farmer Walk", "sets": 4, "reps": "40m", "rest": "60s", "order": 5}
+]'::jsonb, true, 'intermediate', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Compromised Run' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Heavy Stations', '[
+  {"name": "Front Squat", "sets": 4, "reps": "5", "rest": "120s", "order": 1},
+  {"name": "Sled Push", "sets": 5, "reps": "20m", "rest": "120s", "order": 2},
+  {"name": "Sled Pull", "sets": 5, "reps": "20m", "rest": "120s", "order": 3},
+  {"name": "Sandbag Lunge", "sets": 4, "reps": "30m", "rest": "90s", "order": 4},
+  {"name": "Wall Ball", "sets": 4, "reps": "25", "rest": "60s", "order": 5}
+]'::jsonb, true, 'advanced', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Heavy Stations' AND category = 'hyrox');
+
+-- ─── FILLING OUT THE LEVELS: Intermediate 5, Advanced 8 ───
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Intervals', '[
+  {"name": "Running", "sets": 6, "reps": "400 m", "rest": "60s", "order": 1},
+  {"name": "SkiErg", "sets": 5, "reps": "1 min", "rest": "60s", "order": 2},
+  {"name": "Air Rowing", "sets": 5, "reps": "1 min", "rest": "60s", "order": 3},
+  {"name": "Burpee Broad Jump", "sets": 3, "reps": "10", "rest": "60s", "order": 4},
+  {"name": "Wall Ball", "sets": 3, "reps": "15", "rest": "60s", "order": 5}
+]'::jsonb, true, 'intermediate', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Intervals' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Upper Strength', '[
+  {"name": "Pull-up", "sets": 4, "reps": "6", "rest": "90s", "order": 1},
+  {"name": "Dumbbell Row", "sets": 3, "reps": "10", "rest": "60s", "order": 2},
+  {"name": "Overhead Press (Dumbbell)", "sets": 3, "reps": "10", "rest": "60s", "order": 3},
+  {"name": "Farmer Walk", "sets": 3, "reps": "40m", "rest": "60s", "order": 4},
+  {"name": "Plank", "sets": 3, "reps": "45s", "rest": "45s", "order": 5}
+]'::jsonb, true, 'intermediate', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Upper Strength' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Full Race Sim', '[
+  {"name": "Running", "sets": 8, "reps": "1 km", "rest": "0s", "order": 1},
+  {"name": "SkiErg", "sets": 1, "reps": "5 min", "rest": "0s", "order": 2},
+  {"name": "Sled Push", "sets": 1, "reps": "50m", "rest": "0s", "order": 3},
+  {"name": "Sled Pull", "sets": 1, "reps": "50m", "rest": "0s", "order": 4},
+  {"name": "Burpee Broad Jump", "sets": 1, "reps": "40", "rest": "0s", "order": 5},
+  {"name": "Air Rowing", "sets": 1, "reps": "5 min", "rest": "0s", "order": 6},
+  {"name": "Farmer Walk", "sets": 1, "reps": "200m", "rest": "0s", "order": 7},
+  {"name": "Sandbag Lunge", "sets": 1, "reps": "100m", "rest": "0s", "order": 8},
+  {"name": "Wall Ball", "sets": 1, "reps": "100", "rest": "0s", "order": 9}
+]'::jsonb, true, 'advanced', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Full Race Sim' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Threshold Run', '[
+  {"name": "Running", "sets": 5, "reps": "1 km", "rest": "90s", "order": 1},
+  {"name": "SkiErg", "sets": 3, "reps": "3 min", "rest": "90s", "order": 2},
+  {"name": "Wall Ball", "sets": 3, "reps": "20", "rest": "60s", "order": 3},
+  {"name": "Hanging Knee Raise", "sets": 3, "reps": "12", "rest": "60s", "order": 4}
+]'::jsonb, true, 'advanced', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Threshold Run' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Station Circuit', '[
+  {"name": "Kettlebell Swing", "sets": 5, "reps": "20", "rest": "0s", "order": 1},
+  {"name": "Burpee Broad Jump", "sets": 5, "reps": "10", "rest": "0s", "order": 2},
+  {"name": "Sled Push", "sets": 5, "reps": "15m", "rest": "0s", "order": 3},
+  {"name": "Wall Ball", "sets": 5, "reps": "20", "rest": "0s", "order": 4},
+  {"name": "Air Rowing", "sets": 5, "reps": "1 min", "rest": "90s", "order": 5}
+]'::jsonb, true, 'advanced', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Station Circuit' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Upper & Grip', '[
+  {"name": "Pull-up", "sets": 5, "reps": "5", "rest": "120s", "order": 1},
+  {"name": "Barbell Row", "sets": 4, "reps": "8", "rest": "90s", "order": 2},
+  {"name": "Push Press", "sets": 4, "reps": "6", "rest": "90s", "order": 3},
+  {"name": "Sled Pull", "sets": 4, "reps": "25m", "rest": "90s", "order": 4},
+  {"name": "Farmer Walk", "sets": 4, "reps": "60m", "rest": "90s", "order": 5}
+]'::jsonb, true, 'advanced', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Upper & Grip' AND category = 'hyrox');
+
+INSERT INTO public.workout_templates (name, exercises, is_default, difficulty_level, category)
+SELECT 'Hyrox Recovery Zone 2', '[
+  {"name": "Cycling", "sets": 1, "reps": "40 min", "rest": "0s", "order": 1},
+  {"name": "SkiErg", "sets": 1, "reps": "10 min", "rest": "0s", "order": 2},
+  {"name": "Bird dog", "sets": 3, "reps": "10", "rest": "30s", "order": 3},
+  {"name": "Side Plank", "sets": 3, "reps": "30s", "rest": "30s", "order": 4}
+]'::jsonb, true, 'advanced', 'hyrox'
+WHERE NOT EXISTS (SELECT 1 FROM public.workout_templates WHERE name = 'Hyrox Recovery Zone 2' AND category = 'hyrox');

@@ -135,6 +135,9 @@ function weekNumber(date) {
 // returns the exercises unchanged.
 export function applyWeeklySwaps({ programName, exercises, level, category, date = new Date() }) {
   const list = Array.isArray(exercises) ? exercises : [];
+  // Hyrox programs train the race's own stations — swapping Wall Ball for
+  // Ball Slam would miss the point — so they never swap.
+  if (category === 'hyrox') return list;
   const dayType = getWorkoutDayType(programName, list);
   const { count, firstSwappable } = swapRule(programName, level, dayType);
   if (count === 0) return list;

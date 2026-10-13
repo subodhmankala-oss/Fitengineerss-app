@@ -20,6 +20,22 @@ describe('Hyrox and Pilates exercises', () => {
     expect(getMuscleGroupsForExercise('Wall Ball')).toEqual(expect.arrayContaining(['Quads', 'Shoulders']));
   });
 
+  it('SkiErg is timed like Air Rowing, not km + time', () => {
+    expect(inferCategory('SkiErg')).toBe('Cardio');
+    expect(isCardioExercise('SkiErg')).toBe(false);
+    expect(isTimedExercise('SkiErg')).toBe(true);
+    expect(isBodyweightExercise('SkiErg')).toBe(false);
+  });
+
+  it('Sandbag Lunge is kg + metres; Burpee Broad Jump is bodyweight reps', () => {
+    expect(isLoadedCarryExercise('Sandbag Lunge')).toBe(true);
+    expect(inferCategory('Sandbag Lunge')).toBe('Legs');
+    expect(getMuscleGroupsForExercise('Sandbag Lunge')).toEqual(expect.arrayContaining(['Quads']));
+    expect(isBodyweightExercise('Burpee Broad Jump')).toBe(true);
+    expect(isTimedExercise('Burpee Broad Jump')).toBe(false);
+    expect(getMuscleGroupsForExercise('Burpee Broad Jump')).toEqual(['Core', 'Quads']);
+  });
+
   it('Hundred is a timed bodyweight core move', () => {
     expect(inferCategory('Hundred')).toBe('Core');
     expect(inferPrimary('Hundred')).toBe('Core / Abs');

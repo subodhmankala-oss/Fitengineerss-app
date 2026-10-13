@@ -118,7 +118,7 @@ export function inferCategory(name) {
   // Air Rowing silently fell through to Back (and showed "Back / Lats" as
   // its primary muscle via the identical bug in inferPrimary). Confirmed
   // 2026-08-25.
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|ski ?erg|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope|shoulder taps?|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper|\bhundred\b)/.test(n)) return 'Core';
   // Leg/Nordic curls are hamstring moves and Glute Kickback a hip move —
   // excluded so they land in Legs instead of Arms.
@@ -140,7 +140,7 @@ export function inferPrimary(name) {
   const n = name.toLowerCase();
   // See the matching comment in inferCategory above — same 'air rowing'
   // must-check-before-Back reasoning applies here.
-  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
+  if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|ski ?erg|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
   if (/(skullcrusher|pushdown|triceps|tricep|kickback|close grip|dip)/.test(n) && !/chest dip|^dip$|glute|pulldown|\brow/.test(n)) return 'Triceps';
   // Checked before the generic "curl" rule below — "Wrist Curl" and
   // "Reverse Curl" both contain "curl" and would otherwise be mislabeled
@@ -207,7 +207,7 @@ export const PICKER_HIDDEN_NAMES = ['Bench Press', 'Shoulders Press'];
 // shape below, not KM+TIME, since there's no real distance being tracked.
 export function isCardioExercise(name) {
   if (!name) return false;
-  if (/high knees|foot fires?|air rowing/.test(name.toLowerCase())) return false;
+  if (/high knees|foot fires?|air rowing|ski ?erg/.test(name.toLowerCase())) return false;
   return inferCategory(name) === 'Cardio';
 }
 
@@ -236,7 +236,7 @@ export function isCardioExercise(name) {
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope|side hops?|foot fires?|\bhundred\b/.test(n);
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|ski ?erg|battle rope|side hops?|foot fires?|\bhundred\b/.test(n);
 }
 
 // Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
@@ -247,7 +247,7 @@ export function isTimedExercise(name) {
 export function isLoadedCarryExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry|high knees walk|sled (push|pull)/.test(n);
+  return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry|high knees walk|sled (push|pull)|sandbag lunge/.test(n);
 }
 
 // Bodyweight exercises (push-ups, mountain climbers, jumping jacks, burpees,

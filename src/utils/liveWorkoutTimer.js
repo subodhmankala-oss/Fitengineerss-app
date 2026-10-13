@@ -53,7 +53,7 @@ const VIGOROUS_TIMED_MET = 8.0;
 // the only true static holds among isTimedExercise's names.
 function timedHoldMET(exerciseName) {
   const n = (exerciseName || '').toLowerCase();
-  if (/air rowing|battle rope|side hops?|foot fires?/.test(n)) return VIGOROUS_TIMED_MET;
+  if (/air rowing|ski ?erg|battle rope|side hops?|foot fires?/.test(n)) return VIGOROUS_TIMED_MET;
   return TIMED_HOLD_MET;
 }
 

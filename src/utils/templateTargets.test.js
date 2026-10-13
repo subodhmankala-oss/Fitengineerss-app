@@ -8,11 +8,17 @@ describe('templateTargetTime', () => {
     expect(templateTargetTime('5min')).toBe('05:00');
   });
 
+  it('turns seconds into an mm:ss target (Plank 30s, SkiErg 90s)', () => {
+    expect(templateTargetTime('30s')).toBe('00:30');
+    expect(templateTargetTime('45 s')).toBe('00:45');
+    expect(templateTargetTime('90s')).toBe('01:30');
+    expect(templateTargetTime('4 min')).toBe('04:00');
+  });
+
   it('has no time target for a distance, a rep count or nothing', () => {
     expect(templateTargetTime('1 km')).toBe('');
     expect(templateTargetTime('500 m')).toBe('');
     expect(templateTargetTime('12')).toBe('');
-    expect(templateTargetTime('45s')).toBe('');
     expect(templateTargetTime(undefined)).toBe('');
     expect(templateTargetTime('')).toBe('');
   });

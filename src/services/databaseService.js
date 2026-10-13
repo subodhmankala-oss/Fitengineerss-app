@@ -3951,12 +3951,12 @@ const databaseService = {
   },
 
   // ─── GENERIC WORKOUT LIBRARY BY DIFFICULTY LEVEL ───
-  // `category` ('gym' | 'home') defaults to 'gym' so every existing caller
+  // `category` ('gym' | 'home' | 'hyrox') defaults to 'gym' so every existing caller
   // (the Workout Library before the Home tab existed, BeginnerNextWorkoutBanner,
   // etc.) keeps seeing exactly what it always has without passing anything new.
   async getGenericWorkoutsByLevel(level, category = 'gym') {
     if (!['beginner', 'intermediate', 'advanced'].includes(level)) return [];
-    if (!['gym', 'home'].includes(category)) return [];
+    if (!['gym', 'home', 'hyrox'].includes(category)) return [];
 
     if (isSupabaseConfigured) {
       try {

@@ -41,6 +41,14 @@ describe('trend programs (Zone 2, Hyrox, Pilates …)', () => {
     });
   });
 
+  it('a program in the Hyrox section never swaps (the stations are the point)', () => {
+    const builder = ex('Running', 'SkiErg', 'Sled Push', 'Burpee Broad Jump', 'Wall Ball', 'Farmer Walk');
+    weeks(8).forEach(date => {
+      const out = applyWeeklySwaps({ programName: 'Hyrox Builder', exercises: builder, level: 'intermediate', category: 'hyrox', date });
+      expect(out).toEqual(builder);
+    });
+  });
+
   it('the 12-3-30 walk and the Zone 2 cardio are never swapped away', () => {
     const walk = ex('Incline Walk', 'Dead Bug', 'Bird dog', 'Plank');
     const zone2 = ex('Cycling', 'Incline Walk', 'Bird dog', 'Dead Bug', 'Side Plank');

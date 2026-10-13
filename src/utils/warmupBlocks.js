@@ -110,6 +110,9 @@ function slotOf(name) {
 // read from its exercises: 60%+ of them in one area makes it that area's
 // day, otherwise it's full body. "Beginner Lower & Core" is a lower day.
 export function getWorkoutDayType(programName, exercises) {
+  // Hyrox is runs + sled + carries + wall balls: all of the body, but its
+  // run/row/ball moves would read as conditioning (core) from the exercises.
+  if (/hyrox/i.test(programName || '')) return 'full';
   if (/conditioning|cardio|mobility/i.test(programName || '')) return 'core';
   const names = (exercises || []).map(ex => ex?.name).filter(Boolean);
   if (names.length === 0) return 'full';

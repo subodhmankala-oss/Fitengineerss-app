@@ -40,6 +40,7 @@ import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
+import { templateTargetTime } from '../utils/templateTargets';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
@@ -2591,7 +2592,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         // (Started from the Home banner, this runs on mount — before the
         // history has loaded — so markPrevPending has the pre-fill applied
         // once it arrives.)
-        sets: Array.from({ length: ex.sets || 3 }, (_, setIdx) => markPrevPending(applyPrevRepsAndWeight({
+        // A cardio move (Incline Walk 30 min) is distance + time, not reps:
+        // its duration becomes the time target (a distance target like
+        // "1 km" has none, and the client logs the distance).
+        sets: isCardioExercise(ex.name)
+          ? Array.from({ length: ex.sets || 1 }, () => ({
+              distanceKm: '', time: '', targetTime: templateTargetTime(ex.reps), isCompleted: false,
+              targetReps: ex.reps ? String(ex.reps) : null
+            }))
+          : Array.from({ length: ex.sets || 3 }, (_, setIdx) => markPrevPending(applyPrevRepsAndWeight({
           reps: targetReps,
           weight: isBodyweightExercise(ex.name) ? '0' : '',
           isCompleted: false,

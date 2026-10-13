@@ -70,6 +70,11 @@ const RULES = [
   // Farmer Walk under Forearms. Without this rule these sets mapped to NO
   // muscle group and were silently dropped from every analytics number.
   { test: n => /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry/.test(n), muscles: ['Forearms', 'Shoulders'] },
+  // Sled Push / Sled Pull (Hyrox): drive through the legs — quads and glutes
+  // do the pushing or pulling. Wall Ball: a squat into an overhead throw, so
+  // quads and shoulders. Same 2-muscle-credit reasoning as Burpee below.
+  { test: n => /sled (push|pull)/.test(n), muscles: ['Quads', 'Glutes'] },
+  { test: n => /wall ball/.test(n), muscles: ['Quads', 'Shoulders'] },
   // Hammer curls (neutral grip, incl. Cross Body): brachialis/biceps plus the
   // brachioradialis, so they credit Forearms too. Must precede the generic
   // curl rule below, which would otherwise claim them as Biceps only.
@@ -130,7 +135,7 @@ const RULES = [
   // Shoulder Taps: a plank that loads one arm at a time, so the shoulders
   // lead and the core holds the hips square.
   { test: n => /shoulder taps?/.test(n), muscles: ['Shoulders', 'Core'] },
-  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n), muscles: ['Core'] },
+  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper|\bhundred\b)/.test(n), muscles: ['Core'] },
   // Reverse hyper: hip extension with the torso fixed, so glutes lead and the
   // lower back assists. Checked before the hyperextension rule below.
   { test: n => /reverse hyper/.test(n), muscles: ['Glutes', 'Back'] },

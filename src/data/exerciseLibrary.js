@@ -119,11 +119,11 @@ export function inferCategory(name) {
   // its primary muscle via the identical bug in inferPrimary). Confirmed
   // 2026-08-25.
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
-  if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope|shoulder taps?|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper)/.test(n)) return 'Core';
+  if (/(crunch|plank|sit-?up|sit up|russian twist|leg raise|knee raise|mountain climber|dead bug|superman|oblique|v-?up|v up|ab wheel|hollow|hyperextension|back extension|dead ?bug|beast walk|battle rope|shoulder taps?|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper|\bhundred\b)/.test(n)) return 'Core';
   // Leg/Nordic curls are hamstring moves and Glute Kickback a hip move —
   // excluded so they land in Legs instead of Arms.
   if (/(curl|triceps|tricep|skullcrusher|pushdown|kickback|wrist|preacher|concentration|lying triceps)/.test(n) && !/leg curl|nordic|hamstring|glute/.test(n)) return 'Arms';
-  if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|side hops?|nordic|tibialis|tib bar)/.test(n)) return 'Legs';
+  if (/(squat|lunge|deadlift|leg press|leg curl|leg extension|calf|glute|hip thrust|hip abduction|hip adduction|step-?up|steppers?\b|good morning|bulgarian|box jump|split squat|hack|wall sit|kettlebell|curtsy|rack pull|single leg deadlift|stiff leg|farmer|sled (push|pull)|side hops?|nordic|tibialis|tib bar)/.test(n)) return 'Legs';
   if (/(shoulder|lateral raise|front raise|rear delt|reverse fly|upright row|arnold|military|overhead press|behind neck|face pull|shrug|clean and press|push press|band pull apart|y raise|landmine press)/.test(n)) return 'Shoulders';
   if (/(row|pulldown|pull-?up|pull up|chin-?up|chin up|lat |t-bar|pendlay|pull through|v-bar|pullover|rotator|external rotation|internal rotation)/.test(n)) return 'Back';
   if (/(bench|chest|fly|pec deck|push-?up|push up|dip|crossover|around the world|floor press|press)/.test(n)) return 'Chest';
@@ -151,10 +151,10 @@ export function inferPrimary(name) {
   if (/tibialis|tib bar/.test(n)) return 'Tibialis';
   if (/(glute|hip thrust|glute bridge|kickback)/.test(n)) return 'Glutes';
   if (/(hamstring|nordic|romanian|stiff leg|leg curl|good morning|single leg deadlift)/.test(n)) return 'Hamstrings';
-  if (/(squat|lunge|leg press|leg extension|step-?up|steppers?\b|wall sit|split squat|hack)/.test(n)) return 'Quadriceps';
+  if (/(squat|lunge|leg press|leg extension|step-?up|steppers?\b|wall sit|split squat|hack|sled (push|pull))/.test(n)) return 'Quadriceps';
   if (/side hops?/.test(n)) return 'Calves';
   if (/deadlift/.test(n)) return 'Posterior Chain';
-  if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope|shoulder taps?|flutter kick|heel taps?|hollow|woodchop|pallof|side bend|windshield wiper)/.test(n)) return 'Core / Abs';
+  if (/(crunch|plank|sit-?up|russian twist|leg raise|knee raise|oblique|v-?up|ab wheel|superman|hyperextension|back extension|mountain climber|dead bug|beast walk|battle rope|shoulder taps?|flutter kick|heel taps?|hollow|woodchop|pallof|side bend|windshield wiper|\bhundred\b)/.test(n)) return 'Core / Abs';
   if (/rotator|external rotation|internal rotation/.test(n)) return 'Rotator Cuff';
   if (/(rear delt|reverse fly|face pull)/.test(n)) return 'Rear Delts';
   if (/shrug/.test(n)) return 'Trapezius';
@@ -236,7 +236,7 @@ export function isCardioExercise(name) {
 export function isTimedExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope|side hops?|foot fires?/.test(n);
+  return /\bplank\b|side plank|wall sit|hollow hold|dead hang|air rowing|battle rope|side hops?|foot fires?|\bhundred\b/.test(n);
 }
 
 // Loaded carries (Farmer Walk/Carry, suitcase carry, yoke walk, etc.) are
@@ -247,7 +247,7 @@ export function isTimedExercise(name) {
 export function isLoadedCarryExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry|high knees walk/.test(n);
+  return /farmer|suitcase carry|yoke walk|waiter.?s walk|sandbag carry|loaded carry|high knees walk|sled (push|pull)/.test(n);
 }
 
 // Bodyweight exercises (push-ups, mountain climbers, jumping jacks, burpees,
@@ -377,7 +377,7 @@ export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises', 'standing calf raise', 'calf raise (standing)', 'tibialis raise', 'sissy squat', 'cossack squat'].includes(n)) return true;
-  return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit|inverted row|nordic|flutter kicks?|heel taps?|windshield wipers?/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit|inverted row|nordic|flutter kicks?|heel taps?|windshield wipers?|\bhundred\b/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

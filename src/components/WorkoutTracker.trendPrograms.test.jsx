@@ -95,3 +95,28 @@ describe('Workout Library Hyrox section', () => {
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('hyrox');
   });
 });
+
+describe('Workout Library order', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
+
+  it('shows the newest programs first, so a new one is in the first four cards', async () => {
+    localStorage.setItem('userName', 'TestClient');
+    localStorage.setItem('userId', 'u1');
+    localStorage.setItem('workoutTrackerLastTab_u1', 'templates');
+    localStorage.setItem('workoutTrackerLastLevel_u1', 'intermediate');
+    localStorage.setItem('workoutTrackerLastCategory_u1', 'gym');
+    // As the database returns them: oldest first (created_at asc).
+    const names = ['Intermediate Push', 'Intermediate Pull', 'Intermediate Legs', 'Intermediate Upper Body', 'Intermediate Core & Conditioning', 'Intermediate Zone 2 Cardio Base', 'Intermediate Lower'];
+    databaseService.getGenericWorkoutsByLevel.mockImplementation(async (level, category) => (
+      level === 'intermediate' && category === 'gym'
+        ? names.map((name, i) => ({ id: `p${i}`, name, exercises: [{ name: 'Goblet Squat', sets: 3, reps: '10' }] }))
+        : []
+    ));
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+
+    await screen.findByText('Intermediate Lower');
+    expect(Array.from(document.querySelectorAll('.wt-program-name')).map(el => el.textContent))
+      .toEqual(['Intermediate Lower', 'Intermediate Zone 2 Cardio Base', 'Intermediate Core & Conditioning', 'Intermediate Upper Body']);
+    expect(screen.getByText('Show all 7 programs')).toBeTruthy();
+  });
+});

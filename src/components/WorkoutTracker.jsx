@@ -347,7 +347,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       setLoadingLevelWorkouts(true);
       try {
         const workouts = await databaseService.getGenericWorkoutsByLevel(genericLevel, genericCategory);
-        if (!cancelled) setLevelWorkouts(workouts || []);
+        // Newest first, so a program added to the library shows in the first
+        // four cards instead of behind "Show all". Display only — the Home
+        // banner's rotation and the first-workout pick read their own copy,
+        // oldest first, so a new client still starts at Full Body A.
+        if (!cancelled) setLevelWorkouts([...(workouts || [])].reverse());
       } catch (e) {
         console.error('Error fetching generic workouts by level:', e);
         if (!cancelled) setLevelWorkouts([]);

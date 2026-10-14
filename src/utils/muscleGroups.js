@@ -79,7 +79,7 @@ const RULES = [
   // Rowing machine: a full-body pull (legs drive, back pulls). Same 2-muscle
   // credit as Burpee/Battle Rope rather than a "full body" bucket. Must precede
   // the generic "row" rule below, which would call it Back/Biceps.
-  { test: n => /air rowing|rowing machine|rower/.test(n), muscles: ['Back', 'Quads'] },
+  { test: n => /air rowing|rowing machine|\brower\b/.test(n), muscles: ['Back', 'Quads'] },
   { test: n => /wall ball/.test(n), muscles: ['Quads', 'Shoulders'] },
   // Hammer curls (neutral grip, incl. Cross Body): brachialis/biceps plus the
   // brachioradialis, so they credit Forearms too. Must precede the generic

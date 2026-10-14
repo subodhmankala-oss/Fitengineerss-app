@@ -13,16 +13,8 @@ describe('WorkoutStreakCard', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('coach line is one slim summary with 7 day dots', () => {
-    const { container } = render(<WorkoutStreakCard logs={logs} />);
-    expect(container.querySelector('.streak-line').textContent).toMatch(/Workout streak · 2 in a row \(best 2\).*Last 7 days.*Trained today · next workout due by \w+/);
-    expect(container.querySelectorAll('.streak-line-dot')).toHaveLength(7);
-    expect(container.querySelectorAll('.streak-line-dot.is-trained')).toHaveLength(2);
-    expect(container.querySelector('.streak-pop, .streak-detail')).toBeNull();
-  });
-
   it('badge opens the detail popover on tap', () => {
-    render(<WorkoutStreakCard logs={logs} variant="badge" />);
+    render(<WorkoutStreakCard logs={logs} />);
     fireEvent.click(screen.getByRole('button', { name: /2 workouts in a row/ }));
     expect(screen.getByRole('dialog', { name: 'Workout streak' }).textContent).toMatch(/Train again by/);
   });

@@ -54,7 +54,6 @@ import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
-import WorkoutStreakCard from './WorkoutStreakCard';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
@@ -7412,8 +7411,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       this tab already shows), adds a message, sends. Lives
                       at the top of History because that's where the coach is
                       already looking at this client's numbers. */}
-                  {/* Slim one-line streak summary (the client gets the full flame badge on Home). */}
-                  {!loadingLogs && <WorkoutStreakCard logs={rawWorkoutLogs} />}
                   {!loadingLogs && (
                     <MonthlyReportComposer
                       clientId={selectedClient.id}

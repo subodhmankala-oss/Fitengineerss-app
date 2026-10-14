@@ -72,8 +72,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 6px 2px;
-  margin-bottom: 4px;
+  /* Same gutter + radius as the Monthly report card below it, in a faint
+     strip so it sits in the column instead of floating edge to edge. */
+  margin: 0 var(--screen-gutter, 16px) 10px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
   font-size: 0.75rem;
   color: var(--text-muted);
 }

@@ -67,15 +67,29 @@
   to { transform: scale(1) translateY(0); }
 }
 
-.streak-card {
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+.streak-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 2px;
   margin-bottom: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
-.streak-card.is-lapsed {
-  background: rgba(148, 163, 184, 0.08);
-  border-color: rgba(148, 163, 184, 0.3);
+.streak-line-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.streak-line-text strong { color: var(--tint-amber); font-weight: 800; }
+.streak-line.is-lapsed .streak-line-text { filter: grayscale(1); }
+.streak-line.is-lapsed .streak-line-text strong { color: var(--text-muted); }
+.streak-line-days { display: flex; gap: 4px; flex-shrink: 0; }
+.streak-line-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.15);
 }
+.streak-line-dot.is-trained { background: var(--tint-amber); }
+.streak-line-dot.is-today { box-shadow: 0 0 0 1.5px rgba(var(--fg-rgb), 0.5); }
 
 .streak-detail { padding: 14px; }
 

@@ -27,9 +27,9 @@ const hintFor = ({ status, keepAliveBy }) => {
 
 // Streak display, hidden until the client has logged a workout so a brand-new
 // client isn't greeted with "0". variant="badge" is the compact flame pill for
-// the client's Home header (tap → detail popover); "card" is the full detail
-// inline, used on the coach's client History tab.
-export default function WorkoutStreakCard({ logs, variant = 'card' }) {
+// the client's Home header (tap → detail popover); "line" is a slim one-line
+// summary for the coach's client History tab.
+export default function WorkoutStreakCard({ logs, variant = 'line' }) {
   const streak = useMemo(() => computeWorkoutStreak(logs), [logs]);
   const week = useMemo(() => recentStreakDays(logs), [logs]);
   const [open, setOpen] = useState(false);
@@ -125,5 +125,24 @@ export default function WorkoutStreakCard({ logs, variant = 'card' }) {
     );
   }
 
-  return <div className={`streak-card ${stateClass}`}>{detail}</div>;
+  // Coach view: one slim, still line — the coach is scanning, not playing.
+  const nextBy = status === 'lapsed' ? 'streak ended'
+    : status === 'active' ? `trained today · next by ${weekdayOf(streak.keepAliveBy, 'short')}`
+    : `due by ${dayPhrase(streak.keepAliveBy)}`;
+  return (
+    <div className={`streak-line ${stateClass}`}>
+      <span className="streak-line-text">
+        <span aria-hidden="true">🔥</span> <strong>{current} in a row</strong> · best {best} · {nextBy}
+      </span>
+      <span className="streak-line-days" aria-label="Last 7 days">
+        {week.map(d => (
+          <span
+            key={d.date}
+            title={d.date}
+            className={`streak-line-dot${d.trained ? ' is-trained' : ''}${d.isToday ? ' is-today' : ''}`}
+          />
+        ))}
+      </span>
+    </div>
+  );
 }

@@ -54,6 +54,7 @@ import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import CoachProfile from './CoachProfile';
 import MonthlyReportComposer from './MonthlyReportComposer';
+import WorkoutStreakCard from './WorkoutStreakCard';
 import { hasUnseenWhatsNew } from '../data/whatsNewData';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
@@ -7411,6 +7412,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       this tab already shows), adds a message, sends. Lives
                       at the top of History because that's where the coach is
                       already looking at this client's numbers. */}
+                  {/* Same streak card the client sees on their Home screen. */}
+                  {!loadingLogs && <WorkoutStreakCard logs={rawWorkoutLogs} />}
                   {!loadingLogs && (
                     <MonthlyReportComposer
                       clientId={selectedClient.id}

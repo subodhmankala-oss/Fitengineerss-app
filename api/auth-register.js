@@ -38,6 +38,60 @@ function notifySuperAdminOfNewCoach(publicUserId, name, email, gym = null) {
   });
 }
 
+// Both sign-up paths are upserts that also run for an EXISTING account (a
+// retry, Google auto-provision, or someone signing up again with an email
+// that already has a password). 2026-10-14: a gym sign-up submitted with the
+// super-admin's own email + password (the form had it prefilled and locked)
+// downgraded that account's role to 'coach' — and RLS read policies key on
+// role = 'super-admin' — and nulled their coach experience/certifications,
+// because owner mode hides those fields. So for an existing account:
+//   * a 'super-admin' role is kept, never replaced by 'coach';
+//   * coach fields only change when a value was actually submitted.
+async function existingProfile(adminClient, normalizedEmail) {
+  const { data: userRow } = await adminClient
+    .from('users')
+    .select('id, role')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+  if (!userRow?.id) return { role: null, hasCoachRow: false };
+  const { data: coachRows } = await adminClient
+    .from('coaches')
+    .select('user_id')
+    .eq('user_id', userRow.id)
+    .limit(1);
+  return { role: userRow.role || null, hasCoachRow: !!coachRows?.[0] };
+}
+
+function coachRoleFor(existingRole) {
+  return existingRole === 'super-admin' ? 'super-admin' : 'coach';
+}
+
+// Fields that were submitted, plus first-time defaults only for a brand-new
+// coaches row. status is always 'approved' (no coach approval step — same as
+// before); is_blocked is only set on a new row, so signing up again can no
+// longer unblock a coach the admin blocked.
+function coachProfileRow(publicUserId, { name, gymName, brand, experience, certifications, social, location }, hasCoachRow) {
+  const row = { user_id: publicUserId, status: 'approved' };
+  const expYears = parseInt(experience, 10);
+  const brandName = brand || gymName;
+  if (brandName) row.brand_name = brandName;
+  if (Number.isFinite(expYears)) row.experience_years = expYears;
+  if (certifications) row.certifications = certifications;
+  if (social) row.social_media_handle = social;
+  if (location) row.location_city = location;
+  if (!hasCoachRow) {
+    Object.assign(row, {
+      is_blocked: false,
+      brand_name: row.brand_name || `${name} Fitness`,
+      experience_years: row.experience_years ?? null,
+      certifications: row.certifications ?? null,
+      social_media_handle: row.social_media_handle ?? null,
+      location_city: row.location_city ?? null
+    });
+  }
+  return row;
+}
+
 // "I own a gym" on Coach Sign Up (sql/gym_tier.sql). Null = not a gym
 // sign-up; throws for a name that's present but unusable.
 function cleanGymName(raw) {
@@ -193,12 +247,13 @@ async function handleRegisterEmail(req, res) {
     // them to try again, and a retry is then a clean signUp(), not a dead end.
     let publicUserId, coachRow, gym = null;
     try {
+      const existing = await existingProfile(adminClient, normalizedEmail);
       const { data: userRow, error: userErr } = await adminClient
         .from('users')
         .upsert({
           email: normalizedEmail,
           full_name: name,
-          role: 'coach',
+          role: coachRoleFor(existing.role),
           // Only overwrite phone when one was actually submitted — an upsert
           // on an existing row (the alreadyExists/retry path) must not blank
           // out a number this account already has.
@@ -209,19 +264,12 @@ async function handleRegisterEmail(req, res) {
       if (userErr) throw new Error(phoneConflictMessage(userErr) || userErr.message || 'Could not save your account details.');
       publicUserId = userRow.id;
 
-      const expYears = parseInt(experience, 10);
       const { data: coachData, error: coachErr } = await adminClient
         .from('coaches')
-        .upsert({
-          user_id: publicUserId,
-          status: 'approved',
-          brand_name: brand || gymName || `${name} Fitness`,
-          experience_years: Number.isFinite(expYears) ? expYears : null,
-          is_blocked: false,
-          certifications: certifications || null,
-          social_media_handle: social || null,
-          location_city: location || null
-        }, { onConflict: 'user_id' })
+        .upsert(
+          coachProfileRow(publicUserId, { name, gymName, brand, experience, certifications, social, location }, existing.hasCoachRow),
+          { onConflict: 'user_id' }
+        )
         .select('id')
         .single();
       if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
@@ -296,12 +344,13 @@ async function handleRegisterGoogle(req, res) {
       return res.status(409).json({ error: CLIENT_ACCOUNT_MESSAGE });
     }
 
+    const existing = await existingProfile(adminClient, normalizedEmail);
     const { data: userRow, error: userErr } = await adminClient
       .from('users')
       .upsert({
         email: normalizedEmail,
         full_name: name,
-        role: 'coach',
+        role: coachRoleFor(existing.role),
         // Same as the email path: never blank out an existing number. The
         // auto-provision call in App.jsx sends no phone at all (Google gives
         // us none), so this must stay optional here.
@@ -312,19 +361,12 @@ async function handleRegisterGoogle(req, res) {
     if (userErr) throw new Error(phoneConflictMessage(userErr) || userErr.message || 'Could not save your account details.');
     const publicUserId = userRow.id;
 
-    const expYears = parseInt(experience, 10);
     const { data: coachRow, error: coachErr } = await adminClient
       .from('coaches')
-      .upsert({
-        user_id: publicUserId,
-        status: 'approved',
-        brand_name: brand || gymName || `${name} Fitness`,
-        experience_years: Number.isFinite(expYears) ? expYears : null,
-        is_blocked: false,
-        certifications: certifications || null,
-        social_media_handle: social || null,
-        location_city: location || null
-      }, { onConflict: 'user_id' })
+      .upsert(
+        coachProfileRow(publicUserId, { name, gymName, brand, experience, certifications, social, location }, existing.hasCoachRow),
+        { onConflict: 'user_id' }
+      )
       .select('id')
       .single();
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');

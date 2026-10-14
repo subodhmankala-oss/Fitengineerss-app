@@ -10,14 +10,16 @@ let gymInsertError;
 let createUserResult;
 let deletedUsers;
 let alerts;
+let existingUser;
+let existingCoachRows;
 
 const query = (table) => {
   const q = {
     select: () => q,
     eq: () => q,
     order: () => q,
-    limit: () => Promise.resolve({ data: table === 'gyms' ? existingGyms : [], error: null }),
-    maybeSingle: () => Promise.resolve({ data: null }),
+    limit: () => Promise.resolve({ data: table === 'gyms' ? existingGyms : table === 'coaches' ? existingCoachRows : [], error: null }),
+    maybeSingle: () => Promise.resolve({ data: table === 'users' ? existingUser : null }),
     upsert: (row) => { writes.push({ table, op: 'upsert', row }); return q; },
     insert: (row) => { writes.push({ table, op: 'insert', row }); return q; },
     update: (row) => { writes.push({ table, op: 'update', row }); return q; },
@@ -72,6 +74,8 @@ describe('api/auth-register — gym owner sign-up', () => {
     createUserResult = { data: { user: { id: 'auth-new' } }, error: null };
     deletedUsers = [];
     alerts = [];
+    existingUser = null;
+    existingCoachRows = [];
     handler = (await import('./auth-register.js')).default;
   });
 
@@ -129,6 +133,37 @@ describe('api/auth-register — gym owner sign-up', () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toMatch(/Gym name/);
     expect(writes).toEqual([]);
+  });
+
+  // Replays 2026-10-14: the super-admin's own email + password submitted
+  // through owner mode (no experience/certifications fields).
+  it.each(['email', 'google'])('never downgrades a super-admin or blanks existing coach details (%s)', async (method) => {
+    createUserResult = { error: { status: 422, message: 'already registered' } };
+    existingUser = { id: 'admin-id', role: 'super-admin' };
+    existingCoachRows = [{ user_id: 'admin-id' }];
+    const res = await call(method, { gymName: 'Galaxy Kondapur' });
+    expect(res.statusCode).toBe(200);
+
+    expect(writes.find(w => w.table === 'users' && w.op === 'upsert').row.role).toBe('super-admin');
+    const coach = writes.find(w => w.table === 'coaches').row;
+    expect(coach).not.toHaveProperty('experience_years');
+    expect(coach).not.toHaveProperty('certifications');
+    expect(coach).not.toHaveProperty('is_blocked'); // re-signing up can't unblock
+    expect(coach.location_city).toBe('Hyderabad'); // submitted values still update
+  });
+
+  it('an existing plain coach stays a coach', async () => {
+    createUserResult = { error: { status: 422, message: 'already registered' } };
+    existingUser = { id: 'coach-id', role: 'coach' };
+    existingCoachRows = [{ user_id: 'coach-id' }];
+    await call('email', {});
+    expect(writes.find(w => w.table === 'users').row.role).toBe('coach');
+  });
+
+  it('a brand-new coach still gets first-time defaults', async () => {
+    await call('email', { experience: '5', certifications: 'ACE' });
+    const coach = writes.find(w => w.table === 'coaches').row;
+    expect(coach).toMatchObject({ status: 'approved', is_blocked: false, experience_years: 5, certifications: 'ACE', brand_name: 'Ravi Fitness', social_media_handle: null });
   });
 
   it('rolls back a freshly created auth account if the gym write fails', async () => {

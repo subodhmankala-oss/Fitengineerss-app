@@ -125,20 +125,25 @@ export default function WorkoutStreakCard({ logs, variant = 'line' }) {
     );
   }
 
-  // Coach view: one slim, still line — the coach is scanning, not playing.
-  const nextBy = status === 'lapsed' ? 'streak ended'
-    : status === 'active' ? `trained today · next by ${weekdayOf(streak.keepAliveBy, 'short')}`
-    : `due by ${dayPhrase(streak.keepAliveBy)}`;
+  // Coach view: a slim, still two-row strip — labelled so a coach can read it
+  // cold: what the number is, when the next workout is due, what the dots are.
+  const nextLine = status === 'lapsed'
+    ? `Streak ended — last workout ${parseLocalDateString(streak.lastWorkoutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    : status === 'active'
+      ? `Trained today · next workout due by ${dayPhrase(streak.keepAliveBy)}`
+      : `Next workout due by ${dayPhrase(streak.keepAliveBy)}`;
   return (
     <div className={`streak-line ${stateClass}`}>
       <span className="streak-line-text">
-        <span aria-hidden="true">🔥</span> <strong>{current} in a row</strong> · best {best} · {nextBy}
+        <span aria-hidden="true">🔥</span> Workout streak · <strong>{lapsed ? 'none' : `${current} in a row`}</strong> (best {best})
       </span>
+      <span className="streak-line-label">Last 7 days</span>
+      <span className="streak-line-sub">{nextLine}</span>
       <span className="streak-line-days" aria-label="Last 7 days">
         {week.map(d => (
           <span
             key={d.date}
-            title={d.date}
+            title={`${weekdayOf(d.date, 'long')}: ${d.trained ? 'workout' : 'no workout'}`}
             className={`streak-line-dot${d.trained ? ' is-trained' : ''}${d.isToday ? ' is-today' : ''}`}
           />
         ))}

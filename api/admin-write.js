@@ -258,6 +258,136 @@ async function handleSetClientPaused(req, res) {
   }
 }
 
+// ─── Gyms (sql/gym_tier.sql) ───
+// gyms is RLS-locked with no policies, so these service-role writes are the
+// only way in. Super-admin only for now; owner-side actions come later.
+//
+// Ownership is gyms.owner_id, not users.role — linking an owner here does
+// NOT change their role, so an owner who also coaches keeps their coach
+// dashboard. Gyms are never deleted from the app (suspend instead): the
+// users.gym_status CHECK would block ON DELETE SET NULL for any gym with
+// members anyway.
+const GYM_STATUSES = ['pending', 'active', 'suspended'];
+const PLAIN_EMAIL = /^[^\s@%*,]+@[^\s@%*,]+\.[^\s@%*,]+$/;
+
+async function svcRequest(path, { method = 'GET', body } = {}) {
+  const resp = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    const err = new Error((data && (data.message || data.error)) || `${method} ${path.split('?')[0]} failed (${resp.status})`);
+    err.status = resp.status;
+    throw err;
+  }
+  return data;
+}
+
+// Returns { id } for an existing account, null for "no such account", and
+// throws a 400-shaped error for a malformed email. ilike (not eq) because
+// stored emails aren't consistently lowercased; PLAIN_EMAIL rejects the
+// wildcard characters that would otherwise make ilike a pattern match.
+async function resolveOwnerByEmail(rawEmail) {
+  const email = String(rawEmail || '').trim().toLowerCase();
+  if (!PLAIN_EMAIL.test(email)) {
+    const err = new Error('Enter a valid owner email.');
+    err.status = 400;
+    throw err;
+  }
+  const rows = await svcRequest(`users?email=ilike.${encodeURIComponent(email)}&select=id&limit=1`);
+  return Array.isArray(rows) && rows[0] ? { id: rows[0].id } : null;
+}
+
+function cleanGymName(raw) {
+  const name = String(raw || '').trim().replace(/\s+/g, ' ');
+  return name.length >= 2 && name.length <= 80 ? name : null;
+}
+
+async function requireSuperAdmin(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller || caller.email !== SUPER_ADMIN_EMAIL) {
+    res.status(403).json({ error: 'Super-admin only.' });
+    return null;
+  }
+  return caller;
+}
+
+async function handleCreateGym(req, res) {
+  if (!(await requireSuperAdmin(req, res))) return;
+  const { name, ownerEmail } = req.body || {};
+  const cleanName = cleanGymName(name);
+  if (!cleanName) return res.status(400).json({ error: 'Gym name must be 2–80 characters.' });
+
+  try {
+    let ownerId = null;
+    if (ownerEmail && String(ownerEmail).trim()) {
+      const owner = await resolveOwnerByEmail(ownerEmail);
+      if (!owner) return res.status(404).json({ error: 'No account with that email. Ask the owner to sign up first.' });
+      ownerId = owner.id;
+    }
+    // Created by the admin = approved by the admin, so it starts active.
+    const rows = await svcRequest('gyms', {
+      method: 'POST',
+      body: { name: cleanName, owner_id: ownerId, status: 'active', approved_at: new Date().toISOString() }
+    });
+    return res.status(200).json({ gym: Array.isArray(rows) ? rows[0] : rows });
+  } catch (err) {
+    console.error('admin-write create-gym error:', err);
+    return res.status(err.status === 400 ? 400 : 502).json({ error: err.message || 'Failed to create gym.' });
+  }
+}
+
+async function handleUpdateGym(req, res) {
+  if (!(await requireSuperAdmin(req, res))) return;
+  const { gymId, name, status, ownerEmail } = req.body || {};
+  if (!/^[0-9a-f-]{36}$/i.test(String(gymId || ''))) return res.status(400).json({ error: 'gymId is required.' });
+
+  const patch = {};
+  if (name !== undefined) {
+    const cleanName = cleanGymName(name);
+    if (!cleanName) return res.status(400).json({ error: 'Gym name must be 2–80 characters.' });
+    patch.name = cleanName;
+  }
+  if (status !== undefined) {
+    if (!GYM_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${GYM_STATUSES.join(', ')}.` });
+    patch.status = status;
+  }
+
+  try {
+    if (ownerEmail !== undefined) {
+      // Empty string = remove the owner.
+      if (!String(ownerEmail || '').trim()) {
+        patch.owner_id = null;
+      } else {
+        const owner = await resolveOwnerByEmail(ownerEmail);
+        if (!owner) return res.status(404).json({ error: 'No account with that email. Ask the owner to sign up first.' });
+        patch.owner_id = owner.id;
+      }
+    }
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+
+    const id = encodeURIComponent(gymId);
+    // First activation stamps approved_at; later suspend/reactivate keeps it.
+    if (patch.status === 'active') {
+      const current = await svcRequest(`gyms?id=eq.${id}&select=approved_at`);
+      if (Array.isArray(current) && current[0] && !current[0].approved_at) patch.approved_at = new Date().toISOString();
+    }
+    const rows = await svcRequest(`gyms?id=eq.${id}`, { method: 'PATCH', body: patch });
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'Gym not found.' });
+    return res.status(200).json({ gym: rows[0] });
+  } catch (err) {
+    console.error('admin-write update-gym error:', err);
+    return res.status(err.status === 400 ? 400 : 502).json({ error: err.message || 'Failed to update gym.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
@@ -265,7 +395,9 @@ const ACTION_HANDLERS = {
   'seed-exercises': handleSeedExercises,
   'set-client-total-sessions': handleSetClientTotalSessions,
   'set-client-program-dates': handleSetClientProgramDates,
-  'set-client-paused': handleSetClientPaused
+  'set-client-paused': handleSetClientPaused,
+  'create-gym': handleCreateGym,
+  'update-gym': handleUpdateGym
 };
 
 export default async function handler(req, res) {

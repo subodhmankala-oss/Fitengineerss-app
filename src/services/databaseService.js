@@ -570,6 +570,30 @@ async function serverFallbackAuth() {
   return { headers, email };
 }
 
+// Shared by createGym/updateGym — bearer-token-only, like setClientPaused;
+// api/admin-write.js re-checks super-admin from the token.
+async function adminWriteGym(action, body) {
+  try {
+    const accessToken = await resolveRealAccessToken();
+    if (!accessToken) {
+      return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+    }
+    const res = await fetch(`/api/admin-write?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.gym) {
+      return { success: false, error: (data && data.error) || 'Update failed.' };
+    }
+    return { success: true, gym: data.gym };
+  } catch (e) {
+    console.error(`[${action}] error:`, e);
+    return { success: false, error: e.message || 'Update failed.' };
+  }
+}
+
 // ─── SUPER-ADMIN CROSS-TENANT READS ───
 // The Super-Admin overview has to count across EVERY coach and client, which
 // is exactly what RLS stops a browser-side query from doing: restSelect() on
@@ -3193,6 +3217,38 @@ const databaseService = {
     mockClients[idx].program_est_completion = estCompletion || null;
     this.saveMockTable('clients', mockClients);
     return { success: true, program_started_on: startedOn || null, program_est_completion: estCompletion || null };
+  },
+
+  // ─── Gyms (super-admin) ───
+  // All three go through the service-role API — gyms is RLS-locked with no
+  // policies (sql/gym_tier.sql). Each returns { success, error?, ... } and
+  // never throws, matching setClientPaused below.
+  async getAdminGyms() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=admin-gyms', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data?.gyms)) {
+        return { success: false, error: (data && data.error) || 'Could not load gyms.' };
+      }
+      return { success: true, gyms: data.gyms };
+    } catch (e) {
+      console.error('[getAdminGyms] error:', e);
+      return { success: false, error: e.message || 'Could not load gyms.' };
+    }
+  },
+
+  async createGym({ name, ownerEmail }) {
+    return adminWriteGym('create-gym', { name, ownerEmail });
+  },
+
+  // patch: any of { name, status, ownerEmail } — ownerEmail '' removes the owner.
+  async updateGym(gymId, patch) {
+    return adminWriteGym('update-gym', { gymId, ...patch });
   },
 
   // Coach pauses/unpauses one attached client's subscription (2026-09-06:

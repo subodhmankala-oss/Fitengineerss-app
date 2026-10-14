@@ -1,7 +1,8 @@
 -- ==========================================
 -- GYM TIER — step 1: schema only
 --
--- STATUS: NOT APPLIED. Nothing in the app reads or writes these yet.
+-- STATUS: APPLIED to production 2026-10-14 (step 2 — admin gym management
+-- — is the first app code to use it).
 -- Rollback: sql/rollback_gym_tier.sql
 --
 -- Adds a Gym level between the admin and coaches:

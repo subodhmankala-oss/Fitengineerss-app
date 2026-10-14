@@ -8,6 +8,7 @@ import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
+import AdminGymsList from './admin/AdminGymsList';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
 import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
@@ -5120,6 +5121,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               {[
                 { key: 'clients', icon: '👥', label: 'Clients' },
                 { key: 'coaches', icon: '🏅', label: 'Coaches' },
+                { key: 'gyms', icon: '🏢', label: 'Gyms' },
                 { key: 'exercises', icon: '🏋️', label: 'Exercise Library' },
               ].map(nav => (
                 <button
@@ -5147,6 +5149,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             <div className="admin-content-panel" style={{ flex: 1, minWidth: 0, width: '100%' }}>
               {adminSubTab === 'exercises' ? (
                 <AdminExerciseLibrary onExerciseCountChange={(count) => setExerciseCount(count)} />
+              ) : adminSubTab === 'gyms' ? (
+                <AdminGymsList />
               ) : adminSubTab === 'coaches' ? (
                 <AdminCoachesList
                   coachesList={coachesList}

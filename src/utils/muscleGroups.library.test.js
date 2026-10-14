@@ -9,6 +9,7 @@ describe('library exercise muscles', () => {
     ['Pec Deck Fly', ['Chest']],
     ['Bench Press', ['Chest', 'Triceps']],
     ['Push-up', ['Chest', 'Triceps']],
+    ['Diamond Push-up', ['Triceps', 'Chest']],
     ['Barbell Shrug', ['Back', 'Forearms']],
     ['Kettlebell Swing', ['Glutes', 'Hamstrings']],
     ['Sumo Deadlift', ['Glutes', 'Hamstrings']],

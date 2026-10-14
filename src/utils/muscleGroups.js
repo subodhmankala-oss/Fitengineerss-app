@@ -57,6 +57,8 @@ const RULES = [
   // "pulldown"/"row" excluded: Lat Pulldown (Close Grip) is a back move.
   // Close grip bench: the narrow grip makes it triceps-led, chest assisting.
   { test: n => /close.?grip/.test(n) && /bench/.test(n), muscles: ['Triceps', 'Chest'] },
+  // Diamond push-up: the narrow hand position makes it triceps-led.
+  { test: n => /diamond/.test(n) && /push.?up/.test(n), muscles: ['Triceps', 'Chest'] },
   { test: n => /(triceps|tricep|skullcrusher|pushdown|kickback|close.?grip)/.test(n) && !/(chest dip|^dip$|bench|glute|pulldown|\brow)/.test(n), muscles: ['Triceps'] },
   // Checked before the generic "curl" rule below — "Wrist Curl" and
   // "Reverse Curl" both contain "curl" and would otherwise be misclassified

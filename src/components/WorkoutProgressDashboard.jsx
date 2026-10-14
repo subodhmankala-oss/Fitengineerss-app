@@ -9,6 +9,7 @@ import WelcomeBanner from './WelcomeBanner';
 import NotificationPrompt from './NotificationPrompt';
 import NextWorkoutBanner from './NextWorkoutBanner';
 import CoachPlanHomeCard from './CoachPlanHomeCard';
+import WorkoutStreakCard from './WorkoutStreakCard';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
@@ -885,7 +886,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             <h2 className="profile-name-text">{userName}</h2>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+          {/* Workout streak — derived from the logs already loaded here. Its
+              detail popover anchors to this (relative) row's right edge. */}
+          {!loading && <WorkoutStreakCard logs={logs} variant="badge" />}
           <button
             type="button"
             onClick={() => {

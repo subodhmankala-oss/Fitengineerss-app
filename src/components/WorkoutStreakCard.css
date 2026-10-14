@@ -67,51 +67,6 @@
   to { transform: scale(1) translateY(0); }
 }
 
-.streak-line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 4px 12px;
-  /* Same gutter + radius as the Monthly report card below it, in a faint
-     strip so it sits in the column instead of floating edge to edge. */
-  margin: 0 var(--screen-gutter, 16px) 10px;
-  padding: 9px 14px;
-  border-radius: 12px;
-  background: rgba(var(--fg-rgb), 0.03);
-  border: 1px solid rgba(var(--fg-rgb), 0.08);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-.streak-line-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.streak-line-text strong { color: var(--tint-amber); font-weight: 800; }
-.streak-line.is-lapsed .streak-line-text { filter: grayscale(1); }
-.streak-line.is-lapsed .streak-line-text strong { color: var(--text-muted); }
-.streak-line-days { display: flex; gap: 4px; justify-self: end; }
-.streak-line-label {
-  justify-self: end;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-.streak-line-sub {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.7rem;
-  opacity: 0.85;
-}
-.streak-line-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(var(--fg-rgb), 0.15);
-}
-.streak-line-dot.is-trained { background: var(--tint-amber); }
-.streak-line-dot.is-today { box-shadow: 0 0 0 1.5px rgba(var(--fg-rgb), 0.5); }
-
 .streak-detail { padding: 14px; }
 
 .streak-head { display: flex; align-items: center; gap: 12px; }

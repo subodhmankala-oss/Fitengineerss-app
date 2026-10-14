@@ -25,11 +25,10 @@ const hintFor = ({ status, keepAliveBy }) => {
   return 'One workout starts a new streak. Let’s go!';
 };
 
-// Streak display, hidden until the client has logged a workout so a brand-new
-// client isn't greeted with "0". variant="badge" is the compact flame pill for
-// the client's Home header (tap → detail popover); "line" is a slim one-line
-// summary for the coach's client History tab.
-export default function WorkoutStreakCard({ logs, variant = 'line' }) {
+// Client-only streak: a compact flame pill for the Home header (tap → detail
+// popover). Hidden until the client has logged a workout so a brand-new
+// client isn't greeted with "0".
+export default function WorkoutStreakCard({ logs }) {
   const streak = useMemo(() => computeWorkoutStreak(logs), [logs]);
   const week = useMemo(() => recentStreakDays(logs), [logs]);
   const [open, setOpen] = useState(false);
@@ -100,54 +99,26 @@ export default function WorkoutStreakCard({ logs, variant = 'line' }) {
     </div>
   );
 
-  if (variant === 'badge') {
-    return (
-      // Not position:relative — the popover anchors to the caller's
-      // positioned container so it can align with the screen edge instead of
-      // this narrow badge (which would push it off-screen on a phone).
-      <div ref={wrapRef}>
-        <button
-          type="button"
-          className={`streak-badge ${stateClass}`}
-          onClick={() => setOpen(o => !o)}
-          aria-expanded={open}
-          aria-label={`${title}. Tap for details`}
-        >
-          <span className="streak-flame" aria-hidden="true">🔥</span>
-          {current}
-        </button>
-        {open && (
-          <div role="dialog" aria-label="Workout streak" className={`streak-pop ${stateClass}`}>
-            {detail}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Coach view: a slim, still two-row strip — labelled so a coach can read it
-  // cold: what the number is, when the next workout is due, what the dots are.
-  const nextLine = status === 'lapsed'
-    ? `Streak ended — last workout ${parseLocalDateString(streak.lastWorkoutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-    : status === 'active'
-      ? `Trained today · next workout due by ${dayPhrase(streak.keepAliveBy)}`
-      : `Next workout due by ${dayPhrase(streak.keepAliveBy)}`;
   return (
-    <div className={`streak-line ${stateClass}`}>
-      <span className="streak-line-text">
-        <span aria-hidden="true">🔥</span> Workout streak · <strong>{lapsed ? 'none' : `${current} in a row`}</strong> (best {best})
-      </span>
-      <span className="streak-line-label">Last 7 days</span>
-      <span className="streak-line-sub">{nextLine}</span>
-      <span className="streak-line-days" aria-label="Last 7 days">
-        {week.map(d => (
-          <span
-            key={d.date}
-            title={`${weekdayOf(d.date, 'long')}: ${d.trained ? 'workout' : 'no workout'}`}
-            className={`streak-line-dot${d.trained ? ' is-trained' : ''}${d.isToday ? ' is-today' : ''}`}
-          />
-        ))}
-      </span>
+    // Not position:relative — the popover anchors to the caller's positioned
+    // container so it can align with the screen edge instead of this narrow
+    // badge (which would push it off-screen on a phone).
+    <div ref={wrapRef}>
+      <button
+        type="button"
+        className={`streak-badge ${stateClass}`}
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-label={`${title}. Tap for details`}
+      >
+        <span className="streak-flame" aria-hidden="true">🔥</span>
+        {current}
+      </button>
+      {open && (
+        <div role="dialog" aria-label="Workout streak" className={`streak-pop ${stateClass}`}>
+          {detail}
+        </div>
+      )}
     </div>
   );
 }

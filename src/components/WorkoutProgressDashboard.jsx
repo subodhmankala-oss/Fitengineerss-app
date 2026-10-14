@@ -889,7 +889,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
           {/* Workout streak — derived from the logs already loaded here. Its
               detail popover anchors to this (relative) row's right edge. */}
-          {!loading && <WorkoutStreakCard logs={logs} variant="badge" />}
+          {!loading && <WorkoutStreakCard logs={logs} />}
           <button
             type="button"
             onClick={() => {

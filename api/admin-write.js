@@ -52,8 +52,11 @@ async function resolveVerifiedCaller(req) {
     const email = (authUser?.email || '').trim().toLowerCase();
     if (!email) return null;
 
+    // _ and % escaped: unescaped, an `_` in the verified email is an ilike
+    // single-character wildcard and could resolve to someone else's row —
+    // and that id is what every handler below trusts as "the caller".
     const rows = await fetch(
-      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(email)}&select=id,email`,
+      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(email.replace(/[\\%_]/g, '\\$&'))}&select=id,email`,
       { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
     ).then(r => r.json()).catch(() => []);
     const row = Array.isArray(rows) && rows[0];
@@ -302,7 +305,7 @@ async function resolveOwnerByEmail(rawEmail) {
     err.status = 400;
     throw err;
   }
-  const rows = await svcRequest(`users?email=ilike.${encodeURIComponent(email)}&select=id&limit=1`);
+  const rows = await svcRequest(`users?email=ilike.${encodeURIComponent(email.replace(/[\\_]/g, '\\$&'))}&select=id&limit=1`);
   return Array.isArray(rows) && rows[0] ? { id: rows[0].id } : null;
 }
 
@@ -384,6 +387,34 @@ async function handleUpdateGym(req, res) {
   }
 }
 
+// Gym owner moves one of their gym's clients to another trainer in the gym.
+// The owner id is the VERIFIED caller; owner_assign_client
+// (sql/gym_owner_assign_client.sql) re-checks gym ownership, that the client
+// and trainer are both in that gym, and that the gym is active.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function handleOwnerAssignClient(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { clientUserId, coachUserId } = req.body || {};
+  if (!UUID_RE.test(String(clientUserId || '')) || !UUID_RE.test(String(coachUserId || ''))) {
+    return res.status(400).json({ error: 'clientUserId and coachUserId are required.' });
+  }
+  try {
+    const data = await callRpc('owner_assign_client', {
+      p_owner_id: caller.id,
+      p_client_id: clientUserId,
+      p_coach_id: coachUserId
+    });
+    if (data && data.success === false) return res.status(403).json({ error: data.error || 'Could not move that client.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write owner-assign-client error:', err);
+    return res.status(502).json({ error: err.message || 'Could not move that client.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
@@ -393,7 +424,8 @@ const ACTION_HANDLERS = {
   'set-client-program-dates': handleSetClientProgramDates,
   'set-client-paused': handleSetClientPaused,
   'create-gym': handleCreateGym,
-  'update-gym': handleUpdateGym
+  'update-gym': handleUpdateGym,
+  'owner-assign-client': handleOwnerAssignClient
 };
 
 export default async function handler(req, res) {

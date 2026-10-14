@@ -3251,6 +3251,50 @@ const databaseService = {
     return adminWriteGym('update-gym', { gymId, ...patch });
   },
 
+  // ─── Gym owner ("🏢 My Gym") ───
+  // { success, gym: null } for anyone who doesn't own a gym — the dashboard
+  // uses that to decide whether to show the My Gym switch at all.
+  async getOwnerGym() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=owner-gym', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !('gym' in data)) {
+        return { success: false, error: (data && data.error) || 'Could not load your gym.' };
+      }
+      return { success: true, gym: data.gym, trainers: data.trainers || [], clients: data.clients || [] };
+    } catch (e) {
+      console.error('[getOwnerGym] error:', e);
+      return { success: false, error: e.message || 'Could not load your gym.' };
+    }
+  },
+
+  async ownerAssignClient(clientUserId, coachUserId) {
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) {
+        return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+      }
+      const res = await fetch('/api/admin-write?action=owner-assign-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientUserId, coachUserId })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) {
+        return { success: false, error: (data && data.error) || 'Could not move that client.' };
+      }
+      return { success: true, changed: !!data.changed };
+    } catch (e) {
+      console.error('[ownerAssignClient] error:', e);
+      return { success: false, error: e.message || 'Could not move that client.' };
+    }
+  },
+
   // Coach pauses/unpauses one attached client's subscription (2026-09-06:
   // "what if after a month clients dont want to continue" — until now a
   // client who stopped renewing just aged forever in the Client Payments

@@ -9,6 +9,7 @@ import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
 import AdminGymsList from './admin/AdminGymsList';
+import OwnerGymDashboard from './OwnerGymDashboard';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
 import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
@@ -169,7 +170,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     if (saved === 'payments') return 'payments';
     if (saved === 'admin' && superAdmin) return 'admin';
     return 'coach';
-  }); // 'coach', 'admin' or 'payments'
+  }); // 'coach', 'admin', 'payments' or 'gym'
+  // Gym owners (a coach account that owns a gym) get a "🏢 My Gym" view.
+  // Ownership is only known after a server read, so a saved 'gym' view is
+  // restored once that read confirms it, and the switch stays hidden for
+  // everyone else.
+  const [ownsGym, setOwnsGym] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.getOwnerGym().then((result) => {
+      if (cancelled || !result.success || !result.gym) return;
+      setOwnsGym(true);
+      if (savedCoachView?.viewMode === 'gym') setViewMode((v) => (v === 'coach' ? 'gym' : v));
+    });
+    return () => { cancelled = true; };
+  }, [savedCoachView]);
   // The app is a fixed-width "phone frame" everywhere else (index.css
   // --app-max-width: 480px) — deliberately, for the coach/client mobile UI.
   // subodhmankala@gmail.com is the one account that only ever uses this
@@ -4612,6 +4627,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </span>
               <span className="admin-shell-label">Clients</span>
             </button>
+            {ownsGym && (
+              <button
+                type="button"
+                className={viewMode === 'gym' ? 'active' : ''}
+                onClick={() => { setViewMode('gym'); setSelectedClient(null); }}
+                title="My Gym"
+                aria-label="My Gym"
+              >
+                <span className="admin-shell-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 21h18" />
+                    <path d="M5 21V7l7-4 7 4v14" />
+                    <path d="M9 21v-6h6v6" />
+                  </svg>
+                </span>
+                <span className="admin-shell-label">My Gym</span>
+              </button>
+            )}
             <button
               type="button"
               className={viewMode === 'admin' ? 'active' : ''}
@@ -4812,7 +4845,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             either just navigates away, so it read as a stray, half-relevant
             toggle floating above an unrelated screen. Payments already has
             its own back button (see client-payments-view) for leaving. */}
-        {superAdmin && viewMode !== 'payments' && (
+        {(superAdmin || ownsGym) && viewMode !== 'payments' && (
           <div className="role-toggle-bar" style={{
             display: 'flex',
             gap: '8px',
@@ -4841,6 +4874,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             >
               👥 My Clients ({myClientsCount})
             </button>
+            {/* Gym owners only — a coach account that owns a gym. */}
+            {ownsGym && (
+              <button
+                onClick={() => { setViewMode('gym'); setSelectedClient(null); }}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: viewMode === 'gym' ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
+                  color: viewMode === 'gym' ? 'var(--accent-text)' : 'rgba(148,163,184,0.55)',
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontFamily: 'inherit',
+                  boxShadow: viewMode === 'gym' ? '0 1px 8px rgba(var(--accent-rgb), 0.15)' : 'none',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                🏢 My Gym
+              </button>
+            )}
+            {superAdmin && (
             <button
               onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
               style={{
@@ -4864,6 +4921,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups or replies" />
               )}
             </button>
+            )}
           </div>
         )}
 
@@ -5032,7 +5090,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         />
       )}
 
-      {viewMode === 'admin' ? (
+      {viewMode === 'gym' && ownsGym ? (
+        <div style={{ maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+          <OwnerGymDashboard />
+        </div>
+      ) : viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4 className="admin-overview-title" style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800 }}>Super-Admin Overview</h4>

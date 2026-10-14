@@ -731,6 +731,124 @@ async function handleAdminGyms(req, res) {
   }
 }
 
+// Gym owner's "🏢 My Gym" view. Ownership is gyms.owner_id (the owner is a
+// coach account), resolved from the VERIFIED caller — never a gym id from the
+// request. Returns { gym: null } for a non-owner so the dashboard can simply
+// hide the switch. Activity only (workout days, last login): private coach
+// notes and progress photos are deliberately not read here
+// (gyms.owner_sees_private, default off — 2026-10-14 decision).
+const OWNER_ACTIVITY_DAYS = 30;
+
+// workout_logs is one row per set, so a month of a busy gym can exceed the
+// 1000-row max-rows cap — page with limit/offset like handleWorkoutLogs.
+async function svcSelectAll(pathWithoutPaging, label) {
+  const PAGE = 1000;
+  const rows = [];
+  for (let offset = 0; offset < 50 * PAGE; offset += PAGE) {
+    const page = await svcSelect(`${pathWithoutPaging}&limit=${PAGE}&offset=${offset}`, label);
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return rows;
+}
+
+function ownerGymPayload(gym, members, logs, now = new Date()) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const weekAgo = new Date(now.getTime() - 7 * dayMs).toISOString().slice(0, 10);
+  // Distinct workout DAYS per user (many set rows per session).
+  const days = {};
+  for (const l of logs) {
+    (days[l.user_id] || (days[l.user_id] = new Set())).add(String(l.log_date).slice(0, 10));
+  }
+  const activity = (id) => {
+    const d = [...(days[id] || [])].sort();
+    return {
+      lastWorkout: d.length ? d[d.length - 1] : null,
+      workouts7d: d.filter((x) => x >= weekAgo).length,
+      workouts30d: d.length
+    };
+  };
+
+  const trainersRaw = members.filter((m) => m.role === 'coach' || m.role === 'super-admin');
+  const clientsRaw = members.filter((m) => m.role === 'client');
+  const trainerName = Object.fromEntries(trainersRaw.map((t) => [t.id, t.full_name || t.email]));
+
+  const clients = clientsRaw.map((c) => ({
+    id: c.id,
+    name: c.full_name || (c.email || '').split('@')[0],
+    email: c.email,
+    avatarUrl: c.avatar_url || null,
+    coachId: c.coach_id || null,
+    // A coach_id outside this gym (shouldn't happen) reads as unassigned so
+    // the owner can fix it rather than see a trainer they can't manage.
+    trainerName: trainerName[c.coach_id] || null,
+    lastLogin: c.last_login || null,
+    ...activity(c.id)
+  }));
+
+  const trainers = trainersRaw.map((t) => {
+    const mine = clients.filter((c) => c.coachId === t.id);
+    return {
+      id: t.id,
+      name: t.full_name || (t.email || '').split('@')[0],
+      email: t.email,
+      avatarUrl: t.avatar_url || null,
+      isOwner: t.id === gym.owner_id,
+      lastLogin: t.last_login || null,
+      clientCount: mine.length,
+      activeClients7d: mine.filter((c) => c.workouts7d > 0).length
+    };
+  });
+
+  return {
+    gym: { id: gym.id, name: gym.name, joinCode: gym.join_code, status: gym.status, createdAt: gym.created_at },
+    trainers,
+    clients
+  };
+}
+
+async function handleOwnerGym(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    // ilike for case-insensitivity, with _ and % escaped — unescaped, an `_`
+    // in the email is a single-character wildcard and could resolve to
+    // someone else's row.
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'owner-gym caller');
+    if (!me[0]) return res.status(200).json({ gym: null });
+    const gyms = await svcSelect(
+      `gyms?owner_id=eq.${me[0].id}&select=id,name,join_code,status,owner_id,created_at&order=created_at.asc&limit=1`,
+      'owner-gym gym'
+    );
+    const gym = gyms[0];
+    if (!gym) return res.status(200).json({ gym: null });
+
+    const members = await svcSelect(
+      `users?gym_id=eq.${gym.id}&select=id,full_name,email,role,coach_id,last_login,avatar_url`,
+      'owner-gym members'
+    );
+    const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
+    const since = new Date(Date.now() - OWNER_ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const logs = clientIds.length
+      ? await svcSelectAll(
+          `workout_logs?select=user_id,log_date&user_id=in.(${clientIds.join(',')})&log_date=gte.${since}&order=id.asc`,
+          'owner-gym workout logs'
+        )
+      : [];
+
+    return res.status(200).json(ownerGymPayload(gym, members, logs));
+  } catch (err) {
+    console.error('owner-gym error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read your gym.' });
+  }
+}
+
+export const __test = { ownerGymPayload };
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -742,7 +860,8 @@ const RESOURCE_HANDLERS = {
   'admin-coaches': handleAdminCoaches,
   'admin-clients': handleAdminClients,
   'platform-stats': handlePlatformStats,
-  'admin-gyms': handleAdminGyms
+  'admin-gyms': handleAdminGyms,
+  'owner-gym': handleOwnerGym
 };
 
 export default async function handler(req, res) {

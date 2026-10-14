@@ -15,8 +15,8 @@ describe('catalog primary-muscle fallback', () => {
       { name: 'Shrug', category: 'Back', primary_muscle: 'Lower Trapezius', secondary_muscle: '' }
     ]);
     expect(getMuscleGroupsForExercise('zz scap thing')).toEqual(['Back', 'Forearms']);
-    // Name rule still wins: Shrug keeps its existing credit.
-    expect(getMuscleGroupsForExercise('Shrug')).toEqual(['Shoulders', 'Back']);
+    // Name rule still wins: Shrug keeps its rule's credit.
+    expect(getMuscleGroupsForExercise('Shrug')).toEqual(['Back', 'Forearms']);
     setCatalogMuscles([]);
     expect(getMuscleGroupsForExercise('Zz Scap Thing')).toEqual([]);
   });

@@ -57,6 +57,8 @@ const RULES = [
   // "pulldown"/"row" excluded: Lat Pulldown (Close Grip) is a back move.
   // Close grip bench: the narrow grip makes it triceps-led, chest assisting.
   { test: n => /close.?grip/.test(n) && /bench/.test(n), muscles: ['Triceps', 'Chest'] },
+  // Diamond push-up: the narrow hand position makes it triceps-led.
+  { test: n => /diamond/.test(n) && /push.?up/.test(n), muscles: ['Triceps', 'Chest'] },
   { test: n => /(triceps|tricep|skullcrusher|pushdown|kickback|close.?grip)/.test(n) && !/(chest dip|^dip$|bench|glute|pulldown|\brow)/.test(n), muscles: ['Triceps'] },
   // Checked before the generic "curl" rule below — "Wrist Curl" and
   // "Reverse Curl" both contain "curl" and would otherwise be misclassified
@@ -73,7 +75,13 @@ const RULES = [
   // Sled Push / Sled Pull (Hyrox): drive through the legs — quads and glutes
   // do the pushing or pulling. Wall Ball: a squat into an overhead throw, so
   // quads and shoulders. Same 2-muscle-credit reasoning as Burpee below.
-  { test: n => /sled (push|pull)/.test(n), muscles: ['Quads', 'Glutes'] },
+  // Sled Pull is the rope hand-over-hand drag: lats and biceps do the pulling.
+  { test: n => /sled pull/.test(n), muscles: ['Back', 'Biceps'] },
+  { test: n => /sled push/.test(n), muscles: ['Quads', 'Glutes'] },
+  // Rowing machine: a full-body pull (legs drive, back pulls). Same 2-muscle
+  // credit as Burpee/Battle Rope rather than a "full body" bucket. Must precede
+  // the generic "row" rule below, which would call it Back/Biceps.
+  { test: n => /air rowing|rowing machine|\brower\b/.test(n), muscles: ['Back', 'Quads'] },
   { test: n => /wall ball/.test(n), muscles: ['Quads', 'Shoulders'] },
   // Hammer curls (neutral grip, incl. Cross Body): brachialis/biceps plus the
   // brachioradialis, so they credit Forearms too. Must precede the generic
@@ -109,7 +117,9 @@ const RULES = [
   { test: n => /leg curl/.test(n), muscles: ['Hamstrings', 'Calves'] },
   // "kettlebell swing" added: a hip-hinge posterior-chain move, classified
   // the same as Romanian Deadlift / Good Morning here.
-  { test: n => /(hamstring|nordic|romanian|stiff.?leg|good morning|single.?leg deadlift|kettlebell swing)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
+  // Kettlebell swing is glute-led (hip snap), hamstrings assist.
+  { test: n => /kettlebell swing/.test(n), muscles: ['Glutes', 'Hamstrings'] },
+  { test: n => /(hamstring|nordic|romanian|stiff.?leg|good morning|single.?leg deadlift)/.test(n), muscles: ['Hamstrings', 'Glutes'] },
   { test: n => /(leg extension)/.test(n), muscles: ['Quads'] },
   // "box jump" added alongside "box squat" — both explosive quad/glute moves.
   // "Side Hops" and "Steppers" added (2026-08-25 coverage audit): both are
@@ -121,7 +131,9 @@ const RULES = [
   // Squat Press / thruster: a squat driven straight into an overhead press.
   { test: n => /squat press|thruster/.test(n), muscles: ['Quads', 'Shoulders'] },
   { test: n => /(squat|lunge|leg press|step.?up|wall sit|split squat|hack squat|box squat|box jump|side hops?|steppers?)/.test(n), muscles: ['Quads', 'Glutes'] },
-  { test: n => /(deadlift|rack pull|sumo)/.test(n), muscles: ['Hamstrings', 'Back'] },
+  // Sumo: the wide stance shifts the load to the glutes and inner thighs.
+  { test: n => /sumo/.test(n), muscles: ['Glutes', 'Hamstrings'] },
+  { test: n => /(deadlift|rack pull)/.test(n), muscles: ['Hamstrings', 'Back'] },
 
   // ── Core ──
   // "ball slam" and "jumping jack" added — both full-body/conditioning moves
@@ -135,7 +147,9 @@ const RULES = [
   // Shoulder Taps: a plank that loads one arm at a time, so the shoulders
   // lead and the core holds the hips square.
   { test: n => /shoulder taps?/.test(n), muscles: ['Shoulders', 'Core'] },
-  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|jumping jack|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper|\bhundred\b)/.test(n), muscles: ['Core'] },
+  // Jumping Jack: a calf-driven hop with the arms swinging overhead.
+  { test: n => /jumping jack/.test(n), muscles: ['Calves', 'Shoulders'] },
+  { test: n => /(crunch|plank|sit.?up|russian twist|leg raise|knee raise|oblique|v.?up|ab wheel|hollow|dead bug|mountain climber|ball slam|bird dog|cat camel|flutter kick|heel taps?|woodchop|pallof|side bend|windshield wiper|\bhundred\b)/.test(n), muscles: ['Core'] },
   // Reverse hyper: hip extension with the torso fixed, so glutes lead and the
   // lower back assists. Checked before the hyperextension rule below.
   { test: n => /reverse hyper/.test(n), muscles: ['Glutes', 'Back'] },
@@ -166,7 +180,9 @@ const RULES = [
   // "pull apart" (Band Pull Apart) added — a rear-delt isolation move,
   // classified the same as Face Pull/Reverse Fly.
   { test: n => /(rear delt|reverse fly|face pull|pull apart)/.test(n), muscles: ['Shoulders', 'Back'] },
-  { test: n => /(shrug)/.test(n), muscles: ['Shoulders', 'Back'] },
+  // Shrugs are the traps, which this app counts under Back; the forearms only
+  // hold the bar, so they get a quarter set.
+  { test: n => /(shrug)/.test(n), muscles: ['Back', 'Forearms'], secondaryWeight: 0.25 },
   { test: n => /(lateral raise|side lateral|front raise|upright row|y raise)/.test(n), muscles: ['Shoulders'] },
   // Landmine press: an angled press, so the upper chest helps more than the
   // triceps do.
@@ -200,6 +216,11 @@ const RULES = [
   // otherwise falls through to the chest-press rule).
   { test: n => /chest.?supported/.test(n), muscles: ['Back', 'Biceps'] },
   { test: n => /(row|pulldown|pull.?up|chin.?up|\blat |t.?bar|pendlay|v.?bar)/.test(n), muscles: ['Back', 'Biceps'] },
+
+  // ── Chest ──
+  // Flyes / crossovers / pec deck are isolation: the arms stay nearly straight,
+  // so the triceps do no work (they used to inherit the press rule's Triceps).
+  { test: n => /(fly|pec deck|crossover)/.test(n) && !/(push|dip|press)/.test(n), muscles: ['Chest'] },
 
   // ── Chest (pressing compounds) ──
   // "incline.*press"/"decline.*press" catches named variants that don't

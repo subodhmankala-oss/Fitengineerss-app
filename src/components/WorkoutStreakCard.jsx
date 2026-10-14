@@ -1,18 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { computeWorkoutStreak, nextStreakMilestone, streakTier, recentStreakDays } from '../utils/workoutStreak';
-import { getLocalDateString, parseLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../utils/dateUtils';
 import './WorkoutStreakCard.css';
 
 const weekdayOf = (dateStr, weekday) => parseLocalDateString(dateStr).toLocaleDateString('en-US', { weekday });
 
+// "today" / "tomorrow" / "Friday" for a date within the keep-alive window.
+const dayPhrase = (dateStr) => {
+  const today = getLocalDateString();
+  if (dateStr === today) return 'today';
+  if (dateStr === shiftLocalDateString(today, 1)) return 'tomorrow';
+  return weekdayOf(dateStr, 'long');
+};
+
+// Always says WHEN the next workout is needed. keepAliveBy is the last day a
+// workout still extends the chain.
 const hintFor = ({ status, keepAliveBy }) => {
-  if (status === 'active') return 'Flame fed for today. Nice work! 💪';
+  if (status === 'active') return `Nice work today! 💪 Train again by ${dayPhrase(keepAliveBy)} to keep your streak going.`;
   if (status === 'at_risk') {
     return keepAliveBy === getLocalDateString()
-      ? 'Your flame is hungry — train today to keep it lit!'
-      : `Feed your flame by ${weekdayOf(keepAliveBy, 'long')} to keep it lit.`;
+      ? 'Train today to keep your streak alive!'
+      : `Train by ${dayPhrase(keepAliveBy)} to keep your streak alive.`;
   }
-  return 'One workout relights it. Let’s go!';
+  return 'One workout starts a new streak. Let’s go!';
 };
 
 // Streak display, hidden until the client has logged a workout so a brand-new
@@ -77,8 +87,8 @@ export default function WorkoutStreakCard({ logs, variant = 'card' }) {
       {!lapsed && milestone && (
         <div className="streak-goal">
           <div className="streak-goal-text">
-            <span>Next badge</span>
-            <span>{milestone.remaining} more to 🏅 {milestone.target}</span>
+            <span>🏅 Next badge: {milestone.target} workouts in a row</span>
+            <span>{milestone.remaining} to go</span>
           </div>
           <div className="streak-goal-bar">
             <div className="streak-goal-fill" style={{ width: `${Math.max(6, Math.round(milestone.progress * 100))}%` }} />

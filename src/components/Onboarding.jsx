@@ -1626,6 +1626,13 @@ const Onboarding = ({ onComplete }) => {
                   </button>
                 </div>
               </div>
+              {/* Gym owners log in on the Coach tab (their account is a coach
+                  account that owns a gym) — a caption instead of a third tab. */}
+              {userType === 'coach' && (
+                <p style={{ margin: '-4px 0 12px 0', textAlign: 'center', fontSize: '11.5px', color: 'rgba(226, 232, 240, 0.5)' }}>
+                  For coaches &amp; gym owners
+                </p>
+              )}
 
               {authError && <div className="auth-error-banner" style={{ marginBottom: '14px' }}>❌ {authError}</div>}
               {authSuccessMsg && (
@@ -1914,7 +1921,7 @@ const Onboarding = ({ onComplete }) => {
               {/* COACH EMAIL FORM */}
               {userType === 'coach' && showCoachEmailForm && (
                 <form onSubmit={handleCoachEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach Login</h4>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach &amp; Gym Login</h4>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
@@ -2000,7 +2007,7 @@ const Onboarding = ({ onComplete }) => {
                     style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #4364bd, #3552a3)', border: 'none', color: '#fff' }}
                     disabled={authLoading}
                   >
-                    {authLoading ? 'Logging In...' : 'Log In as Coach'}
+                    {authLoading ? 'Logging In...' : 'Log In'}
                   </button>
 
                   <p style={{ margin: '8px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>

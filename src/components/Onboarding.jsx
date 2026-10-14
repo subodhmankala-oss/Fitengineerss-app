@@ -155,6 +155,13 @@ const Onboarding = ({ onComplete }) => {
   // owns (api/auth-register.js createOwnedGym). Coach-only fields are
   // optional for an owner, who may not train anyone themselves.
   const [coachApplyOwnsGym, setCoachApplyOwnsGym] = useState(false);
+  // The email box is read-only ONLY when it came from an identity we just
+  // verified (Google session, or a password that signed in but has no coach
+  // profile yet). Every other prefill — the last-logged-in email, a failed
+  // login, a reload — is a convenience the person must be able to change.
+  // It used to lock whenever the box was non-empty, which trapped the admin's
+  // own email in "Register it" and locked any box after its first keystroke.
+  const [coachApplyEmailLocked, setCoachApplyEmailLocked] = useState(false);
   // Whether a real, live Supabase session already exists when this coach
   // sign-up form is showing. True only for someone who just arrived via a
   // genuine "Continue with Google" redirect — that flow already proves who
@@ -250,6 +257,7 @@ const Onboarding = ({ onComplete }) => {
     localStorage.setItem('pendingCoachApply', 'true');
     setCoachApplyName(displayName || '');
     setCoachApplyEmail(email);
+    setCoachApplyEmailLocked(true);
     setUserType('coach');
     setAuthTab('coach_apply');
     setShowAuthForm(true);
@@ -712,6 +720,7 @@ const Onboarding = ({ onComplete }) => {
           // no extra click needed.
           try { await databaseService.signOut(); } catch { /* */ }
           setCoachApplyEmail(authEmail);
+          setCoachApplyEmailLocked(true);
           setUserType('coach');
           setAuthTab('coach_apply');
           setAuthError('');
@@ -1291,7 +1300,7 @@ const Onboarding = ({ onComplete }) => {
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Email Address</label>
-                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!coachApplyEmail} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={coachApplyEmailLocked} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1322,7 +1331,7 @@ const Onboarding = ({ onComplete }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
                   <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
-                  {coachApplyEmail && (
+                  {coachApplyEmailLocked && (
                     <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.5)' }}>
                       Enter the password you just set via "Forgot password?" for this account.
                     </p>
@@ -1875,6 +1884,8 @@ const Onboarding = ({ onComplete }) => {
                       type="button"
                       onClick={() => {
                         setCoachApplyOwnsGym(false);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
@@ -1887,6 +1898,8 @@ const Onboarding = ({ onComplete }) => {
                       type="button"
                       onClick={() => {
                         setCoachApplyOwnsGym(true);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
@@ -1996,6 +2009,8 @@ const Onboarding = ({ onComplete }) => {
                       type="button"
                       onClick={() => {
                         setCoachApplyOwnsGym(false);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
@@ -2008,6 +2023,8 @@ const Onboarding = ({ onComplete }) => {
                       type="button"
                       onClick={() => {
                         setCoachApplyOwnsGym(true);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}

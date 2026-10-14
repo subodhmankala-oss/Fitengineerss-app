@@ -1380,7 +1380,7 @@ const Onboarding = ({ onComplete }) => {
                 ← Back to Login
               </button>
               <button type="button" onClick={() => { setShowAuthForm(false); setAuthTab('login'); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
-                Already a coach account? Log in
+                {coachApplyOwnsGym ? 'Gym already registered? Log in' : 'Already a coach account? Log in'}
               </button>
             </div>
           </div>

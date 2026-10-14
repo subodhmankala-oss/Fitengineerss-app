@@ -699,8 +699,7 @@ async function handlePlatformStats(req, res) {
 
 // Super-admin Gyms tab (sql/gym_tier.sql). gyms is RLS-locked with no
 // policies, so this service-role read is the only way to list it. Member
-// counts come from users.gym_id — coaches split by gym_status so the admin
-// can see who is still waiting on the owner's approval.
+// counts come from users.gym_id (no approval step, so every member counts).
 async function handleAdminGyms(req, res) {
   if (!supabaseUrl || !serviceKey) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
@@ -713,19 +712,18 @@ async function handleAdminGyms(req, res) {
 
   try {
     const gyms = await svcSelect(
-      'gyms?select=id,name,join_code,status,owner_sees_private,approved_at,created_at,owner:users!gyms_owner_id_fkey(id,email,full_name)&order=created_at.desc',
+      'gyms?select=id,name,join_code,status,owner_sees_private,created_at,owner:users!gyms_owner_id_fkey(id,email,full_name)&order=created_at.desc',
       'admin-gyms'
     );
-    const members = await svcSelect('users?select=gym_id,role,gym_status&gym_id=not.is.null', 'admin-gyms members');
+    const members = await svcSelect('users?select=gym_id,role&gym_id=not.is.null', 'admin-gyms members');
     const counts = {};
     for (const m of members) {
-      const c = counts[m.gym_id] || (counts[m.gym_id] = { coaches: 0, pendingCoaches: 0, clients: 0 });
+      const c = counts[m.gym_id] || (counts[m.gym_id] = { coaches: 0, clients: 0 });
       if (m.role === 'client') c.clients += 1;
-      else if (m.gym_status === 'pending') c.pendingCoaches += 1;
       else c.coaches += 1;
     }
     return res.status(200).json({
-      gyms: gyms.map((g) => ({ ...g, ...(counts[g.id] || { coaches: 0, pendingCoaches: 0, clients: 0 }) }))
+      gyms: gyms.map((g) => ({ ...g, ...(counts[g.id] || { coaches: 0, clients: 0 }) }))
     });
   } catch (err) {
     console.error('admin-gyms error:', err, err.detail);

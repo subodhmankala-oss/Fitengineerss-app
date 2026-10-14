@@ -12,7 +12,6 @@ const gym = (overrides) => ({
   created_at: '2026-10-01T10:00:00Z',
   owner: { id: 'o1', email: 'owner@example.com', full_name: 'Ravi Kumar' },
   coaches: 3,
-  pendingCoaches: 1,
   clients: 12,
   ...overrides
 });
@@ -30,19 +29,27 @@ describe('AdminGymsList', () => {
   });
 
   it('lists gyms with owner, code, member counts and status', async () => {
-    const service = makeService([gym(), gym({ id: 'g2', name: 'Pulse Fitness', status: 'pending', owner: null, join_code: 'GYM-AB34', coaches: 0, pendingCoaches: 0, clients: 0 })]);
+    const service = makeService([gym(), gym({ id: 'g2', name: 'Pulse Fitness', status: 'suspended', owner: null, join_code: 'GYM-AB34', coaches: 1, clients: 0 })]);
     render(<AdminGymsList service={service} />);
 
     expect(await screen.findByText('Gyms (2)')).toBeTruthy();
-    expect(screen.getByText('· 1 awaiting approval')).toBeTruthy();
+    expect(screen.getByText('· 1 suspended')).toBeTruthy();
     expect(screen.getByText(/Ravi Kumar · owner@example.com/)).toBeTruthy();
     expect(screen.getByText('GYM-7KQ2')).toBeTruthy();
     expect(screen.getByText('🏅 3 trainers')).toBeTruthy();
-    expect(screen.getByText('⏳ 1 pending')).toBeTruthy();
+    expect(screen.getByText('🏅 1 trainer')).toBeTruthy();
     expect(screen.getByText('👥 12 clients')).toBeTruthy();
     expect(screen.getByText(/No owner yet/)).toBeTruthy();
-    expect(screen.getByText('Approve')).toBeTruthy();
+    expect(screen.getByText('Reactivate')).toBeTruthy();
     expect(screen.getByText('Suspend')).toBeTruthy();
+  });
+
+  it('has no approval step anywhere', async () => {
+    const service = makeService([gym()]);
+    render(<AdminGymsList service={service} />);
+    await screen.findByText('Gyms (1)');
+    expect(screen.queryByText(/approv/i)).toBeNull();
+    expect(screen.queryByText(/pending/i)).toBeNull();
   });
 
   it('creates a gym and reloads', async () => {
@@ -69,10 +76,12 @@ describe('AdminGymsList', () => {
     expect(await screen.findByText('No account with that email. Ask the owner to sign up first.')).toBeTruthy();
   });
 
-  it('approves a pending gym without confirmation', async () => {
-    const service = makeService([gym({ status: 'pending' })]);
+  it('reactivates a suspended gym without confirmation', async () => {
+    const service = makeService([gym({ status: 'suspended' })]);
+    const confirmSpy = vi.spyOn(window, 'confirm');
     render(<AdminGymsList service={service} />);
-    fireEvent.click(await screen.findByText('Approve'));
+    fireEvent.click(await screen.findByText('Reactivate'));
+    expect(confirmSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(service.updateGym).toHaveBeenCalledWith('g1', { status: 'active' }));
   });
 

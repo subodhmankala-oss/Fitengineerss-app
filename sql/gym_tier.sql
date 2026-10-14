@@ -4,6 +4,8 @@
 -- STATUS: APPLIED to production 2026-10-14 (step 2 — admin gym management
 -- — is the first app code to use it).
 -- Rollback: sql/rollback_gym_tier.sql
+-- Superseded in part by sql/gym_tier_no_approval.sql: there is no pending
+-- state any more (gyms and memberships are only ever active/suspended).
 --
 -- Adds a Gym level between the admin and coaches:
 --

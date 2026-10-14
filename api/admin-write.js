@@ -267,7 +267,8 @@ async function handleSetClientPaused(req, res) {
 // dashboard. Gyms are never deleted from the app (suspend instead): the
 // users.gym_status CHECK would block ON DELETE SET NULL for any gym with
 // members anyway.
-const GYM_STATUSES = ['pending', 'active', 'suspended'];
+// No pending/approval state — the admin can only suspend or reactivate.
+const GYM_STATUSES = ['active', 'suspended'];
 const PLAIN_EMAIL = /^[^\s@%*,]+@[^\s@%*,]+\.[^\s@%*,]+$/;
 
 async function svcRequest(path, { method = 'GET', body } = {}) {
@@ -332,10 +333,10 @@ async function handleCreateGym(req, res) {
       if (!owner) return res.status(404).json({ error: 'No account with that email. Ask the owner to sign up first.' });
       ownerId = owner.id;
     }
-    // Created by the admin = approved by the admin, so it starts active.
+    // No approval step anywhere (sql/gym_tier_no_approval.sql) — active on creation.
     const rows = await svcRequest('gyms', {
       method: 'POST',
-      body: { name: cleanName, owner_id: ownerId, status: 'active', approved_at: new Date().toISOString() }
+      body: { name: cleanName, owner_id: ownerId, status: 'active' }
     });
     return res.status(200).json({ gym: Array.isArray(rows) ? rows[0] : rows });
   } catch (err) {
@@ -374,11 +375,6 @@ async function handleUpdateGym(req, res) {
     if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update.' });
 
     const id = encodeURIComponent(gymId);
-    // First activation stamps approved_at; later suspend/reactivate keeps it.
-    if (patch.status === 'active') {
-      const current = await svcRequest(`gyms?id=eq.${id}&select=approved_at`);
-      if (Array.isArray(current) && current[0] && !current[0].approved_at) patch.approved_at = new Date().toISOString();
-    }
     const rows = await svcRequest(`gyms?id=eq.${id}`, { method: 'PATCH', body: patch });
     if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'Gym not found.' });
     return res.status(200).json({ gym: rows[0] });

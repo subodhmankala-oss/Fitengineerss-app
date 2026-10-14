@@ -4,19 +4,18 @@ import AdminSearchBox from './AdminSearchBox';
 import { matchesSearch } from '../../utils/matchesSearch';
 import { formatJoined } from '../../utils/activityStatus';
 
-// Super-admin Gyms tab: create gyms, link an owner, approve / suspend.
+// Super-admin Gyms tab: create gyms, link an owner, suspend / reactivate.
+// No approval step anywhere — gyms are active as soon as they exist.
 // Self-loading (unlike the coaches/clients lists) so TrainerDashboard only
 // has to render it. `service` is injectable for tests.
 
 const STATUS_STYLE = {
   active: { label: 'Active', color: 'var(--accent-text)', bg: 'rgba(var(--accent-rgb), 0.08)', border: 'rgba(var(--accent-rgb), 0.2)' },
-  pending: { label: 'Pending', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.2)' },
   suspended: { label: 'Suspended', color: 'var(--danger)', bg: 'rgba(239, 68, 68, 0.08)', border: 'rgba(239, 68, 68, 0.2)' }
 };
 
 // The one status change each state offers.
 const NEXT_ACTION = {
-  pending: { status: 'active', label: 'Approve' },
   active: { status: 'suspended', label: 'Suspend' },
   suspended: { status: 'active', label: 'Reactivate' }
 };
@@ -115,7 +114,7 @@ export default function AdminGymsList({ service = databaseService }) {
     const next = NEXT_ACTION[gym.status];
     if (!next) return;
     if (next.status === 'suspended' &&
-        !window.confirm(`Suspend ${gym.name}? Its trainers stop passing the gym on to new clients until you reactivate it.`)) {
+        !window.confirm(`Suspend ${gym.name}? New clients joining its trainers won't be added to the gym until you reactivate it.`)) {
       return;
     }
     runUpdate(gym, { status: next.status });
@@ -145,7 +144,7 @@ export default function AdminGymsList({ service = databaseService }) {
   const filteredGyms = gyms.filter((g) =>
     matchesSearch(searchQuery, [g.name, g.join_code, g.owner?.full_name, g.owner?.email])
   );
-  const pendingCount = gyms.filter((g) => g.status === 'pending').length;
+  const suspendedCount = gyms.filter((g) => g.status === 'suspended').length;
 
   return (
     <div className="glass-panel" style={{
@@ -157,9 +156,9 @@ export default function AdminGymsList({ service = databaseService }) {
     }}>
       <h5 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 700 }}>
         Gyms ({gyms.length})
-        {pendingCount > 0 && (
-          <span style={{ marginLeft: '8px', fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b' }}>
-            · {pendingCount} awaiting approval
+        {suspendedCount > 0 && (
+          <span style={{ marginLeft: '8px', fontSize: '0.72rem', fontWeight: 700, color: 'var(--danger)' }}>
+            · {suspendedCount} suspended
           </span>
         )}
       </h5>
@@ -185,7 +184,7 @@ export default function AdminGymsList({ service = databaseService }) {
         </button>
       </form>
       <p style={{ margin: '0 0 14px 0', fontSize: '0.72rem', color: createError ? 'var(--danger)' : 'var(--text-muted)' }}>
-        {createError || 'The owner must already have an account. Gyms you create here start active.'}
+        {createError || 'Optional — gyms also appear here on their own when an owner signs up. The owner must already have an account.'}
       </p>
 
       {loadError && (
@@ -219,7 +218,7 @@ export default function AdminGymsList({ service = databaseService }) {
           </thead>
           <tbody>
             {filteredGyms.map((gym) => {
-              const status = STATUS_STYLE[gym.status] || STATUS_STYLE.pending;
+              const status = STATUS_STYLE[gym.status] || STATUS_STYLE.active;
               const next = NEXT_ACTION[gym.status];
               const busy = busyId === gym.id;
               return (
@@ -275,7 +274,6 @@ export default function AdminGymsList({ service = databaseService }) {
                   </td>
                   <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     <div>🏅 {gym.coaches} trainer{gym.coaches === 1 ? '' : 's'}</div>
-                    {gym.pendingCoaches > 0 && <div style={{ color: '#f59e0b' }}>⏳ {gym.pendingCoaches} pending</div>}
                     <div>👥 {gym.clients} client{gym.clients === 1 ? '' : 's'}</div>
                   </td>
                   <td style={{ padding: '10px 8px', textAlign: 'right', verticalAlign: 'top' }}>

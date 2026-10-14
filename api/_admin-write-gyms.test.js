@@ -21,7 +21,6 @@ const mockRes = () => {
 describe('api/admin-write — gyms', () => {
   let handler;
   let writes;
-  let existingApprovedAt;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -29,7 +28,6 @@ describe('api/admin-write — gyms', () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
     writes = [];
-    existingApprovedAt = null;
     global.fetch = vi.fn(async (url, opts = {}) => {
       const u = decodeURIComponent(String(url));
       const ok = (body) => ({ ok: true, status: 200, json: async () => body });
@@ -43,7 +41,6 @@ describe('api/admin-write — gyms', () => {
       }
       if (u.includes('/rest/v1/gyms')) {
         const method = opts.method || 'GET';
-        if (method === 'GET') return ok([{ approved_at: existingApprovedAt }]);
         const body = JSON.parse(opts.body);
         writes.push({ method, url: u, body });
         return ok([{ id: GYM_ID, ...body }]);
@@ -76,13 +73,12 @@ describe('api/admin-write — gyms', () => {
     expect(writes).toHaveLength(0);
   });
 
-  it('creates an active, approved gym with the owner resolved by email', async () => {
+  it('creates an active gym with the owner resolved by email', async () => {
     const res = await call('create-gym', 'admin-token', { name: '  Iron   Den ', ownerEmail: 'Owner@Example.com' });
     expect(res.statusCode).toBe(200);
     expect(writes).toHaveLength(1);
     expect(writes[0].method).toBe('POST');
-    expect(writes[0].body).toMatchObject({ name: 'Iron Den', owner_id: OWNER_ID, status: 'active' });
-    expect(writes[0].body.approved_at).toBeTruthy();
+    expect(writes[0].body).toEqual({ name: 'Iron Den', owner_id: OWNER_ID, status: 'active' });
   });
 
   it('creates a gym with no owner when ownerEmail is blank', async () => {
@@ -102,13 +98,11 @@ describe('api/admin-write — gyms', () => {
     expect((await call('create-gym', 'admin-token', { name: 'x'.repeat(81) })).statusCode).toBe(400);
   });
 
-  it('stamps approved_at on first activation only', async () => {
-    await call('update-gym', 'admin-token', { gymId: GYM_ID, status: 'active' });
-    expect(writes[0].body.approved_at).toBeTruthy();
-
-    existingApprovedAt = '2026-10-01T00:00:00Z';
-    await call('update-gym', 'admin-token', { gymId: GYM_ID, status: 'active' });
-    expect(writes[1].body).toEqual({ status: 'active' });
+  it('reactivates, and rejects the removed pending status', async () => {
+    expect((await call('update-gym', 'admin-token', { gymId: GYM_ID, status: 'active' })).statusCode).toBe(200);
+    expect(writes[0].body).toEqual({ status: 'active' });
+    expect((await call('update-gym', 'admin-token', { gymId: GYM_ID, status: 'pending' })).statusCode).toBe(400);
+    expect(writes).toHaveLength(1);
   });
 
   it('suspends, removes the owner with a blank email, and rejects bad input', async () => {

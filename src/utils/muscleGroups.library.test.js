@@ -16,7 +16,7 @@ describe('library exercise muscles', () => {
     ['Sled Pull', ['Back', 'Biceps']],
     ['Sled Push', ['Quads', 'Glutes']],
     ['Jumping Jack', ['Calves', 'Shoulders']],
-    ['Air Rowing', []],
+    ['Air Rowing', ['Back', 'Quads']],
     ['Barbell Row', ['Back', 'Biceps']],
     ['Rear Delt Fly (Cable)', ['Shoulders', 'Back']]
   ])('%s', (name, expected) => {

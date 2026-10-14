@@ -22,16 +22,62 @@ const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 // Google auto-provision) — _adminAlert de-duplicates per coach, so only the
 // first one alerts. No URL: the card lives on the Admin panel, which the
 // app's Admin toggle dot points to.
-function notifySuperAdminOfNewCoach(publicUserId, name, email) {
+// A gym owner's sign-up reuses the same alert type (and so the same admin
+// card and per-person de-dupe) with gym wording.
+function notifySuperAdminOfNewCoach(publicUserId, name, email, gym = null) {
   return alertSuperAdmin({
     supabaseUrl,
     serviceKey: serviceRoleKey,
     type: 'new_coach_signup',
     actorUserId: publicUserId,
-    title: '🏅 New coach joined',
-    body: `${name} (${email}) just signed up as a coach.`,
-    payload: { coach_name: name, coach_email: email }
+    title: gym ? '🏢 New gym joined' : '🏅 New coach joined',
+    body: gym
+      ? `${name} (${email}) just signed up ${gym.name} as a gym owner.`
+      : `${name} (${email}) just signed up as a coach.`,
+    payload: { coach_name: name, coach_email: email, ...(gym ? { gym_name: gym.name, gym_id: gym.id } : {}) }
   });
+}
+
+// "I own a gym" on Coach Sign Up (sql/gym_tier.sql). Null = not a gym
+// sign-up; throws for a name that's present but unusable.
+function cleanGymName(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const name = String(raw).trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 80) throw new Error('Gym name must be 2–80 characters.');
+  return name;
+}
+
+// The owner is a normal coach account (they land on a dashboard that already
+// works); ownership is gyms.owner_id. Active immediately — there is no
+// approval step (sql/gym_tier_no_approval.sql). Idempotent: a retry, or a
+// second submit for an account that already owns a gym, returns that gym
+// instead of creating another. The owner also joins their own gym as a
+// trainer, so clients they coach count under it.
+async function createOwnedGym(adminClient, publicUserId, gymName) {
+  const { data: existing, error: findErr } = await adminClient
+    .from('gyms')
+    .select('id, name, join_code')
+    .eq('owner_id', publicUserId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (findErr) throw new Error(findErr.message || 'Could not check your gym.');
+  let gym = existing?.[0];
+  if (!gym) {
+    const { data: created, error: createErr } = await adminClient
+      .from('gyms')
+      .insert({ name: gymName, owner_id: publicUserId, status: 'active' })
+      .select('id, name, join_code')
+      .single();
+    if (createErr) throw new Error(createErr.message || 'Could not create your gym.');
+    gym = created;
+  }
+  const { error: joinErr } = await adminClient
+    .from('users')
+    .update({ gym_id: gym.id, gym_status: 'active' })
+    .eq('id', publicUserId)
+    .is('gym_id', null);
+  if (joinErr) throw new Error(joinErr.message || 'Could not add you to your gym.');
+  return gym;
 }
 
 // users.phone carries a UNIQUE constraint, so a number already on another
@@ -78,6 +124,12 @@ async function handleRegisterEmail(req, res) {
   const { email, name, password, phone, experience, brand, certifications, social, location } = req.body || {};
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
+  }
+  let gymName;
+  try {
+    gymName = cleanGymName(req.body.gymName);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);
@@ -139,7 +191,7 @@ async function handleRegisterEmail(req, res) {
     // profile writes still fail, delete it again so the failure is
     // undone entirely — the frontend's existing error message just tells
     // them to try again, and a retry is then a clean signUp(), not a dead end.
-    let publicUserId, coachRow;
+    let publicUserId, coachRow, gym = null;
     try {
       const { data: userRow, error: userErr } = await adminClient
         .from('users')
@@ -163,7 +215,7 @@ async function handleRegisterEmail(req, res) {
         .upsert({
           user_id: publicUserId,
           status: 'approved',
-          brand_name: brand || `${name} Fitness`,
+          brand_name: brand || gymName || `${name} Fitness`,
           experience_years: Number.isFinite(expYears) ? expYears : null,
           is_blocked: false,
           certifications: certifications || null,
@@ -174,6 +226,10 @@ async function handleRegisterEmail(req, res) {
         .single();
       if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
       coachRow = coachData;
+
+      // Inside the rollback try: a gym sign-up that fails here undoes the
+      // fresh auth account too, so the owner's retry is a clean sign-up.
+      if (gymName) gym = await createOwnedGym(adminClient, publicUserId, gymName);
     } catch (profileErr) {
       if (justCreatedAuthUser) {
         await adminClient.auth.admin.deleteUser(userId).catch(() => {
@@ -184,7 +240,7 @@ async function handleRegisterEmail(req, res) {
       throw profileErr;
     }
 
-    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail);
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gym);
 
     const { data: finalSignIn } = await anonClient.auth.signInWithPassword({
       email: normalizedEmail,
@@ -196,6 +252,7 @@ async function handleRegisterEmail(req, res) {
       hasSession: !!finalSignIn?.session,
       userId: publicUserId,
       coachId: coachRow.id,
+      gym,
       access_token: finalSignIn?.session?.access_token || null,
       refresh_token: finalSignIn?.session?.refresh_token || null
     });
@@ -215,6 +272,12 @@ async function handleRegisterGoogle(req, res) {
   const { name, phone, experience, brand, certifications, social, location } = req.body || {};
   if (!name) {
     return res.status(400).json({ error: 'name is required' });
+  }
+  let gymName;
+  try {
+    gymName = cleanGymName(req.body.gymName);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);
@@ -255,7 +318,7 @@ async function handleRegisterGoogle(req, res) {
       .upsert({
         user_id: publicUserId,
         status: 'approved',
-        brand_name: brand || `${name} Fitness`,
+        brand_name: brand || gymName || `${name} Fitness`,
         experience_years: Number.isFinite(expYears) ? expYears : null,
         is_blocked: false,
         certifications: certifications || null,
@@ -266,12 +329,15 @@ async function handleRegisterGoogle(req, res) {
       .single();
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
 
-    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail);
+    const gym = gymName ? await createOwnedGym(adminClient, publicUserId, gymName) : null;
+
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gym);
 
     return res.status(200).json({
       success: true,
       userId: publicUserId,
       coachId: coachRow.id,
+      gym,
       email: normalizedEmail
     });
   } catch (err) {

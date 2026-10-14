@@ -7412,7 +7412,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                       this tab already shows), adds a message, sends. Lives
                       at the top of History because that's where the coach is
                       already looking at this client's numbers. */}
-                  {/* Same streak card the client sees on their Home screen. */}
+                  {/* Slim one-line streak summary (the client gets the full flame badge on Home). */}
                   {!loadingLogs && <WorkoutStreakCard logs={rawWorkoutLogs} />}
                   {!loadingLogs && (
                     <MonthlyReportComposer

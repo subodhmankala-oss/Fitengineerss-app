@@ -101,6 +101,33 @@ function cleanGymName(raw) {
   return name;
 }
 
+// Optional "Gym code" on Coach Sign Up — same normalisation as
+// coach_join_gym (sql/gym_coach_join_leave.sql): uppercase, no spaces,
+// GYM- prefix added if missing. Null = no code.
+function cleanGymCode(raw) {
+  let code = String(raw ?? '').replace(/\s/g, '').toUpperCase();
+  if (!code) return null;
+  if (!code.startsWith('GYM-')) code = `GYM-${code.replace(/^GYM/, '')}`;
+  if (code.length > 20) throw new Error('No gym found with that code. Check it with your gym owner.');
+  return code;
+}
+
+// Checked BEFORE the account is created, so a mistyped code is a plain form
+// error rather than a half-made account.
+async function assertJoinableGym(adminClient, code) {
+  const { data, error } = await adminClient.from('gyms').select('id, status').eq('join_code', code).limit(1);
+  if (error) throw new Error(error.message || 'Could not check that gym code.');
+  if (!data?.[0]) throw new Error('No gym found with that code. Check it with your gym owner.');
+  if (data[0].status !== 'active') throw new Error("That gym isn't active right now.");
+}
+
+async function joinGymByCode(adminClient, publicUserId, code) {
+  const { data, error } = await adminClient.rpc('coach_join_gym', { p_coach_id: publicUserId, p_code: code, p_bring_clients: false });
+  if (error) throw new Error(error.message || 'Could not join that gym.');
+  if (data?.success === false) throw new Error(data.error || 'Could not join that gym.');
+  return { id: data.gym_id, name: data.gym_name };
+}
+
 // The owner is a normal coach account (they land on a dashboard that already
 // works); ownership is gyms.owner_id. Active immediately — there is no
 // approval step (sql/gym_tier_no_approval.sql). Idempotent: a retry, or a
@@ -179,9 +206,11 @@ async function handleRegisterEmail(req, res) {
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
   }
-  let gymName;
+  let gymName, gymCode;
   try {
     gymName = cleanGymName(req.body.gymName);
+    // An owner joins the gym they create; a code only applies to a trainer.
+    gymCode = gymName ? null : cleanGymCode(req.body.gymCode);
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -190,6 +219,7 @@ async function handleRegisterEmail(req, res) {
   const anonClient = createClient(supabaseUrl, anonKey);
 
   try {
+    if (gymCode) await assertJoinableGym(adminClient, gymCode);
     const normalizedEmail = email.trim().toLowerCase();
     let userId = null;
     // Tracks whether THIS request created the auth account (vs. signing into
@@ -278,6 +308,7 @@ async function handleRegisterEmail(req, res) {
       // Inside the rollback try: a gym sign-up that fails here undoes the
       // fresh auth account too, so the owner's retry is a clean sign-up.
       if (gymName) gym = await createOwnedGym(adminClient, publicUserId, gymName);
+      else if (gymCode) gym = await joinGymByCode(adminClient, publicUserId, gymCode);
     } catch (profileErr) {
       if (justCreatedAuthUser) {
         await adminClient.auth.admin.deleteUser(userId).catch(() => {
@@ -288,7 +319,7 @@ async function handleRegisterEmail(req, res) {
       throw profileErr;
     }
 
-    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gym);
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gymName ? gym : null);
 
     const { data: finalSignIn } = await anonClient.auth.signInWithPassword({
       email: normalizedEmail,
@@ -321,9 +352,11 @@ async function handleRegisterGoogle(req, res) {
   if (!name) {
     return res.status(400).json({ error: 'name is required' });
   }
-  let gymName;
+  let gymName, gymCode;
   try {
     gymName = cleanGymName(req.body.gymName);
+    // An owner joins the gym they create; a code only applies to a trainer.
+    gymCode = gymName ? null : cleanGymCode(req.body.gymCode);
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -343,6 +376,7 @@ async function handleRegisterGoogle(req, res) {
     if (await isEstablishedClient(adminClient, normalizedEmail)) {
       return res.status(409).json({ error: CLIENT_ACCOUNT_MESSAGE });
     }
+    if (gymCode) await assertJoinableGym(adminClient, gymCode);
 
     const existing = await existingProfile(adminClient, normalizedEmail);
     const { data: userRow, error: userErr } = await adminClient
@@ -371,9 +405,11 @@ async function handleRegisterGoogle(req, res) {
       .single();
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
 
-    const gym = gymName ? await createOwnedGym(adminClient, publicUserId, gymName) : null;
+    const gym = gymName
+      ? await createOwnedGym(adminClient, publicUserId, gymName)
+      : gymCode ? await joinGymByCode(adminClient, publicUserId, gymCode) : null;
 
-    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gym);
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gymName ? gym : null);
 
     return res.status(200).json({
       success: true,

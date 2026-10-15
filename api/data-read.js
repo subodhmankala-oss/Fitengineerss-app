@@ -847,6 +847,38 @@ async function handleOwnerGym(req, res) {
   }
 }
 
+// A trainer's own gym membership, for the "My Gym" row in their profile
+// menu: which gym (if any), whether they own it, and how many of their
+// clients are not in a gym yet (the "also add my N clients" option).
+async function handleCoachGym(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    const me = await svcSelect(
+      `users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id,gym_id&limit=1`,
+      'coach-gym caller'
+    );
+    if (!me[0]) return res.status(200).json({ gym: null, clientsOutsideGym: 0 });
+    const outside = await svcSelect(
+      `users?coach_id=eq.${me[0].id}&role=eq.client&gym_id=is.null&select=id`,
+      'coach-gym clients'
+    );
+    let gym = null;
+    if (me[0].gym_id) {
+      const rows = await svcSelect(`gyms?id=eq.${me[0].gym_id}&select=name,status,owner_id,join_code`, 'coach-gym gym');
+      if (rows[0]) gym = { name: rows[0].name, status: rows[0].status, code: rows[0].join_code, isOwner: rows[0].owner_id === me[0].id };
+    }
+    return res.status(200).json({ gym, clientsOutsideGym: outside.length });
+  } catch (err) {
+    console.error('coach-gym error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read your gym.' });
+  }
+}
+
 export const __test = { ownerGymPayload };
 
 const RESOURCE_HANDLERS = {
@@ -861,7 +893,8 @@ const RESOURCE_HANDLERS = {
   'admin-clients': handleAdminClients,
   'platform-stats': handlePlatformStats,
   'admin-gyms': handleAdminGyms,
-  'owner-gym': handleOwnerGym
+  'owner-gym': handleOwnerGym,
+  'coach-gym': handleCoachGym
 };
 
 export default async function handler(req, res) {

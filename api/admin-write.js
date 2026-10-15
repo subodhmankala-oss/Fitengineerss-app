@@ -415,6 +415,43 @@ async function handleOwnerAssignClient(req, res) {
   }
 }
 
+// A trainer joins / leaves a gym with its code (sql/gym_coach_join_leave.sql).
+// The trainer is the VERIFIED caller; the database functions do every check.
+async function handleCoachJoinGym(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { code, bringClients } = req.body || {};
+  if (typeof code !== 'string' || !code.trim() || code.length > 20) {
+    return res.status(400).json({ error: 'Enter your gym code.' });
+  }
+  try {
+    const data = await callRpc('coach_join_gym', {
+      p_coach_id: caller.id,
+      p_code: code,
+      p_bring_clients: bringClients === true
+    });
+    if (data && data.success === false) return res.status(400).json({ error: data.error || 'Could not join that gym.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write coach-join-gym error:', err);
+    return res.status(502).json({ error: err.message || 'Could not join that gym.' });
+  }
+}
+
+async function handleCoachLeaveGym(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+  try {
+    const data = await callRpc('coach_leave_gym', { p_coach_id: caller.id });
+    if (data && data.success === false) return res.status(400).json({ error: data.error || 'Could not leave the gym.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write coach-leave-gym error:', err);
+    return res.status(502).json({ error: err.message || 'Could not leave the gym.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
@@ -425,7 +462,9 @@ const ACTION_HANDLERS = {
   'set-client-paused': handleSetClientPaused,
   'create-gym': handleCreateGym,
   'update-gym': handleUpdateGym,
-  'owner-assign-client': handleOwnerAssignClient
+  'owner-assign-client': handleOwnerAssignClient,
+  'coach-join-gym': handleCoachJoinGym,
+  'coach-leave-gym': handleCoachLeaveGym
 };
 
 export default async function handler(req, res) {

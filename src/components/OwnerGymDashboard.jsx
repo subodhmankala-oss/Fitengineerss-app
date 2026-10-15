@@ -178,7 +178,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
             {copied ? 'Copied' : 'Copy code'}
           </button>
         </div>
-        <div style={muted}>Your gym code — share it with your trainers.</div>
+        <div style={muted}>Your gym code — trainers enter it when they sign up, or later in Profile → My Gym.</div>
       </div>
 
       <div style={{ display: 'flex', gap: '10px' }}>

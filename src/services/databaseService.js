@@ -594,6 +594,30 @@ async function adminWriteGym(action, body) {
   }
 }
 
+// Shared by coachJoinGym/coachLeaveGym — the server takes the trainer from
+// the verified token. Returns the RPC's own fields ({ gym_name, ... }).
+async function coachGymWrite(action, body, fallbackError) {
+  try {
+    const accessToken = await resolveRealAccessToken();
+    if (!accessToken) {
+      return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+    }
+    const res = await fetch(`/api/admin-write?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) {
+      return { success: false, error: (data && data.error) || fallbackError };
+    }
+    return { ...data, success: true };
+  } catch (e) {
+    console.error(`[${action}] error:`, e);
+    return { success: false, error: e.message || fallbackError };
+  }
+}
+
 // ─── SUPER-ADMIN CROSS-TENANT READS ───
 // The Super-Admin overview has to count across EVERY coach and client, which
 // is exactly what RLS stops a browser-side query from doing: restSelect() on
@@ -3271,6 +3295,34 @@ const databaseService = {
       console.error('[getOwnerGym] error:', e);
       return { success: false, error: e.message || 'Could not load your gym.' };
     }
+  },
+
+  // ─── Trainer's own gym membership (profile → My Gym) ───
+  async getCoachGym() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=coach-gym', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !('gym' in data)) {
+        return { success: false, error: (data && data.error) || 'Could not load your gym.' };
+      }
+      return { success: true, gym: data.gym, clientsOutsideGym: data.clientsOutsideGym || 0 };
+    } catch (e) {
+      console.error('[getCoachGym] error:', e);
+      return { success: false, error: e.message || 'Could not load your gym.' };
+    }
+  },
+
+  async coachJoinGym(code, bringClients = false) {
+    return coachGymWrite('coach-join-gym', { code, bringClients: !!bringClients }, 'Could not join that gym.');
+  },
+
+  async coachLeaveGym() {
+    return coachGymWrite('coach-leave-gym', {}, 'Could not leave the gym.');
   },
 
   async ownerAssignClient(clientUserId, coachUserId) {

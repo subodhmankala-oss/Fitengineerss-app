@@ -1109,7 +1109,8 @@ const Onboarding = ({ onComplete }) => {
                 certifications: formData.get('certifications'),
                 social: formData.get('social'),
                 location: formData.get('location'),
-                gymName: coachApplyOwnsGym ? formData.get('gymName') : undefined
+                gymName: coachApplyOwnsGym ? formData.get('gymName') : undefined,
+                gymCode: coachApplyOwnsGym ? undefined : (formData.get('gymCode') || undefined)
               })
             });
             const result = await resp.json();
@@ -1223,7 +1224,8 @@ const Onboarding = ({ onComplete }) => {
                 certifications: formData.get('certifications'),
                 social: formData.get('social'),
                 location: formData.get('location'),
-                gymName: coachApplyOwnsGym ? formData.get('gymName') : undefined
+                gymName: coachApplyOwnsGym ? formData.get('gymName') : undefined,
+                gymCode: coachApplyOwnsGym ? undefined : (formData.get('gymCode') || undefined)
               })
             });
             const result = await resp.json();
@@ -1369,6 +1371,16 @@ const Onboarding = ({ onComplete }) => {
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>{coachApplyOwnsGym ? 'Gym Location / City' : 'Location / City'}</label>
                 <input name="location" type="text" placeholder="City, Country" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
+
+              {/* Trainers who work at a gym on the app join it right here
+                  (instant, no approval). They can also do it later from
+                  their profile menu → My Gym. */}
+              {!coachApplyOwnsGym && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label htmlFor="coach-apply-gym-code" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Gym Code (Optional)</label>
+                  <input id="coach-apply-gym-code" name="gymCode" type="text" placeholder="GYM-XXXX — if your gym gave you one" autoCapitalize="characters" autoComplete="off" maxLength={20} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none', textTransform: 'uppercase' }} />
+                </div>
+              )}
 
               <button type="submit" disabled={authLoading} style={{ background: 'linear-gradient(135deg, #4364bd, #3552a3)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(67, 100, 189, 0.25)', transition: 'all 0.2s ease' }}>
                 {authLoading ? 'Creating account...' : coachApplyOwnsGym ? 'Create Gym Account' : 'Create Coach Account'}

@@ -447,6 +447,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setMobileHeaderMenuOpen(true);
   };
 
+  // The gym this coach trains at, shown as a small chip in the header (tap
+  // -> profile's My Gym page). Re-read after joining/leaving there.
+  const [myGymName, setMyGymName] = useState(null);
+  const applyMyGym = (r) => { if (r.success) setMyGymName(r.gym?.name || null); };
+  const refreshMyGym = async () => applyMyGym(await databaseService.getCoachGym());
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.getCoachGym().then((r) => { if (!cancelled && r.success) setMyGymName(r.gym?.name || null); });
+    return () => { cancelled = true; };
+  }, []);
+
   // "New" dot on the sidebar's What's New icon (2026-08-29: "Whenever
   // anything new comes in any navigation. There should be dot"). Re-read on
   // every CoachProfile close (see the overlay's onClose below) rather than
@@ -4848,15 +4859,34 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             }}
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{
-              fontSize: '0.8rem',
-              color: 'var(--text-muted)',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
-              Coach Dashboard
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                Coach Dashboard
+              </span>
+              {myGymName && (
+                <button
+                  type="button"
+                  onClick={() => openCoachProfileSection('gym')}
+                  title={`You train at ${myGymName}`}
+                  aria-label={`Your gym: ${myGymName}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    padding: '2px 8px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)',
+                    background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.22)'
+                  }}
+                >
+                  🏢 {myGymName}
+                </button>
+              )}
+            </div>
             {/* Name/brand hidden below 900px (2026-08-28: "remove the names
                 from there") — now redundant on mobile since the hamburger
                 menu's own header already shows them (see
@@ -5130,6 +5160,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); setViewMode('payments'); }}
           onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); }}
           initialSection={coachProfileSection}
+          onGymMembershipChange={refreshMyGym}
         />
       )}
 

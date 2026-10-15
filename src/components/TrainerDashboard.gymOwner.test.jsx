@@ -11,6 +11,7 @@ vi.mock('../services/databaseService', () => {
     resolveUserId: vi.fn().mockResolvedValue('coach1'),
     getAllUsers: vi.fn(),
     getOwnerGym: vi.fn(),
+    getCoachGym: vi.fn(),
     getPlatformStats: vi.fn().mockResolvedValue({ totalWorkoutsLoggedThisWeek: 0, totalActiveClients: 0 }),
     supabase: null
   };
@@ -26,6 +27,7 @@ vi.mock('../services/databaseService', () => {
 import databaseService from '../services/databaseService';
 import TrainerDashboard from './TrainerDashboard';
 import { CoachTourProvider } from '../context/CoachTourContext';
+import { ThemeContext } from '../context/useTheme';
 
 const SLOW = { timeout: 15000 };
 const GYM = {
@@ -37,10 +39,14 @@ const GYM = {
 const OWN_CLIENT = { id: 'c1', userName: 'Asha', email: 'asha@example.com', role: 'client', coach_id: 'coach1' };
 
 const renderDashboard = () => render(
-  <CoachTourProvider>
-    <TrainerDashboard handleLogout={() => {}} />
-  </CoachTourProvider>
+  <ThemeContext.Provider value={{ preference: 'light', setTheme: () => {} }}>
+    <CoachTourProvider>
+      <TrainerDashboard handleLogout={() => {}} />
+    </CoachTourProvider>
+  </ThemeContext.Provider>
 );
+const NO_GYM_MEMBERSHIP = { success: true, gym: null, clientsOutsideGym: 0 };
+const TRAINER_IN_GYM = { success: true, gym: { name: 'Test Gym', status: 'active', code: 'GYM-QFAP', isOwner: false }, clientsOutsideGym: 0 };
 
 const myClientsTab = () => screen.queryByRole('button', { name: /My Clients/ });
 
@@ -54,6 +60,7 @@ describe('TrainerDashboard — gym owner view', { timeout: 30000 }, () => {
     vi.clearAllMocks();
     databaseService.getAllUsers.mockResolvedValue([]);
     databaseService.getOwnerGym.mockResolvedValue(GYM);
+    databaseService.getCoachGym.mockResolvedValue(NO_GYM_MEMBERSHIP);
   });
 
   afterEach(() => {
@@ -99,5 +106,24 @@ describe('TrainerDashboard — gym owner view', { timeout: 30000 }, () => {
     renderDashboard();
     expect(await screen.findByText('Invite Clients', {}, SLOW)).toBeTruthy();
     expect(localStorage.getItem('ownsGym:owner@x.com')).toBeNull();
+  });
+
+  it('a trainer in a gym sees a gym chip that opens their My Gym page', async () => {
+    databaseService.getOwnerGym.mockResolvedValue({ success: true, gym: null, trainers: [], clients: [] });
+    databaseService.getCoachGym.mockResolvedValue(TRAINER_IN_GYM);
+    renderDashboard();
+    const chip = await screen.findByRole('button', { name: 'Your gym: Test Gym' }, SLOW);
+    expect(chip.textContent).toBe('🏢 Test Gym');
+    fireEvent.click(chip);
+    expect(await screen.findByText('My Gym')).toBeTruthy(); // profile sub-page title
+    expect(await screen.findByText(/never your private notes or photos/)).toBeTruthy();
+  });
+
+  it('a coach in no gym gets no chip', async () => {
+    databaseService.getOwnerGym.mockResolvedValue({ success: true, gym: null, trainers: [], clients: [] });
+    renderDashboard();
+    expect(await screen.findByText('Invite Clients', {}, SLOW)).toBeTruthy();
+    await waitFor(() => expect(databaseService.getCoachGym).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: /Your gym:/ })).toBeNull();
   });
 });

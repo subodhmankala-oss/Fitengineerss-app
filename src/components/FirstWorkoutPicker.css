@@ -173,8 +173,11 @@
 }
 
 .fwp-tile.selected .fwp-tile-icon {
-  color: #fff;
-  background: rgb(var(--accent-rgb));
+  /* Soft tint + ring, not a solid fill (2026-10-15: "I don't want solid
+     colour when selected"). */
+  color: var(--accent-text);
+  background: rgba(var(--accent-rgb), 0.2);
+  box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.45);
   transform: scale(1.06);
 }
 
@@ -237,8 +240,9 @@
 }
 
 .fwp-level.selected .fwp-tile-icon {
-  color: #fff;
-  background: rgb(var(--lvl-rgb));
+  color: var(--lvl-text);
+  background: rgba(var(--lvl-rgb), 0.22);
+  box-shadow: inset 0 0 0 1.5px rgba(var(--lvl-rgb), 0.5);
 }
 
 .fwp-level.selected .fwp-tile-check {

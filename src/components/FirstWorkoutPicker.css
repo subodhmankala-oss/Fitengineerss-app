@@ -203,7 +203,52 @@
   transform: scale(1);
 }
 
-/* ─── Levels: side by side ─── */
+/* ─── Levels: side by side, one colour each ───
+   2026-10-15: "use different colors for intermediate and advanced, it's all
+   blue". Standard difficulty coding — green / amber / red. --lvl-rgb drives
+   tints and the selected glow; --lvl-text is the readable text shade (darker
+   on the light theme, brighter on dark). */
+/* Dark is the app's default theme (index.css :root); light overrides below. */
+.fwp-level--beginner     { --lvl-rgb: 16, 185, 129; --lvl-text: #34d399; }
+.fwp-level--intermediate { --lvl-rgb: 245, 158, 11; --lvl-text: #fbbf24; }
+.fwp-level--advanced     { --lvl-rgb: 239, 68, 68;  --lvl-text: #f87171; }
+
+[data-theme="light"] .fwp-level--beginner     { --lvl-text: #047857; }
+[data-theme="light"] .fwp-level--intermediate { --lvl-text: #b45309; }
+[data-theme="light"] .fwp-level--advanced     { --lvl-text: #b91c1c; }
+
+.fwp-level .fwp-tile-icon {
+  color: var(--lvl-text);
+  background: rgba(var(--lvl-rgb), 0.12);
+}
+
+.fwp-level:hover {
+  border-color: rgba(var(--lvl-rgb), 0.5);
+}
+
+.fwp-level:focus-visible {
+  outline-color: rgba(var(--lvl-rgb), 0.5);
+}
+
+.fwp-level.selected {
+  border-color: rgb(var(--lvl-rgb));
+  background: linear-gradient(160deg, rgba(var(--lvl-rgb), 0.18), rgba(var(--lvl-rgb), 0.04));
+  box-shadow: 0 8px 22px rgba(var(--lvl-rgb), 0.25);
+}
+
+.fwp-level.selected .fwp-tile-icon {
+  color: #fff;
+  background: rgb(var(--lvl-rgb));
+}
+
+.fwp-level.selected .fwp-tile-check {
+  background: rgb(var(--lvl-rgb));
+}
+
+.fwp-level.selected .fwp-level-label {
+  color: var(--lvl-text);
+}
+
 .fwp-levels {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -233,7 +278,7 @@
   transition: color 0.2s ease;
 }
 
-.fwp-level-hint.visible { color: var(--accent-text); font-weight: 600; }
+.fwp-level-hint.visible { color: var(--lvl-text, var(--accent-text)); font-weight: 600; }
 
 /* ─── Gym / Home: two big tiles ─── */
 .fwp-options {

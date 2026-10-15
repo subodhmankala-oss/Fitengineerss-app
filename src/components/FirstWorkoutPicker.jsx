@@ -140,7 +140,7 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
             type="button"
             role="radio"
             aria-checked={level === l.id}
-            className={`fwp-tile fwp-level ${level === l.id ? 'selected' : ''}`}
+            className={`fwp-tile fwp-level fwp-level--${l.id} ${level === l.id ? 'selected' : ''}`}
             onClick={() => pickLevel(l.id)}
           >
             <span className="fwp-tile-check" aria-hidden="true">✓</span>
@@ -149,7 +149,7 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
           </button>
         ))}
       </div>
-      <p className={`fwp-level-hint ${selectedLevel ? 'visible' : ''}`} aria-live="polite">
+      <p className={`fwp-level-hint ${selectedLevel ? `visible fwp-level--${selectedLevel.id}` : ''}`} aria-live="polite">
         {selectedLevel ? selectedLevel.desc : 'Not sure? Beginner is a great place to start.'}
       </p>
 

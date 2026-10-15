@@ -4859,7 +4859,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             }}
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Gym name sits under the label (2026-10-15: "keep the gym name
+                underneath the coach dashboard"). */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
               <span style={{
                 fontSize: '0.8rem',
                 color: 'var(--text-muted)',

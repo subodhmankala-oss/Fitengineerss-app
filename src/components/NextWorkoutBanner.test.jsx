@@ -87,6 +87,32 @@ describe('NextWorkoutBanner', () => {
     expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
   });
 
+  it('offers all three levels at once and previews the first workout', async () => {
+    mockLibrary({
+      gym: {
+        beginner: [{ name: 'Beginner Full Body A', exercises: [{ name: 'Leg Press' }, { name: 'Lat Pulldown' }, { name: 'Chest Press' }, { name: 'Plank' }, { name: 'Bike' }] }],
+        intermediate: [{ name: 'Upper A', exercises: [] }],
+        advanced: [{ name: 'Push A', exercises: [] }]
+      }
+    });
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    await screen.findByText(/Let’s get you started/);
+    const levelGroup = screen.getByRole('radiogroup', { name: 'What’s your level?' });
+    expect(Array.from(levelGroup.querySelectorAll('[role="radio"]')).map(r => r.textContent)).toEqual([
+      expect.stringContaining('Beginner'), expect.stringContaining('Intermediate'), expect.stringContaining('Advanced')
+    ]);
+
+    fireEvent.click(screen.getByRole('radio', { name: /^Beginner/ }));
+    expect(screen.getByText('New to training, or getting back into it')).not.toBeNull();
+    fireEvent.click(screen.getByText('At the gym'));
+    expect(screen.getByText('Your first workout')).not.toBeNull();
+    expect(screen.getByText('Beginner Full Body A')).not.toBeNull();
+    expect(screen.getByText('Leg Press')).not.toBeNull();
+    expect(screen.getByText('+2 more')).not.toBeNull();
+    expect(screen.getByText('5 exercises')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Start my first workout 💪' }).disabled).toBe(false);
+  });
+
   it('after closing, a "Choose your level" row stays and reopens the picker', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);

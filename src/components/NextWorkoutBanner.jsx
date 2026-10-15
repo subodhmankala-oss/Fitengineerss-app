@@ -141,8 +141,9 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       <div
         style={{
           position: 'relative',
-          background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
-          borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
+          background: 'linear-gradient(160deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-rgb), 0.03) 60%)',
+          border: '1px solid rgba(var(--accent-rgb), 0.25)',
+          borderRadius: '18px', padding: '18px 14px', marginBottom: '4px'
         }}
       >
         <button

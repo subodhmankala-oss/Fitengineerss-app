@@ -155,6 +155,25 @@ const LIVE_REST_KEY = 'coachLiveRestEndAt';
 // names } — see the save effect next to liveSetTimers and setTimerRestore.js.
 const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
+// Gym owners (a coach account that owns a gym). Cached per email so an owner
+// lands straight on My Gym instead of flashing the empty coach screen while
+// the ownership read is in flight; the server read below corrects it either
+// way. OWNER_COACHES_KEY: the owner switched on "Also coach clients".
+const ownsGymKey = (email) => `ownsGym:${(email || '').toLowerCase()}`;
+const OWNER_COACHES_KEY = 'ownerCoachesClients';
+const readFlag = (key) => {
+  try { return localStorage.getItem(key) === 'true'; } catch { return false; }
+};
+// An owner lands on My Gym unless they coach and were last on My Clients.
+const ownerLandsOnGym = (superAdmin, savedCoachView) =>
+  !superAdmin && !(savedCoachView?.viewMode === 'coach' && readFlag(OWNER_COACHES_KEY));
+const writeFlag = (key, on) => {
+  try {
+    if (on) localStorage.setItem(key, 'true');
+    else localStorage.removeItem(key);
+  } catch { /* storage unavailable — falls back to the server read each load */ }
+};
+
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
@@ -165,26 +184,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const coachTour = useCoachTour();
   const showDemoClientRow = coachTour.step > 0;
   const [savedCoachView] = useState(readSavedCoachView);
+  // Gym owners get a "🏢 My Gym" view and land on it. The super-admin (who
+  // may also own a gym) keeps their usual landing and every tab.
+  const [ownsGym, setOwnsGym] = useState(() => readFlag(ownsGymKey(loggedInEmail)));
+  const [ownerCoaches, setOwnerCoaches] = useState(() => readFlag(OWNER_COACHES_KEY));
   const [viewMode, setViewMode] = useState(() => {
     const saved = savedCoachView?.viewMode;
     if (saved === 'payments') return 'payments';
     if (saved === 'admin' && superAdmin) return 'admin';
+    if (ownsGym && (saved === 'gym' || ownerLandsOnGym(superAdmin, savedCoachView))) return 'gym';
     return 'coach';
   }); // 'coach', 'admin', 'payments' or 'gym'
-  // Gym owners (a coach account that owns a gym) get a "🏢 My Gym" view.
-  // Ownership is only known after a server read, so a saved 'gym' view is
-  // restored once that read confirms it, and the switch stays hidden for
-  // everyone else.
-  const [ownsGym, setOwnsGym] = useState(false);
   useEffect(() => {
     let cancelled = false;
     databaseService.getOwnerGym().then((result) => {
-      if (cancelled || !result.success || !result.gym) return;
-      setOwnsGym(true);
-      if (savedCoachView?.viewMode === 'gym') setViewMode((v) => (v === 'coach' ? 'gym' : v));
+      if (cancelled || !result.success) return;
+      const owns = !!result.gym;
+      writeFlag(ownsGymKey(loggedInEmail), owns);
+      setOwnsGym(owns);
+      if (owns && (savedCoachView?.viewMode === 'gym' || ownerLandsOnGym(superAdmin, savedCoachView))) {
+        setViewMode((v) => (v === 'coach' ? 'gym' : v));
+      } else if (!owns) {
+        setViewMode((v) => (v === 'gym' ? 'coach' : v));
+      }
     });
     return () => { cancelled = true; };
-  }, [savedCoachView]);
+  }, [loggedInEmail, superAdmin, savedCoachView]);
   // The app is a fixed-width "phone frame" everywhere else (index.css
   // --app-max-width: 480px) — deliberately, for the coach/client mobile UI.
   // subodhmankala@gmail.com is the one account that only ever uses this
@@ -4547,6 +4572,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // number than what clicking the tab actually shows — 35 vs. this coach's
   // real 17 attached clients. Confirmed 2026-08-12.
   const myClientsCount = loggedInUserId ? clients.filter(c => c.coach_id === loggedInUserId && !c.paused_at).length : 0;
+  // Gym owner who doesn't coach: no My Clients tab (an empty "Invite Clients /
+  // No Clients Found" screen isn't what they signed up for). It appears once
+  // they have any client of their own — paused ones included, so those stay
+  // reachable — or switch on "Also coach clients" in My Gym.
+  const ownerOnly = ownsGym && !superAdmin;
+  const ownerHasOwnClients = !!loggedInUserId && clients.some(c => c.coach_id === loggedInUserId);
+  const showMyClientsTab = !ownerOnly || ownerCoaches || ownerHasOwnClients;
+  // 'coach' (e.g. the logo's Home tap) falls through to My Gym when there is
+  // no My Clients view to show.
+  const showGymView = ownsGym && (viewMode === 'gym' || (viewMode === 'coach' && !showMyClientsTab && !selectedClient));
+  const handleSetOwnerCoaching = (on) => {
+    writeFlag(OWNER_COACHES_KEY, on);
+    setOwnerCoaches(on);
+    setSelectedClient(null);
+    setViewMode(on ? 'coach' : 'gym');
+  };
   // Same ownership scope as myClientsCount — the Payments tab's client
   // picker, sorted alphabetically so a long client list stays scannable.
   const myClients = loggedInUserId
@@ -4845,7 +4886,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             either just navigates away, so it read as a stray, half-relevant
             toggle floating above an unrelated screen. Payments already has
             its own back button (see client-payments-view) for leaving. */}
-        {(superAdmin || ownsGym) && viewMode !== 'payments' && (
+        {/* Only when there's more than one view to switch between: an owner
+            who doesn't coach has just My Gym, so no switch at all. */}
+        {(superAdmin || (ownsGym && showMyClientsTab)) && viewMode !== 'payments' && (
           <div className="role-toggle-bar" style={{
             display: 'flex',
             gap: '8px',
@@ -5090,9 +5133,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         />
       )}
 
-      {viewMode === 'gym' && ownsGym ? (
+      {showGymView ? (
         <div style={{ maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-          <OwnerGymDashboard />
+          <OwnerGymDashboard
+            coachingOption={ownerOnly ? {
+              on: showMyClientsTab,
+              // Can't switch off while they still have clients of their own.
+              locked: ownerHasOwnClients,
+              onChange: handleSetOwnerCoaching
+            } : null}
+          />
         </div>
       ) : viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>

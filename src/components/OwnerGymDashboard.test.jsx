@@ -91,6 +91,34 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByLabelText('Trainer for Ravi').disabled).toBe(true);
   });
 
+  it('an owner who does not coach is left out of trainers and dropdowns', async () => {
+    const onChange = vi.fn();
+    render(<OwnerGymDashboard service={makeService()} coachingOption={{ on: false, locked: false, onChange }} />);
+    expect(await screen.findByText('Trainers (1)')).toBeTruthy();
+    expect(screen.queryByText('Test Gym Owner')).toBeNull();
+    fireEvent.click(screen.getByText('Clients (3)'));
+    const options = within(screen.getByLabelText('Trainer for Meena')).getAllByRole('option').map((o) => o.textContent);
+    expect(options).toEqual(['Asha Trainer']);
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Also coach clients' }));
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it('a coaching owner is listed, and the switch locks while they have clients', async () => {
+    render(<OwnerGymDashboard service={makeService()} coachingOption={{ on: true, locked: true, onChange: () => {} }} />);
+    expect(await screen.findByText('Trainers (2)')).toBeTruthy();
+    const sw = screen.getByRole('switch', { name: 'Also coach clients' });
+    expect(sw.checked).toBe(true);
+    expect(sw.disabled).toBe(true);
+    expect(screen.getByText('On while you have clients of your own.')).toBeTruthy();
+  });
+
+  it('the super-admin view (no coachingOption) has no switch and lists everyone', async () => {
+    render(<OwnerGymDashboard service={makeService()} />);
+    expect(await screen.findByText('Trainers (2)')).toBeTruthy();
+    expect(screen.queryByRole('switch')).toBeNull();
+  });
+
   it('never shows private notes or photos', async () => {
     render(<OwnerGymDashboard service={makeService()} />);
     await screen.findByText('Test Gym');

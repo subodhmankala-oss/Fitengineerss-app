@@ -9,6 +9,11 @@ import { getActivityStatus } from '../utils/activityStatus';
 // Activity only: private coach notes / progress photos are not shown to
 // owners (gyms.owner_sees_private, off by default). `service` is injectable
 // for tests.
+//
+// coachingOption (gym owners only; null for the super-admin): whether this
+// owner also coaches clients — { on, locked, onChange }. When off, the owner
+// is left out of their own Trainers list and the trainer dropdowns, so the
+// gym shows only the trainers who actually coach there.
 
 const UNASSIGNED = '__unassigned__';
 
@@ -56,7 +61,7 @@ function Initial({ name }) {
   );
 }
 
-export default function OwnerGymDashboard({ service = databaseService }) {
+export default function OwnerGymDashboard({ service = databaseService, coachingOption = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -85,7 +90,11 @@ export default function OwnerGymDashboard({ service = databaseService }) {
     return () => { cancelled = true; };
   }, [service, applyLoad]);
 
-  const trainers = useMemo(() => data?.trainers || [], [data]);
+  const ownerCoaches = !coachingOption || coachingOption.on;
+  const trainers = useMemo(
+    () => (data?.trainers || []).filter((t) => ownerCoaches || !t.isOwner),
+    [data, ownerCoaches]
+  );
   const clients = useMemo(() => data?.clients || [], [data]);
 
   const filteredClients = useMemo(() => clients
@@ -294,6 +303,30 @@ export default function OwnerGymDashboard({ service = databaseService }) {
             );
           })}
         </div>
+      )}
+
+      {coachingOption && (
+        <label style={{ ...card, display: 'flex', alignItems: 'center', gap: '12px', cursor: coachingOption.locked ? 'default' : 'pointer' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>Also coach clients</div>
+            <div style={muted}>
+              {coachingOption.locked
+                ? 'On while you have clients of your own.'
+                : coachingOption.on
+                  ? 'You have a My Clients tab and can invite clients yourself.'
+                  : 'Turn on to get a My Clients tab and invite your own clients.'}
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="Also coach clients"
+            checked={coachingOption.on}
+            disabled={coachingOption.locked}
+            onChange={(e) => coachingOption.onChange(e.target.checked)}
+            style={{ width: 20, height: 20, accentColor: 'var(--primary-accent, #4364bd)', cursor: 'inherit' }}
+          />
+        </label>
       )}
     </div>
   );

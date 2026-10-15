@@ -100,6 +100,22 @@ describe('NextWorkoutBanner', () => {
     expect(screen.queryByRole('button', { name: /Choose your level/ })).toBeNull();
   });
 
+  it('the moment the first workout is saved, the picker / "Choose your level" row is replaced by Beginner B', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    const { rerender } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    // Closed picker → the "Choose your level" row...
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('button', { name: /Choose your level/ })).not.toBeNull();
+
+    // ...then Beginner Full Body A is saved (the home screen reloads its logs
+    // on 'workoutSessionsUpdated' and passes them back in).
+    rerender(<NextWorkoutBanner userId="u1" logs={[{ log_date: '2026-10-15', plan_name: 'Beginner Full Body A' }]} onNavigateToWorkouts={() => {}} />);
+    expect(screen.queryByRole('button', { name: /Choose your level/ })).toBeNull();
+    expect(screen.queryByText(/Let’s get you started/)).toBeNull();
+    expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
+    expect(screen.getByText(/Next up: Beginner Full Body B/)).not.toBeNull();
+  });
+
   it('closing the picker doesn’t hide the normal next-program banner once they have logged workouts', async () => {
     localStorage.setItem('firstWorkoutPickerDismissed_u1', '1');
     mockLibrary({ gym: { beginner: gymBeginner } });

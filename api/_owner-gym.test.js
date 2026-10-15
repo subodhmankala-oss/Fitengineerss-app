@@ -162,3 +162,51 @@ describe('api/admin-write owner-assign-client', () => {
     expect(rpcCalls).toEqual([]);
   });
 });
+
+describe('api/admin-write owner-unassign-client', () => {
+  let handler;
+  let rpcCalls;
+  const CLIENT = '11111111-1111-4111-8111-111111111111';
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://placeholder.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    rpcCalls = [];
+    global.fetch = vi.fn(async (url, opts = {}) => {
+      const u = decodeURIComponent(String(url));
+      if (u.includes('/auth/v1/user')) {
+        const token = (opts.headers?.Authorization || '').replace('Bearer ', '');
+        return token === 'owner-token' ? ok({ email: 'owner@x.com' }) : { ok: false, status: 401, json: async () => ({}) };
+      }
+      if (u.includes('/rest/v1/users?email=ilike.')) return ok([{ id: 'owner-id', email: 'owner@x.com' }]);
+      if (u.includes('/rest/v1/rpc/owner_unassign_client')) {
+        rpcCalls.push(JSON.parse(opts.body));
+        return ok({ success: true, changed: true });
+      }
+      return ok([]);
+    });
+    handler = (await import('./admin-write.js')).default;
+  });
+
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  const call = async (token, body) => {
+    const res = mockRes();
+    await handler({ method: 'POST', query: { action: 'owner-unassign-client' }, headers: token ? { authorization: `Bearer ${token}` } : {}, body }, res);
+    return res;
+  };
+
+  it('unassigns as the VERIFIED owner, ignoring any owner in the body', async () => {
+    const res = await call('owner-token', { clientUserId: CLIENT, ownerId: 'attacker' });
+    expect(res.statusCode).toBe(200);
+    expect(rpcCalls).toEqual([{ p_owner_id: 'owner-id', p_client_id: CLIENT }]);
+  });
+
+  it('401 without a session, 400 for a bad id — no database call', async () => {
+    expect((await call(null, { clientUserId: CLIENT })).statusCode).toBe(401);
+    expect((await call('owner-token', { clientUserId: 'x' })).statusCode).toBe(400);
+    expect(rpcCalls).toEqual([]);
+  });
+});

@@ -61,6 +61,165 @@ function Initial({ name }) {
   );
 }
 
+// One client in My Gym → Clients. 2026-10-15: the old always-on trainer
+// dropdown moved a client the instant it changed, with only "Moved to X"
+// after — "a lot confusing what is happening", and no way to unassign. Now:
+// a status chip (trainer / waiting), a "Change trainer" panel listing every
+// trainer plus "No trainer — back to the waiting list", a plain-language
+// confirm step, and a plain-language result.
+const NO_TRAINER = '__none__';
+
+function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign }) {
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState(null);
+  const hasTrainer = !!client.trainerName;
+  const current = trainers.find((t) => t.id === client.coachId);
+  const chosen = trainers.find((t) => t.id === choice);
+  const nameOf = (t) => (t?.isOwner ? 'you' : t?.name);
+
+  const close = () => { setOpen(false); setChoice(null); };
+  const confirm = async () => {
+    const ok = choice === NO_TRAINER ? await onUnassign(client) : await onAssign(client, chosen);
+    if (ok) close();
+  };
+
+  const confirmText = choice === NO_TRAINER
+    ? `Remove ${client.name} from ${nameOf(current) || client.trainerName || 'their trainer'}? They go back to the waiting list and their app shows "Trainer coming soon".`
+    : chosen
+      ? hasTrainer
+        ? `Move ${client.name} from ${nameOf(current) || client.trainerName} to ${nameOf(chosen)}?`
+        : `Give ${client.name} to ${nameOf(chosen)} as their trainer?`
+      : null;
+
+  const option = (key, label, sub, isCurrent) => {
+    const selected = choice === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        disabled={isCurrent || busy}
+        onClick={() => setChoice(key)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+          padding: '10px 12px', borderRadius: '10px', fontFamily: 'inherit',
+          cursor: isCurrent ? 'default' : 'pointer',
+          background: selected ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
+          border: `1.5px solid ${selected ? 'rgba(var(--accent-rgb), 0.6)' : 'var(--border-color)'}`,
+          opacity: isCurrent ? 0.6 : 1, color: 'var(--text-main)'
+        }}
+      >
+        <span aria-hidden="true" style={{
+          width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+          border: `2px solid ${selected ? 'rgb(var(--accent-rgb))' : 'rgba(var(--fg-rgb), 0.3)'}`,
+          boxShadow: selected ? 'inset 0 0 0 3px var(--bg-card), inset 0 0 0 8px rgb(var(--accent-rgb))' : 'none'
+        }} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700 }}>{label}</span>
+          {sub && <span style={{ display: 'block', ...muted }}>{sub}</span>}
+        </span>
+        {isCurrent && <span style={{ ...muted, fontWeight: 700 }}>Current</span>}
+      </button>
+    );
+  };
+
+  return (
+    <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Initial name={client.name} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{client.name}</div>
+          <div style={{ ...muted, color: client.workouts7d > 0 ? 'var(--accent-text)' : 'var(--text-muted)' }}>
+            {daysAgoLabel(client.lastWorkout)}{client.workouts7d > 0 ? ` · ${client.workouts7d} this week` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {hasTrainer ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700,
+            color: 'var(--text-main)', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.35)',
+            borderRadius: '999px', padding: '4px 10px'
+          }}>
+            <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981' }} />
+            Trainer: {current?.isOwner ? 'You' : client.trainerName}
+          </span>
+        ) : (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700,
+            color: 'var(--text-main)', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.4)',
+            borderRadius: '999px', padding: '4px 10px'
+          }}>
+            <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
+            Waiting for a trainer
+          </span>
+        )}
+        {!open && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            disabled={locked}
+            style={{ ...smallButton, marginLeft: 'auto', opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
+          >
+            {hasTrainer ? 'Change trainer' : 'Assign trainer'}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '6px' }}>
+            {hasTrainer ? `Who should coach ${client.name}?` : `Pick a trainer for ${client.name}`}
+          </div>
+          <div role="radiogroup" aria-label={`Trainer for ${client.name}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {trainers.length === 0 && <div style={muted}>No trainers in your gym yet — share your gym code with them first.</div>}
+            {trainers.map((t) => option(
+              t.id,
+              t.isOwner ? `${t.name} (you)` : t.name,
+              `${t.clientCount} client${t.clientCount === 1 ? '' : 's'}`,
+              t.id === client.coachId
+            ))}
+            {hasTrainer && option(NO_TRAINER, 'No trainer', 'Back to the waiting list', false)}
+          </div>
+
+          {confirmText && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.2)', borderRadius: '10px', padding: '10px 12px', lineHeight: 1.45 }}>
+              {confirmText}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={!confirmText || busy}
+              style={{
+                ...smallButton, flex: 1, padding: '9px 12px', border: 'none',
+                background: confirmText ? 'linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent))' : 'rgba(var(--fg-rgb), 0.08)',
+                color: confirmText ? '#fff' : 'var(--text-muted)',
+                cursor: confirmText && !busy ? 'pointer' : 'default'
+              }}
+            >
+              {busy ? 'Saving…' : choice === NO_TRAINER ? 'Remove trainer' : 'Confirm'}
+            </button>
+            <button type="button" onClick={close} disabled={busy} style={{ ...smallButton, flex: '0 0 auto', padding: '9px 14px' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {message && (
+        <div role={message.error ? 'alert' : 'status'} style={{ fontSize: '0.78rem', fontWeight: 600, color: message.error ? 'var(--danger)' : '#10b981' }}>
+          {message.error ? '✕ ' : '✓ '}{message.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OwnerGymDashboard({ service = databaseService, coachingOption = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -135,20 +294,34 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
     } catch { /* clipboard blocked — the code is on screen */ }
   };
 
-  const handleAssign = async (client, coachId) => {
-    if (!coachId || coachId === client.coachId) return;
+  // Both resolve true on success so the card can close its panel.
+  const runChange = async (client, call, successText) => {
     setSavingId(client.id);
     setRowMsg((m) => ({ ...m, [client.id]: null }));
-    const result = await service.ownerAssignClient(client.id, coachId);
+    const result = await call();
     setSavingId(null);
     if (!result.success) {
       setRowMsg((m) => ({ ...m, [client.id]: { error: true, text: result.error } }));
-      return;
+      return false;
     }
-    const to = trainers.find((t) => t.id === coachId);
-    setRowMsg((m) => ({ ...m, [client.id]: { error: false, text: `Moved to ${to?.name || 'trainer'}` } }));
+    setRowMsg((m) => ({ ...m, [client.id]: { error: false, text: successText } }));
     await load();
+    return true;
   };
+
+  const handleAssign = (client, trainer) => runChange(
+    client,
+    () => service.ownerAssignClient(client.id, trainer.id),
+    trainer.isOwner
+      ? `${client.name} is now your client.`
+      : `${client.name} is now with ${trainer.name}. ${trainer.name} has been notified.`
+  );
+
+  const handleUnassign = (client) => runChange(
+    client,
+    () => service.ownerUnassignClient(client.id),
+    `${client.name} is back on the waiting list.`
+  );
 
   const statTile = (label, value, tone) => (
     <div style={{ ...card, flex: 1, padding: '12px', textAlign: 'center' }}>
@@ -270,9 +443,9 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
               onChange={(e) => setTrainerFilter(e.target.value)}
               style={{ flex: '0 1 170px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', fontFamily: 'inherit', fontSize: '0.8rem' }}
             >
-              <option value="">All trainers</option>
-              {trainers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              {unassignedCount > 0 && <option value={UNASSIGNED}>No trainer ({unassignedCount})</option>}
+              <option value="">All clients</option>
+              {trainers.map((t) => <option key={t.id} value={t.id}>{t.isOwner ? 'Your clients' : `${t.name}’s clients`}</option>)}
+              {unassignedCount > 0 && <option value={UNASSIGNED}>Waiting for a trainer ({unassignedCount})</option>}
             </select>
           </div>
 
@@ -281,41 +454,18 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
               <h5>No clients {clients.length ? 'match' : 'yet'}</h5>
               <p>{clients.length ? 'Try a different search or trainer.' : 'Clients appear here when they join one of your trainers.'}</p>
             </div>
-          ) : filteredClients.map((c) => {
-            const msg = rowMsg[c.id];
-            return (
-              <div key={c.id} style={{ ...card, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Initial name={c.name} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>{c.name}</div>
-                    <div style={{ ...muted, color: c.workouts7d > 0 ? 'var(--accent-text)' : 'var(--text-muted)' }}>
-                      {daysAgoLabel(c.lastWorkout)}{c.workouts7d > 0 ? ` · ${c.workouts7d} this week` : ''}
-                    </div>
-                  </div>
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', ...muted }}>
-                  <span style={{ whiteSpace: 'nowrap' }}>Trainer</span>
-                  <select
-                    aria-label={`Trainer for ${c.name}`}
-                    value={c.trainerName ? c.coachId : ''}
-                    disabled={savingId === c.id || gym.status !== 'active' || trainers.length === 0}
-                    onChange={(e) => handleAssign(c, e.target.value)}
-                    style={{ flex: 1, minWidth: 0, background: 'rgba(var(--fg-rgb), 0.03)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '7px 8px', fontFamily: 'inherit', fontSize: '0.8rem' }}
-                  >
-                    {!c.trainerName && <option value="">— Choose a trainer —</option>}
-                    {trainers.map((t) => <option key={t.id} value={t.id}>{t.name}{t.isOwner ? ' (you)' : ''}</option>)}
-                  </select>
-                  {savingId === c.id && <span>Saving…</span>}
-                </label>
-                {msg && (
-                  <div role={msg.error ? 'alert' : 'status'} style={{ fontSize: '0.72rem', color: msg.error ? 'var(--danger)' : 'var(--accent-text)' }}>
-                    {msg.text}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          ) : filteredClients.map((c) => (
+            <ClientCard
+              key={c.id}
+              client={c}
+              trainers={trainers}
+              locked={gym.status !== 'active'}
+              busy={savingId === c.id}
+              message={rowMsg[c.id]}
+              onAssign={handleAssign}
+              onUnassign={handleUnassign}
+            />
+          ))}
         </div>
       )}
 

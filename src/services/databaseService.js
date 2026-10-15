@@ -3329,6 +3329,29 @@ const databaseService = {
     return coachGymWrite('coach-leave-gym', {}, 'Could not leave the gym.');
   },
 
+  // Back to the gym's "waiting for a trainer" list.
+  async ownerUnassignClient(clientUserId) {
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) {
+        return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+      }
+      const res = await fetch('/api/admin-write?action=owner-unassign-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientUserId })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) {
+        return { success: false, error: (data && data.error) || 'Could not remove the trainer.' };
+      }
+      return { success: true, changed: !!data.changed };
+    } catch (e) {
+      console.error('[ownerUnassignClient] error:', e);
+      return { success: false, error: e.message || 'Could not remove the trainer.' };
+    }
+  },
+
   async ownerAssignClient(clientUserId, coachUserId) {
     try {
       const accessToken = await resolveRealAccessToken();

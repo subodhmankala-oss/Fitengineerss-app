@@ -415,6 +415,26 @@ async function handleOwnerAssignClient(req, res) {
   }
 }
 
+// Gym owner takes a client off their trainer — the client stays in the gym,
+// back on the "waiting for a trainer" list (sql/gym_owner_unassign_client.sql).
+async function handleOwnerUnassignClient(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { clientUserId } = req.body || {};
+  if (!UUID_RE.test(String(clientUserId || ''))) {
+    return res.status(400).json({ error: 'clientUserId is required.' });
+  }
+  try {
+    const data = await callRpc('owner_unassign_client', { p_owner_id: caller.id, p_client_id: clientUserId });
+    if (data && data.success === false) return res.status(403).json({ error: data.error || 'Could not remove the trainer.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write owner-unassign-client error:', err);
+    return res.status(502).json({ error: err.message || 'Could not remove the trainer.' });
+  }
+}
+
 // A trainer joins / leaves a gym with its code (sql/gym_coach_join_leave.sql).
 // The trainer is the VERIFIED caller; the database functions do every check.
 async function handleCoachJoinGym(req, res) {
@@ -483,6 +503,7 @@ const ACTION_HANDLERS = {
   'create-gym': handleCreateGym,
   'update-gym': handleUpdateGym,
   'owner-assign-client': handleOwnerAssignClient,
+  'owner-unassign-client': handleOwnerUnassignClient,
   'coach-join-gym': handleCoachJoinGym,
   'coach-leave-gym': handleCoachLeaveGym,
   'client-join-gym': handleClientJoinGym

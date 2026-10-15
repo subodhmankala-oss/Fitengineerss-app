@@ -23,8 +23,13 @@ const payload = () => ({
 
 const makeService = (result = payload()) => ({
   getOwnerGym: vi.fn(async () => result),
-  ownerAssignClient: vi.fn(async () => ({ success: true, changed: true }))
+  ownerAssignClient: vi.fn(async () => ({ success: true, changed: true })),
+  ownerUnassignClient: vi.fn(async () => ({ success: true, changed: true }))
 });
+
+// The card holding this client's name (name → info column → top row → card).
+const cardOf = (name) => screen.getByText(name).parentElement.parentElement.parentElement;
+const openClients = async () => fireEvent.click(await screen.findByText('Clients (3)'));
 
 describe('OwnerGymDashboard', () => {
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -53,52 +58,111 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByLabelText('Filter by trainer').value).toBe(T2);
   });
 
-  it('moves a client to another trainer and reloads', async () => {
-    const service = makeService();
-    render(<OwnerGymDashboard service={service} />);
-    fireEvent.click(await screen.findByText('Clients (3)'));
-    fireEvent.change(screen.getByLabelText('Trainer for Ravi'), { target: { value: T2 } });
-    await waitFor(() => expect(service.ownerAssignClient).toHaveBeenCalledWith('c1', T2));
-    expect(await screen.findByText('Moved to Asha Trainer')).toBeTruthy();
-    expect(service.getOwnerGym).toHaveBeenCalledTimes(2);
+  it('shows each client’s status clearly: their trainer, or waiting', async () => {
+    render(<OwnerGymDashboard service={makeService()} />);
+    await openClients();
+    expect(within(cardOf('Meena')).getByText('Trainer: Asha Trainer')).toBeTruthy();
+    expect(within(cardOf('Ravi')).getByText('Trainer: You')).toBeTruthy();
+    expect(within(cardOf('Kiran')).getByText('Waiting for a trainer')).toBeTruthy();
+    expect(within(cardOf('Kiran')).getByRole('button', { name: 'Assign trainer' })).toBeTruthy();
+    expect(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' })).toBeTruthy();
   });
 
-  it('offers unassigned clients a trainer and a "No trainer" filter', async () => {
+  it('nothing moves until the owner confirms a plain-language summary', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(within(cardOf('Ravi')).getByRole('button', { name: 'Change trainer' }));
+
+    const group = screen.getByRole('radiogroup', { name: 'Trainer for Ravi' });
+    // current trainer is marked and can't be picked again
+    expect(within(group).getByRole('radio', { name: /Test Gym Owner \(you\)/ }).disabled).toBe(true);
+    fireEvent.click(within(group).getByRole('radio', { name: /Asha Trainer/ }));
+    expect(service.ownerAssignClient).not.toHaveBeenCalled();
+    expect(screen.getByText('Move Ravi from you to Asha Trainer?')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(service.ownerAssignClient).toHaveBeenCalledWith('c1', T2));
+    expect(await screen.findByText(/Ravi is now with Asha Trainer\. Asha Trainer has been notified\./)).toBeTruthy();
+    expect(service.getOwnerGym).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('radiogroup', { name: 'Trainer for Ravi' })).toBeNull(); // panel closed
+  });
+
+  it('cancel closes the panel without changing anything', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' }));
+    fireEvent.click(screen.getByRole('radio', { name: /No trainer/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(service.ownerUnassignClient).not.toHaveBeenCalled();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+  });
+
+  it('unassigns a client back to the waiting list', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' }));
+    fireEvent.click(screen.getByRole('radio', { name: /No trainer/ }));
+    expect(screen.getByText(/Remove Meena from Asha Trainer\? They go back to the waiting list/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove trainer' }));
+    await waitFor(() => expect(service.ownerUnassignClient).toHaveBeenCalledWith('c2'));
+    expect(await screen.findByText(/Meena is back on the waiting list\./)).toBeTruthy();
+  });
+
+  it('a waiting client can be given a trainer; "No trainer" is not offered', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(within(cardOf('Kiran')).getByRole('button', { name: 'Assign trainer' }));
+    expect(screen.queryByRole('radio', { name: /No trainer/ })).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: /Asha Trainer/ }));
+    expect(screen.getByText('Give Kiran to Asha Trainer as their trainer?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(service.ownerAssignClient).toHaveBeenCalledWith('c3', T2));
+  });
+
+  it('the filter reads in plain words', async () => {
     render(<OwnerGymDashboard service={makeService()} />);
-    fireEvent.click(await screen.findByText('Clients (3)'));
-    const select = screen.getByLabelText('Trainer for Kiran');
-    expect(within(select).getByText('— Choose a trainer —')).toBeTruthy();
+    await openClients();
+    const options = within(screen.getByLabelText('Filter by trainer')).getAllByRole('option').map((o) => o.textContent);
+    expect(options).toEqual(['All clients', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
     fireEvent.change(screen.getByLabelText('Filter by trainer'), { target: { value: '__unassigned__' } });
     expect(screen.getByText('Kiran')).toBeTruthy();
     expect(screen.queryByText('Ravi')).toBeNull();
   });
 
-  it('shows a move error on the row', async () => {
+  it('shows a move error on the card and keeps the panel open', async () => {
     const service = makeService();
     service.ownerAssignClient.mockResolvedValue({ success: false, error: 'That trainer is not in your gym.' });
     render(<OwnerGymDashboard service={service} />);
-    fireEvent.click(await screen.findByText('Clients (3)'));
-    fireEvent.change(screen.getByLabelText('Trainer for Ravi'), { target: { value: T2 } });
-    expect((await screen.findByRole('alert')).textContent).toBe('That trainer is not in your gym.');
+    await openClients();
+    fireEvent.click(within(cardOf('Ravi')).getByRole('button', { name: 'Change trainer' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Asha Trainer/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('✕ That trainer is not in your gym.');
+    expect(screen.getByRole('radiogroup', { name: 'Trainer for Ravi' })).toBeTruthy();
   });
 
-  it('locks reassigning while the gym is suspended', async () => {
+  it('locks changes while the gym is suspended', async () => {
     const result = payload();
     result.gym.status = 'suspended';
     render(<OwnerGymDashboard service={makeService(result)} />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/suspended/);
     fireEvent.click(screen.getByText('Clients (3)'));
-    expect(screen.getByLabelText('Trainer for Ravi').disabled).toBe(true);
+    expect(within(cardOf('Ravi')).getByRole('button', { name: 'Change trainer' }).disabled).toBe(true);
   });
 
-  it('an owner who does not coach is left out of trainers and dropdowns', async () => {
+  it('an owner who does not coach is left out of trainers and the trainer list', async () => {
     const onChange = vi.fn();
     render(<OwnerGymDashboard service={makeService()} coachingOption={{ on: false, locked: false, onChange }} />);
     expect(await screen.findByText('Trainers (1)')).toBeTruthy();
     expect(screen.queryByText('Test Gym Owner')).toBeNull();
     fireEvent.click(screen.getByText('Clients (3)'));
-    const options = within(screen.getByLabelText('Trainer for Meena')).getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['Asha Trainer']);
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' }));
+    const names = within(screen.getByRole('radiogroup', { name: 'Trainer for Meena' })).getAllByRole('radio').map((o) => o.textContent);
+    expect(names.some((n) => n.includes('Test Gym Owner'))).toBe(false);
 
     fireEvent.click(screen.getByRole('switch', { name: 'Also coach clients' }));
     expect(onChange).toHaveBeenCalledWith(true);

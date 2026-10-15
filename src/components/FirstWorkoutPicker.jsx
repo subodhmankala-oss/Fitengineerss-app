@@ -17,21 +17,63 @@ import './FirstWorkoutPicker.css';
 // Advanced below the fold so only Beginner was visible): a two-step "build
 // your plan" card — all three levels side by side as tiles with intensity
 // bars, Gym/Home as big tiles, and a live preview of the first workout.
+// Same day, "the icons are very kiddish": emoji replaced by line icons in the
+// app's sidebar style — rank chevrons for the levels (1/2/3, which also carry
+// the intensity), a dumbbell and a house for Gym/Home.
 //
 // library: { gym: { beginner: [programs], ... }, home: { ... } }
 // onStart(category, level, program) — caller queues the program and opens
 // the Workouts tab.
 
 const CATEGORIES = [
-  { id: 'gym', emoji: '🏋️', label: 'At the gym', hint: 'Machines & free weights' },
-  { id: 'home', emoji: '🏠', label: 'At home', hint: 'Little or no equipment' }
+  { id: 'gym', label: 'At the gym', hint: 'Machines & free weights' },
+  { id: 'home', label: 'At home', hint: 'Little or no equipment' }
 ];
 
 const LEVELS = [
-  { id: 'beginner', emoji: '🌱', label: 'Beginner', bars: 1, desc: 'New to training, or getting back into it' },
-  { id: 'intermediate', emoji: '💪', label: 'Intermediate', bars: 2, desc: 'Training regularly for 6+ months' },
-  { id: 'advanced', emoji: '🔥', label: 'Advanced', bars: 3, desc: 'Training seriously for 2+ years' }
+  { id: 'beginner', label: 'Beginner', rank: 1, desc: 'New to training, or getting back into it' },
+  { id: 'intermediate', label: 'Intermediate', rank: 2, desc: 'Training regularly for 6+ months' },
+  { id: 'advanced', label: 'Advanced', rank: 3, desc: 'Training seriously for 2+ years' }
 ];
+
+const svgProps = {
+  width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true
+};
+
+// Rank chevrons, stacked and centred: 1 = Beginner … 3 = Advanced.
+const RANK_ROWS = { 1: [12.5], 2: [15, 10], 3: [17.5, 12.5, 7.5] };
+function RankIcon({ rank }) {
+  const rows = RANK_ROWS[rank] || RANK_ROWS[1];
+  return (
+    <svg {...svgProps}>
+      {rows.map(y => <polyline key={y} points={`6 ${y + 2} 12 ${y - 3} 18 ${y + 2}`} />)}
+    </svg>
+  );
+}
+
+function DumbbellIcon() {
+  return (
+    <svg {...svgProps}>
+      <line x1="8" y1="12" x2="16" y2="12" />
+      <rect x="4" y="7" width="4" height="10" rx="1.2" />
+      <rect x="16" y="7" width="4" height="10" rx="1.2" />
+      <line x1="2" y1="10" x2="2" y2="14" />
+      <line x1="22" y1="10" x2="22" y2="14" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg {...svgProps}>
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  );
+}
+
+const CATEGORY_ICONS = { gym: DumbbellIcon, home: HomeIcon };
 
 const PREVIEW_EXERCISES = 3;
 
@@ -49,14 +91,6 @@ function exerciseNames(program) {
   return (Array.isArray(program?.exercises) ? program.exercises : [])
     .map(ex => (typeof ex === 'string' ? ex : ex?.name))
     .filter(Boolean);
-}
-
-function IntensityBars({ count }) {
-  return (
-    <span className="fwp-bars" aria-hidden="true">
-      {[1, 2, 3].map(i => <span key={i} className={`fwp-bar ${i <= count ? 'on' : ''}`} />)}
-    </span>
-  );
 }
 
 export default function FirstWorkoutPicker({ library: providedLibrary, onStart }) {
@@ -87,7 +121,7 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
   return (
     <div className="fwp">
       <div className="fwp-hero">
-        <h2 className="fwp-title">🌱 New here? Let’s get you started</h2>
+        <h2 className="fwp-title">New here? Let’s get you started</h2>
         <p className="fwp-subtitle">Two quick taps and your first workout is ready.</p>
         <ol className="fwp-steps" aria-label="Steps">
           <li className={`fwp-step ${step > 1 ? 'done' : 'active'}`}><span className="fwp-step-dot">{step > 1 ? '✓' : '1'}</span>Level</li>
@@ -110,9 +144,8 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
             onClick={() => pickLevel(l.id)}
           >
             <span className="fwp-tile-check" aria-hidden="true">✓</span>
-            <span className="fwp-tile-icon" aria-hidden="true">{l.emoji}</span>
+            <span className="fwp-tile-icon"><RankIcon rank={l.rank} /></span>
             <span className="fwp-level-label">{l.label}</span>
-            <IntensityBars count={l.bars} />
           </button>
         ))}
       </div>
@@ -125,6 +158,7 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
         {categories.map(c => {
           const p = level ? library[c.id][level] : null;
           const count = exerciseNames(p).length;
+          const Icon = CATEGORY_ICONS[c.id];
           return (
             <button
               key={c.id}
@@ -135,7 +169,7 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
               onClick={() => setCategory(c.id)}
             >
               <span className="fwp-tile-check" aria-hidden="true">✓</span>
-              <span className="fwp-tile-icon fwp-tile-icon--lg" aria-hidden="true">{c.emoji}</span>
+              <span className="fwp-tile-icon fwp-tile-icon--lg"><Icon /></span>
               <span className="fwp-option-label">{c.label}</span>
               <span className="fwp-option-desc">
                 {p ? `${count ? `${count} exercises` : 'Ready to go'}` : c.hint}
@@ -168,7 +202,7 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
         disabled={!program}
         onClick={() => program && onStart(category, level, program)}
       >
-        {program ? 'Start my first workout 💪' : level ? 'Pick gym or home' : 'Pick your level'}
+        {program ? 'Start my first workout →' : level ? 'Pick gym or home' : 'Pick your level'}
       </button>
     </div>
   );

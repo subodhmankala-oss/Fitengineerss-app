@@ -110,7 +110,7 @@ describe('NextWorkoutBanner', () => {
     expect(screen.getByText('Leg Press')).not.toBeNull();
     expect(screen.getByText('+2 more')).not.toBeNull();
     expect(screen.getByText('5 exercises')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Start my first workout 💪' }).disabled).toBe(false);
+    expect(screen.getByRole('button', { name: 'Start my first workout →' }).disabled).toBe(false);
   });
 
   it('after closing, a "Choose your level" row stays and reopens the picker', async () => {
@@ -157,7 +157,7 @@ describe('NextWorkoutBanner', () => {
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
     fireEvent.click(await screen.findByRole('radio', { name: /^Beginner/ }));
     fireEvent.click(screen.getByText('At the gym'));
-    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout →' }));
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('gym');
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('beginner');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));
@@ -174,7 +174,7 @@ describe('NextWorkoutBanner', () => {
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
     fireEvent.click(await screen.findByRole('radio', { name: /^Beginner/ }));
     fireEvent.click(screen.getByText('At home'));
-    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout →' }));
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('home');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));
     expect(autoStart.name).toBe('Home Beginner Full Body A');
@@ -192,7 +192,7 @@ describe('NextWorkoutBanner', () => {
     render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={onNavigate} />);
     fireEvent.click(await screen.findByRole('radio', { name: /^Intermediate/ }));
     fireEvent.click(screen.getByText('At the gym'));
-    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout 💪' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start my first workout →' }));
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('intermediate');
     expect(JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'))).toMatchObject({ name: 'Intermediate Push', level: 'intermediate' });
     expect(onNavigate).toHaveBeenCalledTimes(1);

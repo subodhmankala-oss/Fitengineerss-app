@@ -146,27 +146,36 @@
 }
 
 .fwp-tile-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  line-height: 1;
+  color: var(--text-muted);
   background: rgba(var(--fg-rgb), 0.05);
-  transition: transform 0.25s ease, background 0.25s ease;
+  transition: color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+}
+
+.fwp-tile-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .fwp-tile-icon--lg {
-  width: 52px;
-  height: 52px;
-  font-size: 1.7rem;
+  width: 50px;
+  height: 50px;
+}
+
+.fwp-tile-icon--lg svg {
+  width: 26px;
+  height: 26px;
 }
 
 .fwp-tile.selected .fwp-tile-icon {
-  background: rgba(var(--accent-rgb), 0.18);
-  transform: scale(1.08) rotate(-4deg);
+  color: #fff;
+  background: rgb(var(--accent-rgb));
+  transform: scale(1.06);
 }
 
 /* ✓ badge in the top-right corner of the chosen tile */
@@ -215,27 +224,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.fwp-bars {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 12px;
-}
-
-.fwp-bar {
-  width: 6px;
-  border-radius: 2px;
-  background: rgba(var(--fg-rgb), 0.14);
-  transition: background 0.25s ease;
-}
-
-.fwp-bar:nth-child(1) { height: 5px; }
-.fwp-bar:nth-child(2) { height: 8px; }
-.fwp-bar:nth-child(3) { height: 12px; }
-
-.fwp-bar.on { background: rgba(var(--accent-rgb), 0.55); }
-.fwp-tile.selected .fwp-bar.on { background: rgb(var(--accent-rgb)); }
 
 .fwp-level-hint {
   min-height: 1.3em;

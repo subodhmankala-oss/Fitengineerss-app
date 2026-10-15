@@ -2,10 +2,14 @@
 import databaseService from '../services/databaseService';
 import './ConnectCoachModal.css';
 
+// Takes either a coach's invite code or a gym's GYM-XXXX code — the gym code
+// joins the gym with no trainer yet, and the gym owner assigns one
+// (databaseService.connectClientToGym). onSuccess(coachId, result).
 const ConnectCoachModal = ({ onClose, onSuccess }) => {
   const [rawInput, setRawInput] = useState('');
   const [status, setStatus] = useState('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [joinedGym, setJoinedGym] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -34,8 +38,10 @@ const ConnectCoachModal = ({ onClose, onSuccess }) => {
     try {
       const result = await databaseService.connectClientToCoach(code);
       if (result.success) {
+        setJoinedGym(result.gymName ? { name: result.gymName, hasTrainer: result.hasTrainer } : null);
         setStatus('success');
-        setTimeout(() => { onSuccess(result.coachId); }, 1400);
+        // A bit longer for the gym message — there's more to read.
+        setTimeout(() => { onSuccess(result.coachId, result); }, result.gymName ? 2600 : 1400);
       } else {
         setStatus('error');
         setErrorMsg(result.error || 'Connection failed.');
@@ -57,28 +63,41 @@ const ConnectCoachModal = ({ onClose, onSuccess }) => {
           <div className="ccm-header-icon">🔗</div>
           <div>
             <h2 className="ccm-title">Connect to Coach</h2>
-            <p className="ccm-subtitle">Enter the invitation code your coach shared with you</p>
+            <p className="ccm-subtitle">Enter the code your coach or gym gave you</p>
           </div>
           <button className="ccm-close-btn" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         {status === 'success' ? (
           <div className="ccm-success-body">
-            <div className="ccm-success-icon">✅</div>
-            <h3>Connected!</h3>
-            <p>You are now linked to your coach. Your personalised plan will appear shortly.</p>
+            <div className="ccm-success-icon">{joinedGym ? '🏢' : '✅'}</div>
+            {joinedGym ? (
+              <>
+                <h3>You joined {joinedGym.name}!</h3>
+                <p>
+                  {joinedGym.hasTrainer
+                    ? 'Your coach is part of this gym, so nothing else changes.'
+                    : 'Your gym will assign you a trainer soon. Until then, you can keep logging workouts as usual.'}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3>Connected!</h3>
+                <p>You are now linked to your coach. Your personalised plan will appear shortly.</p>
+              </>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="ccm-form">
             <label className="ccm-label" htmlFor="ccm-code-input">
-              Invitation Code or Link
+              Coach or Gym Code
             </label>
             <input
               ref={inputRef}
               id="ccm-code-input"
               className={`ccm-input ${status === 'error' ? 'ccm-input-error' : ''}`}
               type="text"
-              placeholder="e.g. ABC123 or paste the full invite link"
+              placeholder="e.g. ABC123, GYM-7X6P or an invite link"
               value={rawInput}
               onChange={(e) => {
                 setRawInput(e.target.value);
@@ -94,7 +113,7 @@ const ConnectCoachModal = ({ onClose, onSuccess }) => {
               </div>
             )}
             <p className="ccm-info">
-              Your coach generates this code from their dashboard. It expires after 24 hours and can only be used once.
+              A coach's code is one-time and expires after 24 hours. A gym code (GYM-…) adds you to the gym, and the gym assigns your trainer.
             </p>
             <div className="ccm-actions">
               <button type="button" className="ccm-btn-secondary" onClick={onClose} disabled={status === 'loading'}>

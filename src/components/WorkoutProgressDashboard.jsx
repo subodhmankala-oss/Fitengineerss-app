@@ -106,6 +106,25 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
     return Number.isFinite(cachedLimit) && cachedLimit > 0 ? cachedLimit : null;
   });
   const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
+  // A client who joined a gym with its GYM-XXXX code and is waiting for the
+  // owner to assign a trainer: the header shows the gym instead of
+  // "Connect to coach". Cached for instant paint, re-read once below.
+  const [gymName, setGymName] = useState(() => {
+    try { return localStorage.getItem('clientGymName') || ''; } catch { return ''; }
+  });
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.getMyGym().then((r) => {
+      if (cancelled || !r.success) return;
+      const name = r.gym?.name || '';
+      setGymName(name);
+      try {
+        if (name) localStorage.setItem('clientGymName', name);
+        else localStorage.removeItem('clientGymName');
+      } catch { /* cache only */ }
+    });
+    return () => { cancelled = true; };
+  }, []);
   // Coach-set renewal date (clients.program_started_on). Scopes "sessions
   // completed" below to the CURRENT program period — see getTotalSessionsDone.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
@@ -894,7 +913,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               else setShowConnectModal(true);
             }}
             disabled={coachStatusPending}
-            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
+            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : gymName ? `${gymName} will assign your trainer` : 'Connect to coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               background: coachStatusPending ? 'rgba(var(--fg-rgb), 0.03)' : (isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)'),
@@ -910,6 +929,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.25 }}>
                 <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Coach:</span>
                 <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>{coachName || 'Coach'}</span>
+              </span>
+            ) : gymName ? (
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.25 }}>
+                <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Trainer coming soon</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>🏢 {gymName}</span>
               </span>
             ) : '🔗 Connect to coach'}
           </button>
@@ -1767,7 +1791,14 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       {showConnectModal && (
         <ConnectCoachModal
           onClose={() => setShowConnectModal(false)}
-          onSuccess={async (coachId) => {
+          onSuccess={async (coachId, result) => {
+            // Gym code: the client is in the gym but has no trainer until the
+            // owner assigns one — don't mark them as linked to a coach.
+            if (result?.gymName) {
+              setGymName(result.gymName);
+              setShowConnectModal(false);
+              if (!result.hasTrainer) return;
+            }
             localStorage.setItem('clientLinkedToCoach', 'true');
             if (coachId) {
               localStorage.setItem('userCoachId', coachId);

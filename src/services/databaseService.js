@@ -3297,7 +3297,11 @@ const databaseService = {
     }
   },
 
-  // ─── Trainer's own gym membership (profile → My Gym) ───
+  // ─── Own gym membership — trainer (profile → My Gym) or client (home) ───
+  async getMyGym() {
+    return this.getCoachGym();
+  },
+
   async getCoachGym() {
     try {
       const { headers, email } = await serverFallbackAuth();
@@ -5098,6 +5102,8 @@ const databaseService = {
           title: r.payload?.title || null,
           body: r.payload?.body || null,
           inviteCode: r.payload?.invite_code || null,
+          // Set when a gym owner assigned this client (owner_assign_client).
+          assignedByGym: r.payload?.assigned_by_gym || null,
           isNew: r.payload?.is_new !== false,
           clientTab: link?.clientTab || null,
           appTab: tabForDeepLink(link),
@@ -6111,6 +6117,12 @@ const databaseService = {
     const code = normalizeInviteCode(rawCode);
     if (!code) return { success: false, error: 'Please enter a valid invitation code.' };
 
+    // A gym's code (GYM-XXXX) typed into the same box: join the gym with no
+    // trainer yet — the owner assigns one. Trainer invite codes are always 6
+    // characters (createInviteCode), "GYM" + 4 is 7, so the two never collide.
+    const compact = code.replace(/[\s-]/g, '');
+    if (/^GYM[A-Z0-9]{4}$/.test(compact)) return this.connectClientToGym(`GYM-${compact.slice(3)}`);
+
     // Resolve client's own public.users.id from the authenticated session.
     // NOTE: never store session.user.id here — that's the Supabase auth UID,
     // which is a DIFFERENT value from public.users.id on this project and would
@@ -6214,6 +6226,35 @@ const databaseService = {
       if (msg.includes('already been used')) return { success: false, error: 'This code has already been used.' };
       if (msg.includes('not found') || msg.includes('Invalid')) return { success: false, error: 'Code not found.' };
       return { success: false, error: msg || 'Connection failed. Please try again.' };
+    }
+  },
+
+  // Client joins a gym by its code (sql/gym_client_join.sql). Leaves the
+  // coach link alone: a client with no trainer stays "not linked" until the
+  // gym owner assigns one. Returns { success, gymName, hasTrainer }.
+  async connectClientToGym(code) {
+    if (!isSupabaseConfigured || !supabase) {
+      return { success: false, error: 'Gym codes need an internet connection. Please try again.' };
+    }
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) {
+        return { success: false, error: 'Your session could not be verified. Please log out and log back in.' };
+      }
+      const res = await fetch('/api/admin-write?action=client-join-gym', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) {
+        return { success: false, error: (data && data.error) || 'Could not join that gym.' };
+      }
+      try { localStorage.setItem('clientGymName', data.gym_name || ''); } catch { /* cache only */ }
+      return { success: true, gymName: data.gym_name, hasTrainer: !!data.has_trainer };
+    } catch (e) {
+      console.error('[connectClientToGym] error:', e);
+      return { success: false, error: e.message || 'Could not join that gym.' };
     }
   },
 

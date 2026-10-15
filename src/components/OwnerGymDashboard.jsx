@@ -178,8 +178,22 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
             {copied ? 'Copied' : 'Copy code'}
           </button>
         </div>
-        <div style={muted}>Your gym code — trainers enter it when they sign up, or later in Profile → My Gym.</div>
+        <div style={muted}>Share it with your trainers and with new members. Trainers join straight away; members wait here for you to pick their trainer.</div>
       </div>
+
+      {unassignedCount > 0 && gym.status === 'active' && (
+        <button
+          type="button"
+          onClick={() => { setTab('clients'); setTrainerFilter(UNASSIGNED); setSearchQuery(''); }}
+          style={{ ...card, display: 'flex', alignItems: 'center', gap: '10px', width: '100%', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', borderColor: 'rgba(245, 158, 11, 0.35)', background: 'rgba(245, 158, 11, 0.08)' }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>👋</span>
+          <span style={{ flex: 1, fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
+            {unassignedCount} client{unassignedCount === 1 ? ' is' : 's are'} waiting for a trainer
+          </span>
+          <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b', whiteSpace: 'nowrap' }}>Assign →</span>
+        </button>
+      )}
 
       <div style={{ display: 'flex', gap: '10px' }}>
         {statTile('Trainers', trainers.length)}

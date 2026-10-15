@@ -127,3 +127,51 @@ describe('api/data-read coach-gym', () => {
     expect((await call(null)).statusCode).toBe(401);
   });
 });
+
+describe('api/admin-write client-join-gym', () => {
+  let handler;
+  let rpcCalls;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://placeholder.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    rpcCalls = [];
+    global.fetch = vi.fn(async (url, opts = {}) => {
+      const u = decodeURIComponent(String(url));
+      if (u.includes('/auth/v1/user')) {
+        return (opts.headers?.Authorization || '') === 'Bearer client-token' ? ok({ email: 'client@x.com' }) : unauth;
+      }
+      if (u.includes('/rest/v1/users?email=ilike.')) return ok([{ id: 'client-id', email: 'client@x.com' }]);
+      if (u.includes('/rest/v1/rpc/client_join_gym')) {
+        const body = JSON.parse(opts.body);
+        rpcCalls.push(body);
+        return ok({ success: true, gym_name: 'Test Gym', has_trainer: false });
+      }
+      return ok([]);
+    });
+    handler = (await import('./admin-write.js')).default;
+  });
+
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  const call = async (token, body) => {
+    const res = mockRes();
+    await handler({ method: 'POST', query: { action: 'client-join-gym' }, headers: token ? { authorization: `Bearer ${token}` } : {}, body }, res);
+    return res;
+  };
+
+  it('joins as the verified caller, ignoring any client id in the body', async () => {
+    const res = await call('client-token', { code: 'GYM-QFAP', clientId: 'someone-else' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.gym_name).toBe('Test Gym');
+    expect(rpcCalls).toEqual([{ p_client_id: 'client-id', p_code: 'GYM-QFAP' }]);
+  });
+
+  it('401 without a session, 400 without a code', async () => {
+    expect((await call(null, { code: 'GYM-QFAP' })).statusCode).toBe(401);
+    expect((await call('client-token', {})).statusCode).toBe(400);
+    expect(rpcCalls).toEqual([]);
+  });
+});

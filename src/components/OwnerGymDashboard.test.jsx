@@ -119,6 +119,14 @@ describe('OwnerGymDashboard', () => {
     expect(screen.queryByRole('switch')).toBeNull();
   });
 
+  it('flags clients waiting for a trainer and jumps to them', async () => {
+    render(<OwnerGymDashboard service={makeService()} />);
+    fireEvent.click(await screen.findByText('1 client is waiting for a trainer'));
+    expect(screen.getByLabelText('Filter by trainer').value).toBe('__unassigned__');
+    expect(screen.getByText('Kiran')).toBeTruthy();
+    expect(screen.queryByText('Ravi')).toBeNull();
+  });
+
   it('never shows private notes or photos', async () => {
     render(<OwnerGymDashboard service={makeService()} />);
     await screen.findByText('Test Gym');

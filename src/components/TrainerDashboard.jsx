@@ -6293,7 +6293,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           <span style={{ fontSize: '1.3rem' }}>🎉</span>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-emerald)' }}>
-                              {n.isNew ? `${displayName} joined via your invite` : `${displayName} reconnected with you`}
+                              {n.assignedByGym
+                                ? `${displayName} was assigned to you by ${n.assignedByGym}`
+                                : n.isNew ? `${displayName} joined via your invite` : `${displayName} reconnected with you`}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                               {n.inviteCode ? `Code ${n.inviteCode} · ` : ''}{joinedClient ? 'Tap to set up their plan' : 'Refreshing your client list…'}

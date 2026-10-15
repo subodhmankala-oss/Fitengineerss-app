@@ -1,7 +1,9 @@
 -- ==========================================
 -- GYM TIER — owner moves a client to another trainer in their gym
 --
--- STATUS: APPLIED to production 2026-10-14.
+-- STATUS: APPLIED to production 2026-10-14. SUPERSEDED 2026-10-15 by
+-- sql/gym_client_join.sql, which re-creates owner_assign_client with a
+-- notification for the newly assigned trainer — re-run that file, not this.
 --
 -- Called only from api/admin-write.js?action=owner-assign-client, which
 -- passes p_owner_id resolved from the caller's VERIFIED token (never from

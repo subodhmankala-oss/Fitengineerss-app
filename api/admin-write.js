@@ -452,6 +452,26 @@ async function handleCoachLeaveGym(req, res) {
   }
 }
 
+// A client joins a gym with its code and waits for the owner to assign a
+// trainer (sql/gym_client_join.sql). The client is the VERIFIED caller.
+async function handleClientJoinGym(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { code } = req.body || {};
+  if (typeof code !== 'string' || !code.trim() || code.length > 20) {
+    return res.status(400).json({ error: 'Enter your gym code.' });
+  }
+  try {
+    const data = await callRpc('client_join_gym', { p_client_id: caller.id, p_code: code });
+    if (data && data.success === false) return res.status(400).json({ error: data.error || 'Could not join that gym.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write client-join-gym error:', err);
+    return res.status(502).json({ error: err.message || 'Could not join that gym.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
@@ -464,7 +484,8 @@ const ACTION_HANDLERS = {
   'update-gym': handleUpdateGym,
   'owner-assign-client': handleOwnerAssignClient,
   'coach-join-gym': handleCoachJoinGym,
-  'coach-leave-gym': handleCoachLeaveGym
+  'coach-leave-gym': handleCoachLeaveGym,
+  'client-join-gym': handleClientJoinGym
 };
 
 export default async function handler(req, res) {

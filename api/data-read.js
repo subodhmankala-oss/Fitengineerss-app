@@ -782,6 +782,9 @@ function ownerGymPayload(gym, members, logs, now = new Date()) {
     // A coach_id outside this gym (shouldn't happen) reads as unassigned so
     // the owner can fix it rather than see a trainer they can't manage.
     trainerName: trainerName[c.coach_id] || null,
+    // No trainer and doesn't want one (sql/gym_self_guided.sql) — not on
+    // the waiting list.
+    selfGuided: !trainerName[c.coach_id] && !!c.gym_self_guided,
     lastLogin: c.last_login || null,
     ...activity(c.id)
   }));
@@ -828,7 +831,7 @@ async function handleOwnerGym(req, res) {
     if (!gym) return res.status(200).json({ gym: null });
 
     const members = await svcSelect(
-      `users?gym_id=eq.${gym.id}&select=id,full_name,email,role,coach_id,last_login,avatar_url`,
+      `users?gym_id=eq.${gym.id}&select=id,full_name,email,role,coach_id,last_login,avatar_url,gym_self_guided`,
       'owner-gym members'
     );
     const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
@@ -859,7 +862,7 @@ async function handleCoachGym(req, res) {
 
   try {
     const me = await svcSelect(
-      `users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id,gym_id&limit=1`,
+      `users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id,gym_id,coach_id,gym_self_guided&limit=1`,
       'coach-gym caller'
     );
     if (!me[0]) return res.status(200).json({ gym: null, clientsOutsideGym: 0 });
@@ -872,7 +875,10 @@ async function handleCoachGym(req, res) {
       const rows = await svcSelect(`gyms?id=eq.${me[0].gym_id}&select=name,status,owner_id,join_code`, 'coach-gym gym');
       if (rows[0]) gym = { name: rows[0].name, status: rows[0].status, code: rows[0].join_code, isOwner: rows[0].owner_id === me[0].id };
     }
-    return res.status(200).json({ gym, clientsOutsideGym: outside.length });
+    // selfGuided: a client the gym marked "trains on their own" — their
+    // home screen shows the gym as a membership, not "trainer coming soon".
+    const selfGuided = !!gym && !me[0].coach_id && !!me[0].gym_self_guided;
+    return res.status(200).json({ gym, clientsOutsideGym: outside.length, selfGuided });
   } catch (err) {
     console.error('coach-gym error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym.' });

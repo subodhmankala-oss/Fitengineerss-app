@@ -201,7 +201,13 @@ describe('api/admin-write owner-unassign-client', () => {
   it('unassigns as the VERIFIED owner, ignoring any owner in the body', async () => {
     const res = await call('owner-token', { clientUserId: CLIENT, ownerId: 'attacker' });
     expect(res.statusCode).toBe(200);
-    expect(rpcCalls).toEqual([{ p_owner_id: 'owner-id', p_client_id: CLIENT }]);
+    expect(rpcCalls).toEqual([{ p_owner_id: 'owner-id', p_client_id: CLIENT, p_self_guided: false }]);
+  });
+
+  it('selfGuided: true marks "trains on their own"; anything else means waiting list', async () => {
+    await call('owner-token', { clientUserId: CLIENT, selfGuided: true });
+    await call('owner-token', { clientUserId: CLIENT, selfGuided: 'yes' });
+    expect(rpcCalls.map((c) => c.p_self_guided)).toEqual([true, false]);
   });
 
   it('401 without a session, 400 for a bad id — no database call', async () => {

@@ -3314,7 +3314,7 @@ const databaseService = {
       if (!res.ok || !data || !('gym' in data)) {
         return { success: false, error: (data && data.error) || 'Could not load your gym.' };
       }
-      return { success: true, gym: data.gym, clientsOutsideGym: data.clientsOutsideGym || 0 };
+      return { success: true, gym: data.gym, clientsOutsideGym: data.clientsOutsideGym || 0, selfGuided: !!data.selfGuided };
     } catch (e) {
       console.error('[getCoachGym] error:', e);
       return { success: false, error: e.message || 'Could not load your gym.' };
@@ -3329,8 +3329,9 @@ const databaseService = {
     return coachGymWrite('coach-leave-gym', {}, 'Could not leave the gym.');
   },
 
-  // Back to the gym's "waiting for a trainer" list.
-  async ownerUnassignClient(clientUserId) {
+  // No trainer: back to the gym's "waiting for a trainer" list, or — with
+  // selfGuided — "trains on their own" (not waiting for anyone).
+  async ownerUnassignClient(clientUserId, selfGuided = false) {
     try {
       const accessToken = await resolveRealAccessToken();
       if (!accessToken) {
@@ -3339,7 +3340,7 @@ const databaseService = {
       const res = await fetch('/api/admin-write?action=owner-unassign-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ clientUserId })
+        body: JSON.stringify({ clientUserId, selfGuided: !!selfGuided })
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.success === false) {

@@ -1,7 +1,8 @@
 -- ==========================================
 -- GYM TIER — owner takes a client off their trainer (back to "waiting")
 --
--- STATUS: APPLIED to production 2026-10-15.
+-- STATUS: APPLIED to production 2026-10-15. SUPERSEDED the same day by
+-- sql/gym_self_guided.sql (adds p_self_guided, drops this 2-arg version).
 --
 -- owner_unassign_client(p_owner_id, p_client_id): the client stays in the
 -- gym with no trainer, so they show under "waiting for a trainer" in My Gym

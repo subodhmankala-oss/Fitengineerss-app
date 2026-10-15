@@ -84,6 +84,7 @@ describe('api/admin-write coach-join-gym / coach-leave-gym', () => {
 describe('api/data-read coach-gym', () => {
   let handler;
   let gymIdOfCaller;
+  let callerRow;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -91,12 +92,13 @@ describe('api/data-read coach-gym', () => {
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-key');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
     gymIdOfCaller = 'g1';
+    callerRow = null;
     global.fetch = vi.fn(async (url, opts = {}) => {
       const u = decodeURIComponent(String(url));
       if (u.includes('/auth/v1/user')) {
         return (opts.headers?.Authorization || '') === 'Bearer coach-token' ? ok({ email: 'coach@x.com' }) : unauth;
       }
-      if (u.includes('/rest/v1/users?email=ilike.')) return ok([{ id: 'coach-id', gym_id: gymIdOfCaller }]);
+      if (u.includes('/rest/v1/users?email=ilike.')) return ok([callerRow || { id: 'coach-id', gym_id: gymIdOfCaller }]);
       if (u.includes('/rest/v1/users?coach_id=eq.coach-id')) return ok([{ id: 'c1' }, { id: 'c2' }]);
       if (u.includes('/rest/v1/gyms?id=eq.g1')) return ok([{ name: 'Test Gym', status: 'active', owner_id: 'owner-id', join_code: 'GYM-QFAP' }]);
       return ok([]);
@@ -114,13 +116,25 @@ describe('api/data-read coach-gym', () => {
 
   it("returns the caller's gym and how many of their clients are outside it", async () => {
     const res = await call('coach-token');
-    expect(res.body).toEqual({ gym: { name: 'Test Gym', status: 'active', code: 'GYM-QFAP', isOwner: false }, clientsOutsideGym: 2 });
+    expect(res.body).toEqual({ gym: { name: 'Test Gym', status: 'active', code: 'GYM-QFAP', isOwner: false }, clientsOutsideGym: 2, selfGuided: false });
   });
 
   it('gym: null when not in a gym', async () => {
     gymIdOfCaller = null;
     const res = await call('coach-token');
-    expect(res.body).toEqual({ gym: null, clientsOutsideGym: 2 });
+    expect(res.body).toEqual({ gym: null, clientsOutsideGym: 2, selfGuided: false });
+  });
+
+  it('reports a client the gym marked "trains on their own"', async () => {
+    callerRow = { id: 'coach-id', gym_id: 'g1', coach_id: null, gym_self_guided: true };
+    const res = await call('coach-token');
+    expect(res.body.selfGuided).toBe(true);
+  });
+
+  it('a client with a trainer is never reported self-guided', async () => {
+    callerRow = { id: 'coach-id', gym_id: 'g1', coach_id: 'trainer-1', gym_self_guided: true };
+    const res = await call('coach-token');
+    expect(res.body.selfGuided).toBe(false);
   });
 
   it('401 without a session', async () => {

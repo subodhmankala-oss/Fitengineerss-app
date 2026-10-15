@@ -421,12 +421,18 @@ async function handleOwnerUnassignClient(req, res) {
   const caller = await resolveVerifiedCaller(req);
   if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
 
-  const { clientUserId } = req.body || {};
+  // selfGuided: true = "trains on their own" (no trainer wanted); false =
+  // back on the waiting list (sql/gym_self_guided.sql).
+  const { clientUserId, selfGuided } = req.body || {};
   if (!UUID_RE.test(String(clientUserId || ''))) {
     return res.status(400).json({ error: 'clientUserId is required.' });
   }
   try {
-    const data = await callRpc('owner_unassign_client', { p_owner_id: caller.id, p_client_id: clientUserId });
+    const data = await callRpc('owner_unassign_client', {
+      p_owner_id: caller.id,
+      p_client_id: clientUserId,
+      p_self_guided: selfGuided === true
+    });
     if (data && data.success === false) return res.status(403).json({ error: data.error || 'Could not remove the trainer.' });
     return res.status(200).json(data);
   } catch (err) {

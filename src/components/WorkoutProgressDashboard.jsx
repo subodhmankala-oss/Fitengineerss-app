@@ -112,15 +112,23 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   const [gymName, setGymName] = useState(() => {
     try { return localStorage.getItem('clientGymName') || ''; } catch { return ''; }
   });
+  // The gym marked this client "trains on their own" (no trainer wanted) —
+  // show the gym as a membership, not "Trainer coming soon".
+  const [gymSelfGuided, setGymSelfGuided] = useState(() => {
+    try { return localStorage.getItem('clientGymSelfGuided') === 'true'; } catch { return false; }
+  });
   useEffect(() => {
     let cancelled = false;
     databaseService.getMyGym().then((r) => {
       if (cancelled || !r.success) return;
       const name = r.gym?.name || '';
       setGymName(name);
+      setGymSelfGuided(!!r.selfGuided);
       try {
         if (name) localStorage.setItem('clientGymName', name);
         else localStorage.removeItem('clientGymName');
+        if (r.selfGuided) localStorage.setItem('clientGymSelfGuided', 'true');
+        else localStorage.removeItem('clientGymSelfGuided');
       } catch { /* cache only */ }
     });
     return () => { cancelled = true; };
@@ -913,7 +921,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               else setShowConnectModal(true);
             }}
             disabled={coachStatusPending}
-            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : gymName ? `${gymName} will assign your trainer` : 'Connect to coach')}
+            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : gymName ? (gymSelfGuided ? `Member of ${gymName}` : `${gymName} will assign your trainer`) : 'Connect to coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               // Accent styling for a coach OR a gym (waiting for a trainer);
@@ -935,7 +943,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               </span>
             ) : gymName ? (
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.25 }}>
-                <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Trainer coming soon</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{gymSelfGuided ? 'Gym member' : 'Trainer coming soon'}</span>
                 <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>🏢 {gymName}</span>
               </span>
             ) : '🔗 Connect to coach'}

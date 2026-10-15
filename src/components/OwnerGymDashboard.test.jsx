@@ -40,7 +40,10 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByText('GYM-QFAP')).toBeTruthy();
     expect(screen.getByText('Trainers (2)')).toBeTruthy();
     expect(screen.getByText('Clients (3)')).toBeTruthy();
-    expect(screen.getByText('Active this week').previousSibling.textContent).toBe('1');
+    // "This week" insights, not a repeat of the tab counts.
+    expect(screen.getByText('Active members').previousSibling.textContent).toBe('1/3');
+    expect(screen.getByText('Workouts logged').previousSibling.textContent).toBe('2');
+    expect(screen.getByText('Need a nudge (14+ days)').previousSibling.textContent).toBe('3');
   });
 
   it('lists trainers with client counts and marks the owner', async () => {
@@ -65,14 +68,14 @@ describe('OwnerGymDashboard', () => {
     expect(within(cardOf('Ravi')).getByText('Trainer: You')).toBeTruthy();
     expect(within(cardOf('Kiran')).getByText('Waiting for a trainer')).toBeTruthy();
     expect(within(cardOf('Kiran')).getByRole('button', { name: 'Assign trainer' })).toBeTruthy();
-    expect(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' })).toBeTruthy();
+    expect(within(cardOf('Meena')).getByRole('button', { name: 'Change' })).toBeTruthy();
   });
 
   it('nothing moves until the owner confirms a plain-language summary', async () => {
     const service = makeService();
     render(<OwnerGymDashboard service={service} />);
     await openClients();
-    fireEvent.click(within(cardOf('Ravi')).getByRole('button', { name: 'Change trainer' }));
+    fireEvent.click(within(cardOf('Ravi')).getByRole('button', { name: 'Change' }));
 
     const group = screen.getByRole('radiogroup', { name: 'Trainer for Ravi' });
     // current trainer is marked and can't be picked again
@@ -92,8 +95,8 @@ describe('OwnerGymDashboard', () => {
     const service = makeService();
     render(<OwnerGymDashboard service={service} />);
     await openClients();
-    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' }));
-    fireEvent.click(screen.getByRole('radio', { name: /No trainer/ }));
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Waiting list/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(service.ownerUnassignClient).not.toHaveBeenCalled();
     expect(screen.queryByRole('radiogroup')).toBeNull();
@@ -103,11 +106,12 @@ describe('OwnerGymDashboard', () => {
     const service = makeService();
     render(<OwnerGymDashboard service={service} />);
     await openClients();
-    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' }));
-    fireEvent.click(screen.getByRole('radio', { name: /No trainer/ }));
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Waiting list/ }));
     expect(screen.getByText(/Remove Meena from Asha Trainer\? They go back to the waiting list/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Remove trainer' }));
-    await waitFor(() => expect(service.ownerUnassignClient).toHaveBeenCalledWith('c2'));
+    expect(service.ownerUnassignClient).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(service.ownerUnassignClient).toHaveBeenCalledWith('c2', false));
     expect(await screen.findByText(/Meena is back on the waiting list\./)).toBeTruthy();
   });
 
@@ -116,7 +120,8 @@ describe('OwnerGymDashboard', () => {
     render(<OwnerGymDashboard service={service} />);
     await openClients();
     fireEvent.click(within(cardOf('Kiran')).getByRole('button', { name: 'Assign trainer' }));
-    expect(screen.queryByRole('radio', { name: /No trainer/ })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /Waiting list/ })).toBeNull();
+    expect(screen.getByRole('radio', { name: /Trains on their own/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('radio', { name: /Asha Trainer/ }));
     expect(screen.getByText('Give Kiran to Asha Trainer as their trainer?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
@@ -127,7 +132,7 @@ describe('OwnerGymDashboard', () => {
     render(<OwnerGymDashboard service={makeService()} />);
     await openClients();
     const options = within(screen.getByLabelText('Filter by trainer')).getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['All clients', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
+    expect(options).toEqual(['All clients', 'Active this week (1)', 'Need a nudge (3)', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
     fireEvent.change(screen.getByLabelText('Filter by trainer'), { target: { value: '__unassigned__' } });
     expect(screen.getByText('Kiran')).toBeTruthy();
     expect(screen.queryByText('Ravi')).toBeNull();
@@ -138,7 +143,7 @@ describe('OwnerGymDashboard', () => {
     service.ownerAssignClient.mockResolvedValue({ success: false, error: 'That trainer is not in your gym.' });
     render(<OwnerGymDashboard service={service} />);
     await openClients();
-    fireEvent.click(within(cardOf('Ravi')).getByRole('button', { name: 'Change trainer' }));
+    fireEvent.click(within(cardOf('Ravi')).getByRole('button', { name: 'Change' }));
     fireEvent.click(screen.getByRole('radio', { name: /Asha Trainer/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect((await screen.findByRole('alert')).textContent).toBe('✕ That trainer is not in your gym.');
@@ -151,7 +156,7 @@ describe('OwnerGymDashboard', () => {
     render(<OwnerGymDashboard service={makeService(result)} />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/suspended/);
     fireEvent.click(screen.getByText('Clients (3)'));
-    expect(within(cardOf('Ravi')).getByRole('button', { name: 'Change trainer' }).disabled).toBe(true);
+    expect(within(cardOf('Ravi')).getByRole('button', { name: 'Change' }).disabled).toBe(true);
   });
 
   it('an owner who does not coach is left out of trainers and the trainer list', async () => {
@@ -160,7 +165,7 @@ describe('OwnerGymDashboard', () => {
     expect(await screen.findByText('Trainers (1)')).toBeTruthy();
     expect(screen.queryByText('Test Gym Owner')).toBeNull();
     fireEvent.click(screen.getByText('Clients (3)'));
-    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change trainer' }));
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change' }));
     const names = within(screen.getByRole('radiogroup', { name: 'Trainer for Meena' })).getAllByRole('radio').map((o) => o.textContent);
     expect(names.some((n) => n.includes('Test Gym Owner'))).toBe(false);
 
@@ -189,6 +194,52 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByLabelText('Filter by trainer').value).toBe('__unassigned__');
     expect(screen.getByText('Kiran')).toBeTruthy();
     expect(screen.queryByText('Ravi')).toBeNull();
+  });
+
+  it('marks a client as training on their own (no trainer wanted)', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Change' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Trains on their own/ }));
+    expect(screen.getByText(/Remove Meena from Asha Trainer and mark them as training on their own\? They stay a gym member, leave the waiting list/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(service.ownerUnassignClient).toHaveBeenCalledWith('c2', true));
+    expect(await screen.findByText(/Meena now trains on their own\./)).toBeTruthy();
+  });
+
+  it('a self-guided client shows as such, is not "waiting", and can be given a trainer or put on the waiting list', async () => {
+    const result = payload();
+    result.clients[2] = { ...result.clients[2], selfGuided: true };
+    const service = makeService(result);
+    render(<OwnerGymDashboard service={service} />);
+    expect(await screen.findByText('Test Gym')).toBeTruthy();
+    expect(screen.queryByText(/waiting for a trainer/)).toBeNull(); // no waiting banner
+    await openClients();
+    expect(within(cardOf('Kiran')).getByText('Trains on their own')).toBeTruthy();
+    fireEvent.click(within(cardOf('Kiran')).getByRole('button', { name: 'Change' }));
+    expect(screen.queryByRole('radio', { name: /Trains on their own/ })).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: /Waiting list/ }));
+    expect(screen.getByText(/Put Kiran back on the waiting list\?/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(service.ownerUnassignClient).toHaveBeenCalledWith('c3', false));
+  });
+
+  it('tapping an insight tile lists those clients', async () => {
+    const result = payload();
+    const recent = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+    result.clients[0] = { ...result.clients[0], lastWorkout: recent };
+    render(<OwnerGymDashboard service={makeService(result)} />);
+    fireEvent.click((await screen.findByText(/Need a nudge \(14\+ days\)/)).closest('button'));
+    expect(screen.getByLabelText('Filter by trainer').value).toBe('__nudge__');
+    expect(screen.queryByText('Ravi')).toBeNull(); // worked out 2 days ago
+    expect(screen.getByText('Meena')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Trainers (2)'));
+    fireEvent.click(screen.getByText('Active members').closest('button'));
+    expect(screen.getByLabelText('Filter by trainer').value).toBe('__active__');
+    expect(screen.getByText('Ravi')).toBeTruthy();
+    expect(screen.queryByText('Meena')).toBeNull();
   });
 
   it('never shows private notes or photos', async () => {

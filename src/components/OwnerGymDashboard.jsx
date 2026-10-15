@@ -16,6 +16,24 @@ import { getActivityStatus } from '../utils/activityStatus';
 // gym shows only the trainers who actually coach there.
 
 const UNASSIGNED = '__unassigned__';
+const SELF_GUIDED = '__self__';
+const ACTIVE = '__active__';
+const NUDGE = '__nudge__';
+// "Need a nudge": no workout in this many days (or none in the 30-day window).
+const NUDGE_DAYS = 14;
+
+function daysSince(isoDate, today = new Date()) {
+  if (!isoDate) return null;
+  const d = new Date(`${isoDate}T00:00:00`);
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((t - d) / 86400000);
+}
+
+const isWaiting = (c) => !c.trainerName && !c.selfGuided;
+const needsNudge = (c) => {
+  const d = daysSince(c.lastWorkout);
+  return d === null || d >= NUDGE_DAYS;
+};
 
 function daysAgoLabel(isoDate, today = new Date()) {
   if (!isoDate) return 'No workouts in 30 days';
@@ -68,26 +86,35 @@ function Initial({ name }) {
 // trainer plus "No trainer — back to the waiting list", a plain-language
 // confirm step, and a plain-language result.
 const NO_TRAINER = '__none__';
+const ON_OWN = '__own__';
 
 function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign }) {
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState(null);
   const hasTrainer = !!client.trainerName;
+  const selfGuided = !hasTrainer && !!client.selfGuided;
   const current = trainers.find((t) => t.id === client.coachId);
   const chosen = trainers.find((t) => t.id === choice);
   const nameOf = (t) => (t?.isOwner ? 'you' : t?.name);
 
   const close = () => { setOpen(false); setChoice(null); };
   const confirm = async () => {
-    const ok = choice === NO_TRAINER ? await onUnassign(client) : await onAssign(client, chosen);
+    const ok = choice === NO_TRAINER || choice === ON_OWN
+      ? await onUnassign(client, choice === ON_OWN)
+      : await onAssign(client, chosen);
     if (ok) close();
   };
 
+  const fromTrainer = hasTrainer ? ` from ${nameOf(current) || client.trainerName}` : '';
   const confirmText = choice === NO_TRAINER
-    ? `Remove ${client.name} from ${nameOf(current) || client.trainerName || 'their trainer'}? They go back to the waiting list and their app shows "Trainer coming soon".`
-    : chosen
+    ? hasTrainer
+      ? `Remove ${client.name}${fromTrainer}? They go back to the waiting list and their app shows "Trainer coming soon".`
+      : `Put ${client.name} back on the waiting list? Their app shows "Trainer coming soon" until you pick a trainer.`
+    : choice === ON_OWN
+      ? `${hasTrainer ? `Remove ${client.name}${fromTrainer} and mark them` : `Mark ${client.name}`} as training on their own? They stay a gym member, leave the waiting list, and won't be shown "Trainer coming soon".`
+      : chosen
       ? hasTrainer
-        ? `Move ${client.name} from ${nameOf(current) || client.trainerName} to ${nameOf(chosen)}?`
+        ? `Move ${client.name}${fromTrainer} to ${nameOf(chosen)}?`
         : `Give ${client.name} to ${nameOf(chosen)} as their trainer?`
       : null;
 
@@ -146,6 +173,15 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
             <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981' }} />
             Trainer: {current?.isOwner ? 'You' : client.trainerName}
           </span>
+        ) : selfGuided ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700,
+            color: 'var(--text-main)', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.35)',
+            borderRadius: '999px', padding: '4px 10px'
+          }}>
+            <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgb(var(--accent-rgb))' }} />
+            Trains on their own
+          </span>
         ) : (
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700,
@@ -163,7 +199,7 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
             disabled={locked}
             style={{ ...smallButton, marginLeft: 'auto', opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
           >
-            {hasTrainer ? 'Change trainer' : 'Assign trainer'}
+            {hasTrainer || selfGuided ? 'Change' : 'Assign trainer'}
           </button>
         )}
       </div>
@@ -171,7 +207,7 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
       {open && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '6px' }}>
-            {hasTrainer ? `Who should coach ${client.name}?` : `Pick a trainer for ${client.name}`}
+            {hasTrainer || selfGuided ? `What should change for ${client.name}?` : `Pick a trainer for ${client.name}`}
           </div>
           <div role="radiogroup" aria-label={`Trainer for ${client.name}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {trainers.length === 0 && <div style={muted}>No trainers in your gym yet — share your gym code with them first.</div>}
@@ -181,7 +217,8 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
               `${t.clientCount} client${t.clientCount === 1 ? '' : 's'}`,
               t.id === client.coachId
             ))}
-            {hasTrainer && option(NO_TRAINER, 'No trainer', 'Back to the waiting list', false)}
+            {(hasTrainer || selfGuided) && option(NO_TRAINER, 'Waiting list', 'No trainer yet — you’ll pick one later', false)}
+            {!selfGuided && option(ON_OWN, 'Trains on their own', 'Gym member, doesn’t want a trainer', false)}
           </div>
 
           {confirmText && (
@@ -202,7 +239,7 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
                 cursor: confirmText && !busy ? 'pointer' : 'default'
               }}
             >
-              {busy ? 'Saving…' : choice === NO_TRAINER ? 'Remove trainer' : 'Confirm'}
+              {busy ? 'Saving…' : 'Confirm'}
             </button>
             <button type="button" onClick={close} disabled={busy} style={{ ...smallButton, flex: '0 0 auto', padding: '9px 14px' }}>
               Cancel
@@ -257,8 +294,14 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   const clients = useMemo(() => data?.clients || [], [data]);
 
   const filteredClients = useMemo(() => clients
-    .filter((c) => !trainerFilter
-      || (trainerFilter === UNASSIGNED ? !c.trainerName : c.coachId === trainerFilter))
+    .filter((c) => {
+      if (!trainerFilter) return true;
+      if (trainerFilter === UNASSIGNED) return isWaiting(c);
+      if (trainerFilter === SELF_GUIDED) return !c.trainerName && c.selfGuided;
+      if (trainerFilter === ACTIVE) return c.workouts7d > 0;
+      if (trainerFilter === NUDGE) return needsNudge(c);
+      return c.coachId === trainerFilter;
+    })
     .filter((c) => matchesSearch(searchQuery, [c.name, c.email, c.trainerName]))
     .sort((a, b) => a.name.localeCompare(b.name)),
   [clients, trainerFilter, searchQuery]);
@@ -284,7 +327,11 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
 
   const { gym } = data;
   const activeThisWeek = clients.filter((c) => c.workouts7d > 0).length;
-  const unassignedCount = clients.filter((c) => !c.trainerName).length;
+  const workoutsThisWeek = clients.reduce((sum, c) => sum + (c.workouts7d || 0), 0);
+  const nudgeCount = clients.filter(needsNudge).length;
+  const unassignedCount = clients.filter(isWaiting).length;
+  const selfGuidedCount = clients.filter((c) => !c.trainerName && c.selfGuided).length;
+  const showClients = (filter) => { setTab('clients'); setTrainerFilter(filter); setSearchQuery(''); };
 
   const handleCopy = async () => {
     try {
@@ -317,17 +364,27 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
       : `${client.name} is now with ${trainer.name}. ${trainer.name} has been notified.`
   );
 
-  const handleUnassign = (client) => runChange(
+  const handleUnassign = (client, selfGuided) => runChange(
     client,
-    () => service.ownerUnassignClient(client.id),
-    `${client.name} is back on the waiting list.`
+    () => service.ownerUnassignClient(client.id, selfGuided),
+    selfGuided ? `${client.name} now trains on their own.` : `${client.name} is back on the waiting list.`
   );
 
-  const statTile = (label, value, tone) => (
-    <div style={{ ...card, flex: 1, padding: '12px', textAlign: 'center' }}>
-      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: tone || 'var(--text-main)', lineHeight: 1.1 }}>{value}</div>
-      <div style={{ ...muted, marginTop: 4 }}>{label}</div>
-    </div>
+  // This-week insight tiles (2026-10-15: the old Trainers / Clients counts
+  // just repeated the tab labels below). Tapping one lists those clients.
+  const statTile = (label, value, tone, filter) => (
+    <button
+      type="button"
+      onClick={filter ? () => showClients(filter) : undefined}
+      disabled={!filter}
+      style={{
+        ...card, flex: 1, minWidth: 0, padding: '12px 8px', textAlign: 'center', fontFamily: 'inherit',
+        cursor: filter ? 'pointer' : 'default', color: 'inherit'
+      }}
+    >
+      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: tone || 'var(--text-main)', lineHeight: 1.1 }}>{value}</div>
+      <div style={{ ...muted, marginTop: 4, lineHeight: 1.25 }}>{label}</div>
+    </button>
   );
 
   return (
@@ -357,7 +414,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
       {unassignedCount > 0 && gym.status === 'active' && (
         <button
           type="button"
-          onClick={() => { setTab('clients'); setTrainerFilter(UNASSIGNED); setSearchQuery(''); }}
+          onClick={() => showClients(UNASSIGNED)}
           style={{ ...card, display: 'flex', alignItems: 'center', gap: '10px', width: '100%', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', borderColor: 'rgba(245, 158, 11, 0.35)', background: 'rgba(245, 158, 11, 0.08)' }}
         >
           <span style={{ fontSize: '1.2rem' }}>👋</span>
@@ -368,10 +425,13 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         </button>
       )}
 
-      <div style={{ display: 'flex', gap: '10px' }}>
-        {statTile('Trainers', trainers.length)}
-        {statTile('Clients', clients.length)}
-        {statTile('Active this week', activeThisWeek, 'var(--accent-text)')}
+      <div>
+        <div style={{ ...muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 2px 8px' }}>This week</div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {statTile('Active members', `${activeThisWeek}/${clients.length}`, 'var(--accent-text)', ACTIVE)}
+          {statTile('Workouts logged', workoutsThisWeek, null, null)}
+          {statTile(`Need a nudge (${NUDGE_DAYS}+ days)`, nudgeCount, nudgeCount ? '#f59e0b' : null, NUDGE)}
+        </div>
       </div>
 
       <div role="tablist" aria-label="Gym view" style={{ display: 'flex', gap: '4px', padding: '4px', background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: '12px' }}>
@@ -444,8 +504,11 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
               style={{ flex: '0 1 170px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', fontFamily: 'inherit', fontSize: '0.8rem' }}
             >
               <option value="">All clients</option>
+              <option value={ACTIVE}>Active this week ({activeThisWeek})</option>
+              <option value={NUDGE}>Need a nudge ({nudgeCount})</option>
               {trainers.map((t) => <option key={t.id} value={t.id}>{t.isOwner ? 'Your clients' : `${t.name}’s clients`}</option>)}
               {unassignedCount > 0 && <option value={UNASSIGNED}>Waiting for a trainer ({unassignedCount})</option>}
+              {selfGuidedCount > 0 && <option value={SELF_GUIDED}>Train on their own ({selfGuidedCount})</option>}
             </select>
           </div>
 

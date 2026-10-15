@@ -49,6 +49,14 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     setPickerDismissed(true);
     try { localStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
   };
+  // Closing it used to leave nothing in its place — an empty home screen for
+  // a new client (2026-10-15: "after closing nothing shows here"). A slim
+  // "＋ Choose your level" row stays instead and reopens the picker; ignoring
+  // it is fine too.
+  const reopenPicker = () => {
+    setPickerDismissed(false);
+    try { localStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +109,33 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     const hasAnyProgram = Object.values(library).some(byLevel =>
       Object.values(byLevel).some(list => list?.length > 0)
     );
-    if (!hasAnyProgram || pickerDismissed) return null;
+    if (!hasAnyProgram) return null;
+    if (pickerDismissed) {
+      return (
+        <button
+          type="button"
+          onClick={reopenPicker}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+            background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
+            borderRadius: 'var(--radius-sm, 10px)', padding: '12px 14px', marginBottom: '4px',
+            cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'
+          }}
+        >
+          <span aria-hidden="true" style={{
+            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)', fontSize: '1.1rem', fontWeight: 800
+          }}>＋</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-text)' }}>Choose your level</span>
+            <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Gym or Home · Beginner, Intermediate or Advanced
+            </span>
+          </span>
+        </button>
+      );
+    }
 
     return (
       <div

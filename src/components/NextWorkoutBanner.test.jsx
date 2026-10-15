@@ -87,6 +87,19 @@ describe('NextWorkoutBanner', () => {
     expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
   });
 
+  it('after closing, a "Choose your level" row stays and reopens the picker', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    const reopen = screen.getByRole('button', { name: /Choose your level/ });
+    expect(screen.getByText('Gym or Home · Beginner, Intermediate or Advanced')).not.toBeNull();
+
+    fireEvent.click(reopen);
+    expect(screen.getByText(/Let’s get you started/)).not.toBeNull();
+    expect(localStorage.getItem('firstWorkoutPickerDismissed_u1')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Choose your level/ })).toBeNull();
+  });
+
   it('closing the picker doesn’t hide the normal next-program banner once they have logged workouts', async () => {
     localStorage.setItem('firstWorkoutPickerDismissed_u1', '1');
     mockLibrary({ gym: { beginner: gymBeginner } });

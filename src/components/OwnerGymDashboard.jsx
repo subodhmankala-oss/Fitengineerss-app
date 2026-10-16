@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import AdminSearchBox from './admin/AdminSearchBox';
 import { matchesSearch } from '../utils/matchesSearch';
 import { getActivityStatus } from '../utils/activityStatus';
+import { buildNudgeMessage, openWhatsapp, toWhatsappNumber } from '../utils/whatsappNudge';
 
 // "🏢 My Gym" — the gym owner's view inside the coach dashboard (owners are
 // coach accounts that own a gym; see api/data-read.js handleOwnerGym).
@@ -19,6 +20,7 @@ const UNASSIGNED = '__unassigned__';
 const SELF_GUIDED = '__self__';
 const ACTIVE = '__active__';
 const NUDGE = '__nudge__';
+const WORKOUTS = '__workouts__';
 // "Need a nudge": no workout in this many days (or none in the 30-day window).
 const NUDGE_DAYS = 14;
 
@@ -33,6 +35,19 @@ const isWaiting = (c) => !c.trainerName && !c.selfGuided;
 const needsNudge = (c) => {
   const d = daysSince(c.lastWorkout);
   return d === null || d >= NUDGE_DAYS;
+};
+
+// "Wed, 14 Oct" — the days a member trained, shown on their card.
+function dayLabel(isoDate) {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// The tile views (Trained this week / Workouts this week / Not trained in 2
+// weeks) each open the client list with a one-line explanation on top.
+const VIEW_INFO = {
+  [ACTIVE]: { title: 'Trained this week', text: 'Members who logged at least one workout in the last 7 days.' },
+  [WORKOUTS]: { title: 'Workouts this week', text: 'Who trained in the last 7 days, and on which days.' },
+  [NUDGE]: { title: 'Not trained in 2 weeks', text: `Members with no workout logged in the last ${NUDGE_DAYS} days. A quick message often brings them back.` }
 };
 
 function daysAgoLabel(isoDate, today = new Date()) {
@@ -88,7 +103,7 @@ function Initial({ name }) {
 const NO_TRAINER = '__none__';
 const ON_OWN = '__own__';
 
-function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign }) {
+function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign, view = null, gymName = '' }) {
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState(null);
   const hasTrainer = !!client.trainerName;
@@ -162,6 +177,39 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
           </div>
         </div>
       </div>
+
+      {view === WORKOUTS && (client.recentDays || []).length > 0 && (
+        <div aria-label={`Days ${client.name} trained this week`} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          {client.recentDays.map((day) => (
+            <span key={day} style={{
+              fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-text)',
+              background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.25)',
+              borderRadius: '999px', padding: '3px 9px'
+            }}>
+              {dayLabel(day)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {view === NUDGE && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {toWhatsappNumber(client.phone) ? (
+            <button
+              type="button"
+              onClick={() => openWhatsapp(
+                toWhatsappNumber(client.phone),
+                buildNudgeMessage(`Hi {name}, we haven’t seen you at ${gymName || 'the gym'} in a while. Everything okay? Your next workout is ready in the app.`, { userName: client.name })
+              )}
+              style={{ ...smallButton, color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.08)' }}
+            >
+              Message on WhatsApp
+            </button>
+          ) : (
+            <span style={muted}>No phone number on file</span>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         {hasTrainer ? (
@@ -298,12 +346,24 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
       if (!trainerFilter) return true;
       if (trainerFilter === UNASSIGNED) return isWaiting(c);
       if (trainerFilter === SELF_GUIDED) return !c.trainerName && c.selfGuided;
-      if (trainerFilter === ACTIVE) return c.workouts7d > 0;
+      if (trainerFilter === ACTIVE || trainerFilter === WORKOUTS) return c.workouts7d > 0;
       if (trainerFilter === NUDGE) return needsNudge(c);
       return c.coachId === trainerFilter;
     })
     .filter((c) => matchesSearch(searchQuery, [c.name, c.email, c.trainerName]))
-    .sort((a, b) => a.name.localeCompare(b.name)),
+    .sort((a, b) => {
+      // Most active first; quietest first for the nudge list (never-trained
+      // members lead it).
+      if (trainerFilter === ACTIVE || trainerFilter === WORKOUTS) {
+        return (b.workouts7d - a.workouts7d) || a.name.localeCompare(b.name);
+      }
+      if (trainerFilter === NUDGE) {
+        const da = a.lastWorkout || '';
+        const db = b.lastWorkout || '';
+        return da.localeCompare(db) || a.name.localeCompare(b.name);
+      }
+      return a.name.localeCompare(b.name);
+    }),
   [clients, trainerFilter, searchQuery]);
 
   if (loading) {
@@ -375,15 +435,15 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   const statTile = (label, value, tone, filter) => (
     <button
       type="button"
-      onClick={filter ? () => showClients(filter) : undefined}
-      disabled={!filter}
+      onClick={() => showClients(filter)}
       style={{
-        ...card, flex: 1, minWidth: 0, padding: '12px 8px', textAlign: 'center', fontFamily: 'inherit',
-        cursor: filter ? 'pointer' : 'default', color: 'inherit'
+        ...card, flex: 1, minWidth: 0, padding: '12px 8px 10px', textAlign: 'center', fontFamily: 'inherit',
+        cursor: 'pointer', color: 'inherit'
       }}
     >
       <div style={{ fontSize: '1.35rem', fontWeight: 800, color: tone || 'var(--text-main)', lineHeight: 1.1 }}>{value}</div>
-      <div style={{ ...muted, marginTop: 4, lineHeight: 1.25 }}>{label}</div>
+      <div style={{ ...muted, marginTop: 4, lineHeight: 1.25, color: 'var(--text-main)', fontWeight: 600 }}>{label}</div>
+      <div style={{ ...muted, marginTop: 5, fontSize: '0.66rem', fontWeight: 700, color: 'var(--accent-text)' }}>See who ›</div>
     </button>
   );
 
@@ -428,9 +488,9 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
       <div>
         <div style={{ ...muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 2px 8px' }}>This week</div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {statTile('Active members', `${activeThisWeek}/${clients.length}`, 'var(--accent-text)', ACTIVE)}
-          {statTile('Workouts logged', workoutsThisWeek, null, null)}
-          {statTile(`Need a nudge (${NUDGE_DAYS}+ days)`, nudgeCount, nudgeCount ? '#f59e0b' : null, NUDGE)}
+          {statTile('Trained this week', `${activeThisWeek}/${clients.length}`, 'var(--accent-text)', ACTIVE)}
+          {statTile('Workouts this week', workoutsThisWeek, null, WORKOUTS)}
+          {statTile('Not trained in 2 weeks', nudgeCount, nudgeCount ? '#f59e0b' : null, NUDGE)}
         </div>
       </div>
 
@@ -504,23 +564,50 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
               style={{ flex: '0 1 170px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', fontFamily: 'inherit', fontSize: '0.8rem' }}
             >
               <option value="">All clients</option>
-              <option value={ACTIVE}>Active this week ({activeThisWeek})</option>
-              <option value={NUDGE}>Need a nudge ({nudgeCount})</option>
+              <option value={ACTIVE}>Trained this week ({activeThisWeek})</option>
+              <option value={WORKOUTS}>Workouts this week ({workoutsThisWeek})</option>
+              <option value={NUDGE}>Not trained in 2 weeks ({nudgeCount})</option>
               {trainers.map((t) => <option key={t.id} value={t.id}>{t.isOwner ? 'Your clients' : `${t.name}’s clients`}</option>)}
               {unassignedCount > 0 && <option value={UNASSIGNED}>Waiting for a trainer ({unassignedCount})</option>}
               {selfGuidedCount > 0 && <option value={SELF_GUIDED}>Train on their own ({selfGuidedCount})</option>}
             </select>
           </div>
 
+          {VIEW_INFO[trainerFilter] && (
+            <div style={{ ...card, padding: '10px 14px', background: 'rgba(var(--accent-rgb), 0.06)', borderColor: 'rgba(var(--accent-rgb), 0.2)' }}>
+              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                {VIEW_INFO[trainerFilter].title}
+                {trainerFilter === WORKOUTS && ` · ${workoutsThisWeek} workout${workoutsThisWeek === 1 ? '' : 's'} by ${activeThisWeek} member${activeThisWeek === 1 ? '' : 's'}`}
+              </div>
+              <div style={{ ...muted, marginTop: 2, lineHeight: 1.4 }}>{VIEW_INFO[trainerFilter].text}</div>
+            </div>
+          )}
+
           {filteredClients.length === 0 ? (
             <div className="trainer-empty-state">
-              <h5>No clients {clients.length ? 'match' : 'yet'}</h5>
-              <p>{clients.length ? 'Try a different search or trainer.' : 'Clients appear here when they join one of your trainers.'}</p>
+              {trainerFilter === NUDGE && !searchQuery.trim() ? (
+                <>
+                  <h5>Everyone’s been training 🎉</h5>
+                  <p>Every member has logged a workout in the last {NUDGE_DAYS} days.</p>
+                </>
+              ) : (trainerFilter === ACTIVE || trainerFilter === WORKOUTS) && !searchQuery.trim() ? (
+                <>
+                  <h5>No workouts yet this week</h5>
+                  <p>Members who log a workout in the last 7 days will show up here.</p>
+                </>
+              ) : (
+                <>
+                  <h5>No clients {clients.length ? 'match' : 'yet'}</h5>
+                  <p>{clients.length ? 'Try a different search or trainer.' : 'Clients appear here when they join one of your trainers.'}</p>
+                </>
+              )}
             </div>
           ) : filteredClients.map((c) => (
             <ClientCard
               key={c.id}
               client={c}
+              view={trainerFilter === WORKOUTS || trainerFilter === NUDGE ? trainerFilter : null}
+              gymName={gym.name}
               trainers={trainers}
               locked={gym.status !== 'active'}
               busy={savingId === c.id}

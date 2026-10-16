@@ -762,10 +762,14 @@ function ownerGymPayload(gym, members, logs, now = new Date()) {
   }
   const activity = (id) => {
     const d = [...(days[id] || [])].sort();
+    const recent = d.filter((x) => x >= weekAgo);
     return {
       lastWorkout: d.length ? d[d.length - 1] : null,
-      workouts7d: d.filter((x) => x >= weekAgo).length,
-      workouts30d: d.length
+      workouts7d: recent.length,
+      workouts30d: d.length,
+      // The actual days (newest first) — so the owner can see WHO trained
+      // and WHEN, not just a count.
+      recentDays: recent.slice().reverse()
     };
   };
 
@@ -777,6 +781,8 @@ function ownerGymPayload(gym, members, logs, now = new Date()) {
     id: c.id,
     name: c.full_name || (c.email || '').split('@')[0],
     email: c.email,
+    // For the owner's "message them" nudge on members who've gone quiet.
+    phone: c.phone || null,
     avatarUrl: c.avatar_url || null,
     coachId: c.coach_id || null,
     // A coach_id outside this gym (shouldn't happen) reads as unassigned so
@@ -831,7 +837,7 @@ async function handleOwnerGym(req, res) {
     if (!gym) return res.status(200).json({ gym: null });
 
     const members = await svcSelect(
-      `users?gym_id=eq.${gym.id}&select=id,full_name,email,role,coach_id,last_login,avatar_url,gym_self_guided`,
+      `users?gym_id=eq.${gym.id}&select=id,full_name,email,phone,role,coach_id,last_login,avatar_url,gym_self_guided`,
       'owner-gym members'
     );
     const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);

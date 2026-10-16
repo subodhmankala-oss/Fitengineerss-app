@@ -35,6 +35,7 @@ describe('ownerGymPayload', () => {
       { user_id: 'c1', log_date: '2026-10-10' },
       { user_id: 'c1', log_date: '2026-09-20' }
     ];
+    members[2].phone = '+919000000102';
     const out = ownerGymPayload(gym, members, logs, new Date('2026-10-14T12:00:00Z'));
 
     expect(out.gym).toEqual({ id: 'g1', name: 'Test Gym', joinCode: 'GYM-QFAP', status: 'active', createdAt: undefined });
@@ -42,7 +43,10 @@ describe('ownerGymPayload', () => {
     expect(out.trainers[0]).toMatchObject({ isOwner: true, clientCount: 1, activeClients7d: 1 });
 
     const ravi = out.clients.find((c) => c.id === 'c1');
-    expect(ravi).toMatchObject({ trainerName: 'Owner', lastWorkout: '2026-10-13', workouts7d: 2, workouts30d: 3 });
+    expect(ravi).toMatchObject({ trainerName: 'Owner', lastWorkout: '2026-10-13', workouts7d: 2, workouts30d: 3, phone: '+919000000102' });
+    // the days themselves, newest first, last 7 days only
+    expect(ravi.recentDays).toEqual(['2026-10-13', '2026-10-10']);
+    expect(out.clients.find((c) => c.id === 'c2').phone).toBeNull();
     // a coach outside the gym reads as unassigned
     expect(out.clients.find((c) => c.id === 'c2').trainerName).toBeNull();
   });

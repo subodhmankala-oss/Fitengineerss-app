@@ -41,9 +41,11 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByText('Trainers (2)')).toBeTruthy();
     expect(screen.getByText('Clients (3)')).toBeTruthy();
     // "This week" insights, not a repeat of the tab counts.
-    expect(screen.getByText('Active members').previousSibling.textContent).toBe('1/3');
-    expect(screen.getByText('Workouts logged').previousSibling.textContent).toBe('2');
-    expect(screen.getByText('Need a nudge (14+ days)').previousSibling.textContent).toBe('3');
+    expect(screen.getByText('Trained this week').previousSibling.textContent).toBe('1/3');
+    expect(screen.getByText('Workouts this week').previousSibling.textContent).toBe('2');
+    expect(screen.getByText('Not trained in 2 weeks').previousSibling.textContent).toBe('3');
+    // every tile says it is tappable
+    expect(screen.getAllByText('See who ›')).toHaveLength(3);
   });
 
   it('lists trainers with client counts and marks the owner', async () => {
@@ -132,7 +134,7 @@ describe('OwnerGymDashboard', () => {
     render(<OwnerGymDashboard service={makeService()} />);
     await openClients();
     const options = within(screen.getByLabelText('Filter by trainer')).getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['All clients', 'Active this week (1)', 'Need a nudge (3)', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
+    expect(options).toEqual(['All clients', 'Trained this week (1)', 'Workouts this week (2)', 'Not trained in 2 weeks (3)', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
     fireEvent.change(screen.getByLabelText('Filter by trainer'), { target: { value: '__unassigned__' } });
     expect(screen.getByText('Kiran')).toBeTruthy();
     expect(screen.queryByText('Ravi')).toBeNull();
@@ -230,16 +232,60 @@ describe('OwnerGymDashboard', () => {
     const recent = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
     result.clients[0] = { ...result.clients[0], lastWorkout: recent };
     render(<OwnerGymDashboard service={makeService(result)} />);
-    fireEvent.click((await screen.findByText(/Need a nudge \(14\+ days\)/)).closest('button'));
+    fireEvent.click((await screen.findByText('Not trained in 2 weeks')).closest('button'));
     expect(screen.getByLabelText('Filter by trainer').value).toBe('__nudge__');
     expect(screen.queryByText('Ravi')).toBeNull(); // worked out 2 days ago
     expect(screen.getByText('Meena')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Trainers (2)'));
-    fireEvent.click(screen.getByText('Active members').closest('button'));
+    fireEvent.click(screen.getByText('Trained this week').closest('button'));
     expect(screen.getByLabelText('Filter by trainer').value).toBe('__active__');
     expect(screen.getByText('Ravi')).toBeTruthy();
     expect(screen.queryByText('Meena')).toBeNull();
+  });
+
+  it('"Workouts this week" opens who trained and on which days, most active first', async () => {
+    const result = payload();
+    result.clients[0] = { ...result.clients[0], workouts7d: 2, recentDays: ['2026-10-15', '2026-10-13'] };
+    result.clients[1] = { ...result.clients[1], workouts7d: 3, recentDays: ['2026-10-14', '2026-10-12', '2026-10-10'] };
+    render(<OwnerGymDashboard service={makeService(result)} />);
+    fireEvent.click((await screen.findByText('Workouts this week')).closest('button'));
+
+    expect(screen.getByLabelText('Filter by trainer').value).toBe('__workouts__');
+    expect(screen.getByText(/Workouts this week · 5 workouts by 2 members/)).toBeTruthy();
+    expect(screen.getByText('Who trained in the last 7 days, and on which days.')).toBeTruthy();
+    // Meena (3) listed before Ravi (2); Kiran (0) not listed
+    const names = screen.getAllByText(/^(Ravi|Meena|Kiran)$/).map((n) => n.textContent);
+    expect(names).toEqual(['Meena', 'Ravi']);
+    expect(within(screen.getByLabelText('Days Meena trained this week')).getAllByText(/\d/)).toHaveLength(3);
+    expect(within(screen.getByLabelText('Days Ravi trained this week')).getByText(/15 Oct/)).toBeTruthy();
+  });
+
+  it('the "not trained in 2 weeks" list explains itself and offers a WhatsApp message', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const result = payload();
+    result.clients[1] = { ...result.clients[1], phone: '+919000000102' };
+    render(<OwnerGymDashboard service={makeService(result)} />);
+    fireEvent.click((await screen.findByText('Not trained in 2 weeks')).closest('button'));
+
+    expect(screen.getByText(/Members with no workout logged in the last 14 days\./)).toBeTruthy();
+    // no phone on file → says so instead of a dead button
+    expect(within(cardOf('Kiran')).getByText('No phone number on file')).toBeTruthy();
+
+    fireEvent.click(within(cardOf('Meena')).getByRole('button', { name: 'Message on WhatsApp' }));
+    const url = new URL(open.mock.calls[0][0]);
+    expect(url.searchParams.get('phone')).toBe('919000000102');
+    expect(url.searchParams.get('text')).toMatch(/Hi Meena, we haven.t seen you at Test Gym in a while/);
+  });
+
+  it('empty tile lists say so in plain words', async () => {
+    const result = payload();
+    result.clients = result.clients.map((c) => ({ ...c, workouts7d: 0, lastWorkout: new Date(Date.now() - 86400000).toISOString().slice(0, 10) }));
+    render(<OwnerGymDashboard service={makeService(result)} />);
+    fireEvent.click((await screen.findByText('Not trained in 2 weeks')).closest('button'));
+    expect(screen.getByText('Everyone’s been training 🎉')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Filter by trainer'), { target: { value: '__workouts__' } });
+    expect(screen.getByText('No workouts yet this week')).toBeTruthy();
   });
 
   it('never shows private notes or photos', async () => {

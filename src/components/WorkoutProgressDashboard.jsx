@@ -901,9 +901,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
+              // Accent styling when connected to a coach;
+              // the plain state uses the theme's text colour — it was fixed
+              // #fff, unreadable on the light theme's pale chip.
               background: coachStatusPending ? 'rgba(var(--fg-rgb), 0.03)' : (isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)'),
               border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(var(--accent-rgb), 0.3)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
-              color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : '#fff'),
+              color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : 'var(--text-main)'),
               borderRadius: '20px', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
               cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap'
             }}

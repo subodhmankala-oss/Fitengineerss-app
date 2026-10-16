@@ -455,4 +455,16 @@ describe('OwnerGymDashboard', () => {
       await waitFor(() => expect(service.ownerAssignClient).toHaveBeenCalledWith('c3', T2));
     });
   });
+
+  it('a waiting member has a one-tap "Trains on their own" that still asks to confirm', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    const kiran = cardOf('Kiran');
+    fireEvent.click(within(kiran).getByText('Trains on their own'));
+    expect(service.ownerUnassignClient).not.toHaveBeenCalled();
+    expect(within(kiran).getByText(/as training on their own/)).toBeTruthy();
+    fireEvent.click(within(kiran).getByText('Confirm'));
+    await waitFor(() => expect(service.ownerUnassignClient).toHaveBeenCalledWith('c3', true));
+  });
 });

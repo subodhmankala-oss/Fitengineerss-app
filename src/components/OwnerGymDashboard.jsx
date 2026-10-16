@@ -135,8 +135,8 @@ const ON_OWN = '__own__';
 // The "Change" panel for one client: pick a trainer / Waiting list / Trains on
 // their own, then a plain-language confirm step. Shared by the phone card and
 // the desktop table row so both say exactly the same thing.
-function AssignPanel({ client, trainers, busy, onAssign, onUnassign, onClose }) {
-  const [choice, setChoice] = useState(null);
+function AssignPanel({ client, trainers, busy, onAssign, onUnassign, onClose, initialChoice = null }) {
+  const [choice, setChoice] = useState(initialChoice);
   const hasTrainer = !!client.trainerName;
   const selfGuided = !hasTrainer && !!client.selfGuided;
   const current = trainers.find((t) => t.id === client.coachId);
@@ -244,10 +244,11 @@ function AssignPanel({ client, trainers, busy, onAssign, onUnassign, onClose }) 
 
 function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign, onOpen, view = null, gymName = '' }) {
   const [open, setOpen] = useState(false);
+  const [startChoice, setStartChoice] = useState(null);
   const hasTrainer = !!client.trainerName;
   const selfGuided = !hasTrainer && !!client.selfGuided;
   const current = trainers.find((t) => t.id === client.coachId);
-  const close = () => setOpen(false);
+  const close = () => { setOpen(false); setStartChoice(null); };
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -332,12 +333,22 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
             Waiting for a trainer
           </span>
         )}
+        {!open && !hasTrainer && !selfGuided && (
+          <button
+            type="button"
+            onClick={() => { setStartChoice(ON_OWN); setOpen(true); }}
+            disabled={locked}
+            style={{ ...smallButton, marginLeft: 'auto', opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
+          >
+            Trains on their own
+          </button>
+        )}
         {!open && (
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => { setStartChoice(null); setOpen(true); }}
             disabled={locked}
-            style={{ ...smallButton, marginLeft: 'auto', opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
+            style={{ ...smallButton, marginLeft: hasTrainer || selfGuided ? 'auto' : 0, opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
           >
             {hasTrainer || selfGuided ? 'Change' : 'Assign trainer'}
           </button>
@@ -345,7 +356,7 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
       </div>
 
       {open && (
-        <AssignPanel client={client} trainers={trainers} busy={busy} onAssign={onAssign} onUnassign={onUnassign} onClose={close} />
+        <AssignPanel initialChoice={startChoice} client={client} trainers={trainers} busy={busy} onAssign={onAssign} onUnassign={onUnassign} onClose={close} />
       )}
 
       {message && (
@@ -382,6 +393,11 @@ function TrainerPill({ client, current }) {
 // same AssignPanel (with its confirm step) in a row underneath.
 function ClientTable({ clients, trainers, locked, savingId, rowMsg, onAssign, onUnassign, onOpen, view, gymName }) {
   const [openId, setOpenId] = useState(null);
+  const [openChoice, setOpenChoice] = useState(null);
+  const toggle = (id, choice = null) => {
+    setOpenChoice(choice);
+    setOpenId(openId === id && !choice ? null : id);
+  };
   return (
     <div className="og-table-wrap">
       <table className="og-table">
@@ -439,9 +455,19 @@ function ClientTable({ clients, trainers, locked, savingId, rowMsg, onAssign, on
                         WhatsApp
                       </button>
                     )}
+                    {!hasTrainer && !c.selfGuided && !open && (
+                      <button
+                        type="button"
+                        onClick={() => toggle(c.id, ON_OWN)}
+                        disabled={locked}
+                        style={{ ...smallButton, marginRight: '6px', opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
+                      >
+                        Trains on their own
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setOpenId(open ? null : c.id)}
+                      onClick={() => toggle(c.id)}
                       disabled={locked}
                       aria-expanded={open}
                       style={{ ...smallButton, opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
@@ -454,7 +480,7 @@ function ClientTable({ clients, trainers, locked, savingId, rowMsg, onAssign, on
                   <tr className="og-row-detail">
                     <td colSpan={6}>
                       {open && (
-                        <AssignPanel client={c} trainers={trainers} busy={savingId === c.id} onAssign={onAssign} onUnassign={onUnassign} onClose={() => setOpenId(null)} />
+                        <AssignPanel key={`${c.id}-${openChoice}`} initialChoice={openChoice} client={c} trainers={trainers} busy={savingId === c.id} onAssign={onAssign} onUnassign={onUnassign} onClose={() => setOpenId(null)} />
                       )}
                       {message && (
                         <div role={message.error ? 'alert' : 'status'} style={{ fontSize: '0.78rem', fontWeight: 600, color: message.error ? 'var(--danger)' : '#10b981' }}>

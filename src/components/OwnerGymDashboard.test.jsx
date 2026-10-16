@@ -335,7 +335,7 @@ describe('OwnerGymDashboard', () => {
     render(<OwnerGymDashboard service={makeService()} />);
     expect(await screen.findByText('Workouts per week')).toBeTruthy();
     expect(screen.getByText('7 this week · up 2 from last week')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /Week|workout days/ }).length).toBeGreaterThanOrEqual(8);
+    expect(screen.getAllByRole('button', { name: /workouts?, \d+ members?/ }).length).toBeGreaterThanOrEqual(8);
 
     // Member health legend, each with its text label
     expect(screen.getByText('Member health')).toBeTruthy();

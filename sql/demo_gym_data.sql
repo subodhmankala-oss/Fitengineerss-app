@@ -2,15 +2,17 @@
 -- SAMPLE DATA for the gym owner's My Gym screens (2026-10-16, on request:
 -- "add the demo gym with sample data").
 --
--- STATUS: APPLIED to production 2026-10-16 (14 users, 175 workout days).
--- Remove with sql/demo_gym_data_remove.sql.
+-- STATUS: APPLIED to production 2026-10-16; regenerated the same day to
+-- cover 12 weeks (the member profile chart shows 12). Remove with
+-- sql/demo_gym_data_remove.sql.
 --
 -- Fills "Test Gym" (GYM-QFAP, owner testgymowner@fitengineers.com) with:
 --   * 2 trainers and 12 members covering every member-health state
 --     (thriving, steady, slipping, gone quiet, hasn't started, new), one
 --     member who trains on their own, one waiting for a trainer
---   * 8 weeks of realistic workouts per member (evening-heavy so the
---     busiest-times grid has a clear shape), with coaching history
+--   * 12 weeks of realistic workouts per member (never before they joined;
+--     evening-heavy so the busiest-times grid has a clear shape), with
+--     coaching history
 -- Dates are relative to "today" in India time, so re-running refreshes them
 -- (it removes the previous sample rows first).
 --
@@ -34,21 +36,22 @@ DECLARE
     {"key":"asha","name":"Asha Reddy","phone":"+919000020001","joined":150,"login":0},
     {"key":"vikram","name":"Vikram Rao","phone":"+919000020002","joined":120,"login":4}
   ]';
-  -- weeks: workouts per week, OLDEST -> NEWEST (the last entry is the current
-  -- 7 days). pref: preferred ISO weekdays (1=Mon). at: usual time (IST).
+  -- weeks: 12 entries, workouts per week, OLDEST -> NEWEST (the last entry is
+  -- the current 7 days; the last 8 are what the gym trend chart shows).
+  -- pref: preferred ISO weekdays (1=Mon). at: usual time (IST).
   v_members JSONB := '[
-    {"key":"ravi","name":"Ravi Kumar","phone":"+919000030001","trainer":"asha","joined":95,"login":0,"at":"06:45","level":"i","pref":[1,3,5,6,2,4,7],"weeks":[2,3,3,4,4,4,4,4]},
-    {"key":"kiran","name":"Kiran Shetty","phone":"+919000030002","trainer":"asha","joined":80,"login":1,"at":"18:15","level":"i","pref":[2,4,6,1,3,5,7],"weeks":[3,3,3,3,4,3,4,3]},
-    {"key":"neha","name":"Neha Joshi","phone":"+919000030003","trainer":"vikram","joined":70,"login":0,"at":"18:40","level":"i","pref":[1,3,5,2,4,6,7],"weeks":[2,2,3,3,3,4,4,4]},
-    {"key":"arjun","name":"Arjun Mehta","phone":"+919000030004","trainer":"asha","joined":62,"login":1,"at":"19:10","level":"i","pref":[2,4,5,6,1,3,7],"weeks":[1,2,3,3,3,3,4,4]},
-    {"key":"meena","name":"Meena Rao","phone":"+919000030005","trainer":"asha","joined":88,"login":2,"at":"12:30","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[2,1,2,1,2,1,2,1]},
-    {"key":"pooja","name":"Pooja Nair","phone":"+919000030006","trainer":"vikram","joined":58,"login":3,"at":"17:30","level":"b","pref":[2,4,6,1,3,5,7],"weeks":[1,2,1,2,1,2,1,1]},
-    {"key":"rahul","name":"Rahul Verma","phone":"+919000030007","trainer":"vikram","joined":49,"login":1,"at":"07:15","level":"b","pref":[1,4,6,2,3,5,7],"weeks":[2,1,1,2,1,2,1,2]},
-    {"key":"divya","name":"Divya Prakash","phone":"+919000030008","trainer":"asha","joined":75,"login":6,"at":"18:30","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[3,3,3,3,3,2,1,0],"moved":true},
-    {"key":"anil","name":"Anil Thomas","phone":"+919000030009","trainer":"vikram","joined":66,"login":8,"at":"19:00","level":"b","pref":[2,4,6,1,3,5,7],"weeks":[2,2,2,2,1,1,1,0]},
-    {"key":"sandeep","name":"Sandeep Menon","phone":"+919000030010","trainer":"vikram","joined":100,"login":20,"at":"17:45","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[2,2,2,2,1,0,0,0]},
-    {"key":"lakshmi","name":"Lakshmi Gowda","phone":"+919000030011","trainer":null,"self":true,"joined":40,"login":null,"at":"18:00","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[0,0,0,0,0,0,0,0]},
-    {"key":"faisal","name":"Faisal Khan","phone":"+919000030012","trainer":null,"self":false,"joined":3,"login":2,"at":"18:00","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[0,0,0,0,0,0,0,0]}
+    {"key":"ravi","name":"Ravi Kumar","phone":"+919000030001","trainer":"asha","joined":95,"login":0,"at":"06:45","level":"i","pref":[1,3,5,6,2,4,7],"weeks":[1,2,2,2,2,3,3,4,4,4,4,4]},
+    {"key":"kiran","name":"Kiran Shetty","phone":"+919000030002","trainer":"asha","joined":80,"login":1,"at":"18:15","level":"i","pref":[2,4,6,1,3,5,7],"weeks":[3,3,2,3,3,3,3,3,4,3,4,3]},
+    {"key":"neha","name":"Neha Joshi","phone":"+919000030003","trainer":"vikram","joined":70,"login":0,"at":"18:40","level":"i","pref":[1,3,5,2,4,6,7],"weeks":[1,2,2,2,2,2,3,3,3,4,4,4]},
+    {"key":"arjun","name":"Arjun Mehta","phone":"+919000030004","trainer":"asha","joined":62,"login":1,"at":"19:10","level":"i","pref":[2,4,5,6,1,3,7],"weeks":[0,0,1,1,1,2,3,3,3,3,4,4]},
+    {"key":"meena","name":"Meena Rao","phone":"+919000030005","trainer":"asha","joined":88,"login":2,"at":"12:30","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[2,1,2,1,2,1,2,1,2,1,2,1]},
+    {"key":"pooja","name":"Pooja Nair","phone":"+919000030006","trainer":"vikram","joined":58,"login":3,"at":"17:30","level":"b","pref":[2,4,6,1,3,5,7],"weeks":[1,1,2,1,1,2,1,2,1,2,1,1]},
+    {"key":"rahul","name":"Rahul Verma","phone":"+919000030007","trainer":"vikram","joined":49,"login":1,"at":"07:15","level":"b","pref":[1,4,6,2,3,5,7],"weeks":[1,2,1,1,2,1,1,2,1,2,1,2]},
+    {"key":"divya","name":"Divya Prakash","phone":"+919000030008","trainer":"asha","joined":75,"login":6,"at":"18:30","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[2,3,3,3,3,3,3,3,3,2,1,0],"moved":true},
+    {"key":"anil","name":"Anil Thomas","phone":"+919000030009","trainer":"vikram","joined":66,"login":8,"at":"19:00","level":"b","pref":[2,4,6,1,3,5,7],"weeks":[2,2,2,2,2,2,2,2,1,1,1,0]},
+    {"key":"sandeep","name":"Sandeep Menon","phone":"+919000030010","trainer":"vikram","joined":100,"login":20,"at":"17:45","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[2,2,2,2,2,2,2,2,1,0,0,0]},
+    {"key":"lakshmi","name":"Lakshmi Gowda","phone":"+919000030011","trainer":null,"self":true,"joined":40,"login":null,"at":"18:00","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[0,0,0,0,0,0,0,0,0,0,0,0]},
+    {"key":"faisal","name":"Faisal Khan","phone":"+919000030012","trainer":null,"self":false,"joined":3,"login":2,"at":"18:00","level":"b","pref":[1,3,5,2,4,6,7],"weeks":[0,0,0,0,0,0,0,0,0,0,0,0]}
   ]';
   -- plan -> exercises [name, base kg (0 = bodyweight), reps]
   v_plans JSONB := '{
@@ -126,14 +129,16 @@ BEGIN
     v_dows := ARRAY(SELECT jsonb_array_elements_text(m->'pref')::int);
     v_session := 0;
 
-    FOR w IN 0..7 LOOP
+    FOR w IN 0..11 LOOP
       -- weeks array is oldest -> newest; w = 0 is the current 7 days
-      n := (m->'weeks'->>(7 - w))::int;
+      n := (m->'weeks'->>(11 - w))::int;
       EXIT WHEN n IS NULL;
       -- the n preferred weekdays that fall inside this 7-day block
       FOR dt IN
         SELECT d FROM (
           SELECT (v_today - (w * 7 + o))::date AS d FROM generate_series(0, 6) o
+          -- never a workout before the member joined
+          WHERE (v_today - (w * 7 + o)) >= (v_today - (m->>'joined')::int)
         ) days
         ORDER BY COALESCE(array_position(v_dows, EXTRACT(ISODOW FROM d)::int), 99), d
         LIMIT n
@@ -150,7 +155,7 @@ BEGIN
             VALUES (
               v_id, dt, e->>0, s, (e->>2)::int,
               CASE WHEN (e->>1)::numeric = 0 THEN 0
-                   ELSE (e->>1)::numeric + (CASE WHEN m->>'level' = 'i' THEN 2.5 ELSE 1 END) * floor((8 - w) / 3.0) END,
+                   ELSE (e->>1)::numeric + (CASE WHEN m->>'level' = 'i' THEN 2.5 ELSE 1 END) * floor((11 - w) / 4.0) END,
               v_plan, 'demo-' || (m->>'key') || '-' || dt::text, v_row,
               v_sets_ts + (v_row * interval '90 seconds')
             );

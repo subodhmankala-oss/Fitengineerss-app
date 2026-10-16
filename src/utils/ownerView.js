@@ -22,6 +22,39 @@ export function weekLabels(today, count) {
 }
 
 
+// "22–28 Aug" (or "29 Aug – 4 Sep" across a month end) for each of `count`
+// consecutive 7-day blocks ending today, oldest first — the plain-language
+// label for a bar (the axis only has room for each block's first day).
+export function weekRanges(today, count) {
+  const end = Date.parse(`${today}T00:00:00Z`);
+  return Array.from({ length: count }, (_, i) => {
+    const to = new Date(end - (count - 1 - i) * 7 * 86400000).toISOString().slice(0, 10);
+    const from = new Date(Date.parse(`${to}T00:00:00Z`) - 6 * 86400000).toISOString().slice(0, 10);
+    const [, m1, d1] = from.split('-').map(Number);
+    const [, m2, d2] = to.split('-').map(Number);
+    return m1 === m2 ? `${d1}–${d2} ${MONTHS[m2 - 1]}` : `${d1} ${MONTHS[m1 - 1]} – ${d2} ${MONTHS[m2 - 1]}`;
+  });
+}
+
+// How many of the oldest weeks ended before the member joined — shown as
+// "Before they joined" instead of a misleading run of zeros.
+export function weeksBeforeJoin(today, count, joinedIso) {
+  if (!joinedIso) return 0;
+  const joined = Date.parse(`${String(joinedIso).slice(0, 10)}T00:00:00Z`);
+  const end = Date.parse(`${today}T00:00:00Z`);
+  let n = 0;
+  for (let i = 0; i < count; i += 1) {
+    const weekEnd = end - (count - 1 - i) * 7 * 86400000;
+    if (weekEnd < joined) n += 1; else break;
+  }
+  return n;
+}
+
+// "1 workout" / "3 workouts"
+export function plural(n, word) {
+  return `${n} ${n === 1 && word.endsWith('s') ? word.slice(0, -1) : word}`;
+}
+
 // Green / blue / amber / red are the reserved status colours; each always
 // appears with its text label, never colour alone.
 export const OWNER_STATUS = {

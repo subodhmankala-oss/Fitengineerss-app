@@ -3,7 +3,7 @@ import databaseService from '../services/databaseService';
 import AdminSearchBox from './admin/AdminSearchBox';
 import { matchesSearch } from '../utils/matchesSearch';
 import { toWhatsappNumber } from '../utils/whatsappNudge';
-import { OWNER_STATUS, messageMember, statusReason, weekLabels } from '../utils/ownerView';
+import { OWNER_STATUS, messageMember, statusReason, weekLabels, weekRanges } from '../utils/ownerView';
 import { HealthBar, PeakGrid, StatusChip, WeeklyBars } from './OwnerCharts';
 import { MemberProfile, TrainerProfile } from './OwnerProfiles';
 
@@ -464,9 +464,10 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         <WeeklyBars
           values={weeklyWorkouts}
           labels={weekLabels(insights.today, weeklyWorkouts.length)}
+          ranges={weekRanges(insights.today, weeklyWorkouts.length)}
           secondary={insights.weekly.map((w) => w.members)}
-          unit="workout days"
-          title="Gym workout days per week"
+          unit="workouts"
+          title="Gym workouts per week"
         />
       </div>
 

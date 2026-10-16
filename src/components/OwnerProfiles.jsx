@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { toWhatsappNumber } from '../utils/whatsappNudge';
-import { agoLabel, messageMember, shortDate, statusReason, weekLabels } from '../utils/ownerView';
+import { agoLabel, messageMember, shortDate, statusReason, weekLabels, weekRanges, weeksBeforeJoin } from '../utils/ownerView';
 import { StatusChip, WeeklyBars } from './OwnerCharts';
 
 // Full-screen profiles opened from My Gym: one member (12 weeks of activity,
@@ -117,8 +117,16 @@ export function MemberProfile({ client, gymName, today, service = databaseServic
           </div>
 
           <div style={card}>
-            <SectionTitle sub="Workout days in each of the last 12 weeks">Activity</SectionTitle>
-            <WeeklyBars values={data.stats.weeks} labels={weekLabels(today, data.stats.weeks.length)} unit="workout days" labelEvery={3} title={`${client.name}: workout days per week`} />
+            <SectionTitle sub="Workouts in each of the last 12 weeks">Activity</SectionTitle>
+            <WeeklyBars
+              values={data.stats.weeks}
+              labels={weekLabels(today, data.stats.weeks.length)}
+              ranges={weekRanges(today, data.stats.weeks.length)}
+              beforeCount={weeksBeforeJoin(today, data.stats.weeks.length, m.joinedAt)}
+              unit="workouts"
+              labelEvery={3}
+              title={`${client.name}: workouts per week`}
+            />
           </div>
 
           <div style={card}>
@@ -215,8 +223,14 @@ export function TrainerProfile({ trainer, clients, today, onClose, onOpenMember,
       </div>
 
       <div style={card}>
-        <SectionTitle sub="Workout days logged by their clients, week by week">Their clients’ activity</SectionTitle>
-        <WeeklyBars values={st.weekly || new Array(8).fill(0)} labels={weekLabels(today, 8)} unit="workout days" title={`${trainer.name}: clients’ workout days per week`} />
+        <SectionTitle sub="Workouts logged by their clients, week by week">Their clients’ activity</SectionTitle>
+        <WeeklyBars
+          values={st.weekly || new Array(8).fill(0)}
+          labels={weekLabels(today, 8)}
+          ranges={weekRanges(today, 8)}
+          unit="workouts"
+          title={`${trainer.name}: clients’ workouts per week`}
+        />
       </div>
 
       <div style={card}>

@@ -151,6 +151,17 @@ const Onboarding = ({ onComplete }) => {
   // Digits only, no +91 — same convention as the client wizard's phone step
   // below (phoneNumber state), the +91 prefix is added on submit for both.
   const [coachApplyPhone, setCoachApplyPhone] = useState('');
+  // "I own a gym" on Coach Sign Up: the same coach account plus a gym it
+  // owns (api/auth-register.js createOwnedGym). Coach-only fields are
+  // optional for an owner, who may not train anyone themselves.
+  const [coachApplyOwnsGym, setCoachApplyOwnsGym] = useState(false);
+  // The email box is read-only ONLY when it came from an identity we just
+  // verified (Google session, or a password that signed in but has no coach
+  // profile yet). Every other prefill — the last-logged-in email, a failed
+  // login, a reload — is a convenience the person must be able to change.
+  // It used to lock whenever the box was non-empty, which trapped the admin's
+  // own email in "Register it" and locked any box after its first keystroke.
+  const [coachApplyEmailLocked, setCoachApplyEmailLocked] = useState(false);
   // Whether a real, live Supabase session already exists when this coach
   // sign-up form is showing. True only for someone who just arrived via a
   // genuine "Continue with Google" redirect — that flow already proves who
@@ -246,6 +257,7 @@ const Onboarding = ({ onComplete }) => {
     localStorage.setItem('pendingCoachApply', 'true');
     setCoachApplyName(displayName || '');
     setCoachApplyEmail(email);
+    setCoachApplyEmailLocked(true);
     setUserType('coach');
     setAuthTab('coach_apply');
     setShowAuthForm(true);
@@ -708,6 +720,7 @@ const Onboarding = ({ onComplete }) => {
           // no extra click needed.
           try { await databaseService.signOut(); } catch { /* */ }
           setCoachApplyEmail(authEmail);
+          setCoachApplyEmailLocked(true);
           setUserType('coach');
           setAuthTab('coach_apply');
           setAuthError('');
@@ -1095,7 +1108,9 @@ const Onboarding = ({ onComplete }) => {
                 brand: formData.get('specialization'),
                 certifications: formData.get('certifications'),
                 social: formData.get('social'),
-                location: formData.get('location')
+                location: formData.get('location'),
+                gymName: coachApplyOwnsGym ? formData.get('gymName') : undefined,
+                gymCode: coachApplyOwnsGym ? undefined : (formData.get('gymCode') || undefined)
               })
             });
             const result = await resp.json();
@@ -1208,7 +1223,9 @@ const Onboarding = ({ onComplete }) => {
                 brand: formData.get('specialization'),
                 certifications: formData.get('certifications'),
                 social: formData.get('social'),
-                location: formData.get('location')
+                location: formData.get('location'),
+                gymName: coachApplyOwnsGym ? formData.get('gymName') : undefined,
+                gymCode: coachApplyOwnsGym ? undefined : (formData.get('gymCode') || undefined)
               })
             });
             const result = await resp.json();
@@ -1239,20 +1256,53 @@ const Onboarding = ({ onComplete }) => {
               <img src="/logo.png" alt="Fitengineers Logo" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
             </div>
 
-            <h2 style={{ margin: '0 0 4px 0', color: '#fff', fontSize: '20px', fontWeight: 800 }}>Coach Sign Up</h2>
-            <p style={{ margin: '0 0 12px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '13px' }}>Create your coach account and start managing clients</p>
+            <h2 style={{ margin: '0 0 4px 0', color: '#fff', fontSize: '20px', fontWeight: 800 }}>{coachApplyOwnsGym ? 'Gym Owner Sign Up' : 'Coach Sign Up'}</h2>
+            <p style={{ margin: '0 0 12px 0', color: 'rgba(226, 232, 240, 0.7)', fontSize: '13px' }}>
+              {coachApplyOwnsGym
+                ? 'Create your gym and get a code to share with your trainers'
+                : 'Create your coach account and start managing clients'}
+            </p>
+
+            <div role="group" aria-label="Account type" style={{ display: 'flex', gap: '4px', padding: '4px', marginBottom: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
+              {[
+                { ownsGym: false, label: "🏅 I'm a coach" },
+                { ownsGym: true, label: '🏢 I own a gym' }
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  aria-pressed={coachApplyOwnsGym === opt.ownsGym}
+                  onClick={() => setCoachApplyOwnsGym(opt.ownsGym)}
+                  style={{
+                    flex: 1, padding: '8px 10px', borderRadius: '7px', border: 'none', cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700,
+                    background: coachApplyOwnsGym === opt.ownsGym ? '#4364bd' : 'transparent',
+                    color: coachApplyOwnsGym === opt.ownsGym ? '#fff' : 'rgba(226, 232, 240, 0.65)'
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
 
             <form onSubmit={coachApplyHasSession ? handleCoachApplySubmitSession : handleCoachApplySubmitPassword} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {authError && <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#fecaca', fontSize: '0.78rem' }}>{authError}</div>}
-              
+
+              {coachApplyOwnsGym && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label htmlFor="coach-apply-gym-name" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Gym Name</label>
+                  <input id="coach-apply-gym-name" name="gymName" type="text" placeholder="e.g. Iron Den Fitness" minLength={2} maxLength={80} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Full Name</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>{coachApplyOwnsGym ? 'Your Full Name' : 'Full Name'}</label>
                 <input name="name" type="text" value={coachApplyName} onChange={e => setCoachApplyName(e.target.value)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Email Address</label>
-                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={!!coachApplyEmail} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                <input name="email" type="email" value={coachApplyEmail} onChange={e => setCoachApplyEmail(e.target.value)} readOnly={coachApplyEmailLocked} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1283,7 +1333,7 @@ const Onboarding = ({ onComplete }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Password</label>
                   <input name="password" type="password" placeholder="••••••••" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required minLength={6} />
-                  {coachApplyEmail && (
+                  {coachApplyEmailLocked && (
                     <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.5)' }}>
                       Enter the password you just set via "Forgot password?" for this account.
                     </p>
@@ -1291,33 +1341,49 @@ const Onboarding = ({ onComplete }) => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Certifications (e.g. NASM, ACE)</label>
-                <input name="certifications" type="text" placeholder="NASM, ACE, etc" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Years of Experience</label>
-                <input name="experience" type="number" placeholder="5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Specialization (e.g. Weight Loss, Muscle Gain)</label>
-                <input name="specialization" type="text" placeholder="Bodybuilding, Weight Loss, etc" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
-              </div>
-              
+              {/* Coach-only details: hidden for a gym owner, who may not
+                  train anyone themselves (they can fill them in later). */}
+              {!coachApplyOwnsGym && (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Certifications (e.g. NASM, ACE)</label>
+                    <input name="certifications" type="text" placeholder="NASM, ACE, etc" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Years of Experience</label>
+                    <input name="experience" type="number" placeholder="5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Specialization (e.g. Weight Loss, Muscle Gain)</label>
+                    <input name="specialization" type="text" placeholder="Bodybuilding, Weight Loss, etc" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
+                  </div>
+                </>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Social Media Handle (Optional)</label>
                 <input name="social" type="text" placeholder="@yourhandle" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} />
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Location / City</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>{coachApplyOwnsGym ? 'Gym Location / City' : 'Location / City'}</label>
                 <input name="location" type="text" placeholder="City, Country" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none' }} required />
               </div>
-              
+
+              {/* Trainers who work at a gym on the app join it right here
+                  (instant, no approval). They can also do it later from
+                  their profile menu → My Gym. */}
+              {!coachApplyOwnsGym && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label htmlFor="coach-apply-gym-code" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.8)' }}>Gym Code (Optional)</label>
+                  <input id="coach-apply-gym-code" name="gymCode" type="text" placeholder="GYM-XXXX — if your gym gave you one" autoCapitalize="characters" autoComplete="off" maxLength={20} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px', color: '#fff', fontSize: '16px', outline: 'none', textTransform: 'uppercase' }} />
+                </div>
+              )}
+
               <button type="submit" disabled={authLoading} style={{ background: 'linear-gradient(135deg, #4364bd, #3552a3)', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(67, 100, 189, 0.25)', transition: 'all 0.2s ease' }}>
-                {authLoading ? 'Creating account...' : 'Create Coach Account'}
+                {authLoading ? 'Creating account...' : coachApplyOwnsGym ? 'Create Gym Account' : 'Create Coach Account'}
               </button>
             </form>
             
@@ -1326,7 +1392,7 @@ const Onboarding = ({ onComplete }) => {
                 ← Back to Login
               </button>
               <button type="button" onClick={() => { setShowAuthForm(false); setAuthTab('login'); }} style={{ background: 'none', border: 'none', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
-                Already a coach account? Log in
+                {coachApplyOwnsGym ? 'Gym already registered? Log in' : 'Already a coach account? Log in'}
               </button>
             </div>
           </div>
@@ -1572,6 +1638,13 @@ const Onboarding = ({ onComplete }) => {
                   </button>
                 </div>
               </div>
+              {/* Gym owners log in on the Coach tab (their account is a coach
+                  account that owns a gym) — a caption instead of a third tab. */}
+              {userType === 'coach' && (
+                <p style={{ margin: '-4px 0 12px 0', textAlign: 'center', fontSize: '11.5px', color: 'rgba(226, 232, 240, 0.5)' }}>
+                  For coaches &amp; gym owners
+                </p>
+              )}
 
               {authError && <div className="auth-error-banner" style={{ marginBottom: '14px' }}>❌ {authError}</div>}
               {authSuccessMsg && (
@@ -1829,12 +1902,29 @@ const Onboarding = ({ onComplete }) => {
                     <button
                       type="button"
                       onClick={() => {
+                        setCoachApplyOwnsGym(false);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
                       style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >
                       Sign up
+                    </button>
+                    {' · '}Own a gym?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoachApplyOwnsGym(true);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
+                        setAuthTab('coach_apply');
+                        localStorage.setItem('pendingCoachApply', 'true');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      Register it
                     </button>
                   </p>
                 </div>
@@ -1843,7 +1933,7 @@ const Onboarding = ({ onComplete }) => {
               {/* COACH EMAIL FORM */}
               {userType === 'coach' && showCoachEmailForm && (
                 <form onSubmit={handleCoachEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach Login</h4>
+                  <h4 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Coach &amp; Gym Login</h4>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.8)', fontWeight: 600 }}>Email Address</label>
@@ -1929,7 +2019,7 @@ const Onboarding = ({ onComplete }) => {
                     style={{ width: '100%', margin: 0, padding: '12px', background: 'linear-gradient(135deg, #4364bd, #3552a3)', border: 'none', color: '#fff' }}
                     disabled={authLoading}
                   >
-                    {authLoading ? 'Logging In...' : 'Log In as Coach'}
+                    {authLoading ? 'Logging In...' : 'Log In'}
                   </button>
 
                   <p style={{ margin: '8px 0 0 0', color: 'rgba(226, 232, 240, 0.6)', fontSize: '12px', textAlign: 'center' }}>
@@ -1937,12 +2027,29 @@ const Onboarding = ({ onComplete }) => {
                     <button
                       type="button"
                       onClick={() => {
+                        setCoachApplyOwnsGym(false);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
                         setAuthTab('coach_apply');
                         localStorage.setItem('pendingCoachApply', 'true');
                       }}
                       style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >
                       Sign up
+                    </button>
+                    {' · '}Own a gym?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoachApplyOwnsGym(true);
+                        setCoachApplyEmail('');
+                        setCoachApplyEmailLocked(false);
+                        setAuthTab('coach_apply');
+                        localStorage.setItem('pendingCoachApply', 'true');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#4364bd', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    >
+                      Register it
                     </button>
                   </p>
 

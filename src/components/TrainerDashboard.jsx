@@ -8,6 +8,8 @@ import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
+import AdminGymsList from './admin/AdminGymsList';
+import OwnerGymDashboard from './OwnerGymDashboard';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
 import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
@@ -153,6 +155,25 @@ const LIVE_REST_KEY = 'coachLiveRestEndAt';
 // names } — see the save effect next to liveSetTimers and setTimerRestore.js.
 const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
+// Gym owners (a coach account that owns a gym). Cached per email so an owner
+// lands straight on My Gym instead of flashing the empty coach screen while
+// the ownership read is in flight; the server read below corrects it either
+// way. OWNER_COACHES_KEY: the owner switched on "Also coach clients".
+const ownsGymKey = (email) => `ownsGym:${(email || '').toLowerCase()}`;
+const OWNER_COACHES_KEY = 'ownerCoachesClients';
+const readFlag = (key) => {
+  try { return localStorage.getItem(key) === 'true'; } catch { return false; }
+};
+// An owner lands on My Gym unless they coach and were last on My Clients.
+const ownerLandsOnGym = (superAdmin, savedCoachView) =>
+  !superAdmin && !(savedCoachView?.viewMode === 'coach' && readFlag(OWNER_COACHES_KEY));
+const writeFlag = (key, on) => {
+  try {
+    if (on) localStorage.setItem(key, 'true');
+    else localStorage.removeItem(key);
+  } catch { /* storage unavailable — falls back to the server read each load */ }
+};
+
 const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
@@ -163,12 +184,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const coachTour = useCoachTour();
   const showDemoClientRow = coachTour.step > 0;
   const [savedCoachView] = useState(readSavedCoachView);
+  // Gym owners get a "🏢 My Gym" view and land on it. The super-admin (who
+  // may also own a gym) keeps their usual landing and every tab.
+  const [ownsGym, setOwnsGym] = useState(() => readFlag(ownsGymKey(loggedInEmail)));
+  const [ownerCoaches, setOwnerCoaches] = useState(() => readFlag(OWNER_COACHES_KEY));
   const [viewMode, setViewMode] = useState(() => {
     const saved = savedCoachView?.viewMode;
     if (saved === 'payments') return 'payments';
     if (saved === 'admin' && superAdmin) return 'admin';
+    if (ownsGym && (saved === 'gym' || ownerLandsOnGym(superAdmin, savedCoachView))) return 'gym';
     return 'coach';
-  }); // 'coach', 'admin' or 'payments'
+  }); // 'coach', 'admin', 'payments' or 'gym'
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.getOwnerGym().then((result) => {
+      if (cancelled || !result.success) return;
+      const owns = !!result.gym;
+      writeFlag(ownsGymKey(loggedInEmail), owns);
+      setOwnsGym(owns);
+      if (owns && (savedCoachView?.viewMode === 'gym' || ownerLandsOnGym(superAdmin, savedCoachView))) {
+        setViewMode((v) => (v === 'coach' ? 'gym' : v));
+      } else if (!owns) {
+        setViewMode((v) => (v === 'gym' ? 'coach' : v));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [loggedInEmail, superAdmin, savedCoachView]);
   // The app is a fixed-width "phone frame" everywhere else (index.css
   // --app-max-width: 480px) — deliberately, for the coach/client mobile UI.
   // subodhmankala@gmail.com is the one account that only ever uses this
@@ -177,9 +218,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Super-Admin tab) widens for them. Regular coach accounts — who this
   // component also renders for — keep the phone frame untouched.
   useEffect(() => {
-    document.body.classList.toggle('admin-wide-frame', superAdmin);
+    // Gym owners get the same desktop shell (left icon sidebar, header
+    // controls moved into it) — 2026-10-16: "keep this navbar side ways
+    // similar" to the super-admin's.
+    document.body.classList.toggle('admin-wide-frame', superAdmin || ownsGym);
     return () => document.body.classList.remove('admin-wide-frame');
-  }, [superAdmin, viewMode]);
+  }, [superAdmin, ownsGym, viewMode]);
   // Custom on-screen number pad for the Live Log set table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
   // native mobile keyboard entirely.
@@ -405,6 +449,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setCoachProfileSection(section);
     setMobileHeaderMenuOpen(true);
   };
+
+  // The gym this coach trains at, shown as a small chip in the header (tap
+  // -> profile's My Gym page). Re-read after joining/leaving there.
+  const [myGymName, setMyGymName] = useState(null);
+  const applyMyGym = (r) => { if (r.success) setMyGymName(r.gym?.name || null); };
+  const refreshMyGym = async () => applyMyGym(await databaseService.getCoachGym());
+  useEffect(() => {
+    let cancelled = false;
+    databaseService.getCoachGym().then((r) => { if (!cancelled && r.success) setMyGymName(r.gym?.name || null); });
+    return () => { cancelled = true; };
+  }, []);
 
   // "New" dot on the sidebar's What's New icon (2026-08-29: "Whenever
   // anything new comes in any navigation. There should be dot"). Re-read on
@@ -4531,6 +4586,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // number than what clicking the tab actually shows — 35 vs. this coach's
   // real 17 attached clients. Confirmed 2026-08-12.
   const myClientsCount = loggedInUserId ? clients.filter(c => c.coach_id === loggedInUserId && !c.paused_at).length : 0;
+  // Gym owner who doesn't coach: no My Clients tab (an empty "Invite Clients /
+  // No Clients Found" screen isn't what they signed up for). It appears once
+  // they have any client of their own — paused ones included, so those stay
+  // reachable — or switch on "Also coach clients" in My Gym.
+  const ownerOnly = ownsGym && !superAdmin;
+  const ownerHasOwnClients = !!loggedInUserId && clients.some(c => c.coach_id === loggedInUserId);
+  const showMyClientsTab = !ownerOnly || ownerCoaches || ownerHasOwnClients;
+  // 'coach' (e.g. the logo's Home tap) falls through to My Gym when there is
+  // no My Clients view to show.
+  const showGymView = ownsGym && (viewMode === 'gym' || (viewMode === 'coach' && !showMyClientsTab && !selectedClient));
+  const handleSetOwnerCoaching = (on) => {
+    writeFlag(OWNER_COACHES_KEY, on);
+    setOwnerCoaches(on);
+    setSelectedClient(null);
+    setViewMode(on ? 'coach' : 'gym');
+  };
   // Same ownership scope as myClientsCount — the Payments tab's client
   // picker, sorted alphabetically so a long client list stays scannable.
   const myClients = loggedInUserId
@@ -4581,7 +4652,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           just a second, desktop-only way to reach it. Those header controls
           stay in the DOM and still work; they're just visually hidden on
           this same breakpoint so the action isn't offered twice. */}
-      {superAdmin && (
+      {(superAdmin || ownsGym) && (
         <aside className="admin-shell-sidebar">
           <img
             src="/logo.png"
@@ -4594,6 +4665,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewMode('coach'); setSelectedClient(null); } }}
           />
           <nav className="admin-shell-nav">
+            {(superAdmin || showMyClientsTab) && (
             <button
               type="button"
               className={viewMode === 'coach' ? 'active' : ''}
@@ -4611,6 +4683,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </span>
               <span className="admin-shell-label">Clients</span>
             </button>
+            )}
+            {ownsGym && (
+              <button
+                type="button"
+                className={viewMode === 'gym' ? 'active' : ''}
+                onClick={() => { setViewMode('gym'); setSelectedClient(null); }}
+                title="My Gym"
+                aria-label="My Gym"
+              >
+                <span className="admin-shell-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 21h18" />
+                    <path d="M5 21V7l7-4 7 4v14" />
+                    <path d="M9 21v-6h6v6" />
+                  </svg>
+                </span>
+                <span className="admin-shell-label">My Gym</span>
+              </button>
+            )}
+            {superAdmin && (
             <button
               type="button"
               className={viewMode === 'admin' ? 'active' : ''}
@@ -4628,6 +4720,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </span>
               <span className="admin-shell-label">Admin</span>
             </button>
+            )}
             <button
               type="button"
               className={viewMode === 'payments' ? 'active' : ''}
@@ -4773,15 +4866,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             }}
           />
           <div className="trainer-title-group" style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{
-              fontSize: '0.8rem',
-              color: 'var(--text-muted)',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
-              Coach Dashboard
-            </span>
+            {/* Gym name sits under the label (2026-10-15: "keep the gym name
+                underneath the coach dashboard"). */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+              <span style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                {showGymView ? 'Gym Owner Dashboard' : 'Coach Dashboard'}
+              </span>
+              {myGymName && (
+                <button
+                  type="button"
+                  onClick={() => openCoachProfileSection('gym')}
+                  title={`You train at ${myGymName}`}
+                  aria-label={`Your gym: ${myGymName}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    padding: '2px 8px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)',
+                    background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.22)'
+                  }}
+                >
+                  🏢 {myGymName}
+                </button>
+              )}
+            </div>
             {/* Name/brand hidden below 900px (2026-08-28: "remove the names
                 from there") — now redundant on mobile since the hamburger
                 menu's own header already shows them (see
@@ -4811,7 +4925,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             either just navigates away, so it read as a stray, half-relevant
             toggle floating above an unrelated screen. Payments already has
             its own back button (see client-payments-view) for leaving. */}
-        {superAdmin && viewMode !== 'payments' && (
+        {/* Only when there's more than one view to switch between: an owner
+            who doesn't coach has just My Gym, so no switch at all. */}
+        {(superAdmin || (ownsGym && showMyClientsTab)) && viewMode !== 'payments' && (
           <div className="role-toggle-bar" style={{
             display: 'flex',
             gap: '8px',
@@ -4840,6 +4956,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             >
               👥 My Clients ({myClientsCount})
             </button>
+            {/* Gym owners only — a coach account that owns a gym. */}
+            {ownsGym && (
+              <button
+                onClick={() => { setViewMode('gym'); setSelectedClient(null); }}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: viewMode === 'gym' ? 'rgba(var(--accent-rgb), 0.14)' : 'transparent',
+                  color: viewMode === 'gym' ? 'var(--accent-text)' : 'rgba(148,163,184,0.55)',
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontFamily: 'inherit',
+                  boxShadow: viewMode === 'gym' ? '0 1px 8px rgba(var(--accent-rgb), 0.15)' : 'none',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                🏢 My Gym
+              </button>
+            )}
+            {superAdmin && (
             <button
               onClick={() => { setViewMode('admin'); setSelectedClient(null); }}
               style={{
@@ -4863,6 +5003,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <span className="unread-dot" style={{ marginLeft: '6px', verticalAlign: 'middle' }} aria-label="New sign-ups or replies" />
               )}
             </button>
+            )}
           </div>
         )}
 
@@ -5028,10 +5169,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           onOpenPayments={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); setViewMode('payments'); }}
           onClose={() => { setMobileHeaderMenuOpen(false); setCoachProfileSection(null); setHasNewWhatsNew(hasUnseenWhatsNew('coach')); }}
           initialSection={coachProfileSection}
+          onGymMembershipChange={refreshMyGym}
         />
       )}
 
-      {viewMode === 'admin' ? (
+      {showGymView ? (
+        <div className="owner-gym-frame">
+          <OwnerGymDashboard
+            coachingOption={ownerOnly ? {
+              on: showMyClientsTab,
+              // Can't switch off while they still have clients of their own.
+              locked: ownerHasOwnClients,
+              onChange: handleSetOwnerCoaching
+            } : null}
+          />
+        </div>
+      ) : viewMode === 'admin' ? (
         <div className="platform-admin-view admin-desktop-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '0 32px 24px', maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4 className="admin-overview-title" style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800 }}>Super-Admin Overview</h4>
@@ -5120,6 +5273,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               {[
                 { key: 'clients', icon: '👥', label: 'Clients' },
                 { key: 'coaches', icon: '🏅', label: 'Coaches' },
+                { key: 'gyms', icon: '🏢', label: 'Gyms' },
                 { key: 'exercises', icon: '🏋️', label: 'Exercise Library' },
               ].map(nav => (
                 <button
@@ -5147,6 +5301,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             <div className="admin-content-panel" style={{ flex: 1, minWidth: 0, width: '100%' }}>
               {adminSubTab === 'exercises' ? (
                 <AdminExerciseLibrary onExerciseCountChange={(count) => setExerciseCount(count)} />
+              ) : adminSubTab === 'gyms' ? (
+                <AdminGymsList />
               ) : adminSubTab === 'coaches' ? (
                 <AdminCoachesList
                   coachesList={coachesList}
@@ -6144,7 +6300,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           <span style={{ fontSize: '1.3rem' }}>🎉</span>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-emerald)' }}>
-                              {n.isNew ? `${displayName} joined via your invite` : `${displayName} reconnected with you`}
+                              {n.assignedByGym
+                                ? `${displayName} was assigned to you by ${n.assignedByGym}`
+                                : n.isNew ? `${displayName} joined via your invite` : `${displayName} reconnected with you`}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                               {n.inviteCode ? `Code ${n.inviteCode} · ` : ''}{joinedClient ? 'Tap to set up their plan' : 'Refreshing your client list…'}

@@ -570,6 +570,54 @@ async function serverFallbackAuth() {
   return { headers, email };
 }
 
+// Shared by createGym/updateGym — bearer-token-only, like setClientPaused;
+// api/admin-write.js re-checks super-admin from the token.
+async function adminWriteGym(action, body) {
+  try {
+    const accessToken = await resolveRealAccessToken();
+    if (!accessToken) {
+      return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+    }
+    const res = await fetch(`/api/admin-write?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.gym) {
+      return { success: false, error: (data && data.error) || 'Update failed.' };
+    }
+    return { success: true, gym: data.gym };
+  } catch (e) {
+    console.error(`[${action}] error:`, e);
+    return { success: false, error: e.message || 'Update failed.' };
+  }
+}
+
+// Shared by coachJoinGym/coachLeaveGym — the server takes the trainer from
+// the verified token. Returns the RPC's own fields ({ gym_name, ... }).
+async function coachGymWrite(action, body, fallbackError) {
+  try {
+    const accessToken = await resolveRealAccessToken();
+    if (!accessToken) {
+      return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+    }
+    const res = await fetch(`/api/admin-write?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.success === false) {
+      return { success: false, error: (data && data.error) || fallbackError };
+    }
+    return { ...data, success: true };
+  } catch (e) {
+    console.error(`[${action}] error:`, e);
+    return { success: false, error: e.message || fallbackError };
+  }
+}
+
 // ─── SUPER-ADMIN CROSS-TENANT READS ───
 // The Super-Admin overview has to count across EVERY coach and client, which
 // is exactly what RLS stops a browser-side query from doing: restSelect() on
@@ -3195,6 +3243,158 @@ const databaseService = {
     return { success: true, program_started_on: startedOn || null, program_est_completion: estCompletion || null };
   },
 
+  // ─── Gyms (super-admin) ───
+  // All three go through the service-role API — gyms is RLS-locked with no
+  // policies (sql/gym_tier.sql). Each returns { success, error?, ... } and
+  // never throws, matching setClientPaused below.
+  async getAdminGyms() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=admin-gyms', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data?.gyms)) {
+        return { success: false, error: (data && data.error) || 'Could not load gyms.' };
+      }
+      return { success: true, gyms: data.gyms };
+    } catch (e) {
+      console.error('[getAdminGyms] error:', e);
+      return { success: false, error: e.message || 'Could not load gyms.' };
+    }
+  },
+
+  async createGym({ name, ownerEmail }) {
+    return adminWriteGym('create-gym', { name, ownerEmail });
+  },
+
+  // patch: any of { name, status, ownerEmail } — ownerEmail '' removes the owner.
+  async updateGym(gymId, patch) {
+    return adminWriteGym('update-gym', { gymId, ...patch });
+  },
+
+  // ─── Gym owner ("🏢 My Gym") ───
+  // { success, gym: null } for anyone who doesn't own a gym — the dashboard
+  // uses that to decide whether to show the My Gym switch at all.
+  async getOwnerGym() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=owner-gym', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !('gym' in data)) {
+        return { success: false, error: (data && data.error) || 'Could not load your gym.' };
+      }
+      return { success: true, gym: data.gym, trainers: data.trainers || [], clients: data.clients || [], insights: data.insights || null };
+    } catch (e) {
+      console.error('[getOwnerGym] error:', e);
+      return { success: false, error: e.message || 'Could not load your gym.' };
+    }
+  },
+
+  // ─── Own gym membership — trainer (profile → My Gym) or client (home) ───
+  async getMyGym() {
+    return this.getCoachGym();
+  },
+
+  async getCoachGym() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=coach-gym', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !('gym' in data)) {
+        return { success: false, error: (data && data.error) || 'Could not load your gym.' };
+      }
+      return { success: true, gym: data.gym, clientsOutsideGym: data.clientsOutsideGym || 0, selfGuided: !!data.selfGuided };
+    } catch (e) {
+      console.error('[getCoachGym] error:', e);
+      return { success: false, error: e.message || 'Could not load your gym.' };
+    }
+  },
+
+  async coachJoinGym(code, bringClients = false) {
+    return coachGymWrite('coach-join-gym', { code, bringClients: !!bringClients }, 'Could not join that gym.');
+  },
+
+  async coachLeaveGym() {
+    return coachGymWrite('coach-leave-gym', {}, 'Could not leave the gym.');
+  },
+
+  // No trainer: back to the gym's "waiting for a trainer" list, or — with
+  // selfGuided — "trains on their own" (not waiting for anyone).
+  async ownerUnassignClient(clientUserId, selfGuided = false) {
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) {
+        return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+      }
+      const res = await fetch('/api/admin-write?action=owner-unassign-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientUserId, selfGuided: !!selfGuided })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) {
+        return { success: false, error: (data && data.error) || 'Could not remove the trainer.' };
+      }
+      return { success: true, changed: !!data.changed };
+    } catch (e) {
+      console.error('[ownerUnassignClient] error:', e);
+      return { success: false, error: e.message || 'Could not remove the trainer.' };
+    }
+  },
+
+  // One member's profile (activity + coaching history) for the gym owner.
+  async getOwnerMember(clientId) {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=owner-member', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, clientId })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.member) {
+        return { success: false, error: (data && data.error) || 'Could not load that member.' };
+      }
+      return { success: true, ...data };
+    } catch (e) {
+      console.error('[getOwnerMember] error:', e);
+      return { success: false, error: e.message || 'Could not load that member.' };
+    }
+  },
+
+  async ownerAssignClient(clientUserId, coachUserId) {
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) {
+        return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+      }
+      const res = await fetch('/api/admin-write?action=owner-assign-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientUserId, coachUserId })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) {
+        return { success: false, error: (data && data.error) || 'Could not move that client.' };
+      }
+      return { success: true, changed: !!data.changed };
+    } catch (e) {
+      console.error('[ownerAssignClient] error:', e);
+      return { success: false, error: e.message || 'Could not move that client.' };
+    }
+  },
+
   // Coach pauses/unpauses one attached client's subscription (2026-09-06:
   // "what if after a month clients dont want to continue" — until now a
   // client who stopped renewing just aged forever in the Client Payments
@@ -4946,6 +5146,8 @@ const databaseService = {
           title: r.payload?.title || null,
           body: r.payload?.body || null,
           inviteCode: r.payload?.invite_code || null,
+          // Set when a gym owner assigned this client (owner_assign_client).
+          assignedByGym: r.payload?.assigned_by_gym || null,
           isNew: r.payload?.is_new !== false,
           clientTab: link?.clientTab || null,
           appTab: tabForDeepLink(link),
@@ -5959,6 +6161,12 @@ const databaseService = {
     const code = normalizeInviteCode(rawCode);
     if (!code) return { success: false, error: 'Please enter a valid invitation code.' };
 
+    // A gym's code (GYM-XXXX) typed into the same box: join the gym with no
+    // trainer yet — the owner assigns one. Trainer invite codes are always 6
+    // characters (createInviteCode), "GYM" + 4 is 7, so the two never collide.
+    const compact = code.replace(/[\s-]/g, '');
+    if (/^GYM[A-Z0-9]{4}$/.test(compact)) return this.connectClientToGym(`GYM-${compact.slice(3)}`);
+
     // Resolve client's own public.users.id from the authenticated session.
     // NOTE: never store session.user.id here — that's the Supabase auth UID,
     // which is a DIFFERENT value from public.users.id on this project and would
@@ -6062,6 +6270,35 @@ const databaseService = {
       if (msg.includes('already been used')) return { success: false, error: 'This code has already been used.' };
       if (msg.includes('not found') || msg.includes('Invalid')) return { success: false, error: 'Code not found.' };
       return { success: false, error: msg || 'Connection failed. Please try again.' };
+    }
+  },
+
+  // Client joins a gym by its code (sql/gym_client_join.sql). Leaves the
+  // coach link alone: a client with no trainer stays "not linked" until the
+  // gym owner assigns one. Returns { success, gymName, hasTrainer }.
+  async connectClientToGym(code) {
+    if (!isSupabaseConfigured || !supabase) {
+      return { success: false, error: 'Gym codes need an internet connection. Please try again.' };
+    }
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) {
+        return { success: false, error: 'Your session could not be verified. Please log out and log back in.' };
+      }
+      const res = await fetch('/api/admin-write?action=client-join-gym', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) {
+        return { success: false, error: (data && data.error) || 'Could not join that gym.' };
+      }
+      try { localStorage.setItem('clientGymName', data.gym_name || ''); } catch { /* cache only */ }
+      return { success: true, gymName: data.gym_name, hasTrainer: !!data.has_trainer };
+    } catch (e) {
+      console.error('[connectClientToGym] error:', e);
+      return { success: false, error: e.message || 'Could not join that gym.' };
     }
   },
 

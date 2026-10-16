@@ -12,6 +12,8 @@
 // rewrites each old path to /api/data-read?resource=<name>, so no frontend
 // code had to change.
 
+import { buildOwnerGymPayload, buildMemberPayload, TREND_WEEKS } from './_ownerInsights.js';
+
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -697,6 +699,190 @@ async function handlePlatformStats(req, res) {
   }
 }
 
+// Super-admin Gyms tab (sql/gym_tier.sql). gyms is RLS-locked with no
+// policies, so this service-role read is the only way to list it. Member
+// counts come from users.gym_id (no approval step, so every member counts).
+async function handleAdminGyms(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  if (!isSuperAdminEmail(verifiedEmail)) {
+    return res.status(403).json({ error: 'Super-admin only.' });
+  }
+
+  try {
+    const gyms = await svcSelect(
+      'gyms?select=id,name,join_code,status,owner_sees_private,created_at,owner:users!gyms_owner_id_fkey(id,email,full_name)&order=created_at.desc',
+      'admin-gyms'
+    );
+    const members = await svcSelect('users?select=gym_id,role&gym_id=not.is.null', 'admin-gyms members');
+    const counts = {};
+    for (const m of members) {
+      const c = counts[m.gym_id] || (counts[m.gym_id] = { coaches: 0, clients: 0 });
+      if (m.role === 'client') c.clients += 1;
+      else c.coaches += 1;
+    }
+    return res.status(200).json({
+      gyms: gyms.map((g) => ({ ...g, ...(counts[g.id] || { coaches: 0, clients: 0 }) }))
+    });
+  } catch (err) {
+    console.error('admin-gyms error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read gyms.' });
+  }
+}
+
+// Gym owner's "🏢 My Gym" view. Ownership is gyms.owner_id (the owner is a
+// coach account), resolved from the VERIFIED caller — never a gym id from the
+// request. Returns { gym: null } for a non-owner so the dashboard can simply
+// hide the switch. Activity only (workout days, last login): private coach
+// notes and progress photos are deliberately not read here
+// (gyms.owner_sees_private, default off — 2026-10-14 decision).
+// 8 weeks: the trend chart, "slipping" (last 2 weeks vs the 4 before) and the
+// busiest-times grid all read from this one window.
+const OWNER_ACTIVITY_DAYS = TREND_WEEKS * 7;
+
+// workout_logs is one row per set, so a month of a busy gym can exceed the
+// 1000-row max-rows cap — page with limit/offset like handleWorkoutLogs.
+async function svcSelectAll(pathWithoutPaging, label) {
+  const PAGE = 1000;
+  const rows = [];
+  for (let offset = 0; offset < 50 * PAGE; offset += PAGE) {
+    const page = await svcSelect(`${pathWithoutPaging}&limit=${PAGE}&offset=${offset}`, label);
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return rows;
+}
+
+const ownerGymPayload = buildOwnerGymPayload;
+
+async function handleOwnerGym(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    // ilike for case-insensitivity, with _ and % escaped — unescaped, an `_`
+    // in the email is a single-character wildcard and could resolve to
+    // someone else's row.
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'owner-gym caller');
+    if (!me[0]) return res.status(200).json({ gym: null });
+    const gyms = await svcSelect(
+      `gyms?owner_id=eq.${me[0].id}&select=id,name,join_code,status,owner_id,created_at&order=created_at.asc&limit=1`,
+      'owner-gym gym'
+    );
+    const gym = gyms[0];
+    if (!gym) return res.status(200).json({ gym: null });
+
+    const members = await svcSelect(
+      `users?gym_id=eq.${gym.id}&select=id,full_name,email,phone,role,coach_id,created_at,last_login,avatar_url,gym_self_guided`,
+      'owner-gym members'
+    );
+    const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
+    const since = new Date(Date.now() - OWNER_ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const logs = clientIds.length
+      ? await svcSelectAll(
+          `workout_logs?select=user_id,log_date,created_at&user_id=in.(${clientIds.join(',')})&log_date=gte.${since}&order=id.asc`,
+          'owner-gym workout logs'
+        )
+      : [];
+
+    return res.status(200).json(ownerGymPayload(gym, members, logs));
+  } catch (err) {
+    console.error('owner-gym error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read your gym.' });
+  }
+}
+
+// One member's profile for their gym's owner (activity + coaching history
+// only). The caller must own the gym the member is in — checked here from the
+// VERIFIED email, never from anything in the request body.
+const MEMBER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function handleOwnerMember(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  const clientId = String((req.body || {}).clientId || '');
+  if (!MEMBER_UUID.test(clientId)) return res.status(400).json({ error: 'clientId is required.' });
+
+  try {
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'owner-member caller');
+    if (!me[0]) return res.status(403).json({ error: 'That member isn’t in your gym.' });
+    const gyms = await svcSelect(`gyms?owner_id=eq.${me[0].id}&select=id&order=created_at.asc&limit=1`, 'owner-member gym');
+    if (!gyms[0]) return res.status(403).json({ error: 'That member isn’t in your gym.' });
+
+    const users = await svcSelect(
+      `users?id=eq.${clientId}&gym_id=eq.${gyms[0].id}&role=eq.client&select=id,full_name,email,phone,created_at,last_login,coach_id,gym_self_guided&limit=1`,
+      'owner-member user'
+    );
+    if (!users[0]) return res.status(403).json({ error: 'That member isn’t in your gym.' });
+
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const [clientRows, logs, history] = await Promise.all([
+      svcSelect(`clients?user_id=eq.${clientId}&select=fitness_goal,program,program_started_on,total_sessions&limit=1`, 'owner-member client'),
+      svcSelectAll(`workout_logs?select=log_date,plan_name,exercise_name,reps,weight_kg,session_id&user_id=eq.${clientId}&log_date=gte.${since}&order=id.asc`, 'owner-member logs'),
+      svcSelect(`coach_assignments?client_id=eq.${clientId}&select=coach_id,source,started_at,ended_at&order=started_at.desc&limit=20`, 'owner-member history')
+    ]);
+
+    const coachIds = [...new Set([users[0].coach_id, ...history.map((h) => h.coach_id)].filter(Boolean))];
+    const nameRows = coachIds.length
+      ? await svcSelect(`users?id=in.(${coachIds.join(',')})&select=id,full_name,email`, 'owner-member names')
+      : [];
+    const names = Object.fromEntries(nameRows.map((u) => [u.id, u.full_name || (u.email || '').split('@')[0]]));
+
+    return res.status(200).json(buildMemberPayload({
+      user: users[0], client: clientRows[0] || null, logs, history, names, ownerId: me[0].id
+    }));
+  } catch (err) {
+    console.error('owner-member error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read that member.' });
+  }
+}
+
+// A trainer's own gym membership, for the "My Gym" row in their profile
+// menu: which gym (if any), whether they own it, and how many of their
+// clients are not in a gym yet (the "also add my N clients" option).
+async function handleCoachGym(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  try {
+    const me = await svcSelect(
+      `users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id,gym_id,coach_id,gym_self_guided&limit=1`,
+      'coach-gym caller'
+    );
+    if (!me[0]) return res.status(200).json({ gym: null, clientsOutsideGym: 0 });
+    const outside = await svcSelect(
+      `users?coach_id=eq.${me[0].id}&role=eq.client&gym_id=is.null&select=id`,
+      'coach-gym clients'
+    );
+    let gym = null;
+    if (me[0].gym_id) {
+      const rows = await svcSelect(`gyms?id=eq.${me[0].gym_id}&select=name,status,owner_id,join_code`, 'coach-gym gym');
+      if (rows[0]) gym = { name: rows[0].name, status: rows[0].status, code: rows[0].join_code, isOwner: rows[0].owner_id === me[0].id };
+    }
+    // selfGuided: a client the gym marked "trains on their own" — their
+    // home screen shows the gym as a membership, not "trainer coming soon".
+    const selfGuided = !!gym && !me[0].coach_id && !!me[0].gym_self_guided;
+    return res.status(200).json({ gym, clientsOutsideGym: outside.length, selfGuided });
+  } catch (err) {
+    console.error('coach-gym error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read your gym.' });
+  }
+}
+
+export const __test = { ownerGymPayload, buildMemberPayload };
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -707,7 +893,11 @@ const RESOURCE_HANDLERS = {
   'custom-exercises-create': handleCreateCustomExercise,
   'admin-coaches': handleAdminCoaches,
   'admin-clients': handleAdminClients,
-  'platform-stats': handlePlatformStats
+  'platform-stats': handlePlatformStats,
+  'admin-gyms': handleAdminGyms,
+  'owner-gym': handleOwnerGym,
+  'owner-member': handleOwnerMember,
+  'coach-gym': handleCoachGym
 };
 
 export default async function handler(req, res) {

@@ -52,8 +52,11 @@ async function resolveVerifiedCaller(req) {
     const email = (authUser?.email || '').trim().toLowerCase();
     if (!email) return null;
 
+    // _ and % escaped: unescaped, an `_` in the verified email is an ilike
+    // single-character wildcard and could resolve to someone else's row —
+    // and that id is what every handler below trusts as "the caller".
     const rows = await fetch(
-      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(email)}&select=id,email`,
+      `${supabaseUrl}/rest/v1/users?email=ilike.${encodeURIComponent(email.replace(/[\\%_]/g, '\\$&'))}&select=id,email`,
       { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
     ).then(r => r.json()).catch(() => []);
     const row = Array.isArray(rows) && rows[0];
@@ -258,6 +261,243 @@ async function handleSetClientPaused(req, res) {
   }
 }
 
+// ─── Gyms (sql/gym_tier.sql) ───
+// gyms is RLS-locked with no policies, so these service-role writes are the
+// only way in. Super-admin only for now; owner-side actions come later.
+//
+// Ownership is gyms.owner_id, not users.role — linking an owner here does
+// NOT change their role, so an owner who also coaches keeps their coach
+// dashboard. Gyms are never deleted from the app (suspend instead): the
+// users.gym_status CHECK would block ON DELETE SET NULL for any gym with
+// members anyway.
+// No pending/approval state — the admin can only suspend or reactivate.
+const GYM_STATUSES = ['active', 'suspended'];
+const PLAIN_EMAIL = /^[^\s@%*,]+@[^\s@%*,]+\.[^\s@%*,]+$/;
+
+async function svcRequest(path, { method = 'GET', body } = {}) {
+  const resp = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    const err = new Error((data && (data.message || data.error)) || `${method} ${path.split('?')[0]} failed (${resp.status})`);
+    err.status = resp.status;
+    throw err;
+  }
+  return data;
+}
+
+// Returns { id } for an existing account, null for "no such account", and
+// throws a 400-shaped error for a malformed email. ilike (not eq) because
+// stored emails aren't consistently lowercased; PLAIN_EMAIL rejects the
+// wildcard characters that would otherwise make ilike a pattern match.
+async function resolveOwnerByEmail(rawEmail) {
+  const email = String(rawEmail || '').trim().toLowerCase();
+  if (!PLAIN_EMAIL.test(email)) {
+    const err = new Error('Enter a valid owner email.');
+    err.status = 400;
+    throw err;
+  }
+  const rows = await svcRequest(`users?email=ilike.${encodeURIComponent(email.replace(/[\\_]/g, '\\$&'))}&select=id&limit=1`);
+  return Array.isArray(rows) && rows[0] ? { id: rows[0].id } : null;
+}
+
+function cleanGymName(raw) {
+  const name = String(raw || '').trim().replace(/\s+/g, ' ');
+  return name.length >= 2 && name.length <= 80 ? name : null;
+}
+
+async function requireSuperAdmin(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller || caller.email !== SUPER_ADMIN_EMAIL) {
+    res.status(403).json({ error: 'Super-admin only.' });
+    return null;
+  }
+  return caller;
+}
+
+async function handleCreateGym(req, res) {
+  if (!(await requireSuperAdmin(req, res))) return;
+  const { name, ownerEmail } = req.body || {};
+  const cleanName = cleanGymName(name);
+  if (!cleanName) return res.status(400).json({ error: 'Gym name must be 2–80 characters.' });
+
+  try {
+    let ownerId = null;
+    if (ownerEmail && String(ownerEmail).trim()) {
+      const owner = await resolveOwnerByEmail(ownerEmail);
+      if (!owner) return res.status(404).json({ error: 'No account with that email. Ask the owner to sign up first.' });
+      ownerId = owner.id;
+    }
+    // No approval step anywhere (sql/gym_tier_no_approval.sql) — active on creation.
+    const rows = await svcRequest('gyms', {
+      method: 'POST',
+      body: { name: cleanName, owner_id: ownerId, status: 'active' }
+    });
+    return res.status(200).json({ gym: Array.isArray(rows) ? rows[0] : rows });
+  } catch (err) {
+    console.error('admin-write create-gym error:', err);
+    return res.status(err.status === 400 ? 400 : 502).json({ error: err.message || 'Failed to create gym.' });
+  }
+}
+
+async function handleUpdateGym(req, res) {
+  if (!(await requireSuperAdmin(req, res))) return;
+  const { gymId, name, status, ownerEmail } = req.body || {};
+  if (!/^[0-9a-f-]{36}$/i.test(String(gymId || ''))) return res.status(400).json({ error: 'gymId is required.' });
+
+  const patch = {};
+  if (name !== undefined) {
+    const cleanName = cleanGymName(name);
+    if (!cleanName) return res.status(400).json({ error: 'Gym name must be 2–80 characters.' });
+    patch.name = cleanName;
+  }
+  if (status !== undefined) {
+    if (!GYM_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${GYM_STATUSES.join(', ')}.` });
+    patch.status = status;
+  }
+
+  try {
+    if (ownerEmail !== undefined) {
+      // Empty string = remove the owner.
+      if (!String(ownerEmail || '').trim()) {
+        patch.owner_id = null;
+      } else {
+        const owner = await resolveOwnerByEmail(ownerEmail);
+        if (!owner) return res.status(404).json({ error: 'No account with that email. Ask the owner to sign up first.' });
+        patch.owner_id = owner.id;
+      }
+    }
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+
+    const id = encodeURIComponent(gymId);
+    const rows = await svcRequest(`gyms?id=eq.${id}`, { method: 'PATCH', body: patch });
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'Gym not found.' });
+    return res.status(200).json({ gym: rows[0] });
+  } catch (err) {
+    console.error('admin-write update-gym error:', err);
+    return res.status(err.status === 400 ? 400 : 502).json({ error: err.message || 'Failed to update gym.' });
+  }
+}
+
+// Gym owner moves one of their gym's clients to another trainer in the gym.
+// The owner id is the VERIFIED caller; owner_assign_client
+// (sql/gym_owner_assign_client.sql) re-checks gym ownership, that the client
+// and trainer are both in that gym, and that the gym is active.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function handleOwnerAssignClient(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { clientUserId, coachUserId } = req.body || {};
+  if (!UUID_RE.test(String(clientUserId || '')) || !UUID_RE.test(String(coachUserId || ''))) {
+    return res.status(400).json({ error: 'clientUserId and coachUserId are required.' });
+  }
+  try {
+    const data = await callRpc('owner_assign_client', {
+      p_owner_id: caller.id,
+      p_client_id: clientUserId,
+      p_coach_id: coachUserId
+    });
+    if (data && data.success === false) return res.status(403).json({ error: data.error || 'Could not move that client.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write owner-assign-client error:', err);
+    return res.status(502).json({ error: err.message || 'Could not move that client.' });
+  }
+}
+
+// Gym owner takes a client off their trainer — the client stays in the gym,
+// back on the "waiting for a trainer" list (sql/gym_owner_unassign_client.sql).
+async function handleOwnerUnassignClient(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  // selfGuided: true = "trains on their own" (no trainer wanted); false =
+  // back on the waiting list (sql/gym_self_guided.sql).
+  const { clientUserId, selfGuided } = req.body || {};
+  if (!UUID_RE.test(String(clientUserId || ''))) {
+    return res.status(400).json({ error: 'clientUserId is required.' });
+  }
+  try {
+    const data = await callRpc('owner_unassign_client', {
+      p_owner_id: caller.id,
+      p_client_id: clientUserId,
+      p_self_guided: selfGuided === true
+    });
+    if (data && data.success === false) return res.status(403).json({ error: data.error || 'Could not remove the trainer.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write owner-unassign-client error:', err);
+    return res.status(502).json({ error: err.message || 'Could not remove the trainer.' });
+  }
+}
+
+// A trainer joins / leaves a gym with its code (sql/gym_coach_join_leave.sql).
+// The trainer is the VERIFIED caller; the database functions do every check.
+async function handleCoachJoinGym(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { code, bringClients } = req.body || {};
+  if (typeof code !== 'string' || !code.trim() || code.length > 20) {
+    return res.status(400).json({ error: 'Enter your gym code.' });
+  }
+  try {
+    const data = await callRpc('coach_join_gym', {
+      p_coach_id: caller.id,
+      p_code: code,
+      p_bring_clients: bringClients === true
+    });
+    if (data && data.success === false) return res.status(400).json({ error: data.error || 'Could not join that gym.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write coach-join-gym error:', err);
+    return res.status(502).json({ error: err.message || 'Could not join that gym.' });
+  }
+}
+
+async function handleCoachLeaveGym(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+  try {
+    const data = await callRpc('coach_leave_gym', { p_coach_id: caller.id });
+    if (data && data.success === false) return res.status(400).json({ error: data.error || 'Could not leave the gym.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write coach-leave-gym error:', err);
+    return res.status(502).json({ error: err.message || 'Could not leave the gym.' });
+  }
+}
+
+// A client joins a gym with its code and waits for the owner to assign a
+// trainer (sql/gym_client_join.sql). The client is the VERIFIED caller.
+async function handleClientJoinGym(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { code } = req.body || {};
+  if (typeof code !== 'string' || !code.trim() || code.length > 20) {
+    return res.status(400).json({ error: 'Enter your gym code.' });
+  }
+  try {
+    const data = await callRpc('client_join_gym', { p_client_id: caller.id, p_code: code });
+    if (data && data.success === false) return res.status(400).json({ error: data.error || 'Could not join that gym.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write client-join-gym error:', err);
+    return res.status(502).json({ error: err.message || 'Could not join that gym.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
@@ -265,7 +505,14 @@ const ACTION_HANDLERS = {
   'seed-exercises': handleSeedExercises,
   'set-client-total-sessions': handleSetClientTotalSessions,
   'set-client-program-dates': handleSetClientProgramDates,
-  'set-client-paused': handleSetClientPaused
+  'set-client-paused': handleSetClientPaused,
+  'create-gym': handleCreateGym,
+  'update-gym': handleUpdateGym,
+  'owner-assign-client': handleOwnerAssignClient,
+  'owner-unassign-client': handleOwnerUnassignClient,
+  'coach-join-gym': handleCoachJoinGym,
+  'coach-leave-gym': handleCoachLeaveGym,
+  'client-join-gym': handleClientJoinGym
 };
 
 export default async function handler(req, res) {

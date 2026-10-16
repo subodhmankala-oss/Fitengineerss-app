@@ -1,0 +1,186 @@
+/* My Gym — phone layout is the inline styles in OwnerGymDashboard.jsx; this
+   file only holds the pieces that need a media query (inline styles can't).
+   Everything below 900px matches the old single column exactly. */
+
+.owner-gym-frame {
+  max-width: 935px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.og-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.og-trainers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.og-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Profile overlays: full-screen on phones, right-hand drawer on desktop. */
+.og-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg-app);
+  overflow-y: auto;
+}
+
+.og-overlay-inner {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Tables are built for desktop only (the phone gets cards), but the classes
+   are harmless below 900px. */
+.og-table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow: auto;
+  max-height: calc(100vh - 300px);
+  min-height: 120px;
+}
+
+.og-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  color: var(--text-main);
+}
+
+.og-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-card);
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.og-table td {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(var(--fg-rgb), 0.06);
+  vertical-align: middle;
+}
+
+.og-table tbody tr:first-child td {
+  border-top: none;
+}
+
+.og-table tbody tr:hover:not(.og-row-detail) {
+  background: rgba(var(--fg-rgb), 0.025);
+}
+
+.og-row-open td {
+  background: rgba(var(--accent-rgb), 0.05);
+}
+
+.og-row-detail td {
+  background: rgba(var(--accent-rgb), 0.03);
+  padding: 4px 14px 14px;
+}
+
+.og-table-compact th,
+.og-table-compact td {
+  padding: 8px 10px;
+}
+
+.og-table-compact th {
+  position: static;
+}
+
+@media (min-width: 900px) {
+  .owner-gym-frame {
+    max-width: 1200px;
+    padding: 0 8px;
+  }
+
+  /* Header band: gym name on the left, code + copy on the right. */
+  .og-head {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'name code' 'hint hint';
+    align-items: center;
+    column-gap: 20px;
+  }
+  .og-head > div:first-child { grid-area: name; }
+  .og-code-row { grid-area: code; }
+  .og-head-hint { grid-area: hint; }
+
+  /* Tab pills sit compactly on the left rather than stretching edge to edge. */
+  .og-tabs {
+    align-self: flex-start;
+    min-width: 440px;
+  }
+
+  /* Overview: 12-column grid. */
+  .og-overview {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 14px;
+    align-items: stretch;
+  }
+  .og-chart { grid-column: span 8; }
+  .og-health { grid-column: span 4; }
+  .og-watch { grid-column: span 7; }
+  .og-busy { grid-column: span 5; }
+  .og-top { grid-column: span 4; }
+  .og-snapshot { grid-column: span 8; }
+  .og-overview > * { min-width: 0; }
+
+  /* Trainers: card grid instead of one long column. */
+  .og-trainers {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+  }
+  .og-trainers-note { grid-column: 1 / -1; }
+
+  /* Profiles: right-hand drawer over a dimmed backdrop. */
+  .og-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: flex-end;
+  }
+  .og-overlay-inner {
+    width: 560px;
+    max-width: 100%;
+    min-height: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    background: var(--bg-app);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+    padding: 20px 24px 48px;
+    animation: og-drawer-in 0.18s ease-out;
+  }
+  @keyframes og-drawer-in {
+    from { transform: translateX(24px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+}

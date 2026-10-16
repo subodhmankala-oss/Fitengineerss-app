@@ -4876,7 +4876,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em'
               }}>
-                Coach Dashboard
+                {showGymView ? 'Gym Owner Dashboard' : 'Coach Dashboard'}
               </span>
               {myGymName && (
                 <button

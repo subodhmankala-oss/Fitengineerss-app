@@ -5167,7 +5167,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       )}
 
       {showGymView ? (
-        <div style={{ maxWidth: '935px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+        <div className="owner-gym-frame">
           <OwnerGymDashboard
             coachingOption={ownerOnly ? {
               on: showMyClientsTab,

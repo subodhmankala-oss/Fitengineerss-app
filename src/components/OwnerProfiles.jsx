@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import { toWhatsappNumber } from '../utils/whatsappNudge';
 import { agoLabel, messageMember, shortDate, statusReason, weekLabels, weekRanges, weeksBeforeJoin } from '../utils/ownerView';
 import { StatusChip, WeeklyBars } from './OwnerCharts';
+import './OwnerGymDashboard.css';
 
 // Full-screen profiles opened from My Gym: one member (12 weeks of activity,
 // recent sessions, who has coached them) and one trainer (their scorecard,
@@ -21,8 +22,15 @@ const smallButton = {
 
 function Overlay({ title, onClose, children }) {
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'var(--bg-app)', overflowY: 'auto' }}>
-      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '14px 16px 40px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <div
+      className="og-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+    >
+      <div className="og-overlay-inner">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button type="button" onClick={onClose} aria-label="Back" style={{ ...smallButton, padding: '8px 12px' }}>‹ Back</button>
           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</div>

@@ -6,6 +6,8 @@ import { toWhatsappNumber } from '../utils/whatsappNudge';
 import { OWNER_STATUS, messageMember, statusReason, weekLabels, weekRanges } from '../utils/ownerView';
 import { HealthBar, PeakGrid, StatusChip, WeeklyBars } from './OwnerCharts';
 import { MemberProfile, TrainerProfile } from './OwnerProfiles';
+import useMediaQuery from '../hooks/useMediaQuery';
+import './OwnerGymDashboard.css';
 
 // "🏢 My Gym" — the gym owner's view inside the coach dashboard (owners are
 // coach accounts that own a gym; see api/data-read.js handleOwnerGym).
@@ -129,16 +131,19 @@ function Initial({ name }) {
 const NO_TRAINER = '__none__';
 const ON_OWN = '__own__';
 
-function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign, onOpen, view = null, gymName = '' }) {
-  const [open, setOpen] = useState(false);
+
+// The "Change" panel for one client: pick a trainer / Waiting list / Trains on
+// their own, then a plain-language confirm step. Shared by the phone card and
+// the desktop table row so both say exactly the same thing.
+function AssignPanel({ client, trainers, busy, onAssign, onUnassign, onClose }) {
   const [choice, setChoice] = useState(null);
   const hasTrainer = !!client.trainerName;
   const selfGuided = !hasTrainer && !!client.selfGuided;
   const current = trainers.find((t) => t.id === client.coachId);
   const chosen = trainers.find((t) => t.id === choice);
   const nameOf = (t) => (t?.isOwner ? 'you' : t?.name);
+  const close = onClose;
 
-  const close = () => { setOpen(false); setChoice(null); };
   const confirm = async () => {
     const ok = choice === NO_TRAINER || choice === ON_OWN
       ? await onUnassign(client, choice === ON_OWN)
@@ -191,6 +196,58 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
       </button>
     );
   };
+
+  return (
+    <div className="og-assign" style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
+      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '6px' }}>
+        {hasTrainer || selfGuided ? `What should change for ${client.name}?` : `Pick a trainer for ${client.name}`}
+      </div>
+      <div role="radiogroup" aria-label={`Trainer for ${client.name}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {trainers.length === 0 && <div style={muted}>No trainers in your gym yet — share your gym code with them first.</div>}
+        {trainers.map((t) => option(
+          t.id,
+          t.isOwner ? `${t.name} (you)` : t.name,
+          `${t.clientCount} client${t.clientCount === 1 ? '' : 's'}`,
+          t.id === client.coachId
+        ))}
+        {(hasTrainer || selfGuided) && option(NO_TRAINER, 'Waiting list', 'No trainer yet — you’ll pick one later', false)}
+        {!selfGuided && option(ON_OWN, 'Trains on their own', 'Gym member, doesn’t want a trainer', false)}
+      </div>
+
+      {confirmText && (
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.2)', borderRadius: '10px', padding: '10px 12px', lineHeight: 1.45 }}>
+          {confirmText}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={!confirmText || busy}
+          style={{
+            ...smallButton, flex: 1, padding: '9px 12px', border: 'none',
+            background: confirmText ? 'linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent))' : 'rgba(var(--fg-rgb), 0.08)',
+            color: confirmText ? '#fff' : 'var(--text-muted)',
+            cursor: confirmText && !busy ? 'pointer' : 'default'
+          }}
+        >
+          {busy ? 'Saving…' : 'Confirm'}
+        </button>
+        <button type="button" onClick={close} disabled={busy} style={{ ...smallButton, flex: '0 0 auto', padding: '9px 14px' }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign, onOpen, view = null, gymName = '' }) {
+  const [open, setOpen] = useState(false);
+  const hasTrainer = !!client.trainerName;
+  const selfGuided = !hasTrainer && !!client.selfGuided;
+  const current = trainers.find((t) => t.id === client.coachId);
+  const close = () => setOpen(false);
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -288,47 +345,7 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
       </div>
 
       {open && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px', borderTop: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '6px' }}>
-            {hasTrainer || selfGuided ? `What should change for ${client.name}?` : `Pick a trainer for ${client.name}`}
-          </div>
-          <div role="radiogroup" aria-label={`Trainer for ${client.name}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {trainers.length === 0 && <div style={muted}>No trainers in your gym yet — share your gym code with them first.</div>}
-            {trainers.map((t) => option(
-              t.id,
-              t.isOwner ? `${t.name} (you)` : t.name,
-              `${t.clientCount} client${t.clientCount === 1 ? '' : 's'}`,
-              t.id === client.coachId
-            ))}
-            {(hasTrainer || selfGuided) && option(NO_TRAINER, 'Waiting list', 'No trainer yet — you’ll pick one later', false)}
-            {!selfGuided && option(ON_OWN, 'Trains on their own', 'Gym member, doesn’t want a trainer', false)}
-          </div>
-
-          {confirmText && (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.2)', borderRadius: '10px', padding: '10px 12px', lineHeight: 1.45 }}>
-              {confirmText}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={!confirmText || busy}
-              style={{
-                ...smallButton, flex: 1, padding: '9px 12px', border: 'none',
-                background: confirmText ? 'linear-gradient(135deg, var(--primary-accent-light), var(--primary-accent))' : 'rgba(var(--fg-rgb), 0.08)',
-                color: confirmText ? '#fff' : 'var(--text-muted)',
-                cursor: confirmText && !busy ? 'pointer' : 'default'
-              }}
-            >
-              {busy ? 'Saving…' : 'Confirm'}
-            </button>
-            <button type="button" onClick={close} disabled={busy} style={{ ...smallButton, flex: '0 0 auto', padding: '9px 14px' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
+        <AssignPanel client={client} trainers={trainers} busy={busy} onAssign={onAssign} onUnassign={onUnassign} onClose={close} />
       )}
 
       {message && (
@@ -336,6 +353,167 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
           {message.error ? '✕ ' : '✓ '}{message.text}
         </div>
       )}
+    </div>
+  );
+}
+
+const DESKTOP_QUERY = '(min-width: 900px)';
+
+function TrainerPill({ client, current }) {
+  const hasTrainer = !!client.trainerName;
+  const selfGuided = !hasTrainer && !!client.selfGuided;
+  const tone = hasTrainer
+    ? { dot: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', ring: 'rgba(16, 185, 129, 0.35)', text: current?.isOwner ? 'You' : client.trainerName }
+    : selfGuided
+      ? { dot: 'rgb(var(--accent-rgb))', bg: 'rgba(var(--accent-rgb), 0.1)', ring: 'rgba(var(--accent-rgb), 0.35)', text: 'Trains on their own' }
+      : { dot: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', ring: 'rgba(245, 158, 11, 0.4)', text: 'Waiting for a trainer' };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', fontWeight: 700,
+      color: 'var(--text-main)', background: tone.bg, border: `1px solid ${tone.ring}`, borderRadius: '999px', padding: '3px 10px'
+    }}>
+      <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: tone.dot }} />
+      {tone.text}
+    </span>
+  );
+}
+
+// Desktop version of My Gym → Clients: one row per member. "Change" opens the
+// same AssignPanel (with its confirm step) in a row underneath.
+function ClientTable({ clients, trainers, locked, savingId, rowMsg, onAssign, onUnassign, onOpen, view, gymName }) {
+  const [openId, setOpenId] = useState(null);
+  return (
+    <div className="og-table-wrap">
+      <table className="og-table">
+        <thead>
+          <tr>
+            <th scope="col">Member</th>
+            <th scope="col">Status</th>
+            <th scope="col">Trainer</th>
+            <th scope="col">Last workout</th>
+            <th scope="col">This week</th>
+            <th scope="col"><span className="og-sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {clients.map((c) => {
+            const hasTrainer = !!c.trainerName;
+            const open = openId === c.id;
+            const current = trainers.find((t) => t.id === c.coachId);
+            const message = rowMsg[c.id];
+            return (
+              <React.Fragment key={c.id}>
+                <tr className={open ? 'og-row-open' : ''}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Initial name={c.name} />
+                      <div style={{ minWidth: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => onOpen(c)}
+                          aria-label={`Open ${c.name}’s profile`}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}
+                        >
+                          {c.name} <span aria-hidden="true" style={{ color: 'var(--accent-text)' }}>›</span>
+                        </button>
+                        {(view === RISK || view === NUDGE) && c.engagement && (
+                          <div style={{ ...muted, color: 'var(--text-main)', lineHeight: 1.35 }}>{statusReason(c)}</div>
+                        )}
+                        {view === WORKOUTS && (c.recentDays || []).length > 0 && (
+                          <div style={muted}>{c.recentDays.map(dayLabel).join(' · ')}</div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{c.engagement ? <StatusChip status={c.engagement.status} /> : <span style={muted}>–</span>}</td>
+                  <td><TrainerPill client={c} current={current} /></td>
+                  <td style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>{daysAgoLabel(c.lastWorkout)}</td>
+                  <td style={{ fontSize: '0.88rem', fontWeight: 800, color: c.workouts7d > 0 ? 'var(--accent-text)' : 'var(--text-muted)' }}>{c.workouts7d || 0}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {(view === NUDGE || view === RISK) && toWhatsappNumber(c.phone) && (
+                      <button
+                        type="button"
+                        onClick={() => messageMember(c, gymName)}
+                        style={{ ...smallButton, marginRight: '6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.08)' }}
+                      >
+                        WhatsApp
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(open ? null : c.id)}
+                      disabled={locked}
+                      aria-expanded={open}
+                      style={{ ...smallButton, opacity: locked ? 0.5 : 1, cursor: locked ? 'default' : 'pointer' }}
+                    >
+                      {open ? 'Close' : hasTrainer || c.selfGuided ? 'Change' : 'Assign trainer'}
+                    </button>
+                  </td>
+                </tr>
+                {(open || message) && (
+                  <tr className="og-row-detail">
+                    <td colSpan={6}>
+                      {open && (
+                        <AssignPanel client={c} trainers={trainers} busy={savingId === c.id} onAssign={onAssign} onUnassign={onUnassign} onClose={() => setOpenId(null)} />
+                      )}
+                      {message && (
+                        <div role={message.error ? 'alert' : 'status'} style={{ fontSize: '0.78rem', fontWeight: 600, color: message.error ? 'var(--danger)' : '#10b981' }}>
+                          {message.error ? '✕ ' : '✓ '}{message.text}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Overview (desktop only): every trainer on one compact table.
+function TrainerSnapshot({ trainers, onOpen, onSeeAll }) {
+  const sorted = [...trainers].sort((a, b) => ((b.stats?.activePct ?? -1) - (a.stats?.activePct ?? -1)) || a.name.localeCompare(b.name));
+  return (
+    <div className="og-snapshot" style={card}>
+      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Trainers at a glance</div>
+      <div style={{ ...muted, marginBottom: '8px' }}>“Still training” is the share of a trainer’s clients who logged a workout in the last 2 weeks.</div>
+      {sorted.length === 0 ? (
+        <div style={muted}>No trainers yet — share your gym code with them.</div>
+      ) : (
+        <table className="og-table og-table-compact">
+          <thead>
+            <tr>
+              <th scope="col">Trainer</th>
+              <th scope="col">Clients</th>
+              <th scope="col">Still training</th>
+              <th scope="col">Workouts / client / week</th>
+              <th scope="col">Slipping</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.slice(0, 5).map((t) => {
+              const st = t.stats || {};
+              return (
+                <tr key={t.id}>
+                  <td>
+                    <button type="button" onClick={() => onOpen(t)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)', textAlign: 'left' }}>
+                      {t.name}{t.isOwner ? ' (you)' : ''} <span aria-hidden="true" style={{ color: 'var(--accent-text)' }}>›</span>
+                    </button>
+                  </td>
+                  <td>{t.clientCount}</td>
+                  <td>{st.activePct === null || st.activePct === undefined ? '–' : `${st.activePct}%`}</td>
+                  <td>{st.perClientWeek ?? '–'}</td>
+                  <td style={{ color: st.atRisk > 0 ? '#f59e0b' : 'var(--text-muted)', fontWeight: st.atRisk > 0 ? 800 : 400 }}>{st.atRisk || 0}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <button type="button" onClick={onSeeAll} style={{ ...smallButton, marginTop: '10px' }}>See all trainers ›</button>
     </div>
   );
 }
@@ -352,6 +530,14 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   const [savingId, setSavingId] = useState(null);
   const [rowMsg, setRowMsg] = useState({});
   const [copied, setCopied] = useState(false);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+
+  // Widen the app frame for owners at desktop widths (index.css gates it at
+  // 900px; the phone frame is untouched below that).
+  useEffect(() => {
+    document.body.classList.add('owner-wide-frame');
+    return () => document.body.classList.remove('owner-wide-frame');
+  }, []);
 
   const applyLoad = useCallback((result) => {
     if (result.success) {
@@ -457,8 +643,8 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   const overview = !insights ? (
     <div style={{ ...card, ...muted }}>Insights will appear here once your members start training.</div>
   ) : (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      <div style={card}>
+    <div className="og-stack og-overview">
+      <div className="og-chart" style={card}>
         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Workouts per week</div>
         <div style={{ ...muted, marginBottom: '10px' }}>{trendText}</div>
         <WeeklyBars
@@ -471,13 +657,13 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         />
       </div>
 
-      <div style={card}>
+      <div className="og-health" style={card}>
         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Member health</div>
         <div style={{ ...muted, marginBottom: '10px' }}>Where each member is right now, from how often they trained lately. Tap a group to see them.</div>
         <HealthBar health={insights.health} onSelect={(k) => showClients(`${STATUS_PREFIX}${k}`)} />
       </div>
 
-      <div style={card}>
+      <div className="og-watch" style={card}>
         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Members to watch</div>
         <div style={{ ...muted, marginBottom: '6px' }}>The members most likely to leave, with why.</div>
         {atRiskMembers.length === 0 ? (
@@ -510,7 +696,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         )}
       </div>
 
-      <div style={card}>
+      <div className="og-busy" style={card}>
         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Busiest times</div>
         <div style={{ ...muted, marginBottom: '10px' }}>When members log workouts (India time), over the last 8 weeks.</div>
         {insights.peak.total < 5 ? (
@@ -520,7 +706,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         )}
       </div>
 
-      <div style={card}>
+      <div className="og-top" style={card}>
         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Most consistent this month</div>
         <div style={{ ...muted, marginBottom: '6px' }}>Workout days in the last 30 days.</div>
         {topMembers.length === 0 ? (
@@ -541,6 +727,10 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
           </button>
         ))}
       </div>
+
+      {isDesktop && (
+        <TrainerSnapshot trainers={trainers} onOpen={setProfileTrainer} onSeeAll={() => setTab('trainers')} />
+      )}
     </div>
   );
 
@@ -599,19 +789,19 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   );
 
   return (
-    <div className="owner-gym-view animate-scale-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '24px', width: '100%', boxSizing: 'border-box' }}>
+    <div className="owner-gym-view og-stack animate-scale-in" style={{ paddingBottom: '24px', width: '100%', boxSizing: 'border-box' }}>
       {gym.status === 'suspended' && (
         <div role="alert" style={{ ...card, borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.06)', color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>
           This gym is suspended. You can still see your trainers and clients, but changes are paused. Contact Fitengineers support.
         </div>
       )}
 
-      <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div className="og-head" style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div>
           <div style={{ ...muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏢 My Gym</div>
           <h3 style={{ margin: '2px 0 0 0', fontSize: '1.15rem', color: 'var(--text-main)' }}>{gym.name}</h3>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="og-code-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <code style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--text-main)', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px dashed var(--border-color)', borderRadius: '8px', padding: '6px 12px' }}>
             {gym.joinCode}
           </code>
@@ -619,7 +809,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
             {copied ? 'Copied' : 'Copy code'}
           </button>
         </div>
-        <div style={muted}>Share it with your trainers and with new members. Trainers join straight away; members wait here for you to pick their trainer.</div>
+        <div className="og-head-hint" style={muted}>Share it with your trainers and with new members. Trainers join straight away; members wait here for you to pick their trainer.</div>
       </div>
 
       {unassignedCount > 0 && gym.status === 'active' && (
@@ -645,7 +835,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         </div>
       </div>
 
-      <div role="tablist" aria-label="Gym view" style={{ display: 'flex', gap: '4px', padding: '4px', background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: '12px' }}>
+      <div role="tablist" aria-label="Gym view" className="og-tabs" style={{ display: 'flex', gap: '4px', padding: '4px', background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: '12px' }}>
         {[
           { key: 'overview', label: 'Overview' },
           { key: 'trainers', label: `Trainers (${trainers.length})` },
@@ -675,8 +865,8 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         trainers.length === 0 ? (
           <div className="trainer-empty-state"><h5>No trainers yet</h5><p>Share your gym code with your trainers.</p></div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ ...muted, margin: '0 2px' }}>Ordered by how many of each trainer’s clients are still training. Tap a trainer for their full picture.</div>
+          <div className="og-trainers">
+            <div className="og-trainers-note" style={{ ...muted, margin: '0 2px' }}>Ordered by how many of each trainer’s clients are still training. Tap a trainer for their full picture.</div>
             {[...trainers].sort((a, b) => ((b.stats?.activePct ?? -1) - (a.stats?.activePct ?? -1)) || a.name.localeCompare(b.name)).map((t) => {
               const st = t.stats || {};
               return (
@@ -780,6 +970,19 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
                 </>
               )}
             </div>
+          ) : isDesktop ? (
+            <ClientTable
+              clients={filteredClients}
+              view={trainerFilter === WORKOUTS || trainerFilter === NUDGE || trainerFilter === RISK ? trainerFilter : null}
+              onOpen={setProfileClient}
+              gymName={gym.name}
+              trainers={trainers}
+              locked={gym.status !== 'active'}
+              savingId={savingId}
+              rowMsg={rowMsg}
+              onAssign={handleAssign}
+              onUnassign={handleUnassign}
+            />
           ) : filteredClients.map((c) => (
             <ClientCard
               key={c.id}

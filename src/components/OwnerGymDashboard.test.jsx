@@ -411,4 +411,48 @@ describe('OwnerGymDashboard', () => {
     expect(screen.queryByText(/note/i)).toBeNull();
     expect(screen.queryByText(/photo/i)).toBeNull();
   });
+
+  describe('desktop layout (>= 900px)', () => {
+    const original = window.matchMedia;
+    const setDesktop = (matches) => {
+      window.matchMedia = vi.fn(() => ({ matches, addEventListener() {}, removeEventListener() {} }));
+    };
+    afterEach(() => { window.matchMedia = original; });
+
+    it('widens the frame for the owner and removes the class on unmount', async () => {
+      setDesktop(true);
+      const { unmount } = render(<OwnerGymDashboard service={makeService()} />);
+      await screen.findByText('Test Gym');
+      expect(document.body.classList.contains('owner-wide-frame')).toBe(true);
+      unmount();
+      expect(document.body.classList.contains('owner-wide-frame')).toBe(false);
+    });
+
+    it('overview gets a trainer snapshot table; phones do not', async () => {
+      setDesktop(true);
+      render(<OwnerGymDashboard service={makeService()} />);
+      expect(await screen.findByText('Trainers at a glance')).toBeTruthy();
+      cleanup();
+      setDesktop(false);
+      render(<OwnerGymDashboard service={makeService()} />);
+      await screen.findByText('Test Gym');
+      expect(screen.queryByText('Trainers at a glance')).toBeNull();
+    });
+
+    it('lists clients in a table and keeps the confirm step before any change', async () => {
+      setDesktop(true);
+      const service = makeService();
+      render(<OwnerGymDashboard service={service} />);
+      await openClients();
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('Last workout')).toBeTruthy();
+      const row = screen.getByText('Kiran').closest('tr');
+      fireEvent.click(within(row).getByText('Assign trainer'));
+      fireEvent.click(screen.getByRole('radio', { name: /Asha Trainer/ }));
+      expect(service.ownerAssignClient).not.toHaveBeenCalled();
+      expect(screen.getByText(/Give Kiran to Asha Trainer/)).toBeTruthy();
+      fireEvent.click(screen.getByText('Confirm'));
+      await waitFor(() => expect(service.ownerAssignClient).toHaveBeenCalledWith('c3', T2));
+    });
+  });
 });

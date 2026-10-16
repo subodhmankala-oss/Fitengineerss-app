@@ -218,9 +218,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // Super-Admin tab) widens for them. Regular coach accounts — who this
   // component also renders for — keep the phone frame untouched.
   useEffect(() => {
-    document.body.classList.toggle('admin-wide-frame', superAdmin);
+    // Gym owners get the same desktop shell (left icon sidebar, header
+    // controls moved into it) — 2026-10-16: "keep this navbar side ways
+    // similar" to the super-admin's.
+    document.body.classList.toggle('admin-wide-frame', superAdmin || ownsGym);
     return () => document.body.classList.remove('admin-wide-frame');
-  }, [superAdmin, viewMode]);
+  }, [superAdmin, ownsGym, viewMode]);
   // Custom on-screen number pad for the Live Log set table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
   // native mobile keyboard entirely.
@@ -4649,7 +4652,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           just a second, desktop-only way to reach it. Those header controls
           stay in the DOM and still work; they're just visually hidden on
           this same breakpoint so the action isn't offered twice. */}
-      {superAdmin && (
+      {(superAdmin || ownsGym) && (
         <aside className="admin-shell-sidebar">
           <img
             src="/logo.png"
@@ -4662,6 +4665,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewMode('coach'); setSelectedClient(null); } }}
           />
           <nav className="admin-shell-nav">
+            {(superAdmin || showMyClientsTab) && (
             <button
               type="button"
               className={viewMode === 'coach' ? 'active' : ''}
@@ -4679,6 +4683,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </span>
               <span className="admin-shell-label">Clients</span>
             </button>
+            )}
             {ownsGym && (
               <button
                 type="button"
@@ -4697,6 +4702,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <span className="admin-shell-label">My Gym</span>
               </button>
             )}
+            {superAdmin && (
             <button
               type="button"
               className={viewMode === 'admin' ? 'active' : ''}
@@ -4714,6 +4720,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </span>
               <span className="admin-shell-label">Admin</span>
             </button>
+            )}
             <button
               type="button"
               className={viewMode === 'payments' ? 'active' : ''}

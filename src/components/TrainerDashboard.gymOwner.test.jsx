@@ -48,7 +48,8 @@ const renderDashboard = () => render(
 const NO_GYM_MEMBERSHIP = { success: true, gym: null, clientsOutsideGym: 0 };
 const TRAINER_IN_GYM = { success: true, gym: { name: 'Test Gym', status: 'active', code: 'GYM-QFAP', isOwner: false }, clientsOutsideGym: 0 };
 
-const myClientsTab = () => screen.queryByRole('button', { name: /My Clients/ });
+// Header toggle and the desktop sidebar entry both match; either one opens the tab.
+const myClientsTab = () => screen.queryAllByRole('button', { name: /My Clients/ })[0] || null;
 
 describe('TrainerDashboard — gym owner view', { timeout: 30000 }, () => {
   beforeEach(() => {

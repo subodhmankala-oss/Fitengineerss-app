@@ -71,11 +71,15 @@ function Initial({ name, size = 44 }) {
   );
 }
 
+// Recent sessions show 10 at a time; "Load more" adds 10.
+const SESSIONS_PAGE = 10;
+
 const fmtNumber = (n) => Number(n || 0).toLocaleString('en-IN');
 
 // ─── One member ───
 export function MemberProfile({ client, gymName, today, service = databaseService, onClose, onManage }) {
   const [state, setState] = useState({ loading: true, data: null, error: '' });
+  const [sessionsShown, setSessionsShown] = useState(SESSIONS_PAGE);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +165,7 @@ export function MemberProfile({ client, gymName, today, service = databaseServic
               <div style={muted}>No workouts logged in the last 90 days.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {data.sessions.map((s, i) => (
+                {data.sessions.slice(0, sessionsShown).map((s, i) => (
                   <div key={`${s.date}-${i}`} style={{ display: 'flex', gap: '12px', padding: '9px 0', borderTop: i ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}>
                     <div style={{ width: '54px', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: 'var(--accent-text)' }}>{shortDate(s.date)}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -172,6 +176,11 @@ export function MemberProfile({ client, gymName, today, service = databaseServic
                     </div>
                   </div>
                 ))}
+                {data.sessions.length > sessionsShown && (
+                  <button type="button" onClick={() => setSessionsShown((n) => n + SESSIONS_PAGE)} style={{ ...smallButton, marginTop: '10px', alignSelf: 'flex-start' }}>
+                    + Load more ({data.sessions.length - sessionsShown} more)
+                  </button>
+                )}
               </div>
             )}
           </div>

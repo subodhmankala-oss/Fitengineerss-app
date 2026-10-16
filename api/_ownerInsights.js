@@ -200,7 +200,7 @@ export function buildMemberPayload({ user, client, logs, history, names, ownerId
   }
   const sessions = [...bySession.values()]
     .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 20)
+    .slice(0, 60)
     .map((s) => ({ date: s.date, plan: s.plan, exercises: s.exercises.size, sets: s.sets, volumeKg: Math.round(s.volumeKg) }));
 
   const list = [...days].sort();

@@ -12,6 +12,8 @@
 // rewrites each old path to /api/data-read?resource=<name>, so no frontend
 // code had to change.
 
+import { buildOwnerGymPayload, buildMemberPayload, TREND_WEEKS } from './_ownerInsights.js';
+
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -737,7 +739,9 @@ async function handleAdminGyms(req, res) {
 // hide the switch. Activity only (workout days, last login): private coach
 // notes and progress photos are deliberately not read here
 // (gyms.owner_sees_private, default off — 2026-10-14 decision).
-const OWNER_ACTIVITY_DAYS = 30;
+// 8 weeks: the trend chart, "slipping" (last 2 weeks vs the 4 before) and the
+// busiest-times grid all read from this one window.
+const OWNER_ACTIVITY_DAYS = TREND_WEEKS * 7;
 
 // workout_logs is one row per set, so a month of a busy gym can exceed the
 // 1000-row max-rows cap — page with limit/offset like handleWorkoutLogs.
@@ -752,69 +756,7 @@ async function svcSelectAll(pathWithoutPaging, label) {
   return rows;
 }
 
-function ownerGymPayload(gym, members, logs, now = new Date()) {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const weekAgo = new Date(now.getTime() - 7 * dayMs).toISOString().slice(0, 10);
-  // Distinct workout DAYS per user (many set rows per session).
-  const days = {};
-  for (const l of logs) {
-    (days[l.user_id] || (days[l.user_id] = new Set())).add(String(l.log_date).slice(0, 10));
-  }
-  const activity = (id) => {
-    const d = [...(days[id] || [])].sort();
-    const recent = d.filter((x) => x >= weekAgo);
-    return {
-      lastWorkout: d.length ? d[d.length - 1] : null,
-      workouts7d: recent.length,
-      workouts30d: d.length,
-      // The actual days (newest first) — so the owner can see WHO trained
-      // and WHEN, not just a count.
-      recentDays: recent.slice().reverse()
-    };
-  };
-
-  const trainersRaw = members.filter((m) => m.role === 'coach' || m.role === 'super-admin');
-  const clientsRaw = members.filter((m) => m.role === 'client');
-  const trainerName = Object.fromEntries(trainersRaw.map((t) => [t.id, t.full_name || t.email]));
-
-  const clients = clientsRaw.map((c) => ({
-    id: c.id,
-    name: c.full_name || (c.email || '').split('@')[0],
-    email: c.email,
-    // For the owner's "message them" nudge on members who've gone quiet.
-    phone: c.phone || null,
-    avatarUrl: c.avatar_url || null,
-    coachId: c.coach_id || null,
-    // A coach_id outside this gym (shouldn't happen) reads as unassigned so
-    // the owner can fix it rather than see a trainer they can't manage.
-    trainerName: trainerName[c.coach_id] || null,
-    // No trainer and doesn't want one (sql/gym_self_guided.sql) — not on
-    // the waiting list.
-    selfGuided: !trainerName[c.coach_id] && !!c.gym_self_guided,
-    lastLogin: c.last_login || null,
-    ...activity(c.id)
-  }));
-
-  const trainers = trainersRaw.map((t) => {
-    const mine = clients.filter((c) => c.coachId === t.id);
-    return {
-      id: t.id,
-      name: t.full_name || (t.email || '').split('@')[0],
-      email: t.email,
-      avatarUrl: t.avatar_url || null,
-      isOwner: t.id === gym.owner_id,
-      lastLogin: t.last_login || null,
-      clientCount: mine.length,
-      activeClients7d: mine.filter((c) => c.workouts7d > 0).length
-    };
-  });
-
-  return {
-    gym: { id: gym.id, name: gym.name, joinCode: gym.join_code, status: gym.status, createdAt: gym.created_at },
-    trainers,
-    clients
-  };
-}
+const ownerGymPayload = buildOwnerGymPayload;
 
 async function handleOwnerGym(req, res) {
   if (!supabaseUrl || !serviceKey) {
@@ -837,14 +779,14 @@ async function handleOwnerGym(req, res) {
     if (!gym) return res.status(200).json({ gym: null });
 
     const members = await svcSelect(
-      `users?gym_id=eq.${gym.id}&select=id,full_name,email,phone,role,coach_id,last_login,avatar_url,gym_self_guided`,
+      `users?gym_id=eq.${gym.id}&select=id,full_name,email,phone,role,coach_id,created_at,last_login,avatar_url,gym_self_guided`,
       'owner-gym members'
     );
     const clientIds = members.filter((m) => m.role === 'client').map((m) => m.id);
     const since = new Date(Date.now() - OWNER_ACTIVITY_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const logs = clientIds.length
       ? await svcSelectAll(
-          `workout_logs?select=user_id,log_date&user_id=in.(${clientIds.join(',')})&log_date=gte.${since}&order=id.asc`,
+          `workout_logs?select=user_id,log_date,created_at&user_id=in.(${clientIds.join(',')})&log_date=gte.${since}&order=id.asc`,
           'owner-gym workout logs'
         )
       : [];
@@ -853,6 +795,54 @@ async function handleOwnerGym(req, res) {
   } catch (err) {
     console.error('owner-gym error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym.' });
+  }
+}
+
+// One member's profile for their gym's owner (activity + coaching history
+// only). The caller must own the gym the member is in — checked here from the
+// VERIFIED email, never from anything in the request body.
+const MEMBER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function handleOwnerMember(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  const clientId = String((req.body || {}).clientId || '');
+  if (!MEMBER_UUID.test(clientId)) return res.status(400).json({ error: 'clientId is required.' });
+
+  try {
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'owner-member caller');
+    if (!me[0]) return res.status(403).json({ error: 'That member isn’t in your gym.' });
+    const gyms = await svcSelect(`gyms?owner_id=eq.${me[0].id}&select=id&order=created_at.asc&limit=1`, 'owner-member gym');
+    if (!gyms[0]) return res.status(403).json({ error: 'That member isn’t in your gym.' });
+
+    const users = await svcSelect(
+      `users?id=eq.${clientId}&gym_id=eq.${gyms[0].id}&role=eq.client&select=id,full_name,email,phone,created_at,last_login,coach_id,gym_self_guided&limit=1`,
+      'owner-member user'
+    );
+    if (!users[0]) return res.status(403).json({ error: 'That member isn’t in your gym.' });
+
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const [clientRows, logs, history] = await Promise.all([
+      svcSelect(`clients?user_id=eq.${clientId}&select=fitness_goal,program,program_started_on,total_sessions&limit=1`, 'owner-member client'),
+      svcSelectAll(`workout_logs?select=log_date,plan_name,exercise_name,reps,weight_kg,session_id&user_id=eq.${clientId}&log_date=gte.${since}&order=id.asc`, 'owner-member logs'),
+      svcSelect(`coach_assignments?client_id=eq.${clientId}&select=coach_id,source,started_at,ended_at&order=started_at.desc&limit=20`, 'owner-member history')
+    ]);
+
+    const coachIds = [...new Set([users[0].coach_id, ...history.map((h) => h.coach_id)].filter(Boolean))];
+    const nameRows = coachIds.length
+      ? await svcSelect(`users?id=in.(${coachIds.join(',')})&select=id,full_name,email`, 'owner-member names')
+      : [];
+    const names = Object.fromEntries(nameRows.map((u) => [u.id, u.full_name || (u.email || '').split('@')[0]]));
+
+    return res.status(200).json(buildMemberPayload({
+      user: users[0], client: clientRows[0] || null, logs, history, names, ownerId: me[0].id
+    }));
+  } catch (err) {
+    console.error('owner-member error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read that member.' });
   }
 }
 
@@ -891,7 +881,7 @@ async function handleCoachGym(req, res) {
   }
 }
 
-export const __test = { ownerGymPayload };
+export const __test = { ownerGymPayload, buildMemberPayload };
 
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
@@ -906,6 +896,7 @@ const RESOURCE_HANDLERS = {
   'platform-stats': handlePlatformStats,
   'admin-gyms': handleAdminGyms,
   'owner-gym': handleOwnerGym,
+  'owner-member': handleOwnerMember,
   'coach-gym': handleCoachGym
 };
 

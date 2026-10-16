@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import databaseService from '../services/databaseService';
 import AdminSearchBox from './admin/AdminSearchBox';
 import { matchesSearch } from '../utils/matchesSearch';
-import { getActivityStatus } from '../utils/activityStatus';
-import { buildNudgeMessage, openWhatsapp, toWhatsappNumber } from '../utils/whatsappNudge';
+import { toWhatsappNumber } from '../utils/whatsappNudge';
+import { OWNER_STATUS, messageMember, statusReason, weekLabels } from '../utils/ownerView';
+import { HealthBar, PeakGrid, StatusChip, WeeklyBars } from './OwnerCharts';
+import { MemberProfile, TrainerProfile } from './OwnerProfiles';
 
 // "🏢 My Gym" — the gym owner's view inside the coach dashboard (owners are
 // coach accounts that own a gym; see api/data-read.js handleOwnerGym).
@@ -21,6 +23,10 @@ const SELF_GUIDED = '__self__';
 const ACTIVE = '__active__';
 const NUDGE = '__nudge__';
 const WORKOUTS = '__workouts__';
+const RISK = '__risk__';
+const STATUS_PREFIX = 'status:';
+const AT_RISK = ['slipping', 'quiet', 'inactive'];
+const RISK_ORDER = { slipping: 0, quiet: 1, inactive: 2 };
 // "Need a nudge": no workout in this many days (or none in the 30-day window).
 const NUDGE_DAYS = 14;
 
@@ -47,8 +53,28 @@ function dayLabel(isoDate) {
 const VIEW_INFO = {
   [ACTIVE]: { title: 'Trained this week', text: 'Members who logged at least one workout in the last 7 days.' },
   [WORKOUTS]: { title: 'Workouts this week', text: 'Who trained in the last 7 days, and on which days.' },
-  [NUDGE]: { title: 'Not trained in 2 weeks', text: `Members with no workout logged in the last ${NUDGE_DAYS} days. A quick message often brings them back.` }
+  [NUDGE]: { title: 'Not trained in 2 weeks', text: `Members with no workout logged in the last ${NUDGE_DAYS} days. A quick message often brings them back.` },
+  [RISK]: { title: 'Members to watch', text: 'Members who are slipping, have gone quiet or haven’t started — the ones most likely to leave. Each shows why.' }
 };
+
+const STATUS_TEXT = {
+  thriving: 'Training twice a week or more, and not dropping off.',
+  steady: 'Training regularly.',
+  slipping: 'Trained often before, but under half as often in the last 2 weeks.',
+  quiet: `No workout in ${NUDGE_DAYS}+ days.`,
+  inactive: 'Joined a while ago but has never logged a workout.',
+  new: 'Joined in the last 2 weeks and hasn’t logged a workout yet.'
+};
+
+// Title + one-line explanation for the strip above a filtered client list.
+function viewInfo(filter) {
+  if (VIEW_INFO[filter]) return VIEW_INFO[filter];
+  if (filter.startsWith(STATUS_PREFIX)) {
+    const key = filter.slice(STATUS_PREFIX.length);
+    return OWNER_STATUS[key] ? { title: OWNER_STATUS[key].label, text: STATUS_TEXT[key] } : null;
+  }
+  return null;
+}
 
 function daysAgoLabel(isoDate, today = new Date()) {
   if (!isoDate) return 'No workouts in 30 days';
@@ -103,7 +129,7 @@ function Initial({ name }) {
 const NO_TRAINER = '__none__';
 const ON_OWN = '__own__';
 
-function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign, view = null, gymName = '' }) {
+function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnassign, onOpen, view = null, gymName = '' }) {
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState(null);
   const hasTrainer = !!client.trainerName;
@@ -171,12 +197,24 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <Initial name={client.name} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>{client.name}</div>
+          <button
+            type="button"
+            onClick={() => onOpen && onOpen(client)}
+            aria-label={`Open ${client.name}’s profile`}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}
+          >
+            {client.name} <span aria-hidden="true" style={{ color: 'var(--accent-text)' }}>›</span>
+          </button>
           <div style={{ ...muted, color: client.workouts7d > 0 ? 'var(--accent-text)' : 'var(--text-muted)' }}>
             {daysAgoLabel(client.lastWorkout)}{client.workouts7d > 0 ? ` · ${client.workouts7d} this week` : ''}
           </div>
         </div>
+        {client.engagement && <StatusChip status={client.engagement.status} />}
       </div>
+
+      {(view === RISK || view === NUDGE) && client.engagement && (
+        <div style={{ ...muted, lineHeight: 1.4, color: 'var(--text-main)' }}>{statusReason(client)}</div>
+      )}
 
       {view === WORKOUTS && (client.recentDays || []).length > 0 && (
         <div aria-label={`Days ${client.name} trained this week`} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -192,15 +230,12 @@ function ClientCard({ client, trainers, locked, busy, message, onAssign, onUnass
         </div>
       )}
 
-      {view === NUDGE && (
+      {(view === NUDGE || view === RISK) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {toWhatsappNumber(client.phone) ? (
             <button
               type="button"
-              onClick={() => openWhatsapp(
-                toWhatsappNumber(client.phone),
-                buildNudgeMessage(`Hi {name}, we haven’t seen you at ${gymName || 'the gym'} in a while. Everything okay? Your next workout is ready in the app.`, { userName: client.name })
-              )}
+              onClick={() => messageMember(client, gymName)}
               style={{ ...smallButton, color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.08)' }}
             >
               Message on WhatsApp
@@ -309,7 +344,9 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [tab, setTab] = useState('trainers');
+  const [tab, setTab] = useState('overview');
+  const [profileClient, setProfileClient] = useState(null);
+  const [profileTrainer, setProfileTrainer] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [trainerFilter, setTrainerFilter] = useState('');
   const [savingId, setSavingId] = useState(null);
@@ -348,6 +385,8 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
       if (trainerFilter === SELF_GUIDED) return !c.trainerName && c.selfGuided;
       if (trainerFilter === ACTIVE || trainerFilter === WORKOUTS) return c.workouts7d > 0;
       if (trainerFilter === NUDGE) return needsNudge(c);
+      if (trainerFilter === RISK) return AT_RISK.includes(c.engagement?.status);
+      if (trainerFilter.startsWith(STATUS_PREFIX)) return c.engagement?.status === trainerFilter.slice(STATUS_PREFIX.length);
       return c.coachId === trainerFilter;
     })
     .filter((c) => matchesSearch(searchQuery, [c.name, c.email, c.trainerName]))
@@ -356,6 +395,11 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
       // members lead it).
       if (trainerFilter === ACTIVE || trainerFilter === WORKOUTS) {
         return (b.workouts7d - a.workouts7d) || a.name.localeCompare(b.name);
+      }
+      if (trainerFilter === RISK) {
+        const ra = RISK_ORDER[a.engagement?.status] ?? 9;
+        const rb = RISK_ORDER[b.engagement?.status] ?? 9;
+        return (ra - rb) || ((b.engagement?.prior28 || 0) - (a.engagement?.prior28 || 0)) || a.name.localeCompare(b.name);
       }
       if (trainerFilter === NUDGE) {
         const da = a.lastWorkout || '';
@@ -392,6 +436,112 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
   const unassignedCount = clients.filter(isWaiting).length;
   const selfGuidedCount = clients.filter((c) => !c.trainerName && c.selfGuided).length;
   const showClients = (filter) => { setTab('clients'); setTrainerFilter(filter); setSearchQuery(''); };
+  const handleManage = (client) => {
+    setProfileClient(null);
+    setTab('clients');
+    setTrainerFilter('');
+    setSearchQuery(client.name);
+  };
+  const insights = data.insights || null;
+  const atRiskMembers = clients
+    .filter((c) => AT_RISK.includes(c.engagement?.status))
+    .sort((a, b) => (RISK_ORDER[a.engagement.status] - RISK_ORDER[b.engagement.status]) || (b.engagement.prior28 - a.engagement.prior28) || a.name.localeCompare(b.name));
+  const topMembers = [...clients].filter((c) => c.workouts30d > 0).sort((a, b) => b.workouts30d - a.workouts30d || a.name.localeCompare(b.name)).slice(0, 3);
+  const weeklyWorkouts = insights ? insights.weekly.map((w) => w.workouts) : [];
+  const thisWeek = weeklyWorkouts[weeklyWorkouts.length - 1] ?? 0;
+  const lastWeek = weeklyWorkouts[weeklyWorkouts.length - 2] ?? 0;
+  const trendText = thisWeek === lastWeek
+    ? `${thisWeek} this week · same as last week`
+    : `${thisWeek} this week · ${thisWeek > lastWeek ? 'up' : 'down'} ${Math.abs(thisWeek - lastWeek)} from last week`;
+
+  const overview = !insights ? (
+    <div style={{ ...card, ...muted }}>Insights will appear here once your members start training.</div>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={card}>
+        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Workouts per week</div>
+        <div style={{ ...muted, marginBottom: '10px' }}>{trendText}</div>
+        <WeeklyBars
+          values={weeklyWorkouts}
+          labels={weekLabels(insights.today, weeklyWorkouts.length)}
+          secondary={insights.weekly.map((w) => w.members)}
+          unit="workout days"
+          title="Gym workout days per week"
+        />
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Member health</div>
+        <div style={{ ...muted, marginBottom: '10px' }}>Where each member is right now, from how often they trained lately. Tap a group to see them.</div>
+        <HealthBar health={insights.health} onSelect={(k) => showClients(`${STATUS_PREFIX}${k}`)} />
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Members to watch</div>
+        <div style={{ ...muted, marginBottom: '6px' }}>The members most likely to leave, with why.</div>
+        {atRiskMembers.length === 0 ? (
+          <div style={{ fontSize: '0.84rem', color: 'var(--text-main)', padding: '6px 0' }}>Nobody is slipping right now. 🎉</div>
+        ) : (
+          <>
+            {atRiskMembers.slice(0, 5).map((c, i) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderTop: i ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}>
+                <Initial name={c.name} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <button type="button" onClick={() => setProfileClient(c)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', textAlign: 'left' }}>
+                    {c.name} <span aria-hidden="true" style={{ color: 'var(--accent-text)' }}>›</span>
+                  </button>
+                  <div style={{ ...muted, lineHeight: 1.35 }}>{statusReason(c)}</div>
+                  <div style={{ marginTop: 5, display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <StatusChip status={c.engagement.status} />
+                    {toWhatsappNumber(c.phone) && (
+                      <button type="button" onClick={() => messageMember(c, gym.name)} style={{ ...smallButton, padding: '3px 10px', fontSize: '0.72rem', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)' }}>
+                        Message
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button type="button" onClick={() => showClients(RISK)} style={{ ...smallButton, marginTop: '8px' }}>
+              See all {atRiskMembers.length} ›
+            </button>
+          </>
+        )}
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Busiest times</div>
+        <div style={{ ...muted, marginBottom: '10px' }}>When members log workouts (India time), over the last 8 weeks.</div>
+        {insights.peak.total < 5 ? (
+          <div style={muted}>Not enough workouts yet — this fills in as members train.</div>
+        ) : (
+          <PeakGrid grid={insights.peak.grid} />
+        )}
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Most consistent this month</div>
+        <div style={{ ...muted, marginBottom: '6px' }}>Workout days in the last 30 days.</div>
+        {topMembers.length === 0 ? (
+          <div style={muted}>No workouts in the last 30 days.</div>
+        ) : topMembers.map((c, i) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => setProfileClient(c)}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', background: 'none', border: 'none', borderTop: i ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none', padding: '9px 0', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', color: 'inherit' }}
+          >
+            <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.74rem', fontWeight: 800, background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)' }}>{i + 1}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)' }}>{c.name}</span>
+              <span style={{ display: 'block', ...muted }}>{c.trainerName ? `Trainer: ${c.trainerName}` : 'No trainer'}</span>
+            </span>
+            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-main)' }}>{c.workouts30d} days</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const handleCopy = async () => {
     try {
@@ -496,6 +646,7 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
 
       <div role="tablist" aria-label="Gym view" style={{ display: 'flex', gap: '4px', padding: '4px', background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: '12px' }}>
         {[
+          { key: 'overview', label: 'Overview' },
           { key: 'trainers', label: `Trainers (${trainers.length})` },
           { key: 'clients', label: `Clients (${clients.length})` }
         ].map((t) => (
@@ -517,35 +668,57 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
         ))}
       </div>
 
-      {tab === 'trainers' ? (
+      {tab === 'overview' ? (
+        overview
+      ) : tab === 'trainers' ? (
         trainers.length === 0 ? (
           <div className="trainer-empty-state"><h5>No trainers yet</h5><p>Share your gym code with your trainers.</p></div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {trainers.map((t) => {
-              const activity = getActivityStatus(t.lastLogin);
+            <div style={{ ...muted, margin: '0 2px' }}>Ordered by how many of each trainer’s clients are still training. Tap a trainer for their full picture.</div>
+            {[...trainers].sort((a, b) => ((b.stats?.activePct ?? -1) - (a.stats?.activePct ?? -1)) || a.name.localeCompare(b.name)).map((t) => {
+              const st = t.stats || {};
               return (
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => { setTrainerFilter(t.id); setSearchQuery(''); setTab('clients'); }}
-                  style={{ ...card, display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', width: '100%' }}
-                  title={`Show ${t.name}'s clients`}
+                  onClick={() => setProfileTrainer(t)}
+                  style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', width: '100%' }}
+                  title={`Open ${t.name}’s profile`}
                 >
-                  <Initial name={t.name} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {t.name}
-                      {t.isOwner && <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--tint-violet)', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '4px', padding: '1px 5px' }}>You</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                    <Initial name={t.name} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {t.name}
+                        {t.isOwner && <span style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--tint-violet)', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '4px', padding: '1px 5px' }}>You</span>}
+                      </div>
+                      <div style={{ ...muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.email}</div>
                     </div>
-                    <div style={{ ...muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.email}</div>
-                    <div style={{ ...muted, marginTop: 3 }}>
-                      👥 {t.clientCount} client{t.clientCount === 1 ? '' : 's'} · {t.activeClients7d} active this week
+                    <span aria-hidden="true" style={{ color: 'var(--text-muted)' }}>›</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                    <div style={{ flex: '0 0 22%' }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>{t.clientCount}</div>
+                      <div style={muted}>client{t.clientCount === 1 ? '' : 's'}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>{st.activePct === null || st.activePct === undefined ? '–' : `${st.activePct}%`}</div>
+                      <div style={muted}>still training</div>
+                      <div aria-hidden="true" style={{ height: 4, borderRadius: 2, background: 'rgba(var(--fg-rgb), 0.08)', marginTop: 5 }}>
+                        <div style={{ width: `${st.activePct || 0}%`, height: '100%', borderRadius: 2, background: 'rgb(var(--accent-rgb))' }} />
+                      </div>
+                    </div>
+                    <div style={{ flex: '0 0 26%' }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>{st.perClientWeek ?? '–'}</div>
+                      <div style={muted}>workouts / client / week</div>
                     </div>
                   </div>
-                  <span style={{ background: activity.bg, border: `1px solid ${activity.border}`, color: activity.color, padding: '2px 6px', borderRadius: '4px', fontSize: '0.62rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    ⏱ {activity.label}
-                  </span>
+                  {st.atRisk > 0 && (
+                    <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f59e0b' }}>
+                      {st.atRisk} client{st.atRisk === 1 ? '' : 's'} slipping or gone quiet
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -567,19 +740,23 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
               <option value={ACTIVE}>Trained this week ({activeThisWeek})</option>
               <option value={WORKOUTS}>Workouts this week ({workoutsThisWeek})</option>
               <option value={NUDGE}>Not trained in 2 weeks ({nudgeCount})</option>
+              <option value={RISK}>Members to watch ({atRiskMembers.length})</option>
+              {trainerFilter.startsWith(STATUS_PREFIX) && viewInfo(trainerFilter) && (
+                <option value={trainerFilter}>{viewInfo(trainerFilter).title}</option>
+              )}
               {trainers.map((t) => <option key={t.id} value={t.id}>{t.isOwner ? 'Your clients' : `${t.name}’s clients`}</option>)}
               {unassignedCount > 0 && <option value={UNASSIGNED}>Waiting for a trainer ({unassignedCount})</option>}
               {selfGuidedCount > 0 && <option value={SELF_GUIDED}>Train on their own ({selfGuidedCount})</option>}
             </select>
           </div>
 
-          {VIEW_INFO[trainerFilter] && (
+          {viewInfo(trainerFilter) && (
             <div style={{ ...card, padding: '10px 14px', background: 'rgba(var(--accent-rgb), 0.06)', borderColor: 'rgba(var(--accent-rgb), 0.2)' }}>
               <div style={{ fontSize: '0.84rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                {VIEW_INFO[trainerFilter].title}
+                {viewInfo(trainerFilter).title}
                 {trainerFilter === WORKOUTS && ` · ${workoutsThisWeek} workout${workoutsThisWeek === 1 ? '' : 's'} by ${activeThisWeek} member${activeThisWeek === 1 ? '' : 's'}`}
               </div>
-              <div style={{ ...muted, marginTop: 2, lineHeight: 1.4 }}>{VIEW_INFO[trainerFilter].text}</div>
+              <div style={{ ...muted, marginTop: 2, lineHeight: 1.4 }}>{viewInfo(trainerFilter).text}</div>
             </div>
           )}
 
@@ -606,7 +783,8 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
             <ClientCard
               key={c.id}
               client={c}
-              view={trainerFilter === WORKOUTS || trainerFilter === NUDGE ? trainerFilter : null}
+              view={trainerFilter === WORKOUTS || trainerFilter === NUDGE || trainerFilter === RISK ? trainerFilter : null}
+              onOpen={setProfileClient}
               gymName={gym.name}
               trainers={trainers}
               locked={gym.status !== 'active'}
@@ -641,6 +819,27 @@ export default function OwnerGymDashboard({ service = databaseService, coachingO
             style={{ width: 20, height: 20, accentColor: 'var(--primary-accent, #4364bd)', cursor: 'inherit' }}
           />
         </label>
+      )}
+
+      {profileClient && (
+        <MemberProfile
+          client={profileClient}
+          gymName={gym.name}
+          today={insights?.today}
+          service={service}
+          onClose={() => setProfileClient(null)}
+          onManage={handleManage}
+        />
+      )}
+      {profileTrainer && (
+        <TrainerProfile
+          trainer={profileTrainer}
+          clients={clients}
+          today={insights?.today}
+          onClose={() => setProfileTrainer(null)}
+          onOpenMember={(c) => { setProfileTrainer(null); setProfileClient(c); }}
+          onShowClients={(t) => { setProfileTrainer(null); showClients(t.id); }}
+        />
       )}
     </div>
   );

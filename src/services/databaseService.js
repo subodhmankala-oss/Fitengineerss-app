@@ -3290,7 +3290,7 @@ const databaseService = {
       if (!res.ok || !data || !('gym' in data)) {
         return { success: false, error: (data && data.error) || 'Could not load your gym.' };
       }
-      return { success: true, gym: data.gym, trainers: data.trainers || [], clients: data.clients || [] };
+      return { success: true, gym: data.gym, trainers: data.trainers || [], clients: data.clients || [], insights: data.insights || null };
     } catch (e) {
       console.error('[getOwnerGym] error:', e);
       return { success: false, error: e.message || 'Could not load your gym.' };
@@ -3350,6 +3350,26 @@ const databaseService = {
     } catch (e) {
       console.error('[ownerUnassignClient] error:', e);
       return { success: false, error: e.message || 'Could not remove the trainer.' };
+    }
+  },
+
+  // One member's profile (activity + coaching history) for the gym owner.
+  async getOwnerMember(clientId) {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=owner-member', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, clientId })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.member) {
+        return { success: false, error: (data && data.error) || 'Could not load that member.' };
+      }
+      return { success: true, ...data };
+    } catch (e) {
+      console.error('[getOwnerMember] error:', e);
+      return { success: false, error: e.message || 'Could not load that member.' };
     }
   },
 

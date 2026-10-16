@@ -11,25 +11,50 @@ const payload = () => ({
   success: true,
   gym: { id: 'g1', name: 'Test Gym', joinCode: 'GYM-QFAP', status: 'active' },
   trainers: [
-    { id: OWNER, name: 'Test Gym Owner', email: 'owner@x.com', isOwner: true, lastLogin: null, clientCount: 1, activeClients7d: 1 },
-    { id: T2, name: 'Asha Trainer', email: 'asha@x.com', isOwner: false, lastLogin: null, clientCount: 1, activeClients7d: 0 }
+    { id: OWNER, name: 'Test Gym Owner', email: 'owner@x.com', isOwner: true, lastLogin: null, clientCount: 1, activeClients7d: 1,
+      stats: { active14: 1, activePct: 100, perClientWeek: 2.5, atRisk: 0, workouts7d: 2, weekly: [0, 0, 0, 0, 1, 2, 3, 2] } },
+    { id: T2, name: 'Asha Trainer', email: 'asha@x.com', isOwner: false, lastLogin: null, clientCount: 1, activeClients7d: 0,
+      stats: { active14: 0, activePct: 0, perClientWeek: 0.5, atRisk: 1, workouts7d: 0, weekly: [2, 3, 2, 1, 0, 0, 0, 0] } }
   ],
   clients: [
-    { id: 'c1', name: 'Ravi', email: 'ravi@x.com', coachId: OWNER, trainerName: 'Test Gym Owner', lastWorkout: null, workouts7d: 2, workouts30d: 5 },
-    { id: 'c2', name: 'Meena', email: 'meena@x.com', coachId: T2, trainerName: 'Asha Trainer', lastWorkout: null, workouts7d: 0, workouts30d: 0 },
-    { id: 'c3', name: 'Kiran', email: 'kiran@x.com', coachId: null, trainerName: null, lastWorkout: null, workouts7d: 0, workouts30d: 0 }
-  ]
+    { id: 'c1', name: 'Ravi', email: 'ravi@x.com', coachId: OWNER, trainerName: 'Test Gym Owner', lastWorkout: null, workouts7d: 2, workouts30d: 5,
+      engagement: { status: 'thriving', recent14: 5, prior28: 8 } },
+    { id: 'c2', name: 'Meena', email: 'meena@x.com', coachId: T2, trainerName: 'Asha Trainer', lastWorkout: null, workouts7d: 0, workouts30d: 0,
+      engagement: { status: 'slipping', recent14: 1, prior28: 9 } },
+    { id: 'c3', name: 'Kiran', email: 'kiran@x.com', coachId: null, trainerName: null, lastWorkout: null, workouts7d: 0, workouts30d: 0,
+      engagement: { status: 'inactive', recent14: 0, prior28: 0 } }
+  ],
+  insights: {
+    today: '2026-10-14',
+    weekly: [0, 0, 1, 3, 4, 6, 5, 7].map((workouts) => ({ workouts, members: Math.min(3, workouts) })),
+    peak: {
+      total: 12,
+      grid: Array.from({ length: 7 }, (_, d) => Array.from({ length: 24 }, (_, h) => (d === 2 && h >= 17 && h < 20 ? 4 : 0)))
+    },
+    health: { thriving: 1, steady: 0, slipping: 1, quiet: 0, inactive: 1, new: 0 }
+  }
 });
 
 const makeService = (result = payload()) => ({
   getOwnerGym: vi.fn(async () => result),
   ownerAssignClient: vi.fn(async () => ({ success: true, changed: true })),
-  ownerUnassignClient: vi.fn(async () => ({ success: true, changed: true }))
+  ownerUnassignClient: vi.fn(async () => ({ success: true, changed: true })),
+  getOwnerMember: vi.fn(async (id) => ({
+    success: true,
+    member: { id, name: 'Meena', email: 'meena@x.com', goal: 'Fat loss', program: 'Gym Beginner', programStartedOn: '2026-09-02', totalSessions: 24, joinedAt: '2026-08-20T00:00:00Z', lastLogin: null },
+    stats: { workouts30d: 9, workouts90d: 20, perWeek: 1.6, lastWorkout: '2026-10-10', weeks: [0, 0, 1, 2, 2, 3, 4, 3, 2, 1, 1, 1] },
+    sessions: [{ date: '2026-10-10', plan: 'Upper A', exercises: 5, sets: 15, volumeKg: 3200 }],
+    history: [
+      { trainerName: 'Asha Trainer', startedAt: '2026-10-01T00:00:00Z', endedAt: null, how: 'Assigned by the gym owner' },
+      { trainerName: 'You', startedAt: '2026-09-01T00:00:00Z', endedAt: '2026-10-01T00:00:00Z', how: 'Joined with their invite code' }
+    ]
+  }))
 });
 
 // The card holding this client's name (name → info column → top row → card).
 const cardOf = (name) => screen.getByText(name).parentElement.parentElement.parentElement;
 const openClients = async () => fireEvent.click(await screen.findByText('Clients (3)'));
+const openTrainers = async () => fireEvent.click(await screen.findByText(/^Trainers \(\d+\)$/));
 
 describe('OwnerGymDashboard', () => {
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -48,19 +73,37 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getAllByText('See who ›')).toHaveLength(3);
   });
 
-  it('lists trainers with client counts and marks the owner', async () => {
+  it('scores each trainer: clients, % still training, workouts per client per week', async () => {
     render(<OwnerGymDashboard service={makeService()} />);
-    expect(await screen.findByText('Asha Trainer')).toBeTruthy();
-    expect(screen.getByText('You')).toBeTruthy();
-    expect(screen.getByText('👥 1 client · 0 active this week')).toBeTruthy();
+    await openTrainers();
+    expect(screen.getByText('Ordered by how many of each trainer’s clients are still training. Tap a trainer for their full picture.')).toBeTruthy();
+    const asha = screen.getByTitle('Open Asha Trainer’s profile');
+    expect(within(asha).getByText('0%')).toBeTruthy();
+    expect(within(asha).getByText('1 client slipping or gone quiet')).toBeTruthy();
+    const owner = screen.getByTitle('Open Test Gym Owner’s profile');
+    expect(within(owner).getByText('100%')).toBeTruthy();
+    expect(within(owner).getByText('2.5')).toBeTruthy();
+    expect(within(owner).getByText('You')).toBeTruthy();
+    // best-performing trainer first
+    const order = screen.getAllByTitle(/^Open .* profile$/).map((b) => b.title);
+    expect(order).toEqual(['Open Test Gym Owner’s profile', 'Open Asha Trainer’s profile']);
   });
 
-  it("tapping a trainer shows that trainer's clients", async () => {
+  it('opens a trainer profile with their clients, weekly activity and a way to manage them', async () => {
     render(<OwnerGymDashboard service={makeService()} />);
-    fireEvent.click(await screen.findByTitle("Show Asha Trainer's clients"));
+    await openTrainers();
+    fireEvent.click(screen.getByTitle('Open Asha Trainer’s profile'));
+    const dialog = screen.getByRole('dialog', { name: 'Trainer' });
+    expect(within(dialog).getByText('Asha Trainer')).toBeTruthy();
+    expect(within(dialog).getByText('Their clients’ activity')).toBeTruthy();
+    expect(within(dialog).getByText('Meena')).toBeTruthy();
+    expect(within(dialog).getByText('Slipping')).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Manage these clients' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByLabelText('Filter by trainer').value).toBe(T2);
     expect(screen.getByText('Meena')).toBeTruthy();
     expect(screen.queryByText('Ravi')).toBeNull();
-    expect(screen.getByLabelText('Filter by trainer').value).toBe(T2);
   });
 
   it('shows each client’s status clearly: their trainer, or waiting', async () => {
@@ -134,7 +177,7 @@ describe('OwnerGymDashboard', () => {
     render(<OwnerGymDashboard service={makeService()} />);
     await openClients();
     const options = within(screen.getByLabelText('Filter by trainer')).getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['All clients', 'Trained this week (1)', 'Workouts this week (2)', 'Not trained in 2 weeks (3)', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
+    expect(options).toEqual(['All clients', 'Trained this week (1)', 'Workouts this week (2)', 'Not trained in 2 weeks (3)', 'Members to watch (2)', 'Your clients', 'Asha Trainer’s clients', 'Waiting for a trainer (1)']);
     fireEvent.change(screen.getByLabelText('Filter by trainer'), { target: { value: '__unassigned__' } });
     expect(screen.getByText('Kiran')).toBeTruthy();
     expect(screen.queryByText('Ravi')).toBeNull();
@@ -256,7 +299,7 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByText('Who trained in the last 7 days, and on which days.')).toBeTruthy();
     // Meena (3) listed before Ravi (2); Kiran (0) not listed
     const names = screen.getAllByText(/^(Ravi|Meena|Kiran)$/).map((n) => n.textContent);
-    expect(names).toEqual(['Meena', 'Ravi']);
+    expect(names).toEqual(['Meena ›', 'Ravi ›']);
     expect(within(screen.getByLabelText('Days Meena trained this week')).getAllByText(/\d/)).toHaveLength(3);
     expect(within(screen.getByLabelText('Days Ravi trained this week')).getByText(/15 Oct/)).toBeTruthy();
   });
@@ -286,6 +329,79 @@ describe('OwnerGymDashboard', () => {
     expect(screen.getByText('Everyone’s been training 🎉')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Filter by trainer'), { target: { value: '__workouts__' } });
     expect(screen.getByText('No workouts yet this week')).toBeTruthy();
+  });
+
+  it('Overview shows the trend, member health, who to watch with why, busiest times and top members', async () => {
+    render(<OwnerGymDashboard service={makeService()} />);
+    expect(await screen.findByText('Workouts per week')).toBeTruthy();
+    expect(screen.getByText('7 this week · up 2 from last week')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Week|workout days/ }).length).toBeGreaterThanOrEqual(8);
+
+    // Member health legend, each with its text label
+    expect(screen.getByText('Member health')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /1 Slipping/ })).toBeTruthy();
+
+    // Members to watch: both at-risk members, slipping first, with the numbers behind it
+    expect(screen.getByText('9 workouts in the 4 weeks before, 1 in the last 2 weeks.')).toBeTruthy();
+    expect(screen.getByText('No workouts logged yet.')).toBeTruthy();
+
+    // Busiest times
+    expect(screen.getByText('Busiest time: Evening (5–8 pm) · Busiest day: Wednesday')).toBeTruthy();
+
+    // Top members: only those with workouts in 30 days
+    expect(screen.getByText('Most consistent this month')).toBeTruthy();
+    expect(screen.getByText('5 days')).toBeTruthy();
+  });
+
+  it('tapping a health group lists those members', async () => {
+    render(<OwnerGymDashboard service={makeService()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /1 Slipping/ }));
+    expect(screen.getByLabelText('Filter by trainer').value).toBe('status:slipping');
+    expect(screen.getByText('Trained often before, but under half as often in the last 2 weeks.')).toBeTruthy();
+    expect(screen.getByText('Meena')).toBeTruthy();
+    expect(screen.queryByText('Ravi')).toBeNull();
+  });
+
+  it('"See all" under Members to watch opens the risk list with reasons', async () => {
+    render(<OwnerGymDashboard service={makeService()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /See all 2/ }));
+    expect(screen.getByLabelText('Filter by trainer').value).toBe('__risk__');
+    // slipping before never-started
+    const names = screen.getAllByText(/^(Meena|Kiran)$/).map((n) => n.textContent);
+    expect(names).toEqual(['Meena ›', 'Kiran ›']);
+  });
+
+  it('opens a member profile: activity, sessions, about and coaching history', async () => {
+    const service = makeService();
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Meena’s profile' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Member' });
+    await waitFor(() => expect(service.getOwnerMember).toHaveBeenCalledWith('c2'));
+
+    expect(await within(dialog).findByText('Recent sessions')).toBeTruthy();
+    expect(within(dialog).getByText('Upper A')).toBeTruthy();
+    expect(within(dialog).getByText('5 exercises · 15 sets · 3,200 kg lifted')).toBeTruthy();
+    expect(within(dialog).getByText('Fat loss')).toBeTruthy();
+    expect(within(dialog).getByText('Gym Beginner · started 2 Sep')).toBeTruthy();
+    expect(within(dialog).getByText('9')).toBeTruthy(); // workouts in 30 days
+    // who coached them, and how they came to be with them
+    expect(within(dialog).getByText(/Assigned by the gym owner/)).toBeTruthy();
+    expect(within(dialog).getByText(/Joined with their invite code/)).toBeTruthy();
+    expect(within(dialog).getByText('Current')).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change trainer' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('Meena')).toBeTruthy(); // clients tab, searched by name
+  });
+
+  it('a member profile that cannot load says so', async () => {
+    const service = makeService();
+    service.getOwnerMember.mockResolvedValue({ success: false, error: 'That member isn’t in your gym.' });
+    render(<OwnerGymDashboard service={service} />);
+    await openClients();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Ravi’s profile' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('That member isn’t in your gym.');
   });
 
   it('never shows private notes or photos', async () => {

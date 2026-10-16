@@ -3,6 +3,7 @@ import Onboarding from './components/Onboarding';
 import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
 import SexRequiredPrompt from './components/SexRequiredPrompt';
+import PhoneRequiredPrompt from './components/PhoneRequiredPrompt';
 // Lazy-loaded: each of these is only ever needed for ONE role/route at a
 // time (a client never runs TrainerDashboard's code, a returning user never
 // runs ClientOnboardingWizard's, etc.), but a plain static import ships all
@@ -1925,6 +1926,8 @@ function App() {
         </Suspense>
         {renderResetPasswordModal()}
         {!isAdmin && <CoachTourOverlay />}
+        {/* Coaches who signed up before phone was required must add one. */}
+        {!isAdmin && <PhoneRequiredPrompt role="coach" />}
       </div>
     );
   }
@@ -1934,6 +1937,8 @@ function App() {
       <TourOverlay />
       {/* Clients who onboarded before sex was asked must pick one first. */}
       <SexRequiredPrompt />
+      {/* Same for clients who onboarded before phone was required. */}
+      <PhoneRequiredPrompt role="client" />
 
       <main className="main-content">
         <Suspense fallback={<LazyScreenFallback />}>{renderContent()}</Suspense>

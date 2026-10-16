@@ -2590,6 +2590,23 @@ const databaseService = {
     localStorage.setItem('userSex', sex);
   },
 
+  // PhoneRequiredPrompt: the user's own phone, for accounts that signed up
+  // before phone was required. A client's number lives on clients.phone_number,
+  // a coach's on users.phone (same split getUserProfileByEmail reads from).
+  async saveOwnPhone(phone, role) {
+    const clean = (phone || '').trim();
+    if (!/^\+91\d{10}$/.test(clean)) throw new Error('Please enter a valid 10-digit phone number.');
+    if (isSupabaseConfigured && supabase) {
+      const userId = await resolveCanonicalUserId();
+      if (!userId) throw new Error('Cannot resolve your account — please log in again.');
+      const row = role === 'coach'
+        ? await restUpdate(`users?id=eq.${userId}`, { phone: clean })
+        : await restUpdate(`clients?user_id=eq.${userId}`, { phone_number: clean });
+      if (!row) throw new Error('Could not find your profile — please try again.');
+    }
+    localStorage.setItem('userPhone', clean);
+  },
+
   // ─── CLIENT ONBOARDING WIZARD ───
   async saveClientOnboardingData({ age, sex, weight_kg, height_cm, program, secondary_program, activity_level, primary_concern, full_name, phone }) {
     const userId = localStorage.getItem('userId');

@@ -6056,7 +6056,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           borderRadius: '8px', color: 'var(--accent-text)', cursor: 'pointer', padding: 0
                         }}
                       >
-                        <PencilIcon size={14} />
+                        <PencilIcon size={16} />
                       </button>
                       <button
                         type="button"

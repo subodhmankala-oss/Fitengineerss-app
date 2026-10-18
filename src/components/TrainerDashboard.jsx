@@ -1164,8 +1164,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const W = 560, pad = 36, headerH = 170, logoBox = 90;
     const rows = [
       ['Received from', clientName],
-      ['From', fmtReceiptDate(paidAt)],
-      ['Valid through', fmtReceiptDate(receiptValidThrough(paidAt))],
+      ['Date', new Date(paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })],
       ['Payment method', PAYMENT_METHOD_LABELS[method] || method],
       ['Receipt no.', receiptNo]
     ];

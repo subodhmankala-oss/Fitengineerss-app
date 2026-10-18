@@ -116,13 +116,13 @@ describe('api/data-read coach-gym', () => {
 
   it("returns the caller's gym and how many of their clients are outside it", async () => {
     const res = await call('coach-token');
-    expect(res.body).toEqual({ gym: { name: 'Test Gym', status: 'active', code: 'GYM-QFAP', isOwner: false }, clientsOutsideGym: 2, selfGuided: false });
+    expect(res.body).toEqual({ gym: { name: 'Test Gym', status: 'active', code: 'GYM-QFAP', isOwner: false }, clientsOutsideGym: 2, selfGuided: false, week: { daysIn: 0, today: null, memberWorkouts: 0, highFives: 0 }, highFivedToday: null });
   });
 
   it('gym: null when not in a gym', async () => {
     gymIdOfCaller = null;
     const res = await call('coach-token');
-    expect(res.body).toEqual({ gym: null, clientsOutsideGym: 2, selfGuided: false });
+    expect(res.body).toEqual({ gym: null, clientsOutsideGym: 2, selfGuided: false, week: null, highFivedToday: null });
   });
 
   it('reports a client the gym marked "trains on their own"', async () => {

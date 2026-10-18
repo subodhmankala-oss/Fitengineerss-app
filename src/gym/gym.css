@@ -339,3 +339,11 @@
   .gx-invite, .gx-invite-ways { grid-template-columns: 1fr; }
   .gx-code-mini { flex-shrink: 0; }
 }
+
+/* trainer days */
+.gx-today-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; background: #f5f7fc; }
+.gx-today-row .gx-actions { margin-left: auto; }
+.gx-today-row .gx-sub { margin: 0; }
+.gx-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9d0e4; flex-shrink: 0; }
+.gx-dot.in { background: var(--green); }
+.gx-dot.off { background: var(--amber); }

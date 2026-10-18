@@ -118,10 +118,18 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   const [gymSelfGuided, setGymSelfGuided] = useState(() => {
     try { return localStorage.getItem('clientGymSelfGuided') === 'true'; } catch { return false; }
   });
+  // null = not available (no gym trainer, or the feature isn't set up).
+  const [highFived, setHighFived] = useState(null);
+  const sendHighFive = async () => {
+    setHighFived(true);
+    const r = await databaseService.gymHighFive();
+    if (!r.success) setHighFived(false);
+  };
   useEffect(() => {
     let cancelled = false;
     databaseService.getMyGym().then((r) => {
       if (cancelled || !r.success) return;
+      setHighFived(r.highFivedToday ?? null);
       const name = r.gym?.name || '';
       setGymName(name);
       setGymSelfGuided(!!r.selfGuided);
@@ -954,6 +962,15 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           </button>
         </div>
       </div>
+
+      {gymName && isLinkedToCoach && highFived !== null && (
+        <button type="button" onClick={sendHighFive} disabled={highFived}
+          style={{ margin: '0 16px 10px', padding: '9px 14px', borderRadius: 12, fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700,
+            cursor: highFived ? 'default' : 'pointer', border: '1px solid rgba(var(--accent-rgb), 0.3)',
+            background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--primary-accent-light)' }}>
+          {highFived ? `Sent — ${coachName || 'your trainer'} will love it` : `High-five ${coachName || 'your trainer'}`}
+        </button>
+      )}
 
       {/* One-time welcome card for a brand-new client — shown in-app instead
           of as a push (a push can be missed/denied/arrive before they've

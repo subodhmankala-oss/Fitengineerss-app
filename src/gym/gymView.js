@@ -178,3 +178,16 @@ export function payday(biz, clients, trainers, month, sharePct) {
     return { trainerId: t.id, name: t.name, fees: f, payout, paid: !!paidRows[t.id], paidAmount: paidRows[t.id]?.amount_inr ?? null };
   });
 }
+
+// ─── Trainer days in + high-fives (this month) ───
+// today: 'in' | 'off' | null. daysIn counts this month's days marked in.
+export function trainerDays(biz, trainerId, today) {
+  const mine = (biz?.trainerDays || []).filter((d) => d.trainer_id === trainerId);
+  const row = mine.find((d) => String(d.day).slice(0, 10) === today);
+  return {
+    today: row?.status || null,
+    daysIn: mine.filter((d) => d.status === 'in').length,
+    daysOff: mine.filter((d) => d.status === 'off').length,
+    highFives: (biz?.highFives || []).filter((h) => h.trainer_id === trainerId).length
+  };
+}

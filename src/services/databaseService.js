@@ -3314,7 +3314,7 @@ const databaseService = {
       if (!res.ok || !data || !('gym' in data)) {
         return { success: false, error: (data && data.error) || 'Could not load your gym.' };
       }
-      return { success: true, gym: data.gym, clientsOutsideGym: data.clientsOutsideGym || 0, selfGuided: !!data.selfGuided };
+      return { success: true, gym: data.gym, clientsOutsideGym: data.clientsOutsideGym || 0, selfGuided: !!data.selfGuided, week: data.week || null, highFivedToday: data.highFivedToday ?? null };
     } catch (e) {
       console.error('[getCoachGym] error:', e);
       return { success: false, error: e.message || 'Could not load your gym.' };
@@ -3412,6 +3412,10 @@ const databaseService = {
   gymLead(body) { return this.gymBusinessWrite('gym-lead', body); },
   gymCheckin(memberId, out) { return this.gymBusinessWrite('gym-checkin', { memberId, out: !!out }); },
   gymPayout(body) { return this.gymBusinessWrite('gym-payout', body); },
+  gymTrainerTouch() { return this.gymBusinessWrite('gym-trainer-touch', {}); },
+  gymTrainerToday(off) { return this.gymBusinessWrite('gym-trainer-today', { off: !!off }); },
+  gymOwnerMarkDay(trainerId, day, status) { return this.gymBusinessWrite('gym-owner-mark-day', { trainerId, day, status }); },
+  gymHighFive() { return this.gymBusinessWrite('gym-high-five', {}); },
 
   async ownerAssignClient(clientUserId, coachUserId) {
     try {

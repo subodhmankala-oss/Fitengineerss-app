@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { initials, payday, rankTrainers, rupees } from './gymView';
+import { initials, payday, rankTrainers, rupees, trainerDays } from './gymView';
 import { WeeklyBars } from '../components/OwnerCharts';
 import GymInvite from './GymInvite';
 
@@ -18,6 +18,16 @@ export default function GymTrainers({ data, biz, service, onChanged, onOpenMembe
   const rows = biz && biz.payouts && month ? payday(biz, data.clients, trainers.filter((t) => t.clientCount > 0 || t.isOwner === false), month, share) : null;
   const totalDue = rows ? rows.reduce((s, r) => s + r.payout, 0) : 0;
   const totalPaid = rows ? rows.filter((r) => r.paid).reduce((s, r) => s + (r.paidAmount ?? r.payout), 0) : 0;
+  const today = data.insights?.today;
+  const roster = trainers.filter((t) => t.clientCount > 0 || !t.isOwner);
+  const hasDays = !!biz && !!biz.trainerDays;
+  const [dayBusy, setDayBusy] = useState(null);
+  const markDay = async (trainerId, status) => {
+    setDayBusy(trainerId); setPayError('');
+    const res = await service.gymOwnerMarkDay(trainerId, today, status);
+    setDayBusy(null);
+    if (res.success) onChanged(); else setPayError(res.error);
+  };
   const [payBusy, setPayBusy] = useState(null);
   const [payError, setPayError] = useState('');
   const togglePaid = async (r) => {
@@ -33,6 +43,29 @@ export default function GymTrainers({ data, biz, service, onChanged, onOpenMembe
         <div><h1 className="gx-h1">Trainers</h1><p className="gx-sub">Who keeps members training · tap a trainer to see their week</p></div>
       </div>
       <GymInvite gym={data.gym} />
+      {hasDays && roster.length > 0 && (
+        <section className="gx-card">
+          <h2 className="gx-h2">Today</h2>
+          <p className="gx-sub">A trainer counts as in once they open the coach app. You can change anyone’s day.</p>
+          <div className="gx-list">
+            {roster.map((t) => {
+              const d = trainerDays(biz, t.id, today);
+              return (
+                <div key={t.id} className="gx-today-row">
+                  <span className={`gx-dot ${d.today === 'in' ? 'in' : d.today === 'off' ? 'off' : ''}`} aria-hidden="true" />
+                  <span className="gx-name">{t.name}</span>
+                  <span className="gx-sub">{d.today === 'in' ? 'In today' : d.today === 'off' ? 'Day off' : 'Not in yet'}</span>
+                  <span className="gx-actions">
+                    {d.today !== 'in' && <button type="button" className="gx-btn gx-btn-soft" disabled={dayBusy === t.id} onClick={() => markDay(t.id, 'in')}>Mark in</button>}
+                    {d.today !== 'off' && <button type="button" className="gx-btn gx-btn-soft" disabled={dayBusy === t.id} onClick={() => markDay(t.id, 'off')}>Day off</button>}
+                    {d.today && <button type="button" className="gx-link" disabled={dayBusy === t.id} onClick={() => markDay(t.id, null)}>Clear</button>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
       <div className="gx-grid-trainers">
         <section className="gx-card gx-dark">
           <h2 className="gx-h2 gx-light">Keeping members training</h2>
@@ -87,6 +120,7 @@ export default function GymTrainers({ data, biz, service, onChanged, onOpenMembe
             {rows.map((r) => (
               <div key={r.trainerId} className={`gx-payday${r.paid ? ' paid' : ''}`}>
                 <div className="gx-row"><b>{r.name}</b><span className="gx-sub">Fees {rupees(r.fees)}</span></div>
+                {hasDays && (() => { const d = trainerDays(biz, r.trainerId, today); return <p className="gx-sub">{d.daysIn} day{d.daysIn === 1 ? '' : 's'} in this month · {d.highFives} high-five{d.highFives === 1 ? '' : 's'}</p>; })()}
                 <div className="gx-big sm">{rupees(r.payout)}</div>
                 <button type="button" className={`gx-btn ${r.paid ? 'gx-btn-green' : 'gx-btn-dark'} gx-btn-full`} disabled={payBusy === r.trainerId || (!r.paid && r.payout === 0)} onClick={() => togglePaid(r)}>
                   {r.paid ? 'Paid — tap to undo' : r.payout === 0 ? 'No PT fees this month' : 'Mark as paid'}

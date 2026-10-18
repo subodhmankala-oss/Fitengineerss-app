@@ -119,3 +119,22 @@ describe('gymView leads, check-ins, payday', () => {
     expect(r[1]).toMatchObject({ fees: 0, payout: 0, paid: false });
   });
 });
+
+import { trainerDays } from './gymView';
+
+describe('trainerDays', () => {
+  const biz = {
+    trainerDays: [
+      { trainer_id: 't1', day: '2026-10-18', status: 'in' }, { trainer_id: 't1', day: '2026-10-17', status: 'in' },
+      { trainer_id: 't1', day: '2026-10-16', status: 'off' }, { trainer_id: 't2', day: '2026-10-18', status: 'off' }
+    ],
+    highFives: [{ trainer_id: 't1', day: '2026-10-18' }, { trainer_id: 't2', day: '2026-10-18' }]
+  };
+  it('summarises one trainer', () => {
+    expect(trainerDays(biz, 't1', '2026-10-18')).toEqual({ today: 'in', daysIn: 2, daysOff: 1, highFives: 1 });
+    expect(trainerDays(biz, 't2', '2026-10-18').today).toBe('off');
+  });
+  it('is empty when nothing is recorded', () => {
+    expect(trainerDays({}, 't1', '2026-10-18')).toEqual({ today: null, daysIn: 0, daysOff: 0, highFives: 0 });
+  });
+});

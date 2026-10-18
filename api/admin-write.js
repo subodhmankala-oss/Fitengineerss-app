@@ -514,6 +514,17 @@ const handleGymPayout = gymBusinessAction('gym_trainer_payout', 'gym-payout', (b
     : null
 ));
 
+// Trainer days in + member high-fives (sql/gym_trainer_days.sql). The
+// trainer / member is always the VERIFIED caller.
+const handleGymTrainerTouch = gymBusinessAction('gym_trainer_touch', 'gym-trainer-touch', (b, c) => ({ p_trainer_id: c.id }));
+const handleGymTrainerToday = gymBusinessAction('gym_trainer_set_today', 'gym-trainer-today', (b, c) => ({ p_trainer_id: c.id, p_off: b.off === true }));
+const handleGymOwnerMarkDay = gymBusinessAction('gym_owner_mark_day', 'gym-owner-mark-day', (b, c) => (
+  UUID_RE.test(String(b.trainerId || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.day || '')) && (b.status == null || ['in', 'off'].includes(b.status))
+    ? { p_owner_id: c.id, p_trainer_id: b.trainerId, p_day: b.day, p_status: b.status ?? null }
+    : null
+));
+const handleGymHighFive = gymBusinessAction('gym_high_five', 'gym-high-five', (b, c) => ({ p_member_id: c.id }));
+
 // A trainer joins / leaves a gym with its code (sql/gym_coach_join_leave.sql).
 // The trainer is the VERIFIED caller; the database functions do every check.
 async function handleCoachJoinGym(req, res) {
@@ -590,6 +601,10 @@ const ACTION_HANDLERS = {
   'gym-lead': handleGymLead,
   'gym-checkin': handleGymCheckin,
   'gym-payout': handleGymPayout,
+  'gym-trainer-touch': handleGymTrainerTouch,
+  'gym-trainer-today': handleGymTrainerToday,
+  'gym-owner-mark-day': handleGymOwnerMarkDay,
+  'gym-high-five': handleGymHighFive,
   'coach-join-gym': handleCoachJoinGym,
   'coach-leave-gym': handleCoachLeaveGym,
   'client-join-gym': handleClientJoinGym

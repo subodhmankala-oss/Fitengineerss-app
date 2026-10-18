@@ -457,7 +457,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const refreshMyGym = async () => applyMyGym(await databaseService.getCoachGym());
   useEffect(() => {
     let cancelled = false;
-    databaseService.getCoachGym().then((r) => { if (!cancelled && r.success) setMyGymName(r.gym?.name || null); });
+    databaseService.getCoachGym().then((r) => {
+      if (cancelled || !r.success) return;
+      setMyGymName(r.gym?.name || null);
+      // Gym trainers: opening the app counts today as a day in (no tap, no
+      // times — see sql/gym_trainer_days.sql). Once per device per day.
+      if (r.gym?.status === 'active') {
+        const day = new Date().toDateString();
+        try {
+          if (localStorage.getItem('gymDayTouched') === day) return;
+          localStorage.setItem('gymDayTouched', day);
+        } catch { /* storage blocked — the server ignores repeats anyway */ }
+        databaseService.gymTrainerTouch();
+      }
+    });
     return () => { cancelled = true; };
   }, []);
 

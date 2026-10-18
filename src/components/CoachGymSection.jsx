@@ -26,7 +26,7 @@ const primaryButton = {
 const hint = { fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45 };
 
 export default function CoachGymSection({ service = databaseService, onMembershipChange }) {
-  const [state, setState] = useState({ loading: true, gym: null, clientsOutsideGym: 0, error: '' });
+  const [state, setState] = useState({ loading: true, gym: null, clientsOutsideGym: 0, week: null, error: '' });
   const [code, setCode] = useState('');
   const [bringClients, setBringClients] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -36,8 +36,8 @@ export default function CoachGymSection({ service = databaseService, onMembershi
 
   const apply = useCallback((r) => {
     setState(r.success
-      ? { loading: false, gym: r.gym, clientsOutsideGym: r.clientsOutsideGym, error: '' }
-      : { loading: false, gym: null, clientsOutsideGym: 0, error: r.error });
+      ? { loading: false, gym: r.gym, clientsOutsideGym: r.clientsOutsideGym, week: r.week || null, error: '' }
+      : { loading: false, gym: null, clientsOutsideGym: 0, week: null, error: r.error });
   }, []);
 
   useEffect(() => {
@@ -81,6 +81,15 @@ export default function CoachGymSection({ service = databaseService, onMembershi
     onMembershipChange?.();
   };
 
+  const handleDayOff = async () => {
+    setBusy(true);
+    setActionError('');
+    const r = await service.gymTrainerToday(state.week.today !== 'off');
+    setBusy(false);
+    if (!r.success) { setActionError(r.error); return; }
+    await reload();
+  };
+
   const handleLeave = async () => {
     setBusy(true);
     setActionError('');
@@ -117,6 +126,29 @@ export default function CoachGymSection({ service = databaseService, onMembershi
                   : 'This gym is suspended right now.'}
             </div>
           </div>
+
+          {state.week && state.gym.status === 'active' && (
+            <>
+              <div className="cp-form-section-label">This week</div>
+              <div className="cp-form-card" style={{ padding: '16px' }}>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {[[state.week.daysIn, state.week.daysIn === 1 ? 'day in' : 'days in'], [state.week.memberWorkouts, 'member workouts'], [state.week.highFives, state.week.highFives === 1 ? 'high-five' : 'high-fives']].map(([n, label]) => (
+                    <div key={label} style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)' }}>{n}</div>
+                      <div style={hint}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...hint, marginTop: 10 }}>
+                  {state.week.today === 'off' ? 'Today is marked as a day off.' : 'Opening the app at your gym counts the day — nothing to tap.'}
+                </div>
+                <button type="button" onClick={handleDayOff} disabled={busy}
+                  style={{ ...primaryButton, marginTop: 10, background: 'rgba(var(--fg-rgb), 0.06)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>
+                  {state.week.today === 'off' ? 'I’m working today after all' : 'Mark today as a day off'}
+                </button>
+              </div>
+            </>
+          )}
 
           {!state.gym.isOwner && (
             <>

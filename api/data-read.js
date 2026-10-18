@@ -858,7 +858,7 @@ async function handleCoachGym(req, res) {
 
   try {
     const me = await svcSelect(
-      `users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id,gym_id,coach_id,gym_self_guided&limit=1`,
+      `users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id,role,gym_id,coach_id,gym_self_guided&limit=1`,
       'coach-gym caller'
     );
     if (!me[0]) return res.status(200).json({ gym: null, clientsOutsideGym: 0 });
@@ -874,7 +874,40 @@ async function handleCoachGym(req, res) {
     // selfGuided: a client the gym marked "trains on their own" — their
     // home screen shows the gym as a membership, not "trainer coming soon".
     const selfGuided = !!gym && !me[0].coach_id && !!me[0].gym_self_guided;
-    return res.status(200).json({ gym, clientsOutsideGym: outside.length, selfGuided });
+    // Trainer: their week (days in, member workouts, high-fives). Client: whether
+    // they already high-fived their trainer today. Both null until
+    // sql/gym_trainer_days.sql is applied.
+    let week = null;
+    let highFivedToday = null;
+    if (gym) {
+      const today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+      const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+      const monday = new Date(Date.parse(`${today}T00:00:00Z`) - dow * 86400000).toISOString().slice(0, 10);
+      try {
+        if (me[0].role === 'client') {
+          const hf = await svcSelect(`gym_high_fives?member_id=eq.${me[0].id}&day=eq.${today}&select=id&limit=1`, 'coach-gym high-five today');
+          highFivedToday = hf.length > 0;
+        } else {
+          const [days, fives, mine] = await Promise.all([
+            svcSelect(`gym_trainer_days?trainer_id=eq.${me[0].id}&day=gte.${monday}&select=day,status`, 'coach-gym days'),
+            svcSelect(`gym_high_fives?trainer_id=eq.${me[0].id}&day=gte.${monday}&select=id`, 'coach-gym high-fives'),
+            svcSelect(`users?coach_id=eq.${me[0].id}&role=eq.client&select=id`, 'coach-gym my clients')
+          ]);
+          const logs = mine.length
+            ? await svcSelect(`workout_logs?user_id=in.(${mine.map((c) => c.id).join(',')})&log_date=gte.${monday}&select=user_id,log_date&limit=20000`, 'coach-gym week logs')
+            : [];
+          week = {
+            daysIn: days.filter((d) => d.status === 'in').length,
+            today: (days.find((d) => d.day === today) || {}).status || null,
+            memberWorkouts: new Set(logs.map((l) => `${l.user_id}|${l.log_date}`)).size,
+            highFives: fives.length
+          };
+        }
+      } catch (e) {
+        console.warn('coach-gym week skipped:', e.message);
+      }
+    }
+    return res.status(200).json({ gym, clientsOutsideGym: outside.length, selfGuided, week, highFivedToday });
   } catch (err) {
     console.error('coach-gym error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym.' });
@@ -908,6 +941,11 @@ async function handleGymBusiness(req, res) {
     // so Payments and Settings keep working without it.
     const soft = (path, label) => svcSelect(path, label).catch(() => null);
     const recent = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+    const monthStart = `${new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 7)}-01`;
+    const [trainerDays, highFives] = await Promise.all([
+      soft(`gym_trainer_days?gym_id=eq.${gid}&day=gte.${monthStart}&select=trainer_id,day,status,source`, 'gym-business trainer days'),
+      soft(`gym_high_fives?gym_id=eq.${gid}&day=gte.${monthStart}&select=trainer_id,day`, 'gym-business high-fives')
+    ]);
     const [leads, checkins, payouts] = await Promise.all([
       soft(`gym_leads?gym_id=eq.${gid}&select=*&order=created_at.desc&limit=500`, 'gym-business leads'),
       soft(`gym_checkins?gym_id=eq.${gid}&or=(out_at.is.null,in_at.gte.${recent})&select=id,member_id,in_at,out_at&order=in_at.desc&limit=2000`, 'gym-business checkins'),
@@ -918,7 +956,7 @@ async function handleGymBusiness(req, res) {
     const paidAll = memberIds.length
       ? await svcSelect(`gym_payments?membership_id=in.(${memberIds.join(',')})&select=membership_id,amount_inr&limit=20000`, 'gym-business paid')
       : [];
-    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, leads, checkins, payouts });
+    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, leads, checkins, payouts, trainerDays, highFives });
   } catch (err) {
     console.error('gym-business error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym’s plans and payments.' });

@@ -42,6 +42,9 @@ export default function GymLogin({ service, onSignedIn, initialError = '' }) {
         />
         {error && <p className="gym-error" role="alert">{error}</p>}
         <button type="submit" className="gym-btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <p className="gym-muted gym-switch">
+          Trainer or member? <a href="/">Sign in on the main app</a> instead.
+        </p>
       </form>
     </div>
   );

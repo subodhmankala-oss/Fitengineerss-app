@@ -347,3 +347,6 @@
 .gx-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9d0e4; flex-shrink: 0; }
 .gx-dot.in { background: var(--green); }
 .gx-dot.off { background: var(--amber); }
+
+.gym-switch { margin: 12px 0 0; text-align: center; }
+.gym-switch a { color: var(--blue); font-weight: 700; }

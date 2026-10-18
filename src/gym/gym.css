@@ -17,8 +17,11 @@
   --fg-rgb: 18, 26, 51;
   --shade-rgb: 18, 26, 51;
   --danger: #d6455a;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* The app's global #root is overflow:hidden at a fixed height (phone frame),
+     so this wrapper is the page's own scroll container. */
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
   background: var(--bg-app);
   color: var(--text-main);
   font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;

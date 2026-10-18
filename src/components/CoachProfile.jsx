@@ -93,6 +93,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     socialHandle: localStorage.getItem('userSocialHandle') || '',
     paymentQrUrl: localStorage.getItem('userPaymentQrUrl') || '',
     logoUrl: localStorage.getItem('userLogoUrl') || '',
+    upiId: localStorage.getItem('userUpiId') || '',
   });
 
   const [form, setForm] = useState(readProfile);
@@ -124,6 +125,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       if (profile.socialHandle) fresh.socialHandle = profile.socialHandle;
       if (profile.paymentQrUrl) fresh.paymentQrUrl = profile.paymentQrUrl;
       if (profile.logoUrl) fresh.logoUrl = profile.logoUrl;
+      if (profile.upiId) fresh.upiId = profile.upiId;
       if (Object.keys(fresh).length === 0) return;
       setForm(f => ({ ...f, ...fresh }));
     }).catch(() => {});
@@ -325,6 +327,13 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 send it". */}
             <div className="cp-form-section-label">Payment QR Code</div>
             <div className="cp-form-card">
+              {/* UPI ID — goes into the WhatsApp message as copyable text
+                  (WhatsApp Pay caps payments at Rs 2,000; copying the ID
+                  into GPay/PhonePe/Paytm has no such cap). */}
+              <div className="cp-field">
+                <label className="cp-field-label">UPI ID <span className="cp-field-unit">(copyable in messages)</span></label>
+                <input className="cp-field-input" value={form.upiId} onChange={e => handleField('upiId', e.target.value)} placeholder="name@bank" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+              </div>
               <div className="cp-field cp-field--last" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
                 <label className="cp-field-label">UPI / GPay / PhonePe QR <span className="cp-field-unit">(sent with renewal reminders)</span></label>
                 {form.paymentQrUrl && (

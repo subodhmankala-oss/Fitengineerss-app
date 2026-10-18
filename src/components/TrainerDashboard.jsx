@@ -980,7 +980,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // caller gets it. beforeSend (optional) runs with the final text before
   // any share attempt — for side effects like a push notification that
   // must fire regardless of which send path ends up being taken.
-  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, greeting, buildBody, amountLine, beforeSend, verb = 'pay' }) => {
+  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, greeting, buildBody, amountLine, beforeSend, amount, verb = 'pay' }) => {
     let assets = coachReminderAssets;
     if (assets === null) {
       assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
@@ -1016,8 +1016,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const payLine = qrUrl
       ? (canShareFiles ? `you can ${verb} using the QR code here` : `you can ${verb} whenever works for you`)
       : `no rush at all, just ${verb} whenever it suits you`;
-    const bodyText = buildBody({ payLine });
-    const message = `${greeting} ${bodyText}` + `\n\n— ${signOff}`;
+    const baseBody = buildBody({ payLine });
+    // WhatsApp Pay caps payments at Rs 2,000 and clients often scan the QR
+    // from inside WhatsApp, so steer them to a UPI app instead — unless we
+    // know the amount and it's under the cap. The coach's UPI ID (Business
+    // Profile) goes in as copyable text for the same reason. Both are baked
+    // onto the card too, since the card is the only thing some WhatsApp
+    // versions deliver (see the mediaFile comment below).
+    const upiId = (assets?.upiId || '').trim();
+    const needsTip = (qrUrl || upiId) && !(amount > 0 && amount <= 2000);
+    const tipLine = needsTip ? 'Tip: pay with GPay / PhonePe / Paytm — WhatsApp payments are limited to ₹2,000.' : '';
+    const upiLine = upiId ? `UPI ID: ${upiId}` : '';
+    const bodyText = [baseBody, tipLine, upiLine].filter(Boolean).join(' ');
+    const message = `${greeting} ${baseBody}`
+      + (tipLine ? `\n\n${tipLine}` : '')
+      + (upiLine ? `\n${upiLine}` : '')
+      + `\n\n— ${signOff}`;
     beforeSend?.(message);
 
     // Exactly ONE image file, carrying the WHOLE message (not just the
@@ -1121,6 +1135,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       await sendBrandedWhatsapp({
         firstName,
         withQr: true,
+        amount,
         greeting: `Hi ${firstName}! Hope you're doing well 🙂`,
         amountLine: amount > 0 ? `Amount: ₹${amount.toLocaleString('en-IN')}` : null,
         buildBody: ({ payLine }) =>

@@ -2425,6 +2425,7 @@ const databaseService = {
             socialHandle: coach?.social_media_handle || '',
             paymentQrUrl: coach?.payment_qr_url || '',
             logoUrl: coach?.logo_url || '',
+            upiId: coach?.upi_id || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -2498,6 +2499,7 @@ const databaseService = {
         socialHandle: mCoach?.social_media_handle || '',
         paymentQrUrl: mCoach?.payment_qr_url || '',
         logoUrl: mCoach?.logo_url || '',
+        upiId: mCoach?.upi_id || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -5295,7 +5297,7 @@ const databaseService = {
   // SELECT) policy to pass for the coach's OWN row, which it does — these
   // calls run under the coach's real session token (resolveBearerToken),
   // not the anon key.
-  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl }) {
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl, upiId }) {
     if (!userId) throw new Error('Missing user id — could not save profile.');
     if (isSupabaseConfigured && supabase) {
       const expYears = parseInt(experienceYears, 10);
@@ -5315,6 +5317,7 @@ const databaseService = {
         // Remove button), so write null rather than the empty string.
         payment_qr_url: paymentQrUrl || null,
         logo_url: logoUrl || null,
+        upi_id: (upiId || '').trim() || null,
       });
     }
 
@@ -5332,6 +5335,8 @@ const databaseService = {
     else localStorage.removeItem('userPaymentQrUrl');
     if (logoUrl) localStorage.setItem('userLogoUrl', logoUrl);
     else localStorage.removeItem('userLogoUrl');
+    if ((upiId || '').trim()) localStorage.setItem('userUpiId', upiId.trim());
+    else localStorage.removeItem('userUpiId');
   },
 
   // Small on-demand read for the renewal-reminder "Send reminder" action
@@ -5345,9 +5350,9 @@ const databaseService = {
   async getCoachReminderAssets(coachId) {
     if (!isSupabaseConfigured || !coachId) return { qrUrl: null, logoUrl: null };
     try {
-      const rows = await restSelect(`coaches?select=payment_qr_url,logo_url&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
+      const rows = await restSelect(`coaches?select=payment_qr_url,logo_url,upi_id&user_id=eq.${encodeURIComponent(coachId)}&limit=1`);
       const row = Array.isArray(rows) && rows[0];
-      return { qrUrl: row?.payment_qr_url || null, logoUrl: row?.logo_url || null };
+      return { qrUrl: row?.payment_qr_url || null, logoUrl: row?.logo_url || null, upiId: row?.upi_id || null };
     } catch (e) {
       console.error('getCoachReminderAssets error:', e);
       return { qrUrl: null, logoUrl: null };

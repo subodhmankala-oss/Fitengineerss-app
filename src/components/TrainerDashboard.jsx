@@ -127,7 +127,27 @@ const PayTile = ({ color, bg, size = 36, children }) => (
   </span>
 );
 
-const convertAiExerciseToEditorShape = (aiEx) => {
+const PAYMENT_METHOD_LABELS = { cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank Transfer', card: 'Card', other: 'Other' };
+
+// Receipts cover one monthly cycle (renewals are monthly — see
+// getRenewalDueClients): 18 Oct is valid through 17 Nov. Month-end dates
+// clamp (31 Jan -> 27 Feb) instead of spilling into the next month.
+const receiptValidThrough = (paidAt) => {
+  const d = new Date(paidAt);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, Math.min(d.getDate(), new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate()));
+  end.setDate(end.getDate() - 1);
+  return end;
+};
+const fmtReceiptDate = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+const ReceiptIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" />
+    <path d="M9 8h6M9 12h6" />
+  </svg>
+);
+
+const convertAiExerciseToEditorShape =(aiEx) => {
   const type = aiEx.type || 'strength';
   const setCount = Math.max(1, parseInt(aiEx.setCount, 10) || (type === 'cardio' ? 1 : 3));
   let setTemplate;
@@ -329,6 +349,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [editPaymentDate, setEditPaymentDate] = useState('');
   const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
+  // Receipt flow: which row is generating an image, and the "send receipt?"
+  // prompt shown right after a payment is logged.
+  const [sharingReceiptId, setSharingReceiptId] = useState(null);
+  const [receiptPrompt, setReceiptPrompt] = useState(null);
 
   // Month-wise breakdown + month-over-month difference (2026-08-30 feature
   // request: "how do i check the monthly wise difference"). Grouped by the
@@ -549,6 +573,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         // several payments in a row (the common case) is genuinely one
         // field + Enter each time, not re-filling the whole form.
         setPaymentFormAmount('');
+        if (res.payment) {
+          setReceiptPrompt({
+            ...res.payment,
+            clientName: clients.find(c => c.id === res.payment.clientId)?.userName || ''
+          });
+        }
         fetchClientPayments();
         // This IS the renewal action on a monthly cadence — see
         // getRenewalDueClients' header comment. Re-pull immediately so a
@@ -1123,6 +1153,131 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     }
 
     fallbackToDeepLink();
+  };
+
+  // Payment receipt for a logged payment — drawn as one branded image (same
+  // reasons as buildMessageCardFile: the card is the only thing every
+  // WhatsApp version reliably delivers) and handed to the native share sheet,
+  // with a WhatsApp deep link / plain image download as the fallbacks.
+  const buildReceiptFile = async ({ logoSrc, brand, signOff, clientName, amount, method, paidAt, receiptNo }) => {
+    const logoImg = await loadImage(logoSrc);
+    const W = 560, pad = 36, headerH = 170, logoBox = 90;
+    const rows = [
+      ['Received from', clientName],
+      ['Date', new Date(paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })],
+      ['Payment method', PAYMENT_METHOD_LABELS[method] || method],
+      ['Receipt no.', receiptNo]
+    ];
+    const rowH = 52, amountBoxH = 96;
+    const H = headerH + 40 + amountBoxH + 24 + rows.length * rowH + 70;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0b1120';
+    ctx.fillRect(0, 0, W, headerH);
+    const s = Math.min(logoBox / logoImg.width, logoBox / logoImg.height);
+    const lw = logoImg.width * s, lh = logoImg.height * s;
+    ctx.drawImage(logoImg, (W - lw) / 2, 20 + (logoBox - lh) / 2, lw, lh);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px Arial, sans-serif';
+    ctx.fillText(brand, W / 2, 20 + logoBox + 30);
+    ctx.fillStyle = '#a5b4fc';
+    ctx.font = 'bold 15px Arial, sans-serif';
+    ctx.fillText('PAYMENT RECEIPT', W / 2, 20 + logoBox + 54);
+
+    let y = headerH + 40;
+    ctx.fillStyle = '#ecfdf5';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(pad, y, W - pad * 2, amountBoxH, 14);
+    else ctx.rect(pad, y, W - pad * 2, amountBoxH);
+    ctx.fill();
+    ctx.fillStyle = '#047857';
+    ctx.font = 'bold 15px Arial, sans-serif';
+    ctx.fillText('AMOUNT PAID', W / 2, y + 30);
+    ctx.font = 'bold 40px Arial, sans-serif';
+    ctx.fillText(`₹${Number(amount).toLocaleString('en-IN')}`, W / 2, y + 72);
+    y += amountBoxH + 24;
+
+    rows.forEach(([label, value], i) => {
+      const ry = y + i * rowH;
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, ry + rowH - 12);
+      ctx.lineTo(W - pad, ry + rowH - 12);
+      ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '17px Arial, sans-serif';
+      ctx.fillText(label, pad, ry + 22);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#111111';
+      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.fillText(value, W - pad, ry + 22);
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#888888';
+    ctx.font = 'italic 16px Arial, sans-serif';
+    ctx.fillText(`Journey begins — ${signOff}`, W / 2, H - 28);
+
+    const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.92))).blob();
+    return new File([blob], `receipt-${receiptNo}.jpg`, { type: 'image/jpeg' });
+  };
+
+  const handleShareReceipt = async (payment) => {
+    if (sharingReceiptId) return;
+    setSharingReceiptId(payment.id);
+    try {
+      let assets = coachReminderAssets;
+      if (assets === null) {
+        assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
+        setCoachReminderAssets(assets);
+      }
+      const coachName = (localStorage.getItem('userName') || '').trim();
+      const brand = (localStorage.getItem('userBrand') || 'Fitengineers').trim();
+      const signOff = coachName ? `${coachName} · ${brand}` : brand;
+      const clientName = payment.clientName
+        || clients.find(c => c.id === payment.clientId)?.userName
+        || 'Client';
+      const firstName = clientName.split(' ')[0];
+      const receiptNo = `FE-${String(payment.id).replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      const amountText = `₹${Number(payment.amount).toLocaleString('en-IN')}`;
+      const message = `Hi ${firstName}! Payment received — ${amountText} (${PAYMENT_METHOD_LABELS[payment.method] || payment.method}), valid ${fmtReceiptDate(payment.paidAt)} to ${fmtReceiptDate(receiptValidThrough(payment.paidAt))}. Receipt no. ${receiptNo}. Journey begins.\n\n— ${signOff}`;
+
+      const file = await buildReceiptFile({
+        logoSrc: assets?.logoUrl || '/logo.png',
+        brand: assets?.logoUrl ? brand : 'Fitengineers',
+        signOff, clientName, amount: payment.amount, method: payment.method, paidAt: payment.paidAt, receiptNo
+      });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ text: message, files: [file] });
+          return;
+        } catch (e) {
+          if (e?.name === 'AbortError') return; // coach cancelled the share sheet
+        }
+      }
+      // No share sheet (desktop): save the image so it can be attached by hand.
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(url);
+      triggerLiveToast('📥 Receipt downloaded — attach it in the chat.');
+    } catch (err) {
+      console.error('Receipt error:', err);
+      alert('Could not create the receipt. Please try again.');
+    } finally {
+      setSharingReceiptId(null);
+    }
   };
 
   // Payment request to someone who ISN'T a client in the app (2026-09-17:
@@ -5710,6 +5865,38 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           {paymentSaveError && (
             <div style={{ color: 'var(--tint-red)', fontSize: '0.8rem' }}>{paymentSaveError}</div>
           )}
+          {receiptPrompt && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+              background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.28)',
+              borderRadius: '12px', padding: '10px 12px'
+            }}>
+              <span style={{ color: '#16a34a', display: 'flex' }}><ReceiptIcon size={18} /></span>
+              <span style={{ flex: '1 1 160px', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>
+                ₹{receiptPrompt.amount.toLocaleString()} logged{receiptPrompt.clientName ? ` for ${receiptPrompt.clientName}` : ''}. Send a receipt?
+              </span>
+              <button
+                type="button"
+                onClick={() => { const p = receiptPrompt; setReceiptPrompt(null); handleShareReceipt(p); }}
+                style={{
+                  background: '#16a34a', border: 'none', borderRadius: '8px', color: '#fff',
+                  padding: '7px 12px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                Send receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => setReceiptPrompt(null)}
+                style={{
+                  background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)', borderRadius: '8px',
+                  color: 'rgba(var(--fg-rgb), 0.75)', padding: '7px 12px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Summary tiles: Total Collection / This Month / Overdue Amount /
               Avg Payment Value, each clearly labeled in its own card
@@ -6045,6 +6232,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: 'var(--accent-text)', fontWeight: 800, fontSize: '0.95rem' }}>₹{p.amount.toLocaleString()}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleShareReceipt(p)}
+                        disabled={sharingReceiptId === p.id}
+                        title="Send receipt"
+                        aria-label="Send receipt"
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
+                          background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.28)',
+                          borderRadius: '8px', color: '#16a34a', cursor: sharingReceiptId === p.id ? 'default' : 'pointer',
+                          padding: 0, opacity: sharingReceiptId === p.id ? 0.5 : 1
+                        }}
+                      >
+                        <ReceiptIcon size={16} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => startEditingPayment(p)}

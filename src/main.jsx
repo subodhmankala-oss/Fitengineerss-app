@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
@@ -11,18 +11,30 @@ import { CoachTourProvider } from './context/CoachTourContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { initPWA, checkForUpdateOnForeground } from './pwa/registerPWA.js'
 
+// The gym owner's site lives at /gym: its own login page and dashboard, with
+// none of the coach/client app (App.jsx) mounted. Lazy so the coach app's
+// bundle doesn't carry it and vice versa.
+const isGymSite = window.location.pathname === '/gym' || window.location.pathname.startsWith('/gym/');
+const GymPortal = isGymSite ? lazy(() => import('./gym/GymPortal.jsx')) : null;
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
-      <TourProvider>
-        <CoachTourProvider>
-          <App />
-        </CoachTourProvider>
-      </TourProvider>
-      <InstallBanner />
-      <IOSInstallBanner />
+      {isGymSite ? (
+        <Suspense fallback={null}><GymPortal /></Suspense>
+      ) : (
+        <>
+          <TourProvider>
+            <CoachTourProvider>
+              <App />
+            </CoachTourProvider>
+          </TourProvider>
+          <InstallBanner />
+          <IOSInstallBanner />
+          <PullToRefresh />
+        </>
+      )}
       <UpdateBanner />
-      <PullToRefresh />
     </ThemeProvider>
   </StrictMode>,
 )

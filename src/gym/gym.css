@@ -1,0 +1,45 @@
+/* Gym owner site (/gym). Colours come from the app's theme tokens so light and
+   dark both work; the dashboard inside keeps its own responsive layout. */
+.gym-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-app);
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+}
+.gym-center { align-items: center; justify-content: center; padding: 20px; }
+.gym-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1240px; width: 100%; margin: 0 auto; padding: 14px 16px;
+  box-sizing: border-box;
+}
+.gym-scroll { flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; box-sizing: border-box; }
+.gym-brand { font-size: 0.95rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+.gym-brand b { color: var(--accent-text); font-weight: 800; }
+.gym-card {
+  width: 100%; max-width: 380px; box-sizing: border-box;
+  background: var(--bg-card); border: 1px solid var(--border-color);
+  border-radius: 16px; padding: 24px 22px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.gym-title { margin: 6px 0 0; font-size: 1.35rem; font-weight: 800; }
+.gym-muted { margin: 0 0 6px; font-size: 0.85rem; color: var(--text-muted); }
+.gym-label { font-size: 0.78rem; font-weight: 700; margin-top: 6px; }
+.gym-input {
+  font: inherit; font-size: 16px; color: var(--text-main);
+  background: rgba(var(--fg-rgb), 0.04); border: 1px solid var(--border-color);
+  border-radius: 10px; padding: 11px 12px;
+}
+.gym-input:focus { outline: 2px solid rgba(var(--accent-rgb), 0.5); outline-offset: 1px; }
+.gym-btn {
+  margin-top: 10px; font: inherit; font-weight: 800; cursor: pointer;
+  color: var(--accent-text); background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.5); border-radius: 10px; padding: 11px 14px;
+}
+.gym-btn:disabled { opacity: 0.6; cursor: default; }
+.gym-link {
+  background: none; border: none; padding: 4px 0; font: inherit; font-size: 0.8rem;
+  font-weight: 700; color: var(--text-muted); cursor: pointer; text-decoration: none; align-self: center;
+}
+.gym-error { margin: 4px 0 0; font-size: 0.82rem; color: #f87171; }

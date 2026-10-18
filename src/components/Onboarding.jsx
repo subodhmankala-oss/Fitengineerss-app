@@ -1560,7 +1560,7 @@ const Onboarding = ({ onComplete }) => {
                     style={{ flex: 1 }}
                     onClick={() => { localStorage.removeItem('pendingCoachApply'); setUserType('client'); setAuthError(''); setAuthSuccessMsg(''); setShowClientEmailForm(false); setShowCoachEmailForm(false); }}
                   >
-                    Client
+                    User
                   </button>
                   <button
                     type="button"

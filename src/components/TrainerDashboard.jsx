@@ -6240,12 +6240,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         aria-label="Send receipt"
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
-                          background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.28)',
+                          background: 'none', border: 'none',
                           borderRadius: '8px', color: '#16a34a', cursor: sharingReceiptId === p.id ? 'default' : 'pointer',
                           padding: 0, opacity: sharingReceiptId === p.id ? 0.5 : 1
                         }}
                       >
-                        <ReceiptIcon size={16} />
+                        <ReceiptIcon size={18} />
                       </button>
                       <button
                         type="button"
@@ -6254,11 +6254,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         aria-label="Edit payment"
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
-                          background: 'rgba(var(--accent-rgb), 0.12)', border: '1px solid rgba(var(--accent-rgb), 0.22)',
+                          background: 'none', border: 'none',
                           borderRadius: '8px', color: 'var(--accent-text)', cursor: 'pointer', padding: 0
                         }}
                       >
-                        <PencilIcon size={16} />
+                        <PencilIcon size={18} />
                       </button>
                       <button
                         type="button"
@@ -6268,12 +6268,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         aria-label="Delete payment"
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
-                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+                          background: 'none', border: 'none',
                           borderRadius: '8px', color: 'var(--tint-red)', cursor: deletingPaymentId === p.id ? 'default' : 'pointer',
                           padding: 0, opacity: deletingPaymentId === p.id ? 0.5 : 1
                         }}
                       >
-                        <BinIcon size={16} />
+                        <BinIcon size={18} />
                       </button>
                     </div>
                   </div>

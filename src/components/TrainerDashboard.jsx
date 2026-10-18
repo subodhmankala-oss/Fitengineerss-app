@@ -5342,20 +5342,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
                       background: bg, border: `1px solid ${border}`,
-                      borderRadius: '12px', padding: '12px 14px', cursor: 'pointer',
+                      borderRadius: '12px', padding: '8px 12px', cursor: 'pointer',
                       position: 'relative'
                     }}
                   >
                     {overdue ? (
                       <span style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        width: '36px', height: '36px', borderRadius: '50%', background: color, color: '#fff',
+                        width: '32px', height: '32px', borderRadius: '50%', background: color, color: '#fff',
                         fontSize: '0.95rem', fontWeight: 800
                       }}>
                         {(r.clientName || '?').trim().charAt(0).toUpperCase()}
                       </span>
                     ) : (
-                      <PayTile color={color} bg="rgba(245,158,11,0.18)">
+                      <PayTile color={color} bg="rgba(245,158,11,0.18)" size={32}>
                         <path d="M6 2h12M6 22h12M7 2v4a5 5 0 0 0 2 4l3 2-3 2a5 5 0 0 0-2 4v4M17 2v4a5 5 0 0 1-2 4l-3 2 3 2a5 5 0 0 1 2 4v4" />
                       </PayTile>
                     )}
@@ -5391,7 +5391,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         onClick={() => setRenewalMenuOpenId(id => id === r.clientId ? null : r.clientId)}
                         style={{
                           background: 'rgba(var(--fg-rgb), 0.06)', border: 'none', borderRadius: '10px',
-                          color: 'rgba(var(--fg-rgb), 0.75)', width: '34px', height: '34px', fontSize: '1rem',
+                          color: 'rgba(var(--fg-rgb), 0.75)', width: '30px', height: '30px', fontSize: '1rem',
                           fontWeight: 800, cursor: pausingClientId === r.clientId ? 'default' : 'pointer',
                           opacity: pausingClientId === r.clientId ? 0.6 : 1
                         }}
@@ -5462,7 +5462,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
                   background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.18)',
-                  borderRadius: '12px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                  borderRadius: '12px', padding: '7px 12px', cursor: 'pointer', font: 'inherit'
                 }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700 }}>
@@ -5530,7 +5530,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
                 background: 'transparent', border: 'none',
-                padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                padding: '7px 12px', cursor: 'pointer', font: 'inherit'
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontSize: '0.85rem', fontWeight: 700, textAlign: 'left' }}>
@@ -5615,11 +5615,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px',
               background: 'linear-gradient(160deg, rgba(var(--accent-rgb), 0.14) 0%, rgba(var(--accent-rgb), 0.04) 100%), var(--bg-card)',
               border: '1px solid rgba(var(--accent-rgb), 0.3)',
-              borderRadius: '12px', padding: '12px 14px', boxShadow: '0 2px 10px rgba(var(--accent-rgb), 0.08)'
+              borderRadius: '12px', padding: '10px 12px', boxShadow: '0 2px 10px rgba(var(--accent-rgb), 0.08)'
             }}
           >
             <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <PayTile color="var(--accent-text)" bg="rgba(var(--accent-rgb), 0.16)">
+              <PayTile color="var(--accent-text)" bg="rgba(var(--accent-rgb), 0.16)" size={32}>
                 <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" />
               </PayTile>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>

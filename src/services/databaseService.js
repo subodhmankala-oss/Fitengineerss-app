@@ -3373,6 +3373,43 @@ const databaseService = {
     }
   },
 
+  // ─── Gym site: plans, memberships, payments, settings (sql/gym_business.sql) ───
+  async getGymBusiness() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=gym-business', { method: 'POST', headers, body: JSON.stringify({ email }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.gym) return { success: false, error: (data && data.error) || 'Could not load plans and payments.' };
+      return { success: true, ...data };
+    } catch (e) {
+      console.error('[getGymBusiness] error:', e);
+      return { success: false, error: e.message || 'Could not load plans and payments.' };
+    }
+  },
+
+  // One verified-token POST to an admin-write gym action.
+  async gymBusinessWrite(action, body) {
+    try {
+      const accessToken = await resolveRealAccessToken();
+      if (!accessToken) return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+      const res = await fetch(`/api/admin-write?action=${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.success === false) return { success: false, error: (data && data.error) || 'Could not save.' };
+      return { success: true };
+    } catch (e) {
+      console.error(`[gymBusinessWrite ${action}] error:`, e);
+      return { success: false, error: e.message || 'Could not save.' };
+    }
+  },
+  startGymMembership(body) { return this.gymBusinessWrite('gym-start-membership', body); },
+  payGymMembership(body) { return this.gymBusinessWrite('gym-pay-membership', body); },
+  saveGymPlans(plans) { return this.gymBusinessWrite('gym-save-plans', { plans }); },
+  saveGymSettings(settings) { return this.gymBusinessWrite('gym-save-settings', settings); },
+
   async ownerAssignClient(clientUserId, coachUserId) {
     try {
       const accessToken = await resolveRealAccessToken();

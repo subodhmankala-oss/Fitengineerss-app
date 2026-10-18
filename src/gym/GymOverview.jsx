@@ -1,10 +1,10 @@
-import { greeting, rankTrainers } from './gymView';
+import { greeting, memberPlans, monthlyCollections, rankTrainers, rupees } from './gymView';
 import { HealthBar, WeeklyBars } from '../components/OwnerCharts';
 import { weekLabels, weekRanges } from '../utils/ownerView';
 
 // Overview from what the app really knows today: training activity. Money,
 // check-ins and leads fill the same grid as their stages land.
-export default function GymOverview({ data, owner, onOpenMembers }) {
+export default function GymOverview({ data, biz, owner, onOpenMembers }) {
   const { clients, trainers, insights, gym } = data;
   const first = (owner?.name || '').split(' ')[0];
   const trainedWeek = clients.filter((c) => c.workouts7d > 0).length;
@@ -17,7 +17,15 @@ export default function GymOverview({ data, owner, onOpenMembers }) {
   const weekly = insights?.weekly || [];
   const today = insights?.today;
 
+  const plans = biz && insights?.today ? memberPlans(biz, insights.today) : {};
+  const dueN = clients.filter((c) => plans[c.id]?.state === 'due').length;
+  const endsN = clients.filter((c) => ['ends-soon', 'expired'].includes(plans[c.id]?.state)).length;
+  const money = biz && insights?.today ? monthlyCollections(biz.payments, insights.today, 6) : null;
+  const maxMonth = money ? Math.max(1, ...money.months.map((m) => m.total)) : 1;
+
   const plan = [
+    { n: dueN, tone: 'amber', title: 'Payments still due', sub: 'Remind them on WhatsApp', cta: `See all ${dueN}`, filter: 'due' },
+    { n: endsN, tone: 'amber', title: 'Plans ending or ended', sub: 'Send renewal reminders', cta: `See all ${endsN}`, filter: 'ends' },
     { n: stopped, tone: 'red', title: 'Members who stopped coming', sub: 'Send a friendly “we miss you”', cta: `See all ${stopped}`, filter: 'stopped' },
     { n: slipping, tone: 'amber', title: 'Members who are slipping', sub: 'Training much less than before', cta: `See all ${slipping}`, filter: 'slipping' },
     { n: waiting, tone: 'green', title: 'Waiting for a trainer', sub: 'Joined with the gym code, no trainer yet', cta: `Assign ${waiting}`, filter: 'waiting' }
@@ -100,6 +108,22 @@ export default function GymOverview({ data, owner, onOpenMembers }) {
           </div>
         </section>
       </div>
+
+      {money && (
+        <section className="gx-card">
+          <h2 className="gx-h2">Money collected</h2>
+          <p className="gx-sub">{rupees(money.thisMonth)} this month · payments you recorded, by month</p>
+          <div className="gx-bars">
+            {money.months.map((m, i) => (
+              <div key={m.key} className="gx-bar">
+                <span className="gx-bar-n">{m.total ? rupees(m.total) : ''}</span>
+                <i className={i === money.months.length - 1 ? 'now' : ''} style={{ height: `${Math.max(4, (m.total / maxMonth) * 100)}%` }} />
+                <span className="gx-sub">{m.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="gx-card">
         <h2 className="gx-h2">Member health</h2>

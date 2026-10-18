@@ -441,6 +441,51 @@ async function handleOwnerUnassignClient(req, res) {
   }
 }
 
+// Gym owner money + settings (sql/gym_business.sql). Every function takes the
+// VERIFIED caller as the owner and re-checks the gym/member inside the DB.
+function gymBusinessAction(fnName, label, buildParams) {
+  return async (req, res) => {
+    const caller = await resolveVerifiedCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+    const params = buildParams(req.body || {}, caller);
+    if (!params) return res.status(400).json({ error: 'Some details are missing or wrong.' });
+    try {
+      const data = await callRpc(fnName, params);
+      return res.status(200).json(data || { success: true });
+    } catch (err) {
+      console.error(`admin-write ${label} error:`, err);
+      return res.status(400).json({ error: err.message || 'Could not save.' });
+    }
+  };
+}
+const isInt = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
+const isDate = (d) => d == null || /^\d{4}-\d{2}-\d{2}$/.test(String(d));
+
+const handleGymStartMembership = gymBusinessAction('gym_start_membership', 'gym-start-membership', (b, c) => (
+  UUID_RE.test(String(b.memberId || '')) && UUID_RE.test(String(b.planId || '')) && isInt(Number(b.paidInr), 0, 10000000) && isDate(b.paidOn)
+    ? { p_owner_id: c.id, p_member_id: b.memberId, p_plan_id: b.planId, p_paid_inr: Number(b.paidInr), p_method: String(b.method || 'upi'), p_paid_on: b.paidOn || null }
+    : null
+));
+const handleGymPayMembership = gymBusinessAction('gym_pay_membership', 'gym-pay-membership', (b, c) => (
+  UUID_RE.test(String(b.membershipId || '')) && isInt(Number(b.amountInr), 1, 10000000) && isDate(b.paidOn)
+    ? { p_owner_id: c.id, p_membership_id: b.membershipId, p_amount_inr: Number(b.amountInr), p_method: String(b.method || 'upi'), p_paid_on: b.paidOn || null }
+    : null
+));
+const handleGymSavePlans = gymBusinessAction('gym_save_plans', 'gym-save-plans', (b, c) => (
+  Array.isArray(b.plans) && b.plans.length <= 20 && b.plans.every((p) =>
+    p && typeof p.name === 'string' && p.name.trim().length >= 1 && p.name.length <= 60
+    && isInt(Number(p.months), 1, 36) && isInt(Number(p.priceInr), 0, 10000000)
+    && (p.sessions == null || p.sessions === '' || isInt(Number(p.sessions), 1, 1000)))
+    ? { p_owner_id: c.id, p_plans: b.plans.map((p) => ({ id: p.id || null, name: p.name.trim(), months: Number(p.months), sessions: p.sessions === '' ? null : p.sessions, priceInr: Number(p.priceInr) })) }
+    : null
+));
+const GYM_COLOURS = ['blue', 'teal', 'green', 'orange', 'pink'];
+const handleGymSaveSettings = gymBusinessAction('gym_save_settings', 'gym-save-settings', (b, c) => (
+  GYM_COLOURS.includes(b.color)
+    ? { p_owner_id: c.id, p_color: b.color, p_renewal: b.renewal === true, p_miss: b.miss === true, p_receipt: b.receipt === true, p_birthday: b.birthday === true }
+    : null
+));
+
 // A trainer joins / leaves a gym with its code (sql/gym_coach_join_leave.sql).
 // The trainer is the VERIFIED caller; the database functions do every check.
 async function handleCoachJoinGym(req, res) {
@@ -510,6 +555,10 @@ const ACTION_HANDLERS = {
   'update-gym': handleUpdateGym,
   'owner-assign-client': handleOwnerAssignClient,
   'owner-unassign-client': handleOwnerUnassignClient,
+  'gym-start-membership': handleGymStartMembership,
+  'gym-pay-membership': handleGymPayMembership,
+  'gym-save-plans': handleGymSavePlans,
+  'gym-save-settings': handleGymSaveSettings,
   'coach-join-gym': handleCoachJoinGym,
   'coach-leave-gym': handleCoachLeaveGym,
   'client-join-gym': handleClientJoinGym

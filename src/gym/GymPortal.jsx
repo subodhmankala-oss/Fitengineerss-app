@@ -16,9 +16,10 @@ export default function GymPortal({ service = databaseService, restore = recover
   const [stage, setStage] = useState('checking');
   const [error, setError] = useState('');
   const [gymData, setGymData] = useState(null);
+  const [biz, setBiz] = useState({ data: null, error: '' });
 
   const checkOwnership = useCallback(async () => {
-    const result = await service.getOwnerGym();
+    const [result, money] = await Promise.all([service.getOwnerGym(), service.getGymBusiness()]);
     if (!result.success) {
       setError(result.error || 'Could not load your gym.');
       setStage('login');
@@ -27,6 +28,7 @@ export default function GymPortal({ service = databaseService, restore = recover
     } else {
       setError('');
       setGymData(result);
+      setBiz(money.success ? { data: money, error: '' } : { data: null, error: money.error });
       setStage('ready');
     }
   }, [service]);
@@ -53,7 +55,7 @@ export default function GymPortal({ service = databaseService, restore = recover
   if (stage === 'checking') {
     body = <div className="gym-shell gym-center"><p className="gym-muted">Loading…</p></div>;
   } else if (stage === 'ready') {
-    body = <GymApp data={gymData} service={service} onReload={checkOwnership} onSignOut={signOut} />;
+    body = <GymApp data={gymData} biz={biz.data} bizError={biz.error} service={service} onReload={checkOwnership} onSignOut={signOut} />;
   } else if (stage === 'denied') {
     body = (
       <div className="gym-shell gym-center">

@@ -221,3 +221,57 @@
   .gx-member { flex-wrap: wrap; }
   .gx-h1 { font-size: 1.4rem; }
 }
+
+/* ─── stage 2: payments, plans, settings ─── */
+.gx-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding: 14px; border-radius: 14px; background: #f5f7fc; }
+.gx-form-dark .gx-form { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.gx-form-dark .gx-label { color: var(--amber); }
+.gx-form-dark .gx-sub { color: #9fb0e8; }
+.gx-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; font-weight: 700; }
+.gx-input {
+  font: inherit; font-size: 16px; font-weight: 600; color: var(--navy); background: #fff;
+  border: 1px solid var(--border-color); border-radius: 10px; padding: 9px 10px; min-width: 0;
+}
+.gx-input.plain { border-color: transparent; background: rgba(255, 255, 255, 0.7); font-weight: 800; font-size: 0.9rem; }
+.gx-input.price { width: 100%; text-align: center; font-size: 1.15rem; font-weight: 800; border: none; background: transparent; }
+.gx-input.tiny { width: 52px; padding: 3px 6px; font-size: 0.8rem; text-align: center; }
+.gx-select.wide { width: 100%; margin-top: 4px; border: 1px solid var(--border-color); }
+.gx-methods { display: flex; flex-wrap: wrap; gap: 6px; }
+.gx-methods .gx-chip { padding: 6px 12px; }
+.gx-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gx-panel .gx-actions .gx-btn-light { margin-top: 0; width: auto; flex: 1; }
+.gx-err { margin: 0; font-size: 0.8rem; font-weight: 700; color: #c23a4d; }
+.gx-attn { display: flex; flex-direction: column; gap: 6px; }
+.gx-attn .gx-member { background: #f5f7fc; flex-wrap: wrap; }
+.gx-pay { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #f5f7fc; }
+.gx-pay .gx-sub { margin: 0; }
+.gx-row-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.gx-swatches { display: flex; gap: 10px; }
+.gx-swatch { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px var(--border-color); cursor: pointer; }
+.gx-swatch.on { box-shadow: 0 0 0 3px var(--navy); }
+.gx-msg { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: #f5f7fc; border: 1px solid transparent; }
+.gx-msg.on { border-color: var(--blue); background: #eef2fd; }
+.gx-msg-main { flex: 1; display: flex; flex-direction: column; text-align: left; background: none; border: none; font: inherit; cursor: pointer; padding: 0; color: inherit; }
+.gx-switch { width: 44px; height: 26px; border-radius: 999px; border: none; background: #c9d0e4; padding: 3px; cursor: pointer; flex-shrink: 0; }
+.gx-switch i { display: block; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.gx-switch.on { background: var(--green); }
+.gx-switch.on i { transform: translateX(18px); }
+.gx-bubble { background: #e3f7ee; color: var(--navy); border-radius: 14px 14px 14px 4px; padding: 12px 14px; font-size: 0.86rem; line-height: 1.45; }
+.gx-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.gx-planbox { border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.gx-planbox.t0 { background: #e7edfd; }
+.gx-planbox.t1 { background: #ffe9d8; }
+.gx-planbox.t2 { background: #e3f7ee; }
+.gx-planbox.t3 { background: #fff1d0; }
+.gx-stepper { display: flex; align-items: center; gap: 6px; }
+.gx-stepper button { width: 32px; height: 32px; border-radius: 10px; border: none; background: #fff; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: var(--navy); }
+.gx-link { background: none; border: none; font: inherit; font-size: 0.74rem; font-weight: 700; color: var(--text-muted); cursor: pointer; align-self: flex-start; padding: 0; }
+.gx-bars { display: flex; align-items: flex-end; gap: 14px; height: 180px; padding-top: 8px; }
+.gx-bar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.gx-bar i { display: block; width: 100%; border-radius: 8px 8px 0 0; background: #c9d4f3; }
+.gx-bar i.now { background: var(--blue); }
+.gx-bar-n { font-size: 0.68rem; font-weight: 800; }
+@media (max-width: 899px) {
+  .gx-grid4 { grid-template-columns: 1fr 1fr; }
+  .gx-pay { grid-template-columns: 1fr auto; }
+}

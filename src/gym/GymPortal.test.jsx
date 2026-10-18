@@ -9,6 +9,7 @@ vi.mock('./GymApp', () => ({ default: () => <div>OWNER DASHBOARD</div> }));
 const makeService = (over = {}) => ({
   signIn: vi.fn().mockResolvedValue({}),
   signOut: vi.fn().mockResolvedValue(),
+  getGymBusiness: vi.fn().mockResolvedValue({ success: true, gym: { id: 'g1' }, plans: [], memberships: [], payments: [], paidByMembership: [], settings: null }),
   getOwnerGym: vi.fn().mockResolvedValue({ success: true, gym: { id: 'g1', name: 'Test Gym' } }),
   ...over
 });
@@ -55,5 +56,11 @@ describe('GymPortal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use a different account' }));
     expect(service.signOut).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByText('Gym owner login')).toBeTruthy());
+  });
+
+  it('still opens the dashboard when plans and payments cannot load', async () => {
+    const service = makeService({ getGymBusiness: vi.fn().mockResolvedValue({ success: false, error: 'tables missing' }) });
+    render(<GymPortal service={service} restore={async () => ({ user: {} })} />);
+    expect(await screen.findByText('OWNER DASHBOARD')).toBeTruthy();
   });
 });

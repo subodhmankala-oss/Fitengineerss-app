@@ -883,6 +883,39 @@ async function handleCoachGym(req, res) {
 
 export const __test = { ownerGymPayload, buildMemberPayload };
 
+// The gym owner's money + settings: plans, memberships, payments, settings.
+// Reads for the gym the VERIFIED caller owns (sql/gym_business.sql).
+async function handleGymBusiness(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  try {
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'gym-business caller');
+    if (!me[0]) return res.status(200).json({ gym: null });
+    const gyms = await svcSelect(`gyms?owner_id=eq.${me[0].id}&select=id&order=created_at.asc&limit=1`, 'gym-business gym');
+    if (!gyms[0]) return res.status(200).json({ gym: null });
+    const gid = gyms[0].id;
+    const since = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const [plans, memberships, payments, settings] = await Promise.all([
+      svcSelect(`gym_plans?gym_id=eq.${gid}&active=eq.true&select=id,name,months,sessions,price_inr,sort_order&order=sort_order.asc`, 'gym-business plans'),
+      svcSelect(`gym_memberships?gym_id=eq.${gid}&select=id,member_id,plan_name,starts_on,ends_on,price_inr&order=ends_on.desc&limit=5000`, 'gym-business memberships'),
+      svcSelect(`gym_payments?gym_id=eq.${gid}&paid_on=gte.${since}&select=id,member_id,membership_id,amount_inr,method,paid_on&order=paid_on.desc,created_at.desc&limit=5000`, 'gym-business payments'),
+      svcSelect(`gym_settings?gym_id=eq.${gid}&select=brand_color,wa_renewal,wa_miss,wa_receipt,wa_birthday&limit=1`, 'gym-business settings')
+    ]);
+    // Payments for memberships older than the window still count toward "due".
+    const memberIds = memberships.map((m) => m.id).slice(0, 500);
+    const paidAll = memberIds.length
+      ? await svcSelect(`gym_payments?membership_id=in.(${memberIds.join(',')})&select=membership_id,amount_inr&limit=20000`, 'gym-business paid')
+      : [];
+    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null });
+  } catch (err) {
+    console.error('gym-business error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read your gym’s plans and payments.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -897,6 +930,7 @@ const RESOURCE_HANDLERS = {
   'admin-gyms': handleAdminGyms,
   'owner-gym': handleOwnerGym,
   'owner-member': handleOwnerMember,
+  'gym-business': handleGymBusiness,
   'coach-gym': handleCoachGym
 };
 

@@ -3,6 +3,9 @@ import GymOverview from './GymOverview';
 import GymMembers from './GymMembers';
 import GymTrainers from './GymTrainers';
 import GymSoon from './GymSoon';
+import GymPayments from './GymPayments';
+import GymSettings from './GymSettings';
+import { GYM_COLOURS } from './gymView';
 import { NAV } from './nav';
 
 const Icon = ({ d }) => (
@@ -13,7 +16,7 @@ const Icon = ({ d }) => (
 
 // The signed-in gym owner's workspace: sidebar + one page at a time. Loads the
 // gym once and shares it with every page. `service` is injectable for tests.
-export default function GymApp({ data, service, onReload, onSignOut }) {
+export default function GymApp({ data, biz, bizError, service, onReload, onSignOut }) {
   const [page, setPage] = useState('overview');
   const [memberFilter, setMemberFilter] = useState('all');
 
@@ -24,17 +27,21 @@ export default function GymApp({ data, service, onReload, onSignOut }) {
 
   let body;
   if (page === 'overview') {
-    body = <GymOverview data={data} owner={owner} onOpenMembers={openMembers} />;
+    body = <GymOverview data={data} biz={biz} owner={owner} onOpenMembers={openMembers} />;
   } else if (page === 'members') {
-    body = <GymMembers key={memberFilter} data={data} service={service} initialFilter={memberFilter} onChanged={onReload} />;
+    body = <GymMembers key={memberFilter} data={data} biz={biz} service={service} initialFilter={memberFilter} onChanged={onReload} />;
   } else if (page === 'trainers') {
     body = <GymTrainers data={data} onOpenMembers={openMembers} />;
+  } else if (page === 'payments') {
+    body = <GymPayments data={data} biz={biz} bizError={bizError} service={service} onChanged={onReload} />;
+  } else if (page === 'settings') {
+    body = <GymSettings biz={biz} bizError={bizError} gymName={data.gym.name} service={service} onSaved={onReload} />;
   } else {
     body = <GymSoon item={NAV.find((n) => n.key === page)} />;
   }
 
   return (
-    <div className="gx-app">
+    <div className="gx-app" style={{ '--blue': GYM_COLOURS[biz?.settings?.brand_color] || GYM_COLOURS.blue }}>
       <aside className="gx-side">
         <div className="gx-logo">
           <span className="gx-logo-mark" aria-hidden="true" />

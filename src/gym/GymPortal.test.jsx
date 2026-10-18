@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import GymPortal from './GymPortal';
 
-vi.mock('../components/OwnerGymDashboard', () => ({ default: () => <div>OWNER DASHBOARD</div> }));
+vi.mock('./GymApp', () => ({ default: () => <div>OWNER DASHBOARD</div> }));
 
 const makeService = (over = {}) => ({
   signIn: vi.fn().mockResolvedValue({}),

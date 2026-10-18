@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import databaseService, { recoverStoredSession } from '../services/databaseService';
-import OwnerGymDashboard from '../components/OwnerGymDashboard';
+import GymApp from './GymApp';
 import GymLogin from './GymLogin';
 import './gym.css';
 
 // The gym owner's own site (/gym): its own login page, no coach/client tabs,
-// no sign-up. Same Supabase project and API as the coach app — the dashboard
-// is the same OwnerGymDashboard — but nothing here routes through App.jsx, so
-// a gym owner never sees (or lands in) the coach/client app from this URL.
+// no sign-up. Same Supabase project and API as the coach app, but nothing here
+// routes through App.jsx, so a gym owner never lands in the coach/client app
+// from this URL.
 //
 // `service` / `restore` are injectable for tests.
 export default function GymPortal({ service = databaseService, restore = recoverStoredSession }) {
@@ -15,6 +15,7 @@ export default function GymPortal({ service = databaseService, restore = recover
   // but the account owns no gym; 'ready'.
   const [stage, setStage] = useState('checking');
   const [error, setError] = useState('');
+  const [gymData, setGymData] = useState(null);
 
   const checkOwnership = useCallback(async () => {
     const result = await service.getOwnerGym();
@@ -25,6 +26,7 @@ export default function GymPortal({ service = databaseService, restore = recover
       setStage('denied');
     } else {
       setError('');
+      setGymData(result);
       setStage('ready');
     }
   }, [service]);
@@ -47,26 +49,13 @@ export default function GymPortal({ service = databaseService, restore = recover
     setStage('login');
   };
 
+  let body;
   if (stage === 'checking') {
-    return <div className="gym-shell gym-center"><p className="gym-muted">Loading…</p></div>;
-  }
-
-  if (stage === 'ready') {
-    return (
-      <div className="gym-shell">
-        <div className="gym-topbar">
-          <span className="gym-brand">Fitengineers <b>Gym</b></span>
-          <button type="button" className="gym-link" onClick={signOut}>Sign out</button>
-        </div>
-        <div className="gym-scroll">
-          <OwnerGymDashboard service={service} />
-        </div>
-      </div>
-    );
-  }
-
-  if (stage === 'denied') {
-    return (
+    body = <div className="gym-shell gym-center"><p className="gym-muted">Loading…</p></div>;
+  } else if (stage === 'ready') {
+    body = <GymApp data={gymData} service={service} onReload={checkOwnership} onSignOut={signOut} />;
+  } else if (stage === 'denied') {
+    body = (
       <div className="gym-shell gym-center">
         <div className="gym-card">
           <h1 className="gym-title">No gym on this account</h1>
@@ -77,13 +66,9 @@ export default function GymPortal({ service = databaseService, restore = recover
         </div>
       </div>
     );
+  } else {
+    body = <GymLogin service={service} initialError={error} onSignedIn={checkOwnership} />;
   }
 
-  return (
-    <GymLogin
-      service={service}
-      initialError={error}
-      onSignedIn={checkOwnership}
-    />
-  );
+  return <div className="gym-app">{body}</div>;
 }

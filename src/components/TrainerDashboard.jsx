@@ -6077,34 +6077,43 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     Month-over-month comparison
                   </span>
                   {(() => {
-                    const W = 100, H = 46, padTop = 12, padBottom = 8, gap = 3;
-                    const plotH = H - padTop - padBottom;
+                    // HTML bars, not a stretched SVG: preserveAspectRatio="none"
+                    // scaled x ~10x and y ~2.6x, which distorted the labels.
+                    const plotH = 84;
                     const max = Math.max(...chronoPaymentMonths.map(m => m.total)) * 1.15 || 1;
-                    const n = chronoPaymentMonths.length;
-                    const barW = (W - gap * (n - 1)) / n;
                     return (
-                      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: '120px', display: 'block' }}>
-                        {[0, 1, 2].map(i => {
-                          const y = padTop + plotH - (plotH * (i / 2));
-                          return <line key={i} x1={0} x2={W} y1={y} y2={y} stroke="var(--border-color)" strokeWidth="0.4" />;
-                        })}
-                        {chronoPaymentMonths.map((m, i) => {
-                          const x = i * (barW + gap);
-                          const barH = (m.total / max) * plotH;
-                          const y = padTop + plotH - barH;
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                        {chronoPaymentMonths.map(m => {
+                          const barH = Math.max((m.total / max) * plotH, 2);
                           const isSelected = m.key === selectedPaymentMonth;
                           return (
-                            <g key={m.key} onClick={() => setSelectedPaymentMonth(m.key)} style={{ cursor: 'pointer' }}>
-                              <rect x={x} y={0} width={barW} height={H} fill="transparent" />
-                              <rect x={x} y={y} width={barW} height={Math.max(barH, 1)} rx="1"
-                                fill={isSelected ? 'var(--accent-text)' : 'rgba(var(--accent-rgb), 0.38)'} />
-                              <text x={x + barW / 2} y={H - 1.5} textAnchor="middle" fontSize="3.6" fill="var(--text-muted)">
+                            <button
+                              key={m.key}
+                              type="button"
+                              onClick={() => setSelectedPaymentMonth(m.key)}
+                              aria-label={`${m.label}: select month`}
+                              style={{
+                                flex: '1 1 0', minWidth: 0, background: 'none', border: 'none', padding: 0,
+                                cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                                justifyContent: 'flex-end', alignItems: 'stretch', height: `${plotH + 22}px`
+                              }}
+                            >
+                              <div style={{
+                                height: `${barH}px`, borderRadius: '4px 4px 0 0',
+                                background: isSelected ? 'var(--accent-text)' : 'rgba(var(--accent-rgb), 0.38)',
+                                transition: 'background 0.15s'
+                              }} />
+                              <span style={{
+                                color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                                fontSize: '0.7rem', fontWeight: 600, textAlign: 'center',
+                                borderTop: '1px solid var(--border-color)', paddingTop: '4px', lineHeight: '14px'
+                              }}>
                                 {m.label.split(' ')[0].slice(0, 3)}
-                              </text>
-                            </g>
+                              </span>
+                            </button>
                           );
                         })}
-                      </svg>
+                      </div>
                     );
                   })()}
                 </div>

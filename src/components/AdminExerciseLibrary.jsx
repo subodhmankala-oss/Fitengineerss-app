@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react';
 import databaseService, { isSupabaseConfigured } from '../services/databaseService';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
+import { PencilIcon, BinIcon } from './TimerIcons';
+
+// Video-source marks for the table's Video column (line icons, not emoji).
+const YouTubeMark = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2.5" y="5" width="19" height="14" rx="4" />
+    <path d="M10 9.5v5l4.5-2.5Z" fill="currentColor" />
+  </svg>
+);
+const Mp4Mark = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" />
+  </svg>
+);
 
 const CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
 
@@ -386,19 +401,15 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                     </td>
                     <td style={{ padding: '8px', textAlign: 'center' }}>
                       {hasVideo ? (
-                        <span style={{
-                          background: isYouTube ? 'rgba(239, 68, 68, 0.12)' : 'rgba(var(--accent-rgb), 0.12)',
-                          color: isYouTube ? 'var(--tint-red)' : 'var(--tint-emerald)',
-                          border: isYouTube ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(var(--accent-rgb), 0.2)',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
-                          {isYouTube ? '📺 YouTube' : '📹 MP4'}
+                        <span
+                          title={isYouTube ? 'YouTube video' : 'MP4 video'}
+                          aria-label={isYouTube ? 'YouTube video' : 'MP4 video'}
+                          style={{
+                            color: isYouTube ? 'var(--tint-red)' : 'var(--tint-emerald)',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          {isYouTube ? <YouTubeMark /> : <Mp4Mark />}
                         </span>
                       ) : (
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>— None</span>
@@ -408,38 +419,30 @@ const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         <button
                           onClick={() => handleOpenEdit(ex)}
+                          title="Edit this exercise"
+                          aria-label="Edit this exercise"
                           style={{
-                            background: 'rgba(var(--fg-rgb), 0.05)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-main)',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            transition: 'all 0.15s ease'
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
+                            background: 'none', border: 'none', padding: 0,
+                            color: 'var(--accent-text)', cursor: 'pointer'
                           }}
                         >
-                          ⚙️ Edit
+                          <PencilIcon size={18} />
                         </button>
                         <button
                           onClick={() => handleDelete(ex)}
                           disabled={deletingId === (ex.id || ex.name)}
                           title="Delete this exercise"
+                          aria-label="Delete this exercise"
                           style={{
-                            background: 'rgba(239,68,68,0.1)',
-                            border: '1px solid rgba(239,68,68,0.3)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
+                            background: 'none', border: 'none', padding: 0,
                             color: 'var(--tint-red)',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
                             cursor: deletingId === (ex.id || ex.name) ? 'default' : 'pointer',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            opacity: deletingId === (ex.id || ex.name) ? 0.5 : 1,
-                            transition: 'all 0.15s ease'
+                            opacity: deletingId === (ex.id || ex.name) ? 0.5 : 1
                           }}
                         >
-                          {deletingId === (ex.id || ex.name) ? '⏳' : '🗑️'}
+                          <BinIcon size={18} />
                         </button>
                       </div>
                     </td>

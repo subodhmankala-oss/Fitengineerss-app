@@ -5,6 +5,7 @@ import GymTrainers from './GymTrainers';
 import GymSoon from './GymSoon';
 import GymPayments from './GymPayments';
 import GymSettings from './GymSettings';
+import GymLeads from './GymLeads';
 import { GYM_COLOURS } from './gymView';
 import { NAV } from './nav';
 
@@ -27,13 +28,15 @@ export default function GymApp({ data, biz, bizError, service, onReload, onSignO
 
   let body;
   if (page === 'overview') {
-    body = <GymOverview data={data} biz={biz} owner={owner} onOpenMembers={openMembers} />;
+    body = <GymOverview data={data} biz={biz} service={service} onChanged={onReload} owner={owner} onOpenMembers={openMembers} />;
   } else if (page === 'members') {
     body = <GymMembers key={memberFilter} data={data} biz={biz} service={service} initialFilter={memberFilter} onChanged={onReload} />;
   } else if (page === 'trainers') {
-    body = <GymTrainers data={data} onOpenMembers={openMembers} />;
+    body = <GymTrainers data={data} biz={biz} service={service} onChanged={onReload} onOpenMembers={openMembers} />;
   } else if (page === 'payments') {
     body = <GymPayments data={data} biz={biz} bizError={bizError} service={service} onChanged={onReload} />;
+  } else if (page === 'leads') {
+    body = <GymLeads data={data} biz={biz} bizError={bizError} service={service} onChanged={onReload} />;
   } else if (page === 'settings') {
     body = <GymSettings biz={biz} bizError={bizError} gymName={data.gym.name} service={service} onSaved={onReload} />;
   } else {

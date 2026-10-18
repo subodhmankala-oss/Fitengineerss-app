@@ -480,9 +480,37 @@ const handleGymSavePlans = gymBusinessAction('gym_save_plans', 'gym-save-plans',
     : null
 ));
 const GYM_COLOURS = ['blue', 'teal', 'green', 'orange', 'pink'];
+const LEAD_SOURCES = ['instagram', 'walk-in', 'referral', 'google', 'other'];
+const LEAD_STAGES = ['new', 'trial_booked', 'trial_done', 'joined'];
+const isTimestamp = (t) => t == null || t === '' || !Number.isNaN(Date.parse(String(t)));
 const handleGymSaveSettings = gymBusinessAction('gym_save_settings', 'gym-save-settings', (b, c) => (
-  GYM_COLOURS.includes(b.color)
-    ? { p_owner_id: c.id, p_color: b.color, p_renewal: b.renewal === true, p_miss: b.miss === true, p_receipt: b.receipt === true, p_birthday: b.birthday === true }
+  GYM_COLOURS.includes(b.color) && isInt(Number(b.joinGoal), 1, 100000) && isInt(Number(b.capacity), 1, 100000) && isInt(Number(b.sharePct), 0, 100)
+    ? { p_owner_id: c.id, p_color: b.color, p_renewal: b.renewal === true, p_miss: b.miss === true, p_receipt: b.receipt === true, p_birthday: b.birthday === true, p_join_goal: Number(b.joinGoal), p_capacity: Number(b.capacity), p_share_pct: Number(b.sharePct) }
+    : null
+));
+
+const handleGymLead = gymBusinessAction('gym_lead_action', 'gym-lead', (b, c) => {
+  const base = { p_owner_id: c.id, p_op: b.op, p_lead_id: null, p_name: null, p_phone: null, p_source: null, p_note: null, p_stage: null, p_trial_at: isTimestamp(b.trialAt) && b.trialAt ? new Date(b.trialAt).toISOString() : null };
+  if (b.op === 'add') {
+    return typeof b.name === 'string' && b.name.trim().length >= 1 && b.name.length <= 80 && LEAD_SOURCES.includes(b.source || 'walk-in') && isTimestamp(b.trialAt)
+      && (b.phone == null || String(b.phone).length <= 20) && (b.note == null || String(b.note).length <= 200)
+      ? { ...base, p_name: b.name, p_phone: b.phone || null, p_source: b.source || 'walk-in', p_note: b.note || null }
+      : null;
+  }
+  if (b.op === 'move') {
+    return UUID_RE.test(String(b.leadId || '')) && LEAD_STAGES.includes(b.stage) && isTimestamp(b.trialAt)
+      ? { ...base, p_lead_id: b.leadId, p_stage: b.stage }
+      : null;
+  }
+  if (b.op === 'delete') return UUID_RE.test(String(b.leadId || '')) ? { ...base, p_lead_id: b.leadId } : null;
+  return null;
+});
+const handleGymCheckin = gymBusinessAction('gym_checkin', 'gym-checkin', (b, c) => (
+  UUID_RE.test(String(b.memberId || '')) ? { p_owner_id: c.id, p_member_id: b.memberId, p_out: b.out === true } : null
+));
+const handleGymPayout = gymBusinessAction('gym_trainer_payout', 'gym-payout', (b, c) => (
+  UUID_RE.test(String(b.trainerId || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.month || '')) && isInt(Number(b.amountInr), 0, 100000000)
+    ? { p_owner_id: c.id, p_trainer_id: b.trainerId, p_month: b.month, p_amount_inr: Number(b.amountInr), p_paid: b.paid === true }
     : null
 ));
 
@@ -559,6 +587,9 @@ const ACTION_HANDLERS = {
   'gym-pay-membership': handleGymPayMembership,
   'gym-save-plans': handleGymSavePlans,
   'gym-save-settings': handleGymSaveSettings,
+  'gym-lead': handleGymLead,
+  'gym-checkin': handleGymCheckin,
+  'gym-payout': handleGymPayout,
   'coach-join-gym': handleCoachJoinGym,
   'coach-leave-gym': handleCoachLeaveGym,
   'client-join-gym': handleClientJoinGym

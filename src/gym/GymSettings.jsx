@@ -16,6 +16,7 @@ export default function GymSettings({ biz, bizError, gymName, service, onSaved }
   const [color, setColor] = useState(s?.brand_color || 'blue');
   const [flags, setFlags] = useState({ renewal: s?.wa_renewal ?? true, miss: s?.wa_miss ?? true, receipt: s?.wa_receipt ?? true, birthday: s?.wa_birthday ?? false });
   const [plans, setPlans] = useState(() => (biz?.plans || []).map((p) => ({ id: p.id, name: p.name, months: p.months, sessions: p.sessions, priceInr: p.price_inr })));
+  const [limits, setLimits] = useState({ joinGoal: s?.join_goal ?? 20, capacity: s?.capacity ?? 60, sharePct: s?.trainer_share_pct ?? 70 });
   const [preview, setPreview] = useState('renewal');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ ok: true, text: '' });
@@ -38,7 +39,7 @@ export default function GymSettings({ biz, bizError, gymName, service, onSaved }
     if (busy) return;
     setBusy(true); setMsg({ ok: true, text: '' });
     const [a, b] = await Promise.all([
-      service.saveGymSettings({ color, ...flags }),
+      service.saveGymSettings({ color, ...flags, joinGoal: Number(limits.joinGoal), capacity: Number(limits.capacity), sharePct: Number(limits.sharePct) }),
       service.saveGymPlans(plans.map((p) => ({ ...p, priceInr: Number(p.priceInr), months: Number(p.months) })))
     ]);
     setBusy(false);
@@ -61,6 +62,16 @@ export default function GymSettings({ biz, bizError, gymName, service, onSaved }
           {Object.entries(GYM_COLOURS).map(([k, hex]) => (
             <button key={k} type="button" role="radio" aria-checked={color === k} aria-label={k} className={`gx-swatch${color === k ? ' on' : ''}`} style={{ background: hex }} onClick={() => setColor(k)} />
           ))}
+        </div>
+      </section>
+
+      <section className="gx-card">
+        <h2 className="gx-h2">Targets &amp; payouts</h2>
+        <p className="gx-sub">These drive the Leads goal, the “live in the gym” bar, and trainer payday.</p>
+        <div className="gx-form-row">
+          <label className="gx-field">New members goal per month<input className="gx-input" type="number" min="1" value={limits.joinGoal} onChange={(e) => setLimits({ ...limits, joinGoal: e.target.value })} /></label>
+          <label className="gx-field">People the gym holds at once<input className="gx-input" type="number" min="1" value={limits.capacity} onChange={(e) => setLimits({ ...limits, capacity: e.target.value })} /></label>
+          <label className="gx-field">Trainer keeps (% of PT fees)<input className="gx-input" type="number" min="0" max="100" value={limits.sharePct} onChange={(e) => setLimits({ ...limits, sharePct: e.target.value })} /></label>
         </div>
       </section>
 

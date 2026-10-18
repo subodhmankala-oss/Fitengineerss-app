@@ -900,16 +900,25 @@ async function handleGymBusiness(req, res) {
     const since = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const [plans, memberships, payments, settings] = await Promise.all([
       svcSelect(`gym_plans?gym_id=eq.${gid}&active=eq.true&select=id,name,months,sessions,price_inr,sort_order&order=sort_order.asc`, 'gym-business plans'),
-      svcSelect(`gym_memberships?gym_id=eq.${gid}&select=id,member_id,plan_name,starts_on,ends_on,price_inr&order=ends_on.desc&limit=5000`, 'gym-business memberships'),
+      svcSelect(`gym_memberships?gym_id=eq.${gid}&select=*&order=ends_on.desc&limit=5000`, 'gym-business memberships'),
       svcSelect(`gym_payments?gym_id=eq.${gid}&paid_on=gte.${since}&select=id,member_id,membership_id,amount_inr,method,paid_on&order=paid_on.desc,created_at.desc&limit=5000`, 'gym-business payments'),
-      svcSelect(`gym_settings?gym_id=eq.${gid}&select=brand_color,wa_renewal,wa_miss,wa_receipt,wa_birthday&limit=1`, 'gym-business settings')
+      svcSelect(`gym_settings?gym_id=eq.${gid}&select=*&limit=1`, 'gym-business settings')
+    ]);
+    // Stage-3 tables (sql/gym_business_2.sql): null until that SQL is applied,
+    // so Payments and Settings keep working without it.
+    const soft = (path, label) => svcSelect(path, label).catch(() => null);
+    const recent = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+    const [leads, checkins, payouts] = await Promise.all([
+      soft(`gym_leads?gym_id=eq.${gid}&select=*&order=created_at.desc&limit=500`, 'gym-business leads'),
+      soft(`gym_checkins?gym_id=eq.${gid}&or=(out_at.is.null,in_at.gte.${recent})&select=id,member_id,in_at,out_at&order=in_at.desc&limit=2000`, 'gym-business checkins'),
+      soft(`gym_trainer_payouts?gym_id=eq.${gid}&select=trainer_id,month,amount_inr,paid_on&order=month.desc&limit=500`, 'gym-business payouts')
     ]);
     // Payments for memberships older than the window still count toward "due".
     const memberIds = memberships.map((m) => m.id).slice(0, 500);
     const paidAll = memberIds.length
       ? await svcSelect(`gym_payments?membership_id=in.(${memberIds.join(',')})&select=membership_id,amount_inr&limit=20000`, 'gym-business paid')
       : [];
-    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null });
+    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, leads, checkins, payouts });
   } catch (err) {
     console.error('gym-business error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym’s plans and payments.' });

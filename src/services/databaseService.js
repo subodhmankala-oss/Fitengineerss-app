@@ -3409,6 +3409,9 @@ const databaseService = {
   payGymMembership(body) { return this.gymBusinessWrite('gym-pay-membership', body); },
   saveGymPlans(plans) { return this.gymBusinessWrite('gym-save-plans', { plans }); },
   saveGymSettings(settings) { return this.gymBusinessWrite('gym-save-settings', settings); },
+  gymLead(body) { return this.gymBusinessWrite('gym-lead', body); },
+  gymCheckin(memberId, out) { return this.gymBusinessWrite('gym-checkin', { memberId, out: !!out }); },
+  gymPayout(body) { return this.gymBusinessWrite('gym-payout', body); },
 
   async ownerAssignClient(clientUserId, coachUserId) {
     try {

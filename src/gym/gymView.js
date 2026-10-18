@@ -121,3 +121,60 @@ export function memberRowTag(client, plan) {
   if (plan?.state === 'ends-soon') return { label: 'Ends soon', tone: 'amber', action: 'Remind' };
   return memberTag(client);
 }
+
+// ─── Leads, check-ins, trainer payday ───
+export const LEAD_STAGES = [
+  { key: 'new', label: 'New enquiry', tone: 'blue' },
+  { key: 'trial_booked', label: 'Trial booked', tone: 'amber' },
+  { key: 'trial_done', label: 'Trial done', tone: 'yellow' },
+  { key: 'joined', label: 'Joined', tone: 'green' }
+];
+export const LEAD_SOURCES = [
+  { key: 'instagram', label: 'Instagram' }, { key: 'walk-in', label: 'Walk-in' },
+  { key: 'referral', label: 'Referral' }, { key: 'google', label: 'Google' }, { key: 'other', label: 'Other' }
+];
+
+const IST_MS = 5.5 * 3600000;
+// The India-time calendar date (YYYY-MM-DD) of an ISO timestamp.
+export const istDate = (iso) => new Date(Date.parse(iso) + IST_MS).toISOString().slice(0, 10);
+export const istTime = (iso) => new Date(Date.parse(iso) + IST_MS).toISOString().slice(11, 16);
+
+// Leads that joined this month (YYYY-MM of `today`) against the goal.
+export function leadStats(leads, goal, today) {
+  const month = today.slice(0, 7);
+  const joined = (leads || []).filter((l) => l.stage === 'joined' && l.joined_at && istDate(l.joined_at).slice(0, 7) === month).length;
+  const day = new Date(`${today}T00:00:00Z`);
+  const daysInMonth = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0)).getUTCDate();
+  return { joined, goal, toGo: Math.max(0, goal - joined), daysLeft: daysInMonth - day.getUTCDate() };
+}
+
+// Who is inside now: checked in, not out, and in within the last 6 hours.
+export function insideNow(checkins, nowMs = Date.now()) {
+  return (checkins || []).filter((c) => !c.out_at && nowMs - Date.parse(c.in_at) < 6 * 3600000);
+}
+
+export const checkinsToday = (checkins, today) => (checkins || []).filter((c) => istDate(c.in_at) === today).length;
+
+// "Getting busy" from 70% of capacity.
+export const busyLabel = (inside, capacity) => (inside >= capacity ? 'Full' : inside >= capacity * 0.7 ? 'Getting busy' : 'Plenty of room');
+
+// Each trainer's personal-training fees for a month (YYYY-MM) and their share.
+// Fees = payments received that month against PT plans, for members the
+// trainer coaches now.
+export function payday(biz, clients, trainers, month, sharePct) {
+  const pt = new Set((biz?.memberships || []).filter((m) => m.is_pt).map((m) => m.id));
+  const coachOf = Object.fromEntries(clients.map((c) => [c.id, c.coachId]));
+  const fees = {};
+  (biz?.payments || []).forEach((p) => {
+    if (!pt.has(p.membership_id) || String(p.paid_on).slice(0, 7) !== month) return;
+    const coach = coachOf[p.member_id];
+    if (coach) fees[coach] = (fees[coach] || 0) + p.amount_inr;
+  });
+  const paidRows = {};
+  (biz?.payouts || []).forEach((r) => { if (String(r.month).slice(0, 7) === month) paidRows[r.trainer_id] = r; });
+  return trainers.map((t) => {
+    const f = fees[t.id] || 0;
+    const payout = Math.round((f * sharePct) / 100);
+    return { trainerId: t.id, name: t.name, fees: f, payout, paid: !!paidRows[t.id], paidAmount: paidRows[t.id]?.amount_inr ?? null };
+  });
+}

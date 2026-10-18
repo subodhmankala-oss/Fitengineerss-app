@@ -76,3 +76,46 @@ describe('gymView money', () => {
     expect(rupees(147000)).toBe('₹1,47,000');
   });
 });
+
+import { leadStats, insideNow, checkinsToday, busyLabel, payday, istDate } from './gymView';
+
+describe('gymView leads, check-ins, payday', () => {
+  it('counts joins this month against the goal', () => {
+    const leads = [
+      { stage: 'joined', joined_at: '2026-10-03T05:00:00Z' }, { stage: 'joined', joined_at: '2026-09-30T05:00:00Z' },
+      { stage: 'new', joined_at: null }
+    ];
+    expect(leadStats(leads, 20, '2026-10-18')).toEqual({ joined: 1, goal: 20, toGo: 19, daysLeft: 13 });
+  });
+  it('uses India time for the date', () => {
+    expect(istDate('2026-10-17T19:00:00Z')).toBe('2026-10-18');
+  });
+  it('counts only recent open check-ins as inside', () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const rows = [
+      { in_at: '2026-10-18T11:00:00Z', out_at: null }, { in_at: '2026-10-18T10:00:00Z', out_at: '2026-10-18T11:00:00Z' },
+      { in_at: '2026-10-18T02:00:00Z', out_at: null }
+    ];
+    expect(insideNow(rows, now)).toHaveLength(1);
+    expect(checkinsToday(rows, '2026-10-18')).toBe(3);
+  });
+  it('labels how busy the gym is', () => {
+    expect(busyLabel(10, 60)).toBe('Plenty of room');
+    expect(busyLabel(43, 60)).toBe('Getting busy');
+    expect(busyLabel(60, 60)).toBe('Full');
+  });
+  it('splits PT fees by the trainer who coaches the member', () => {
+    const biz = {
+      memberships: [{ id: 'pt1', is_pt: true }, { id: 'mo1', is_pt: false }],
+      payments: [
+        { membership_id: 'pt1', member_id: 'a', amount_inr: 9000, paid_on: '2026-10-05' },
+        { membership_id: 'pt1', member_id: 'a', amount_inr: 1000, paid_on: '2026-09-05' },
+        { membership_id: 'mo1', member_id: 'a', amount_inr: 3000, paid_on: '2026-10-05' }
+      ],
+      payouts: [{ trainer_id: 't1', month: '2026-10-01', amount_inr: 6300 }]
+    };
+    const r = payday(biz, [{ id: 'a', coachId: 't1' }], [{ id: 't1', name: 'Priya' }, { id: 't2', name: 'Rohit' }], '2026-10', 70);
+    expect(r[0]).toMatchObject({ fees: 9000, payout: 6300, paid: true });
+    expect(r[1]).toMatchObject({ fees: 0, payout: 0, paid: false });
+  });
+});

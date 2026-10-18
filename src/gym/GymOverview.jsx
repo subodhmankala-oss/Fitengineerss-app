@@ -1,10 +1,14 @@
-import { greeting, memberPlans, monthlyCollections, rankTrainers, rupees } from './gymView';
+import { useState } from 'react';
+import { busyLabel, checkinsToday, greeting, insideNow, istDate, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees } from './gymView';
 import { HealthBar, WeeklyBars } from '../components/OwnerCharts';
 import { weekLabels, weekRanges } from '../utils/ownerView';
 
 // Overview from what the app really knows today: training activity. Money,
 // check-ins and leads fill the same grid as their stages land.
-export default function GymOverview({ data, biz, owner, onOpenMembers }) {
+export default function GymOverview({ data, biz, service, onChanged, owner, onOpenMembers }) {
+  const [pick, setPick] = useState('');
+  const [ciBusy, setCiBusy] = useState(false);
+  const [ciError, setCiError] = useState('');
   const { clients, trainers, insights, gym } = data;
   const first = (owner?.name || '').split(' ')[0];
   const trainedWeek = clients.filter((c) => c.workouts7d > 0).length;
@@ -22,6 +26,22 @@ export default function GymOverview({ data, biz, owner, onOpenMembers }) {
   const endsN = clients.filter((c) => ['ends-soon', 'expired'].includes(plans[c.id]?.state)).length;
   const money = biz && insights?.today ? monthlyCollections(biz.payments, insights.today, 6) : null;
   const maxMonth = money ? Math.max(1, ...money.months.map((m) => m.total)) : 1;
+
+  const live = biz?.checkins ? insideNow(biz.checkins) : null;
+  const capacity = biz?.settings?.capacity ?? 60;
+  const names = Object.fromEntries(clients.map((c) => [c.id, c.name]));
+  const todayStr = insights?.today;
+  const collectedToday = biz && todayStr ? biz.payments.filter((p) => p.paid_on === todayStr).reduce((s, p) => s + p.amount_inr, 0) : 0;
+  const lead = biz?.leads && todayStr ? leadStats(biz.leads, biz.settings?.join_goal ?? 20, todayStr) : null;
+  const joinsToday = biz?.leads && todayStr ? biz.leads.filter((l) => l.stage === 'joined' && l.joined_at && istDate(l.joined_at) === todayStr).length : 0;
+  const trialsToday = biz?.leads && todayStr ? biz.leads.filter((l) => l.stage === 'trial_booked' && l.trial_at && istDate(l.trial_at) === todayStr).length : 0;
+  const checkIn = async (memberId, out) => {
+    if (!memberId || ciBusy) return;
+    setCiBusy(true); setCiError('');
+    const r = await service.gymCheckin(memberId, out);
+    setCiBusy(false);
+    if (r.success) { setPick(''); onChanged(); } else setCiError(r.error);
+  };
 
   const plan = [
     { n: dueN, tone: 'amber', title: 'Payments still due', sub: 'Remind them on WhatsApp', cta: `See all ${dueN}`, filter: 'due' },
@@ -60,6 +80,40 @@ export default function GymOverview({ data, biz, owner, onOpenMembers }) {
           <span className="gx-tile-sub">across all members</span>
         </button>
       </div>
+
+      {live && (
+        <div className="gx-grid2 even">
+          <section className="gx-card gx-live">
+            <div className="gx-row"><span className="gx-pill green">● Live in the gym</span><span className="gx-sub">{busyLabel(live.length, capacity)}</span></div>
+            <div className="gx-big dark">{live.length} <small>of {capacity} spots</small></div>
+            <div className="gx-meter" role="img" aria-label={`${live.length} of ${capacity} spots in use`}><i style={{ width: `${Math.min(100, (live.length / capacity) * 100)}%` }} /></div>
+            <div className="gx-form-inline">
+              <select className="gx-select wide" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Member to check in">
+                <option value="">Check someone in…</option>
+                {[...clients].sort((a, b) => a.name.localeCompare(b.name)).filter((c) => !live.some((l) => l.member_id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button type="button" className="gx-btn gx-btn-dark" disabled={!pick || ciBusy} onClick={() => checkIn(pick, false)}>+ Check in</button>
+            </div>
+            {ciError && <p className="gx-err" role="alert">{ciError}</p>}
+            <div className="gx-inside">
+              {live.length === 0 && <p className="gx-sub">Nobody is checked in right now.</p>}
+              {live.map((l) => (
+                <span key={l.id} className="gx-insider">{names[l.member_id] || 'Member'}<button type="button" aria-label={`Check out ${names[l.member_id] || 'member'}`} disabled={ciBusy} onClick={() => checkIn(l.member_id, true)}>Check out</button></span>
+              ))}
+            </div>
+          </section>
+          <section className="gx-card">
+            <h2 className="gx-h2">Today so far</h2>
+            <div className="gx-today">
+              <div className="blue"><b>{checkinsToday(biz.checkins, todayStr)}</b><span>Check-ins</span></div>
+              <div className="amber"><b>{rupees(collectedToday)}</b><span>Collected</span></div>
+              <div className="green"><b>{joinsToday}</b><span>New joins</span></div>
+              <div className="red"><b>{trialsToday}</b><span>Trials booked</span></div>
+            </div>
+            {lead && <p className="gx-sub">{lead.joined} of {lead.goal} new members this month</p>}
+          </section>
+        </div>
+      )}
 
       <section className="gx-card">
         <h2 className="gx-h2">Today’s game plan</h2>

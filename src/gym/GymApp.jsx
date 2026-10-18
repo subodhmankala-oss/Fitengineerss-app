@@ -6,6 +6,7 @@ import GymSoon from './GymSoon';
 import GymPayments from './GymPayments';
 import GymSettings from './GymSettings';
 import GymLeads from './GymLeads';
+import GymInvite from './GymInvite';
 import { GYM_COLOURS } from './gymView';
 import { NAV } from './nav';
 
@@ -65,6 +66,7 @@ export default function GymApp({ data, biz, bizError, service, onReload, onSignO
             </button>
           ))}
         </nav>
+        <GymInvite gym={data.gym} compact />
         <button type="button" className="gx-signout" onClick={onSignOut}>Sign out</button>
       </aside>
       <main className="gx-main">{body}</main>

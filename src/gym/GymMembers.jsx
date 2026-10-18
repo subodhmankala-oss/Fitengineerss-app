@@ -40,6 +40,7 @@ export default function GymMembers({ data, biz, service, initialFilter = 'all', 
             const plan = plans[c.id];
             const tag = memberRowTag(c, plan);
             const moneyTag = ['due', 'expired', 'ends-soon'].includes(plan?.state);
+            const waiting = !c.trainerName && !c.selfGuided;
             const canMessage = !!toWhatsappNumber(c.phone);
             return (
               <div key={c.id} className={`gx-member${sel?.id === c.id ? ' on' : ''}`}>
@@ -51,6 +52,7 @@ export default function GymMembers({ data, biz, service, initialFilter = 'all', 
                   </span>
                 </button>
                 <span className={`gx-tag ${tag.tone}`}>{tag.label}</span>
+                {waiting && <button type="button" className="gx-btn gx-btn-blue" onClick={() => setSelId(c.id)}>Assign trainer</button>}
                 <button
                   type="button" className={`gx-btn ${tag.tone === 'green' ? 'gx-btn-soft' : 'gx-btn-dark'}`}
                   disabled={!canMessage} title={canMessage ? '' : 'No phone number saved for this member'}
@@ -84,6 +86,11 @@ function MemberPanel({ client, trainers, biz, plan, today, service, onChanged })
   const streak = today ? dayStreak(dates, today) : 0;
   const visits = grid.filter(Boolean).length;
   const trainerOptions = trainers.filter((t) => t.id !== client.coachId);
+  const trainerName = (id) => trainers.find((t) => t.id === id)?.name;
+  const confirmText = !choice ? '' : choice === '__none__'
+    ? `${client.name} will go back to the waiting list. ${client.trainerName} will no longer see them.`
+    : choice === '__self__' ? `${client.name} will train on their own, with no trainer.`
+      : `${client.name} will be coached by ${trainerName(choice)}${client.trainerName ? ` instead of ${client.trainerName}` : ''}. ${trainerName(choice)} gets a notification.`;
 
   const save = async () => {
     if (!choice || busy) return;
@@ -137,7 +144,8 @@ function MemberPanel({ client, trainers, biz, plan, today, service, onChanged })
         {client.trainerName && <option value="__none__">No trainer — waiting list</option>}
         {!client.selfGuided && <option value="__self__">Trains on their own</option>}
       </select>
-      <button type="button" className="gx-btn gx-btn-light" disabled={!choice || busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</button>
+      {confirmText && <p className="gx-panel-note">{confirmText}</p>}
+      <button type="button" className="gx-btn gx-btn-light" disabled={!choice || busy} onClick={save}>{busy ? 'Saving…' : choice ? 'Confirm' : 'Save'}</button>
       {msg && <p className="gx-panel-note" role="status">{msg}</p>}
     </aside>
   );

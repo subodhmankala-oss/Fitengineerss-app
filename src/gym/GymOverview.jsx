@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import GymInvite from './GymInvite';
 import { busyLabel, checkinsToday, greeting, insideNow, istDate, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees } from './gymView';
 import { HealthBar, WeeklyBars } from '../components/OwnerCharts';
 import { weekLabels, weekRanges } from '../utils/ownerView';
@@ -62,6 +63,8 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
           </div>
         </div>
       </div>
+
+      <GymInvite gym={gym} />
 
       <div className="gx-grid3">
         <button type="button" className="gx-tile gx-tile-dark" onClick={() => onOpenMembers('all')}>

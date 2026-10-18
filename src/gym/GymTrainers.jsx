@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { initials, payday, rankTrainers, rupees } from './gymView';
 import { WeeklyBars } from '../components/OwnerCharts';
+import GymInvite from './GymInvite';
 
 // Trainers: a podium of who keeps members training, and one trainer's detail.
 // Payday: each trainer's share of the PT fees their members paid this month.
@@ -31,6 +32,7 @@ export default function GymTrainers({ data, biz, service, onChanged, onOpenMembe
       <div className="gx-head">
         <div><h1 className="gx-h1">Trainers</h1><p className="gx-sub">Who keeps members training · tap a trainer to see their week</p></div>
       </div>
+      <GymInvite gym={data.gym} />
       <div className="gx-grid-trainers">
         <section className="gx-card gx-dark">
           <h2 className="gx-h2 gx-light">Keeping members training</h2>

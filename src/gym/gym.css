@@ -324,3 +324,18 @@
   .gx-kanban { grid-template-columns: 1fr; }
   .gx-form-row, .gx-grid2.even { grid-template-columns: 1fr; }
 }
+
+/* ─── gym code / invite ─── */
+.gx-invite { display: grid; grid-template-columns: 1fr 1.4fr; gap: 24px; align-items: center; }
+.gx-code-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.gx-code { font-size: 1.6rem; font-weight: 800; letter-spacing: 0.08em; background: #fff1d0; border-radius: 12px; padding: 6px 16px; }
+.gx-invite-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.gx-invite-ways > div { background: #f5f7fc; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.gx-code-mini { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 10px; font-size: 0.78rem; }
+.gx-code-label { color: #9fb0e8; }
+.gx-code-mini b { letter-spacing: 0.06em; color: var(--amber); }
+.gx-code-mini button { margin-left: auto; font: inherit; font-size: 0.7rem; font-weight: 800; border: none; border-radius: 8px; padding: 4px 9px; background: rgba(255, 255, 255, 0.14); color: #fff; cursor: pointer; }
+@media (max-width: 899px) {
+  .gx-invite, .gx-invite-ways { grid-template-columns: 1fr; }
+  .gx-code-mini { flex-shrink: 0; }
+}

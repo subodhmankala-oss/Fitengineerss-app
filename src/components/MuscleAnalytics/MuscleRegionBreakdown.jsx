@@ -158,11 +158,14 @@ const MuscleRegionBreakdown = ({ muscle, regions, focusRegion = null, onAddExerc
         })}
       </div>
       {count > 0 && onGoToWorkout && (
-        <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
-          {addTargetLabel
-            ? `${count} added — open ${addTargetLabel} →`
-            : `Add ${count} exercise${count === 1 ? '' : 's'} to my workout →`}
-        </button>
+        <>
+          <p className="detail-region-line" style={{ textAlign: 'center', marginTop: '10px' }}>
+            <strong>{count} exercise{count === 1 ? '' : 's'} added in total.</strong> Check them under the heading, then add to {addTargetLabel || 'your workout'}.
+          </p>
+          <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
+            {`Add ${count} exercise${count === 1 ? '' : 's'} to ${addTargetLabel || 'my workout'} →`}
+          </button>
+        </>
       )}
     </div>
   );

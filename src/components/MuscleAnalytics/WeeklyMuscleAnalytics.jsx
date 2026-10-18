@@ -190,6 +190,38 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     return { curr, prev, trend: classifyTrend(curr, prev), pctChange: prev === 0 ? null : Math.round(((curr - prev) / prev) * 100) };
   }, [logs, muscleStats, prevWeekStartStr, prevWeekEndStr]);
 
+  // Exercises picked from the muscle sheets. The client's queue is already
+  // only picks; the coach's addedNames is the whole Live Log, so remember
+  // which ones were added from here.
+  const [localPicked, setLocalPicked] = useState([]);
+  const trackAdd = (name) => { onAddExercise(name); setLocalPicked(p => (p.includes(name) ? p : [...p, name])); };
+  const trackRemove = (name) => { onRemoveExercise?.(name); setLocalPicked(p => p.filter(n => n !== name)); };
+  const picked = !onAddExercise ? [] : addedCount != null
+    ? addedNames
+    : localPicked.filter(n => addedNames.some(a => a.toLowerCase() === n.toLowerCase()));
+  const target = addTargetLabel || 'your workout';
+  const pickedStrip = picked.length > 0 && onGoToWorkout && (
+    <div className="muscle-queued-strip" style={{ margin: '8px 0 12px' }}>
+      <div className="muscle-queued-head">
+        <span className="muscle-queued-title">✅ Added exercises ({picked.length})</span>
+        {onRemoveExercise && (
+          <button type="button" className="muscle-queued-clear" onClick={() => picked.forEach(trackRemove)}>Clear all</button>
+        )}
+      </div>
+      <div className="muscle-queued-chips">
+        {picked.map(name => (
+          <span key={name} className="muscle-queued-chip">
+            {name}
+            {onRemoveExercise && <button type="button" aria-label={`Remove ${name}`} onClick={() => trackRemove(name)}>✕</button>}
+          </span>
+        ))}
+      </div>
+      <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
+        Add {picked.length} exercise{picked.length === 1 ? '' : 's'} to {target} →
+      </button>
+    </div>
+  );
+
   return (
     <div className="muscle-analytics-root timeframe-content flex-col gap-4">
       {/* ── Header: week range + top-line stats ── */}
@@ -219,34 +251,6 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         </div>
       </div>
 
-      {/* Client's own view: exercises ticked on any muscle's "Try these"
-          chips, sent to the logger together with one tap. */}
-      {addedCount > 0 && onGoToWorkout && !addTargetLabel && (
-        <div className={cardClass('muscle-queued-card')}>
-          <div className="muscle-queued-head">
-            <span className="muscle-queued-title">✅ Picked for your workout ({addedCount})</span>
-            {onRemoveExercise && (
-              <button type="button" className="muscle-queued-clear" onClick={() => addedNames.forEach(onRemoveExercise)}>
-                Clear all
-              </button>
-            )}
-          </div>
-          <div className="muscle-queued-chips">
-            {addedNames.map(name => (
-              <span key={name} className="muscle-queued-chip">
-                {name}
-                {onRemoveExercise && (
-                  <button type="button" aria-label={`Remove ${name}`} onClick={() => onRemoveExercise(name)}>✕</button>
-                )}
-              </span>
-            ))}
-          </div>
-          <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
-            Add {addedCount} exercise{addedCount === 1 ? '' : 's'} to my workout →
-          </button>
-        </div>
-      )}
-
       {/* ── Section 1 + Section 5, merged: Muscle Balance Overview and
           Neglected Muscles share one card via a left/right tab switcher
           (same toggle pattern as the heat map's Front/Back switch), instead
@@ -268,6 +272,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         {balanceTab === 'balance' ? (
           <>
             <p className="muscle-analytics-subtext">Working sets per muscle group, measured against your weekly target.</p>
+            {pickedStrip}
             <div className="muscle-card-grid">
               {muscleStats.map((stat, i) => (
                 <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => selectMuscle(stat.muscle)} />
@@ -306,6 +311,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           </div>
         </div>
 
+        {mapTab === 'heatmap' && pickedStrip}
         {mapTab === 'heatmap' ? (
           <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} />
         ) : (
@@ -341,7 +347,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={weekStartStr} weekEnd={weekEndStr} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise} onRemoveExercise={onRemoveExercise} addedNames={addedNames} addedCount={addedCount} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={weekStartStr} weekEnd={weekEndStr} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} addedCount={picked.length} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
       )}
     </div>
   );

@@ -129,6 +129,17 @@ const PayTile = ({ color, bg, size = 36, children }) => (
 
 const PAYMENT_METHOD_LABELS = { cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank Transfer', card: 'Card', other: 'Other' };
 
+// Receipts cover one monthly cycle (renewals are monthly — see
+// getRenewalDueClients): 18 Oct is valid through 17 Nov. Month-end dates
+// clamp (31 Jan -> 27 Feb) instead of spilling into the next month.
+const receiptValidThrough = (paidAt) => {
+  const d = new Date(paidAt);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, Math.min(d.getDate(), new Date(d.getFullYear(), d.getMonth() + 2, 0).getDate()));
+  end.setDate(end.getDate() - 1);
+  return end;
+};
+const fmtReceiptDate = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
 const ReceiptIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" />
@@ -1153,7 +1164,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const W = 560, pad = 36, headerH = 170, logoBox = 90;
     const rows = [
       ['Received from', clientName],
-      ['Date', new Date(paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })],
+      ['From', fmtReceiptDate(paidAt)],
+      ['Valid through', fmtReceiptDate(receiptValidThrough(paidAt))],
       ['Payment method', PAYMENT_METHOD_LABELS[method] || method],
       ['Receipt no.', receiptNo]
     ];
@@ -1237,7 +1249,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       const firstName = clientName.split(' ')[0];
       const receiptNo = `FE-${String(payment.id).replace(/-/g, '').slice(0, 8).toUpperCase()}`;
       const amountText = `₹${Number(payment.amount).toLocaleString('en-IN')}`;
-      const message = `Hi ${firstName}! Payment received — ${amountText} on ${new Date(payment.paidAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} (${PAYMENT_METHOD_LABELS[payment.method] || payment.method}). Receipt no. ${receiptNo}. Thank you! 🙏\n\n— ${signOff}`;
+      const message = `Hi ${firstName}! Payment received — ${amountText} (${PAYMENT_METHOD_LABELS[payment.method] || payment.method}), valid ${fmtReceiptDate(payment.paidAt)} to ${fmtReceiptDate(receiptValidThrough(payment.paidAt))}. Receipt no. ${receiptNo}. Thank you! 🙏\n\n— ${signOff}`;
 
       const file = await buildReceiptFile({
         logoSrc: assets?.logoUrl || '/logo.png',

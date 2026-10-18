@@ -980,7 +980,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // caller gets it. beforeSend (optional) runs with the final text before
   // any share attempt — for side effects like a push notification that
   // must fire regardless of which send path ends up being taken.
-  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, greeting, buildBody, amountLine, beforeSend, verb = 'pay' }) => {
+  const sendBrandedWhatsapp = async ({ firstName, phone, withQr, greeting, buildBody, amountLine, beforeSend, amount, verb = 'pay' }) => {
     let assets = coachReminderAssets;
     if (assets === null) {
       assets = await databaseService.getCoachReminderAssets(resolvedCoachId);
@@ -1016,8 +1016,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const payLine = qrUrl
       ? (canShareFiles ? `you can ${verb} using the QR code here` : `you can ${verb} whenever works for you`)
       : `no rush at all, just ${verb} whenever it suits you`;
-    const bodyText = buildBody({ payLine });
-    const message = `${greeting} ${bodyText}` + `\n\n— ${signOff}`;
+    const baseBody = buildBody({ payLine });
+    // WhatsApp Pay caps payments at Rs 2,000 and clients often scan the QR
+    // from inside WhatsApp, so steer them to a UPI app instead — unless we
+    // know the amount and it's under the cap. The coach's UPI ID (Business
+    // Profile) goes in as copyable text for the same reason. Both are baked
+    // onto the card too, since the card is the only thing some WhatsApp
+    // versions deliver (see the mediaFile comment below).
+    const upiId = (assets?.upiId || '').trim();
+    const needsTip = (qrUrl || upiId) && !(amount > 0 && amount <= 2000);
+    const tipLine = needsTip ? 'Tip: pay with GPay / PhonePe / Paytm — WhatsApp payments are limited to ₹2,000.' : '';
+    const upiLine = upiId ? `UPI ID: ${upiId}` : '';
+    const bodyText = [baseBody, tipLine, upiLine].filter(Boolean).join(' ');
+    const message = `${greeting} ${baseBody}`
+      + (tipLine ? `\n\n${tipLine}` : '')
+      + (upiLine ? `\n${upiLine}` : '')
+      + `\n\n— ${signOff}`;
     beforeSend?.(message);
 
     // Exactly ONE image file, carrying the WHOLE message (not just the
@@ -1121,6 +1135,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       await sendBrandedWhatsapp({
         firstName,
         withQr: true,
+        amount,
         greeting: `Hi ${firstName}! Hope you're doing well 🙂`,
         amountLine: amount > 0 ? `Amount: ₹${amount.toLocaleString('en-IN')}` : null,
         buildBody: ({ payLine }) =>
@@ -5454,22 +5469,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               default, same treatment as the paused-clients toggle above: it's
               the occasional case, and shouldn't compete with the renewal rows
               that ARE the everyday reason a coach opens this screen. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{
+            background: 'linear-gradient(160deg, rgba(37,211,102,0.16) 0%, rgba(37,211,102,0.05) 100%), var(--bg-card)',
+            border: '1px solid rgba(37,211,102,0.35)',
+            borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(37,211,102,0.08)'
+          }}>
             <button
               type="button"
               onClick={() => setExternalRequestOpen(o => !o)}
+              aria-expanded={externalRequestOpen}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)',
-                borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                background: 'transparent', border: 'none',
+                padding: '10px 12px', cursor: 'pointer', font: 'inherit'
               }}
             >
               <span style={{ color: '#25D366', fontSize: '0.8rem', fontWeight: 700 }}>
                 💬 Send payment QR to someone outside the app
               </span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
-                style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
-                <polyline points="6 9 12 15 18 9" />
+                style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                <polyline points="9 6 15 12 9 18" />
               </svg>
             </button>
             {externalRequestOpen && (
@@ -5477,8 +5497,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 onSubmit={handleSendExternalPaymentRequest}
                 style={{
                   display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center',
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
-                  borderRadius: '12px', padding: '12px 14px'
+                  borderTop: '1px solid rgba(37,211,102,0.2)', padding: '12px 14px'
                 }}
               >
                 {/* No phone field (2026-09-17: "what is point of name phone

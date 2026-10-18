@@ -27,7 +27,7 @@ import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from 
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -6071,7 +6071,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           padding: 0, opacity: deletingPaymentId === p.id ? 0.5 : 1
                         }}
                       >
-                        <TrashIcon size={14} />
+                        <BinIcon size={16} />
                       </button>
                     </div>
                   </div>

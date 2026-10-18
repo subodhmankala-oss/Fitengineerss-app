@@ -43,6 +43,28 @@ export function PencilIcon({ size = 20, className }) {
   );
 }
 
+// Outline bin with a lid handle and a plain body (no inner lines) — the
+// delete icon used on the Payments list.
+export function BinIcon({ size = 20, className }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="M6 7v11.5A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5V7" />
+    </svg>
+  );
+}
+
 export function TrashIcon({ size = 20, className }) {
   return (
     <svg

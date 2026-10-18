@@ -1224,7 +1224,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     ctx.textAlign = 'center';
     ctx.fillStyle = '#888888';
     ctx.font = 'italic 16px Arial, sans-serif';
-    ctx.fillText(`Thank you! — ${signOff}`, W / 2, H - 28);
+    ctx.fillText(`Journey begins — ${signOff}`, W / 2, H - 28);
 
     const blob = await (await fetch(canvas.toDataURL('image/jpeg', 0.92))).blob();
     return new File([blob], `receipt-${receiptNo}.jpg`, { type: 'image/jpeg' });
@@ -1248,7 +1248,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       const firstName = clientName.split(' ')[0];
       const receiptNo = `FE-${String(payment.id).replace(/-/g, '').slice(0, 8).toUpperCase()}`;
       const amountText = `₹${Number(payment.amount).toLocaleString('en-IN')}`;
-      const message = `Hi ${firstName}! Payment received — ${amountText} (${PAYMENT_METHOD_LABELS[payment.method] || payment.method}), valid ${fmtReceiptDate(payment.paidAt)} to ${fmtReceiptDate(receiptValidThrough(payment.paidAt))}. Receipt no. ${receiptNo}. Thank you! 🙏\n\n— ${signOff}`;
+      const message = `Hi ${firstName}! Payment received — ${amountText} (${PAYMENT_METHOD_LABELS[payment.method] || payment.method}), valid ${fmtReceiptDate(payment.paidAt)} to ${fmtReceiptDate(receiptValidThrough(payment.paidAt))}. Receipt no. ${receiptNo}. Journey begins.\n\n— ${signOff}`;
 
       const file = await buildReceiptFile({
         logoSrc: assets?.logoUrl || '/logo.png',

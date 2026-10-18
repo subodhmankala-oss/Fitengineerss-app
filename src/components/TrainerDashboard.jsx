@@ -5454,22 +5454,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               default, same treatment as the paused-clients toggle above: it's
               the occasional case, and shouldn't compete with the renewal rows
               that ARE the everyday reason a coach opens this screen. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{
+            background: 'linear-gradient(160deg, rgba(37,211,102,0.16) 0%, rgba(37,211,102,0.05) 100%), var(--bg-card)',
+            border: '1px solid rgba(37,211,102,0.35)',
+            borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(37,211,102,0.08)'
+          }}>
             <button
               type="button"
               onClick={() => setExternalRequestOpen(o => !o)}
+              aria-expanded={externalRequestOpen}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)',
-                borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                background: 'transparent', border: 'none',
+                padding: '10px 12px', cursor: 'pointer', font: 'inherit'
               }}
             >
               <span style={{ color: '#25D366', fontSize: '0.8rem', fontWeight: 700 }}>
                 💬 Send payment QR to someone outside the app
               </span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
-                style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
-                <polyline points="6 9 12 15 18 9" />
+                style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                <polyline points="9 6 15 12 9 18" />
               </svg>
             </button>
             {externalRequestOpen && (
@@ -5477,8 +5482,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 onSubmit={handleSendExternalPaymentRequest}
                 style={{
                   display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center',
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
-                  borderRadius: '12px', padding: '12px 14px'
+                  borderTop: '1px solid rgba(37,211,102,0.2)', padding: '12px 14px'
                 }}
               >
                 {/* No phone field (2026-09-17: "what is point of name phone

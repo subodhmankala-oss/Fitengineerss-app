@@ -114,6 +114,19 @@ const TabIcon = ({ icon, dot }) => (
   </span>
 );
 
+// Rounded tinted tile + line icon, the leading mark on every Payments card
+// (line icons, not emoji — same treatment as the summary tiles further down).
+const PayTile = ({ color, bg, size = 36, children }) => (
+  <span style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: `${size}px`, height: `${size}px`, borderRadius: '10px', background: bg, color
+  }}>
+    <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </svg>
+  </span>
+);
+
 const convertAiExerciseToEditorShape = (aiEx) => {
   const type = aiEx.type || 'strength';
   const setCount = Math.max(1, parseInt(aiEx.setCount, 10) || (type === 'cardio' ? 1 : 3));
@@ -5281,7 +5294,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800 }}>💰 Client Payments</h4>
+            <h4 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.3rem', fontWeight: 800, flex: 1 }}>Payments</h4>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0,
+              background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.2)',
+              borderRadius: '12px', padding: '6px 12px'
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-text)' }}>
+                <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" />
+              </svg>
+              <div style={{ lineHeight: 1.15 }}>
+                <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Clients</div>
+                <div style={{ fontSize: '0.95rem', color: 'var(--accent-text)', fontWeight: 800 }}>{myClientsCount}</div>
+              </div>
+            </div>
           </div>
           {/* Subtitle (2026-08-28: "the better version of this should be
               written there" — the page opened with just the icon+heading and
@@ -5316,19 +5342,39 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
                       background: bg, border: `1px solid ${border}`,
-                      borderRadius: '12px', padding: '12px 14px', cursor: 'pointer',
+                      borderRadius: '12px', padding: '8px 12px', cursor: 'pointer',
                       position: 'relative'
                     }}
                   >
-                    <span style={{ fontSize: '1.3rem' }}>{overdue ? '🔴' : '⏳'}</span>
+                    {overdue ? (
+                      <span style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        width: '32px', height: '32px', borderRadius: '50%', background: color, color: '#fff',
+                        fontSize: '0.95rem', fontWeight: 800
+                      }}>
+                        {(r.clientName || '?').trim().charAt(0).toUpperCase()}
+                      </span>
+                    ) : (
+                      <PayTile color={color} bg="rgba(245,158,11,0.18)" size={32}>
+                        <path d="M6 2h12M6 22h12M7 2v4a5 5 0 0 0 2 4l3 2-3 2a5 5 0 0 0-2 4v4M17 2v4a5 5 0 0 1-2 4l-3 2 3 2a5 5 0 0 1 2 4v4" />
+                      </PayTile>
+                    )}
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>
                         {r.clientName}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {overdue
-                          ? `${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue on their monthly renewal (last paid ${r.daysSincePaid} days ago)`
-                          : `Renewal due in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid ${r.daysSincePaid} days ago)`}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={overdue ? color : 'currentColor'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                          <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" />
+                        </svg>
+                        {overdue ? (
+                          <>
+                            <span style={{ color, fontWeight: 700 }}>{r.daysOverdue} day{r.daysOverdue === 1 ? '' : 's'} overdue</span>
+                            <span>on their monthly renewal (last paid {r.daysSincePaid} days ago)</span>
+                          </>
+                        ) : (
+                          <span>Renewal due in {Math.abs(r.daysOverdue)} day{Math.abs(r.daysOverdue) === 1 ? '' : 's'} (last paid {r.daysSincePaid} days ago)</span>
+                        )}
                       </div>
                     </div>
 
@@ -5344,7 +5390,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         disabled={pausingClientId === r.clientId}
                         onClick={() => setRenewalMenuOpenId(id => id === r.clientId ? null : r.clientId)}
                         style={{
-                          background: 'rgba(var(--fg-rgb), 0.06)', border: 'none', borderRadius: '8px',
+                          background: 'rgba(var(--fg-rgb), 0.06)', border: 'none', borderRadius: '10px',
                           color: 'rgba(var(--fg-rgb), 0.75)', width: '30px', height: '30px', fontSize: '1rem',
                           fontWeight: 800, cursor: pausingClientId === r.clientId ? 'default' : 'pointer',
                           opacity: pausingClientId === r.clientId ? 0.6 : 1
@@ -5415,12 +5461,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 onClick={() => setPausedSectionOpen(o => !o)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                  background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
-                  borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                  background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.18)',
+                  borderRadius: '12px', padding: '7px 12px', cursor: 'pointer', font: 'inherit'
                 }}
               >
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700 }}>
-                  ⏸️ Paused clients ({pausedClients.length})
+                <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700 }}>
+                  <PayTile color="#fff" bg="var(--primary-accent-light)" size={28}>
+                    <path d="M9 5v14M15 5v14" />
+                  </PayTile>
+                  Paused clients ({pausedClients.length})
                 </span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
                   style={{ color: 'var(--text-muted)', flexShrink: 0, transform: pausedSectionOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
@@ -5481,11 +5530,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
                 background: 'transparent', border: 'none',
-                padding: '10px 12px', cursor: 'pointer', font: 'inherit'
+                padding: '7px 12px', cursor: 'pointer', font: 'inherit'
               }}
             >
-              <span style={{ color: '#25D366', fontSize: '0.8rem', fontWeight: 700 }}>
-                💬 Send payment QR to someone outside the app
+              <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#16a34a', fontSize: '0.85rem', fontWeight: 700, textAlign: 'left' }}>
+                <PayTile color="#16a34a" bg="rgba(37,211,102,0.18)" size={28}>
+                  <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3M7 12h10" />
+                </PayTile>
+                Send payment QR to someone outside the app
               </span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
                 style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}>
@@ -5561,10 +5613,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             onSubmit={handleLogPayment}
             style={{
               display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px',
-              background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid var(--border-color)',
-              borderRadius: '12px', padding: '12px'
+              background: 'linear-gradient(160deg, rgba(var(--accent-rgb), 0.14) 0%, rgba(var(--accent-rgb), 0.04) 100%), var(--bg-card)',
+              border: '1px solid rgba(var(--accent-rgb), 0.3)',
+              borderRadius: '12px', padding: '10px 12px', boxShadow: '0 2px 10px rgba(var(--accent-rgb), 0.08)'
             }}
           >
+            <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <PayTile color="var(--accent-text)" bg="rgba(var(--accent-rgb), 0.16)" size={32}>
+                <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" />
+              </PayTile>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                <span style={{ color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 800 }}>Log a payment</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Record a payment a client has already made.</span>
+              </div>
+            </div>
             <select
               value={paymentFormClientId}
               onChange={(e) => setPaymentFormClientId(e.target.value)}
@@ -5579,20 +5641,27 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 <option key={c.id} value={c.id}>{c.userName}</option>
               ))}
             </select>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              placeholder="Amount"
-              value={paymentFormAmount}
-              onChange={(e) => setPaymentFormAmount(e.target.value)}
-              required
-              style={{
-                flex: '1 1 110px', background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
-                borderRadius: '8px', color: 'var(--text-main)', padding: '9px 10px', fontSize: '0.85rem'
-              }}
-            />
+            <div style={{
+              flex: '1 1 110px', display: 'flex', alignItems: 'center', gap: '6px',
+              background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+              borderRadius: '8px', padding: '0 10px'
+            }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>₹</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                placeholder="Amount"
+                value={paymentFormAmount}
+                onChange={(e) => setPaymentFormAmount(e.target.value)}
+                required
+                style={{
+                  flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
+                  color: 'var(--text-main)', padding: '9px 0', fontSize: '0.85rem', font: 'inherit'
+                }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: '4px', flex: '2 1 260px' }}>
               {[
                 { id: 'cash', label: 'Cash' },

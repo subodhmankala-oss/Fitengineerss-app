@@ -27,7 +27,7 @@ import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from 
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
 import ClockTimerModal from './ClockTimerModal';
-import { StopwatchIcon, TrashIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
+import { StopwatchIcon, TrashIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import { useReorderableList } from '../hooks/useReorderableList';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -6050,9 +6050,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         onClick={() => startEditingPayment(p)}
                         title="Edit payment"
                         aria-label="Edit payment"
-                        style={{ background: 'none', border: 'none', color: 'rgba(var(--fg-rgb), 0.55)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
+                          background: 'rgba(var(--accent-rgb), 0.12)', border: '1px solid rgba(var(--accent-rgb), 0.22)',
+                          borderRadius: '8px', color: 'var(--accent-text)', cursor: 'pointer', padding: 0
+                        }}
                       >
-                        ✎
+                        <PencilIcon size={14} />
                       </button>
                       <button
                         type="button"
@@ -6061,11 +6065,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         title="Delete payment"
                         aria-label="Delete payment"
                         style={{
-                          background: 'none', border: 'none', color: 'var(--tint-red)', cursor: deletingPaymentId === p.id ? 'default' : 'pointer',
-                          fontSize: '0.9rem', padding: '4px', opacity: deletingPaymentId === p.id ? 0.5 : 1
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px',
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+                          borderRadius: '8px', color: 'var(--tint-red)', cursor: deletingPaymentId === p.id ? 'default' : 'pointer',
+                          padding: 0, opacity: deletingPaymentId === p.id ? 0.5 : 1
                         }}
                       >
-                        🗑
+                        <TrashIcon size={14} />
                       </button>
                     </div>
                   </div>

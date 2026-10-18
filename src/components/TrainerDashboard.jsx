@@ -5561,10 +5561,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             onSubmit={handleLogPayment}
             style={{
               display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px',
-              background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid var(--border-color)',
-              borderRadius: '12px', padding: '12px'
+              background: 'linear-gradient(160deg, rgba(var(--accent-rgb), 0.14) 0%, rgba(var(--accent-rgb), 0.04) 100%), var(--bg-card)',
+              border: '1px solid rgba(var(--accent-rgb), 0.3)',
+              borderRadius: '12px', padding: '12px 14px', boxShadow: '0 2px 10px rgba(var(--accent-rgb), 0.08)'
             }}
           >
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '2px' }}>
+              <span style={{ color: 'var(--accent-text)', fontSize: '0.8rem', fontWeight: 700 }}>Log a payment</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Record a payment a client has already made.</span>
+            </div>
             <select
               value={paymentFormClientId}
               onChange={(e) => setPaymentFormClientId(e.target.value)}

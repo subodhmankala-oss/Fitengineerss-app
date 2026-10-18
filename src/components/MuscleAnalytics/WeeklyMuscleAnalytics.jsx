@@ -201,7 +201,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     : localPicked.filter(n => addedNames.some(a => a.toLowerCase() === n.toLowerCase()));
   const target = addTargetLabel || 'your workout';
   const pickedStrip = picked.length > 0 && onGoToWorkout && (
-    <div className="muscle-queued-strip" style={{ marginTop: '12px' }}>
+    <div className="muscle-queued-strip" style={{ margin: '8px 0 12px' }}>
       <div className="muscle-queued-head">
         <span className="muscle-queued-title">✅ Added exercises ({picked.length})</span>
         {onRemoveExercise && (
@@ -272,6 +272,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         {balanceTab === 'balance' ? (
           <>
             <p className="muscle-analytics-subtext">Working sets per muscle group, measured against your weekly target.</p>
+            {pickedStrip}
             <div className="muscle-card-grid">
               {muscleStats.map((stat, i) => (
                 <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => selectMuscle(stat.muscle)} />
@@ -291,7 +292,6 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
             <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} />
           </>
         )}
-        {pickedStrip}
       </div>
 
       {/* ── Section 2 + Section 4, merged: Muscle Heat Map and Recovery
@@ -311,12 +311,12 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           </div>
         </div>
 
+        {mapTab === 'heatmap' && pickedStrip}
         {mapTab === 'heatmap' ? (
           <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} />
         ) : (
           <RecoveryDashboard logs={logs} />
         )}
-        {pickedStrip}
       </div>
 
       {/* ── Section 6 + 7 + 8, merged: Weekly Insights, Progress Comparison,

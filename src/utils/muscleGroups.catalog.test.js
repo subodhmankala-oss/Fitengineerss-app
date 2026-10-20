@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getMuscleGroupsForExercise, parseMuscleText, setCatalogMuscles } from './muscleGroups';
+import { getMuscleGroupsForExercise, getMuscleWeight, parseMuscleText, setCatalogMuscles } from './muscleGroups';
 
 describe('catalog primary-muscle fallback', () => {
   it('maps free text onto the existing 12 groups', () => {
@@ -8,13 +8,22 @@ describe('catalog primary-muscle fallback', () => {
     expect(parseMuscleText('Teres Major, Teres Minor, Infraspinatus')).toEqual(['Back']);
   });
 
-  it('only applies when no name rule matches; credits primary + first different secondary', () => {
+  it('only applies when no name rule matches; credits primary + every different secondary group', () => {
     expect(getMuscleGroupsForExercise('Zz Scap Thing')).toEqual([]);
     setCatalogMuscles([
       { name: 'Zz Scap Thing', category: 'Back', primary_muscle: 'Lower Trapezius, Latissimus Dorsi', secondary_muscle: 'Rhomboids, Forearms' },
       { name: 'Shrug', category: 'Back', primary_muscle: 'Lower Trapezius', secondary_muscle: '' }
     ]);
     expect(getMuscleGroupsForExercise('zz scap thing')).toEqual(['Back', 'Forearms']);
+    setCatalogMuscles([
+      { name: 'Zz Scap Thing', category: 'Core', primary_muscle: 'Latissimus dorsi (lats)', secondary_muscle: 'Rhomboids, trapezius, biceps, rear deltoids, rectus abdominis' }
+    ]);
+    expect(getMuscleGroupsForExercise('Zz Scap Thing')).toEqual(['Back', 'Biceps', 'Shoulders', 'Core']);
+    expect(getMuscleWeight('Zz Scap Thing', 'Core')).toBe(0.5);
+    setCatalogMuscles([
+      { name: 'Zz Scap Thing', category: 'Back', primary_muscle: 'Lower Trapezius, Latissimus Dorsi', secondary_muscle: 'Rhomboids, Forearms' },
+      { name: 'Shrug', category: 'Back', primary_muscle: 'Lower Trapezius', secondary_muscle: '' }
+    ]);
     // Name rule still wins: Shrug keeps its rule's credit.
     expect(getMuscleGroupsForExercise('Shrug')).toEqual(['Back', 'Forearms']);
     setCatalogMuscles([]);

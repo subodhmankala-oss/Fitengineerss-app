@@ -276,18 +276,16 @@ export function parseMuscleText(text) {
   return out;
 }
 
-// Same 1–2 credit convention as the rules above: the primary muscle, plus the
-// first DIFFERENT group from the rest of the primary field or the secondary
-// field. "Lower Trapezius, Latissimus Dorsi" + "Rhomboids, Forearms" is
-// [Back, Forearms] (Rhomboids is Back again, so it adds nothing).
-// Falls back to Category only if both fields resolve to nothing.
+// The primary muscle gets the full set; every other DIFFERENT group named in
+// the rest of the primary field or the secondary field gets a secondary share
+// (SECONDARY_WEIGHT each). "Lower Trapezius, Latissimus Dorsi" + "Rhomboids,
+// Forearms, Rear Delts" is [Back, Forearms, Shoulders] (Rhomboids is Back
+// again, so it adds nothing). Falls back to Category only if both fields
+// resolve to nothing.
 function groupsFromCatalogRow(row) {
   const primary = parseMuscleText(row.primary_muscle);
   const secondary = parseMuscleText(row.secondary_muscle);
-  const out = [];
-  if (primary.length) out.push(primary[0]);
-  const second = [...primary.slice(1), ...secondary].find(m => !out.includes(m));
-  if (second) out.push(second);
+  const out = [...new Set([...primary, ...secondary])];
   if (!out.length) return parseMuscleText(row.category).slice(0, 1);
   return out;
 }

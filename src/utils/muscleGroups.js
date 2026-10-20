@@ -258,7 +258,7 @@ const MUSCLE_TEXT_RULES = [
   [/bicep|brachialis/, 'Biceps'],
   [/tricep/, 'Triceps'],
   [/forearm|brachioradialis|grip|wrist/, 'Forearms'],
-  [/\babs?\b|abdominal|core|oblique|transverse/, 'Core'],
+  [/\babs?\b|abdomin|core|oblique|transverse/, 'Core'],
   [/glute|abductor|adductor|hip/, 'Glutes'],
   [/quad|thigh/, 'Quads'],
   [/hamstring/, 'Hamstrings'],

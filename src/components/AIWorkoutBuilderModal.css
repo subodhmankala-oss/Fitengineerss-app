@@ -230,3 +230,28 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* "Advanced options" collapses behind one row once a quick start has
+   filled it — the summary shows what's set without opening it. */
+.ai-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ai-advanced-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.74rem;
+  color: var(--text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

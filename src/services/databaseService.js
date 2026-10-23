@@ -4494,6 +4494,53 @@ const databaseService = {
 
   // Full measurement history for a user, newest first — used by both the
   // client's own Measurements screen and the coach's client detail view.
+  // ─── CLIENT TRAINING PROFILE (AI Draft Builder) ───
+  // Experience level / injuries / equipment the coach entered once in the
+  // AI builder, so later drafts start filled in. See
+  // sql/client_training_profiles.sql. A localStorage copy is kept per client
+  // and read when the table can't be (mock mode, or a read that fails) —
+  // the builder then still remembers what this device last entered.
+  async getClientTrainingProfile(userId) {
+    if (!userId) return null;
+    const localKey = `clientTrainingProfile:${userId}`;
+    const fromLocal = () => {
+      try { return JSON.parse(localStorage.getItem(localKey) || 'null'); } catch { return null; }
+    };
+    if (!isSupabaseConfigured) return fromLocal();
+    try {
+      const rows = await restSelect(
+        `client_training_profiles?select=experience_level,injuries,equipment&user_id=eq.${encodeURIComponent(userId)}`
+      );
+      const r = rows?.[0];
+      if (!r) return fromLocal();
+      return { experienceLevel: r.experience_level || '', injuries: r.injuries || '', equipment: r.equipment || '' };
+    } catch (e) {
+      console.warn('Get client training profile failed, using this device\'s copy:', e);
+      return fromLocal();
+    }
+  },
+
+  async saveClientTrainingProfile(userId, { experienceLevel = '', injuries = '', equipment = '' } = {}, updatedBy = null) {
+    if (!userId) return { success: false };
+    const profile = { experienceLevel: experienceLevel || '', injuries: injuries || '', equipment: equipment || '' };
+    try { localStorage.setItem(`clientTrainingProfile:${userId}`, JSON.stringify(profile)); } catch { /* storage full/blocked */ }
+    if (!isSupabaseConfigured) return { success: true };
+    try {
+      await restUpsert('client_training_profiles', {
+        user_id: userId,
+        experience_level: profile.experienceLevel || null,
+        injuries: profile.injuries.trim() || null,
+        equipment: profile.equipment.trim() || null,
+        ...(updatedBy ? { updated_by: updatedBy } : {}),
+        updated_at: new Date().toISOString()
+      }, 'user_id');
+      return { success: true };
+    } catch (e) {
+      console.warn('Save client training profile failed (kept on this device):', e);
+      return { success: false, error: e.message };
+    }
+  },
+
   async getBodyMeasurements(userId) {
     if (!isSupabaseConfigured || !userId) return [];
     try {

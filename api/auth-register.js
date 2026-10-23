@@ -22,16 +22,143 @@ const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 // Google auto-provision) — _adminAlert de-duplicates per coach, so only the
 // first one alerts. No URL: the card lives on the Admin panel, which the
 // app's Admin toggle dot points to.
-function notifySuperAdminOfNewCoach(publicUserId, name, email) {
+// A gym owner's sign-up reuses the same alert type (and so the same admin
+// card and per-person de-dupe) with gym wording.
+function notifySuperAdminOfNewCoach(publicUserId, name, email, gym = null) {
   return alertSuperAdmin({
     supabaseUrl,
     serviceKey: serviceRoleKey,
     type: 'new_coach_signup',
     actorUserId: publicUserId,
-    title: '🏅 New coach joined',
-    body: `${name} (${email}) just signed up as a coach.`,
-    payload: { coach_name: name, coach_email: email }
+    title: gym ? '🏢 New gym joined' : '🏅 New coach joined',
+    body: gym
+      ? `${name} (${email}) just signed up ${gym.name} as a gym owner.`
+      : `${name} (${email}) just signed up as a coach.`,
+    payload: { coach_name: name, coach_email: email, ...(gym ? { gym_name: gym.name, gym_id: gym.id } : {}) }
   });
+}
+
+// Both sign-up paths are upserts that also run for an EXISTING account (a
+// retry, Google auto-provision, or someone signing up again with an email
+// that already has a password). 2026-10-14: a gym sign-up submitted with the
+// super-admin's own email + password (the form had it prefilled and locked)
+// downgraded that account's role to 'coach' — and RLS read policies key on
+// role = 'super-admin' — and nulled their coach experience/certifications,
+// because owner mode hides those fields. So for an existing account:
+//   * a 'super-admin' role is kept, never replaced by 'coach';
+//   * coach fields only change when a value was actually submitted.
+async function existingProfile(adminClient, normalizedEmail) {
+  const { data: userRow } = await adminClient
+    .from('users')
+    .select('id, role')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+  if (!userRow?.id) return { role: null, hasCoachRow: false };
+  const { data: coachRows } = await adminClient
+    .from('coaches')
+    .select('user_id')
+    .eq('user_id', userRow.id)
+    .limit(1);
+  return { role: userRow.role || null, hasCoachRow: !!coachRows?.[0] };
+}
+
+function coachRoleFor(existingRole) {
+  return existingRole === 'super-admin' ? 'super-admin' : 'coach';
+}
+
+// Fields that were submitted, plus first-time defaults only for a brand-new
+// coaches row. status is always 'approved' (no coach approval step — same as
+// before); is_blocked is only set on a new row, so signing up again can no
+// longer unblock a coach the admin blocked.
+function coachProfileRow(publicUserId, { name, gymName, brand, experience, certifications, social, location }, hasCoachRow) {
+  const row = { user_id: publicUserId, status: 'approved' };
+  const expYears = parseInt(experience, 10);
+  const brandName = brand || gymName;
+  if (brandName) row.brand_name = brandName;
+  if (Number.isFinite(expYears)) row.experience_years = expYears;
+  if (certifications) row.certifications = certifications;
+  if (social) row.social_media_handle = social;
+  if (location) row.location_city = location;
+  if (!hasCoachRow) {
+    Object.assign(row, {
+      is_blocked: false,
+      brand_name: row.brand_name || `${name} Fitness`,
+      experience_years: row.experience_years ?? null,
+      certifications: row.certifications ?? null,
+      social_media_handle: row.social_media_handle ?? null,
+      location_city: row.location_city ?? null
+    });
+  }
+  return row;
+}
+
+// "I own a gym" on Coach Sign Up (sql/gym_tier.sql). Null = not a gym
+// sign-up; throws for a name that's present but unusable.
+function cleanGymName(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const name = String(raw).trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 80) throw new Error('Gym name must be 2–80 characters.');
+  return name;
+}
+
+// Optional "Gym code" on Coach Sign Up — same normalisation as
+// coach_join_gym (sql/gym_coach_join_leave.sql): uppercase, no spaces,
+// GYM- prefix added if missing. Null = no code.
+function cleanGymCode(raw) {
+  let code = String(raw ?? '').replace(/\s/g, '').toUpperCase();
+  if (!code) return null;
+  if (!code.startsWith('GYM-')) code = `GYM-${code.replace(/^GYM/, '')}`;
+  if (code.length > 20) throw new Error('No gym found with that code. Check it with your gym owner.');
+  return code;
+}
+
+// Checked BEFORE the account is created, so a mistyped code is a plain form
+// error rather than a half-made account.
+async function assertJoinableGym(adminClient, code) {
+  const { data, error } = await adminClient.from('gyms').select('id, status').eq('join_code', code).limit(1);
+  if (error) throw new Error(error.message || 'Could not check that gym code.');
+  if (!data?.[0]) throw new Error('No gym found with that code. Check it with your gym owner.');
+  if (data[0].status !== 'active') throw new Error("That gym isn't active right now.");
+}
+
+async function joinGymByCode(adminClient, publicUserId, code) {
+  const { data, error } = await adminClient.rpc('coach_join_gym', { p_coach_id: publicUserId, p_code: code, p_bring_clients: false });
+  if (error) throw new Error(error.message || 'Could not join that gym.');
+  if (data?.success === false) throw new Error(data.error || 'Could not join that gym.');
+  return { id: data.gym_id, name: data.gym_name };
+}
+
+// The owner is a normal coach account (they land on a dashboard that already
+// works); ownership is gyms.owner_id. Active immediately — there is no
+// approval step (sql/gym_tier_no_approval.sql). Idempotent: a retry, or a
+// second submit for an account that already owns a gym, returns that gym
+// instead of creating another. The owner also joins their own gym as a
+// trainer, so clients they coach count under it.
+async function createOwnedGym(adminClient, publicUserId, gymName) {
+  const { data: existing, error: findErr } = await adminClient
+    .from('gyms')
+    .select('id, name, join_code')
+    .eq('owner_id', publicUserId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (findErr) throw new Error(findErr.message || 'Could not check your gym.');
+  let gym = existing?.[0];
+  if (!gym) {
+    const { data: created, error: createErr } = await adminClient
+      .from('gyms')
+      .insert({ name: gymName, owner_id: publicUserId, status: 'active' })
+      .select('id, name, join_code')
+      .single();
+    if (createErr) throw new Error(createErr.message || 'Could not create your gym.');
+    gym = created;
+  }
+  const { error: joinErr } = await adminClient
+    .from('users')
+    .update({ gym_id: gym.id, gym_status: 'active' })
+    .eq('id', publicUserId)
+    .is('gym_id', null);
+  if (joinErr) throw new Error(joinErr.message || 'Could not add you to your gym.');
+  return gym;
 }
 
 // users.phone carries a UNIQUE constraint, so a number already on another
@@ -79,11 +206,20 @@ async function handleRegisterEmail(req, res) {
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
   }
+  let gymName, gymCode;
+  try {
+    gymName = cleanGymName(req.body.gymName);
+    // An owner joins the gym they create; a code only applies to a trainer.
+    gymCode = gymName ? null : cleanGymCode(req.body.gymCode);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);
   const anonClient = createClient(supabaseUrl, anonKey);
 
   try {
+    if (gymCode) await assertJoinableGym(adminClient, gymCode);
     const normalizedEmail = email.trim().toLowerCase();
     let userId = null;
     // Tracks whether THIS request created the auth account (vs. signing into
@@ -139,14 +275,15 @@ async function handleRegisterEmail(req, res) {
     // profile writes still fail, delete it again so the failure is
     // undone entirely — the frontend's existing error message just tells
     // them to try again, and a retry is then a clean signUp(), not a dead end.
-    let publicUserId, coachRow;
+    let publicUserId, coachRow, gym = null;
     try {
+      const existing = await existingProfile(adminClient, normalizedEmail);
       const { data: userRow, error: userErr } = await adminClient
         .from('users')
         .upsert({
           email: normalizedEmail,
           full_name: name,
-          role: 'coach',
+          role: coachRoleFor(existing.role),
           // Only overwrite phone when one was actually submitted — an upsert
           // on an existing row (the alreadyExists/retry path) must not blank
           // out a number this account already has.
@@ -157,23 +294,21 @@ async function handleRegisterEmail(req, res) {
       if (userErr) throw new Error(phoneConflictMessage(userErr) || userErr.message || 'Could not save your account details.');
       publicUserId = userRow.id;
 
-      const expYears = parseInt(experience, 10);
       const { data: coachData, error: coachErr } = await adminClient
         .from('coaches')
-        .upsert({
-          user_id: publicUserId,
-          status: 'approved',
-          brand_name: brand || `${name} Fitness`,
-          experience_years: Number.isFinite(expYears) ? expYears : null,
-          is_blocked: false,
-          certifications: certifications || null,
-          social_media_handle: social || null,
-          location_city: location || null
-        }, { onConflict: 'user_id' })
+        .upsert(
+          coachProfileRow(publicUserId, { name, gymName, brand, experience, certifications, social, location }, existing.hasCoachRow),
+          { onConflict: 'user_id' }
+        )
         .select('id')
         .single();
       if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
       coachRow = coachData;
+
+      // Inside the rollback try: a gym sign-up that fails here undoes the
+      // fresh auth account too, so the owner's retry is a clean sign-up.
+      if (gymName) gym = await createOwnedGym(adminClient, publicUserId, gymName);
+      else if (gymCode) gym = await joinGymByCode(adminClient, publicUserId, gymCode);
     } catch (profileErr) {
       if (justCreatedAuthUser) {
         await adminClient.auth.admin.deleteUser(userId).catch(() => {
@@ -184,7 +319,7 @@ async function handleRegisterEmail(req, res) {
       throw profileErr;
     }
 
-    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail);
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gymName ? gym : null);
 
     const { data: finalSignIn } = await anonClient.auth.signInWithPassword({
       email: normalizedEmail,
@@ -196,6 +331,7 @@ async function handleRegisterEmail(req, res) {
       hasSession: !!finalSignIn?.session,
       userId: publicUserId,
       coachId: coachRow.id,
+      gym,
       access_token: finalSignIn?.session?.access_token || null,
       refresh_token: finalSignIn?.session?.refresh_token || null
     });
@@ -216,6 +352,14 @@ async function handleRegisterGoogle(req, res) {
   if (!name) {
     return res.status(400).json({ error: 'name is required' });
   }
+  let gymName, gymCode;
+  try {
+    gymName = cleanGymName(req.body.gymName);
+    // An owner joins the gym they create; a code only applies to a trainer.
+    gymCode = gymName ? null : cleanGymCode(req.body.gymCode);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);
   const anonClient = createClient(supabaseUrl, anonKey);
@@ -232,13 +376,15 @@ async function handleRegisterGoogle(req, res) {
     if (await isEstablishedClient(adminClient, normalizedEmail)) {
       return res.status(409).json({ error: CLIENT_ACCOUNT_MESSAGE });
     }
+    if (gymCode) await assertJoinableGym(adminClient, gymCode);
 
+    const existing = await existingProfile(adminClient, normalizedEmail);
     const { data: userRow, error: userErr } = await adminClient
       .from('users')
       .upsert({
         email: normalizedEmail,
         full_name: name,
-        role: 'coach',
+        role: coachRoleFor(existing.role),
         // Same as the email path: never blank out an existing number. The
         // auto-provision call in App.jsx sends no phone at all (Google gives
         // us none), so this must stay optional here.
@@ -249,29 +395,27 @@ async function handleRegisterGoogle(req, res) {
     if (userErr) throw new Error(phoneConflictMessage(userErr) || userErr.message || 'Could not save your account details.');
     const publicUserId = userRow.id;
 
-    const expYears = parseInt(experience, 10);
     const { data: coachRow, error: coachErr } = await adminClient
       .from('coaches')
-      .upsert({
-        user_id: publicUserId,
-        status: 'approved',
-        brand_name: brand || `${name} Fitness`,
-        experience_years: Number.isFinite(expYears) ? expYears : null,
-        is_blocked: false,
-        certifications: certifications || null,
-        social_media_handle: social || null,
-        location_city: location || null
-      }, { onConflict: 'user_id' })
+      .upsert(
+        coachProfileRow(publicUserId, { name, gymName, brand, experience, certifications, social, location }, existing.hasCoachRow),
+        { onConflict: 'user_id' }
+      )
       .select('id')
       .single();
     if (coachErr) throw new Error(coachErr.message || 'Could not save coach profile.');
 
-    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail);
+    const gym = gymName
+      ? await createOwnedGym(adminClient, publicUserId, gymName)
+      : gymCode ? await joinGymByCode(adminClient, publicUserId, gymCode) : null;
+
+    await notifySuperAdminOfNewCoach(publicUserId, name, normalizedEmail, gymName ? gym : null);
 
     return res.status(200).json({
       success: true,
       userId: publicUserId,
       coachId: coachRow.id,
+      gym,
       email: normalizedEmail
     });
   } catch (err) {

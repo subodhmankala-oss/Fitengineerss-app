@@ -29,6 +29,8 @@
     { "source": "/api/verify-recovery-token", "destination": "/api/password?action=verify-token" },
 
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/gym", "destination": "/index.html" },
+    { "source": "/gym/(.*)", "destination": "/index.html" },
     { "source": "/reset-password", "destination": "/index.html" },
     { "source": "/auth/confirm", "destination": "/index.html" }
   ],

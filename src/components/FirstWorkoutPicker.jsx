@@ -12,20 +12,70 @@ import './FirstWorkoutPicker.css';
 // owns the library (it already loads all six level x category lists), the
 // close button and the dismissal.
 //
+// 2026-10-15 redesign ("looks very boring… make it advanced UI and
+// engaging"; the three full-width level rows also pushed Intermediate and
+// Advanced below the fold so only Beginner was visible): a two-step "build
+// your plan" card — all three levels side by side as tiles with intensity
+// bars, Gym/Home as big tiles, and a live preview of the first workout.
+// Same day, "the icons are very kiddish": emoji replaced by line icons in the
+// app's sidebar style — rank chevrons for the levels (1/2/3, which also carry
+// the intensity), a dumbbell and a house for Gym/Home.
+//
 // library: { gym: { beginner: [programs], ... }, home: { ... } }
 // onStart(category, level, program) — caller queues the program and opens
 // the Workouts tab.
 
 const CATEGORIES = [
-  { id: 'gym', emoji: '🏋️', label: 'At the gym' },
-  { id: 'home', emoji: '🏠', label: 'At home' }
+  { id: 'gym', label: 'At the gym', hint: 'Machines & free weights' },
+  { id: 'home', label: 'At home', hint: 'Little or no equipment' }
 ];
 
 const LEVELS = [
-  { id: 'beginner', emoji: '🌱', label: 'Beginner', desc: 'New to training, or getting back into it' },
-  { id: 'intermediate', emoji: '💪', label: 'Intermediate', desc: 'Training regularly for 6+ months' },
-  { id: 'advanced', emoji: '🔥', label: 'Advanced', desc: 'Training seriously for 2+ years' }
+  { id: 'beginner', label: 'Beginner', rank: 1, desc: 'New to training, or getting back into it' },
+  { id: 'intermediate', label: 'Intermediate', rank: 2, desc: 'Training regularly for 6+ months' },
+  { id: 'advanced', label: 'Advanced', rank: 3, desc: 'Training seriously for 2+ years' }
 ];
+
+const svgProps = {
+  width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true
+};
+
+// Rank chevrons, stacked and centred: 1 = Beginner … 3 = Advanced.
+const RANK_ROWS = { 1: [12.5], 2: [15, 10], 3: [17.5, 12.5, 7.5] };
+function RankIcon({ rank }) {
+  const rows = RANK_ROWS[rank] || RANK_ROWS[1];
+  return (
+    <svg {...svgProps}>
+      {rows.map(y => <polyline key={y} points={`6 ${y + 2} 12 ${y - 3} 18 ${y + 2}`} />)}
+    </svg>
+  );
+}
+
+function DumbbellIcon() {
+  return (
+    <svg {...svgProps}>
+      <line x1="8" y1="12" x2="16" y2="12" />
+      <rect x="4" y="7" width="4" height="10" rx="1.2" />
+      <rect x="16" y="7" width="4" height="10" rx="1.2" />
+      <line x1="2" y1="10" x2="2" y2="14" />
+      <line x1="22" y1="10" x2="22" y2="14" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg {...svgProps}>
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  );
+}
+
+const CATEGORY_ICONS = { gym: DumbbellIcon, home: HomeIcon };
+
+const PREVIEW_EXERCISES = 3;
 
 // → { gym: { beginner: first program | null, ... }, home: { ... } }
 function firstPrograms(library) {
@@ -35,6 +85,12 @@ function firstPrograms(library) {
     LEVELS.forEach(l => { out[c.id][l.id] = library?.[c.id]?.[l.id]?.[0] || null; });
   });
   return out;
+}
+
+function exerciseNames(program) {
+  return (Array.isArray(program?.exercises) ? program.exercises : [])
+    .map(ex => (typeof ex === 'string' ? ex : ex?.name))
+    .filter(Boolean);
 }
 
 export default function FirstWorkoutPicker({ library: providedLibrary, onStart }) {
@@ -49,6 +105,8 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
   // after, only those with a program at that level.
   const categories = CATEGORIES.filter(c => (level ? library[c.id][level] : LEVELS.some(l => library[c.id][l.id])));
   const program = category && level ? library[category]?.[level] : null;
+  const selectedLevel = LEVELS.find(l => l.id === level);
+  const names = exerciseNames(program);
 
   const pickLevel = (id) => {
     setLevel(id);
@@ -58,70 +116,93 @@ export default function FirstWorkoutPicker({ library: providedLibrary, onStart }
 
   if (levels.length === 0) return null;
 
+  const step = !level ? 1 : !category ? 2 : 3;
+
   return (
     <div className="fwp">
-      <h2 className="fwp-title">🌱 New here? Let’s get you started</h2>
-      <p className="fwp-subtitle">Pick your level and where you’ll train — we’ll set up your first workout.</p>
+      <div className="fwp-hero">
+        <h2 className="fwp-title">New here? Let’s get you started</h2>
+        <p className="fwp-subtitle">Two quick taps and your first workout is ready.</p>
+        <ol className="fwp-steps" aria-label="Steps">
+          <li className={`fwp-step ${step > 1 ? 'done' : 'active'}`}><span className="fwp-step-dot">{step > 1 ? '✓' : '1'}</span>Level</li>
+          <li className="fwp-step-line" aria-hidden="true" />
+          <li className={`fwp-step ${step > 2 ? 'done' : step === 2 ? 'active' : ''}`}><span className="fwp-step-dot">{step > 2 ? '✓' : '2'}</span>Place</li>
+          <li className="fwp-step-line" aria-hidden="true" />
+          <li className={`fwp-step ${step === 3 ? 'active' : ''}`}><span className="fwp-step-dot">3</span>Go</li>
+        </ol>
+      </div>
 
       <h3 className="fwp-question">What’s your level?</h3>
-      <div className="fwp-levels" role="radiogroup" aria-label="What’s your level?">
+      <div className={`fwp-levels fwp-levels--${levels.length}`} role="radiogroup" aria-label="What’s your level?">
         {levels.map(l => (
           <button
             key={l.id}
             type="button"
             role="radio"
             aria-checked={level === l.id}
-            className={`fwp-level ${level === l.id ? 'selected' : ''}`}
+            className={`fwp-tile fwp-level fwp-level--${l.id} ${level === l.id ? 'selected' : ''}`}
             onClick={() => pickLevel(l.id)}
           >
-            <span className="fwp-level-emoji" aria-hidden="true">{l.emoji}</span>
-            <span className="fwp-option-text">
-              <span className="fwp-level-label">{l.label}</span>
-              <span className="fwp-level-desc">{l.desc}</span>
-            </span>
-            <span className={`fwp-check ${level === l.id ? 'visible' : ''}`} aria-hidden="true">✓</span>
+            <span className="fwp-tile-check" aria-hidden="true">✓</span>
+            <span className="fwp-tile-icon"><RankIcon rank={l.rank} /></span>
+            <span className="fwp-level-label">{l.label}</span>
           </button>
         ))}
       </div>
+      <p className={`fwp-level-hint ${selectedLevel ? `visible fwp-level--${selectedLevel.id}` : ''}`} aria-live="polite">
+        {selectedLevel ? selectedLevel.desc : 'Not sure? Beginner is a great place to start.'}
+      </p>
 
       <h3 className="fwp-question">Where will you train?</h3>
       <div className="fwp-options" role="radiogroup" aria-label="Where will you train?">
         {categories.map(c => {
           const p = level ? library[c.id][level] : null;
+          const count = exerciseNames(p).length;
+          const Icon = CATEGORY_ICONS[c.id];
           return (
             <button
               key={c.id}
               type="button"
               role="radio"
               aria-checked={category === c.id}
-              className={`fwp-option ${category === c.id ? 'selected' : ''}`}
+              className={`fwp-tile fwp-option ${category === c.id ? 'selected' : ''}`}
               onClick={() => setCategory(c.id)}
             >
-              <span className="fwp-emoji" aria-hidden="true">{c.emoji}</span>
-              <span className="fwp-option-text">
-                <span className="fwp-option-label">{c.label}</span>
-                <span className="fwp-option-desc">
-                  {p ? (
-                    <>
-                      {p.name}
-                      {Array.isArray(p.exercises) && p.exercises.length > 0 && ` · ${p.exercises.length} exercise${p.exercises.length === 1 ? '' : 's'}`}
-                    </>
-                  ) : 'Pick your level to see your workout'}
-                </span>
+              <span className="fwp-tile-check" aria-hidden="true">✓</span>
+              <span className="fwp-tile-icon fwp-tile-icon--lg"><Icon /></span>
+              <span className="fwp-option-label">{c.label}</span>
+              <span className="fwp-option-desc">
+                {p ? `${count ? `${count} exercises` : 'Ready to go'}` : c.hint}
               </span>
-              <span className={`fwp-check ${category === c.id ? 'visible' : ''}`} aria-hidden="true">✓</span>
             </button>
           );
         })}
       </div>
 
+      {program && (
+        <div className="fwp-preview" key={`${category}-${level}`}>
+          <div className="fwp-preview-head">
+            <span className="fwp-preview-eyebrow">Your first workout</span>
+            <span className="fwp-preview-name">{program.name}</span>
+          </div>
+          {names.length > 0 && (
+            <div className="fwp-chips">
+              {names.slice(0, PREVIEW_EXERCISES).map(n => <span key={n} className="fwp-chip">{n}</span>)}
+              {names.length > PREVIEW_EXERCISES && (
+                <span className="fwp-chip fwp-chip--more">+{names.length - PREVIEW_EXERCISES} more</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <button
         type="button"
-        className="fwp-start"
+        className={`fwp-start ${program ? 'ready' : ''}`}
         disabled={!program}
         onClick={() => program && onStart(category, level, program)}
       >
-        {program ? 'Start my first workout 💪' : level ? 'Pick gym or home' : 'Pick your level'}
+        {program ? 'Start my first workout →' : level ? 'Pick gym or home' : 'Pick your level'}
       </button>
     </div>
   );

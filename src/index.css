@@ -347,6 +347,13 @@ button {
   body.admin-wide-frame .app-container {
     max-width: min(1800px, 100%);
   }
+  /* Gym owner's My Gym screens: wider than the phone frame, but narrower than
+     the super-admin's — a centred ~1200px column. Added by OwnerGymDashboard
+     while it is mounted; deliberately NOT admin-wide-frame, which hides the
+     header controls and expects the sidebar. */
+  body.owner-wide-frame .app-container {
+    max-width: min(1240px, 100%);
+  }
 }
 
 /* REVERTED 2026-08-18 (later same day): the @supports(-webkit-touch-callout)

@@ -3,6 +3,7 @@ import databaseService from '../services/databaseService';
 import { useTheme } from '../context/useTheme';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
+import CoachGymSection from './CoachGymSection';
 import './ClientProfile.css';
 
 // Coach-side settings page — deliberately mirrors ClientProfile.jsx (same
@@ -74,7 +75,7 @@ function SettingsRow({ icon, label, value, onTap, last }) {
 // and reveal the dashboard underneath, not surface an intermediate menu
 // they never opened. goBack() below is what every sub-page's back button
 // calls now instead of setActiveSection(null) directly.
-export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose, initialSection = null }) {
+export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, onToggleNotifications, onOpenPayments, onClose, initialSection = null, onGymMembershipChange }) {
   const [activeSection, setActiveSection] = useState(initialSection);
   const { preference: themePreference, setTheme } = useTheme();
   const goBack = () => {
@@ -455,6 +456,24 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     );
   }
 
+  // ── Sub-section: My Gym (trainer joins / leaves a gym by code) ─────────────
+  if (activeSection === 'gym') {
+    return (
+      <Overlay>
+        <div className="cp-container animate-slide-up">
+          <div className="cp-sub-header">
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
+            <h2 className="cp-sub-title">My Gym</h2>
+            <span style={{ width: 60 }} />
+          </div>
+          <div className="cp-form-scroll">
+            <CoachGymSection onMembershipChange={onGymMembershipChange} />
+          </div>
+        </div>
+      </Overlay>
+    );
+  }
+
   // ── Sub-section: What's New ────────────────────────────────────────────────
   if (activeSection === 'whatsnew') {
     return (
@@ -542,7 +561,8 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
 
         <div className="cp-section-label">Business</div>
         <div className="cp-section-card">
-          <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} last />
+          <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} />
+          <SettingsRow icon="🏋️" label="My Gym" onTap={() => setActiveSection('gym')} last />
         </div>
 
         <div className="cp-section-label">Preferences</div>

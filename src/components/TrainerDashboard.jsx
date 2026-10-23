@@ -5199,21 +5199,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 Name/Phone fields the old 'profile' section had. */}
             <button
               type="button"
-              className={mobileHeaderMenuOpen && coachProfileSection === 'account' ? 'active' : ''}
-              onClick={() => openCoachProfileSection('account')}
-              title="Account"
-              aria-label="Account"
-            >
-              <span className="admin-shell-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              </span>
-              <span className="admin-shell-label">Account</span>
-            </button>
-            <button
-              type="button"
               className={mobileHeaderMenuOpen && coachProfileSection === 'business' ? 'active' : ''}
               onClick={() => openCoachProfileSection('business')}
               title="Business Profile"
@@ -5255,6 +5240,33 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                 )}
               </span>
               <span className="admin-shell-label">What's New</span>
+            </button>
+            {/* Account sits last, under What's New, and shows the coach's
+                own photo (the Google one App.jsx saves to userAvatarUrl)
+                when there is one — the lock icon only without a photo. */}
+            <button
+              type="button"
+              className={mobileHeaderMenuOpen && coachProfileSection === 'account' ? 'active' : ''}
+              onClick={() => openCoachProfileSection('account')}
+              title="Account"
+              aria-label="Account"
+            >
+              <span className="admin-shell-icon">
+                {localStorage.getItem('userAvatarUrl') ? (
+                  <Avatar
+                    email={localStorage.getItem('userEmail')}
+                    name={localStorage.getItem('userName') || 'Coach'}
+                    avatarUrl={localStorage.getItem('userAvatarUrl')}
+                    size={24}
+                  />
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                )}
+              </span>
+              <span className="admin-shell-label">Account</span>
             </button>
           </nav>
           <button type="button" className="admin-shell-logout" onClick={handleLogout} title="Logout" aria-label="Logout">

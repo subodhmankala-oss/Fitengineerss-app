@@ -5416,6 +5416,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             </button>
           </div>
 
+          {superAdmin && <CoachNotificationBell variant="inline" items={bellItems} onClearAll={clearAllBellItems} />}
+
           {/* Mobile-only header control — same actions, one tap away instead of
               4 crowded circles. Was a plain ☰ hamburger; now shows the coach's
               own photo (2026-08-28: "instead of 3 burger icon in coach side,

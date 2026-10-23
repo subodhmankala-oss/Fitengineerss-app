@@ -82,7 +82,7 @@ function BellItem({ item, onDone, onFlash }) {
         <div className="cnb-actions">
           {/* A one-tap action (e.g. Send reminder) leads; otherwise the composer does. */}
           {(item.actions || []).map((a, i) => (
-            <button key={a.label} type="button" className={`cnb-btn${i === 0 ? ' cnb-btn-primary' : ''}`} onClick={() => { a.run(); if (a.flash) onFlash(a.flash); }}>
+            <button key={a.label} type="button" className={`cnb-btn${i === 0 ? ' cnb-btn-primary' : ''}`} onClick={() => { a.run(); if (a.flash) onFlash(a.flash); if (a.closes) onDone(); }}>
               {a.label}
             </button>
           ))}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getWhatsNewFor, markWhatsNewSeen } from '../data/whatsNewData';
 
 // Shared "What's New" list body — used inside both ClientProfile's and
@@ -7,8 +7,12 @@ import { getWhatsNewFor, markWhatsNewSeen } from '../data/whatsNewData';
 // authored once in whatsNewData.js and never drifts between the two sides.
 const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
+// Show the newest PAGE_SIZE entries, then "Show more" reveals the next batch.
+const PAGE_SIZE = 10;
+
 export default function WhatsNewList({ audience }) {
   const entries = getWhatsNewFor(audience);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Actually viewing this list is what clears the "new" dot elsewhere (e.g.
   // the coach sidebar) — marks the instant the list mounts, not just when
@@ -25,9 +29,10 @@ export default function WhatsNewList({ audience }) {
       </div>
     );
   }
+  const remaining = entries.length - visibleCount;
   return (
     <div className="cp-form-card" style={{ padding: '4px 0' }}>
-      {entries.map((entry, idx) => (
+      {entries.slice(0, visibleCount).map((entry, idx) => (
         <div
           key={`${entry.date}-${entry.title}`}
           style={{ padding: '14px 16px', borderTop: idx > 0 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}
@@ -39,6 +44,19 @@ export default function WhatsNewList({ audience }) {
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px', lineHeight: 1.5 }}>{entry.description}</div>
         </div>
       ))}
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+          style={{
+            display: 'block', width: '100%', padding: '14px 16px', background: 'none', border: 'none',
+            borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', color: 'var(--accent-text)',
+            fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Show {Math.min(PAGE_SIZE, remaining)} more
+        </button>
+      )}
     </div>
   );
 }

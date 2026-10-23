@@ -774,6 +774,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [renewalMenuOpenId, setRenewalMenuOpenId] = useState(null);
   const [pausingClientId, setPausingClientId] = useState(null);
   const [pauseError, setPauseError] = useState('');
+  // Tapping anywhere outside an open "⋮" menu closes it.
+  useEffect(() => {
+    if (!renewalMenuOpenId) return undefined;
+    const closeIfOutside = (e) => {
+      if (!e.target.closest?.('[data-renewal-menu]')) setRenewalMenuOpenId(null);
+    };
+    document.addEventListener('pointerdown', closeIfOutside);
+    return () => document.removeEventListener('pointerdown', closeIfOutside);
+  }, [renewalMenuOpenId]);
   // Clients this coach has paused — see databaseService.getPausedClients.
   // Fetched alongside renewalDueClients (same refresh triggers, see
   // refreshRenewalDueClients below) so the two lists never drift.
@@ -5616,7 +5625,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                         stopped renewing just aged forever in this list).
                         stopPropagation everywhere here so tapping the menu
                         never also fires the row's own onClick above. */}
-                    <div style={{ position: 'relative', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                    <div data-renewal-menu style={{ position: 'relative', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         disabled={pausingClientId === r.clientId}

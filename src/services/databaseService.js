@@ -4104,7 +4104,7 @@ const databaseService = {
             if (serverPlans && serverPlans.length > 0) data = serverPlans;
           }
           if (data) {
-            return data.map(p => ({
+            const cloudPlans = data.map(p => ({
               id: p.id,
               userId: p.user_id,
               planName: p.plan_name,
@@ -4116,6 +4116,7 @@ const databaseService = {
               // true, preserving every plan's existing visibility).
               isAssigned: p.is_assigned !== false
             }));
+            return await this.uploadStrandedPlans(userId, resolvedUserId, cloudPlans);
           }
         }
       } catch (e) {
@@ -4158,6 +4159,71 @@ const databaseService = {
       }
     }
     return plans;
+  },
+
+  // A plan whose cloud save failed (expired session, offline) used to live
+  // only in this device's localStorage under a local `plan-<timestamp>` id,
+  // while the editor closed as if it had been assigned — confirmed
+  // 2026-10-23: an AI draft's two days were rejected with 401 after the
+  // coach's session expired mid-review, and never appeared anywhere. Now,
+  // whenever the plans list loads from the cloud, any such recent plan
+  // (last 7 days) that the cloud doesn't have by name is uploaded and joins
+  // the list. Older local-only entries are left alone, so stale leftovers
+  // from mock mode or long-gone sessions never resurface.
+  async uploadStrandedPlans(userId, resolvedUserId, cloudPlans) {
+    let localPlans = [];
+    let key = null;
+    try {
+      key = `client_${await getCleanClientKey(userId)}_workoutPlans`;
+      localPlans = JSON.parse(localStorage.getItem(key) || '[]');
+    } catch {
+      return cloudPlans;
+    }
+    if (!Array.isArray(localPlans) || localPlans.length === 0) return cloudPlans;
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const cloudNames = new Set(cloudPlans.map(p => (p.planName || '').trim().toLowerCase()));
+    const stranded = localPlans.filter(p => p && /^plan-\d+$/.test(String(p.id || ''))
+      && (Date.parse(p.createdAt || '') || 0) > weekAgo
+      && p.planName && !cloudNames.has(p.planName.trim().toLowerCase())
+      && (p.createdBy === 'coach' || p.createdBy === 'client')
+      && Array.isArray(p.exercises) && p.exercises.length > 0);
+    if (stranded.length === 0) return cloudPlans;
+
+    const uploaded = [];
+    for (const p of stranded) {
+      try {
+        const row = await restUpsert('workout_plans', {
+          plan_name: p.planName,
+          exercises: p.exercises,
+          created_by: p.createdBy,
+          is_assigned: p.isAssigned !== false,
+          user_id: resolvedUserId
+        });
+        if (!row?.id) continue;
+        uploaded.push({ old: p.id, plan: { ...p, id: row.id, userId: row.user_id, createdAt: row.created_at || p.createdAt, syncError: undefined } });
+      } catch (e) {
+        console.warn('Stranded plan upload failed, will retry next load:', p.planName, e);
+      }
+    }
+    if (uploaded.length === 0) return cloudPlans;
+    try {
+      const byOld = new Map(uploaded.map(u => [u.old, u.plan]));
+      localStorage.setItem(key, JSON.stringify(localPlans.map(p => byOld.get(p.id) || p)));
+    } catch { /* storage full/blocked — the cloud has them now anyway */ }
+    console.info(`Uploaded ${uploaded.length} plan(s) that had only been saved on this device.`);
+    return [...uploaded.map(u => u.plan), ...cloudPlans];
+  },
+
+  // Drops one plan from this device's local mirror only. The plan editor
+  // calls it after a failed save it is keeping open, so the stranded copy
+  // isn't also uploaded behind the coach's back and then saved a second time
+  // when they press Assign again.
+  async removeLocalPlan(userId, planId) {
+    try {
+      const key = `client_${await getCleanClientKey(userId)}_workoutPlans`;
+      const plans = JSON.parse(localStorage.getItem(key) || '[]');
+      localStorage.setItem(key, JSON.stringify(plans.filter(p => p.id !== planId)));
+    } catch { /* nothing to remove */ }
   },
 
   async saveWorkoutPlan(plan) {
@@ -4228,6 +4294,12 @@ const databaseService = {
         }
       } catch (e) {
         console.error('Cloud DB Workout Plan Sync Error:', e);
+        // Still mirrored locally below (uploadStrandedPlans retries it on
+        // the next plans load), but the caller must know it isn't saved —
+        // see handleSavePlan, which keeps the editor open on this.
+        plan.syncError = /401|JWT|expired|auth/i.test(String(e?.message || ''))
+          ? 'Your login has expired.'
+          : (e?.message || 'Could not reach the server.');
       }
     }
 

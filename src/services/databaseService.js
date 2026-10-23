@@ -3259,6 +3259,49 @@ const databaseService = {
     return { success: true, paused_at: pausedAt };
   },
 
+  // Coach detaches a client who is no longer training with them. The client
+  // keeps their account and history; their clients row just goes back to
+  // unattached (see sql/remove_client_from_coach.sql).
+  async removeClientFromCoach(clientUserId) {
+    if (!clientUserId) {
+      return { success: false, error: 'Missing client id.' };
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const accessToken = await resolveRealAccessToken();
+        if (!accessToken) {
+          return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+        }
+        const res = await fetch('/api/admin-write?action=remove-client', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ clientUserId })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.success === false)) {
+          return { success: false, error: (data && data.error) || 'Could not remove this client.' };
+        }
+        return { success: true };
+      } catch (e) {
+        console.error('[removeClientFromCoach] error:', e);
+        return { success: false, error: e.message || 'Could not remove this client.' };
+      }
+    }
+
+    // Mock fallback — same coach↔client scoping as the RPC's WHERE clause.
+    const coachUserId = (await resolveCanonicalUserId()) || localStorage.getItem('userId');
+    const mockClients = this.getMockTable('clients');
+    const idx = mockClients.findIndex(c => c.user_id === clientUserId && c.coach_id === coachUserId);
+    if (idx < 0) return { success: false, error: 'No matching coach-client relationship.' };
+    Object.assign(mockClients[idx], {
+      coach_id: null, paused_at: null, total_sessions: null,
+      program_started_on: null, program_est_completion: null
+    });
+    this.saveMockTable('clients', mockClients);
+    return { success: true };
+  },
+
   // Client-side read of its own connection record: is a coach attached, and
   // what program length (total_sessions) did that coach set? Only ever reads
   // the logged-in user's own clients row.

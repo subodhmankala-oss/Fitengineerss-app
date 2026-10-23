@@ -836,6 +836,32 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     }
   };
 
+  // Coach removes a client who is no longer training with them. Detaches
+  // (clients.coach_id → NULL), never deletes: the client keeps their account
+  // and history and can join another coach. Drops the client from every
+  // coach-side list immediately.
+  const [removingClientId, setRemovingClientId] = useState(null);
+  const handleRemoveClient = async (clientId, clientName) => {
+    const ok = window.confirm(
+      `Remove ${clientName || 'this client'} from your clients?\n\n` +
+      'They will no longer appear in your dashboard. Their account and workout history are kept, ' +
+      'and they can join another coach with an invite code.'
+    );
+    if (!ok) return;
+    setRemovingClientId(clientId);
+    const result = await databaseService.removeClientFromCoach(clientId);
+    setRemovingClientId(null);
+    if (result?.success) {
+      setClients(prev => prev.filter(c => c.id !== clientId));
+      setPausedClients(prev => prev.filter(r => r.clientId !== clientId));
+      setRenewalDueClients(prev => prev.filter(r => r.clientId !== clientId));
+      setSelectedClient(prev => (prev && prev.id === clientId ? null : prev));
+    } else {
+      setPauseError(result?.error || 'Could not remove this client — try again.');
+      setTimeout(() => setPauseError(''), 4000);
+    }
+  };
+
   // Turns the coach's stored payment QR (a data: URL, see
   // supabase_coach_payment_qr.sql) into a File — needed for the Web Share
   // API path below, since whatsapp://send/wa.me links are text-only and a
@@ -5712,6 +5738,19 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                     >
                       {unpausingClientId === p.clientId ? 'Unpausing…' : 'Unpause'}
                     </button>
+                    <button
+                      type="button"
+                      disabled={removingClientId === p.clientId}
+                      onClick={() => handleRemoveClient(p.clientId, p.clientName)}
+                      style={{
+                        flexShrink: 0, background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '8px',
+                        color: '#ef4444', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 700,
+                        cursor: removingClientId === p.clientId ? 'default' : 'pointer',
+                        opacity: removingClientId === p.clientId ? 0.6 : 1
+                      }}
+                    >
+                      {removingClientId === p.clientId ? 'Removing…' : 'Remove'}
+                    </button>
                   </div>
                 );
               })}
@@ -7237,6 +7276,21 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                 </div>
+                {selectedClient.coach_id === loggedInUserId && (
+                  <button
+                    type="button"
+                    disabled={removingClientId === selectedClient.id}
+                    onClick={() => handleRemoveClient(selectedClient.id, selectedClient.userName)}
+                    style={{
+                      marginLeft: 'auto', flexShrink: 0, background: 'rgba(239, 68, 68, 0.1)', border: 'none',
+                      borderRadius: '8px', color: '#ef4444', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
+                      cursor: removingClientId === selectedClient.id ? 'default' : 'pointer',
+                      opacity: removingClientId === selectedClient.id ? 0.6 : 1
+                    }}
+                  >
+                    {removingClientId === selectedClient.id ? 'Removing…' : 'Remove client'}
+                  </button>
+                )}
               </div>
 
               {/* Client Targets Grid */}

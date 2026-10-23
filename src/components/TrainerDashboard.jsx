@@ -7587,21 +7587,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                   <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
                 </div>
-                {selectedClient.coach_id === loggedInUserId && (
-                  <button
-                    type="button"
-                    disabled={removingClientId === selectedClient.id}
-                    onClick={() => handleRemoveClient(selectedClient.id, selectedClient.userName)}
-                    style={{
-                      marginLeft: 'auto', flexShrink: 0, background: 'rgba(239, 68, 68, 0.1)', border: 'none',
-                      borderRadius: '8px', color: '#ef4444', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
-                      cursor: removingClientId === selectedClient.id ? 'default' : 'pointer',
-                      opacity: removingClientId === selectedClient.id ? 0.6 : 1
-                    }}
-                  >
-                    {removingClientId === selectedClient.id ? 'Removing…' : 'Remove client'}
-                  </button>
-                )}
               </div>
 
               {/* Client Targets Grid */}

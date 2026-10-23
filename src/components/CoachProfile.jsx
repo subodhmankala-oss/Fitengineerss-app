@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
+import { hasValidPhone } from '../utils/coachPhone';
 import { useTheme } from '../context/useTheme';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
@@ -186,6 +187,11 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
   // status line under the header repeats it in words so it isn't only the
   // button label that changes.
   const saveProfile = async () => {
+    // Phone is compulsory for coaches — don't let a save clear it.
+    if (!hasValidPhone(form.phone)) {
+      setSaveMsg('phone');
+      return;
+    }
     setSaving(true);
     setSaveMsg('');
     try {
@@ -230,6 +236,15 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 ✓ Profile saved — logo and QR will go out with your renewal reminders.
               </div>
             )}
+            {saveMsg === 'phone' && (
+              <div style={{
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+                color: '#f87171', fontSize: '0.85rem', fontWeight: 700
+              }}>
+                ✕ A phone number is required. Enter a valid 10-digit number and tap Save.
+              </div>
+            )}
             {saveMsg === 'error' && (
               <div style={{
                 background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
@@ -246,7 +261,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 <input className="cp-field-input" value={form.userName} onChange={e => handleField('userName', e.target.value)} placeholder="Your name" />
               </div>
               <div className="cp-field cp-field--border cp-field--last">
-                <label className="cp-field-label">Phone</label>
+                <label className="cp-field-label">Phone <span className="cp-field-unit">(required)</span></label>
                 <input className="cp-field-input" type="tel" value={form.phone} onChange={e => handleField('phone', e.target.value)} placeholder="Phone number" />
               </div>
             </div>

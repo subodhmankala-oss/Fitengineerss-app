@@ -5148,6 +5148,7 @@ const databaseService = {
           id: coachUserId,
           name: coach.users?.full_name || 'Coach',
           email: coach.users?.email || '',
+          phone: coach.users?.phone || '',
           brand: coach.brand_name || 'Fit Engineers',
           payment_status: coach.users?.payment_status || 'active',
           experienceYears: coach.experience_years ?? null,
@@ -5170,14 +5171,14 @@ const databaseService = {
         let data;
         try {
           data = await restSelect(
-            `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at,last_login)&status=eq.approved&order=created_at.asc`
+            `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,phone,payment_status,created_at,last_login)&status=eq.approved&order=created_at.asc`
           );
         } catch (e) {
           // last_login might not be migrated in yet — retry without it rather
           // than losing the whole coaches list (same fallback as getAllUsers).
           if (String(e.message).includes('400')) {
             data = await restSelect(
-              `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,payment_status,created_at)&status=eq.approved&order=created_at.asc`
+              `coaches?select=user_id,brand_name,status,experience_years,is_blocked,created_at,users(id,email,full_name,phone,payment_status,created_at)&status=eq.approved&order=created_at.asc`
             );
           } else {
             throw e;
@@ -5198,6 +5199,7 @@ const databaseService = {
               id: coachUserId,
               name: coach.users?.full_name || 'Coach',
               email: coach.users?.email || '',
+              phone: coach.users?.phone || '',
               brand: coach.brand_name || 'Fit Engineers',
               payment_status: coach.users?.payment_status || 'active',
               experienceYears: coach.experience_years ?? null,
@@ -5411,6 +5413,23 @@ const databaseService = {
     else localStorage.removeItem('userLogoUrl');
     if ((upiId || '').trim()) localStorage.setItem('userUpiId', upiId.trim());
     else localStorage.removeItem('userUpiId');
+  },
+
+  // Phone-only write for CoachPhoneGate — a coach without a number on file
+  // can't use the dashboard until they add one. users.phone is UNIQUE, so a
+  // number already on another account surfaces as a readable message instead
+  // of the raw "duplicate key" text.
+  async saveCoachPhone(userId, phone) {
+    if (!userId) throw new Error('Missing user id — could not save phone.');
+    try {
+      await restUpdate(`users?id=eq.${encodeURIComponent(userId)}`, { phone });
+    } catch (e) {
+      if (e.code === '23505' || /duplicate key|users_phone_key/i.test(e.message || '')) {
+        throw new Error('That phone number is already registered to another account. Use a different number.');
+      }
+      throw e;
+    }
+    localStorage.setItem('userPhone', phone);
   },
 
   // Small on-demand read for the renewal-reminder "Send reminder" action

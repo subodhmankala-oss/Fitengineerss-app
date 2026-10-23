@@ -79,6 +79,11 @@ async function handleRegisterEmail(req, res) {
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
   }
+  // Phone is compulsory for every coach — the sign-up form already enforces
+  // it; this stops a direct API call from creating a coach without one.
+  if ((phone || '').replace(/\D/g, '').length < 10) {
+    return res.status(400).json({ error: 'Please enter a valid 10-digit phone number.' });
+  }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);
   const anonClient = createClient(supabaseUrl, anonKey);

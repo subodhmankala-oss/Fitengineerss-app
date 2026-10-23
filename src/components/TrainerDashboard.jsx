@@ -62,6 +62,7 @@ import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
+import CoachPhoneGate from './CoachPhoneGate';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -5093,6 +5094,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // show the selected client's figure — see MuscleAnalytics/bodySex.js.
     <BodySexContext.Provider value={selectedClient?.userSex || null}>
     <div className="trainer-dashboard-container animate-scale-in">
+      <CoachPhoneGate />
       {/* Desktop-only left icon sidebar for the super-admin (Instagram-style
           app shell — requested 2026-08-24). CSS-only concern: fixed
           position, hidden below 900px / for every non-superAdmin account

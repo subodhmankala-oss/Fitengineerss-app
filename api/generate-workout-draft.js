@@ -154,6 +154,61 @@ const repairDay = (day, catalog) => {
   return exercises.length > 0 ? { ...day, exercises } : null;
 };
 
+// Groq's free plan allows ~8K tokens a minute and ~200K a day for this
+// model; one draft is ~3K tokens, so two coaches pressing Generate in the
+// same minute used to get a raw "Rate limit reached" error. A 429 says how
+// long to wait ("Please try again in 1.11s", or "2m3.5s", plus a
+// retry-after header) — a per-minute wait is short, so it's slept off here
+// and retried, up to MAX_RATE_LIMIT_WAIT_MS in total. The daily cap's wait
+// is hours, so that one fails straight away with a message the coach can act on.
+const MAX_RATE_LIMIT_RETRIES = 2;
+const MAX_RATE_LIMIT_WAIT_MS = 20000;
+
+export const rateLimitWaitMs = (message, retryAfterHeader) => {
+  const m = String(message || '').match(/try again in\s+(?:(\d+)h)?(?:(\d+)m(?!s))?(?:([\d.]+)s)?(?:([\d.]+)ms)?/i);
+  if (m && (m[1] || m[2] || m[3] || m[4])) {
+    const ms = (Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) * 1000 + Number(m[4] || 0);
+    return Math.ceil(ms) + 250;
+  }
+  const header = Number(retryAfterHeader);
+  return Number.isFinite(header) && header > 0 ? header * 1000 + 250 : null;
+};
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const callGroq = async (apiKey, payload) => {
+  let waited = 0;
+  for (let attempt = 0; ; attempt += 1) {
+    const resp = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (resp.status !== 429) return { resp, data };
+
+    const message = data?.error?.message || '';
+    const wait = rateLimitWaitMs(message, resp.headers.get('retry-after'));
+    const daily = /per day|\bTPD\b|\bRPD\b/i.test(message);
+    if (daily || attempt >= MAX_RATE_LIMIT_RETRIES || wait == null || waited + wait > MAX_RATE_LIMIT_WAIT_MS) {
+      console.warn('generate-workout-draft: Groq rate limit, giving up:', message);
+      return {
+        resp,
+        data,
+        friendlyError: daily
+          ? "Today's AI limit has been reached. Please try again tomorrow, or build this plan manually."
+          : 'The AI is busy right now. Please wait a minute and press Generate again.'
+      };
+    }
+    console.warn(`generate-workout-draft: Groq rate limit, retrying in ${wait}ms`);
+    waited += wait;
+    await sleep(wait);
+  }
+};
+
 const sanitizeCatalog = (raw) => (Array.isArray(raw) ? raw : [])
   .filter(e => e && typeof e.name === 'string' && e.name.trim())
   .slice(0, 1500)
@@ -182,27 +237,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const resp = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: buildSystemPrompt(catalog, dayMode ? 'day' : 'full') },
-          { role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayMode ? day : null }) }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.6
-      })
+    const { resp, data, friendlyError } = await callGroq(apiKey, {
+      model: GROQ_MODEL,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(catalog, dayMode ? 'day' : 'full') },
+        { role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayMode ? day : null }) }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.6
     });
 
-    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
       console.error('generate-workout-draft: Groq error:', resp.status, data);
-      return res.status(502).json({ error: data?.error?.message || 'Failed to generate workout draft.' });
+      return res.status(friendlyError ? 429 : 502).json({ error: friendlyError || data?.error?.message || 'Failed to generate workout draft.' });
     }
 
     const rawText = data?.choices?.[0]?.message?.content;

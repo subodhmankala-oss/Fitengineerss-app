@@ -24,6 +24,7 @@ import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
+import { daysSinceLogin } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
@@ -7382,6 +7383,28 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 {(hasClientDot(client.id) || newClientNotifications.some(n => n.clientId === client.id)) && (
                                   <span className="unread-dot" style={{ position: 'absolute', top: 0, right: 0 }} aria-label="New update" />
                                 )}
+                                {/* Activity dot from last_login: green if they logged
+                                    in within the last 7 days, grey otherwise (or never). */}
+                                {(() => {
+                                  const days = daysSinceLogin(client.last_login);
+                                  const active = days !== null && days < 7;
+                                  const label = client.last_login
+                                    ? `${active ? 'Active' : 'Inactive'} · last seen ${new Date(client.last_login).toLocaleString()}`
+                                    : 'Inactive · never logged in';
+                                  return (
+                                    <span
+                                      role="img"
+                                      title={label}
+                                      aria-label={label}
+                                      style={{
+                                        position: 'absolute', bottom: 1, right: 1,
+                                        width: '12px', height: '12px', borderRadius: '50%',
+                                        background: active ? '#10b981' : '#94a3b8',
+                                        border: '2px solid var(--bg-app)'
+                                      }}
+                                    />
+                                  );
+                                })()}
                               </span>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{client.userName}</span>

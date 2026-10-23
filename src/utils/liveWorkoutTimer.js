@@ -90,6 +90,13 @@ const CYCLE_CURVE = [[14.5, 4.0], [17.5, 6.8], [20.9, 8.0], [24.1, 10.0], [28.2,
 // (5.8), ~50 yd/min (8.3), ~75 yd/min and faster (9.8).
 const ROW_CURVE = [[9.5, 4.8], [11.5, 7.0], [13.5, 8.5], [15.5, 12.0]];
 const SWIM_CURVE = [[2.0, 5.8], [3.4, 8.3], [4.5, 9.8]];
+// Cross trainer / elliptical was a flat 5.0 MET (Compendium "elliptical
+// trainer, moderate effort") at any pace, so a hard 30-minute session read
+// the same 147 kcal as an easy one (2026-10-23). The curve keeps 5.0 at the
+// assumed 6 km/h display speed and rises with pace, staying below the
+// running curve at the same speed: the feet never leave the pedals, so
+// there is no flight phase to pay for.
+const CROSS_TRAINER_CURVE = [[4.0, 3.8], [6.0, 5.0], [8.0, 6.5], [10.0, 8.0], [12.0, 9.5]];
 
 function interpolate(curve, x) {
   if (x <= curve[0][0]) return curve[0][1];
@@ -109,7 +116,7 @@ function cardioMET(exerciseName, speedKmh) {
   if (/cycl|bik/.test(n)) return interpolate(CYCLE_CURVE, speedKmh);
   if (/rowing machine/.test(n)) return interpolate(ROW_CURVE, speedKmh);
   if (/\bswim/.test(n)) return interpolate(SWIM_CURVE, speedKmh);
-  if (/cross trainer|elliptical/.test(n)) return 5.0;
+  if (/cross trainer|elliptical/.test(n)) return interpolate(CROSS_TRAINER_CURVE, speedKmh);
   // Incline Walk was a flat 6.0 MET at any speed, so a slow 4.5 km/h walk
   // priced like a steep climb. The ACSM walking equation (VO2 = 3.5 + 0.1 x
   // m/min + 1.8 x m/min x grade) scales with speed instead. Incline isn't

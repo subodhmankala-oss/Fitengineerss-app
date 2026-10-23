@@ -42,6 +42,7 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import { templateTargetTime } from '../utils/templateTargets';
+import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
@@ -2948,10 +2949,18 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // "Recent workouts" in the Existing Plan dropdown — past sessions rebuilt
   // as loadable plans, so a workout the client never ticked "Save as
   // template" for can still be repeated. See buildRecentWorkoutPlans.
+  // "This week" (picker cards + Existing Plan dropdown) — the last 7 days'
+  // workouts, best first, never stored. See buildThisWeekPlans. "Recent
+  // workouts" then covers only older ones so nothing is listed twice.
+  const thisWeekPlans = useMemo(() => buildThisWeekPlans(
+    sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
+    getLocalDateString(),
+    [...CORE_PPL_TEMPLATES, ...clientPlans].map(p => p.planName)
+  ), [sessions, selectedClient, clientPlans]);
   const recentWorkoutPlans = useMemo(() => buildRecentWorkoutPlans(
     sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
-    clientPlans.map(p => p.planName)
-  ), [sessions, selectedClient, clientPlans]);
+    [...CORE_PPL_TEMPLATES, ...clientPlans, ...thisWeekPlans].map(p => p.planName)
+  ), [sessions, selectedClient, clientPlans, thisWeekPlans]);
 
   return (
     <>
@@ -3613,17 +3622,31 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             {/* My Saved Templates */}
             <div className="wt-picker-section">
               <div className="wt-picker-section-header">
-                <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{templatePlans.length} templates</span></span>
+                <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{CORE_PPL_TEMPLATES.length + templatePlans.length} templates</span></span>
                 {templatePlans.length > 3 && (
                   <button type="button" className="wt-view-all-btn" onClick={() => setShowAllTemplates(v => !v)}>
                     {showAllTemplates ? 'Show less' : 'View all'}
                   </button>
                 )}
               </div>
+              {/* Push / Pull / Legs — always here, can't be deleted. */}
+              <div className="wt-plan-list">
+                {CORE_PPL_TEMPLATES.map(plan => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    source="self"
+                    metaLabel="Starter plan"
+                    onStart={() => startPlan(plan, 'self')}
+                    expandable
+                    getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                  />
+                ))}
+              </div>
               {loadingPlans ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
               ) : templatePlans.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Tick "Keep as a permanent template" when you finish a workout to add your own here.</p>
               ) : (
                 <div className="wt-plan-list">
                   {visibleTemplatePlans.map(plan => (
@@ -3633,6 +3656,30 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       source="self"
                       onStart={() => startPlan(plan, 'self')}
                       onDelete={() => handleDeleteTemplate(plan)}
+                      expandable
+                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* This week — rebuilt from the last 7 days' sessions, never stored. */}
+            <div className="wt-picker-section">
+              <div className="wt-picker-section-header">
+                <span className="wt-picker-section-title">🗓️ This Week <span className="wt-count-badge">{thisWeekPlans.length} workouts</span></span>
+              </div>
+              {thisWeekPlans.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Workouts you log show up here for 7 days, best ones first.</p>
+              ) : (
+                <div className="wt-plan-list">
+                  {thisWeekPlans.map(plan => (
+                    <PlanCard
+                      key={plan.id}
+                      plan={plan}
+                      source="self"
+                      metaLabel={`Done ${formatShortLogDate(plan.date)}`}
+                      onStart={() => startPlan(plan, 'self')}
                       expandable
                       getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                     />
@@ -3668,14 +3715,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   placeholder="e.g. Push Day, Leg Day, Custom Session…"
                 />
               </div>
-              {(clientPlans.length > 0 || recentWorkoutPlans.length > 0) && (
+              {/* Always shown — Push / Pull / Legs are always there. */}
                 <div className="input-group">
                   <label>Existing Plan</label>
                   <select
                     defaultValue=""
                     onChange={(e) => {
-                      const plan = clientPlans.find(p => p.id === e.target.value)
-                        || recentWorkoutPlans.find(p => p.id === e.target.value);
+                      const plan = [...CORE_PPL_TEMPLATES, ...thisWeekPlans, ...clientPlans, ...recentWorkoutPlans]
+                        .find(p => p.id === e.target.value);
                       // Same empty/malformed guard as startPlan above — loading
                       // an empty plan here used to wipe the current exercise
                       // list and replace it with nothing.
@@ -3697,7 +3744,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           // stale non-empty value here silently fed straight
                           // into liveRunningCardioKcal's calorie total before
                           // the client touched anything.
-                          sets: ex.sets.map(s => isCardioExercise(ex.name)
+                          // withPrevValues: same kg/reps pre-fill from PREV as
+                          // startPlan, so a blank Push/Pull/Legs kg box isn't
+                          // left empty when the client has history.
+                          sets: ex.sets.map((s, setIdx) => withPrevValues(ex, setIdx, isCardioExercise(ex.name)
                             // targetTime: see startPlan — keeps the coach's
                             // prescribed duration as a hint/countdown target.
                             ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
@@ -3711,7 +3761,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 // "undefined" in the input box instead of leaving it blank, same
                 // bug the cardio/timed branches above already guard against with
                 // `?? ''`. This branch never got that guard.
-                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
+                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false }))
                         })));
                         // See startPlan's comment above — setTimers is keyed
                         // positionally, not by exercise identity, so switching
@@ -3729,6 +3779,18 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         volume from past sessions logged under each plan's
                         name) — see rankTemplatesByPerformance — not just the
                         10 most recent. */}
+                    <optgroup label="Push / Pull / Legs">
+                      {CORE_PPL_TEMPLATES.map(p => (
+                        <option key={p.id} value={p.id}>{p.planName}</option>
+                      ))}
+                    </optgroup>
+                    {thisWeekPlans.length > 0 && (
+                      <optgroup label="This week">
+                        {thisWeekPlans.map(p => (
+                          <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
+                        ))}
+                      </optgroup>
+                    )}
                     {recentWorkoutPlans.length > 0 && (
                       <optgroup label="Recent workouts">
                         {recentWorkoutPlans.map(p => (
@@ -3749,7 +3811,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     )}
                   </select>
                 </div>
-              )}
             </div>
           </div>
 
@@ -4694,7 +4755,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   checked={saveAsTemplate} 
                   onChange={(e) => setSaveAsTemplate(e.target.checked)} 
                 />
-                <span>💾 Save this session as a repeat template</span>
+                <span>💾 Keep as a permanent template</span>
               </label>
               {saveAsTemplate && (
                 <div style={{ marginTop: '8px' }}>

@@ -8,7 +8,7 @@ import ExerciseCardMenu from './ExerciseCardMenu';
 import ExercisePickerModal from './ExercisePickerModal';
 import { EXERCISE_LIBRARY, isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { presetExercises } from '../data/presetExercises';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatSecondsToTimeString, maskDigitsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { normalizeExerciseForGuide, findExerciseGuideMatch, getYouTubeEmbedUrl } from '../utils/videoUtils';
 import ExerciseGuideModal from './ExerciseGuideModal';
 import ExerciseHistoryModal from './ExerciseHistoryModal';
@@ -2961,6 +2961,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
     [...CORE_PPL_TEMPLATES, ...clientPlans, ...thisWeekPlans].map(p => p.planName)
   ), [sessions, selectedClient, clientPlans, thisWeekPlans]);
+  // "New plans" (never logged yet, e.g. what the coach assigned yesterday)
+  // get their own dropdown group so the top-10 "Saved plans" ranking can't
+  // cut them off. Same split as the coach's Live Log — see splitNewTemplates.
+  const { newPlans: dropdownNewPlans, savedPlans: dropdownSavedPlans } = useMemo(() => splitNewTemplates(
+    clientPlans,
+    sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase())
+  ), [sessions, selectedClient, clientPlans]);
 
   return (
     <>
@@ -3779,6 +3786,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         volume from past sessions logged under each plan's
                         name) — see rankTemplatesByPerformance — not just the
                         10 most recent. */}
+                    {dropdownNewPlans.length > 0 && (
+                      <optgroup label="New plans">
+                        {dropdownNewPlans.map(p => (
+                          <option key={p.id} value={p.id}>{p.planName}</option>
+                        ))}
+                      </optgroup>
+                    )}
                     <optgroup label="Push / Pull / Legs">
                       {CORE_PPL_TEMPLATES.map(p => (
                         <option key={p.id} value={p.id}>{p.planName}</option>
@@ -3798,13 +3812,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         ))}
                       </optgroup>
                     )}
-                    {clientPlans.length > 0 && (
+                    {dropdownSavedPlans.length > 0 && (
                       <optgroup label="Saved plans">
-                        {rankTemplatesByPerformance(
-                          clientPlans,
-                          sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase()),
-                          10
-                        ).map(p => (
+                        {dropdownSavedPlans.map(p => (
                           <option key={p.id} value={p.id}>{p.planName}</option>
                         ))}
                       </optgroup>

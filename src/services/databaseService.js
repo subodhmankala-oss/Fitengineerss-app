@@ -1351,6 +1351,18 @@ export const isSuperAdmin = (email) => {
 };
 
 
+// Every localStorage key a client's plans may be mirrored under.
+// getCleanClientKey turns a uuid into the client's squashed full name, but
+// only when the users lookup works — with an expired session it falls back
+// to the uuid itself, which is exactly when a plan save fails and the plan
+// is left only on the device (2026-10-23: stranded under the uuid key, then
+// looked for under the name key once logged back in). So both are checked.
+const localPlanKeys = async (userId) => {
+  const keys = new Set([`client_${await getCleanClientKey(userId)}_workoutPlans`]);
+  if (userId) keys.add(`client_${String(userId).toLowerCase().replace(/\s+/g, '')}_workoutPlans`);
+  return [...keys];
+};
+
 const getCleanClientKey = async (userId) => {
   if (!userId) return 'guest';
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
@@ -4171,47 +4183,50 @@ const databaseService = {
   // the list. Older local-only entries are left alone, so stale leftovers
   // from mock mode or long-gone sessions never resurface.
   async uploadStrandedPlans(userId, resolvedUserId, cloudPlans) {
-    let localPlans = [];
-    let key = null;
-    try {
-      key = `client_${await getCleanClientKey(userId)}_workoutPlans`;
-      localPlans = JSON.parse(localStorage.getItem(key) || '[]');
-    } catch {
-      return cloudPlans;
-    }
-    if (!Array.isArray(localPlans) || localPlans.length === 0) return cloudPlans;
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const cloudNames = new Set(cloudPlans.map(p => (p.planName || '').trim().toLowerCase()));
-    const stranded = localPlans.filter(p => p && /^plan-\d+$/.test(String(p.id || ''))
-      && (Date.parse(p.createdAt || '') || 0) > weekAgo
-      && p.planName && !cloudNames.has(p.planName.trim().toLowerCase())
-      && (p.createdBy === 'coach' || p.createdBy === 'client')
-      && Array.isArray(p.exercises) && p.exercises.length > 0);
-    if (stranded.length === 0) return cloudPlans;
-
     const uploaded = [];
-    for (const p of stranded) {
+    for (const key of await localPlanKeys(userId)) {
+      let localPlans;
       try {
-        const row = await restUpsert('workout_plans', {
-          plan_name: p.planName,
-          exercises: p.exercises,
-          created_by: p.createdBy,
-          is_assigned: p.isAssigned !== false,
-          user_id: resolvedUserId
-        });
-        if (!row?.id) continue;
-        uploaded.push({ old: p.id, plan: { ...p, id: row.id, userId: row.user_id, createdAt: row.created_at || p.createdAt, syncError: undefined } });
-      } catch (e) {
-        console.warn('Stranded plan upload failed, will retry next load:', p.planName, e);
+        localPlans = JSON.parse(localStorage.getItem(key) || '[]');
+      } catch {
+        continue;
       }
+      if (!Array.isArray(localPlans) || localPlans.length === 0) continue;
+      const stranded = localPlans.filter(p => p && /^plan-\d+$/.test(String(p.id || ''))
+        && (Date.parse(p.createdAt || '') || 0) > weekAgo
+        && p.planName && !cloudNames.has(p.planName.trim().toLowerCase())
+        && (p.createdBy === 'coach' || p.createdBy === 'client')
+        && Array.isArray(p.exercises) && p.exercises.length > 0);
+      const byOld = new Map();
+      for (const p of stranded) {
+        try {
+          const row = await restUpsert('workout_plans', {
+            plan_name: p.planName,
+            exercises: p.exercises,
+            created_by: p.createdBy,
+            is_assigned: p.isAssigned !== false,
+            user_id: resolvedUserId
+          });
+          if (!row?.id) continue;
+          // Same name in both keys is uploaded once.
+          cloudNames.add(p.planName.trim().toLowerCase());
+          const plan = { ...p, id: row.id, userId: row.user_id, createdAt: row.created_at || p.createdAt, syncError: undefined };
+          byOld.set(p.id, plan);
+          uploaded.push(plan);
+        } catch (e) {
+          console.warn('Stranded plan upload failed, will retry next load:', p.planName, e);
+        }
+      }
+      if (byOld.size === 0) continue;
+      try {
+        localStorage.setItem(key, JSON.stringify(localPlans.map(p => byOld.get(p.id) || p)));
+      } catch { /* storage full/blocked — the cloud has them now anyway */ }
     }
     if (uploaded.length === 0) return cloudPlans;
-    try {
-      const byOld = new Map(uploaded.map(u => [u.old, u.plan]));
-      localStorage.setItem(key, JSON.stringify(localPlans.map(p => byOld.get(p.id) || p)));
-    } catch { /* storage full/blocked — the cloud has them now anyway */ }
     console.info(`Uploaded ${uploaded.length} plan(s) that had only been saved on this device.`);
-    return [...uploaded.map(u => u.plan), ...cloudPlans];
+    return [...uploaded, ...cloudPlans];
   },
 
   // Drops one plan from this device's local mirror only. The plan editor
@@ -4219,11 +4234,12 @@ const databaseService = {
   // isn't also uploaded behind the coach's back and then saved a second time
   // when they press Assign again.
   async removeLocalPlan(userId, planId) {
-    try {
-      const key = `client_${await getCleanClientKey(userId)}_workoutPlans`;
-      const plans = JSON.parse(localStorage.getItem(key) || '[]');
-      localStorage.setItem(key, JSON.stringify(plans.filter(p => p.id !== planId)));
-    } catch { /* nothing to remove */ }
+    for (const key of await localPlanKeys(userId)) {
+      try {
+        const plans = JSON.parse(localStorage.getItem(key) || '[]');
+        localStorage.setItem(key, JSON.stringify(plans.filter(p => p.id !== planId)));
+      } catch { /* nothing to remove */ }
+    }
   },
 
   async saveWorkoutPlan(plan) {

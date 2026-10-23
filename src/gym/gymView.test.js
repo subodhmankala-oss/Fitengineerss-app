@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { visitGrid, dayStreak, memberTag, rankTrainers, initials } from './gymView';
+import { visitGrid, dayStreak, memberTag, rankTrainers, initials, liveBoard } from './gymView';
 
 describe('gymView', () => {
   it('marks the days trained, oldest first', () => {
@@ -136,5 +136,25 @@ describe('trainerDays', () => {
   });
   it('is empty when nothing is recorded', () => {
     expect(trainerDays({}, 't1', '2026-10-18')).toEqual({ today: null, daysIn: 0, daysOff: 0, highFives: 0 });
+  });
+  it('ranks the live board by calories, today or this week', () => {
+    const live = {
+      today: '2026-10-23',
+      members: [{ id: 'a', name: 'Asha' }, { id: 'b', name: 'Bala' }, { id: 'c', name: 'Chitra' }],
+      sessions: [
+        { memberId: 'a', date: '2026-10-23', kcal: 120.4, at: '2026-10-23T05:00:00Z' },
+        { memberId: 'b', date: '2026-10-23', kcal: 200, at: '2026-10-23T06:00:00Z' },
+        { memberId: 'a', date: '2026-10-21', kcal: 300, at: '2026-10-21T06:00:00Z' }
+      ]
+    };
+    expect(liveBoard(live, 'today').map((r) => [r.id, r.kcal])).toEqual([['b', 200], ['a', 120], ['c', 0]]);
+    expect(liveBoard(live, 'week').map((r) => [r.id, r.kcal, r.sessions])).toEqual([['a', 420, 2], ['b', 200, 1], ['c', 0, 0]]);
+  });
+  it('breaks a calorie tie by who got there first', () => {
+    const live = {
+      today: 'd', members: [{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }],
+      sessions: [{ memberId: 'x', date: 'd', kcal: 100, at: '2' }, { memberId: 'y', date: 'd', kcal: 100, at: '1' }]
+    };
+    expect(liveBoard(live, 'today').map((r) => r.id)).toEqual(['y', 'x']);
   });
 });

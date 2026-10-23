@@ -6,6 +6,7 @@ import GymSoon from './GymSoon';
 import GymPayments from './GymPayments';
 import GymSettings from './GymSettings';
 import GymLeads from './GymLeads';
+import GymLive from './GymLive';
 import GymInvite from './GymInvite';
 import { GYM_COLOURS } from './gymView';
 import { NAV } from './nav';
@@ -30,6 +31,8 @@ export default function GymApp({ data, biz, bizError, service, onReload, onSignO
   let body;
   if (page === 'overview') {
     body = <GymOverview data={data} biz={biz} service={service} onChanged={onReload} owner={owner} onOpenMembers={openMembers} />;
+  } else if (page === 'live') {
+    body = <GymLive service={service} />;
   } else if (page === 'members') {
     body = <GymMembers key={memberFilter} data={data} biz={biz} service={service} initialFilter={memberFilter} onChanged={onReload} />;
   } else if (page === 'trainers') {

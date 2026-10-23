@@ -963,6 +963,50 @@ async function handleGymBusiness(req, res) {
   }
 }
 
+// Live calorie board on the gym site: one row per workout session this week
+// (IST, Monday start) for the caller's gym members. calories_burned is the
+// session total repeated on every set row, so it is taken once per session.
+async function handleGymLive(req, res) {
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
+  }
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+  try {
+    const me = await svcSelect(`users?email=ilike.${encodeURIComponent(verifiedEmail.replace(/[\\%_]/g, '\\$&'))}&select=id&limit=1`, 'gym-live caller');
+    if (!me[0]) return res.status(200).json({ gym: null });
+    const gyms = await svcSelect(`gyms?owner_id=eq.${me[0].id}&select=id&order=created_at.asc&limit=1`, 'gym-live gym');
+    if (!gyms[0]) return res.status(200).json({ gym: null });
+    const gid = gyms[0].id;
+    const ist = new Date(Date.now() + 5.5 * 3600000);
+    const today = ist.toISOString().slice(0, 10);
+    const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+    const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name&limit=5000`, 'gym-live members');
+    const ids = members.map((m) => m.id);
+    const sessions = {};
+    for (let i = 0; i < ids.length; i += 150) {
+      const rows = await svcSelect(
+        `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${weekStart}&select=user_id,log_date,session_id,calories_burned,created_at&limit=50000`,
+        'gym-live logs'
+      );
+      for (const r of rows) {
+        const key = r.session_id || `${r.user_id}-${r.log_date}`;
+        const s = sessions[key] || (sessions[key] = { memberId: r.user_id, date: r.log_date, kcal: 0, at: r.created_at });
+        s.kcal = Math.max(s.kcal, Number(r.calories_burned) || 0);
+        if (r.created_at > s.at) s.at = r.created_at;
+      }
+    }
+    return res.status(200).json({
+      gym: { id: gid }, today, weekStart,
+      members: members.map((m) => ({ id: m.id, name: m.full_name })),
+      sessions: Object.values(sessions)
+    });
+  } catch (err) {
+    console.error('gym-live error:', err, err.detail);
+    return res.status(502).json({ error: 'Failed to read the live board.' });
+  }
+}
+
 const RESOURCE_HANDLERS = {
   'coach-clients': handleCoachClients,
   'workout-logs': handleWorkoutLogs,
@@ -978,6 +1022,7 @@ const RESOURCE_HANDLERS = {
   'owner-gym': handleOwnerGym,
   'owner-member': handleOwnerMember,
   'gym-business': handleGymBusiness,
+  'gym-live': handleGymLive,
   'coach-gym': handleCoachGym
 };
 

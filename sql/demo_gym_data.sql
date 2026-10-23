@@ -151,13 +151,16 @@ BEGIN
         FOR e IN SELECT * FROM jsonb_array_elements(v_plans->(m->>'level')->v_plan) LOOP
           FOR s IN 1..3 LOOP
             v_row := v_row + 1;
-            INSERT INTO public.workout_logs (user_id, log_date, exercise_name, set_number, reps, weight_kg, plan_name, session_id, session_row, created_at)
+            INSERT INTO public.workout_logs (user_id, log_date, exercise_name, set_number, reps, weight_kg, plan_name, session_id, session_row, created_at, calories_burned)
             VALUES (
               v_id, dt, e->>0, s, (e->>2)::int,
               CASE WHEN (e->>1)::numeric = 0 THEN 0
                    ELSE (e->>1)::numeric + (CASE WHEN m->>'level' = 'i' THEN 2.5 ELSE 1 END) * floor((11 - w) / 4.0) END,
               v_plan, 'demo-' || (m->>'key') || '-' || dt::text, v_row,
-              v_sets_ts + (v_row * interval '90 seconds')
+              v_sets_ts + (v_row * interval '90 seconds'),
+              -- session total on every row, like the app saves it (Live board)
+              CASE WHEN m->>'level' = 'i' THEN 200 + abs(hashtext((m->>'key') || dt::text)) % 130
+                   ELSE 120 + abs(hashtext((m->>'key') || dt::text)) % 90 END
             );
           END LOOP;
         END LOOP;

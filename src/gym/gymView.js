@@ -191,3 +191,20 @@ export function trainerDays(biz, trainerId, today) {
     highFives: (biz?.highFives || []).filter((h) => h.trainer_id === trainerId).length
   };
 }
+
+// Live calorie board. period 'today' or 'week'. Members who burned something
+// rank by calories (ties: whoever got there first), then everyone else by name.
+export function liveBoard(live, period) {
+  if (!live) return [];
+  const by = {};
+  for (const s of live.sessions || []) {
+    if (period === 'today' && s.date !== live.today) continue;
+    const b = by[s.memberId] || (by[s.memberId] = { kcal: 0, sessions: 0, lastAt: '' });
+    b.kcal += Number(s.kcal) || 0;
+    b.sessions += 1;
+    if (s.at > b.lastAt) b.lastAt = s.at;
+  }
+  return (live.members || [])
+    .map((m) => ({ id: m.id, name: m.name || 'Member', kcal: Math.round(by[m.id]?.kcal || 0), sessions: by[m.id]?.sessions || 0, lastAt: by[m.id]?.lastAt || '' }))
+    .sort((a, b) => (b.kcal - a.kcal) || (a.kcal && b.kcal ? a.lastAt.localeCompare(b.lastAt) : 0) || (b.sessions - a.sessions) || a.name.localeCompare(b.name));
+}

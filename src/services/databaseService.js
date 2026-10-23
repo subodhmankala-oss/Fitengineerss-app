@@ -3387,6 +3387,20 @@ const databaseService = {
     }
   },
 
+  // Live calorie board: this week's sessions (one calorie value each) for the owner's gym.
+  async getGymLive() {
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const res = await fetch('/api/data-read?resource=gym-live', { method: 'POST', headers, body: JSON.stringify({ email }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.gym) return { success: false, error: (data && data.error) || 'Could not load the live board.' };
+      return { success: true, ...data };
+    } catch (e) {
+      console.error('[getGymLive] error:', e);
+      return { success: false, error: e.message || 'Could not load the live board.' };
+    }
+  },
+
   // One verified-token POST to an admin-write gym action.
   async gymBusinessWrite(action, body) {
     try {

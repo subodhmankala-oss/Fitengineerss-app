@@ -47,6 +47,12 @@ function rowTuple(row) {
   ].join('~');
 }
 
+// Duration is compared separately, with a tolerance: a double-tapped Save
+// writes the same workout twice a second or two apart, and each copy reads the
+// session clock at its own moment (3180 s vs 3182 s), so an exact match let
+// both through.
+const DURATION_TOLERANCE_S = 60;
+
 function batchSignature(rows) {
   const first = rows[0];
   const tuples = Array.from(new Set(rows.map(rowTuple))).sort();
@@ -55,9 +61,13 @@ function batchSignature(rows) {
     first.log_date || '',
     (first.plan_name || '').trim(),
     num(first.calories_burned),
-    num(first.duration_seconds),
     tuples.join('|')
   ].join('#');
+}
+
+function sameDuration(a, b) {
+  if (a == null || a === '' || b == null || b === '') return num(a) === num(b);
+  return Math.abs(Number(a) - Number(b)) <= DURATION_TOLERANCE_S;
 }
 
 // Returns `rows` minus every batch that repeats an earlier-saved batch.
@@ -83,12 +93,15 @@ export function dropDuplicateSessionBatches(rows) {
     return at < bt ? -1 : at > bt ? 1 : 0;
   });
 
-  const seen = new Set();
+  // signature → durations of the batches kept so far with that signature
+  const seen = new Map();
   const dropped = new Set();
   ordered.forEach(([key, batchRows]) => {
     const sig = batchSignature(batchRows);
-    if (seen.has(sig)) dropped.add(key);
-    else seen.add(sig);
+    const duration = batchRows[0].duration_seconds;
+    const kept = seen.get(sig) || [];
+    if (kept.some(d => sameDuration(d, duration))) dropped.add(key);
+    else seen.set(sig, [...kept, duration]);
   });
   if (dropped.size === 0) return rows;
 

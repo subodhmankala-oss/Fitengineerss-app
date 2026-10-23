@@ -42,6 +42,20 @@ describe('dropDuplicateSessionBatches', () => {
     expect(dropDuplicateSessionBatches([...morning, ...evening])).toHaveLength(6);
   });
 
+  it('drops a double-tapped save whose duration is a second or two off', () => {
+    const first = session('2026-10-15T12:19:41Z', { session_id: 'session-1791898112473', duration_seconds: 3180 });
+    const second = session('2026-10-15T12:19:43Z', { session_id: 'session-1791898114002', duration_seconds: 3182 });
+    const out = dropDuplicateSessionBatches([...first, ...second]);
+    expect(out).toHaveLength(3);
+    expect(out.every(r => r.session_id === 'session-1791898112473')).toBe(true);
+  });
+
+  it('keeps a same-calorie repeat whose duration is clearly different', () => {
+    const a = session('2026-08-27T05:00:00Z', { duration_seconds: 2400 });
+    const b = session('2026-08-27T12:00:00Z', { duration_seconds: 3000 });
+    expect(dropDuplicateSessionBatches([...a, ...b])).toHaveLength(6);
+  });
+
   it('keeps the same plan on different days', () => {
     const a = session('2026-08-27T05:00:00Z');
     const b = session('2026-08-28T05:00:00Z', { log_date: '2026-08-28' });

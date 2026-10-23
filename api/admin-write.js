@@ -264,6 +264,25 @@ async function handleSetClientPaused(req, res) {
   }
 }
 
+async function handleRemoveClient(req, res) {
+  const caller = await resolveVerifiedCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { clientUserId } = req.body || {};
+  if (!clientUserId) return res.status(400).json({ error: 'clientUserId is required.' });
+  try {
+    const data = await callRpc('remove_client_from_coach', {
+      p_coach_id: caller.id,
+      p_client_id: clientUserId
+    });
+    if (data && data.success === false) return res.status(403).json({ error: data.error || 'Update failed.' });
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('admin-write remove-client error:', err);
+    return res.status(502).json({ error: err.message || 'Failed to remove client.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'save-exercise': handleSaveExercise,
   'delete-exercise': handleDeleteExercise,
@@ -271,7 +290,8 @@ const ACTION_HANDLERS = {
   'seed-exercises': handleSeedExercises,
   'set-client-total-sessions': handleSetClientTotalSessions,
   'set-client-program-dates': handleSetClientProgramDates,
-  'set-client-paused': handleSetClientPaused
+  'set-client-paused': handleSetClientPaused,
+  'remove-client': handleRemoveClient
 };
 
 export default async function handler(req, res) {

@@ -1,5 +1,7 @@
 // Video and Form Guide Utility Helpers
 
+import { exerciseNameKey } from './exerciseName';
+
 /**
  * Extracts the YouTube video ID from standard links and returns an embeddable URL.
  * Supports standard watch links, youtu.be short links, and embed paths.
@@ -51,6 +53,8 @@ const tokenSort = (s) => (s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Bool
  * looser matches instead of giving up after the first exact-match miss:
  *   1. Exact, case-insensitive (unchanged from before).
  *   2. Squashed — same letters, different spacing/punctuation/case.
+ *      Then the same with plurals dropped (exerciseNameKey): "Face Pulls"
+ *      finds the library's "Face Pull".
  *   3. Base-name — the logged name has no variant qualifier ("Bench
  *      Press") but the library only has qualified versions ("Bench Press
  *      (Barbell)") — showing *a* real video beats showing none.
@@ -69,6 +73,10 @@ export function findExerciseGuideMatch(list, name) {
 
   const targetSquashed = squash(name);
   match = list.find(pe => squash(pe.name) === targetSquashed);
+  if (match) return match;
+
+  const targetKey = exerciseNameKey(name);
+  match = list.find(pe => exerciseNameKey(pe.name) === targetKey);
   if (match) return match;
 
   match = list.find(pe => squash((pe.name || '').replace(/\(.*?\)/g, '')) === targetSquashed);

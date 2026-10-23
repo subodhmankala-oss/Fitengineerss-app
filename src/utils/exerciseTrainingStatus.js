@@ -1,3 +1,5 @@
+import { sameExercise } from './exerciseName';
+
 export function daysAgo(dateStr) {
   const then = new Date(`${dateStr}T00:00:00`);
   const now = new Date();
@@ -42,11 +44,10 @@ export function getTrainingStatus(entries) {
 // read the history sheet shows, so a plan card can flag an undertrained
 // exercise without opening it. Only session dates matter here.
 export function getExerciseStatusFromSessions(exerciseName, sessions, clientName) {
-  const target = (exerciseName || '').toLowerCase();
   const who = (clientName || '').toLowerCase();
   const entries = (sessions || [])
     .filter(s => (s.clientName || '').toLowerCase() === who)
-    .filter(s => (s.exercises || []).some(e => (e.name || '').toLowerCase() === target && e.sets && e.sets.length > 0))
+    .filter(s => (s.exercises || []).some(e => sameExercise(e.name, exerciseName) && e.sets && e.sets.length > 0))
     .map(s => ({ date: s.date }))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   return getTrainingStatus(entries);

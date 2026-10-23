@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import './exerciseRecChips.css';
 import { daysAgo, formatDaysAgo, getTrainingStatus } from '../utils/exerciseTrainingStatus';
 import { isCardioExercise, isTimedExercise, inferPrimary, inferCategory, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
+import { sameExercise } from '../utils/exerciseName';
 
 // Tapping an exercise's name in the logger (or trainer's live log) opens
 // this bottom sheet — its full history for the active client, bucketed by
@@ -104,7 +105,7 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
     if (rawLogs) {
       const rowsByDate = new Map();
       rawLogs
-        .filter(r => (r.exercise_name || '').toLowerCase() === exerciseName.toLowerCase())
+        .filter(r => sameExercise(r.exercise_name, exerciseName))
         .forEach(r => {
           const date = r.log_date;
           if (!date) return;
@@ -135,7 +136,7 @@ export default function ExerciseHistoryModal({ exerciseName, sessions, clientNam
     return (sessions || [])
       .filter(s => (s.clientName || '').toLowerCase() === (clientName || '').toLowerCase())
       .flatMap(s => {
-        const ex = (s.exercises || []).find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
+        const ex = (s.exercises || []).find(e => sameExercise(e.name, exerciseName));
         if (!ex || !ex.sets || ex.sets.length === 0) return [];
         const sets = ex.sets;
         let volume = 0;

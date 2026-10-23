@@ -8,6 +8,7 @@ import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbn
 import databaseService from '../services/databaseService';
 import CreateCustomExerciseModal from './CreateCustomExerciseModal';
 import { isWarmupMove } from '../utils/warmupBlocks';
+import { exerciseNameKey } from '../utils/exerciseName';
 
 // MuscleThumbnail mounts a real anatomical body SVG (vendored, quite
 // detailed) plus a muscle-overlay SVG via dangerouslySetInnerHTML. That's
@@ -182,6 +183,9 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const addedSet = new Set(addedNames.map(n => (n || '').toLowerCase()));
   const trimmed = query.trim();
   const q = trimmed.toLowerCase();
+  // "face pulls" / "pull‑ups" is the library's Face Pull / Pull-up, not a new
+  // exercise: it ranks as an exact match and hides the "Create" row.
+  const qKey = exerciseNameKey(trimmed);
 
   // Rank each exercise against the query rather than just filtering, so an
   // exact/prefix match on the name (e.g. "Bench Press" for "bench") always
@@ -193,7 +197,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
   const rankExercise = (ex) => {
     if (!q) return 0;
     const nameLower = ex.name.toLowerCase();
-    if (nameLower === q) return 0;
+    if (nameLower === q || (qKey && exerciseNameKey(ex.name) === qKey)) return 0;
     if (nameLower.startsWith(q)) return 1;
     if (nameLower.includes(q)) return 2;
     const category = (ex.category || '').toLowerCase();
@@ -215,7 +219,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
     })
     .sort((a, b) => a.rank - b.rank || a.ex.name.localeCompare(b.ex.name))
     .map(({ ex }) => ex);
-  const exactExists = activeLibrary.some(e => e.name.toLowerCase() === trimmed.toLowerCase());
+  const exactExists = activeLibrary.some(e => e.name.toLowerCase() === q || (qKey && exerciseNameKey(e.name) === qKey));
   const subgroups = !bodyMuscle && !regionsHidden && EXERCISE_SUBGROUPS[tag];
   const subgroupHint = subgroups && subgroups.find(sg => sg.id === subgroup)?.hint;
 

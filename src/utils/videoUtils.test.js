@@ -109,6 +109,16 @@ describe('videoUtils: findExerciseGuideMatch', () => {
     expect(findExerciseGuideMatch(list, 'Pull-Over')).toBe(list[0]);
   });
 
+  it('matches a plural against the singular library entry, not its qualified sibling', () => {
+    const list = [{ name: 'Face Pull (Cable)', video_url: 'cable' }, { name: 'Face Pull', video_url: 'plain' }];
+    expect(findExerciseGuideMatch(list, 'Face Pulls')).toBe(list[1]);
+  });
+
+  it('matches a name written with non-breaking hyphens', () => {
+    const list = [{ name: 'Pull-up', video_url: 'a' }];
+    expect(findExerciseGuideMatch(list, 'Pull‑Ups')).toBe(list[0]);
+  });
+
   it('matches a base name against a qualified library entry', () => {
     const list = [{ name: 'Bench Press (Barbell)', video_url: 'a' }];
     expect(findExerciseGuideMatch(list, 'Bench Press')).toBe(list[0]);

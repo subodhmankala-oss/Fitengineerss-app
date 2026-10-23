@@ -1,4 +1,5 @@
 import { isCardioExercise, isTimedExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
+import { exerciseNameKey } from './exerciseName';
 
 // "What did this client do last time?" lookups for the live logger's PREV
 // column and its pre-fill. Pure functions over the in-memory session list
@@ -16,18 +17,20 @@ const clientSessionsNewestFirst = (sessions, clientName) => (sessions || [])
 // A session's entry for this exercise, skipping one done only as warm-up
 // sets (a library program's warm-up block — Squat, Glute Bridge, Incline
 // Push-up …): 12 bodyweight warm-up squats aren't what the client lifts on
-// a real squat day, so they never become its PREV.
-const findWorkingExercise = (session, name) => (session.exercises || []).find(e =>
-  (e.name || '').toLowerCase() === name &&
+// a real squat day, so they never become its PREV. Matched by
+// exerciseNameKey, so "Face Pulls" in a plan finds last week's "Face Pull".
+const findWorkingExercise = (session, key) => (session.exercises || []).find(e =>
+  exerciseNameKey(e.name) === key &&
   !((e.sets || []).length > 0 && e.sets.every(s => s.isWarmup || s.setType === 'warmup'))
 );
 
 // The most recent logged set for this exercise at this set index, or null
 // when the client has never logged it.
 export function findPreviousLoggedSetIn(sessions, clientName, exName, setIdx) {
-  const name = (exName || '').toLowerCase();
+  const key = exerciseNameKey(exName);
+  if (!key) return null;
   for (const session of clientSessionsNewestFirst(sessions, clientName)) {
-    const exercise = findWorkingExercise(session, name);
+    const exercise = findWorkingExercise(session, key);
     if (exercise && exercise.sets && exercise.sets[setIdx]) return exercise.sets[setIdx];
   }
   return null;
@@ -36,9 +39,10 @@ export function findPreviousLoggedSetIn(sessions, clientName, exName, setIdx) {
 // Every set of this exercise from the most recent session that has it, or
 // null when the client has never logged it.
 export function findPreviousExerciseSetsIn(sessions, clientName, exName) {
-  const name = (exName || '').toLowerCase();
+  const key = exerciseNameKey(exName);
+  if (!key) return null;
   for (const session of clientSessionsNewestFirst(sessions, clientName)) {
-    const exercise = findWorkingExercise(session, name);
+    const exercise = findWorkingExercise(session, key);
     if (exercise && exercise.sets && exercise.sets.length > 0) return exercise.sets;
   }
   return null;

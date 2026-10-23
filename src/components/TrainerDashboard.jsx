@@ -5047,8 +5047,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         const overdue = r.daysOverdue > 0;
         bellItems.push({
           key: `renewal-${r.clientId}`, tone: overdue ? 'red' : 'amber', icon: 'card',
-          // Sorts by when it fell due (or will) — 30 days after the last payment.
-          at: new Date(new Date(r.lastPaidAt).getTime() + 30 * 86_400_000).toISOString(),
+          // Sorts by when it fell due (or will) — 30 days after the last
+          // payment. sortAt, not at: a future due date isn't an "ago" time.
+          sortAt: new Date(new Date(r.lastPaidAt).getTime() + 30 * 86_400_000).toISOString(),
           title: overdue
             ? `${r.clientName}'s renewal is ${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue`
             : r.daysOverdue === 0 ? `${r.clientName}'s renewal is due today`
@@ -5057,13 +5058,30 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           actions: [
             { label: sendingReminderId === r.clientId ? 'Sending…' : 'Gentle reminder', run: () => handleSendRenewalReminder(r, { withQr: false }) },
             { label: 'Reminder + QR', run: () => handleSendRenewalReminder(r, { withQr: true }) },
-            { label: 'Log payment', run: () => { setViewMode('payments'); setSelectedClient(null); } }
+            {
+              // Payments with this client already picked in the Log a
+              // payment form, amount box focused — closes the bell.
+              label: 'Log payment',
+              closes: true,
+              run: () => {
+                setViewMode('payments');
+                setSelectedClient(null);
+                setMobileHeaderMenuOpen(false);
+                setCoachProfileSection(null);
+                setPaymentFormClientId(r.clientId);
+                setTimeout(() => {
+                  const amount = document.getElementById('log-payment-amount');
+                  amount?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  amount?.focus({ preventScroll: true });
+                }, 150);
+              }
+            }
           ],
           dismiss: () => hideRenewalFromBell(r)
         });
       });
 
-    bellItems.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+    bellItems.sort((a, b) => new Date(b.sortAt || b.at || 0) - new Date(a.sortAt || a.at || 0));
   }
   const clearAllBellItems = () => {
     bellItems.forEach(item => item.dismiss?.());
@@ -6150,6 +6168,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
             }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>₹</span>
               <input
+                id="log-payment-amount"
                 type="number"
                 inputMode="decimal"
                 min="0.01"

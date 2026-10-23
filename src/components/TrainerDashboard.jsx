@@ -49,6 +49,7 @@ import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
+import { sameExercise, canonicalExerciseName } from '../utils/exerciseName';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -4077,7 +4078,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const findPreviousLoggedSet = (exName, setIdx) => {
     const history = [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
     for (const session of history) {
-      const exercise = session.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
+      const exercise = session.exercises.find(e => sameExercise(e.name, exName));
       if (exercise && exercise.sets && exercise.sets[setIdx]) {
         return exercise.sets[setIdx];
       }
@@ -4270,8 +4271,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // AIWorkoutBuilderModal's onGenerated — loads the first day into the
   // existing editor and stashes the rest in aiDraftDays for the day tabs.
   // Nothing is saved yet; see handleSavePlan's isAiDraftMode branch.
-  const handleAiDraftGenerated = (draft) => {
-    const days = (draft.days || []).map(convertAiDayToEditorShape);
+  // The model names exercises its own way ("Face Pulls", "Pull‑Ups" with a
+  // non-breaking hyphen); each name is swapped for the library's spelling
+  // when one matches, so the saved plan finds its Form Guide video and PREV.
+  const handleAiDraftGenerated = async (draft) => {
+    const library = await databaseService.getExerciseLibrary().catch(() => []);
+    const libraryNames = [...library.map(e => e.name), ...EXERCISE_LIBRARY.map(e => e.name)];
+    const days = (draft.days || []).map(day => convertAiDayToEditorShape({
+      ...day,
+      exercises: (day.exercises || []).map(ex => ({ ...ex, name: canonicalExerciseName(ex.name, libraryNames) }))
+    }));
     if (days.length === 0) return;
     setAiDraftDays(days);
     setAiDraftSummary(draft.programSummary || '');

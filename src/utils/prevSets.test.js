@@ -27,6 +27,11 @@ describe('findPreviousLoggedSetIn', () => {
   it('skips the client filter when the list is already one client’s history', () => {
     expect(findPreviousLoggedSetIn(sessions, null, 'Bench Press', 0)).toEqual({ reps: 5, weight: 100 });
   });
+  it('finds history logged under a spelling variant of the plan name', () => {
+    const faceHistory = [{ clientName: 'Asha', date: '2026-09-01', exercises: [{ name: 'Face Pull', sets: [{ reps: 15, weight: 12.5 }] }] }];
+    expect(findPreviousLoggedSetIn(faceHistory, 'Asha', 'Face Pulls', 0)).toEqual({ reps: 15, weight: 12.5 });
+    expect(findPreviousLoggedSetIn(faceHistory, 'Asha', 'Face Pull (Cable)', 0)).toBeNull();
+  });
   it('returns null when never logged, and tolerates sessions without a clientName', () => {
     expect(findPreviousLoggedSetIn([{ date: '2026-09-01', exercises: [] }, ...sessions], 'Asha', 'Deadlift', 0)).toBeNull();
   });

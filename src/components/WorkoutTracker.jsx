@@ -42,6 +42,7 @@ import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import MuscleGapHint from './MuscleGapHint';
 import { templateTargetTime } from '../utils/templateTargets';
+import { CORE_PPL_TEMPLATES, buildThisWeekPlans } from '../utils/weekTemplates';
 import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
@@ -3541,6 +3542,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
         const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
+        // Last 7 days of the client's own workouts, ready to repeat without
+        // ticking "Keep as a permanent template" — see buildThisWeekPlans.
+        const thisWeekPlans = buildThisWeekPlans(
+          ownSessions,
+          getLocalDateString(),
+          [...CORE_PPL_TEMPLATES, ...clientPlans].map(p => p.planName)
+        );
         const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
         const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
 
@@ -3613,17 +3621,31 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             {/* My Saved Templates */}
             <div className="wt-picker-section">
               <div className="wt-picker-section-header">
-                <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{templatePlans.length} templates</span></span>
+                <span className="wt-picker-section-title">👤 Saved Templates <span className="wt-count-badge">{CORE_PPL_TEMPLATES.length + templatePlans.length} templates</span></span>
                 {templatePlans.length > 3 && (
                   <button type="button" className="wt-view-all-btn" onClick={() => setShowAllTemplates(v => !v)}>
                     {showAllTemplates ? 'Show less' : 'View all'}
                   </button>
                 )}
               </div>
+              {/* Push / Pull / Legs — always here, can't be deleted. */}
+              <div className="wt-plan-list">
+                {CORE_PPL_TEMPLATES.map(plan => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    source="self"
+                    metaLabel="Starter plan"
+                    onStart={() => startPlan(plan, 'self')}
+                    expandable
+                    getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                  />
+                ))}
+              </div>
               {loadingPlans ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading templates...</p>
               ) : templatePlans.length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>No custom templates saved yet. Log a workout and check "Save as template" to create one.</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Tick "Keep as a permanent template" when you finish a workout to add your own here.</p>
               ) : (
                 <div className="wt-plan-list">
                   {visibleTemplatePlans.map(plan => (
@@ -3633,6 +3655,30 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       source="self"
                       onStart={() => startPlan(plan, 'self')}
                       onDelete={() => handleDeleteTemplate(plan)}
+                      expandable
+                      getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* This week — rebuilt from the last 7 days' sessions, never stored. */}
+            <div className="wt-picker-section">
+              <div className="wt-picker-section-header">
+                <span className="wt-picker-section-title">🗓️ This Week <span className="wt-count-badge">{thisWeekPlans.length} workouts</span></span>
+              </div>
+              {thisWeekPlans.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontStyle: 'italic' }}>Workouts you log show up here for 7 days, best ones first.</p>
+              ) : (
+                <div className="wt-plan-list">
+                  {thisWeekPlans.map(plan => (
+                    <PlanCard
+                      key={plan.id}
+                      plan={plan}
+                      source="self"
+                      metaLabel={`Done ${formatShortLogDate(plan.date)}`}
+                      onStart={() => startPlan(plan, 'self')}
                       expandable
                       getExerciseStatus={(name) => getExerciseStatusFromSessions(name, sessions, selectedClient)}
                     />
@@ -4694,7 +4740,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   checked={saveAsTemplate} 
                   onChange={(e) => setSaveAsTemplate(e.target.checked)} 
                 />
-                <span>💾 Save this session as a repeat template</span>
+                <span>💾 Keep as a permanent template</span>
               </label>
               {saveAsTemplate && (
                 <div style={{ marginTop: '8px' }}>

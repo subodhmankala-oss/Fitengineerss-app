@@ -86,7 +86,9 @@ const formatSetsLabel = (sets) => {
 // expandable: (Log Sets picker only — Home's card omits it) turns the "N exercises"
 // count into a View/Hide toggle that lists the plan's exercises read-only, each
 // with its training status (getExerciseStatus) and sets × reps.
-const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, expandable = false, getExerciseStatus }) => {
+// metaLabel: replaces a template's "Updated …" line — the pinned Push/Pull/Legs
+// have no saved date and "This week" entries show when they were last done.
+const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, expandable = false, getExerciseStatus, metaLabel }) => {
   const [expanded, setExpanded] = useState(false);
   const meta = getPlanCardMeta(plan);
   const exerciseList = Array.isArray(plan.exercises) ? plan.exercises : [];
@@ -126,7 +128,7 @@ const PlanCard = ({ plan, source, onStart, onDelete, markOpenedOnStart = true, e
 
         <div className="wt-plan-meta-row">
           {isTemplate ? (
-            <span><CalendarIcon /> Updated {relativeDateLabel(plan.createdAt)}</span>
+            <span><CalendarIcon /> {metaLabel || `Updated ${relativeDateLabel(plan.createdAt)}`}</span>
           ) : (
             <span><ClockIcon /> {meta.estMinutes} min</span>
           )}

@@ -111,7 +111,7 @@ function MemberPanel({ client, trainers, biz, plan, today, service, onChanged })
       <div className="gx-stats dark">
         <div><b>{detail ? visits : '–'}</b><span>Workouts (14d)</span></div>
         <div><b>{detail ? streak : '–'}</b><span>Day streak</span></div>
-        <div><b>{client.trainerName || '—'}</b><span>Trainer</span></div>
+        <div><b className="gx-stat-name">{client.trainerName || '—'}</b><span>Trainer</span></div>
       </div>
       <p className="gx-label gold">Last 14 days</p>
       <div className="gx-days" aria-label={`${visits} workouts in the last 14 days`}>

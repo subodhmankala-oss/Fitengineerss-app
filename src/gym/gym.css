@@ -182,6 +182,7 @@
 .gx-stats.dark > div { background: rgba(255, 255, 255, 0.08); }
 .gx-stats b { font-size: 1.15rem; font-weight: 800; overflow-wrap: anywhere; }
 .gx-stats span { font-size: 0.66rem; opacity: 0.75; }
+.gx-stats b.gx-stat-name { font-size: 0.85rem; line-height: 1.2; overflow-wrap: break-word; }
 .gx-stat.blue { background: #e7edfd; }
 .gx-stat.amber { background: #fff1d0; }
 .gx-stat.green { background: #e3f7ee; }

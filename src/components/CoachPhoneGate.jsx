@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
-import { hasValidPhone } from '../utils/coachPhone';
+import { hasValidPhone, INVALID_PHONE_MESSAGE } from '../utils/coachPhone';
 
 // Phone is compulsory for every coach. Sign Up already requires it, but
 // coaches created by the Google auto-provision path (Google gives no number)
@@ -34,8 +34,8 @@ export default function CoachPhoneGate() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (digits.length !== 10) {
-      setError('Please enter a valid 10-digit phone number.');
+    if (!hasValidPhone(digits)) {
+      setError(INVALID_PHONE_MESSAGE);
       return;
     }
     setSaving(true);

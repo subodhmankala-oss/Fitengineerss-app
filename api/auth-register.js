@@ -12,6 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { alertSuperAdmin } from './_adminAlert.js';
+import { hasValidPhone, INVALID_PHONE_MESSAGE } from '../src/utils/coachPhone.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -81,8 +82,8 @@ async function handleRegisterEmail(req, res) {
   }
   // Phone is compulsory for every coach — the sign-up form already enforces
   // it; this stops a direct API call from creating a coach without one.
-  if ((phone || '').replace(/\D/g, '').length < 10) {
-    return res.status(400).json({ error: 'Please enter a valid 10-digit phone number.' });
+  if (!hasValidPhone(phone)) {
+    return res.status(400).json({ error: INVALID_PHONE_MESSAGE });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);

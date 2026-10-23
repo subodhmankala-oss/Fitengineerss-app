@@ -58,7 +58,7 @@ describe('api/auth-register — existing client accounts', () => {
       method: 'POST',
       query: { method },
       headers: { authorization: 'Bearer token' },
-      body: { email: 'client@example.com', name: 'Client', password: 'pw', phone: '+919876543210' }
+      body: { email: 'client@example.com', name: 'Client', password: 'pw', phone: '+919812345670' }
     }, res);
     return res;
   };
@@ -94,7 +94,7 @@ describe('api/auth-register — existing client accounts', () => {
       body: { email: 'coach@example.com', name: 'Coach', password: 'pw' }
     }, res);
     expect(res.statusCode).toBe(400);
-    expect(res.body.error).toMatch(/phone/i);
+    expect(res.body.error).toMatch(/mobile number/i);
     expect(writes).toEqual([]);
   });
 });

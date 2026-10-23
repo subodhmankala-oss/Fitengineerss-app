@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { hasValidPhone, INVALID_PHONE_MESSAGE } from '../utils/coachPhone';
 import databaseService, { isSupabaseConfigured, TRAINER_EMAILS, resolveRealAccessToken } from '../services/databaseService';
 import { calculateTargetsGeneric } from '../utils/targets';
 import Avatar from './Avatar';
@@ -1080,8 +1081,8 @@ const Onboarding = ({ onComplete }) => {
             const name = formData.get('name');
             const password = formData.get('password');
             const phoneDigits = (formData.get('phone') || '').replace(/\D/g, '');
-            if (phoneDigits.length !== 10) {
-              throw new Error('Please enter a valid 10-digit phone number.');
+            if (!hasValidPhone(phoneDigits)) {
+              throw new Error(INVALID_PHONE_MESSAGE);
             }
             const resp = await fetch('/api/register-coach', {
               method: 'POST',
@@ -1177,8 +1178,8 @@ const Onboarding = ({ onComplete }) => {
             const formData = new FormData(e.target);
             const name = formData.get('name');
             const phoneDigits = (formData.get('phone') || '').replace(/\D/g, '');
-            if (phoneDigits.length !== 10) {
-              throw new Error('Please enter a valid 10-digit phone number.');
+            if (!hasValidPhone(phoneDigits)) {
+              throw new Error(INVALID_PHONE_MESSAGE);
             }
 
             // resolveRealAccessToken, not supabase.auth.getSession() — this

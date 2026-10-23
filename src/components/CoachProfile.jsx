@@ -242,7 +242,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 borderRadius: 10, padding: '10px 14px', marginBottom: 12,
                 color: '#f87171', fontSize: '0.85rem', fontWeight: 700
               }}>
-                ✕ A phone number is required. Enter a valid 10-digit number and tap Save.
+                ✕ A valid phone number is required — a 10-digit Indian mobile starting with 6, 7, 8 or 9.
               </div>
             )}
             {saveMsg === 'error' && (

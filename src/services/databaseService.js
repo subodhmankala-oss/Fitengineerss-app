@@ -3655,6 +3655,24 @@ const databaseService = {
     return [];
   },
 
+  // Raw workout_logs rows (one per set) for the given clients since a local
+  // YYYY-MM-DD date — just enough to count sessions for the coach home's
+  // "gone quiet" WhatsApp message (summarizeRecentSessions groups them).
+  // Paged with restSelectAll so a busy month can't hit the 1000-row cap.
+  async getRecentWorkoutRowsForClients(clientIds = [], sinceDate) {
+    if (!clientIds.length || !isSupabaseConfigured || !supabase) return [];
+    try {
+      const idList = clientIds.map(encodeURIComponent).join(',');
+      return await restSelectAll(
+        `workout_logs?select=user_id,log_date,plan_name&user_id=in.(${idList})` +
+        `&log_date=gte.${encodeURIComponent(sinceDate)}&order=log_date.desc,id.asc`
+      );
+    } catch (e) {
+      console.error('Cloud DB getRecentWorkoutRowsForClients error:', e);
+      return [];
+    }
+  },
+
   // ─── SESSIONS AWAITING A COACH NOTE (home-screen prompt) ───
   // For the logged-in coach, return each attached client's MOST RECENT
   // workout session that hasn't yet been answered by a coach note — i.e. no

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
-import { QUIET_DAYS, getQuietClients, buildQuietMessage } from '../utils/quietClients';
+import { QUIET_DAYS, RECAP_DAYS, getQuietClients, buildQuietMessage, summarizeRecentSessions } from '../utils/quietClients';
+import { getLocalDateString, shiftLocalDateString } from '../utils/dateUtils';
+import databaseService from '../services/databaseService';
 
 // Coach home card: "N clients have gone quiet". Lists the coach's own
 // (un-paused) clients who haven't opened the app in QUIET_DAYS+ days, or
@@ -41,6 +43,22 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
   const toggleOpen = () => setOpen(v => { writeOpen(!v); return !v; });
 
   const quiet = getQuietClients(clients);
+
+  // Sessions the coach logged for each quiet client recently — a client the
+  // coach trains in person rarely opens the app, so their message tells them
+  // what's waiting there instead of "haven't seen you" (buildQuietMessage).
+  const [recaps, setRecaps] = useState({});
+  const quietIdsKey = quiet.map(q => q.client.id).join(',');
+  useEffect(() => {
+    if (!quietIdsKey) return undefined;
+    let cancelled = false;
+    const since = shiftLocalDateString(getLocalDateString(), -(RECAP_DAYS - 1));
+    databaseService.getRecentWorkoutRowsForClients(quietIdsKey.split(','), since)
+      .then(rows => { if (!cancelled) setRecaps(summarizeRecentSessions(rows)); })
+      .catch(() => { /* recap is optional — falls back to the generic message */ });
+    return () => { cancelled = true; };
+  }, [quietIdsKey]);
+
   if (quiet.length === 0) return null;
 
   const coachName = (localStorage.getItem('userName') || '').trim();
@@ -51,7 +69,7 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
   const unsentCount = quiet.filter(({ client }) => !isSent(client)).length;
 
   const handleMessage = (client, days) => {
-    openWhatsapp(toWhatsappNumber(client.phone), buildQuietMessage(client, days, signOff));
+    openWhatsapp(toWhatsappNumber(client.phone), buildQuietMessage(client, days, signOff, recaps[client.id]));
     setSent(prev => {
       const next = { ...prev, [client.id]: { at: new Date().toISOString(), lastLogin: client.last_login || null } };
       writeSent(next);
@@ -113,6 +131,7 @@ export default function CoachQuietClients({ clients = [], onOpenClient }) {
               </div>
               <div style={{ fontSize: '0.7rem', color: days === null ? 'var(--text-muted)' : '#f59e0b', fontWeight: 600 }}>
                 {days === null ? "Hasn't opened the app yet" : `${days} days since last open`}
+                {recaps[client.id] && ` · ${recaps[client.id].sessions} session${recaps[client.id].sessions === 1 ? '' : 's'} in ${RECAP_DAYS} days`}
                 {done && ' · ✓ messaged'}
               </div>
             </button>

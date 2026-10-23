@@ -12,6 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { alertSuperAdmin } from './_adminAlert.js';
+import { hasValidPhone, INVALID_PHONE_MESSAGE } from '../src/utils/coachPhone.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -78,6 +79,11 @@ async function handleRegisterEmail(req, res) {
   const { email, name, password, phone, experience, brand, certifications, social, location } = req.body || {};
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'email, name and password are required' });
+  }
+  // Phone is compulsory for every coach — the sign-up form already enforces
+  // it; this stops a direct API call from creating a coach without one.
+  if (!hasValidPhone(phone)) {
+    return res.status(400).json({ error: INVALID_PHONE_MESSAGE });
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey || anonKey);

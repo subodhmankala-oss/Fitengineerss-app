@@ -58,7 +58,7 @@ describe('api/auth-register — existing client accounts', () => {
       method: 'POST',
       query: { method },
       headers: { authorization: 'Bearer token' },
-      body: { email: 'client@example.com', name: 'Client', password: 'pw' }
+      body: { email: 'client@example.com', name: 'Client', password: 'pw', phone: '+919812345670' }
     }, res);
     return res;
   };
@@ -83,5 +83,18 @@ describe('api/auth-register — existing client accounts', () => {
     const res = await call('email');
     expect(res.statusCode).toBe(200);
     expect(writes.map(w => w.table)).toEqual(['users', 'coaches']);
+  });
+
+  it('refuses an email sign-up without a phone number', async () => {
+    const res = mockRes();
+    await handler({
+      method: 'POST',
+      query: { method: 'email' },
+      headers: {},
+      body: { email: 'coach@example.com', name: 'Coach', password: 'pw' }
+    }, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toMatch(/mobile number/i);
+    expect(writes).toEqual([]);
   });
 });

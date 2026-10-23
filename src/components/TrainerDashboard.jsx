@@ -49,7 +49,7 @@ import LeftoverExercisesCard from './LeftoverExercisesCard';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
-import { sameExercise, canonicalExerciseName } from '../utils/exerciseName';
+import { sameExerciseEntry, findLibraryExercise, libraryExerciseId, exerciseIdField, foldExerciseDashes } from '../utils/exerciseName';
 import SetNumberPad from './SetNumberPad';
 import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
@@ -167,6 +167,7 @@ const convertAiExerciseToEditorShape =(aiEx) => {
   }
   return {
     name: aiEx.name,
+    ...exerciseIdField(aiEx.exerciseId),
     sets: Array.from({ length: setCount }, () => ({ ...setTemplate }))
   };
 };
@@ -1520,7 +1521,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   useEffect(() => {
     databaseService.getExerciseLibrary().then(setGuideExercisesList).catch(err => console.error(err));
   }, []);
-  const handleShowFormGuide = (name) => {
+  const handleShowFormGuide = (name, exerciseId = null) => {
     // presetExercises (imported from WorkoutTracker) is the same ~16-video
     // dataset seeded into the DB, hardcoded client-side — a redundant local
     // fallback so a transient fetch failure/timeout doesn't leave the guide
@@ -1528,7 +1529,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // one (this was the reported "few clients not seeing the link" gap: the
     // DB fetch was the *only* source, so any network hiccup meant total
     // silent loss, not just a brief delay).
-    const matched = findExerciseGuideMatch(guideExercisesList, name) ||
+    const matched = findExerciseGuideMatch(guideExercisesList, name, exerciseId) ||
                     findExerciseGuideMatch(presetExercises, name);
     if (matched) {
       setActiveGuideExercise(normalizeExerciseForGuide(matched));
@@ -2482,7 +2483,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     return rows;
   }, [rawWorkoutLogs, liveExercises, liveDate]);
 
-  const handleLiveAddExercise = (name) => {
+  // exerciseId: the picked library record's id (see ExercisePickerModal);
+  // the hint/history chips pass a name only.
+  const handleLiveAddExercise = (name, exerciseId = null) => {
     markExerciseEntering(name);
     let newSet;
     const bodyweight = isBodyweightExercise(name);
@@ -2502,8 +2505,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     }
     // Done before? Start from exactly what the client did last time — every
     // set, ready for a single tap each — instead of one default set.
-    const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(workoutLogs, null, name)) || [newSet];
-    setLiveExercises(prev => addExerciseInOrder(prev, bodyweight ? { name, sets, bodyweightMode: true } : { name, sets }));
+    const sets = setsFromPreviousExercise(name, findPreviousExerciseSetsIn(workoutLogs, null, { name, exerciseId })) || [newSet];
+    const entry = { name, ...exerciseIdField(exerciseId), sets };
+    setLiveExercises(prev => addExerciseInOrder(prev, bodyweight ? { ...entry, bodyweightMode: true } : entry));
   };
 
   // Exercises not started in this client's last Live Log session (time ran
@@ -2515,7 +2519,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     : [];
   const handleAddLiveLeftovers = () => {
     const names = liveLeftovers.map(it => it.name);
-    names.forEach(handleLiveAddExercise);
+    names.forEach(name => handleLiveAddExercise(name));
     clearWorkoutLeftovers(selectedClient.id, names);
     setLiveLeftoverTick(t => t + 1);
     triggerLiveToast(`Added ${names.join(', ')}`);
@@ -2954,6 +2958,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
+          ...exerciseIdField(ex.exerciseId),
           sets: (completedCount > 0 ? ex.sets.filter(s => s.isCompleted) : ex.sets).map(s => ({
             // Cardio sets carry distance/time instead of reps/weight, and
             // timed holds (plank etc.) carry time only, so the save step
@@ -3985,8 +3990,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const fillLivePendingPrev = (clientId, sessions) => {
     if (liveHistoryRef.current.clientId !== clientId) return;
     liveHistoryRef.current = { clientId, sessions };
-    setLiveExercises(prev => fillPendingPrevSets(prev, (exName, setIdx) =>
-      findPreviousLoggedSetIn(sessions, null, exName, setIdx)));
+    setLiveExercises(prev => fillPendingPrevSets(prev, (exercise, setIdx) =>
+      findPreviousLoggedSetIn(sessions, null, exercise, setIdx)));
   };
 
   const groupLogs = (logs) => {
@@ -4001,6 +4006,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     // can compare against when the session actually landed rather than just
     // its calendar day (see sessionNeedsResponse).
     const createdAtByDate = {};
+    // Library id per date+exercise (workout_logs.exercise_id) for the PREV
+    // match — any one row of the exercise carries it.
+    const exerciseIdsByDate = {};
 
     logs.forEach(log => {
       const date = log.log_date;
@@ -4026,6 +4034,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       const exercise = log.exercise_name;
       if (!datesMap[date][exercise]) {
         datesMap[date][exercise] = [];
+      }
+      if (log.exercise_id) {
+        exerciseIdsByDate[date] = exerciseIdsByDate[date] || {};
+        exerciseIdsByDate[date][exercise] = exerciseIdsByDate[date][exercise] || log.exercise_id;
       }
 
       datesMap[date][exercise].push({
@@ -4053,6 +4065,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           const sortedSets = datesMap[dateStr][exName].sort((a, b) => a.setNumber - b.setNumber);
           return {
             name: exName,
+            ...exerciseIdField(exerciseIdsByDate[dateStr]?.[exName]),
             sets: sortedSets
           };
         });
@@ -4074,11 +4087,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // getPrevWeight (the kg pre-fill) — the selected client's most recent
   // logged set for this exercise at this set index, or null when they've
   // never logged it. workoutLogs is already scoped to the one selected
-  // client, so no name filtering needed.
-  const findPreviousLoggedSet = (exName, setIdx) => {
+  // client, so no name filtering needed. `target` is the plan/logger entry
+  // (its exerciseId counts, see sameExerciseEntry) or a bare name.
+  const findPreviousLoggedSet = (target, setIdx) => {
     const history = [...workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date));
     for (const session of history) {
-      const exercise = session.exercises.find(e => sameExercise(e.name, exName));
+      const exercise = session.exercises.find(e => sameExerciseEntry(e, target));
       if (exercise && exercise.sets && exercise.sets[setIdx]) {
         return exercise.sets[setIdx];
       }
@@ -4093,10 +4107,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // bodyweight" when opening a plan. Returns null (keep the plan's own
   // value) when the client has never logged this set, and for cardio /
   // plain timed exercises, which have no weight at all.
-  const getPrevWeight = (exName, setIdx) => {
+  const getPrevWeight = (exercise, setIdx) => {
+    const exName = exercise.name;
     if (isCardioExercise(exName)) return null;
     if (isTimedExercise(exName) && !isBodyweightExercise(exName)) return null;
-    const prev = findPreviousLoggedSet(exName, setIdx);
+    const prev = findPreviousLoggedSet(exercise, setIdx);
     if (!prev || prev.weight == null || prev.weight === '') return null;
     return Number(prev.weight) || 0;
   };
@@ -4109,7 +4124,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const applyPrevWeights = (exercises) => exercises.map(ex => {
     let changed = false;
     const sets = ex.sets.map((s, setIdx) => {
-      const w = getPrevWeight(ex.name, setIdx);
+      const w = getPrevWeight(ex, setIdx);
       if (w == null) return s;
       changed = true;
       return { ...s, weight: w, ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !(w > 0) } : {}) };
@@ -4134,15 +4149,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     return exercises.map(ex => ({
       ...ex,
       sets: ex.sets.map((s, setIdx) => sessions
-        ? applyPrevValues(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex.name, setIdx))
+        ? applyPrevValues(ex.name, s, findPreviousLoggedSetIn(sessions, null, ex, setIdx))
         : { ...s, prevPending: 'plan' })
     }));
   };
 
   // "PREVIOUS" column lookup for the Live Log / Plan editor set tables — same
   // idea as the client's own getPreviousSessionSet.
-  const getPreviousSessionSet = (exName, setIdx) => {
-    const set = findPreviousLoggedSet(exName, setIdx);
+  const getPreviousSessionSet = (exercise, setIdx) => {
+    const exName = exercise.name;
+    const set = findPreviousLoggedSet(exercise, setIdx);
     if (!set) return '—';
     if (isCardioExercise(exName)) {
       if (!set.distanceKm) return '—';
@@ -4236,6 +4252,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     const exIsCardio = isCardioExercise(ex.name);
     return {
       name: ex.name,
+      ...exerciseIdField(ex.exerciseId),
       sets: ex.sets.map(s => ({
         ...(exIsCardio
           ? { distanceKm: parseFloat(s.distanceKm) || 0, time: s.time || '' }
@@ -4272,14 +4289,23 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // existing editor and stashes the rest in aiDraftDays for the day tabs.
   // Nothing is saved yet; see handleSavePlan's isAiDraftMode branch.
   // The model names exercises its own way ("Face Pulls", "Pull‑Ups" with a
-  // non-breaking hyphen); each name is swapped for the library's spelling
-  // when one matches, so the saved plan finds its Form Guide video and PREV.
+  // non-breaking hyphen); each one is matched to its library record — the
+  // DB catalog first (it has the ids and videos), then the code library —
+  // and takes that record's spelling and id, so the saved plan finds its
+  // Form Guide video and PREV.
   const handleAiDraftGenerated = async (draft) => {
     const library = await databaseService.getExerciseLibrary().catch(() => []);
-    const libraryNames = [...library.map(e => e.name), ...EXERCISE_LIBRARY.map(e => e.name)];
+    const linkToLibrary = (ex) => {
+      const record = findLibraryExercise(ex.name, library) || findLibraryExercise(ex.name, EXERCISE_LIBRARY);
+      return {
+        ...ex,
+        name: record ? record.name : foldExerciseDashes(ex.name).trim(),
+        ...exerciseIdField(libraryExerciseId(record))
+      };
+    };
     const days = (draft.days || []).map(day => convertAiDayToEditorShape({
       ...day,
-      exercises: (day.exercises || []).map(ex => ({ ...ex, name: canonicalExerciseName(ex.name, libraryNames) }))
+      exercises: (day.exercises || []).map(linkToLibrary)
     }));
     if (days.length === 0) return;
     setAiDraftDays(days);
@@ -4423,7 +4449,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     fetchClientPlans(selectedClient.id);
   };
 
-  const handleAddExerciseToEditor = (name) => {
+  // exerciseId: as in handleLiveAddExercise.
+  const handleAddExerciseToEditor = (name, exerciseId = null) => {
     markExerciseEntering(name);
     let newSet;
     // Same set-shape rules as the live logger's own exercise picker (see
@@ -4455,7 +4482,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       // (and no Bodyweight/+Add Weight toggle at all) for bodyweight moves
       // like Cat Camel, Glute Bridge, Steppers and Squat, instead of the
       // "BW" label those exercises get everywhere else in the app.
-      ...applyPrevWeights([bodyweight ? { name, sets: [newSet], bodyweightMode: true } : { name, sets: [newSet] }])
+      ...applyPrevWeights([{ name, ...exerciseIdField(exerciseId), sets: [newSet], ...(bodyweight ? { bodyweightMode: true } : {}) }])
     ]);
   };
 
@@ -4478,7 +4505,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           : { reps: lastSet?.reps ?? 10, weight: lastSet ? lastSet.weight : ((isBodyweightExercise(ex.name) || isWarmupExercise(ex.name)) ? 0 : '') };
         // The new set's own PREV weight wins over copying the set above —
         // set 3 should start at what the client actually did on set 3.
-        const prevWeight = getPrevWeight(ex.name, ex.sets.length);
+        const prevWeight = getPrevWeight(ex, ex.sets.length);
         return {
           ...ex,
           sets: [...ex.sets, prevWeight == null
@@ -8765,7 +8792,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                     <button
                                       type="button"
                                       className="btn-form-guide-sm"
-                                      onClick={() => handleShowFormGuide(ex.name)}
+                                      onClick={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                                     >
                                       🎬 Form Guide
                                     </button>
@@ -8825,7 +8852,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                     {ex.sets.map((set, setIdx) => {
                                       const workingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                                       const label = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : workingNum;
-                                      const prevStats = getPreviousSessionSet(ex.name, setIdx);
+                                      const prevStats = getPreviousSessionSet(ex, setIdx);
                                       return (
                                       <div key={setIdx} className={`hevy-set-row ${set.isWarmup ? 'set-row-warmup' : ''} ${set.setType === 'failure' ? 'set-row-failure' : ''} ${set.setType === 'drop' ? 'set-row-drop' : ''} ${set.setType === 'superset' ? 'set-row-superset' : ''} ${isEditorExitingSet(exIdx, setIdx) ? 'set-row-exit' : ''}`} onAnimationEnd={(e) => { if (e.target === e.currentTarget) handleEditorExitAnimationEnd(exIdx, setIdx); }} ref={(node) => registerEditorRow(exIdx, setIdx, node)}>
                                         <span className="col-set set-type-menu-wrapper">
@@ -9463,6 +9490,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 // lands (applyLivePrev).
                                 setLiveExercises(applyLivePrev(applyPrevWeights(plan.exercises).map(ex => ({
                                   name: ex.name,
+                                  ...exerciseIdField(ex.exerciseId),
                                   ...(isBodyweightExercise(ex.name) ? { bodyweightMode: !ex.sets.some(s => Number(s.weight) > 0) } : {}),
                                   // `time` is deliberately NOT carried over from the saved
                                   // plan, unlike reps/weight/distanceKm — it's a past
@@ -9576,7 +9604,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           ex={ex}
                           isFirst={!isWarmupCardExercise(liveExercises[exIdx - 1])}
                           isLast={!isWarmupCardExercise(liveExercises[exIdx + 1])}
-                          onShowFormGuide={() => handleShowFormGuide(ex.name)}
+                          onShowFormGuide={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                           onRepsChange={(setIdx, v) => handleLiveSetChange(exIdx, setIdx, 'reps', v)}
                           onTick={(setIdx) => (isTimedExercise(ex.name) || exIsCardio) && !ex.sets[setIdx].isCompleted
                             ? (exIsCardio ? handleLiveCardioSetComplete(exIdx, setIdx) : handleLiveSetStopwatchComplete(exIdx, setIdx))
@@ -9608,7 +9636,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             <button
                               type="button"
                               className="btn-form-guide-sm"
-                              onClick={() => handleShowFormGuide(ex.name)}
+                              onClick={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                             >
                               🎬 Form Guide
                             </button>
@@ -9672,7 +9700,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                             {ex.sets.map((set, setIdx) => {
                               const liveWorkingNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                               const liveLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : liveWorkingNum;
-                              const prevStats = getPreviousSessionSet(ex.name, setIdx);
+                              const prevStats = getPreviousSessionSet(ex, setIdx);
                               // Shared stopwatch/mm:ss control — see the mirrored
                               // helper in WorkoutTracker.jsx's exercises-input-list.
                               const renderLiveTimeControl = () => {
@@ -10518,9 +10546,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         coachId={resolvedCoachId}
         clientUserId={selectedClient?.id}
         clientName={selectedClient?.userName}
-        onAdd={(name) => {
-          if (exercisePickerContext === 'editor') handleAddExerciseToEditor(name);
-          else handleLiveAddExercise(name);
+        onAdd={(name, exerciseId) => {
+          if (exercisePickerContext === 'editor') handleAddExerciseToEditor(name, exerciseId);
+          else handleLiveAddExercise(name, exerciseId);
         }}
         onRemove={(name) => {
           const notName = (e) => e.name.toLowerCase() !== name.toLowerCase();

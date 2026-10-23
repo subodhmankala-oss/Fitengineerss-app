@@ -1,5 +1,5 @@
 import { isCardioExercise, isTimedExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
-import { exerciseNameKey } from './exerciseName';
+import { exerciseNameKey, sameExerciseEntry } from './exerciseName';
 
 // "What did this client do last time?" lookups for the live logger's PREV
 // column and its pre-fill. Pure functions over the in-memory session list
@@ -17,33 +17,43 @@ const clientSessionsNewestFirst = (sessions, clientName) => (sessions || [])
 // A session's entry for this exercise, skipping one done only as warm-up
 // sets (a library program's warm-up block — Squat, Glute Bridge, Incline
 // Push-up …): 12 bodyweight warm-up squats aren't what the client lifts on
-// a real squat day, so they never become its PREV. Matched by
-// exerciseNameKey, so "Face Pulls" in a plan finds last week's "Face Pull".
-const findWorkingExercise = (session, key) => (session.exercises || []).find(e =>
-  exerciseNameKey(e.name) === key &&
+// a real squat day, so they never become its PREV. Matched by library id
+// when both entries have one, else by exerciseNameKey (see
+// sameExerciseEntry), so "Face Pulls" in a plan finds last week's "Face
+// Pull" and a renamed library exercise still finds its history.
+const findWorkingExercise = (session, exercise) => (session.exercises || []).find(e =>
+  sameExerciseEntry(e, exercise) &&
   !((e.sets || []).length > 0 && e.sets.every(s => s.isWarmup || s.setType === 'warmup'))
 );
 
-// The most recent logged set for this exercise at this set index, or null
-// when the client has never logged it.
-export function findPreviousLoggedSetIn(sessions, clientName, exName, setIdx) {
-  const key = exerciseNameKey(exName);
-  if (!key) return null;
+// The exercise to look up: a name, or a plan/logger entry `{ name,
+// exerciseId }`. null when there's nothing to match on.
+const lookupTarget = (exercise) => {
+  const entry = typeof exercise === 'object' && exercise ? exercise : { name: exercise };
+  return entry.exerciseId || exerciseNameKey(entry.name) ? entry : null;
+};
+
+// The most recent logged set for this exercise (a name or `{ name,
+// exerciseId }`) at this set index, or null when the client has never
+// logged it.
+export function findPreviousLoggedSetIn(sessions, clientName, exercise, setIdx) {
+  const target = lookupTarget(exercise);
+  if (!target) return null;
   for (const session of clientSessionsNewestFirst(sessions, clientName)) {
-    const exercise = findWorkingExercise(session, key);
-    if (exercise && exercise.sets && exercise.sets[setIdx]) return exercise.sets[setIdx];
+    const found = findWorkingExercise(session, target);
+    if (found && found.sets && found.sets[setIdx]) return found.sets[setIdx];
   }
   return null;
 }
 
 // Every set of this exercise from the most recent session that has it, or
 // null when the client has never logged it.
-export function findPreviousExerciseSetsIn(sessions, clientName, exName) {
-  const key = exerciseNameKey(exName);
-  if (!key) return null;
+export function findPreviousExerciseSetsIn(sessions, clientName, exercise) {
+  const target = lookupTarget(exercise);
+  if (!target) return null;
   for (const session of clientSessionsNewestFirst(sessions, clientName)) {
-    const exercise = findWorkingExercise(session, key);
-    if (exercise && exercise.sets && exercise.sets.length > 0) return exercise.sets;
+    const found = findWorkingExercise(session, target);
+    if (found && found.sets && found.sets.length > 0) return found.sets;
   }
   return null;
 }
@@ -100,7 +110,8 @@ export function applyPrevRepsAndWeight(set, prev) {
 // pre-fill it would have had, and drop the flag. Any edit to a set clears
 // its flag first, so nothing the client typed is overwritten. Returns the
 // same array when nothing was pending, so callers don't trigger a
-// needless re-render/draft save.
+// needless re-render/draft save. `lookup(entry, setIdx)` gets the whole
+// entry, so its exerciseId takes part in the match.
 export function fillPendingPrevSets(exercises, lookup) {
   let changed = false;
   const next = exercises.map(ex => {
@@ -112,7 +123,7 @@ export function fillPendingPrevSets(exercises, lookup) {
         if (!s.prevPending) return s;
         const { prevPending, ...rest } = s;
         if (rest.isCompleted) return rest;
-        const prev = lookup(ex.name, setIdx);
+        const prev = lookup(ex, setIdx);
         return prevPending === 'template'
           ? applyPrevRepsAndWeight(rest, prev)
           : applyPrevValues(ex.name, rest, prev);

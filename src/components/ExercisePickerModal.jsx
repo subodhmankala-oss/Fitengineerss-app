@@ -8,7 +8,7 @@ import MuscleThumbnail, { RegionThumbnail } from './MuscleAnalytics/MuscleThumbn
 import databaseService from '../services/databaseService';
 import CreateCustomExerciseModal from './CreateCustomExerciseModal';
 import { isWarmupMove } from '../utils/warmupBlocks';
-import { exerciseNameKey } from '../utils/exerciseName';
+import { exerciseNameKey, libraryExerciseId } from '../utils/exerciseName';
 
 // MuscleThumbnail mounts a real anatomical body SVG (vendored, quite
 // detailed) plus a muscle-overlay SVG via dangerouslySetInnerHTML. That's
@@ -435,7 +435,7 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                     className="preset-icon-btn"
                     title={`How to perform ${ex.name}`}
                     style={{ '--status-color': '#60a5fa' }}
-                    onClick={(e) => { e.stopPropagation(); onShowFormGuide?.(ex.name); }}
+                    onClick={(e) => { e.stopPropagation(); onShowFormGuide?.(ex.name, libraryExerciseId(ex)); }}
                   >
                     {primaryMuscle || iconRegion ? (
                       <LazyMuscleIcon key={iconRegion || primaryMuscle} rootRef={listRef} muscle={primaryMuscle} region={iconRegion} color="#60a5fa" size={38} />
@@ -452,7 +452,10 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
                   <button
                     type="button"
                     className={`btn-add-preset-action ${already ? 'added' : ''}`}
-                    onClick={() => (already ? onRemove(ex.name) : onAdd(ex.name))}
+                    // The record's id goes with the name (null for the
+                    // code-only library), so the plan/log entry is linked to
+                    // it — see sql/supabase_exercise_id_linkage.sql.
+                    onClick={() => (already ? onRemove(ex.name) : onAdd(ex.name, libraryExerciseId(ex)))}
                   >
                     {already ? '✓ Added' : (
                       <>
@@ -478,13 +481,14 @@ export default function ExercisePickerModal({ open, onClose, addedNames = [], on
         coachId={coachId}
         clientUserId={clientUserId}
         clientName={clientName}
-        onCreated={({ name }) => {
+        onCreated={(created) => {
+          const { name } = created;
           setShowCreateExercise(false);
           setQuery('');
           databaseService.getCustomExercisesForViewer(
             creatorMode === 'coach' ? { coachId } : { clientUserId }
           ).then(setCustomExercises).catch(() => {});
-          onAdd(name);
+          onAdd(name, libraryExerciseId(created));
         }}
       />
     </div>

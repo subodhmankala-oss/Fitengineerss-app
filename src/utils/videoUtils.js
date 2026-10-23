@@ -63,12 +63,20 @@ const tokenSort = (s) => (s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Bool
  *      loosest tier and only kicks in once the tighter ones have failed.
  * Returns null if nothing matches at any tier (still falls through to the
  * generic guide, same as before).
+ *
+ * `exerciseId` (the plan/log entry's library id, when it has one) is tried
+ * before any name tier: it names the exact record, whatever either side is
+ * spelled like now. An id not in `list` (a custom exercise, or a record
+ * since deleted) falls through to the name tiers.
  */
-export function findExerciseGuideMatch(list, name) {
-  if (!name || !Array.isArray(list) || list.length === 0) return null;
+export function findExerciseGuideMatch(list, name, exerciseId = null) {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  let match = exerciseId ? list.find(pe => pe.id === exerciseId) : null;
+  if (match) return match;
+  if (!name) return null;
   const target = name.trim().toLowerCase();
 
-  let match = list.find(pe => (pe.name || '').trim().toLowerCase() === target);
+  match = list.find(pe => (pe.name || '').trim().toLowerCase() === target);
   if (match) return match;
 
   const targetSquashed = squash(name);

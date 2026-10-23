@@ -43,3 +43,70 @@ export function canonicalExerciseName(name, libraryNames) {
     || names.find(n => exerciseNameKey(n) === key)
     || trimmed;
 }
+
+// ── Library ids ──────────────────────────────────────────────────────────
+// Plan/template/draft entries carry `exerciseId` and workout_logs rows
+// `exercise_id`: the uuid of the library record the exercise was picked
+// from — a public.exercises row or the coach's/client's custom_exercises
+// row (both uuid keyed, so the id alone says which). See
+// sql/supabase_exercise_id_linkage.sql. The app's code-only library
+// (EXERCISE_LIBRARY) has no table row, so its entries have no id and keep
+// resolving by name.
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// A library record's id when it is a real table row, else null.
+export const libraryExerciseId = (record) =>
+  (record && UUID.test(String(record.id || '')) ? record.id : null);
+
+// `{ exerciseId }` to spread into a plan/log entry, `{}` when there is none,
+// so entries without an id keep exactly the shape they always had. Only a
+// uuid counts — an add handler handed straight to forEach/onClick gets an
+// index or an event as its second argument, never an id.
+export const exerciseIdField = (exerciseId) =>
+  (typeof exerciseId === 'string' && UUID.test(exerciseId) ? { exerciseId } : {});
+
+// Is this planned/logged entry the same exercise as that one? Each side is a
+// name or a `{ name, exerciseId }` entry. The same id always is (a library
+// record renamed since the client logged it still finds its history);
+// otherwise the name keys decide, exactly as before ids existed — two ids
+// that differ don't overrule a matching name (a client's custom "Face
+// Pulls" and the catalog's "Face Pull" are one exercise to them).
+export function sameExerciseEntry(a, b) {
+  const idA = typeof a === 'object' && a ? a.exerciseId : null;
+  const idB = typeof b === 'object' && b ? b.exerciseId : null;
+  if (idA && idB && idA === idB) return true;
+  const nameA = typeof a === 'object' && a ? a.name : a;
+  const nameB = typeof b === 'object' && b ? b.name : b;
+  return sameExercise(nameA, nameB);
+}
+
+// The library record `name` refers to: same spelling (any case) first,
+// then the same name key. null when nothing matches.
+export function findLibraryExercise(name, library) {
+  const key = exerciseNameKey(name);
+  if (!key) return null;
+  const lower = foldExerciseDashes(name).trim().toLowerCase();
+  const records = library || [];
+  return records.find(r => (r.name || '').trim().toLowerCase() === lower)
+    || records.find(r => exerciseNameKey(r.name) === key)
+    || null;
+}
+
+// Gives every entry without an `exerciseId` the id of its library record,
+// when one matches by name. The save-time safety net for exercises that
+// reached a plan/draft/log without passing through the picker (library
+// programs, leftovers, older drafts). Returns the same array when nothing
+// changed.
+export function withExerciseIds(exercises, library) {
+  if (!Array.isArray(exercises) || !library || library.length === 0) return exercises;
+  let changed = false;
+  const next = exercises.map(ex => {
+    if (!ex || typeof ex !== 'object' || ex.exerciseId || !ex.name) return ex;
+    const id = libraryExerciseId(findLibraryExercise(ex.name, library));
+    if (!id) return ex;
+    changed = true;
+    return { ...ex, exerciseId: id };
+  });
+  return changed ? next : exercises;
+}

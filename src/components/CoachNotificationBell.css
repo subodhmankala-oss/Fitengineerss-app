@@ -126,6 +126,22 @@
 }
 .cnb-clear:hover { color: var(--text-main); }
 
+.cnb-flash {
+  margin: 8px 8px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tint-emerald, #10b981);
+  border: 1px solid color-mix(in srgb, var(--tint-emerald, #10b981) 35%, transparent);
+  background: color-mix(in srgb, var(--tint-emerald, #10b981) 10%, transparent);
+}
+.cnb-flash-error {
+  color: var(--tint-red, #ef4444);
+  border-color: color-mix(in srgb, var(--tint-red, #ef4444) 35%, transparent);
+  background: color-mix(in srgb, var(--tint-red, #ef4444) 10%, transparent);
+}
+
 .cnb-empty {
   display: flex;
   flex-direction: column;

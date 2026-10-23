@@ -9,6 +9,7 @@ import AdminExerciseLibrary from './AdminExerciseLibrary';
 import AdminCoachesList from './admin/AdminCoachesList';
 import AdminClientsList from './admin/AdminClientsList';
 import AdminSignupAlerts from './admin/AdminSignupAlerts';
+import CoachNotificationBell from './CoachNotificationBell';
 import FounderMessageComposer from './admin/FounderMessageComposer';
 import './WorkoutTracker.css';
 // Weekly/Daily/Monthly chart + card styling — shared with the client's own
@@ -768,6 +769,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // this list on the next refresh (2026-08-29: "auto renewal once coach
   // updates the payment, no nudge nothing").
   const [renewalDueClients, setRenewalDueClients] = useState([]);
+  // Renewals dismissed from the header notification bell, remembered per
+  // device as `${clientId}|${lastPaidAt}` — a new payment (then a new due
+  // date) brings that client back. The directory's renewal list is unaffected.
+  const BELL_HIDDEN_RENEWALS_KEY = 'bellHiddenRenewals';
+  const [bellHiddenRenewals, setBellHiddenRenewals] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(BELL_HIDDEN_RENEWALS_KEY) || '[]') || []; } catch { return []; }
+  });
+  const hideRenewalFromBell = (r) => {
+    setBellHiddenRenewals(prev => {
+      const next = [...prev, `${r.clientId}|${r.lastPaidAt}`];
+      try { localStorage.setItem(BELL_HIDDEN_RENEWALS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
   // Which renewal row's "⋮" action menu is open (client id, or null) — and
   // which client's pause request is in flight, so the button can show a
   // spinner state and can't be double-tapped.
@@ -3361,9 +3376,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // saveCoachNote + coach_note push path as the in-detail composer, but scoped
   // to the card's client (not selectedClient). On success the card is removed
   // (the note now covers that session).
-  const handleSendSessionNote = async (session) => {
-    const message = (coachNoteDrafts[session.clientId] || '').trim();
-    if (!message || sendingNoteFor) return;
+  // `text` (optional): send this instead of the card's draft — the header
+  // notification bell has its own composer. Returns true once sent.
+  const handleSendSessionNote = async (session, text) => {
+    const message = (text ?? coachNoteDrafts[session.clientId] ?? '').trim();
+    if (!message || sendingNoteFor) return false;
     setSendingNoteFor(session.clientId);
     try {
       const res = await databaseService.saveCoachNote(session.clientId, resolvedCoachId, message, {
@@ -3371,12 +3388,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       });
       if (!res.success) {
         triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`);
-        return;
+        return false;
       }
       notifyEvent('coach_note', { clientUserId: session.clientId, message });
       setCoachNoteDrafts(prev => { const n = { ...prev }; delete n[session.clientId]; return n; });
       setSessionsAwaitingNote(prev => prev.filter(s => `${s.clientId}|${s.date}` !== `${session.clientId}|${session.date}`));
       triggerLiveToast(`✅ Note sent to ${session.clientName.split(/\s+/)[0]}.`);
+      return true;
     } finally {
       setSendingNoteFor(null);
     }
@@ -4835,6 +4853,165 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // already scoped to the one selected client.
   const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, clientPlans.map(p => p.planName));
 
+  // ── Header notification bell (super-admin desktop shell only) ──
+  // Every "something is waiting" list the dashboard already keeps, as one
+  // inbox — see CoachNotificationBell.jsx. Newest first.
+  const bellItems = [];
+  if (superAdmin) {
+    const nameOf = (id, fallback) => clients.find(c => c.id === id)?.userName || fallback || 'Client';
+    const firstNameOf = (id, fallback) => nameOf(id, fallback).trim().split(/\s+/)[0];
+    const openClient = (clientId, tab = null) => {
+      const match = clients.find(c => c.id === clientId);
+      if (!match) { triggerLiveToast('Couldn’t find that client — try refreshing.'); return; }
+      setViewMode('coach');
+      setMobileHeaderMenuOpen(false);
+      setCoachProfileSection(null);
+      handleSelectClient(match);
+      // handleSelectClient resets the tab synchronously — same as the deep link.
+      if (CLIENT_DETAIL_TABS.includes(tab)) setDetailTab(tab);
+    };
+    // The push copy of a reply / finished workout is the same update as the
+    // reply / note card below — fold it into that item, clear it with it.
+    const pushCopies = (clientId, type) => clientNotifications.filter(n => n.clientId === clientId && n.type === type);
+    const markPushCopiesRead = (clientId, type) => {
+      const ids = pushCopies(clientId, type).map(n => n.id);
+      if (ids.length === 0) return;
+      setClientNotifications(prev => prev.filter(n => !ids.includes(n.id)));
+      databaseService.markNotificationsRead(ids);
+    };
+    const foldedTypes = new Set();
+
+    pendingClientReplies.forEach(r => {
+      foldedTypes.add(`${r.clientId}|client_reply`);
+      const done = () => { handleDismissClientReply(r.id); markPushCopiesRead(r.clientId, 'client_reply'); };
+      bellItems.push({
+        key: `reply-${r.id}`, tone: 'blue', icon: 'reply', at: r.repliedAt,
+        title: `${nameOf(r.clientId)} replied`,
+        body: r.message,
+        compose: {
+          label: 'Reply',
+          placeholder: `Reply to ${firstNameOf(r.clientId)}…`,
+          send: async (message) => {
+            const res = await databaseService.saveCoachNote(r.clientId, resolvedCoachId, message,
+              r.workoutName ? { workoutName: r.workoutName, workoutDate: r.workoutDate } : undefined);
+            if (!res.success) { triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`); return false; }
+            notifyEvent('coach_note', { clientUserId: r.clientId, message });
+            done();
+            triggerLiveToast(`✅ Reply sent to ${firstNameOf(r.clientId)}.`);
+            return true;
+          }
+        },
+        open: () => { done(); openClient(r.clientId); },
+        dismiss: done
+      });
+    });
+
+    sessionsAwaitingNote.forEach(s => {
+      foldedTypes.add(`${s.clientId}|workout_finished`);
+      const stats = [
+        s.durationSeconds != null ? formatDuration(s.durationSeconds) : null,
+        s.caloriesBurned != null ? `${s.caloriesBurned} kcal` : null
+      ].filter(Boolean).join(' · ');
+      bellItems.push({
+        key: `session-${s.clientId}-${s.date}`, tone: 'green', icon: 'workout', at: s.sessionAt || `${s.date}T00:00:00`,
+        title: `${s.clientName} finished ${s.workoutName}`,
+        body: stats ? `${stats} — no note from you yet` : 'No note from you yet',
+        compose: {
+          label: 'Send note',
+          placeholder: `Note to ${s.clientName.split(/\s+/)[0]}…`,
+          suggestions: buildSessionNoteSuggestions(s),
+          send: async (message) => {
+            const ok = await handleSendSessionNote(s, message);
+            if (ok) markPushCopiesRead(s.clientId, 'workout_finished');
+            return ok;
+          }
+        },
+        open: () => { markPushCopiesRead(s.clientId, 'workout_finished'); openClient(s.clientId, 'workout'); },
+        openLabel: 'View workout',
+        dismiss: () => { handleDismissSessionNote(s); markPushCopiesRead(s.clientId, 'workout_finished'); }
+      });
+    });
+
+    newClientNotifications.forEach(n => {
+      bellItems.push({
+        key: `new-${n.id}`, tone: 'violet', icon: 'user', at: n.createdAt,
+        title: `${nameOf(n.clientId, n.clientName)} joined with your code`,
+        body: n.clientEmail || null,
+        open: () => openClient(n.clientId),
+        openLabel: 'Open client',
+        dismiss: () => acknowledgeNewClient(n.clientId)
+      });
+    });
+
+    clientNotifications
+      .filter(n => !foldedTypes.has(`${n.clientId}|${n.type}`))
+      .forEach(n => {
+        const markRead = () => {
+          setClientNotifications(prev => prev.filter(x => x.id !== n.id));
+          databaseService.markNotificationsRead([n.id]);
+        };
+        bellItems.push({
+          key: `notif-${n.id}`,
+          tone: n.clientTab === 'measurements' ? 'amber' : 'blue',
+          icon: n.clientTab === 'measurements' ? 'ruler' : (n.clientTab === 'workout' || n.clientTab === 'livelog') ? 'workout' : 'bell',
+          at: n.createdAt,
+          title: n.title || `Update from ${nameOf(n.clientId, n.clientName)}`,
+          body: n.body,
+          open: () => { markRead(); openClient(n.clientId, n.clientTab); },
+          dismiss: markRead
+        });
+      });
+
+    signupAlerts.forEach(a => {
+      bellItems.push({
+        key: `signup-${a.id}`,
+        tone: a.type === 'signup_incomplete' ? 'amber' : a.type === 'new_coach_signup' ? 'violet' : a.type === 'founder_reply' ? 'blue' : 'green',
+        icon: a.type === 'founder_reply' ? 'reply' : 'user',
+        at: a.createdAt,
+        title: a.title || (a.type === 'founder_reply' ? 'A client replied' : a.type === 'new_coach_signup' ? 'New coach joined' : a.type === 'signup_incomplete' ? 'Sign-up not finished' : 'New client joined'),
+        body: a.body,
+        actions: a.type === 'new_coach_signup' ? [] : [{
+          label: a.type === 'founder_reply' ? 'Reply' : 'Message',
+          run: () => {
+            dismissSignupAlerts([a.id]);
+            setViewMode('admin');
+            setSelectedClient(null);
+            setFounderMessageTarget({ id: a.clientId, name: nameOf(a.clientId, a.clientName) });
+          }
+        }],
+        open: () => { setViewMode('admin'); handleOpenSignupAlert(a); },
+        dismiss: () => dismissSignupAlerts([a.id])
+      });
+    });
+
+    renewalDueClients
+      .filter(r => !bellHiddenRenewals.includes(`${r.clientId}|${r.lastPaidAt}`))
+      .forEach(r => {
+        const overdue = r.daysOverdue > 0;
+        bellItems.push({
+          key: `renewal-${r.clientId}`, tone: overdue ? 'red' : 'amber', icon: 'card',
+          // Sorts by when it fell due (or will) — 30 days after the last payment.
+          at: new Date(new Date(r.lastPaidAt).getTime() + 30 * 86_400_000).toISOString(),
+          title: overdue
+            ? `${r.clientName}'s renewal is ${r.daysOverdue} day${r.daysOverdue === 1 ? '' : 's'} overdue`
+            : r.daysOverdue === 0 ? `${r.clientName}'s renewal is due today`
+              : `${r.clientName}'s renewal is due in ${-r.daysOverdue} day${r.daysOverdue === -1 ? '' : 's'}`,
+          body: `Last paid ${r.daysSincePaid} days ago`,
+          actions: [
+            { label: sendingReminderId === r.clientId ? 'Sending…' : 'Gentle reminder', run: () => handleSendRenewalReminder(r, { withQr: false }) },
+            { label: 'Reminder + QR', run: () => handleSendRenewalReminder(r, { withQr: true }) },
+            { label: 'Log payment', run: () => { setViewMode('payments'); setSelectedClient(null); } }
+          ],
+          dismiss: () => hideRenewalFromBell(r)
+        });
+      });
+
+    bellItems.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  }
+  const clearAllBellItems = () => {
+    bellItems.forEach(item => item.dismiss?.());
+  };
+
   return (
     // Muscle drawings anywhere in here (icons, heat map, exercise picker)
     // show the selected client's figure — see MuscleAnalytics/bodySex.js.
@@ -5015,6 +5192,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           </button>
         </aside>
       )}
+      {superAdmin && <CoachNotificationBell items={bellItems} onClearAll={clearAllBellItems} />}
 
       {/* Top Header */}
       <div className="trainer-header">

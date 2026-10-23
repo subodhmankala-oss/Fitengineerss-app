@@ -1,4 +1,5 @@
 import React from 'react';
+import { timeAgo } from '../../utils/timeAgo';
 
 // In-app copy of the super-admin's sign-up alerts (api/_adminAlert.js writes
 // one public.notifications row per alert, alongside the push). Shown at the
@@ -13,15 +14,6 @@ const STYLE_BY_TYPE = {
   founder_reply: { icon: '💬', color: 'var(--tint-blue)', bg: 'rgba(59, 130, 246, 0.08)', border: 'rgba(59, 130, 246, 0.25)', fallback: 'A client replied' }
 };
 
-function timeAgo(iso, now = Date.now()) {
-  if (!iso) return '';
-  const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
-  if (mins < 60) return `${mins || 1}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 // onMessage (optional): opens the founder-message composer for the client
 // an alert is about — not shown on coach alerts.

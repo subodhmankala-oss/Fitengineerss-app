@@ -1,0 +1,250 @@
+/* Top-right notification bell — same scope as .admin-shell-sidebar: the
+   super-admin's desktop shell only (TrainerDashboard also only renders it
+   for that account). Hidden below the breakpoint. */
+.cnb-root {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  body.admin-wide-frame .cnb-root {
+    display: block;
+    position: fixed;
+    top: 18px;
+    right: 28px;
+    z-index: 45;
+  }
+}
+
+.cnb-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.cnb-bell:hover,
+.cnb-bell-open {
+  background: rgba(var(--accent-rgb), 0.1);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.35);
+}
+
+.cnb-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+
+.cnb-panel {
+  position: absolute;
+  top: 56px;
+  right: 0;
+  width: 400px;
+  max-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.cnb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.cnb-head-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.cnb-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.cnb-clear:hover { color: var(--text-main); }
+
+.cnb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.cnb-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Tint + ring per kind, not a solid fill. */
+.cnb-item {
+  --cnb-tone: var(--tint-blue);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--cnb-tone) 28%, transparent);
+  background: color-mix(in srgb, var(--cnb-tone) 7%, transparent);
+}
+.cnb-tone-blue { --cnb-tone: var(--tint-blue); }
+.cnb-tone-green { --cnb-tone: var(--tint-emerald, #10b981); }
+.cnb-tone-amber { --cnb-tone: var(--tint-amber); }
+.cnb-tone-violet { --cnb-tone: var(--tint-violet, #8b5cf6); }
+.cnb-tone-red { --cnb-tone: var(--tint-red, #ef4444); }
+
+.cnb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.cnb-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--cnb-tone);
+  background: color-mix(in srgb, var(--cnb-tone) 14%, transparent);
+}
+.cnb-text {
+  flex: 1;
+  min-width: 0;
+}
+.cnb-clickable { cursor: pointer; }
+.cnb-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.cnb-body {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cnb-time {
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.cnb-dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.cnb-dismiss:hover { color: var(--text-main); }
+
+.cnb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-left: 42px;
+}
+.cnb-compose .cnb-actions { padding-left: 0; }
+.cnb-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cnb-btn:hover { background: rgba(var(--fg-rgb), 0.08); }
+.cnb-btn-primary {
+  color: var(--cnb-tone);
+  border-color: color-mix(in srgb, var(--cnb-tone) 45%, transparent);
+  background: color-mix(in srgb, var(--cnb-tone) 14%, transparent);
+}
+.cnb-btn-primary:hover { background: color-mix(in srgb, var(--cnb-tone) 22%, transparent); }
+.cnb-btn:disabled { opacity: 0.5; cursor: default; }
+
+.cnb-compose {
+  margin-top: 10px;
+  padding-left: 42px;
+}
+.cnb-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.cnb-chip {
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  background: none;
+  color: var(--text-main);
+  font-size: 0.74rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cnb-chip:hover { border-style: solid; }
+.cnb-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: rgba(var(--fg-rgb), 0.03);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+.cnb-textarea:focus {
+  outline: none;
+  border-color: var(--cnb-tone);
+}

@@ -47,8 +47,18 @@ describe('cardio calories when only distance or only time is logged', () => {
   });
 
   it('counts a time-only set from the typical pace instead of 0', () => {
-    // Cross Trainer is a flat 5.0 MET, 4.0 active: 4 x 3.5 x 70 / 200 x 20 min = 98
+    // Cross Trainer at the assumed 6 km/h is 5.0 MET, 4.0 active: 4 x 3.5 x 70 / 200 x 20 min = 98
     expect(kcalFor('Cross Trainer', { distanceKm: '', time: '20:00' })).toBeCloseTo(98, 1);
+  });
+
+  it('prices cross trainer by pace, not a flat MET', () => {
+    // 5 km in 30 min = 10 km/h -> 8.0 MET, 7.0 active: 7 x 3.5 x 70 / 200 x 30 = 257.3
+    expect(kcalFor('Cross Trainer', { distanceKm: '5', time: '30:00' })).toBeCloseTo(257.3, 1);
+    // 2 km in 30 min = 4 km/h -> 3.8 MET, 2.8 active: 2.8 x 3.5 x 70 / 200 x 30 = 102.9
+    expect(kcalFor('Elliptical', { distanceKm: '2', time: '30:00' })).toBeCloseTo(102.9, 1);
+    // Same 10 km/h stays below a run at that speed.
+    expect(kcalFor('Cross Trainer', { distanceKm: '5', time: '30:00' }))
+      .toBeLessThan(kcalFor('Running', { distanceKm: '5', time: '30:00' }));
   });
 
   it('gives a km-only set the same total as logging it at the typical pace', () => {

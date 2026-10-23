@@ -16,13 +16,17 @@
 // reaches the client, so a malformed response fails loudly rather than
 // silently breaking the editor.
 //
-// Architecture note for future extension (deload weeks, single-day/exercise
-// regeneration, progression updates, coach style memory — see project spec):
-// buildSystemPrompt/buildUserPrompt and validateDraft are kept as small,
-// isolated pieces specifically so a future regenerate-one-day or
-// regenerate-one-exercise endpoint can reuse them with a narrower `days`/
-// `exercises` slice, rather than duplicating the prompt/validation logic.
-// Not implemented now, per spec — this file only does full-draft generation.
+// Library-only exercises (2026-10-23): the client sends its exercise catalog
+// (DB catalog + the coach's custom exercises + code library, see
+// src/utils/aiWorkoutCatalog.js) and the prompt lists it grouped by muscle.
+// The model may only pick from it, and repairDay() below maps every name it
+// returns back onto a catalog record (or drops it) before the draft reaches
+// the coach — so every exercise arrives with its library spelling, Form Guide
+// video and PREV. `mode: 'day'` regenerates a single day of an existing
+// draft with the same prompt pieces, one level narrower.
+
+import { formatCatalogForPrompt, matchCatalogExercise } from '../src/utils/aiWorkoutCatalog.js';
+import { exerciseNameKey } from '../src/utils/exerciseName.js';
 
 const GROQ_MODEL = 'openai/gpt-oss-120b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -48,7 +52,21 @@ const DRAFT_JSON_SHAPE = `{
   ]
 }`;
 
-const buildSystemPrompt = () => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
+const DAY_JSON_SHAPE = `{
+  "day": {
+    "dayLabel": "the same day label you were given",
+    "focus": "e.g. Push, Upper Body, Legs",
+    "planName": "short plan name",
+    "exercises": [ { same exercise fields as in "days[].exercises" above } ]
+  }
+}`;
+
+const catalogRules = (catalog) => (catalog.length === 0 ? '' : `
+EXERCISE LIBRARY — you may ONLY use exercises from this list, spelled exactly as written (copy each name character for character, including anything in brackets). Never invent, rename or combine names. If the ideal exercise isn't listed, pick the closest listed one for the same muscle.
+${formatCatalogForPrompt(catalog)}
+`);
+
+const buildSystemPrompt = (catalog = [], mode = 'full') => `You are an assistant that drafts workout programs for a fitness coach. The coach reviews, edits, and approves every draft before anything is assigned to a client — you are not making the final call, so favor practical, conventional programming over anything experimental.
 
 Rules:
 - Use the client's stats (age, weight, height, goal, calories, protein target) to size the program appropriately — do not ignore them.
@@ -60,11 +78,13 @@ Rules:
 - "type" must be exactly "strength", "cardio", or "timed" — strength = reps+weight sets, cardio = distance/time, timed = isometric hold.
 - "reps" is a single target number per set, never a range like "8-10".
 - Do not include rest days as entries in "days".
-
+- Order each day with the big compound lifts first, then accessories, then core/cardio last. 5-7 exercises per day unless the session length calls for fewer or more.
+- Never repeat the same exercise twice in one day.
+${catalogRules(catalog)}
 Respond with ONLY valid JSON matching this exact shape — no prose, no markdown code fences, no commentary before or after:
-${DRAFT_JSON_SHAPE}`;
+${mode === 'day' ? `${DAY_JSON_SHAPE}\n\nwhere each exercise has the fields shown here:\n${DRAFT_JSON_SHAPE}` : DRAFT_JSON_SHAPE}`;
 
-const buildUserPrompt = ({ client, instructions, options }) => {
+const buildUserPrompt = ({ client, instructions, options, day }) => {
   const lines = [
     '=== Client Profile ===',
     `Name: ${client.name || 'Unknown'}`,
@@ -86,8 +106,16 @@ const buildUserPrompt = ({ client, instructions, options }) => {
     options.difficulty ? `Difficulty level: ${options.difficulty}` : null,
     '',
     '=== Coach Instructions ===',
-    instructions?.trim() || '(none given — use the profile and advanced options above to design a sensible program)'
-  ].filter(Boolean);
+    instructions?.trim() || '(none given — use the profile and advanced options above to design a sensible program)',
+    ...(day ? [
+      '',
+      '=== Regenerate ONE day only ===',
+      `Rewrite only this day of the existing program: ${day.dayLabel}${day.focus ? ` (${day.focus})` : ''}.`,
+      `Keep the same focus so the week stays balanced, but use mostly DIFFERENT exercises from the current version of this day: ${(day.currentExercises || []).join(', ') || '(none)'}.`,
+      day.otherDays?.length ? `The rest of the week stays as it is — don't overload the muscles it already trains: ${day.otherDays.join(' | ')}` : null,
+      'Return only that one day, in the "day" object.'
+    ] : [])
+  ].filter(v => v != null);
   return lines.join('\n');
 };
 
@@ -104,6 +132,33 @@ const validateDraft = (draft) => {
   );
 };
 
+// Maps every exercise onto the catalog (taking its library spelling) and
+// drops what can't be matched or repeats within the day. Without a catalog
+// (an older cached client bundle) the day passes through untouched. Returns
+// null when nothing in the day survives, so the caller reports a retry.
+const repairDay = (day, catalog) => {
+  if (catalog.length === 0) return day;
+  const seen = new Set();
+  const exercises = [];
+  for (const ex of day.exercises) {
+    const record = matchCatalogExercise(ex.name, catalog);
+    if (!record) {
+      console.warn('generate-workout-draft: dropped non-library exercise:', ex.name);
+      continue;
+    }
+    const key = exerciseNameKey(record.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    exercises.push({ ...ex, name: record.name });
+  }
+  return exercises.length > 0 ? { ...day, exercises } : null;
+};
+
+const sanitizeCatalog = (raw) => (Array.isArray(raw) ? raw : [])
+  .filter(e => e && typeof e.name === 'string' && e.name.trim())
+  .slice(0, 1500)
+  .map(e => ({ name: e.name.trim().slice(0, 120), muscle: String(e.muscle || 'Other').slice(0, 60) }));
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -116,8 +171,13 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing GROQ_API_KEY' });
   }
 
-  const { client, instructions, options } = req.body || {};
-  if (!client || (!instructions?.trim() && !options?.split && !options?.trainingDays)) {
+  const { client, instructions, options, mode, day } = req.body || {};
+  const catalog = sanitizeCatalog(req.body?.catalog);
+  const dayMode = mode === 'day';
+  if (dayMode && !day?.dayLabel) {
+    return res.status(400).json({ error: 'Missing the day to regenerate.' });
+  }
+  if (!client || (!dayMode && !instructions?.trim() && !options?.split && !options?.trainingDays)) {
     return res.status(400).json({ error: 'Missing client profile and at least instructions or an advanced option.' });
   }
 
@@ -131,8 +191,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: buildSystemPrompt() },
-          { role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {} }) }
+          { role: 'system', content: buildSystemPrompt(catalog, dayMode ? 'day' : 'full') },
+          { role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayMode ? day : null }) }
         ],
         response_format: { type: 'json_object' },
         temperature: 0.6
@@ -150,20 +210,29 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'The AI did not return a usable draft. Please try again.' });
     }
 
-    let draft;
+    let parsed;
     try {
-      draft = JSON.parse(rawText);
+      parsed = JSON.parse(rawText);
     } catch (parseErr) {
       console.error('generate-workout-draft: JSON parse failed:', parseErr, rawText);
       return res.status(502).json({ error: 'The AI returned an unreadable draft. Please try again.' });
     }
 
+    // One day comes back as { day } — checked by the same validator as a
+    // one-day draft.
+    const draft = dayMode ? { days: parsed?.day ? [parsed.day] : [] } : parsed;
     if (!validateDraft(draft)) {
-      console.error('generate-workout-draft: draft failed validation:', JSON.stringify(draft));
+      console.error('generate-workout-draft: draft failed validation:', JSON.stringify(parsed));
       return res.status(502).json({ error: 'The AI returned an incomplete draft. Please try again.' });
     }
 
-    return res.status(200).json({ draft });
+    const days = draft.days.map(d => repairDay(d, catalog));
+    if (days.some(d => !d)) {
+      return res.status(502).json({ error: 'The AI picked exercises outside your library. Please try again.' });
+    }
+
+    if (dayMode) return res.status(200).json({ day: { ...days[0], dayLabel: day.dayLabel } });
+    return res.status(200).json({ draft: { ...draft, days } });
   } catch (err) {
     console.error('generate-workout-draft error:', err);
     return res.status(500).json({ error: err.message || 'Failed to generate workout draft.' });

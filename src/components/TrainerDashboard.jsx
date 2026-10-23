@@ -28,6 +28,9 @@ import { getActivityStatus } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
+import SwapExerciseSheet from './SwapExerciseSheet';
+import { loadAiCatalog } from '../utils/loadAiCatalog';
+import { catalogForPrompt } from '../utils/aiWorkoutCatalog';
 import ClockTimerModal from './ClockTimerModal';
 import { StopwatchIcon, TrashIcon, BinIcon, PencilIcon, PlayIcon, PauseIcon, DragHandleIcon } from './TimerIcons';
 import ExerciseCardMenu from './ExerciseCardMenu';
@@ -149,6 +152,8 @@ const ReceiptIcon = ({ size = 16 }) => (
     <path d="M9 8h6M9 12h6" />
   </svg>
 );
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const convertAiExerciseToEditorShape =(aiEx) => {
   const type = aiEx.type || 'strength';
@@ -1618,6 +1623,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [activeAiDraftDayIndex, setActiveAiDraftDayIndex] = useState(0);
   const [aiDraftSummary, setAiDraftSummary] = useState('');
   const [assigningAiDraft, setAssigningAiDraft] = useState(false);
+  // The coach's exercise library the AI picks from and Swap suggests from
+  // (utils/loadAiCatalog) — loaded the first time either is opened.
+  const [aiCatalog, setAiCatalog] = useState(null);
+  // The brief the current draft was generated from, so "Regenerate this
+  // day" asks again with the same client details and instructions.
+  const [aiDraftRequest, setAiDraftRequest] = useState(null);
+  const [regeneratingAiDay, setRegeneratingAiDay] = useState(false);
+  // Plan editor Swap sheet: index of the exercise being swapped.
+  const [swapExerciseIdx, setSwapExerciseIdx] = useState(null);
   // Which assigned-plan card's ⋮ menu (Edit/Duplicate/Delete/More details)
   // is open — one at a time, keyed by plan id.
   const [openPlanCardMenuId, setOpenPlanCardMenuId] = useState(null);
@@ -4347,21 +4361,45 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // DB catalog first (it has the ids and videos), then the code library —
   // and takes that record's spelling and id, so the saved plan finds its
   // Form Guide video and PREV.
-  const handleAiDraftGenerated = async (draft) => {
+  // The server already holds the model to the coach's catalog (see
+  // api/generate-workout-draft.js), so the catalog record — custom
+  // exercises included, which carry their own ids — is checked first.
+  // Every set's kg then starts at the client's PREV, same as an exercise
+  // added by hand.
+  const linkAiDayToLibrary = async (day) => {
     const library = await databaseService.getExerciseLibrary().catch(() => []);
     const linkToLibrary = (ex) => {
-      const record = findLibraryExercise(ex.name, library) || findLibraryExercise(ex.name, EXERCISE_LIBRARY);
+      const record = findLibraryExercise(ex.name, aiCatalog || [])
+        || findLibraryExercise(ex.name, library)
+        || findLibraryExercise(ex.name, EXERCISE_LIBRARY);
       return {
         ...ex,
         name: record ? record.name : foldExerciseDashes(ex.name).trim(),
         ...exerciseIdField(libraryExerciseId(record))
       };
     };
-    const days = (draft.days || []).map(day => convertAiDayToEditorShape({
-      ...day,
-      exercises: (day.exercises || []).map(linkToLibrary)
-    }));
+    const converted = convertAiDayToEditorShape({ ...day, exercises: (day.exercises || []).map(linkToLibrary) });
+    return {
+      ...converted,
+      exercises: applyPrevWeights(converted.exercises.map(ex => (
+        isBodyweightExercise(ex.name) ? { ...ex, bodyweightMode: true } : { ...ex, sets: ex.sets.map(s => ('weight' in s && !isTimedExercise(ex.name) ? { ...s, weight: '' } : s)) }
+      )))
+    };
+  };
+
+  const ensureAiCatalog = () => {
+    if (aiCatalog) return Promise.resolve(aiCatalog);
+    const coachId = UUID_RE.test(String(resolvedCoachId || '')) ? resolvedCoachId : null;
+    return loadAiCatalog({ coachId }).then(catalog => {
+      setAiCatalog(catalog);
+      return catalog;
+    });
+  };
+
+  const handleAiDraftGenerated = async (draft, request = null) => {
+    const days = await Promise.all((draft.days || []).map(linkAiDayToLibrary));
     if (days.length === 0) return;
+    setAiDraftRequest(request);
     setAiDraftDays(days);
     setAiDraftSummary(draft.programSummary || '');
     setActiveAiDraftDayIndex(0);
@@ -4390,6 +4428,88 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setActiveAiDraftDayIndex(newIndex);
     setEditorPlanName(updated[newIndex].planName);
     setEditorExercises(updated[newIndex].exercises);
+  };
+
+  // Asks the model for a fresh version of just the open day tab, with the
+  // same brief and the rest of the week as context. Replaces that tab's
+  // name and exercises; every other tab stays exactly as the coach left it.
+  const handleRegenerateAiDay = async () => {
+    if (regeneratingAiDay || !aiDraftRequest) return;
+    const current = aiDraftDays[activeAiDraftDayIndex];
+    if (!current) return;
+    setRegeneratingAiDay(true);
+    try {
+      const catalog = await ensureAiCatalog();
+      const resp = await fetch('/api/generate-workout-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...aiDraftRequest,
+          mode: 'day',
+          day: {
+            dayLabel: current.dayLabel,
+            focus: current.focus,
+            currentExercises: editorExercises.map(e => e.name),
+            otherDays: aiDraftDays
+              .filter((_, i) => i !== activeAiDraftDayIndex)
+              .map(d => `${d.dayLabel}${d.focus ? ` (${d.focus})` : ''}: ${d.exercises.map(e => e.name).join(', ')}`)
+          },
+          catalog: catalogForPrompt(catalog)
+        })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.day) throw new Error(data.error || 'Could not regenerate this day.');
+      const day = await linkAiDayToLibrary({ ...data.day, focus: data.day.focus || current.focus });
+      setAiDraftDays(prev => prev.map((d, i) => (i === activeAiDraftDayIndex ? day : d)));
+      setEditorPlanName(day.planName);
+      setEditorExercises(day.exercises);
+    } catch (err) {
+      alert(err.message || 'Could not regenerate this day. Please try again.');
+    } finally {
+      setRegeneratingAiDay(false);
+    }
+  };
+
+  // Swap sheet: replaces one editor exercise with another, keeping its
+  // place, set count and reps. Sets are rebuilt in the new exercise's own
+  // shape when it logs differently (e.g. a cable move swapped for a plank),
+  // and kg starts at the new exercise's PREV.
+  const openSwapSheet = (exIdx) => {
+    ensureAiCatalog();
+    setSwapExerciseIdx(exIdx);
+  };
+
+  const handleSwapExercise = (record) => {
+    const exIdx = swapExerciseIdx;
+    setSwapExerciseIdx(null);
+    if (exIdx == null) return;
+    setEditorExercises(prev => prev.map((ex, idx) => {
+      if (idx !== exIdx) return ex;
+      const name = record.name;
+      const bodyweight = isBodyweightExercise(name);
+      const repsShape = (n) => !isCardioExercise(n) && !isTimedExercise(n) && !isLoadedCarryExercise(n);
+      const keepReps = repsShape(ex.name) && repsShape(name);
+      const freshSet = isCardioExercise(name)
+        ? { distanceKm: '', time: '' }
+        : isTimedExercise(name) && bodyweight
+          ? { time: '', weight: 0 }
+          : isTimedExercise(name)
+            ? { time: '' }
+            : { reps: 10, weight: bodyweight || isWarmupExercise(name) ? 0 : '' };
+      const sets = ex.sets.map(s => ({
+        ...freshSet,
+        ...(keepReps && s.reps != null ? { reps: s.reps } : {}),
+        ...(s.isWarmup ? { isWarmup: true } : {}),
+        ...(s.setType && s.setType !== 'normal' ? { setType: s.setType } : {})
+      }));
+      const [swapped] = applyPrevWeights([{
+        name,
+        ...exerciseIdField(libraryExerciseId(record)),
+        sets: sets.length > 0 ? sets : [freshSet],
+        ...(bodyweight ? { bodyweightMode: true } : {})
+      }]);
+      return swapped;
+    }));
   };
 
   const handleSavePlan = async () => {
@@ -8990,6 +9110,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                               </button>
                             ))}
                           </div>
+                          {aiDraftRequest && (
+                            <button
+                              type="button"
+                              onClick={handleRegenerateAiDay}
+                              disabled={regeneratingAiDay || assigningAiDraft}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px',
+                                padding: '6px 12px', borderRadius: '20px', fontSize: '0.76rem', fontWeight: 700,
+                                cursor: regeneratingAiDay ? 'default' : 'pointer',
+                                border: '1px solid rgba(var(--accent-rgb), 0.35)',
+                                background: 'rgba(var(--accent-rgb), 0.08)', color: 'var(--accent-text)'
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" />
+                              </svg>
+                              {regeneratingAiDay ? 'Regenerating…' : `Regenerate ${aiDraftDays[activeAiDraftDayIndex]?.dayLabel || 'this day'}`}
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -9145,6 +9284,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                       onClick={() => handleShowFormGuide(ex.name, ex.exerciseId)}
                                     >
                                       🎬 Form Guide
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn-form-guide-sm"
+                                      onClick={() => openSwapSheet(exIdx)}
+                                      title={`Swap ${ex.name} for a similar exercise`}
+                                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                        <path d="M7 4L3 8l4 4" /><path d="M3 8h14" /><path d="M17 20l4-4-4-4" /><path d="M21 16H7" />
+                                      </svg>
+                                      Swap
                                     </button>
                                   </div>
                                   <ExerciseCardMenu
@@ -10907,6 +11058,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         }}
         onShowFormGuide={handleShowFormGuide}
       />
+      {swapExerciseIdx != null && editorExercises[swapExerciseIdx] && (
+        <SwapExerciseSheet
+          exercise={editorExercises[swapExerciseIdx]}
+          dayExerciseNames={editorExercises.map(e => e.name)}
+          catalog={aiCatalog}
+          onPick={handleSwapExercise}
+          onSearchAll={() => {
+            // Falls back to the full picker: the swapped-out exercise goes,
+            // and whatever the coach adds lands at the end of the list.
+            handleRemoveExerciseFromEditor(swapExerciseIdx);
+            setSwapExerciseIdx(null);
+            setExercisePickerContext('editor');
+          }}
+          onClose={() => setSwapExerciseIdx(null)}
+        />
+      )}
       <ExerciseGuideModal exercise={activeGuideExercise} onClose={() => setActiveGuideExercise(null)} />
 
       {/* Tap an exercise's name in the Live Log → full Daily/Weekly/Monthly/
@@ -10948,7 +11115,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               </button>
               <button
                 type="button"
-                onClick={() => { setShowCreatePlanChoice(false); setShowAIBuilder(true); }}
+                onClick={() => { setShowCreatePlanChoice(false); ensureAiCatalog(); setShowAIBuilder(true); }}
                 style={{ padding: '14px', textAlign: 'left', background: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.3)', borderRadius: 'var(--radius-md)', color: 'var(--accent-text)', cursor: 'pointer' }}
               >
                 <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '2px' }}>✨ Create Draft with AI</strong>
@@ -10961,7 +11128,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
 
       {showAIBuilder && (
         <AIWorkoutBuilderModal
+          coachId={UUID_RE.test(String(resolvedCoachId || '')) ? resolvedCoachId : null}
+          catalog={aiCatalog}
           client={{
+            id: selectedClient?.id,
             name: selectedClient?.userName,
             age: selectedClient?.userAge,
             height: selectedClient?.userHeight,

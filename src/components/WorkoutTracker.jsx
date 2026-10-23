@@ -2949,10 +2949,18 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // "Recent workouts" in the Existing Plan dropdown — past sessions rebuilt
   // as loadable plans, so a workout the client never ticked "Save as
   // template" for can still be repeated. See buildRecentWorkoutPlans.
+  // "This week" (picker cards + Existing Plan dropdown) — the last 7 days'
+  // workouts, best first, never stored. See buildThisWeekPlans. "Recent
+  // workouts" then covers only older ones so nothing is listed twice.
+  const thisWeekPlans = useMemo(() => buildThisWeekPlans(
+    sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
+    getLocalDateString(),
+    [...CORE_PPL_TEMPLATES, ...clientPlans].map(p => p.planName)
+  ), [sessions, selectedClient, clientPlans]);
   const recentWorkoutPlans = useMemo(() => buildRecentWorkoutPlans(
     sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
-    clientPlans.map(p => p.planName)
-  ), [sessions, selectedClient, clientPlans]);
+    [...CORE_PPL_TEMPLATES, ...clientPlans, ...thisWeekPlans].map(p => p.planName)
+  ), [sessions, selectedClient, clientPlans, thisWeekPlans]);
 
   return (
     <>
@@ -3542,13 +3550,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         const ownSessions = sessions.filter(s => (s.clientName || '').toLowerCase() === selectedClient.toLowerCase());
         const templatePlans = rankTemplatesByPerformance(clientPlans.filter(p => p.createdBy === 'client'), ownSessions, 10);
         const visibleTemplatePlans = showAllTemplates ? templatePlans : templatePlans.slice(0, 3);
-        // Last 7 days of the client's own workouts, ready to repeat without
-        // ticking "Keep as a permanent template" — see buildThisWeekPlans.
-        const thisWeekPlans = buildThisWeekPlans(
-          ownSessions,
-          getLocalDateString(),
-          [...CORE_PPL_TEMPLATES, ...clientPlans].map(p => p.planName)
-        );
         const coachPlans = clientPlans.filter(p => p.createdBy === 'coach' && p.isAssigned !== false);
         const visibleCoachPlans = showAllCoachPlans ? coachPlans : coachPlans.slice(0, 3);
 
@@ -3714,14 +3715,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                   placeholder="e.g. Push Day, Leg Day, Custom Session…"
                 />
               </div>
-              {(clientPlans.length > 0 || recentWorkoutPlans.length > 0) && (
+              {/* Always shown — Push / Pull / Legs are always there. */}
                 <div className="input-group">
                   <label>Existing Plan</label>
                   <select
                     defaultValue=""
                     onChange={(e) => {
-                      const plan = clientPlans.find(p => p.id === e.target.value)
-                        || recentWorkoutPlans.find(p => p.id === e.target.value);
+                      const plan = [...CORE_PPL_TEMPLATES, ...thisWeekPlans, ...clientPlans, ...recentWorkoutPlans]
+                        .find(p => p.id === e.target.value);
                       // Same empty/malformed guard as startPlan above — loading
                       // an empty plan here used to wipe the current exercise
                       // list and replace it with nothing.
@@ -3743,7 +3744,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                           // stale non-empty value here silently fed straight
                           // into liveRunningCardioKcal's calorie total before
                           // the client touched anything.
-                          sets: ex.sets.map(s => isCardioExercise(ex.name)
+                          // withPrevValues: same kg/reps pre-fill from PREV as
+                          // startPlan, so a blank Push/Pull/Legs kg box isn't
+                          // left empty when the client has history.
+                          sets: ex.sets.map((s, setIdx) => withPrevValues(ex, setIdx, isCardioExercise(ex.name)
                             // targetTime: see startPlan — keeps the coach's
                             // prescribed duration as a hint/countdown target.
                             ? { distanceKm: s.distanceKm ?? '', time: '', targetTime: s.time || '', isCompleted: false }
@@ -3757,7 +3761,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 // "undefined" in the input box instead of leaving it blank, same
                 // bug the cardio/timed branches above already guard against with
                 // `?? ''`. This branch never got that guard.
-                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false })
+                : { reps: String(s.reps ?? ''), weight: String(s.weight ?? ''), isCompleted: false }))
                         })));
                         // See startPlan's comment above — setTimers is keyed
                         // positionally, not by exercise identity, so switching
@@ -3775,6 +3779,18 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         volume from past sessions logged under each plan's
                         name) — see rankTemplatesByPerformance — not just the
                         10 most recent. */}
+                    <optgroup label="Push / Pull / Legs">
+                      {CORE_PPL_TEMPLATES.map(p => (
+                        <option key={p.id} value={p.id}>{p.planName}</option>
+                      ))}
+                    </optgroup>
+                    {thisWeekPlans.length > 0 && (
+                      <optgroup label="This week">
+                        {thisWeekPlans.map(p => (
+                          <option key={p.id} value={p.id}>{p.planName} · {formatShortLogDate(p.date)}</option>
+                        ))}
+                      </optgroup>
+                    )}
                     {recentWorkoutPlans.length > 0 && (
                       <optgroup label="Recent workouts">
                         {recentWorkoutPlans.map(p => (
@@ -3795,7 +3811,6 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     )}
                   </select>
                 </div>
-              )}
             </div>
           </div>
 

@@ -64,6 +64,27 @@ describe('WorkoutTracker routine picker templates', () => {
     expect(screen.getAllByText('Triceps Pushdown').length).toBeGreaterThan(0);
   });
 
+  it('offers Push / Pull / Legs and this week in the Existing Plan dropdown', async () => {
+    databaseService.getWorkoutLogsForUser.mockResolvedValue([
+      { log_date: daysAgo(1), plan_name: 'Arms Blast', exercise_name: 'Bicep Curl (Dumbbell)', set_number: 1, reps: 12, weight_kg: 10 },
+      { log_date: daysAgo(30), plan_name: 'Leg Day', exercise_name: 'Leg Press', set_number: 1, reps: 10, weight_kg: 80 }
+    ]);
+    renderWorkoutTracker();
+    await screen.findByText('Arms Blast');
+    fireEvent.click(screen.getByText('Start Empty Workout'));
+    expect(await screen.findByText("🏋️ Today's Workout")).toBeTruthy();
+
+    const select = document.querySelector('select');
+    const groups = [...select.querySelectorAll('optgroup')].map(g => g.label);
+    expect(groups.slice(0, 2)).toEqual(['Push / Pull / Legs', 'This week']);
+    expect([...select.options].map(o => o.textContent)).toContain('Leg Day');
+
+    fireEvent.change(select, { target: { value: 'core:legs' } });
+    expect((await screen.findAllByText('Leg Press')).length).toBeGreaterThan(0);
+    // kg pre-filled from the client's last Leg Press, not left blank.
+    expect(screen.getAllByRole('button', { name: '80' }).length).toBeGreaterThan(0);
+  });
+
   it('lists this week\'s workouts but not older ones', async () => {
     databaseService.getWorkoutLogsForUser.mockResolvedValue([
       { log_date: daysAgo(2), plan_name: 'Arms Blast', exercise_name: 'Bicep Curl (Dumbbell)', set_number: 1, reps: 12, weight_kg: 10 },

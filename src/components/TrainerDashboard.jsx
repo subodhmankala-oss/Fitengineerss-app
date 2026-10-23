@@ -2831,7 +2831,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     getItemKey: getLiveItemKey,
   } = useReorderableList(liveExercises, handleLiveExercisesReordered);
 
+  // Same double-tap guard as the client's Confirm Save (see
+  // handleConfirmSaveWorkout in WorkoutTracker): liveSaving only disables the
+  // button after the staleness check below resolves, so a second tap during
+  // that await saved the session twice. A ref blocks it immediately.
+  const liveSaveInFlightRef = useRef(false);
   const handleSaveLiveSession = async () => {
+    if (liveSaveInFlightRef.current) return;
+    liveSaveInFlightRef.current = true;
+    try {
+      await saveLiveSession();
+    } finally {
+      liveSaveInFlightRef.current = false;
+    }
+  };
+
+  const saveLiveSession = async () => {
     if (!selectedClient) return;
     const totalSets = liveExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
     if (totalSets === 0) {

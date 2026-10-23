@@ -2303,7 +2303,25 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     setShowFinishSummary(true);
   };
 
+  // Confirm Save awaits the PWA staleness check (a network round trip) before
+  // anything else, so a second tap during that wait ran the whole save again
+  // with a new session id — the same workout landed twice, a second or two
+  // apart (confirmed 2026-10-13, "Hyrox Upper Strength"). History groups rows
+  // per date, so both copies' sets stacked and every template/recent plan
+  // started from that day opened with double the sets. A ref, not state, so
+  // the second tap sees it immediately.
+  const savingWorkoutRef = useRef(false);
   const handleConfirmSaveWorkout = async () => {
+    if (savingWorkoutRef.current) return;
+    savingWorkoutRef.current = true;
+    try {
+      await confirmSaveWorkout();
+    } finally {
+      savingWorkoutRef.current = false;
+    }
+  };
+
+  const confirmSaveWorkout = async () => {
     // A stale tab doesn't fail this save — it SUCCEEDS, but with wrong data:
     // the pre-fix duration/calories logic reads workoutTimerStartedAt raw (no
     // "totalCompleted === 0" fallback), so a client whose session finished

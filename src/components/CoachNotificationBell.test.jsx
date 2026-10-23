@@ -41,6 +41,34 @@ describe('CoachNotificationBell', () => {
     await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull());
   });
 
+  it('one-tap reminder leads, sends and confirms in the panel', () => {
+    const run = vi.fn();
+    render(<CoachNotificationBell items={[{
+      key: 'm', title: 'Measurement Check-in Needed', at: now,
+      actions: [{ label: 'Send reminder', flash: 'Measurement reminder sent to Ravi', run }],
+      compose: { label: 'Send note', send: vi.fn() },
+      open: vi.fn()
+    }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications, 1 new' }));
+    const buttons = screen.getAllByRole('button').map(b => b.textContent);
+    expect(buttons.indexOf('Send reminder')).toBeLessThan(buttons.indexOf('Send note'));
+    expect(screen.getByText('Send reminder').className).toContain('cnb-btn-primary');
+    fireEvent.click(screen.getByText('Send reminder'));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status').textContent).toBe('Measurement reminder sent to Ravi');
+  });
+
+  it('keeps the composer open and says so when a note fails', async () => {
+    const send = vi.fn().mockResolvedValue(false);
+    render(<CoachNotificationBell items={[{ key: 'q', title: 'Ravi has gone quiet', compose: { label: 'Send note', send } }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications, 1 new' }));
+    fireEvent.click(screen.getByText('Send note'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Everything okay?' } });
+    fireEvent.click(screen.getByText('Send'));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe("Couldn't send — try again"));
+    expect(screen.getByRole('textbox').value).toBe('Everything okay?');
+  });
+
   it('runs actions, dismiss and clear all', () => {
     const run = vi.fn();
     const dismiss = vi.fn();

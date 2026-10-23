@@ -4880,6 +4880,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
       databaseService.markNotificationsRead(ids);
     };
     const foldedTypes = new Set();
+    // Same path as the client-detail note composer: saved coach note + a
+    // coach_note push to the client's phone. Returns true once sent.
+    const sendCoachNoteTo = async (clientId, message, context, verb = 'Note') => {
+      const res = await databaseService.saveCoachNote(clientId, resolvedCoachId, message, context);
+      if (!res.success) { triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`); return false; }
+      notifyEvent('coach_note', { clientUserId: clientId, message });
+      triggerLiveToast(`✅ ${verb} sent to ${firstNameOf(clientId)}.`);
+      return true;
+    };
 
     pendingClientReplies.forEach(r => {
       foldedTypes.add(`${r.clientId}|client_reply`);
@@ -4891,14 +4900,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         compose: {
           label: 'Reply',
           placeholder: `Reply to ${firstNameOf(r.clientId)}…`,
+          flash: `Reply sent to ${firstNameOf(r.clientId)}`,
           send: async (message) => {
-            const res = await databaseService.saveCoachNote(r.clientId, resolvedCoachId, message,
-              r.workoutName ? { workoutName: r.workoutName, workoutDate: r.workoutDate } : undefined);
-            if (!res.success) { triggerLiveToast(`⚠️ Couldn't send: ${res.error || 'unknown error'}`); return false; }
-            notifyEvent('coach_note', { clientUserId: r.clientId, message });
-            done();
-            triggerLiveToast(`✅ Reply sent to ${firstNameOf(r.clientId)}.`);
-            return true;
+            const ok = await sendCoachNoteTo(r.clientId, message,
+              r.workoutName ? { workoutName: r.workoutName, workoutDate: r.workoutDate } : undefined, 'Reply');
+            if (ok) done();
+            return ok;
           }
         },
         open: () => { done(); openClient(r.clientId); },
@@ -4919,6 +4926,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         compose: {
           label: 'Send note',
           placeholder: `Note to ${s.clientName.split(/\s+/)[0]}…`,
+          flash: `Note sent to ${s.clientName.split(/\s+/)[0]}`,
           suggestions: buildSessionNoteSuggestions(s),
           send: async (message) => {
             const ok = await handleSendSessionNote(s, message);
@@ -4950,6 +4958,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           setClientNotifications(prev => prev.filter(x => x.id !== n.id));
           databaseService.markNotificationsRead([n.id]);
         };
+        const first = firstNameOf(n.clientId, n.clientName);
+        // What the coach can send straight back, by what the update is.
+        // Only the measurement check-in has a ready-made reminder push
+        // (measurement_reminder_manual, same as the Measurements tab's
+        // button); the rest get a note with suggestions that fit.
+        const NOTE_SUGGESTIONS = {
+          measurement_reminder_coach: [
+            `Hey ${first}, could you log your measurements today? Takes 2 minutes and helps me tune your plan 📏`,
+            `Quick one ${first} — weight and waist when you get a sec, please!`
+          ],
+          coach_inactive_client_alert: [
+            `Hey ${first}, haven't seen you in the app for a bit — everything okay?`,
+            `Missing you ${first}! Even a short session today keeps the streak alive 💪`,
+            `Let me know if the plan needs a tweak to fit your week — happy to adjust.`
+          ],
+          measurements_saved: [
+            `Thanks for logging your measurements, ${first}! Progress is looking good 📈`,
+            `Nice work ${first} — consistency like this is what moves the numbers 💪`
+          ],
+          workout_started: [
+            `Have a great session, ${first}! 💪`,
+            `Go get it ${first} — focus on form today 🔥`
+          ],
+          workout_finished: [
+            `Great session, ${first}! Solid work 💪`,
+            `How did that feel? Let me know if anything was too easy or too tough.`
+          ]
+        };
+        const canNote = n.type === 'client_reply' || NOTE_SUGGESTIONS[n.type];
         bellItems.push({
           key: `notif-${n.id}`,
           tone: n.clientTab === 'measurements' ? 'amber' : 'blue',
@@ -4957,6 +4994,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           at: n.createdAt,
           title: n.title || `Update from ${nameOf(n.clientId, n.clientName)}`,
           body: n.body,
+          actions: n.type === 'measurement_reminder_coach' ? [{
+            label: 'Send reminder',
+            flash: `Measurement reminder sent to ${first}`,
+            run: () => {
+              notifyEvent('measurement_reminder_manual', { clientUserId: n.clientId });
+              triggerLiveToast(`✅ Measurement reminder sent to ${first}.`);
+              markRead();
+            }
+          }] : [],
+          compose: canNote ? {
+            label: n.type === 'client_reply' ? 'Reply' : 'Send note',
+            placeholder: `Note to ${first}…`,
+            flash: `${n.type === 'client_reply' ? 'Reply' : 'Note'} sent to ${first}`,
+            suggestions: NOTE_SUGGESTIONS[n.type] || [],
+            send: async (message) => {
+              const ok = await sendCoachNoteTo(n.clientId, message, undefined, n.type === 'client_reply' ? 'Reply' : 'Note');
+              if (ok) markRead();
+              return ok;
+            }
+          } : undefined,
           open: () => { markRead(); openClient(n.clientId, n.clientTab); },
           dismiss: markRead
         });

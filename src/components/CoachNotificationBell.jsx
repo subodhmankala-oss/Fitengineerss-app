@@ -34,7 +34,7 @@ function Icon({ name, size = 18 }) {
   );
 }
 
-function BellItem({ item, onDone }) {
+function BellItem({ item, onDone, onFlash }) {
   const [composing, setComposing] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -45,7 +45,8 @@ function BellItem({ item, onDone }) {
     setSending(true);
     try {
       const ok = await item.compose.send(message);
-      if (ok) { setText(''); setComposing(false); }
+      if (ok) { setText(''); setComposing(false); onFlash(item.compose.flash || 'Sent'); }
+      else onFlash("Couldn't send — try again", true);
     } finally {
       setSending(false);
     }
@@ -79,14 +80,15 @@ function BellItem({ item, onDone }) {
 
       {(item.compose || item.open || item.actions?.length > 0) && !composing && (
         <div className="cnb-actions">
-          {item.compose && (
-            <button type="button" className="cnb-btn cnb-btn-primary" onClick={() => setComposing(true)}>{item.compose.label}</button>
-          )}
-          {(item.actions || []).map(a => (
-            <button key={a.label} type="button" className={`cnb-btn${!item.compose && a === item.actions[0] ? ' cnb-btn-primary' : ''}`} onClick={a.run}>
+          {/* A one-tap action (e.g. Send reminder) leads; otherwise the composer does. */}
+          {(item.actions || []).map((a, i) => (
+            <button key={a.label} type="button" className={`cnb-btn${i === 0 ? ' cnb-btn-primary' : ''}`} onClick={() => { a.run(); if (a.flash) onFlash(a.flash); }}>
               {a.label}
             </button>
           ))}
+          {item.compose && (
+            <button type="button" className={`cnb-btn${!item.actions?.length ? ' cnb-btn-primary' : ''}`} onClick={() => setComposing(true)}>{item.compose.label}</button>
+          )}
           {item.open && (
             <button type="button" className={`cnb-btn${!item.compose && !item.actions?.length ? ' cnb-btn-primary' : ''}`} onClick={openItem}>
               {item.openLabel || 'Open'}
@@ -130,6 +132,16 @@ function BellItem({ item, onDone }) {
 // both; CSS shows whichever fits the width.
 export default function CoachNotificationBell({ items = [], onClearAll, variant = 'fixed' }) {
   const [open, setOpen] = useState(false);
+  // Short "Reminder sent" / "Couldn't send" line under the header — the
+  // dashboard's own toast only shows on the home screen.
+  const [flash, setFlash] = useState(null);
+  const flashTimerRef = useRef(null);
+  const showFlash = (message, isError = false) => {
+    clearTimeout(flashTimerRef.current);
+    setFlash({ message, isError });
+    flashTimerRef.current = setTimeout(() => setFlash(null), 3000);
+  };
+  useEffect(() => () => clearTimeout(flashTimerRef.current), []);
   const rootRef = useRef(null);
 
   useEffect(() => {
@@ -167,6 +179,9 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
               <button type="button" className="cnb-clear" onClick={onClearAll}>Clear all</button>
             )}
           </div>
+          {flash && (
+            <div className={`cnb-flash${flash.isError ? ' cnb-flash-error' : ''}`} role="status">{flash.message}</div>
+          )}
           {count === 0 ? (
             <div className="cnb-empty">
               <Icon name="bell" size={28} />
@@ -174,7 +189,7 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
             </div>
           ) : (
             <ul className="cnb-list">
-              {items.map(item => <BellItem key={item.key} item={item} onDone={() => setOpen(false)} />)}
+              {items.map(item => <BellItem key={item.key} item={item} onDone={() => setOpen(false)} onFlash={showFlash} />)}
             </ul>
           )}
         </div>

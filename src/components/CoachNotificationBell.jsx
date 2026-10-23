@@ -125,7 +125,10 @@ function BellItem({ item, onDone }) {
   );
 }
 
-export default function CoachNotificationBell({ items = [], onClearAll }) {
+// variant: 'fixed' — top-right corner of the desktop shell; 'inline' — in the
+// mobile header row, next to the profile photo. TrainerDashboard renders
+// both; CSS shows whichever fits the width.
+export default function CoachNotificationBell({ items = [], onClearAll, variant = 'fixed' }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -143,7 +146,7 @@ export default function CoachNotificationBell({ items = [], onClearAll }) {
 
   const count = items.length;
   return (
-    <div className="cnb-root" ref={rootRef}>
+    <div className={`cnb-root cnb-${variant}`} ref={rootRef}>
       <button
         type="button"
         className={`cnb-bell${open ? ' cnb-bell-open' : ''}`}
@@ -152,7 +155,7 @@ export default function CoachNotificationBell({ items = [], onClearAll }) {
         aria-label={count ? `Notifications, ${count} new` : 'Notifications'}
         aria-expanded={open}
       >
-        <Icon name="bell" size={22} />
+        <Icon name="bell" size={variant === 'inline' ? 18 : 22} />
         {count > 0 && <span className="cnb-badge">{count > 99 ? '99+' : count}</span>}
       </button>
 

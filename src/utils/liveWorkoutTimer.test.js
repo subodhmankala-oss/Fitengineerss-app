@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise } from './liveWorkoutTimer';
+import { computeRestSecondsRemaining, computeLiveCalories, estimateCardioKcal, estimateCardioDistanceKm, isJumpRopeExercise, splitNewTemplates } from './liveWorkoutTimer';
 import { isBodyweightExercise } from '../data/exerciseLibrary';
 
 describe('computeRestSecondsRemaining', () => {
@@ -368,5 +368,26 @@ describe('weighted strength sets left at 0 kg', () => {
   it('still counts the same move once a weight is typed', () => {
     const sets = [1, 2, 3].map((n) => done({ reps: '15', weight: '10' }, n * 60_000));
     expect(computeLiveCalories([{ name: 'Bicep Curl (Dumbbell)', sets }], 1, [], 70).totalKcal).toBeGreaterThan(0);
+  });
+});
+
+describe('splitNewTemplates', () => {
+  const performed = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, planName: `Old ${i}`, createdAt: '2026-01-01T00:00:00Z' }));
+  const sessions = performed.map((p, i) => ({ planName: p.planName, caloriesBurned: 100 + i, durationSeconds: 1800, exercises: [] }));
+  const fresh = [
+    { id: 'n1', planName: 'AI Day 1', createdAt: '2026-10-23T08:00:00Z' },
+    { id: 'n2', planName: 'AI Day 2', createdAt: '2026-10-23T09:00:00Z' }
+  ];
+
+  it('always lists never-logged plans, newest first, even with 10+ performed plans', () => {
+    const { newPlans, savedPlans } = splitNewTemplates([...performed, ...fresh], sessions);
+    expect(newPlans.map(p => p.id)).toEqual(['n2', 'n1']);
+    expect(savedPlans).toHaveLength(10);
+    expect(savedPlans.some(p => p.id.startsWith('n'))).toBe(false);
+  });
+
+  it('matches logged plan names case- and space-insensitively', () => {
+    const { newPlans } = splitNewTemplates([{ id: 'a', planName: ' Leg Day ' }], [{ planName: 'leg day', exercises: [] }]);
+    expect(newPlans).toEqual([]);
   });
 });

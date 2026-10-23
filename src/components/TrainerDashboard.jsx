@@ -22,7 +22,7 @@ import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
 import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
-import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
+import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { getActivityStatus } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
@@ -4974,6 +4974,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   // the client's own logger (see buildRecentWorkoutPlans). workoutLogs is
   // already scoped to the one selected client.
   const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, clientPlans.map(p => p.planName));
+  const { newPlans: liveNewPlans, savedPlans: liveSavedPlans } = splitNewTemplates(clientPlans, workoutLogs);
 
   // ── Header notification bell (super-admin desktop shell only) ──
   // Every "something is waiting" list the dashboard already keeps, as one
@@ -10047,6 +10048,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 volume from this client's past logged sessions under
                                 each plan's name) — see rankTemplatesByPerformance —
                                 not just the 10 most recent. */}
+                            {/* Plans never logged yet (e.g. an AI draft's days
+                                assigned yesterday) — their own group, since the
+                                performance ranking below sorts them last and can
+                                cut them off. See splitNewTemplates. */}
+                            {liveNewPlans.length > 0 && (
+                              <optgroup label="New plans">
+                                {liveNewPlans.map(p => (
+                                  <option key={p.id} value={p.id}>{p.planName}</option>
+                                ))}
+                              </optgroup>
+                            )}
                             {recentWorkoutPlans.length > 0 && (
                               <optgroup label="Recent workouts">
                                 {recentWorkoutPlans.map(p => (
@@ -10054,9 +10066,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 ))}
                               </optgroup>
                             )}
-                            {clientPlans.length > 0 && (
+                            {liveSavedPlans.length > 0 && (
                               <optgroup label="Saved plans">
-                                {rankTemplatesByPerformance(clientPlans, workoutLogs, 10).map(p => (
+                                {liveSavedPlans.map(p => (
                                   <option key={p.id} value={p.id}>{p.planName}</option>
                                 ))}
                               </optgroup>

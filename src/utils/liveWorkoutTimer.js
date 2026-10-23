@@ -662,6 +662,11 @@ export function computeSessionVolume(session) {
 // the back — it's never excluded outright, just deprioritized behind
 // anything with real performance data, so a brand-new template still shows
 // up if there's room left in `limit`.
+//
+// "If there's room" was the catch: with 10+ performed plans, a plan the
+// coach assigned yesterday (an AI draft's days, say) never made the list
+// and couldn't be loaded into the logger at all. splitNewTemplates below
+// pulls those never-logged plans out into their own "New plans" group.
 export function rankTemplatesByPerformance(templates, sessions, limit = 10) {
   const stats = templates.map(plan => {
     const name = (plan.planName || '').trim().toLowerCase();
@@ -697,6 +702,20 @@ export function rankTemplatesByPerformance(templates, sessions, limit = 10) {
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(s => s.plan);
+}
+
+// Splits a logger's saved plans into { newPlans, savedPlans } for the
+// Existing Plan dropdown: newPlans are the ones never logged under their name
+// (newest first, up to `newLimit`), always listed in their own group;
+// savedPlans is the usual top-`limit` ranking of everything else.
+export function splitNewTemplates(templates, sessions, { limit = 10, newLimit = 10 } = {}) {
+  const loggedNames = new Set((sessions || []).map(s => (s.planName || '').trim().toLowerCase()).filter(Boolean));
+  const isNew = (p) => !loggedNames.has((p.planName || '').trim().toLowerCase());
+  const time = (p) => Date.parse(p.createdAt || '') || 0;
+  const newPlans = (templates || []).filter(isNew).sort((a, b) => time(b) - time(a)).slice(0, newLimit);
+  const newIds = new Set(newPlans.map(p => p.id));
+  const savedPlans = rankTemplatesByPerformance((templates || []).filter(p => !newIds.has(p.id)), sessions || [], limit);
+  return { newPlans, savedPlans };
 }
 
 // The "Recent workouts" group in the logger's Existing Plan dropdown. Saved

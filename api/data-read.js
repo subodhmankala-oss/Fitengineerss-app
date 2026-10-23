@@ -914,7 +914,7 @@ async function handleCoachGym(req, res) {
   }
 }
 
-export const __test = { ownerGymPayload, buildMemberPayload };
+export const __test = { ownerGymPayload, buildMemberPayload, liveSessions };
 
 // The gym owner's money + settings: plans, memberships, payments, settings.
 // Reads for the gym the VERIFIED caller owns (sql/gym_business.sql).
@@ -963,9 +963,43 @@ async function handleGymBusiness(req, res) {
   }
 }
 
-// Live calorie board on the gym site: one row per workout session this week
-// (IST, Monday start) for the caller's gym members. calories_burned is the
-// session total repeated on every set row, so it is taken once per session.
+// A save shorter than this is a plan saved without being trained (all sets
+// stamped in the same instant), not a workout — the board skips it.
+const LIVE_MIN_SECONDS = 120;
+
+// workout_logs set rows -> one entry per real workout. calories_burned and
+// duration_seconds are session totals repeated on every row, so each is read
+// once per session. The same workout saved more than once (same member, day,
+// plan, calories and set count — the double-save bug) counts once.
+function liveSessions(rows) {
+  const bySession = new Map();
+  for (const r of rows) {
+    const key = r.session_id || `${r.user_id}|${r.log_date}|${r.created_at}`;
+    let s = bySession.get(key);
+    if (!s) {
+      s = { memberId: r.user_id, date: r.log_date, plan: r.plan_name || '', kcal: 0, seconds: null, sets: 0, at: r.created_at };
+      bySession.set(key, s);
+    }
+    s.sets += 1;
+    s.kcal = Math.max(s.kcal, Number(r.calories_burned) || 0);
+    if (r.duration_seconds != null) s.seconds = Math.max(s.seconds || 0, Number(r.duration_seconds) || 0);
+    if (r.created_at < s.at) s.at = r.created_at;
+  }
+  const seen = new Set();
+  const out = [];
+  for (const s of bySession.values()) {
+    if (s.seconds != null && s.seconds < LIVE_MIN_SECONDS) continue;
+    const twin = `${s.memberId}|${s.date}|${s.plan}|${s.kcal}|${s.sets}`;
+    if (seen.has(twin)) continue;
+    seen.add(twin);
+    out.push({ memberId: s.memberId, date: s.date, kcal: Math.round(s.kcal * 10) / 10, at: s.at });
+  }
+  return out;
+}
+
+// Live calorie board on the gym site: one entry per real workout this week
+// (IST, Monday start) for the caller's gym members (see liveSessions). Reads
+// every row in pages — a busy gym logs well over the 1000-row read cap.
 async function handleGymLive(req, res) {
   if (!supabaseUrl || !serviceKey) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
@@ -983,23 +1017,18 @@ async function handleGymLive(req, res) {
     const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
     const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name&limit=5000`, 'gym-live members');
     const ids = members.map((m) => m.id);
-    const sessions = {};
+    const rows = [];
     for (let i = 0; i < ids.length; i += 150) {
-      const rows = await svcSelect(
-        `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${weekStart}&select=user_id,log_date,session_id,calories_burned,created_at&limit=50000`,
+      rows.push(...await svcSelectAll(
+        `workout_logs?user_id=in.(${ids.slice(i, i + 150).join(',')})&log_date=gte.${weekStart}&select=id,user_id,log_date,session_id,plan_name,calories_burned,duration_seconds,created_at&order=id.asc`,
         'gym-live logs'
-      );
-      for (const r of rows) {
-        const key = r.session_id || `${r.user_id}-${r.log_date}`;
-        const s = sessions[key] || (sessions[key] = { memberId: r.user_id, date: r.log_date, kcal: 0, at: r.created_at });
-        s.kcal = Math.max(s.kcal, Number(r.calories_burned) || 0);
-        if (r.created_at > s.at) s.at = r.created_at;
-      }
+      ));
     }
+    const sessions = liveSessions(rows);
     return res.status(200).json({
       gym: { id: gid }, today, weekStart,
       members: members.map((m) => ({ id: m.id, name: m.full_name })),
-      sessions: Object.values(sessions)
+      sessions
     });
   } catch (err) {
     console.error('gym-live error:', err, err.detail);

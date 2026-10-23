@@ -156,6 +156,12 @@ const ReceiptIcon = ({ size = 16 }) => (
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// saveWorkoutPlan reports a failed cloud save as `syncError` instead of
+// throwing (the plan is kept on the device). The editor stays open with the
+// coach's work, and the draft survives a page refresh (savePlanEditorDraft).
+const planSaveFailedMessage = (reason) =>
+  `This plan was NOT saved. ${reason}\n\nRefresh the page (log in again if asked), then press Assign again — your plan stays here.`;
+
 const convertAiExerciseToEditorShape =(aiEx) => {
   const type = aiEx.type || 'strength';
   const setCount = Math.max(1, parseInt(aiEx.setCount, 10) || (type === 'cardio' ? 1 : 3));
@@ -1633,6 +1639,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
   const [regeneratingAiDay, setRegeneratingAiDay] = useState(false);
   // Plan editor Swap sheet: index of the exercise being swapped.
   const [swapExerciseIdx, setSwapExerciseIdx] = useState(null);
+  // "clientId|dayIdx|planName" for each AI-draft day already saved by an
+  // Assign press that then failed part way — see handleSavePlan.
+  const aiSavedDayKeysRef = useRef(new Set());
   // Which assigned-plan card's ⋮ menu (Edit/Duplicate/Delete/More details)
   // is open — one at a time, keyed by plan id.
   const [openPlanCardMenuId, setOpenPlanCardMenuId] = useState(null);
@@ -4544,8 +4553,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
           exercises: editorExercises
         };
         for (const clientId of targetClientIds) {
-          for (const day of daysToSave) {
+          for (const [dayIdx, day] of daysToSave.entries()) {
             if (!day.planName?.trim() || day.exercises.length === 0) continue;
+            // Days already saved by an earlier press that then failed part
+            // way are skipped, so pressing Assign again doesn't duplicate them.
+            const savedKey = `${clientId}|${dayIdx}|${day.planName.trim()}`;
+            if (aiSavedDayKeysRef.current.has(savedKey)) continue;
             const plan = {
               id: null,
               userId: clientId,
@@ -4554,13 +4567,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
               createdBy: 'coach',
               isAssigned: true
             };
-            await databaseService.saveWorkoutPlan(plan);
+            const saved = await databaseService.saveWorkoutPlan(plan);
+            if (saved?.syncError) {
+              await databaseService.removeLocalPlan(clientId, saved.id);
+              alert(planSaveFailedMessage(saved.syncError));
+              return;
+            }
+            aiSavedDayKeysRef.current.add(savedKey);
           }
           notifyEvent('plan_assigned', {
             clientUserId: clientId,
             planName: daysToSave.length === 1 ? daysToSave[0].planName : `${daysToSave.length} new workout plans`
           });
         }
+        aiSavedDayKeysRef.current = new Set();
         setShowPlanEditor(false);
         setIsAiDraftMode(false);
         setAiDraftDays([]);
@@ -4605,7 +4625,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
         isAssigned: true
       };
       try {
-        await databaseService.saveWorkoutPlan(plan);
+        const saved = await databaseService.saveWorkoutPlan(plan);
+        if (saved?.syncError) {
+          // An edit of an existing plan keeps its id, so its local copy is
+          // the real plan — only a brand-new one is dropped.
+          if (!plan.id) await databaseService.removeLocalPlan(clientId, saved.id);
+          alert(planSaveFailedMessage(saved.syncError));
+          return;
+        }
       } catch (err) {
         console.error('Failed to save workout plan:', err);
         alert(err.message || 'Could not save this plan. Please try again.');

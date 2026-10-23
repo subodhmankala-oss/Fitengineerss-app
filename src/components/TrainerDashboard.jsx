@@ -24,7 +24,7 @@ import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, rankTemplatesByPerformance, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
-import { daysSinceLogin } from '../utils/activityStatus';
+import { getActivityStatus } from '../utils/activityStatus';
 import { subscribeToPush, unsubscribeFromPush, hasActivePushSubscription } from '../utils/pushSubscription';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise, EXERCISE_LIBRARY } from '../data/exerciseLibrary';
 import AIWorkoutBuilderModal from './AIWorkoutBuilderModal';
@@ -7402,14 +7402,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 {(hasClientDot(client.id) || newClientNotifications.some(n => n.clientId === client.id)) && (
                                   <span className="unread-dot" style={{ position: 'absolute', top: 0, right: 0 }} aria-label="New update" />
                                 )}
-                                {/* Activity dot from last_login: green if they logged
-                                    in within the last 7 days, grey otherwise (or never). */}
+                                {/* Activity dot from last_login — same buckets as the
+                                    super-admin activity tiles: green active today,
+                                    amber 1–5 days, red 6+ days, grey never logged in. */}
                                 {(() => {
-                                  const days = daysSinceLogin(client.last_login);
-                                  const active = days !== null && days < 7;
+                                  const activity = getActivityStatus(client.last_login);
                                   const label = client.last_login
-                                    ? `${active ? 'Active' : 'Inactive'} · last seen ${new Date(client.last_login).toLocaleString()}`
-                                    : 'Inactive · never logged in';
+                                    ? `${activity.label} · last seen ${new Date(client.last_login).toLocaleString()}`
+                                    : activity.label;
                                   return (
                                     <span
                                       role="img"
@@ -7418,7 +7418,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                       style={{
                                         position: 'absolute', bottom: 1, right: 1,
                                         width: '12px', height: '12px', borderRadius: '50%',
-                                        background: active ? '#10b981' : '#94a3b8',
+                                        background: activity.color,
                                         border: '2px solid var(--bg-app)'
                                       }}
                                     />

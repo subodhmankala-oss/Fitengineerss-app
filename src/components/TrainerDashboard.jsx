@@ -5673,6 +5673,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                           >
                             Pause subscription
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => { setRenewalMenuOpenId(null); handleRemoveClient(r.clientId, r.clientName); }}
+                            style={{
+                              display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                              borderRadius: '7px', padding: '9px 12px', cursor: 'pointer', color: '#ef4444',
+                              fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
+                            }}
+                          >
+                            Remove client
+                          </button>
                         </div>
                       )}
                     </div>

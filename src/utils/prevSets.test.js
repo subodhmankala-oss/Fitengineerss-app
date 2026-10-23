@@ -37,6 +37,52 @@ describe('findPreviousLoggedSetIn', () => {
   });
 });
 
+describe('library id lookups', () => {
+  const FACE = '11111111-1111-4111-8111-111111111111';
+  const CUSTOM = '22222222-2222-4222-8222-222222222222';
+  const history = [
+    // Logged before ids existed: name only.
+    { clientName: 'Asha', date: '2026-08-01', exercises: [{ name: 'Face Pull', sets: [{ reps: 12, weight: 10 }] }] },
+    // Linked, under a name the library record has since dropped.
+    { clientName: 'Asha', date: '2026-09-01', exercises: [{ name: 'Rope Face Pull', exerciseId: FACE, sets: [{ reps: 15, weight: 12.5 }] }] }
+  ];
+
+  it('the id finds history logged under an old name of the same record', () => {
+    expect(findPreviousLoggedSetIn(history, 'Asha', { name: 'Cable Face Pull', exerciseId: FACE }, 0))
+      .toEqual({ reps: 15, weight: 12.5 });
+    expect(findPreviousExerciseSetsIn(history, 'Asha', { name: 'Cable Face Pull', exerciseId: FACE }))
+      .toEqual([{ reps: 15, weight: 12.5 }]);
+  });
+
+  it('an entry without an id still resolves by name key', () => {
+    expect(findPreviousLoggedSetIn(history, 'Asha', { name: 'Face Pulls' }, 0)).toEqual({ reps: 12, weight: 10 });
+    expect(findPreviousLoggedSetIn(history, 'Asha', 'Face Pulls', 0)).toEqual({ reps: 12, weight: 10 });
+  });
+
+  it('an id with no linked history falls back to the name for old rows', () => {
+    expect(findPreviousLoggedSetIn(history.slice(0, 1), 'Asha', { name: 'Face Pulls', exerciseId: FACE }, 0))
+      .toEqual({ reps: 12, weight: 10 });
+    // A different record's id doesn't hide a name match.
+    expect(findPreviousLoggedSetIn(history, 'Asha', { name: 'Face Pull', exerciseId: CUSTOM }, 0))
+      .toEqual({ reps: 12, weight: 10 });
+  });
+
+  it('neither id nor name matching gives null', () => {
+    expect(findPreviousLoggedSetIn(history, 'Asha', { name: 'Leg Press', exerciseId: CUSTOM }, 0)).toBeNull();
+    expect(findPreviousLoggedSetIn(history, 'Asha', { name: '' }, 0)).toBeNull();
+  });
+
+  it('fillPendingPrevSets hands the lookup the whole entry, id included', () => {
+    const seen = [];
+    const [ex] = fillPendingPrevSets(
+      [{ name: 'Cable Face Pull', exerciseId: FACE, sets: [{ reps: '10', weight: '', isCompleted: false, prevPending: 'plan' }] }],
+      (exercise, setIdx) => { seen.push(exercise.exerciseId); return findPreviousLoggedSetIn(history, 'Asha', exercise, setIdx); }
+    );
+    expect(seen).toEqual([FACE]);
+    expect(ex.sets[0]).toMatchObject({ reps: 15, weight: '12.5' });
+  });
+});
+
 describe('findPreviousExerciseSetsIn', () => {
   it('returns every set from the most recent session with the exercise', () => {
     expect(findPreviousExerciseSetsIn(sessions, 'Asha', 'Bench Press')).toHaveLength(2);

@@ -166,7 +166,9 @@ export function applyWeeklySwaps({ programName, exercises, level, category, date
       const pick = options[(start + k) % options.length];
       if (used.has(pick.toLowerCase())) continue;
       used.add(pick.toLowerCase());
-      return { ...ex, name: pick, swappedFrom: ex.name };
+      // The original's library id names the original, not the swap-in.
+      const { exerciseId: _originalId, ...rest } = ex;
+      return { ...rest, name: pick, swappedFrom: ex.name };
     }
     return ex;
   });

@@ -84,6 +84,16 @@ describe('applyWeeklySwaps', () => {
     expect(out[0].name).toBe('Bench Press');
   });
 
+  it("a swap-in drops the original's library id; unswapped ones keep theirs", () => {
+    const linked = push.map((e, i) => ({ ...e, exerciseId: `00000000-0000-4000-8000-00000000000${i}` }));
+    const out = applyWeeklySwaps({ programName: 'Intermediate Push', exercises: linked, level: 'intermediate', category: 'gym', date: MON });
+    expect(out.some(e => e.swappedFrom)).toBe(true);
+    out.forEach((e, i) => {
+      if (e.swappedFrom) expect(e).not.toHaveProperty('exerciseId');
+      else expect(e.exerciseId).toBe(linked[i].exerciseId);
+    });
+  });
+
   it('advanced strength: 1 swap, only among the last exercises', () => {
     const strength = ex('Bench Press', 'Incline Barbell Press', 'Overhead Press (Barbell)', 'Close Grip Bench Press', 'Cable Overhead Triceps Extension');
     weeks(6).forEach(date => {

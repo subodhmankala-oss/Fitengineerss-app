@@ -6,6 +6,7 @@ import { adaptiveTimeout } from '../utils/networkQuality';
 import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 import { setCatalogMuscles } from '../utils/muscleGroups';
+import { withExerciseIds } from '../utils/exerciseName';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -344,6 +345,14 @@ let exerciseLibraryCache = null;
 let hiddenExerciseNamesCache = null;
 let exerciseLibraryFetchPromise = null;
 let seededOnce = false;
+
+// Save-time safety net for the library id on plan/draft/log exercises (see
+// withExerciseIds): fills in what's missing from the catalog already in
+// memory. Never waits on the network — a save must not stall on a library
+// fetch (drafts save on every set, sometimes as the page hides) — so with
+// no cache yet the entries go out as they are and resolve by name.
+const withCachedLibraryIds = (exercises) =>
+  (exerciseLibraryCache ? withExerciseIds(exercises, exerciseLibraryCache) : exercises);
 
 async function restSelect(pathAndQuery, { timeoutMs = adaptiveTimeout(8000) } = {}) {
   const doFetch = async (token) => {
@@ -1806,7 +1815,7 @@ const databaseService = {
           // repeat instead of storing a second copy (see isDuplicateSessionError).
           const sessionId = session.id ? String(session.id) : null;
           let sessionRow = 0;
-          session.exercises.forEach(ex => {
+          withCachedLibraryIds(session.exercises).forEach(ex => {
             ex.sets.forEach((set, sIdx) => {
               // Cardio sets carry distanceKm/time instead of reps/weight (see
               // isCardioExercise). Timed holds (plank etc., see isTimedExercise)
@@ -1850,6 +1859,10 @@ const databaseService = {
                 user_id: user.id,
                 log_date: session.date,
                 exercise_name: ex.name,
+                // Library record id (exercises / custom_exercises) — see
+                // sql/supabase_exercise_id_linkage.sql. Dropped by the
+                // missing-column retry below until that migration is run.
+                exercise_id: ex.exerciseId || null,
                 set_number: sIdx + 1,
                 reps: (isCardioSet || isTimedSet) ? 0 : parseInt(set.reps || '0'),
                 weight_kg: (isCardioSet || (isTimedSet && !isTimedBodyweightSet)) ? 0 : parseFloat(set.weight || '0.0'),
@@ -4101,7 +4114,7 @@ const databaseService = {
     // resulting row saved fine and then opened as a blank template, which
     // "Duplicate" would happily copy again. Normalizing here means the same
     // shape guarantee as the read side (see normalizePlanExercises).
-    const cleanedExercises = normalizePlanExercises(plan.exercises);
+    const cleanedExercises = withCachedLibraryIds(normalizePlanExercises(plan.exercises));
     if (cleanedExercises.length === 0) {
       throw new Error('This plan has no exercises with sets — add at least one before saving.');
     }
@@ -4229,7 +4242,7 @@ const databaseService = {
       source: draft.source === 'coach' ? 'coach' : 'self',
       plan_name: draft.planName || null,
       log_date: draft.logDate || null,
-      exercises: draft.exercises || [],
+      exercises: withCachedLibraryIds(draft.exercises || []),
       timer_status: draft.timerStatus || 'idle',
       timer_started_at: draft.timerStartedAt ?? null,
       pause_intervals: draft.pauseIntervals || [],
@@ -4335,7 +4348,7 @@ const databaseService = {
       source: 'self',
       plan_name: draft.planName || null,
       log_date: draft.logDate || null,
-      exercises: draft.exercises || [],
+      exercises: withCachedLibraryIds(draft.exercises || []),
       timer_status: draft.timerStatus || 'idle',
       timer_started_at: draft.timerStartedAt ?? null,
       pause_intervals: draft.pauseIntervals || [],

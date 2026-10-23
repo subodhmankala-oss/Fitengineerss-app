@@ -34,6 +34,7 @@ import SetValueField from './SetValueField';
 import { scrollFieldClearOfPad } from '../utils/numberPadScroll';
 import { animateNewSetRow } from '../utils/animateNewSetRow';
 import { useExitingSetRow } from '../hooks/useExitingSetRow';
+import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard, { TrashIcon } from './PlanCard';
@@ -574,8 +575,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
 
     const fillPendingPrev = (history) => {
       prevHistoryReadyRef.current = true;
-      setLogExercises(prev => fillPendingPrevSets(prev, (exName, setIdx) =>
-        findPreviousLoggedSetIn(history, loggedInUser, exName, setIdx)));
+      setLogExercises(prev => fillPendingPrevSets(prev, (exercise, setIdx) =>
+        findPreviousLoggedSetIn(history, loggedInUser, exercise, setIdx)));
       const pending = pendingFinisherRef.current;
       pendingFinisherRef.current = null;
       if (pending) {
@@ -586,11 +587,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             pending.exercises.every(ex => prev.some(p => p.name === ex.name)) && !prev.some(p => p.finisherFor)
               ? [...prev, {
                 name: finisher.name,
+                ...exerciseIdField(finisher.exerciseId),
                 finisherFor: finisher.finisherFor,
                 // Same pre-fill as the program's own sets (handleStartFromTemplate).
                 sets: Array.from({ length: finisher.sets }, (_, setIdx) => applyPrevRepsAndWeight(
                   { reps: finisher.reps, weight: isBodyweightExercise(finisher.name) ? '0' : '', isCompleted: false, targetReps: finisher.reps },
-                  findPreviousLoggedSetIn(history, loggedInUser, finisher.name, setIdx)
+                  findPreviousLoggedSetIn(history, loggedInUser, finisher, setIdx)
                 ))
               }]
               : prev
@@ -749,7 +751,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         const byDate = {};
         rows.forEach(l => {
           const d = l.log_date;
-          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {} };
+          if (!byDate[d]) byDate[d] = { id: `db-${d}`, clientName: loggedInUser, date: d, planName: l.plan_name || 'Logged Session', durationSeconds: null, caloriesBurned: null, avgHeartRate: null, maxHeartRate: null, exMap: {}, exIds: {} };
           // Session duration/calories/heart-rate are duplicated onto every
           // row of the session (workout_logs has no session-level row) —
           // take the first non-null value seen for this date so the history
@@ -760,6 +762,9 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           if (l.max_heart_rate_bpm != null && byDate[d].maxHeartRate == null) byDate[d].maxHeartRate = l.max_heart_rate_bpm;
           const ex = l.exercise_name;
           if (!byDate[d].exMap[ex]) byDate[d].exMap[ex] = [];
+          // Library id (workout_logs.exercise_id) for the PREV match — any
+          // one row of the exercise carries it.
+          if (l.exercise_id && !byDate[d].exIds[ex]) byDate[d].exIds[ex] = l.exercise_id;
           // distance_km present = real cardio; cardio_duration_seconds present
           // without distance_km = a timed hold (plank etc.) reusing that column
           // (see databaseService.saveWorkoutSession) — else a normal reps/weight set.
@@ -779,7 +784,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           id: s.id, clientName: s.clientName, date: s.date, planName: s.planName,
           durationSeconds: s.durationSeconds, caloriesBurned: s.caloriesBurned,
           avgHeartRate: s.avgHeartRate, maxHeartRate: s.maxHeartRate,
-          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, sets }))
+          exercises: Object.entries(s.exMap).map(([name, sets]) => ({ name, ...exerciseIdField(s.exIds[name]), sets }))
         }));
         // DB is authoritative per date; keep any local-only (unsynced) dates too.
         const localOnly = allSessions.filter(s => !dbDates.has(s.date));
@@ -1247,9 +1252,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Raw lookup shared by getPreviousSessionSet (display) and
   // handleStartFromTemplate (pre-fill) — walks the client's history newest
   // first and returns the actual logged set for this exercise/set index, or
-  // null when nothing's ever been logged for it.
-  const findPreviousLoggedSet = (exName, setIdx) =>
-    findPreviousLoggedSetIn(sessions, selectedClient, exName, setIdx);
+  // null when nothing's ever been logged for it. `exercise` is the plan/
+  // logger entry (its exerciseId counts) or a bare name.
+  const findPreviousLoggedSet = (exercise, setIdx) =>
+    findPreviousLoggedSetIn(sessions, selectedClient, exercise, setIdx);
 
   // Marks sets created before the history has loaded, so fillPendingPrev
   // can give them this same pre-fill once it arrives (see
@@ -1268,11 +1274,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // are returned unchanged. Bodyweight exercises also get a per-set
   // bodyweightMode so a set PREV logged as BW shows "BW" even when a
   // sibling set carries a plate (see getSetLogBwMode).
-  const withPrevValues = (exName, setIdx, set) =>
-    markPrevPending(applyPrevValues(exName, set, findPreviousLoggedSet(exName, setIdx)), 'plan');
+  const withPrevValues = (exercise, setIdx, set) =>
+    markPrevPending(applyPrevValues(exercise.name, set, findPreviousLoggedSet(exercise, setIdx)), 'plan');
 
-  const getPreviousSessionSet = (exName, setIdx) => {
-    const set = findPreviousLoggedSet(exName, setIdx);
+  const getPreviousSessionSet = (exercise, setIdx) => {
+    const exName = exercise.name;
+    const set = findPreviousLoggedSet(exercise, setIdx);
     if (!set) return '—';
 
     if (isCardioExercise(exName)) {
@@ -2372,6 +2379,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         const exIsCardio = isCardioExercise(ex.name);
         return {
           name: ex.name,
+          ...exerciseIdField(ex.exerciseId),
           sets: ex.sets
             .filter(s => s.isCompleted)
             .map(s => ({
@@ -2450,6 +2458,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         planName: customTemplateName.trim() || templateName.trim() || `My Template — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`,
         exercises: formattedExercises.map(ex => ({
           name: ex.name,
+          ...exerciseIdField(ex.exerciseId),
           sets: ex.sets.map(s => isCardioExercise(ex.name)
             ? { distanceKm: s.distanceKm, time: s.time }
             : isTimedExercise(ex.name) && isBodyweightExercise(ex.name)
@@ -2619,6 +2628,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       const targetReps = parseInt(String(ex.reps).split('–')[0]) || 10;
       return {
         name: ex.name,
+        ...exerciseIdField(ex.exerciseId),
         ...(ex.swappedFrom ? { swappedFrom: ex.swappedFrom } : {}),
         ...(ex.finisherFor ? { finisherFor: ex.finisherFor } : {}),
         // Pre-fill each set with what the client actually lifted last time
@@ -2649,7 +2659,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           // Kept so the reps input can show the plan's target range as a
           // placeholder hint once the lifter clears the pre-filled number.
           targetReps: ex.reps ? String(ex.reps) : null
-        }, findPreviousLoggedSet(ex.name, setIdx)), 'template'))
+        }, findPreviousLoggedSet(ex, setIdx)), 'template'))
       };
     });
     setLogExercises([...warmups, ...exercises]);
@@ -2726,6 +2736,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       ...getDefaultWarmupExercises(),
       ...planExercises.map(ex => ({
         name: ex.name,
+        ...exerciseIdField(ex.exerciseId),
         // `time` is deliberately NOT carried over from the saved plan, unlike
         // reps/weight/distanceKm which are legitimate reusable targets. A
         // saved mm:ss is the actual duration a PAST session's stopwatch ran
@@ -2736,7 +2747,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         // client had touched the stopwatch. Reported 2026-08-28 for Plank/
         // Air Rowing. Always start these blank; only an explicit "resume"
         // flow should ever restore a real in-progress time.
-        sets: ex.sets.map((s, setIdx) => withPrevValues(ex.name, setIdx, isCardioExercise(ex.name)
+        sets: ex.sets.map((s, setIdx) => withPrevValues(ex, setIdx, isCardioExercise(ex.name)
           // targetTime carries the coach's saved duration through as a
           // reusable TARGET (read by handleCardioStopwatchStart to drive the
           // countdown display) without reintroducing the stale-elapsed-time
@@ -2847,7 +2858,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // Shared by the exercise picker and the history modal's suggestion chips.
   // Starting sets for an exercise being brought in fresh: what the client did
   // last time if they've done it, else one default set.
-  const buildStartingSets = (name) => {
+  const buildStartingSets = (name, exerciseId = null) => {
     let newSet;
     const bodyweight = isBodyweightExercise(name);
     if (isCardioExercise(name)) {
@@ -2866,7 +2877,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     }
     // Done before? Start from exactly what the client did last time —
     // every set, ready for a single tap each — instead of one default set.
-    return setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, name)) || [newSet];
+    return setsFromPreviousExercise(name, findPreviousExerciseSetsIn(sessions, selectedClient, { name, exerciseId })) || [newSet];
   };
 
   // Flat per-set rows for MuscleGapHint: this client's saved sessions plus
@@ -2893,12 +2904,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // New exercises slide in (see hooks/useExerciseEnterAnimation.js).
   const { markEntering, enterRef } = useExerciseEnterAnimation();
 
-  const addExerciseToWorkout = (name) => {
+  // exerciseId: the picked library record's id (see ExercisePickerModal);
+  // MuscleGapHint's chips pass a name only.
+  const addExerciseToWorkout = (name, exerciseId = null) => {
     const alreadyAdded = logExercises.some(le => le.name.toLowerCase() === name.toLowerCase());
     if (alreadyAdded) { triggerToast(`"${name}" is already in your active workout.`); return; }
     markEntering(name);
-    const sets = buildStartingSets(name);
-    setLogExercises(prev => addExerciseInOrder(prev, isBodyweightExercise(name) ? { name, sets, bodyweightMode: true } : { name, sets }));
+    const sets = buildStartingSets(name, exerciseId);
+    const entry = { name, ...exerciseIdField(exerciseId), sets };
+    setLogExercises(prev => addExerciseInOrder(prev, isBodyweightExercise(name) ? { ...entry, bodyweightMode: true } : entry));
     triggerToast(`Added ${name} to active workout!`);
   };
 
@@ -3676,6 +3690,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         setLoggingLevel(null);
                         setLogExercises(plan.exercises.map(ex => ({
                           name: ex.name,
+                          ...exerciseIdField(ex.exerciseId),
                           // See startPlan's identical comment above: `time` is
                           // never carried over from the saved plan — it's a
                           // past session's real duration, not a target, and a
@@ -3795,7 +3810,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 const allSetsLogBw = exIsBodyweight && ex.sets.every(s => getSetLogBwMode(ex, s));
                 const exIsWarmup = isWarmupExercise(ex.name);
                 const showFormGuide = () => {
-                  const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
+                  const matched = findExerciseGuideMatch(exercisesList, ex.name, ex.exerciseId) ||
                                   findExerciseGuideMatch(allExerciseOptions, ex.name);
                   if (matched) {
                     setActiveGuideExercise(normalizeExerciseForGuide(matched));
@@ -3896,7 +3911,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       // Advanced sessions (loggingLevel unset) never render this
                       // and keep the Form Guide button as their only video entry
                       // point, unchanged.
-                      const matched = findExerciseGuideMatch(exercisesList, ex.name) ||
+                      const matched = findExerciseGuideMatch(exercisesList, ex.name, ex.exerciseId) ||
                                       findExerciseGuideMatch(allExerciseOptions, ex.name);
                       const videoUrl = matched?.video_url || matched?.videoFile || '';
                       if (!videoUrl) return null;
@@ -4046,7 +4061,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                       </div>
                       <div className="hevy-table-body">
                         {ex.sets.map((set, sIdx) => {
-                          const prevStats = getPreviousSessionSet(ex.name, sIdx);
+                          const prevStats = getPreviousSessionSet(ex, sIdx);
                           // Warm-up sets show "W"; failure = "F"; drop = "D"; superset = "S"; others get a working-set number.
                           const workingSetNumber = ex.sets.slice(0, sIdx + 1).filter(s => !s.isWarmup && s.setType !== 'failure' && s.setType !== 'drop' && s.setType !== 'superset').length;
                           const setDisplayLabel = set.setType === 'failure' ? 'F' : set.setType === 'drop' ? 'D' : set.setType === 'superset' ? 'S' : set.isWarmup ? 'W' : workingSetNumber;

@@ -108,6 +108,12 @@ async function handleSaveExercise(req, res) {
     await setExerciseHidden(exercise.name, false).catch(e => console.warn('admin-write unhide failed:', e.message));
     return res.status(200).json({ exercise: Array.isArray(data) ? data[0] : data });
   } catch (err) {
+    // exercises_name_key_uniq (sql/supabase_exercise_id_linkage.sql): the
+    // name folds to one already in the library — "Face Pulls" next to
+    // "Face Pull", or the same name with different dashes/spacing.
+    if (/exercises_name_key_uniq/.test(err.message || '')) {
+      return res.status(409).json({ error: `"${exercise.name}" is already in the library under a near-identical name (a plural, or different spacing/dashes). Edit that exercise instead.` });
+    }
     console.error('admin-write save-exercise error:', err);
     return res.status(502).json({ error: err.message || 'Failed to save exercise.' });
   }

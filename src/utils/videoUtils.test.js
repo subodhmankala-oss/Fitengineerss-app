@@ -104,6 +104,19 @@ describe('videoUtils: findExerciseGuideMatch', () => {
     expect(findExerciseGuideMatch(list, 'bench press')).toBe(list[0]);
   });
 
+  it("prefers the entry's library id over any name match", () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const list = [{ id: 'other', name: 'Face Pull', video_url: 'plain' }, { id, name: 'Rope Face Pull', video_url: 'rope' }];
+    expect(findExerciseGuideMatch(list, 'Face Pull', id)).toBe(list[1]);
+  });
+
+  it('falls back to the name tiers when the id is missing or not in the list', () => {
+    const list = [{ id: 'a', name: 'Face Pull', video_url: 'plain' }];
+    expect(findExerciseGuideMatch(list, 'Face Pulls', null)).toBe(list[0]);
+    expect(findExerciseGuideMatch(list, 'Face Pulls', '22222222-2222-4222-8222-222222222222')).toBe(list[0]);
+    expect(findExerciseGuideMatch(list, '', '22222222-2222-4222-8222-222222222222')).toBeNull();
+  });
+
   it('matches names differing only by spacing/hyphen/case (squashed)', () => {
     const list = [{ name: 'Pullover', video_url: 'a' }];
     expect(findExerciseGuideMatch(list, 'Pull-Over')).toBe(list[0]);

@@ -21,6 +21,10 @@
      so this wrapper is the page's own scroll container. */
   height: 100vh;
   height: 100dvh;
+  /* #root is a flex container: without this the page shrinks to its content. */
+  width: 100%;
+  flex: 1 1 100%;
+  min-width: 0;
   overflow-y: auto;
   background: var(--bg-app);
   color: var(--text-main);

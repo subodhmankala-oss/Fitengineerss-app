@@ -666,7 +666,7 @@ export function computeSessionVolume(session) {
 // "If there's room" was the catch: with 10+ performed plans, a plan the
 // coach assigned yesterday (an AI draft's days, say) never made the list
 // and couldn't be loaded into the logger at all. splitNewTemplates below
-// pulls those never-logged plans out into their own "New plans" group.
+// pulls those never-logged plans out into their own "Coach assigned" group.
 export function rankTemplatesByPerformance(templates, sessions, limit = 10) {
   const stats = templates.map(plan => {
     const name = (plan.planName || '').trim().toLowerCase();

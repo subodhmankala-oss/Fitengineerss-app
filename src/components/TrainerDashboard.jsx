@@ -10080,7 +10080,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
                                 performance ranking below sorts them last and can
                                 cut them off. See splitNewTemplates. */}
                             {liveNewPlans.length > 0 && (
-                              <optgroup label="New plans">
+                              <optgroup label="Coach assigned">
                                 {liveNewPlans.map(p => (
                                   <option key={p.id} value={p.id}>{p.planName}</option>
                                 ))}

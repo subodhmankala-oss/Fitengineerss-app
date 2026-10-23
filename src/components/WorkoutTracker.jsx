@@ -2961,7 +2961,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     sessions.filter(s => (s.clientName || '').toLowerCase() === (selectedClient || '').toLowerCase()),
     [...CORE_PPL_TEMPLATES, ...clientPlans, ...thisWeekPlans].map(p => p.planName)
   ), [sessions, selectedClient, clientPlans, thisWeekPlans]);
-  // "New plans" (never logged yet, e.g. what the coach assigned yesterday)
+  // "Coach assigned" (never logged yet, e.g. what the coach assigned yesterday)
   // get their own dropdown group so the top-10 "Saved plans" ranking can't
   // cut them off. Same split as the coach's Live Log — see splitNewTemplates.
   const { newPlans: dropdownNewPlans, savedPlans: dropdownSavedPlans } = useMemo(() => splitNewTemplates(
@@ -3787,7 +3787,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                         name) — see rankTemplatesByPerformance — not just the
                         10 most recent. */}
                     {dropdownNewPlans.length > 0 && (
-                      <optgroup label="New plans">
+                      <optgroup label="Coach assigned">
                         {dropdownNewPlans.map(p => (
                           <option key={p.id} value={p.id}>{p.planName}</option>
                         ))}

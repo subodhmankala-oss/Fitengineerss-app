@@ -42,6 +42,28 @@ export const trainedLabel = (months) => {
   return `Training ${months} month${months === 1 ? '' : 's'}`;
 };
 
+// The coach's Google "write a review" link, cleaned: https only, and only on
+// Google's own hosts — this link is opened on clients' phones, so it must not
+// be able to point anywhere else. '' when it isn't one.
+const GOOGLE_REVIEW_HOSTS = ['g.page', 'g.co', 'goo.gl', 'maps.app.goo.gl', 'google.com', 'www.google.com', 'search.google.com', 'maps.google.com', 'business.google.com', 'google.co.in', 'www.google.co.in'];
+export const cleanGoogleReviewUrl = (raw) => {
+  let value = String(raw || '').trim();
+  if (!value) return '';
+  if (!/^[a-z]+:\/\//i.test(value)) value = `https://${value}`;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    if (!GOOGLE_REVIEW_HOSTS.includes(url.hostname.toLowerCase())) return '';
+    url.protocol = 'https:';
+    return url.toString();
+  } catch {
+    return '';
+  }
+};
+
+// What gets copied for the client to paste into Google.
+export const googleReviewText = ({ quote, result }) => (result ? `${quote}\n\n${result}` : quote);
+
 // The coach's WhatsApp ask. The link opens the client's app straight on the
 // testimonial form (App.jsx's ?openTestimonial=1).
 export const buildTestimonialAsk = (clientFullName, appOrigin) => {

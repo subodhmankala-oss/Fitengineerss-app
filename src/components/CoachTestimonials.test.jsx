@@ -52,6 +52,33 @@ describe('CoachTestimonials (client)', () => {
     expect(screen.getByText('Save changes')).toBeTruthy();
   });
 
+  it("copies the client's words and opens the coach's Google page, whatever the status", async () => {
+    const writeText = vi.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    databaseService.testimonials.mockResolvedValueOnce({
+      role: 'client', shown: [], googleReviewUrl: 'https://g.page/r/abc/review',
+      mine: { id: 'm', quote: 'Great plans.', result: 'Lost 8 kg', status: 'pending', clientName: 'Me' },
+    });
+    render(<CoachTestimonials />);
+    fireEvent.click(await screen.findByText('Also post on Google'));
+    await waitFor(() => expect(open).toHaveBeenCalledWith('https://g.page/r/abc/review', '_blank', 'noopener,noreferrer'));
+    expect(writeText).toHaveBeenCalledWith('Great plans.\n\nLost 8 kg');
+    expect(await screen.findByText(/Your words are copied/)).toBeTruthy();
+    open.mockRestore();
+  });
+
+  it('has no Google button when the coach has no link, and reports writing to the modal', async () => {
+    const onWritingChange = vi.fn();
+    databaseService.testimonials.mockResolvedValueOnce({ role: 'client', shown: [], mine: null, googleReviewUrl: '' });
+    render(<CoachTestimonials onWritingChange={onWritingChange} />);
+    fireEvent.click(await screen.findByText('Write a testimonial'));
+    expect(onWritingChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(onWritingChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByText('Also post on Google')).toBeNull();
+  });
+
   it('renders nothing for someone without a coach', async () => {
     databaseService.testimonials.mockResolvedValueOnce({ role: 'none', shown: [], mine: null });
     const { container } = render(<CoachTestimonials />);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import databaseService from '../services/databaseService';
 import { hasValidPhone } from '../utils/coachPhone';
+import { cleanGoogleReviewUrl } from '../utils/testimonials';
 import { useTheme } from '../context/useTheme';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
@@ -96,6 +97,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     paymentQrUrl: localStorage.getItem('userPaymentQrUrl') || '',
     logoUrl: localStorage.getItem('userLogoUrl') || '',
     upiId: localStorage.getItem('userUpiId') || '',
+    googleReviewUrl: localStorage.getItem('userGoogleReviewUrl') || '',
   });
 
   const [form, setForm] = useState(readProfile);
@@ -128,6 +130,7 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       if (profile.paymentQrUrl) fresh.paymentQrUrl = profile.paymentQrUrl;
       if (profile.logoUrl) fresh.logoUrl = profile.logoUrl;
       if (profile.upiId) fresh.upiId = profile.upiId;
+      if (profile.googleReviewUrl) fresh.googleReviewUrl = profile.googleReviewUrl;
       if (Object.keys(fresh).length === 0) return;
       setForm(f => ({ ...f, ...fresh }));
     }).catch(() => {});
@@ -193,6 +196,10 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
       setSaveMsg('phone');
       return;
     }
+    if (form.googleReviewUrl.trim() && !cleanGoogleReviewUrl(form.googleReviewUrl)) {
+      setSaveMsg('reviewUrl');
+      return;
+    }
     setSaving(true);
     setSaveMsg('');
     try {
@@ -244,6 +251,15 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                 color: '#f87171', fontSize: '0.85rem', fontWeight: 700
               }}>
                 ✕ A valid phone number is required — a 10-digit Indian mobile starting with 6, 7, 8 or 9.
+              </div>
+            )}
+            {saveMsg === 'reviewUrl' && (
+              <div style={{
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+                color: '#f87171', fontSize: '0.85rem', fontWeight: 700
+              }}>
+                ✕ That isn't a Google review link. Copy it from your Google Business Profile → Ask for reviews.
               </div>
             )}
             {saveMsg === 'error' && (
@@ -383,6 +399,27 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
                   />
                 </label>
                 {qrError && <p className="cp-save-error" style={{ margin: 0 }}>{qrError}</p>}
+              </div>
+            </div>
+
+            {/* Google Reviews — after a client sends a testimonial, Coach
+                Details offers "Also post on Google" with this link (see
+                CoachTestimonials.jsx). */}
+            <div className="cp-form-section-label">Google Reviews</div>
+            <div className="cp-form-card">
+              <div className="cp-field cp-field--last" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                <label className="cp-field-label">Google review link <span className="cp-field-unit">(optional)</span></label>
+                <input
+                  className="cp-field-input"
+                  type="url"
+                  value={form.googleReviewUrl}
+                  onChange={e => handleField('googleReviewUrl', e.target.value)}
+                  placeholder="https://g.page/r/…/review"
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                />
+                <span className="cp-field-unit" style={{ lineHeight: 1.4 }}>
+                  From your Google Business Profile → Ask for reviews. Clients who write you a testimonial get a button to post it on Google too.
+                </span>
               </div>
             </div>
           </div>

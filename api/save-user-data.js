@@ -17,7 +17,7 @@
 //                               see sql/coach_testimonials.sql)
 
 import {
-  cleanTestimonialInput, shortClientName, monthsTrained, TESTIMONIAL_STATUSES,
+  cleanTestimonialInput, shortClientName, monthsTrained, TESTIMONIAL_STATUSES, cleanGoogleReviewUrl,
 } from '../src/utils/testimonials.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -261,6 +261,8 @@ async function listTestimonialsForClient(callerId, clientRow) {
     : [];
   const joinedAt = Object.fromEntries(joined.map(c => [c.user_id, c.created_at]));
   const mine = rows.find(r => r.client_user_id === callerId) || null;
+  // Best-effort: a missing link (or column) just means no Google button.
+  const coachRows = await svcGet(`coaches?user_id=eq.${encodeURIComponent(coachId)}&select=google_review_url&limit=1`).catch(() => []);
   const toPublic = (r) => ({
     id: r.id,
     quote: r.quote,
@@ -272,6 +274,7 @@ async function listTestimonialsForClient(callerId, clientRow) {
     role: 'client',
     shown: rows.filter(r => r.status === 'shown').map(toPublic),
     mine: mine ? { ...toPublic(mine), status: mine.status } : null,
+    googleReviewUrl: cleanGoogleReviewUrl(coachRows[0]?.google_review_url),
   };
 }
 

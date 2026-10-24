@@ -13,6 +13,7 @@ export default function CoachDetailsModal({ coachId, coachName, onClose, startWr
   // Details are stored with the coachId they were fetched for, so "loading"
   // is just "nothing fetched for this coach yet" — no flag to reset.
   const [loaded, setLoaded] = useState({ coachId: undefined, details: null });
+  const [writing, setWriting] = useState(false);
   const loading = loaded.coachId !== coachId;
   const details = loading ? null : loaded.details;
 
@@ -74,13 +75,15 @@ export default function CoachDetailsModal({ coachId, coachName, onClose, startWr
           <p className="ccm-info">Your coach hasn't added their business details yet.</p>
         )}
 
-        <CoachTestimonials startWriting={startWriting} />
+        <CoachTestimonials startWriting={startWriting} onWritingChange={setWriting} />
 
-        <div className="ccm-actions">
-          <button type="button" className="ccm-btn-primary" style={{ flex: 1 }} onClick={onClose}>
-            Close
-          </button>
-        </div>
+        {!writing && (
+          <div className="ccm-actions">
+            <button type="button" className="ccm-btn-primary" style={{ flex: 1 }} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

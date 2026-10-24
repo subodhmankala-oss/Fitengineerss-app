@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   cleanTestimonialInput, shortClientName, monthsTrained, trainedLabel, buildTestimonialAsk,
-  MAX_QUOTE_LENGTH, MAX_RESULT_LENGTH,
+  MAX_QUOTE_LENGTH, MAX_RESULT_LENGTH, cleanGoogleReviewUrl, googleReviewText,
 } from './testimonials';
 
 describe('cleanTestimonialInput', () => {
@@ -55,5 +55,27 @@ describe('buildTestimonialAsk', () => {
   it('greets by first name and links to the form', () => {
     expect(buildTestimonialAsk('Priya Sharma', 'https://app.test'))
       .toBe("Hi Priya! If training together has helped you, would you write a short testimonial for me? It takes a minute: https://app.test/?openTestimonial=1");
+  });
+});
+
+describe('cleanGoogleReviewUrl', () => {
+  it('accepts Google review links and forces https', () => {
+    expect(cleanGoogleReviewUrl('https://g.page/r/CabcXYZ/review')).toBe('https://g.page/r/CabcXYZ/review');
+    expect(cleanGoogleReviewUrl('g.page/r/CabcXYZ/review')).toBe('https://g.page/r/CabcXYZ/review');
+    expect(cleanGoogleReviewUrl('http://search.google.com/local/writereview?placeid=abc'))
+      .toBe('https://search.google.com/local/writereview?placeid=abc');
+    expect(cleanGoogleReviewUrl(' https://maps.app.goo.gl/xyz ')).toBe('https://maps.app.goo.gl/xyz');
+  });
+
+  it('rejects anything that is not Google', () => {
+    expect(cleanGoogleReviewUrl('')).toBe('');
+    expect(cleanGoogleReviewUrl('https://evil.example/g.page')).toBe('');
+    expect(cleanGoogleReviewUrl('https://g.page.evil.example/r/x')).toBe('');
+    expect(cleanGoogleReviewUrl('javascript:alert(1)')).toBe('');
+  });
+
+  it('builds the text to paste', () => {
+    expect(googleReviewText({ quote: 'Great coach', result: '' })).toBe('Great coach');
+    expect(googleReviewText({ quote: 'Great coach', result: 'Lost 8 kg' })).toBe('Great coach\n\nLost 8 kg');
   });
 });

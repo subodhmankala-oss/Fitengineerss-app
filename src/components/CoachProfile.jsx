@@ -4,6 +4,7 @@ import { hasValidPhone } from '../utils/coachPhone';
 import { useTheme } from '../context/useTheme';
 import Avatar from './Avatar';
 import WhatsNewList from './WhatsNewList';
+import CoachTestimonialsManager from './CoachTestimonialsManager';
 import './ClientProfile.css';
 
 // Coach-side settings page — deliberately mirrors ClientProfile.jsx (same
@@ -390,6 +391,24 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
     );
   }
 
+  // ── Sub-section: Client Testimonials ───────────────────────────────────────
+  if (activeSection === 'testimonials') {
+    return (
+      <Overlay>
+        <div className="cp-container animate-slide-up">
+          <div className="cp-sub-header">
+            <button className="cp-back-btn" onClick={goBack}><BackArrow /></button>
+            <h2 className="cp-sub-title">Client Testimonials</h2>
+            <span style={{ width: 60 }} />
+          </div>
+          <div className="cp-form-scroll">
+            <CoachTestimonialsManager />
+          </div>
+        </div>
+      </Overlay>
+    );
+  }
+
   // ── Sub-section: Account ───────────────────────────────────────────────────
   if (activeSection === 'account') {
     return (
@@ -557,7 +576,8 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
 
         <div className="cp-section-label">Business</div>
         <div className="cp-section-card">
-          <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} last />
+          <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} />
+          <SettingsRow icon="💬" label="Client Testimonials" onTap={() => setActiveSection('testimonials')} last />
         </div>
 
         <div className="cp-section-label">Preferences</div>

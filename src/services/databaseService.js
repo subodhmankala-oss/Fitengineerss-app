@@ -7,6 +7,7 @@ import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 import { setCatalogMuscles } from '../utils/muscleGroups';
 import { withExerciseIds } from '../utils/exerciseName';
+import { cleanGoogleReviewUrl } from '../utils/testimonials';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -2451,6 +2452,7 @@ const databaseService = {
             paymentQrUrl: coach?.payment_qr_url || '',
             logoUrl: coach?.logo_url || '',
             upiId: coach?.upi_id || '',
+            googleReviewUrl: coach?.google_review_url || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -2525,6 +2527,7 @@ const databaseService = {
         paymentQrUrl: mCoach?.payment_qr_url || '',
         logoUrl: mCoach?.logo_url || '',
         upiId: mCoach?.upi_id || '',
+        googleReviewUrl: mCoach?.google_review_url || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -5241,6 +5244,22 @@ const databaseService = {
   //      the ONLY path removes the hang risk entirely instead of leaving a
   //      slow/hanging first attempt in front of a working fallback.
   // coachId is accepted for API-compat with existing callers but unused.
+  // Client testimonials — every op goes through the server (the table has
+  // no RLS policies; see api/save-user-data.js's handleTestimonials). Ops:
+  // list | save { quote, result } | delete | status { id, status }.
+  // Returns the fresh list for the caller's role; throws with the server's
+  // message so the screen can show it.
+  async testimonials(op, payload = {}) {
+    if (!isSupabaseConfigured) throw new Error('Testimonials need an internet connection.');
+    const { headers } = await serverFallbackAuth();
+    const resp = await fetch('/api/save-user-data?action=testimonials', {
+      method: 'POST', headers, body: JSON.stringify({ op, ...payload })
+    });
+    const body = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(body?.error || 'Could not reach the server. Try again.');
+    return body;
+  },
+
   async getCoachDetailsById(_coachId) {
     if (!isSupabaseConfigured) return null;
     return await getCoachDetailsViaServer();
@@ -5508,7 +5527,7 @@ const databaseService = {
   // SELECT) policy to pass for the coach's OWN row, which it does — these
   // calls run under the coach's real session token (resolveBearerToken),
   // not the anon key.
-  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl, upiId }) {
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl, upiId, googleReviewUrl }) {
     if (!userId) throw new Error('Missing user id — could not save profile.');
     if (isSupabaseConfigured && supabase) {
       const expYears = parseInt(experienceYears, 10);
@@ -5529,6 +5548,7 @@ const databaseService = {
         payment_qr_url: paymentQrUrl || null,
         logo_url: logoUrl || null,
         upi_id: (upiId || '').trim() || null,
+        google_review_url: cleanGoogleReviewUrl(googleReviewUrl) || null,
       });
     }
 
@@ -5548,6 +5568,9 @@ const databaseService = {
     else localStorage.removeItem('userLogoUrl');
     if ((upiId || '').trim()) localStorage.setItem('userUpiId', upiId.trim());
     else localStorage.removeItem('userUpiId');
+    const reviewUrl = cleanGoogleReviewUrl(googleReviewUrl);
+    if (reviewUrl) localStorage.setItem('userGoogleReviewUrl', reviewUrl);
+    else localStorage.removeItem('userGoogleReviewUrl');
   },
 
   // Phone-only write for CoachPhoneGate — a coach without a number on file

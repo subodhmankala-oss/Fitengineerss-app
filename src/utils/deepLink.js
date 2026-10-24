@@ -21,7 +21,7 @@ const STORAGE_KEY = 'pendingDeepLink';
 // tap), short enough that a manual refresh a minute later doesn't reopen it.
 const MAX_AGE_MS = 30 * 1000;
 
-const KEYS = ['tab', 'viewClient', 'clientTab', 'openMeasurements', 'openMuscleMap', 'section', 'openMonthlyReport'];
+const KEYS = ['tab', 'viewClient', 'clientTab', 'openMeasurements', 'openMuscleMap', 'section', 'openMonthlyReport', 'openTestimonial'];
 
 export const CLIENT_TABS = ['home', 'workouts', 'profile'];
 
@@ -66,6 +66,6 @@ export function takeInitialDeepLink() {
 export function tabForDeepLink(link) {
   if (!link) return null;
   if (link.openMeasurements === '1') return 'profile';
-  if (link.openMuscleMap === '1' || link.openMonthlyReport === '1') return 'home';
+  if (link.openMuscleMap === '1' || link.openMonthlyReport === '1' || link.openTestimonial === '1') return 'home';
   return CLIENT_TABS.includes(link.tab) ? link.tab : null;
 }

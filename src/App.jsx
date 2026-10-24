@@ -462,6 +462,9 @@ function App() {
   // card the coach actually meant to share (Heat Map is the SECOND card
   // down).
   const [deepLinkMuscleSection, setDeepLinkMuscleSection] = useState(() => initialDeepLink?.section || null);
+  // ?openTestimonial=1 — the coach's WhatsApp "ask for a testimonial" link
+  // (CoachProfile.jsx). Opens Coach Details on Home with the form open.
+  const [deepLinkOpenTestimonial, setDeepLinkOpenTestimonial] = useState(() => initialDeepLink?.openTestimonial === '1');
   // Bumped when a notification is tapped while the app is already open, to
   // remount the current tab's screen so it picks up the initial section /
   // timeframe it only reads on mount.
@@ -472,7 +475,10 @@ function App() {
   // loaded screen had even mounted on a slow phone.)
   useEffect(() => {
     if (activeTab !== 'profile') setDeepLinkOpenMeasurements(false);
-    if (activeTab !== 'home') setDeepLinkOpenMuscleMap(false);
+    if (activeTab !== 'home') {
+      setDeepLinkOpenMuscleMap(false);
+      setDeepLinkOpenTestimonial(false);
+    }
   }, [activeTab]);
   // Tapped while the app was already open: sw.js hands the link over here
   // instead of reloading the page (see sw.js's notificationclick). The ack on
@@ -491,6 +497,7 @@ function App() {
         setDeepLinkOpenMeasurements(link.openMeasurements === '1');
         setDeepLinkOpenMuscleMap(link.openMuscleMap === '1');
         setDeepLinkMuscleSection(link.section || null);
+        setDeepLinkOpenTestimonial(link.openTestimonial === '1');
         if (link.viewClient) setDeepLinkClient({ id: link.viewClient, tab: link.clientTab || null, nonce: Date.now() });
         setDeepLinkNonce((n) => n + 1);
       }
@@ -1707,6 +1714,7 @@ function App() {
         onNavigateToWorkouts={() => setActiveTab('workouts')}
         initialTimeframe={deepLinkOpenMuscleMap ? 'muscles' : null}
         initialMuscleSection={deepLinkOpenMuscleMap ? deepLinkMuscleSection : null}
+        openTestimonial={deepLinkOpenTestimonial}
       />
     );
   };

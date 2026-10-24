@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import Avatar from './Avatar';
+import CoachTestimonials from './CoachTestimonials';
 import './ConnectCoachModal.css';
 
 // Read-only view of the connected coach's business profile, opened by
@@ -8,10 +9,11 @@ import './ConnectCoachModal.css';
 // ConnectCoachModal's chrome (backdrop/card/header) for a consistent look,
 // but shows static fields instead of a form — this is display-only, a
 // client can't edit their coach's business info.
-export default function CoachDetailsModal({ coachId, coachName, onClose }) {
+export default function CoachDetailsModal({ coachId, coachName, onClose, startWriting = false }) {
   // Details are stored with the coachId they were fetched for, so "loading"
   // is just "nothing fetched for this coach yet" — no flag to reset.
   const [loaded, setLoaded] = useState({ coachId: undefined, details: null });
+  const [writing, setWriting] = useState(false);
   const loading = loaded.coachId !== coachId;
   const details = loading ? null : loaded.details;
 
@@ -48,7 +50,7 @@ export default function CoachDetailsModal({ coachId, coachName, onClose }) {
 
   return (
     <div className="ccm-backdrop" onClick={handleBackdropClick}>
-      <div className="ccm-modal" role="dialog" aria-modal="true" aria-label="Coach Details">
+      <div className="ccm-modal cdm-modal" role="dialog" aria-modal="true" aria-label="Coach Details">
         <div className="ccm-header">
           <Avatar name={displayName} avatarUrl={details?.avatarUrl} size={44} style={{ flexShrink: 0 }} />
           <div>
@@ -73,11 +75,15 @@ export default function CoachDetailsModal({ coachId, coachName, onClose }) {
           <p className="ccm-info">Your coach hasn't added their business details yet.</p>
         )}
 
-        <div className="ccm-actions">
-          <button type="button" className="ccm-btn-primary" style={{ flex: 1 }} onClick={onClose}>
-            Close
-          </button>
-        </div>
+        <CoachTestimonials startWriting={startWriting} onWritingChange={setWriting} />
+
+        {!writing && (
+          <div className="ccm-actions">
+            <button type="button" className="ccm-btn-primary" style={{ flex: 1 }} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

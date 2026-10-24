@@ -576,7 +576,11 @@ export default function CoachProfile({ handleLogout, onReplayDemoTour, notifOn, 
 
         <div className="cp-section-label">Business</div>
         <div className="cp-section-card">
-          <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} />
+          <SettingsRow icon="🏢" label="Business Profile" onTap={() => { setForm(readProfile()); setActiveSection('business'); }} last />
+        </div>
+
+        <div className="cp-section-label">Testimonials</div>
+        <div className="cp-section-card">
           <SettingsRow icon="💬" label="Client Testimonials" onTap={() => setActiveSection('testimonials')} last />
         </div>
 

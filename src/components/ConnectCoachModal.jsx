@@ -51,7 +51,7 @@ const ConnectCoachModal = ({ onClose, onSuccess }) => {
   };
 
   return (
-    <div className="ccm-backdrop" onClick={handleBackdropClick}>
+    <div className="ccm-backdrop" onClick={handleBackdropClick} data-no-pull-refresh>
       <div className="ccm-modal" role="dialog" aria-modal="true" aria-label="Connect to Coach">
         <div className="ccm-header">
           <div className="ccm-header-icon">🔗</div>

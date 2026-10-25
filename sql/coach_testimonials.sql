@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.coach_testimonials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   coach_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   client_user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  quote TEXT NOT NULL CHECK (char_length(quote) BETWEEN 1 AND 400),
+  quote TEXT NOT NULL CHECK (char_length(quote) BETWEEN 1 AND 2000),
   result TEXT CHECK (result IS NULL OR char_length(result) <= 80),
   -- pending: written or edited, waiting for the coach. Editing sends a shown
   -- testimonial back to pending so the coach approves the new words too.

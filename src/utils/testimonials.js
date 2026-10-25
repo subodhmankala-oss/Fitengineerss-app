@@ -3,7 +3,9 @@
 // edit the words or add their own. Shared by the browser and
 // api/save-user-data.js (action=testimonials), which does every read and
 // write with the service role.
-export const MAX_QUOTE_LENGTH = 400;
+// 400 was too tight for a real story (client feedback, 2026-10-25); Google
+// reviews take up to 4096, so a full testimonial still fits there.
+export const MAX_QUOTE_LENGTH = 2000;
 export const MAX_RESULT_LENGTH = 80;
 export const TESTIMONIAL_STATUSES = ['pending', 'shown', 'hidden'];
 

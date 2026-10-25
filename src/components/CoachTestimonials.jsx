@@ -30,6 +30,14 @@ export function TestimonialCard({ t }) {
   );
 }
 
+// The quote box grows with what's typed (up to the CSS max-height) instead
+// of a fixed 4 rows, so a long testimonial can be read back while writing.
+const growToFit = (el) => {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight + 2}px`;
+};
+
 export default function CoachTestimonials({ startWriting = false, onWritingChange }) {
   const [data, setData] = useState(null); // { shown, mine } once loaded
   const [loadError, setLoadError] = useState('');
@@ -125,10 +133,11 @@ export default function CoachTestimonials({ startWriting = false, onWritingChang
           <textarea
             className="ccm-input cdm-t-input"
             value={draft.quote}
-            onChange={e => { setDraft(d => ({ ...d, quote: e.target.value })); setFormError(''); }}
+            ref={growToFit}
+            onChange={e => { growToFit(e.target); setDraft(d => ({ ...d, quote: e.target.value })); setFormError(''); }}
             placeholder="How has training with your coach helped you?"
             maxLength={MAX_QUOTE_LENGTH}
-            rows={4}
+            rows={6}
             autoFocus
           />
           <div className="cdm-t-count">{draft.quote.length}/{MAX_QUOTE_LENGTH}</div>

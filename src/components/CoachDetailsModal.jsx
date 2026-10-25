@@ -34,6 +34,10 @@ export default function CoachDetailsModal({ coachId, coachName, onClose, startWr
     return () => { cancelled = true; };
   }, [coachId]);
 
+  // data-no-pull-refresh on the backdrop: PullToRefresh used to treat a
+  // downward drag in here (selecting text, scrolling the testimonial box
+  // back up) as a pull — blocking selection, and a long one reloaded the
+  // app and lost what the client was typing (2026-10-25).
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -49,7 +53,7 @@ export default function CoachDetailsModal({ coachId, coachName, onClose, startWr
   ].filter(([, value]) => value) : [];
 
   return (
-    <div className="ccm-backdrop" onClick={handleBackdropClick}>
+    <div className="ccm-backdrop cdm-backdrop" onClick={handleBackdropClick} data-no-pull-refresh>
       <div className="ccm-modal cdm-modal" role="dialog" aria-modal="true" aria-label="Coach Details">
         <div className="ccm-header">
           <Avatar name={displayName} avatarUrl={details?.avatarUrl} size={44} style={{ flexShrink: 0 }} />

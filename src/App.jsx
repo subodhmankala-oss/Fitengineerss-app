@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import Onboarding from './components/Onboarding';
 import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
@@ -23,7 +23,7 @@ import { useTour } from './context/useTour';
 import { useCoachTour } from './context/useCoachTour';
 import databaseService, { isSupabaseConfigured, supabase, isTrainer, TRAINER_EMAILS, setCachedAuthToken, flushPendingWorkoutLogs, flushPendingWorkoutDrafts, recoverStoredSession, storedSessionLooksRecoverable } from './services/databaseService';
 import { subscribeToPush as registerForPushNotifications } from './utils/pushSubscription';
-import { takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink } from './utils/deepLink';
+import { takeInitialDeepLink, parseDeepLink, stashDeepLink, tabForDeepLink, rememberTestimonialLink, hasPendingTestimonialLink, clearTestimonialLink } from './utils/deepLink';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -441,7 +441,10 @@ function App() {
   // just before a reload) and seeded straight into the states below, so the
   // very first render already lands on the right screen.
   const [initialDeepLink] = useState(takeInitialDeepLink);
-  const [activeTab, setActiveTab] = useState(() => tabForDeepLink(initialDeepLink) || localStorage.getItem('activeTab') || 'home');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (initialDeepLink?.openTestimonial === '1') rememberTestimonialLink();
+    return tabForDeepLink(initialDeepLink) || (hasPendingTestimonialLink() ? 'home' : null) || localStorage.getItem('activeTab') || 'home';
+  });
   // ?openMeasurements=1 — measurement reminders (api/push.js). ClientProfile
   // reads it on mount to open straight on Measurements.
   const [deepLinkOpenMeasurements, setDeepLinkOpenMeasurements] = useState(() => initialDeepLink?.openMeasurements === '1');
@@ -463,8 +466,15 @@ function App() {
   // down).
   const [deepLinkMuscleSection, setDeepLinkMuscleSection] = useState(() => initialDeepLink?.section || null);
   // ?openTestimonial=1 — the coach's WhatsApp "ask for a testimonial" link
-  // (CoachProfile.jsx). Opens Coach Details on Home with the form open.
-  const [deepLinkOpenTestimonial, setDeepLinkOpenTestimonial] = useState(() => initialDeepLink?.openTestimonial === '1');
+  // (CoachTestimonialsManager.jsx). A client lands in Coach Details with the
+  // form open; a coach who taps it lands on their Client Testimonials page.
+  // Survives signing in and reloads (see rememberTestimonialLink) until one
+  // of those screens reports it opened.
+  const [deepLinkOpenTestimonial, setDeepLinkOpenTestimonial] = useState(hasPendingTestimonialLink);
+  const onTestimonialLinkUsed = useCallback(() => {
+    clearTestimonialLink();
+    setDeepLinkOpenTestimonial(false);
+  }, []);
   // Bumped when a notification is tapped while the app is already open, to
   // remount the current tab's screen so it picks up the initial section /
   // timeframe it only reads on mount.
@@ -497,6 +507,7 @@ function App() {
         setDeepLinkOpenMeasurements(link.openMeasurements === '1');
         setDeepLinkOpenMuscleMap(link.openMuscleMap === '1');
         setDeepLinkMuscleSection(link.section || null);
+        if (link.openTestimonial === '1') rememberTestimonialLink();
         setDeepLinkOpenTestimonial(link.openTestimonial === '1');
         if (link.viewClient) setDeepLinkClient({ id: link.viewClient, tab: link.clientTab || null, nonce: Date.now() });
         setDeepLinkNonce((n) => n + 1);
@@ -1715,6 +1726,7 @@ function App() {
         initialTimeframe={deepLinkOpenMuscleMap ? 'muscles' : null}
         initialMuscleSection={deepLinkOpenMuscleMap ? deepLinkMuscleSection : null}
         openTestimonial={deepLinkOpenTestimonial}
+        onTestimonialLinkUsed={onTestimonialLinkUsed}
       />
     );
   };
@@ -1929,6 +1941,8 @@ function App() {
             handleLogout={handleLogout}
             onReplayDemoTour={isAdmin ? undefined : () => coachTour.restart()}
             deepLinkClient={deepLinkClient}
+            openTestimonials={deepLinkOpenTestimonial}
+            onTestimonialLinkUsed={onTestimonialLinkUsed}
           />
         </Suspense>
         {renderResetPasswordModal()}

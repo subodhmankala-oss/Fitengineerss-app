@@ -62,6 +62,32 @@ export function takeInitialDeepLink() {
   return null;
 }
 
+// The coach's WhatsApp "ask for a testimonial" link (?openTestimonial=1).
+// Unlike the push links above, this one is often opened somewhere the client
+// isn't signed in yet (iPhone: Safari and the installed app keep separate
+// logins), so the 30-second stash would be long gone by the time they've
+// signed in. Remembered in localStorage for a week instead, and cleared once
+// the form (client) or Client Testimonials (coach) has actually opened.
+const TESTIMONIAL_KEY = 'pendingTestimonialLink';
+const TESTIMONIAL_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function rememberTestimonialLink() {
+  try { localStorage.setItem(TESTIMONIAL_KEY, String(Date.now())); } catch { /* storage blocked */ }
+}
+
+export function hasPendingTestimonialLink() {
+  try {
+    const at = parseInt(localStorage.getItem(TESTIMONIAL_KEY) || '0', 10);
+    if (at && Date.now() - at < TESTIMONIAL_MAX_AGE_MS) return true;
+    localStorage.removeItem(TESTIMONIAL_KEY);
+  } catch { /* storage blocked */ }
+  return false;
+}
+
+export function clearTestimonialLink() {
+  try { localStorage.removeItem(TESTIMONIAL_KEY); } catch { /* storage blocked */ }
+}
+
 // The client-side tab a deep link lands on, or null to leave the tab alone.
 export function tabForDeepLink(link) {
   if (!link) return null;

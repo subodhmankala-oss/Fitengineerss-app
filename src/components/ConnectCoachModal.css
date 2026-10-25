@@ -332,6 +332,27 @@
 .cdm-modal {
   max-height: 90vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Phones: Coach Details fills the screen instead of a small floating card,
+   so there's room to read testimonials and to write one (2026-10-25: "its
+   almost not possible to copy or read text in app"). */
+@media (max-width: 600px) {
+  .cdm-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+  .cdm-modal {
+    max-width: none;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    border: none;
+    padding: calc(20px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+  }
 }
 
 .cdm-testimonials-wrap {
@@ -363,8 +384,8 @@
 
 .cdm-testimonial-quote {
   margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.5;
+  font-size: 0.95rem;
+  line-height: 1.55;
   color: var(--text-main);
   white-space: pre-line;
   overflow-wrap: anywhere;
@@ -421,8 +442,10 @@
 
 textarea.cdm-t-input {
   resize: vertical;
-  min-height: 96px;
-  line-height: 1.45;
+  min-height: 150px;
+  max-height: 55vh;
+  overflow-y: auto;
+  line-height: 1.5;
 }
 
 .cdm-t-count {

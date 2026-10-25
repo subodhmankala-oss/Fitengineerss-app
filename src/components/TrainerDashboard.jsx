@@ -6259,7 +6259,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 <PayTile color="#16a34a" bg="rgba(37,211,102,0.18)" size={28}>
                   <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3M7 12h10" />
                 </PayTile>
-                Send payment QR to someone outside the app
+                Send payment QR code on WhatsApp
               </span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
                 style={{ color: '#25D366', flexShrink: 0, transform: externalRequestOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}>

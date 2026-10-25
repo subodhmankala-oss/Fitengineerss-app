@@ -5012,11 +5012,12 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, clientPlans.map(p => p.planName));
   const { newPlans: liveNewPlans, savedPlans: liveSavedPlans } = splitNewTemplates(clientPlans, workoutLogs);
 
-  // ── Header notification bell (super-admin desktop shell only) ──
+  // ── Header notification bell (every coach) ──
   // Every "something is waiting" list the dashboard already keeps, as one
-  // inbox — see CoachNotificationBell.jsx. Newest first.
+  // inbox — see CoachNotificationBell.jsx. Newest first. signupAlerts is
+  // only ever filled for the super-admin, so those rows stay theirs.
   const bellItems = [];
-  if (superAdmin) {
+  {
     const nameOf = (id, fallback) => clients.find(c => c.id === id)?.userName || fallback || 'Client';
     const firstNameOf = (id, fallback) => nameOf(id, fallback).trim().split(/\s+/)[0];
     const openClient = (clientId, tab = null) => {
@@ -5681,7 +5682,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             </button>
           </div>
 
-          {superAdmin && <CoachNotificationBell variant="inline" items={bellItems} onClearAll={clearAllBellItems} />}
+          <CoachNotificationBell variant="inline" items={bellItems} onClearAll={clearAllBellItems} />
 
           {/* Mobile-only header control — same actions, one tap away instead of
               4 crowded circles. Was a plain ☰ hamburger; now shows the coach's

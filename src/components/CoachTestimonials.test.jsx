@@ -101,7 +101,8 @@ describe('CoachTestimonialsManager (coach)', () => {
     render(<CoachTestimonialsManager />);
 
     expect(await screen.findByText('New')).toBeTruthy();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    // The only box is the Google link — a testimonial's words are never editable.
+    expect(screen.getAllByRole('textbox').map(el => el.id)).toEqual(['cp-google-review-url']);
     expect(screen.getByText('No phone number')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Ask on WhatsApp'));
@@ -110,5 +111,18 @@ describe('CoachTestimonialsManager (coach)', () => {
     fireEvent.click(screen.getByText('Show on profile'));
     await waitFor(() => expect(databaseService.testimonials).toHaveBeenLastCalledWith('status', { id: 't1', status: 'shown' }));
     expect(await screen.findByText('Shown')).toBeTruthy();
+  });
+
+  it('saves the Google review link from the testimonials page', async () => {
+    databaseService.testimonials
+      .mockResolvedValueOnce({ role: 'coach', googleReviewUrl: '', testimonials: [], askable: [] })
+      .mockResolvedValueOnce({ role: 'coach', googleReviewUrl: 'https://g.page/r/abc/review', testimonials: [], askable: [] });
+    render(<CoachTestimonialsManager />);
+    const input = await screen.findByLabelText(/Google review link/);
+    fireEvent.change(input, { target: { value: 'g.page/r/abc/review' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(databaseService.testimonials).toHaveBeenLastCalledWith('google-link', { url: 'g.page/r/abc/review' }));
+    expect(await screen.findByText('✓ Saved')).toBeTruthy();
+    expect(input.value).toBe('https://g.page/r/abc/review');
   });
 });

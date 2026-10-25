@@ -7,7 +7,6 @@ import { dropDuplicateSessionBatches } from '../utils/workoutLogDedupe';
 import { parseDeepLink, tabForDeepLink } from '../utils/deepLink';
 import { setCatalogMuscles } from '../utils/muscleGroups';
 import { withExerciseIds } from '../utils/exerciseName';
-import { cleanGoogleReviewUrl } from '../utils/testimonials';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -2452,7 +2451,6 @@ const databaseService = {
             paymentQrUrl: coach?.payment_qr_url || '',
             logoUrl: coach?.logo_url || '',
             upiId: coach?.upi_id || '',
-            googleReviewUrl: coach?.google_review_url || '',
             payment_status: 'active',
             coach_id: client?.coach_id || null,
             userCoachId: coach?.id || null,
@@ -2527,7 +2525,6 @@ const databaseService = {
         paymentQrUrl: mCoach?.payment_qr_url || '',
         logoUrl: mCoach?.logo_url || '',
         upiId: mCoach?.upi_id || '',
-        googleReviewUrl: mCoach?.google_review_url || '',
         payment_status: 'active',
         coach_id: mClient?.coach_id || null,
         userCoachId: mCoach?.id || null,
@@ -5527,7 +5524,7 @@ const databaseService = {
   // SELECT) policy to pass for the coach's OWN row, which it does — these
   // calls run under the coach's real session token (resolveBearerToken),
   // not the anon key.
-  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl, upiId, googleReviewUrl }) {
+  async saveCoachSelfProfile({ userId, name, phone, brand, specialization, certifications, experienceYears, locationCity, socialHandle, paymentQrUrl, logoUrl, upiId }) {
     if (!userId) throw new Error('Missing user id — could not save profile.');
     if (isSupabaseConfigured && supabase) {
       const expYears = parseInt(experienceYears, 10);
@@ -5548,7 +5545,6 @@ const databaseService = {
         payment_qr_url: paymentQrUrl || null,
         logo_url: logoUrl || null,
         upi_id: (upiId || '').trim() || null,
-        google_review_url: cleanGoogleReviewUrl(googleReviewUrl) || null,
       });
     }
 
@@ -5568,9 +5564,6 @@ const databaseService = {
     else localStorage.removeItem('userLogoUrl');
     if ((upiId || '').trim()) localStorage.setItem('userUpiId', upiId.trim());
     else localStorage.removeItem('userUpiId');
-    const reviewUrl = cleanGoogleReviewUrl(googleReviewUrl);
-    if (reviewUrl) localStorage.setItem('userGoogleReviewUrl', reviewUrl);
-    else localStorage.removeItem('userGoogleReviewUrl');
   },
 
   // Phone-only write for CoachPhoneGate — a coach without a number on file

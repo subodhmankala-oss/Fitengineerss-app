@@ -237,6 +237,8 @@ async function handleChatMessage(req, res) {
 //           coach and sends it back to 'pending' for the coach to approve
 //   delete  client only — removes their own
 //   status  coach only — { id, status: 'shown' | 'hidden' } on their own rows
+//   google-link  coach only — { url } their Google "write a review" link
+//           ('' clears it); clients get "Also post on Google" with it
 // coach_id / client_user_id always come from the caller's clients row,
 // never from the request body.
 const svcGet = (path) => fetch(`${supabaseUrl}/rest/v1/${path}`, { headers: svcHeaders })
@@ -279,7 +281,7 @@ async function listTestimonialsForClient(callerId, clientRow) {
 }
 
 async function listTestimonialsForCoach(callerId) {
-  const [rows, clients] = await Promise.all([
+  const [rows, clients, coachRows] = await Promise.all([
     svcGet(
       `coach_testimonials?coach_id=eq.${encodeURIComponent(callerId)}` +
       `&select=${TESTIMONIAL_SELECT}&order=updated_at.desc`
@@ -288,11 +290,13 @@ async function listTestimonialsForCoach(callerId) {
       `clients?coach_id=eq.${encodeURIComponent(callerId)}` +
       `&select=user_id,phone_number,created_at,user:users!clients_user_id_fkey(full_name,phone)`
     ),
+    svcGet(`coaches?user_id=eq.${encodeURIComponent(callerId)}&select=google_review_url&limit=1`).catch(() => []),
   ]);
   const byClient = Object.fromEntries(clients.map(c => [c.user_id, c]));
   const wrote = new Set(rows.map(r => r.client_user_id));
   return {
     role: 'coach',
+    googleReviewUrl: cleanGoogleReviewUrl(coachRows[0]?.google_review_url),
     testimonials: rows.map(r => ({
       id: r.id,
       quote: r.quote,
@@ -384,6 +388,22 @@ async function handleTestimonials(req, res) {
       const data = await resp.json().catch(() => null);
       if (!resp.ok) return res.status(502).json({ error: 'Could not update the testimonial.' });
       if (!Array.isArray(data) || data.length === 0) return res.status(404).json({ error: 'Testimonial not found.' });
+      return res.status(200).json(await listTestimonialsForCoach(callerId));
+    }
+
+    if (op === 'google-link') {
+      if (!isCoach) return res.status(403).json({ error: 'Only a coach can set a Google review link.' });
+      const raw = String(req.body?.url || '').trim();
+      const url = cleanGoogleReviewUrl(raw);
+      if (raw && !url) {
+        return res.status(400).json({ error: "That isn't a Google review link. Copy it from your Google Business Profile → Ask for reviews." });
+      }
+      const resp = await fetch(`${supabaseUrl}/rest/v1/coaches?user_id=eq.${encodeURIComponent(callerId)}`, {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ google_review_url: url || null })
+      });
+      if (!resp.ok) return res.status(502).json({ error: 'Could not save your Google review link.' });
       return res.status(200).json(await listTestimonialsForCoach(callerId));
     }
 

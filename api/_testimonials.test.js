@@ -80,6 +80,24 @@ describe('api/save-user-data — testimonials', () => {
     expect(patch.body).toEqual({ status: 'shown' });
   });
 
+  it('lets only a coach save a Google review link, and only a Google one', async () => {
+    expect((await call(handler, { op: 'google-link', url: 'https://g.page/r/abc/review' })).statusCode).toBe(403);
+
+    rows.users = [{ id: 'coach-1' }];
+    rows.clients = [];
+    rows.coaches = [{ id: 'c' }];
+    expect((await call(handler, { op: 'google-link', url: 'https://evil.example/review' })).statusCode).toBe(400);
+    expect(writes).toHaveLength(0);
+
+    expect((await call(handler, { op: 'google-link', url: 'g.page/r/abc/review' })).statusCode).toBe(200);
+    const patch = writes.find(w => w.table === 'coaches');
+    expect(patch.query).toContain('user_id=eq.coach-1');
+    expect(patch.body).toEqual({ google_review_url: 'https://g.page/r/abc/review' });
+
+    await call(handler, { op: 'google-link', url: '' });
+    expect(writes.at(-1).body).toEqual({ google_review_url: null });
+  });
+
   it('shows other clients only a first name and last initial', async () => {
     rows.coach_testimonials = [
       { id: 't1', client_user_id: 'client-2', quote: 'Q', result: null, status: 'shown', client: { full_name: 'Priya Sharma' } },

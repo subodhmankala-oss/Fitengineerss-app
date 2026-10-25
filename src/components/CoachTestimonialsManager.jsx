@@ -7,7 +7,9 @@ import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
 // write them; the coach can only Show or Hide — there is deliberately no way
 // to edit the words or add one here (see sql/coach_testimonials.sql). Below
 // that, the clients who haven't written one yet, each with a WhatsApp "Ask"
-// that links straight to the client's form.
+// that links straight to the client's form. The coach's Google review link
+// lives here too: clients who write a testimonial get "Also post on Google"
+// with it (CoachTestimonials.jsx).
 const STATUS_LABEL = { pending: 'New', shown: 'Shown', hidden: 'Hidden' };
 const STATUS_ORDER = { pending: 0, shown: 1, hidden: 2 };
 
@@ -15,11 +17,17 @@ export default function CoachTestimonialsManager() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
+  const [googleUrl, setGoogleUrl] = useState('');
+  const [googleState, setGoogleState] = useState(''); // '' | 'saving' | 'saved' | error message
 
   useEffect(() => {
     let cancelled = false;
     databaseService.testimonials('list')
-      .then(result => { if (!cancelled) setData(result); })
+      .then(result => {
+        if (cancelled) return;
+        setData(result);
+        setGoogleUrl(result?.googleReviewUrl || '');
+      })
       .catch(err => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, []);
@@ -33,6 +41,18 @@ export default function CoachTestimonialsManager() {
       setError(err.message);
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const saveGoogleUrl = async () => {
+    setGoogleState('saving');
+    try {
+      const result = await databaseService.testimonials('google-link', { url: googleUrl });
+      setData(result);
+      setGoogleUrl(result?.googleReviewUrl || '');
+      setGoogleState('saved');
+    } catch (err) {
+      setGoogleState(err.message);
     }
   };
 
@@ -52,6 +72,39 @@ export default function CoachTestimonialsManager() {
         Your clients write these from the app. You choose which ones show on your profile, but you can't change the words, so clients know they're real.
       </p>
       {error && <p className="cp-save-error" style={{ paddingTop: 0, paddingBottom: 8 }}>{error}</p>}
+
+      <div className="cp-form-section-label">Google Reviews</div>
+      <div className="cp-form-card">
+        <div className="cp-field cp-field--last" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <label className="cp-field-label" htmlFor="cp-google-review-url">Google review link <span className="cp-field-unit">(optional)</span></label>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <input
+              id="cp-google-review-url"
+              className="cp-field-input"
+              type="url"
+              value={googleUrl}
+              onChange={e => { setGoogleUrl(e.target.value); setGoogleState(''); }}
+              placeholder="https://g.page/r/…/review"
+              autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              style={{ minWidth: 0 }}
+            />
+            <button
+              type="button"
+              className="cp-testimonial-btn"
+              onClick={saveGoogleUrl}
+              disabled={googleState === 'saving' || googleUrl.trim() === (data.googleReviewUrl || '')}
+            >
+              {googleState === 'saving' ? 'Saving…' : googleState === 'saved' ? '✓ Saved' : 'Save'}
+            </button>
+          </div>
+          <span className="cp-field-unit" style={{ lineHeight: 1.4 }}>
+            From your Google Business Profile → Ask for reviews. Clients who write you a testimonial get a button to post it on Google too.
+          </span>
+          {googleState && !['saving', 'saved'].includes(googleState) && (
+            <span className="cp-save-error" style={{ padding: 0, textAlign: 'left' }}>{googleState}</span>
+          )}
+        </div>
+      </div>
 
       <div className="cp-form-section-label">From your clients</div>
       {testimonials.length === 0 ? (

@@ -5241,6 +5241,22 @@ const databaseService = {
   //      the ONLY path removes the hang risk entirely instead of leaving a
   //      slow/hanging first attempt in front of a working fallback.
   // coachId is accepted for API-compat with existing callers but unused.
+  // Client testimonials — every op goes through the server (the table has
+  // no RLS policies; see api/save-user-data.js's handleTestimonials). Ops:
+  // list | save { quote, result } | delete | status { id, status }.
+  // Returns the fresh list for the caller's role; throws with the server's
+  // message so the screen can show it.
+  async testimonials(op, payload = {}) {
+    if (!isSupabaseConfigured) throw new Error('Testimonials need an internet connection.');
+    const { headers } = await serverFallbackAuth();
+    const resp = await fetch('/api/save-user-data?action=testimonials', {
+      method: 'POST', headers, body: JSON.stringify({ op, ...payload })
+    });
+    const body = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(body?.error || 'Could not reach the server. Try again.');
+    return body;
+  },
+
   async getCoachDetailsById(_coachId) {
     if (!isSupabaseConfigured) return null;
     return await getCoachDetailsViaServer();

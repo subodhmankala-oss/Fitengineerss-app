@@ -328,3 +328,209 @@
   margin: 0;
   line-height: 1.5;
 }
+/* ── Coach Details: testimonials (CoachTestimonials.jsx) ────────────────── */
+.cdm-modal {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.cdm-testimonials-wrap {
+  margin: 4px 0 16px;
+}
+
+.cdm-section-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(148, 163, 184, 0.85);
+  margin: 18px 0 8px;
+}
+
+.cdm-testimonials {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cdm-testimonial {
+  margin: 0;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.cdm-testimonial-quote {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.cdm-testimonial-by {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.cdm-testimonial-name {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.cdm-testimonial-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--tint-blue);
+}
+
+.cdm-testimonial-result {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.cdm-t-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cdm-t-input {
+  font-family: inherit;
+  letter-spacing: 0;
+  font-weight: 500;
+  font-size: 16px;
+  padding: 12px 14px;
+}
+
+textarea.cdm-t-input {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.45;
+}
+
+.cdm-t-count {
+  align-self: flex-end;
+  font-size: 0.7rem;
+  color: rgba(148, 163, 184, 0.85);
+  margin-top: -4px;
+}
+
+.cdm-t-mine {
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cdm-t-mine .cdm-testimonial-result {
+  margin-top: 0;
+}
+
+.cdm-t-status {
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 1px solid;
+}
+
+.cdm-t-status--amber {
+  color: var(--tint-amber);
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.cdm-t-status--green {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.cdm-t-status--muted {
+  color: rgba(148, 163, 184, 0.95);
+  background: rgba(var(--fg-rgb), 0.04);
+  border-color: rgba(var(--fg-rgb), 0.12);
+}
+
+.cdm-t-mine-actions {
+  display: flex;
+  gap: 18px;
+}
+
+.cdm-t-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--tint-blue);
+  cursor: pointer;
+}
+
+.cdm-t-link--danger {
+  color: var(--tint-red);
+}
+
+.cdm-t-write {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px dashed rgba(139, 92, 246, 0.45);
+  border-radius: 12px;
+  padding: 12px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.cdm-t-google {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.cdm-t-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  padding: 11px 14px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}

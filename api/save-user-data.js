@@ -12,6 +12,13 @@
 //   action=tracker-log         (client's own daily tracker upsert)
 //   action=progress-history    (client's own 30-day progress bulk upsert)
 //   action=chat-message        (either the client or their coach)
+//   action=testimonials        (client testimonials — the ONLY path to
+//                               coach_testimonials, which has no RLS policies;
+//                               see sql/coach_testimonials.sql)
+
+import {
+  cleanTestimonialInput, shortClientName, monthsTrained, TESTIMONIAL_STATUSES, cleanGoogleReviewUrl,
+} from '../src/utils/testimonials.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -222,11 +229,197 @@ async function handleChatMessage(req, res) {
   }
 }
 
+// ─── testimonials ───
+// One action, `op` in the body:
+//   list    client: their own testimonial + their coach's shown ones
+//           coach:  every testimonial written for them + clients to ask
+//   save    client only — upserts their one testimonial for their current
+//           coach and sends it back to 'pending' for the coach to approve
+//   delete  client only — removes their own
+//   status  coach only — { id, status: 'shown' | 'hidden' } on their own rows
+//   google-link  coach only — { url } their Google "write a review" link
+//           ('' clears it); clients get "Also post on Google" with it
+// coach_id / client_user_id always come from the caller's clients row,
+// never from the request body.
+const svcGet = (path) => fetch(`${supabaseUrl}/rest/v1/${path}`, { headers: svcHeaders })
+  .then(async r => {
+    const data = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(`${path.split('?')[0]} read failed (${r.status})`);
+    return Array.isArray(data) ? data : [];
+  });
+
+const TESTIMONIAL_SELECT = 'id,client_user_id,quote,result,status,updated_at,client:users!coach_testimonials_client_user_id_fkey(full_name)';
+
+async function listTestimonialsForClient(callerId, clientRow) {
+  const coachId = clientRow.coach_id;
+  const rows = await svcGet(
+    `coach_testimonials?coach_id=eq.${encodeURIComponent(coachId)}` +
+    `&or=(status.eq.shown,client_user_id.eq.${encodeURIComponent(callerId)})` +
+    `&select=${TESTIMONIAL_SELECT}&order=updated_at.desc`
+  );
+  const writerIds = [...new Set(rows.map(r => r.client_user_id))];
+  const joined = writerIds.length
+    ? await svcGet(`clients?user_id=in.(${writerIds.map(encodeURIComponent).join(',')})&select=user_id,created_at`)
+    : [];
+  const joinedAt = Object.fromEntries(joined.map(c => [c.user_id, c.created_at]));
+  const mine = rows.find(r => r.client_user_id === callerId) || null;
+  // Best-effort: a missing link (or column) just means no Google button.
+  const coachRows = await svcGet(`coaches?user_id=eq.${encodeURIComponent(coachId)}&select=google_review_url&limit=1`).catch(() => []);
+  const toPublic = (r) => ({
+    id: r.id,
+    quote: r.quote,
+    result: r.result || '',
+    clientName: shortClientName(r.client?.full_name),
+    monthsTrained: monthsTrained(joinedAt[r.client_user_id]),
+  });
+  return {
+    role: 'client',
+    shown: rows.filter(r => r.status === 'shown').map(toPublic),
+    mine: mine ? { ...toPublic(mine), status: mine.status } : null,
+    googleReviewUrl: cleanGoogleReviewUrl(coachRows[0]?.google_review_url),
+  };
+}
+
+async function listTestimonialsForCoach(callerId) {
+  const [rows, clients, coachRows] = await Promise.all([
+    svcGet(
+      `coach_testimonials?coach_id=eq.${encodeURIComponent(callerId)}` +
+      `&select=${TESTIMONIAL_SELECT}&order=updated_at.desc`
+    ),
+    svcGet(
+      `clients?coach_id=eq.${encodeURIComponent(callerId)}` +
+      `&select=user_id,phone_number,created_at,user:users!clients_user_id_fkey(full_name,phone)`
+    ),
+    svcGet(`coaches?user_id=eq.${encodeURIComponent(callerId)}&select=google_review_url&limit=1`).catch(() => []),
+  ]);
+  const byClient = Object.fromEntries(clients.map(c => [c.user_id, c]));
+  const wrote = new Set(rows.map(r => r.client_user_id));
+  return {
+    role: 'coach',
+    googleReviewUrl: cleanGoogleReviewUrl(coachRows[0]?.google_review_url),
+    testimonials: rows.map(r => ({
+      id: r.id,
+      quote: r.quote,
+      result: r.result || '',
+      status: r.status,
+      clientName: r.client?.full_name || 'Client',
+      monthsTrained: monthsTrained(byClient[r.client_user_id]?.created_at),
+    })),
+    // Clients who haven't written one yet — the coach's "Ask" list.
+    askable: clients
+      .filter(c => !wrote.has(c.user_id))
+      .map(c => ({
+        userId: c.user_id,
+        name: c.user?.full_name || 'Client',
+        phone: c.phone_number || c.user?.phone || '',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+async function handleTestimonials(req, res) {
+  const verifiedEmail = await resolveVerifiedEmail(req);
+  if (!verifiedEmail) return res.status(401).json({ error: 'Could not verify your session.' });
+
+  const { op } = req.body || {};
+  try {
+    const callerId = await resolveOwnUserId(verifiedEmail);
+    if (!callerId) return res.status(403).json({ error: 'No matching account for your session.' });
+
+    const [clientRows, coachRows] = await Promise.all([
+      svcGet(`clients?user_id=eq.${encodeURIComponent(callerId)}&select=coach_id&limit=1`),
+      svcGet(`coaches?user_id=eq.${encodeURIComponent(callerId)}&select=id&limit=1`),
+    ]);
+    const clientRow = clientRows[0] || null;
+    const isCoach = coachRows.length > 0;
+    const hasCoach = !!clientRow?.coach_id;
+
+    if (op === 'list') {
+      if (isCoach) return res.status(200).json(await listTestimonialsForCoach(callerId));
+      if (hasCoach) return res.status(200).json(await listTestimonialsForClient(callerId, clientRow));
+      return res.status(200).json({ role: 'none', shown: [], mine: null });
+    }
+
+    if (op === 'save' || op === 'delete') {
+      if (!hasCoach) return res.status(403).json({ error: 'Connect to a coach before writing a testimonial.' });
+      const match = `client_user_id=eq.${encodeURIComponent(callerId)}&coach_id=eq.${encodeURIComponent(clientRow.coach_id)}`;
+      if (op === 'delete') {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/coach_testimonials?${match}`, {
+          method: 'DELETE', headers: { ...svcHeaders, Prefer: 'return=minimal' }
+        });
+        if (!resp.ok) return res.status(502).json({ error: 'Could not delete your testimonial.' });
+        return res.status(200).json(await listTestimonialsForClient(callerId, clientRow));
+      }
+      const clean = cleanTestimonialInput(req.body);
+      if (!clean) return res.status(400).json({ error: 'Write a few words first.' });
+      const resp = await fetch(`${supabaseUrl}/rest/v1/coach_testimonials?on_conflict=client_user_id,coach_id`, {
+        method: 'POST',
+        headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          client_user_id: callerId,
+          coach_id: clientRow.coach_id,
+          quote: clean.quote,
+          result: clean.result || null,
+          status: 'pending',
+          updated_at: new Date().toISOString(),
+        })
+      });
+      if (!resp.ok) {
+        console.error('save-user-data testimonials save failed:', resp.status, await resp.text().catch(() => ''));
+        return res.status(502).json({ error: 'Could not save your testimonial.' });
+      }
+      return res.status(200).json(await listTestimonialsForClient(callerId, clientRow));
+    }
+
+    if (op === 'status') {
+      const { id, status } = req.body || {};
+      if (!isCoach) return res.status(403).json({ error: 'Only the coach can show or hide testimonials.' });
+      if (!id || !TESTIMONIAL_STATUSES.includes(status) || status === 'pending') {
+        return res.status(400).json({ error: 'id and a status of shown or hidden are required.' });
+      }
+      const resp = await fetch(
+        `${supabaseUrl}/rest/v1/coach_testimonials?id=eq.${encodeURIComponent(id)}&coach_id=eq.${encodeURIComponent(callerId)}`,
+        {
+          method: 'PATCH',
+          headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ status })
+        }
+      );
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) return res.status(502).json({ error: 'Could not update the testimonial.' });
+      if (!Array.isArray(data) || data.length === 0) return res.status(404).json({ error: 'Testimonial not found.' });
+      return res.status(200).json(await listTestimonialsForCoach(callerId));
+    }
+
+    if (op === 'google-link') {
+      if (!isCoach) return res.status(403).json({ error: 'Only a coach can set a Google review link.' });
+      const raw = String(req.body?.url || '').trim();
+      const url = cleanGoogleReviewUrl(raw);
+      if (raw && !url) {
+        return res.status(400).json({ error: "That isn't a Google review link. Copy it from your Google Business Profile → Ask for reviews." });
+      }
+      const resp = await fetch(`${supabaseUrl}/rest/v1/coaches?user_id=eq.${encodeURIComponent(callerId)}`, {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ google_review_url: url || null })
+      });
+      if (!resp.ok) return res.status(502).json({ error: 'Could not save your Google review link.' });
+      return res.status(200).json(await listTestimonialsForCoach(callerId));
+    }
+
+    return res.status(400).json({ error: `Unknown testimonials op: ${op}` });
+  } catch (err) {
+    console.error('save-user-data testimonials error:', err);
+    return res.status(500).json({ error: 'Could not load testimonials.' });
+  }
+}
+
 const ACTION_HANDLERS = {
   'body-measurement': handleBodyMeasurement,
   'tracker-log': handleTrackerLog,
   'progress-history': handleProgressHistory,
-  'chat-message': handleChatMessage
+  'chat-message': handleChatMessage,
+  'testimonials': handleTestimonials
 };
 
 export default async function handler(req, res) {

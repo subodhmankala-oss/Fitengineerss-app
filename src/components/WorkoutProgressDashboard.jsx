@@ -35,7 +35,7 @@ import './WorkoutProgressDashboard.css';
 // which exist yet — see conversation).
 const welcomeBackEngagedKey = (userId) => `wb_engaged_${userId}`;
 
-const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null }) => {
+const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = null, initialMuscleSection = null, openTestimonial = false }) => {
   const [userId, setUserId] = useState(null);
   // Read on the first render: seeding 'Warrior' and swapping in the saved
   // name from an effect flashed "Warrior" in the greeting for a frame.
@@ -67,7 +67,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   const [showConnectModal, setShowConnectModal] = useState(false);
   // Once connected, the pill opens a read-only "who is my coach" view
   // instead of the connect flow — that flow only makes sense pre-connection.
-  const [showCoachDetailsModal, setShowCoachDetailsModal] = useState(false);
+  // openTestimonial: the coach's ask-for-a-testimonial link lands here with
+  // the form already open (see App.jsx).
+  const [showCoachDetailsModal, setShowCoachDetailsModal] = useState(openTestimonial);
+  // Only the first open writes; tapping the coach pill later is a normal visit.
+  const [testimonialFormOnOpen, setTestimonialFormOnOpen] = useState(openTestimonial);
   // An in-progress workout (self-logged, or a coach logging live for this
   // client) that's still open in workout_drafts — surfaced here so it isn't
   // silently lost just because the client was away from the app/tab for a
@@ -1796,7 +1800,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         <CoachDetailsModal
           coachId={localStorage.getItem('userCoachId')}
           coachName={coachName}
-          onClose={() => setShowCoachDetailsModal(false)}
+          onClose={() => { setShowCoachDetailsModal(false); setTestimonialFormOnOpen(false); }}
+          startWriting={testimonialFormOnOpen}
         />
       )}
     </div>

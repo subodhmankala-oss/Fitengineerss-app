@@ -202,7 +202,7 @@ const LIVE_REST_KEY = 'coachLiveRestEndAt';
 // names } — see the save effect next to liveSetTimers and setTimerRestore.js.
 const LIVE_SET_TIMERS_KEY = 'coachLiveSetTimers';
 
-const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) => {
+const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, openTestimonials = false, onTestimonialLinkUsed }) => {
   const loggedInEmail = localStorage.getItem('userEmail') || '';
   const userRole = localStorage.getItem('userRole') || '';
   const superAdmin = isSuperAdmin(loggedInEmail) || userRole === 'super-admin' || userRole === 'admin';
@@ -458,6 +458,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient }) =>
     setCoachProfileSection(section);
     setMobileHeaderMenuOpen(true);
   };
+  // The "ask for a testimonial" link is meant for clients; a coach who taps
+  // it (often their own sent message) lands on Client Testimonials instead
+  // of nothing happening.
+  useEffect(() => {
+    if (!openTestimonials) return;
+    setCoachProfileSection('testimonials');
+    setMobileHeaderMenuOpen(true);
+    onTestimonialLinkUsed?.();
+  }, [openTestimonials, onTestimonialLinkUsed]);
 
   // "New" dot on the sidebar's What's New icon (2026-08-29: "Whenever
   // anything new comes in any navigation. There should be dot"). Re-read on

@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { parseDeepLink, stashDeepLink, takeInitialDeepLink, tabForDeepLink } from './deepLink';
+import {
+  parseDeepLink, stashDeepLink, takeInitialDeepLink, tabForDeepLink,
+  rememberTestimonialLink, hasPendingTestimonialLink, clearTestimonialLink,
+} from './deepLink';
 
 describe('parseDeepLink', () => {
   it('returns null when there are no deep-link params', () => {
@@ -47,5 +50,34 @@ describe('takeInitialDeepLink', () => {
     vi.setSystemTime(new Date('2026-09-24T10:05:00Z'));
     expect(takeInitialDeepLink()).toBeNull();
     vi.useRealTimers();
+  });
+});
+
+describe('testimonial link', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  it('lands on Home and parses from the WhatsApp URL', () => {
+    expect(parseDeepLink('?openTestimonial=1')).toEqual({ openTestimonial: '1' });
+    expect(tabForDeepLink({ openTestimonial: '1' })).toBe('home');
+  });
+
+  it('is remembered through sign-in for a week, then forgotten', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-25T10:00:00Z'));
+    expect(hasPendingTestimonialLink()).toBe(false);
+    rememberTestimonialLink();
+    vi.setSystemTime(new Date('2026-10-31T10:00:00Z'));
+    expect(hasPendingTestimonialLink()).toBe(true);
+    vi.setSystemTime(new Date('2026-11-02T10:00:00Z'));
+    expect(hasPendingTestimonialLink()).toBe(false);
+  });
+
+  it('is cleared once used', () => {
+    rememberTestimonialLink();
+    clearTestimonialLink();
+    expect(hasPendingTestimonialLink()).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import Onboarding from './components/Onboarding';
 import TourOverlay from './components/TourOverlay';
 import CoachTourOverlay from './components/CoachTourOverlay';
 import SexRequiredPrompt from './components/SexRequiredPrompt';
+import PhoneGate from './components/PhoneGate';
 // Lazy-loaded: each of these is only ever needed for ONE role/route at a
 // time (a client never runs TrainerDashboard's code, a returning user never
 // runs ClientOnboardingWizard's, etc.), but a plain static import ships all
@@ -1956,6 +1957,9 @@ function App() {
       <TourOverlay />
       {/* Clients who onboarded before sex was asked must pick one first. */}
       <SexRequiredPrompt />
+      {/* Clients who signed up before the wizard required a phone must add
+          one — their coach can't reach them on WhatsApp otherwise. */}
+      <PhoneGate role="client" />
 
       <main className="main-content">
         <Suspense fallback={<LazyScreenFallback />}>{renderContent()}</Suspense>

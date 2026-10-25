@@ -1,4 +1,4 @@
-// Phone is compulsory for every coach (see CoachPhoneGate). Numbers are
+// Phone is compulsory for every coach and client (see PhoneGate). Numbers are
 // stored as "+91XXXXXXXXXX"; a few older rows are a bare 10 digits.
 //
 // This is a format check, not proof the number is real — only an SMS code

@@ -86,7 +86,7 @@ export default function AdminCoachesList({ coachesList = [], loadingAdmin, onTog
                       {isNewSignup(coach.signup_date) && <span style={{ marginLeft: '6px' }}><NewBadge /></span>}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{coach.email}</div>
-                    {/* Phone is compulsory for coaches (CoachPhoneGate blocks the
+                    {/* Phone is compulsory for coaches (PhoneGate blocks the
                         dashboard until one is added) — flag the ones still missing it. */}
                     <div style={{ fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '5px', color: coach.phone ? 'var(--text-muted)' : 'var(--danger)' }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

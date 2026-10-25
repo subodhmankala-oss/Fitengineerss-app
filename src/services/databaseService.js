@@ -5566,7 +5566,17 @@ const databaseService = {
     else localStorage.removeItem('userUpiId');
   },
 
-  // Phone-only write for CoachPhoneGate — a coach without a number on file
+  // Phone-only write for PhoneGate role="client". A client's number lives on
+  // their own clients row (phone_number — what the coach's client list and
+  // WhatsApp actions read), which the clients_update policy lets them write.
+  async saveClientPhone(userId, phone) {
+    if (!userId) throw new Error('Missing user id — could not save phone.');
+    const row = await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, { phone_number: phone });
+    if (!row) throw new Error('Could not save your phone number. Please log in again and retry.');
+    localStorage.setItem('userPhone', phone);
+  },
+
+  // Phone-only write for PhoneGate role="coach" — a coach without a number on file
   // can't use the dashboard until they add one. users.phone is UNIQUE, so a
   // number already on another account surfaces as a readable message instead
   // of the raw "duplicate key" text.

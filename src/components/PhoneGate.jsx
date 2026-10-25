@@ -2,12 +2,22 @@ import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { hasValidPhone, INVALID_PHONE_MESSAGE } from '../utils/coachPhone';
 
-// Phone is compulsory for every coach. Sign Up already requires it, but
-// coaches created by the Google auto-provision path (Google gives no number)
-// or before that rule existed have none — this blocks the dashboard until
-// they add one. Only shown once the DB confirms the number is missing, so a
-// slow/failed read never locks a coach out.
-export default function CoachPhoneGate() {
+// Phone is compulsory for every coach and every client. Sign-up already
+// requires it (coach Sign Up; client wizard step 1 since 2026-08-15), but
+// accounts created by the Google auto-provision path (Google gives no number)
+// or before that rule existed have none — this blocks the app until they add
+// one. Only shown once the DB confirms the number is missing, so a slow/failed
+// read never locks anyone out.
+//
+// role 'client' (2026-10-25): 27 of 93 clients had no number — all signed up
+// before the wizard required it — so their coach couldn't reach them on
+// WhatsApp (e.g. "Ask for a testimonial" showed "No phone number").
+const COPY = {
+  coach: 'A phone number is required for every coach account so we can reach you about your clients and account.',
+  client: 'Your coach uses it to reach you on WhatsApp about your training, plans and check-ins.',
+};
+
+export default function PhoneGate({ role = 'coach' }) {
   const [needsPhone, setNeedsPhone] = useState(false);
   const [digits, setDigits] = useState('');
   const [saving, setSaving] = useState(false);
@@ -40,7 +50,9 @@ export default function CoachPhoneGate() {
     }
     setSaving(true);
     try {
-      await databaseService.saveCoachPhone(localStorage.getItem('userId'), `+91${digits}`);
+      const userId = localStorage.getItem('userId');
+      if (role === 'client') await databaseService.saveClientPhone(userId, `+91${digits}`);
+      else await databaseService.saveCoachPhone(userId, `+91${digits}`);
       setNeedsPhone(false);
     } catch (err) {
       setError(err.message || 'Could not save your phone number. Please try again.');
@@ -50,7 +62,7 @@ export default function CoachPhoneGate() {
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="coach-phone-gate-title" style={{
+    <div role="dialog" aria-modal="true" aria-labelledby="phone-gate-title" style={{
       position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(5, 8, 16, 0.82)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', boxSizing: 'border-box'
     }}>
@@ -68,11 +80,11 @@ export default function CoachPhoneGate() {
           </svg>
         </div>
         <div>
-          <h3 id="coach-phone-gate-title" style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+          <h3 id="phone-gate-title" style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
             Add your phone number
           </h3>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            A phone number is required for every coach account so we can reach you about your clients and account.
+            {COPY[role] || COPY.coach}
           </p>
         </div>
 

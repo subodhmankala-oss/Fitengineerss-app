@@ -6153,14 +6153,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
               behind a toggle since this is the exception case, not something
               that should compete with the overdue banner for attention. */}
           {pausedClients.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{
+              display: 'flex', flexDirection: 'column',
+              background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.18)',
+              borderRadius: '12px', overflow: 'hidden'
+            }}>
               <button
                 type="button"
                 onClick={() => setPausedSectionOpen(o => !o)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                  background: 'rgba(var(--accent-rgb), 0.06)', border: '1px solid rgba(var(--accent-rgb), 0.18)',
-                  borderRadius: '12px', padding: '7px 12px', cursor: 'pointer', font: 'inherit'
+                  background: 'none', border: 'none',
+                  padding: '7px 12px', cursor: 'pointer', font: 'inherit'
                 }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 700 }}>
@@ -6174,15 +6178,20 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
-              {pausedSectionOpen && pausedClients.map(p => {
+              {pausedSectionOpen && (
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px',
+                borderTop: '1px solid rgba(var(--accent-rgb), 0.14)'
+              }}>
+              {pausedClients.map(p => {
                 const daysPaused = Math.max(0, Math.floor((Date.now() - new Date(p.pausedAt).getTime()) / 86_400_000));
                 return (
                   <div
                     key={p.clientId}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
-                      background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid var(--border-color)',
-                      borderRadius: '12px', padding: '12px 14px'
+                      background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                      borderRadius: '10px', padding: '12px 14px'
                     }}
                   >
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -6220,6 +6229,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                 );
               })}
+              </div>
+              )}
             </div>
           )}
 

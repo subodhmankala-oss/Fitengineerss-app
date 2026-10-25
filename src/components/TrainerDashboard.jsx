@@ -5128,9 +5128,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
             `Quick one ${first} — weight and waist when you get a sec, please!`
           ],
           coach_inactive_client_alert: [
-            `Hey ${first}, haven't seen you in the app for a bit — everything okay?`,
-            `Missing you ${first}! Even a short session today keeps the streak alive 💪`,
-            `Let me know if the plan needs a tweak to fit your week — happy to adjust.`
+            `Hi ${first}, just checking in — how's your week going? Anything getting in the way of training?`,
+            `No stress about the missed days, ${first}. Your next workout is ready whenever you are — even 20 minutes counts 💪`,
+            `If the plan feels like too much right now, tell me — I can shorten the sessions or move your training days.`
           ],
           measurements_saved: [
             `Thanks for logging your measurements, ${first}! Progress is looking good 📈`,

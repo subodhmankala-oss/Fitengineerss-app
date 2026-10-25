@@ -1007,6 +1007,33 @@
   border: 1px solid rgba(var(--fg-rgb), 0.06);
 }
 
+/* Tibialis (no parts): the recommended rows are add/un-add toggles. */
+.detail-rec-row--tap {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.detail-rec-row--tap:active {
+  transform: scale(0.99);
+}
+
+.detail-rec-row--tap.on {
+  background: var(--accent-soft);
+  border-color: var(--accent-text);
+}
+
+.detail-rec-mark {
+  display: inline-block;
+  width: 1.1em;
+  margin-right: 6px;
+  color: var(--accent-text);
+  font-weight: 800;
+}
+
 /* Muscle detail: per-region breakdown ("Inside Back") — MuscleRegionBreakdown.jsx */
 .detail-region-list {
   display: flex;

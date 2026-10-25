@@ -107,6 +107,8 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStar
         sets: Math.floor(setsLeft / planCount) + (i < setsLeft % planCount ? 1 : 0)
       }))
     : [];
+  const added = new Set(addedNames.map(n => n.toLowerCase()));
+  const recCount = addedCount ?? recExercises.filter(n => added.has(n.toLowerCase())).length;
   const recSummary = setsLeft > 0
     ? <><strong>{setsLeft} more set{setsLeft === 1 ? '' : 's'}</strong> to hit your weekly target of {weeklyStat.target} (ideal range {weeklyStat.min}–{weeklyStat.max}).</>
     : weeklyStat.sets > weeklyStat.max
@@ -153,15 +155,43 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStar
           <div className="detail-section">
             <span className="detail-section-title">Recommended This Week</span>
             <p className="detail-rec-summary">{recSummary}</p>
+            {recExercises.length > 0 && onAddExercise && (
+              <p className="detail-region-line">Tap to add to {addTargetLabel || 'your workout'}.</p>
+            )}
             {recExercises.length > 0 && (
               <div className="detail-rec-list">
-                {(plan.length > 0 ? plan : recExercises.map(name => ({ name, sets: 0 }))).map(ex => (
-                  <div key={ex.name} className="detail-rec-row">
-                    <span className="detail-exercise-name">{ex.name}</span>
-                    {ex.sets > 0 && <span className="detail-exercise-sets">{ex.sets} sets</span>}
-                  </div>
-                ))}
+                {(plan.length > 0 ? plan : recExercises.map(name => ({ name, sets: 0 }))).map(ex => {
+                  if (!onAddExercise) {
+                    return (
+                      <div key={ex.name} className="detail-rec-row">
+                        <span className="detail-exercise-name">{ex.name}</span>
+                        {ex.sets > 0 && <span className="detail-exercise-sets">{ex.sets} sets</span>}
+                      </div>
+                    );
+                  }
+                  // Same add/un-add toggle as the part chips in MuscleRegionBreakdown.
+                  const isAdded = added.has(ex.name.toLowerCase());
+                  return (
+                    <button
+                      key={ex.name}
+                      type="button"
+                      className={`detail-rec-row detail-rec-row--tap${isAdded ? ' on' : ''}`}
+                      aria-pressed={isAdded}
+                      disabled={isAdded && !onRemoveExercise}
+                      title={isAdded ? `Remove ${ex.name}` : `Add ${ex.name}`}
+                      onClick={() => (isAdded ? onRemoveExercise?.(ex.name) : onAddExercise(ex.name))}
+                    >
+                      <span className="detail-exercise-name"><span className="detail-rec-mark">{isAdded ? '✓' : '+'}</span>{ex.name}</span>
+                      {ex.sets > 0 && <span className="detail-exercise-sets">{ex.sets} sets</span>}
+                    </button>
+                  );
+                })}
               </div>
+            )}
+            {recCount > 0 && onGoToWorkout && (
+              <button type="button" className="detail-region-go" onClick={onGoToWorkout}>
+                {`Add ${recCount} exercise${recCount === 1 ? '' : 's'} to ${addTargetLabel || 'my workout'} →`}
+              </button>
             )}
           </div>
           )}

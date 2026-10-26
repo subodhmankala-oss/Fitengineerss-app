@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { APP_LINK, toWhatsappNumber, isFounderAudience, buildNudgeMessage, openWhatsapp } from '../../utils/whatsappNudge';
+import { APP_LINK, NUDGE_PRESETS, toWhatsappNumber, isFounderAudience, buildNudgeMessage, openWhatsapp } from '../../utils/whatsappNudge';
 
 // "WhatsApp these clients as the Fitengineers team" for the admin Clients
 // tab's 6+ days inactive / Never logged in tiles. Only people the founder is
@@ -27,11 +27,11 @@ const writeStore = (key, value) => {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode — ticks just won't persist */ }
 };
 
-const DEFAULT_DRAFT = 'Hi {name}! 👋 It\'s the Fitengineers team. We noticed you haven\'t opened the app in a while — your plan is waiting for you. Tap the link below to jump back in.';
-
-export default function AdminWhatsappNudge({ clients = [], coachesList = [], tileLabel }) {
+export default function AdminWhatsappNudge({ clients = [], coachesList = [], tileKey, tileLabel }) {
+  const presets = NUDGE_PRESETS[tileKey] || NUDGE_PRESETS['inactive-long'];
+  const draftKey = `${DRAFT_KEY}:${tileKey}`;
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(() => readStore(DRAFT_KEY, DEFAULT_DRAFT));
+  const [draft, setDraft] = useState(() => readStore(draftKey, presets[0].text));
   const [sent, setSent] = useState(() => readStore(SENT_KEY, {}));
 
   const audience = clients.filter(c => isFounderAudience(c, coachesList));
@@ -39,7 +39,7 @@ export default function AdminWhatsappNudge({ clients = [], coachesList = [], til
   const noPhone = audience.length - reachable.length;
   const sentCount = reachable.filter(c => sent[c.id]).length;
 
-  const updateDraft = (value) => { setDraft(value); writeStore(DRAFT_KEY, value); };
+  const updateDraft = (value) => { setDraft(value); writeStore(draftKey, value); };
   const markSent = (id, value) => {
     setSent(prev => {
       const next = { ...prev };
@@ -93,6 +93,28 @@ export default function AdminWhatsappNudge({ clients = [], coachesList = [], til
       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
         Self-Guided clients and your own clients only — other coaches' clients are left out.
         {noPhone > 0 && ` ${noPhone} skipped (no phone number).`}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        {presets.map(p => {
+          const active = draft === p.text;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => updateDraft(p.text)}
+              style={{
+                padding: '4px 10px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: '0.72rem', fontWeight: 700,
+                color: active ? '#16a34a' : 'var(--text-muted)',
+                background: active ? 'rgba(37, 211, 102, 0.12)' : 'var(--bg-card)',
+                border: `1px solid ${active ? 'rgba(37, 211, 102, 0.6)' : 'var(--border-color)'}`
+              }}
+            >
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)' }}>

@@ -126,6 +126,7 @@ export default function AdminClientsList({
           key={activityFilter}
           clients={clients.filter(matchesActivityFilter)}
           coachesList={coachesList}
+          tileKey={activityFilter}
           tileLabel={summaryTiles.find(t => t.key === activityFilter)?.label}
         />
       )}

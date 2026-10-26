@@ -3,7 +3,7 @@ import React from 'react';
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import AdminWhatsappNudge from './AdminWhatsappNudge';
-import { isFounderAudience, buildNudgeMessage, toWhatsappNumber, APP_LINK } from '../../utils/whatsappNudge';
+import { isFounderAudience, buildNudgeMessage, toWhatsappNumber, APP_LINK, NUDGE_PRESETS } from '../../utils/whatsappNudge';
 
 const coaches = [
   { id: 'coach-me', name: 'Subodh', email: 'SubodhMankala@gmail.com' },
@@ -46,5 +46,15 @@ describe('AdminWhatsappNudge', () => {
     expect(url.searchParams.get('phone')).toBe('919876543210');
     expect(url.searchParams.get('text')).toContain(APP_LINK);
     expect(screen.getByText('1 of 2 sent')).toBeTruthy();
+  });
+
+  it('gives Never logged in a welcome message, not a come-back one, and swaps on preset tap', () => {
+    render(<AdminWhatsappNudge clients={clients} coachesList={coaches} tileKey="never" tileLabel="Never logged in" />);
+    fireEvent.click(screen.getByText(/WhatsApp these as Fitengineers team/));
+    const box = screen.getByRole('textbox');
+    expect(box.value).toBe(NUDGE_PRESETS.never[0].text);
+    fireEvent.click(screen.getByText('Trouble logging in?'));
+    expect(box.value).toBe(NUDGE_PRESETS.never[1].text);
+    expect(localStorage.getItem('adminWhatsappNudgeDraft:never')).toContain('Forgot password');
   });
 });

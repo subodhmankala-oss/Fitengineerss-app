@@ -248,7 +248,7 @@ const svcGet = (path) => fetch(`${supabaseUrl}/rest/v1/${path}`, { headers: svcH
     return Array.isArray(data) ? data : [];
   });
 
-const TESTIMONIAL_SELECT = 'id,client_user_id,quote,result,status,updated_at,client:users!coach_testimonials_client_user_id_fkey(full_name)';
+const TESTIMONIAL_SELECT = 'id,client_user_id,quote,result,status,updated_at,client:users!coach_testimonials_client_user_id_fkey(full_name,email,avatar_url)';
 
 async function listTestimonialsForClient(callerId, clientRow) {
   const coachId = clientRow.coach_id;
@@ -303,6 +303,10 @@ async function listTestimonialsForCoach(callerId) {
       result: r.result || '',
       status: r.status,
       clientName: r.client?.full_name || 'Client',
+      // Coach-only: the email lets <Avatar> try a Gravatar when there's no
+      // saved photo. The client-facing list never gets emails.
+      clientEmail: r.client?.email || '',
+      clientAvatarUrl: r.client?.avatar_url || null,
       monthsTrained: monthsTrained(byClient[r.client_user_id]?.created_at),
     })),
     // Clients who haven't written one yet — the coach's "Ask" list.

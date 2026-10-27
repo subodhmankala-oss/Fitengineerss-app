@@ -435,12 +435,15 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           separate stacked cards. ── */}
       <div className={cardClass('ma-section')}>
         <div className="widget-header justify-between" style={{ marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-          <h4>
-            {insightsTab === 'insights' && 'Insights'}
-            {insightsTab === 'comparison' && `Vs Last ${isMonth ? 'Month' : 'Week'}`}
-            {insightsTab === 'recommendations' && 'Tips'}
-          </h4>
-          <TextTabs tabs={[['insights', 'Insights'], ['comparison', 'Compare'], ['recommendations', 'Tips']]} value={insightsTab} onChange={setInsightsTab} />
+          <h4>Insights</h4>
+          {/* Chips, each its own tint, selected = tint + ring. */}
+          <div className="ma-chips" role="tablist">
+            {[['insights', 'Summary', 'var(--tint-blue)'], ['comparison', 'Compare', 'var(--tint-violet)'], ['recommendations', 'Tips', '#10b981']].map(([key, label, color]) => (
+              <button key={key} type="button" role="tab" aria-selected={insightsTab === key} className={insightsTab === key ? 'active' : ''} style={{ '--pill-color': color }} onClick={() => setInsightsTab(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {insightsTab === 'insights' && <WeeklyInsights insights={insights} period={period} />}

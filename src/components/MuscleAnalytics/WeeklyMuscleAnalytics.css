@@ -230,16 +230,41 @@
 }
 
 .insight-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 0.8rem;
+  font-weight: 500;
   color: var(--text-main);
   line-height: 1.45;
-  background: rgba(var(--fg-rgb), 0.02);
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid rgba(var(--fg-rgb), 0.05);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   padding: 10px 12px;
   opacity: 0;
   animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
 }
+
+.insight-item strong { font-weight: 700; }
+
+/* Tone badge: a round tint + ring around a line icon. */
+.insight-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--tone-color);
+  background: color-mix(in srgb, var(--tone-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone-color) 30%, transparent);
+}
+
+.tone-warn { --tone-color: var(--tint-amber); }
+.tone-good { --tone-color: #10b981; }
+.tone-info { --tone-color: var(--tint-blue); }
+.tone-tip { --tone-color: #10b981; }
 
 /* ── Section 7: Progress Comparison ── */
 .comparison-list {
@@ -1503,6 +1528,33 @@
 
 .ma-link-warn { --pill-color: var(--tint-amber); }
 .ma-link-view { --pill-color: var(--tint-blue); }
+
+/* Insights card switcher: small chips, each its own hue (--pill-color);
+   the selected one gets tint + ring, the rest are plain text. */
+.ma-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.ma-chips button {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ma-chips button:hover { color: var(--text-main); }
+
+.ma-chips button.active {
+  color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--pill-color) 35%, transparent);
+}
 
 /* Balance / Heat Map / Insights cards: the same soft panel as the stats
    strip, so each section reads as its own block. Applies in the coach's

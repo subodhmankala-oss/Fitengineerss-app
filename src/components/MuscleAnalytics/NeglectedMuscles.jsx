@@ -20,7 +20,7 @@ const NEGLECTED_COLOR = '#ef4444';
  * Section 1 (Muscle Balance Overview) via a left/right tab switcher in
  * WeeklyMuscleAnalytics.jsx, so the wrapper/header/subtext live there.
  */
-const NeglectedMuscles = ({ logs, weeklyMuscleStats }) => {
+const NeglectedMuscles = ({ logs, weeklyMuscleStats, period = 'week' }) => {
   const neglected = useMemo(() => {
     return weeklyMuscleStats
       .filter(m => m.status.key === 'neglected')
@@ -46,7 +46,7 @@ const NeglectedMuscles = ({ logs, weeklyMuscleStats }) => {
       {neglected.length === 0 ? (
         <div className="neglected-empty-state">
           <span>✅</span>
-          <p>Every muscle group has logged at least one set this week. Great consistency!</p>
+          <p>Every muscle group has logged at least one set this {period}. Great consistency!</p>
         </div>
       ) : (
         <div className="neglected-list">

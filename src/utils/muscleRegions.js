@@ -147,7 +147,7 @@ export function regionBand(muscle) {
  *   fraction (a set shared by two heads); `exercises[].sets` stays whole. `tier` is the heat map's Not Trained/Low/
  *   Optimal/High/Very High for the region against `band` (null for Other).
  */
-export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
+export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { weeks = 1 } = {}) {
   const regions = REGIONS_BY_MUSCLE[muscle]?.regions;
   if (!regions) return [];
 
@@ -192,10 +192,14 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr) {
   };
 
   const band = regionBand(muscle);
-  const tierFor = sets => getHeatMapTier({
-    status: classifyStatus(sets, band),
-    completionPercent: Math.round((sets / band.target) * 100),
-  });
+  // weeks > 1 (month view): judge the weekly average against the weekly band.
+  const tierFor = total => {
+    const sets = total / weeks;
+    return getHeatMapTier({
+      status: classifyStatus(sets, band),
+      completionPercent: Math.round((sets / band.target) * 100),
+    });
+  };
 
   return [...rows.values()].map(({ byExercise, ...row }) => ({
     ...row,

@@ -6,14 +6,14 @@ const TREND_META = {
   flat: { arrow: '=', label: 'Maintained', className: 'trend-flat' },
 };
 
-const ComparisonRow = ({ label, curr, prev, trend, unit = '', pctChange = null }) => {
+const ComparisonRow = ({ label, curr, prev, trend, unit = '', pctChange = null, prevLabel = 'last week' }) => {
   const meta = TREND_META[trend] || TREND_META.flat;
   return (
     <div className="comparison-row">
       <span className="comparison-label">{label}</span>
       <div className="comparison-values">
         <span className="comparison-curr">{curr.toLocaleString('en-IN')}{unit}</span>
-        <span className="comparison-prev">vs {prev.toLocaleString('en-IN')}{unit} last week</span>
+        <span className="comparison-prev">vs {prev.toLocaleString('en-IN')}{unit} {prevLabel}</span>
       </div>
       <span className={`comparison-trend ${meta.className}`}>
         {meta.arrow} {meta.label}{pctChange != null ? ` (${pctChange > 0 ? '+' : ''}${pctChange}%)` : ''}
@@ -33,13 +33,13 @@ const ComparisonRow = ({ label, curr, prev, trend, unit = '', pctChange = null }
  * Weekly Insights and Personal Recommendations via a 3-way tab switcher in
  * WeeklyMuscleAnalytics.jsx, so the wrapper/header live there.
  */
-const ProgressComparison = ({ comparison, balanceTrend }) => {
+const ProgressComparison = ({ comparison, balanceTrend, prevLabel = 'last week' }) => {
   return (
     <div className="comparison-list">
-      <ComparisonRow label="Workout Count" curr={comparison.workouts.workouts} prev={comparison.prevWeek.workouts} trend={comparison.workouts.trend} />
-      <ComparisonRow label="Training Volume" curr={comparison.volume.curr} prev={comparison.volume.prev} trend={comparison.volume.trend} unit=" kg" pctChange={comparison.volume.pctChange} />
-      <ComparisonRow label="Total Sets" curr={comparison.sets.curr} prev={comparison.sets.prev} trend={comparison.sets.trend} pctChange={comparison.sets.pctChange} />
-      <ComparisonRow label="Balance Trend" curr={balanceTrend.curr} prev={balanceTrend.prev} trend={balanceTrend.trend} unit="%" pctChange={balanceTrend.pctChange} />
+      <ComparisonRow label="Workout Count" curr={comparison.workouts.workouts} prev={comparison.prevWeek.workouts} trend={comparison.workouts.trend} prevLabel={prevLabel} />
+      <ComparisonRow label="Training Volume" curr={comparison.volume.curr} prev={comparison.volume.prev} trend={comparison.volume.trend} unit=" kg" pctChange={comparison.volume.pctChange} prevLabel={prevLabel} />
+      <ComparisonRow label="Total Sets" curr={comparison.sets.curr} prev={comparison.sets.prev} trend={comparison.sets.trend} pctChange={comparison.sets.pctChange} prevLabel={prevLabel} />
+      <ComparisonRow label="Balance Trend" curr={balanceTrend.curr} prev={balanceTrend.prev} trend={balanceTrend.trend} unit="%" pctChange={balanceTrend.pctChange} prevLabel={prevLabel} />
     </div>
   );
 };

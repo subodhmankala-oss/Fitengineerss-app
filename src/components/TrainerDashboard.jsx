@@ -9092,6 +9092,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             weekOffset={historyWeekOffset}
                             setWeekOffset={setHistoryWeekOffset}
                             weekNavBtnStyle={weekNavBtnStyle}
+                            monthOffset={historyMonthOffset}
+                            setMonthOffset={setHistoryMonthOffset}
+                            monthlyStats={{ totalVolume: monthVolume, totalSets: monthSets, workoutsCount: monthWorkouts, totalCalories: monthlyTotalCalories }}
                             bareCards
                             focusSection={muscleMapFocus}
                             // "+ Add" on a muscle-part suggestion goes into

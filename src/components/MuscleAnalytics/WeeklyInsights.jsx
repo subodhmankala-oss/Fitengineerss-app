@@ -6,12 +6,12 @@ import React from 'react';
 // Content-only (no card wrapper/header) — this shares a single card with
 // Progress Comparison and Personal Recommendations via a 3-way tab switcher
 // in WeeklyMuscleAnalytics.jsx, so the wrapper/header live there.
-const WeeklyInsights = ({ insights }) => {
+const WeeklyInsights = ({ insights, period = 'week' }) => {
   if (insights.length === 0) {
     return (
       <div className="neglected-empty-state">
         <span>✅</span>
-        <p>Nothing to flag this week — keep it up.</p>
+        <p>Nothing to flag this {period} — keep it up.</p>
       </div>
     );
   }

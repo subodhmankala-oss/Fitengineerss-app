@@ -623,7 +623,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
  * that's a distinct, second-level switch (which side of the body), not the
  * same kind of choice as the outer Heat Map/Recovery tab.
  */
-const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit = null }) => {
+const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit = null, labelFor = undefined }) => {
   const [view, setView] = useState('front');
   // While zoomed in, the diagram lists the parts in view; these whole-muscle
   // chips step aside so there's one row of targets, not two.
@@ -655,7 +655,7 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit 
       </div>
 
       <div className="muscle-body-wrapper">
-        <BodyDiagram key={view} view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} regionSplit={regionSplit} zoomable onZoomChange={setZoomedIn} />
+        <BodyDiagram key={view} view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} regionSplit={regionSplit} labelFor={labelFor} zoomable onZoomChange={setZoomedIn} />
       </div>
 
       {/* Quick-tap chips under the diagram — same regions, easier tap target

@@ -119,11 +119,13 @@ const inRange = (dateStr, startStr, endStr) => dateStr >= startStr && dateStr <=
  * @param {Array} logs - raw workout_logs rows (log_date, exercise_name, weight_kg, reps, set_type, created_at)
  * @param {string} weekStartStr - YYYY-MM-DD (inclusive)
  * @param {string} weekEndStr - YYYY-MM-DD (inclusive)
- * @param {{includeUntrained?: boolean}} [opts] - keep OPTIONAL_MUSCLES rows
- *   that got 0 sets (the muscle detail screen needs a row to show)
- * @returns {Array<{muscle, sets, volume, days, min, max, target, completionPercent, status}>}
+ * @param {{includeUntrained?: boolean, weeks?: number}} [opts] - includeUntrained
+ *   keeps OPTIONAL_MUSCLES rows that got 0 sets (the muscle detail screen needs
+ *   a row to show). weeks > 1 (a month view) makes `sets` the average per week
+ *   so it's still judged against the weekly target; `totalSets` keeps the raw sum.
+ * @returns {Array<{muscle, sets, totalSets, volume, days, min, max, target, completionPercent, status}>}
  */
-export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUntrained = false } = {}) {
+export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUntrained = false, weeks = 1 } = {}) {
   const bySets = {};
   const byVolume = {};
   const byDays = {};
@@ -146,14 +148,27 @@ export function getWeeklyMuscleStats(logs, weekStartStr, weekEndStr, { includeUn
 
   return MUSCLE_GROUPS.map(muscle => {
     // Halves and quarters stay as they are; float noise from adding them doesn't.
-    const sets = Math.round(bySets[muscle] * 100) / 100;
+    const totalSets = Math.round(bySets[muscle] * 100) / 100;
+    // A month's weekly average reads to one decimal (11.5/wk), not 11.47.
+    const sets = weeks > 1 ? Math.round((bySets[muscle] / weeks) * 10) / 10 : totalSets;
     const days = byDays[muscle].size;
     const volume = Math.round(byVolume[muscle]);
     const { min, max, target } = MUSCLE_TARGETS[muscle];
     const status = classifyStatus(sets, { min, max });
     const completionPercent = Math.round((sets / target) * 100);
-    return { muscle, sets, volume, days, min, max, target, completionPercent, status };
-  }).filter(s => includeUntrained || s.sets > 0 || !OPTIONAL_MUSCLES.has(s.muscle));
+    return { muscle, sets, totalSets, volume, days, min, max, target, completionPercent, status };
+  }).filter(s => includeUntrained || s.totalSets > 0 || !OPTIONAL_MUSCLES.has(s.muscle));
+}
+
+/**
+ * How many weeks a date range counts as, for averaging a month's sets per
+ * week. A month still in progress only counts the days up to `todayStr`, and
+ * anything under a week counts as one (3 days in shouldn't triple the average).
+ */
+export function weeksInRange(startStr, endStr, todayStr = getLocalDateString()) {
+  const last = endStr > todayStr ? todayStr : endStr;
+  const days = Math.round((parseLocalDateString(last) - parseLocalDateString(startStr)) / 86400000) + 1;
+  return Math.max(1, days / 7);
 }
 
 // Average completion% across all 11 muscles — used as an honest stand-in for
@@ -331,25 +346,30 @@ export function formatEstimatedReady(date, now = new Date()) {
  * from this week's stats — nothing generic/random is ever included.
  * Capped to `limit` (spec asks for 3–5), most important first.
  */
-export function generateWeeklyInsights(weeklyMuscleStats, pplc, limit = 5) {
+export function generateWeeklyInsights(weeklyMuscleStats, pplc, limit = 5, period = 'week') {
   const insights = [];
+  const month = period === 'month';
   const trained = weeklyMuscleStats.filter(m => m.sets > 0);
 
   const neglected = weeklyMuscleStats.filter(m => m.status.key === 'neglected');
-  neglected.forEach(m => insights.push(`⚠ ${m.muscle} received zero sets this week.`));
+  neglected.forEach(m => insights.push(`⚠ ${m.muscle} received zero sets this ${period}.`));
 
   const highVolume = weeklyMuscleStats.filter(m => m.status.key === 'high_volume')
     .sort((a, b) => b.completionPercent - a.completionPercent);
   highVolume.slice(0, 2).forEach(m => {
     const overBy = Math.round(((m.sets - m.target) / m.target) * 100);
-    insights.push(`⚠ ${m.muscle} has exceeded your weekly target by ${overBy}%.`);
+    insights.push(month
+      ? `⚠ ${m.muscle} averaged ${overBy}% over your weekly target this month.`
+      : `⚠ ${m.muscle} has exceeded your weekly target by ${overBy}%.`);
   });
 
   const undertrained = weeklyMuscleStats.filter(m => m.status.key === 'undertrained')
     .sort((a, b) => a.sets - b.sets);
   if (undertrained.length > 0) {
     const worst = undertrained[0];
-    insights.push(`⚠ ${worst.muscle} received only ${worst.sets} set${worst.sets === 1 ? '' : 's'} — well below target.`);
+    insights.push(month
+      ? `⚠ ${worst.muscle} averaged only ${worst.sets} set${worst.sets === 1 ? '' : 's'} a week — well below target.`
+      : `⚠ ${worst.muscle} received only ${worst.sets} set${worst.sets === 1 ? '' : 's'} — well below target.`);
   }
 
   // Lopsided pair comparisons (only the most extreme, and only if genuinely
@@ -376,7 +396,7 @@ export function generateWeeklyInsights(weeklyMuscleStats, pplc, limit = 5) {
   }
 
   if (neglected.length === 0 && undertrained.length === 0 && highVolume.length === 0 && trained.length >= 8) {
-    insights.unshift('✅ Great consistency this week — every major muscle group was trained.');
+    insights.unshift(`✅ Great consistency this ${period} — every major muscle group was trained.`);
   }
 
   return insights.slice(0, limit);
@@ -431,15 +451,17 @@ export function compareWeeks(logs, thisWeekStart, thisWeekEnd, prevWeekStart, pr
 /**
  * Short, actionable recommendation strings. Data-gated like insights.
  */
-export function getRecommendations(weeklyMuscleStats, limit = 5) {
+export function getRecommendations(weeklyMuscleStats, limit = 5, period = 'week') {
   const recs = [];
+  // A month's sets are weekly averages, so its advice is per week going forward.
+  const perWeek = period === 'month' ? 'a week' : 'this week';
   const undertrainedOrNeglected = weeklyMuscleStats
     .filter(m => m.status.key === 'undertrained' || m.status.key === 'neglected')
     .sort((a, b) => a.sets - b.sets);
 
   undertrainedOrNeglected.slice(0, 2).forEach(m => {
-    const setsNeeded = Math.max(1, m.min - m.sets);
-    recs.push(`Add ${setsNeeded} more ${m.muscle} set${setsNeeded === 1 ? '' : 's'} this week.`);
+    const setsNeeded = Math.max(1, Math.ceil(m.min - m.sets));
+    recs.push(`Add ${setsNeeded} more ${m.muscle} set${setsNeeded === 1 ? '' : 's'} ${perWeek}.`);
   });
 
   const highVolume = weeklyMuscleStats.filter(m => m.status.key === 'high_volume');
@@ -454,7 +476,7 @@ export function getRecommendations(weeklyMuscleStats, limit = 5) {
   const hamStat = weeklyMuscleStats.find(m => m.muscle === 'Hamstrings');
   const isBehind = (m) => m && (m.status.key === 'undertrained' || m.status.key === 'neglected');
   if (isBehind(backStat) && isBehind(hamStat)) {
-    recs.push('Focus on Posterior Chain — Back and Hamstrings are both behind target this week.');
+    recs.push(`Focus on Posterior Chain — Back and Hamstrings are both behind target this ${period}.`);
   }
 
   // All of a muscle's volume crammed into a single session, and it's still
@@ -463,7 +485,7 @@ export function getRecommendations(weeklyMuscleStats, limit = 5) {
     .filter(m => m.sets > 0 && m.days === 1 && (m.status.key === 'undertrained' || m.status.key === 'slightly_low'))
     .sort((a, b) => a.completionPercent - b.completionPercent);
   if (lowFrequency.length > 0) {
-    recs.push(`Increase ${lowFrequency[0].muscle} training frequency — all sets came from a single session this week.`);
+    recs.push(`Increase ${lowFrequency[0].muscle} training frequency — all sets came from a single session this ${period}.`);
   }
 
   const totalSets = weeklyMuscleStats.reduce((sum, m) => sum + m.sets, 0);

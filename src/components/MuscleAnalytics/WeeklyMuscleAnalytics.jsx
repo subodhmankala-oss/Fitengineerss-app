@@ -9,12 +9,12 @@ import MuscleHeatMap from './MuscleHeatMap';
 import MuscleDetailModal from './MuscleDetailModal';
 import {
   getWeeklyMuscleStats, getPPLCDistribution, generateWeeklyInsights,
-  getRecommendations, compareWeeks, getAverageCompletion, classifyTrend
+  getRecommendations, compareWeeks, getAverageCompletion, classifyTrend, weeksInRange
 } from '../../utils/muscleAnalytics';
 import { subscribeCatalogMuscles, MUSCLE_GROUPS } from '../../utils/muscleGroups';
 import { getRegionBreakdownForMuscle, hasRegions } from '../../utils/muscleRegions';
 import databaseService from '../../services/databaseService';
-import { shiftLocalDateString } from '../../utils/dateUtils';
+import { shiftLocalDateString, getLocalDateString } from '../../utils/dateUtils';
 import { useCountUp } from '../../hooks/useCountUp';
 import './WeeklyMuscleAnalytics.css';
 
@@ -66,20 +66,60 @@ const ShareIconButton = ({ onClick, title }) => (
   </button>
 );
 
+// First/last day (YYYY-MM-DD) of the calendar month `offset` months from now.
+const monthBounds = (offset) => {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  return [getLocalDateString(first), getLocalDateString(last), first];
+};
+
+const PERIOD_KEY = 'muscleAnalyticsPeriod';
+
 /**
  * Phase 1 of "Weekly Muscle Analytics": header stats + Section 1 (Muscle
  * Balance Overview cards). Reads the same `logs`/`weekDays`/`weeklyStats`
  * the parent's Weekly tab already computed — no extra data fetch.
+ *
+ * Week/Month toggle (shown when the parent passes setMonthOffset +
+ * monthlyStats): a month is judged by its average sets per week against the
+ * same weekly targets, so colours and statuses mean the same in both views.
+ * Month navigation shares the parent's Monthly tab offset.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
-  const weekStartStr = weekDays[0];
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
+  const canMonth = !!(setMonthOffset && monthlyStats);
+  const [periodPref, setPeriodPref] = useState(() => {
+    try { return localStorage.getItem(PERIOD_KEY) === 'month' ? 'month' : 'week'; } catch { return 'week'; }
+  });
+  const period = canMonth ? periodPref : 'week';
+  const isMonth = period === 'month';
+  const choosePeriod = (p) => {
+    setPeriodPref(p);
+    try { localStorage.setItem(PERIOD_KEY, p); } catch { /* private mode: just not remembered */ }
+  };
+  const [monthStartStr, monthEndStr, monthDate] = useMemo(() => monthBounds(monthOffset), [monthOffset]);
+  const [prevMonthStartStr, prevMonthEndStr] = useMemo(() => monthBounds(monthOffset - 1), [monthOffset]);
+  const monthLabel = monthOffset === 0 ? 'This month'
+    : monthOffset === -1 ? 'Last month'
+      : monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+  const rangeStartStr = isMonth ? monthStartStr : weekDays[0];
+  const rangeEndStr = isMonth ? monthEndStr : weekDays[6];
+  const weeks = isMonth ? weeksInRange(monthStartStr, monthEndStr) : 1;
+  const headerStats = isMonth ? monthlyStats : weeklyStats;
+
+  // The detail sheet's advice ("N more sets to hit your weekly target") is
+  // about a week, so a month opens it on that month's last 7 days (the
+  // default rolling 7 days for the current month).
+  const todayStr = getLocalDateString();
+  const detailEnd = isMonth ? (monthEndStr < todayStr ? monthEndStr : null) : weekDays[6];
+  const detailStart = isMonth ? (detailEnd ? shiftLocalDateString(detailEnd, -6) : null) : weekDays[0];
   // bareCards: coach view drops every card's border/background/padding on
   // this tab — the coach's client detail screen already sits in its own
   // bordered panel, so every chart-widget-card here doubled up. Client view
   // keeps the normal bordered cards since it has no such ancestor panel.
   const cardClass = (extra = '') =>
     `${bareCards ? 'muscle-analytics-bare-card' : 'chart-widget-card glass-panel'}${extra ? ` ${extra}` : ''}`;
-  const weekEndStr = weekDays[6];
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   // Which part of the muscle was tapped on the body diagram (e.g. Back →
   // Rotator Cuff); the detail screen highlights it. Null from a card/chip tap.
@@ -150,9 +190,9 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const muscleStats = useMemo(
     () => {
       void catalogVersion; // recompute when the catalog mapping changes
-      return getWeeklyMuscleStats(logs, weekStartStr, weekEndStr);
+      return getWeeklyMuscleStats(logs, rangeStartStr, rangeEndStr, { weeks });
     },
-    [logs, weekStartStr, weekEndStr, catalogVersion]
+    [logs, rangeStartStr, rangeEndStr, weeks, catalogVersion]
   );
 
   // Heat map draws every muscle that has parts (Back: Lats / Trapezius / Mid
@@ -161,34 +201,42 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   const regionSplit = useMemo(() => {
     void catalogVersion;
     return Object.fromEntries(MUSCLE_GROUPS.filter(hasRegions).map(m => {
-      const parts = getRegionBreakdownForMuscle(logs, m, weekStartStr, weekEndStr).filter(r => r.tier);
+      const parts = getRegionBreakdownForMuscle(logs, m, rangeStartStr, rangeEndStr, { weeks }).filter(r => r.tier);
       return [m, Object.fromEntries(parts.map(r => [r.id, r.tier]))];
     }));
-  }, [logs, weekStartStr, weekEndStr, catalogVersion]);
+  }, [logs, rangeStartStr, rangeEndStr, weeks, catalogVersion]);
 
   const pplc = useMemo(() => getPPLCDistribution(muscleStats), [muscleStats]);
-  const insights = useMemo(() => generateWeeklyInsights(muscleStats, pplc), [muscleStats, pplc]);
-  const recommendations = useMemo(() => getRecommendations(muscleStats), [muscleStats]);
+  const insights = useMemo(() => generateWeeklyInsights(muscleStats, pplc, 5, period), [muscleStats, pplc, period]);
+  const recommendations = useMemo(() => getRecommendations(muscleStats, 5, period), [muscleStats, period]);
 
-  // Previous 7-day window, immediately preceding this one — used for
-  // Section 7 (Progress Comparison).
-  const prevWeekStartStr = useMemo(() => shiftLocalDateString(weekStartStr, -7), [weekStartStr]);
-  const prevWeekEndStr = useMemo(() => shiftLocalDateString(weekEndStr, -7), [weekEndStr]);
+  // The window immediately before this one (previous 7 days, or previous
+  // calendar month) — used for Section 7 (Progress Comparison).
+  const prevStartStr = isMonth ? prevMonthStartStr : shiftLocalDateString(weekDays[0], -7);
+  const prevEndStr = isMonth ? prevMonthEndStr : shiftLocalDateString(weekDays[6], -7);
 
   const comparison = useMemo(
     () => {
       void catalogVersion;
-      return compareWeeks(logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr);
+      return compareWeeks(logs, rangeStartStr, rangeEndStr, prevStartStr, prevEndStr);
     },
-    [logs, weekStartStr, weekEndStr, prevWeekStartStr, prevWeekEndStr, catalogVersion]
+    [logs, rangeStartStr, rangeEndStr, prevStartStr, prevEndStr, catalogVersion]
   );
 
   const balanceTrend = useMemo(() => {
-    const prevMuscleStats = getWeeklyMuscleStats(logs, prevWeekStartStr, prevWeekEndStr);
+    const prevWeeks = isMonth ? weeksInRange(prevStartStr, prevEndStr) : 1;
+    const prevMuscleStats = getWeeklyMuscleStats(logs, prevStartStr, prevEndStr, { weeks: prevWeeks });
     const curr = getAverageCompletion(muscleStats);
     const prev = getAverageCompletion(prevMuscleStats);
     return { curr, prev, trend: classifyTrend(curr, prev), pctChange: prev === 0 ? null : Math.round(((curr - prev) / prev) * 100) };
-  }, [logs, muscleStats, prevWeekStartStr, prevWeekEndStr]);
+  }, [logs, muscleStats, isMonth, prevStartStr, prevEndStr]);
+
+  const heatMapLabel = isMonth
+    ? (muscle) => {
+      const stat = muscleStats.find(m => m.muscle === muscle);
+      return `${muscle}: ${stat ? stat.status.label : 'Not Trained'}, ${stat?.sets ?? 0} sets a week on average this month`;
+    }
+    : undefined;
 
   // Exercises picked from the muscle sheets. The client's queue is already
   // only picks; the coach's addedNames is the whole Live Log, so remember
@@ -224,30 +272,56 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
 
   return (
     <div className="muscle-analytics-root timeframe-content flex-col gap-4">
-      {/* ── Header: week range + top-line stats ── */}
+      {/* ── Header: week/month range + top-line stats ── */}
       <div className={cardClass('muscle-analytics-header')}>
-        <div className="widget-header justify-between">
-          <h4>🧠 Weekly Muscle Analytics</h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button type="button" title="Previous week" onClick={() => setWeekOffset(w => w - 1)} style={weekNavBtnStyle}>‹</button>
-            <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{weekRangeLabel}</span>
-            <button
-              type="button"
-              title={weekOffset >= 0 ? 'Already on the current week' : 'Next week'}
-              onClick={() => setWeekOffset(w => Math.min(0, w + 1))}
-              disabled={weekOffset >= 0}
-              style={{ ...weekNavBtnStyle, opacity: weekOffset >= 0 ? 0.35 : 1, cursor: weekOffset >= 0 ? 'default' : 'pointer' }}
-            >
-              ›
-            </button>
+        <div className="widget-header justify-between" style={{ flexWrap: 'wrap', gap: '8px' }}>
+          <h4>🧠 {isMonth ? 'Monthly' : 'Weekly'} Muscle Analytics</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {canMonth && (
+              <div className="heatmap-view-toggle">
+                <button type="button" className={!isMonth ? 'active' : ''} onClick={() => choosePeriod('week')}>Week</button>
+                <button type="button" className={isMonth ? 'active' : ''} onClick={() => choosePeriod('month')}>Month</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isMonth ? (
+                <>
+                  <button type="button" title="Previous month" onClick={() => setMonthOffset(monthOffset - 1)} style={weekNavBtnStyle}>‹</button>
+                  <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{monthLabel}</span>
+                  <button
+                    type="button"
+                    title={monthOffset >= 0 ? 'Already on the current month' : 'Next month'}
+                    onClick={() => setMonthOffset(Math.min(0, monthOffset + 1))}
+                    disabled={monthOffset >= 0}
+                    style={{ ...weekNavBtnStyle, opacity: monthOffset >= 0 ? 0.35 : 1, cursor: monthOffset >= 0 ? 'default' : 'pointer' }}
+                  >
+                    ›
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" title="Previous week" onClick={() => setWeekOffset(w => w - 1)} style={weekNavBtnStyle}>‹</button>
+                  <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{weekRangeLabel}</span>
+                  <button
+                    type="button"
+                    title={weekOffset >= 0 ? 'Already on the current week' : 'Next week'}
+                    onClick={() => setWeekOffset(w => Math.min(0, w + 1))}
+                    disabled={weekOffset >= 0}
+                    style={{ ...weekNavBtnStyle, opacity: weekOffset >= 0 ? 0.35 : 1, cursor: weekOffset >= 0 ? 'default' : 'pointer' }}
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="stats-row-cards mini" style={{ marginTop: '10px' }}>
-          <AnimatedStat value={weeklyStats.totalVolume} label="Volume" valueClass="text-emerald" suffix=" kg" />
-          <AnimatedStat value={weeklyStats.totalSets} label="Sets" valueClass="text-blue" suffix=" sets" />
-          <AnimatedStat value={weeklyStats.workoutsCount} label="Workouts" valueClass="text-amber" />
-          <AnimatedStat value={weeklyStats.totalCalories} label="Calories" valueClass="text-amber" suffix=" kcal" />
+          <AnimatedStat value={headerStats.totalVolume} label="Volume" valueClass="text-emerald" suffix=" kg" />
+          <AnimatedStat value={headerStats.totalSets} label="Sets" valueClass="text-blue" suffix=" sets" />
+          <AnimatedStat value={headerStats.workoutsCount} label="Workouts" valueClass="text-amber" />
+          <AnimatedStat value={headerStats.totalCalories} label="Calories" valueClass="text-amber" suffix=" kcal" />
         </div>
       </div>
 
@@ -271,11 +345,15 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
 
         {balanceTab === 'balance' ? (
           <>
-            <p className="muscle-analytics-subtext">Working sets per muscle group, measured against your weekly target.</p>
+            <p className="muscle-analytics-subtext">
+              {isMonth
+                ? 'Average working sets per week this month, per muscle group, measured against your weekly target.'
+                : 'Working sets per muscle group, measured against your weekly target.'}
+            </p>
             {pickedStrip}
             <div className="muscle-card-grid">
               {muscleStats.map((stat, i) => (
-                <MuscleCard key={stat.muscle} stat={stat} index={i} onClick={() => selectMuscle(stat.muscle)} />
+                <MuscleCard key={stat.muscle} stat={stat} index={i} period={period} onClick={() => selectMuscle(stat.muscle)} />
               ))}
             </div>
             <div className="muscle-status-legend">
@@ -288,8 +366,8 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           </>
         ) : (
           <>
-            <p className="muscle-analytics-subtext">Muscles with zero sets logged this week.</p>
-            <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} />
+            <p className="muscle-analytics-subtext">Muscles with zero sets logged this {period}.</p>
+            <NeglectedMuscles logs={logs} weeklyMuscleStats={muscleStats} period={period} />
           </>
         )}
       </div>
@@ -313,7 +391,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
 
         {mapTab === 'heatmap' && pickedStrip}
         {mapTab === 'heatmap' ? (
-          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} />
+          <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} labelFor={heatMapLabel} />
         ) : (
           <RecoveryDashboard logs={logs} />
         )}
@@ -326,7 +404,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
       <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>
-            {insightsTab === 'insights' && '💡 Weekly Insights'}
+            {insightsTab === 'insights' && `💡 ${isMonth ? 'Monthly' : 'Weekly'} Insights`}
             {insightsTab === 'comparison' && '📊 Progress Comparison'}
             {insightsTab === 'recommendations' && '🎯 Personal Recommendations'}
           </h4>
@@ -337,8 +415,8 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           </div>
         </div>
 
-        {insightsTab === 'insights' && <WeeklyInsights insights={insights} />}
-        {insightsTab === 'comparison' && <ProgressComparison comparison={comparison} balanceTrend={balanceTrend} />}
+        {insightsTab === 'insights' && <WeeklyInsights insights={insights} period={period} />}
+        {insightsTab === 'comparison' && <ProgressComparison comparison={comparison} balanceTrend={balanceTrend} prevLabel={isMonth ? 'last month' : 'last week'} />}
         {insightsTab === 'recommendations' && <Recommendations recommendations={recommendations} />}
       </div>
 
@@ -347,7 +425,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           renders outside the scrolling content but still within this
           component's own subtree. ── */}
       {selectedMuscle && (
-        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={weekStartStr} weekEnd={weekEndStr} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} addedCount={picked.length} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
+        <MuscleDetailModal muscle={selectedMuscle} focusRegion={selectedRegion} weekStart={detailStart} weekEnd={detailEnd} logs={logs} onClose={() => selectMuscle(null)} onAddExercise={onAddExercise ? trackAdd : null} onRemoveExercise={onRemoveExercise ? trackRemove : null} addedNames={addedNames} addedCount={picked.length} onGoToWorkout={onGoToWorkout} addTargetLabel={addTargetLabel} />
       )}
     </div>
   );

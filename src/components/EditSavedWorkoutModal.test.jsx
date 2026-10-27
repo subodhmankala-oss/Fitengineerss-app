@@ -32,6 +32,18 @@ describe('EditSavedWorkoutModal', () => {
     expect(diff.deletes).toEqual([2]);
   });
 
+  it('adds a set to a saved exercise', () => {
+    const onSave = vi.fn(async () => {});
+    open(onSave);
+    fireEvent.click(screen.getByText('+ Add Set'));
+    expect(screen.getByLabelText('Bench Press set 3 kg')).toBeTruthy();
+    expect(screen.getByText('Save changes').disabled).toBe(true); // blank new set isn't a change
+    fireEvent.change(screen.getByLabelText('Bench Press set 3 kg'), { target: { value: '60' } });
+    fireEvent.change(screen.getByLabelText('Bench Press set 3 reps'), { target: { value: '6' } });
+    fireEvent.click(screen.getByText('Save changes'));
+    expect(onSave.mock.calls[0][0].adds).toEqual([{ name: 'Bench Press', sets: [{ reps: 6, weight: 60 }] }]);
+  });
+
   it("won't remove every set", () => {
     const onSave = vi.fn(async () => {});
     open(onSave);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canAddMissedExercise, addedLaterExercisesByDate, toSavedMissedExercises, emptyMissedSet, buildEditableWorkout, diffEditableWorkout, previousFormSets } from './missedExercises';
+import { canAddMissedExercise, addedLaterExercisesByDate, toSavedMissedExercises, emptyMissedSet, buildEditableWorkout, newEditableSet, diffEditableWorkout, previousFormSets } from './missedExercises';
 import { estimateMissedSetsKcal } from './liveWorkoutTimer';
 
 describe('canAddMissedExercise', () => {
@@ -101,5 +101,20 @@ describe('previousFormSets', () => {
     ];
     expect(previousFormSets('Bench Press', rows, '2026-10-27')).toEqual([{ weight: '50', reps: '8' }, { weight: '50', reps: '6' }]);
     expect(previousFormSets('Squat', rows, '2026-10-27')).toEqual([]);
+  });
+});
+
+describe('sets added in the edit sheet', () => {
+  const rows = [{ id: 'a', exercise_name: 'Bench Press', reps: 10, weight_kg: 60, created_at: '2026-10-27T10:00:00Z', session_row: 0 }];
+
+  it('sends filled new sets as adds with their calories, and ignores blank ones', () => {
+    const ex = buildEditableWorkout(rows);
+    ex[0].sets.push(newEditableSet('Bench Press'), newEditableSet('Bench Press'));
+    ex[0].sets[1] = { ...ex[0].sets[1], values: { weight: '60', reps: '8' } };
+    const diff = diffEditableWorkout(ex, 70);
+    expect(diff.adds).toEqual([{ name: 'Bench Press', sets: [{ reps: 8, weight: 60 }] }]);
+    expect(diff.addedKcal).toBeGreaterThan(0);
+    expect(diff.changes).toEqual([]);
+    expect(diff.deletes).toEqual([]);
   });
 });

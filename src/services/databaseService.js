@@ -2073,6 +2073,19 @@ const databaseService = {
     return body;
   },
 
+  // Edit workout's Save: changed/removed sets first, then any sets added to
+  // existing exercises (appended to the same session).
+  async saveWorkoutEdits({ userId, logDate, changes = [], deletes = [], kcalDeltas = {}, adds = [], addedKcal = 0 }) {
+    let result = {};
+    if (changes.length > 0 || deletes.length > 0) {
+      result = await this.editSavedWorkout({ userId, logDate, changes, deletes, kcalDeltas });
+    }
+    if (adds.length > 0) {
+      result = await this.appendMissedExercises({ userId, logDate, exercises: adds, addedCalories: addedKcal });
+    }
+    return result;
+  },
+
   async appendMissedExercises({ userId, logDate, exercises, addedCalories }) {
     if (!UUID_RE.test(userId || '')) throw new Error('Missing account id — reload and try again.');
     const records = buildWorkoutLogRecords(userId, { date: logDate, exercises });

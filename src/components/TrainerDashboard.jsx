@@ -2594,9 +2594,9 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // editable only when they all came from the database (have an id).
   const historyDayRows = useMemo(() => rawWorkoutLogs.filter(l => l.log_date === historyDateStr), [rawWorkoutLogs, historyDateStr]);
   const historyDayRowsEditable = historyDayRows.length > 0 && historyDayRows.every(l => l.id != null);
-  const handleSaveWorkoutEdit = async ({ changes, deletes, kcalDeltas }, planName) => {
+  const handleSaveWorkoutEdit = async (edit, planName) => {
     const clientId = selectedClient?.id;
-    await databaseService.editSavedWorkout({ userId: clientId, logDate: historyDateStr, changes, deletes, kcalDeltas });
+    await databaseService.saveWorkoutEdits({ userId: clientId, logDate: historyDateStr, ...edit });
     setEditWorkoutOpen(false);
     setMissedExToast(`${planName || 'Workout'} updated`);
     setTimeout(() => setMissedExToast(''), 3500);

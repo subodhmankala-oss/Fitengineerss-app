@@ -72,7 +72,7 @@
   gap: 10px;
 }
 .cnb-inline .cnb-head {
-  padding: 14px 12px 14px var(--screen-gutter, 16px);
+  padding: 14px var(--screen-gutter, 16px);
 }
 
 /* Scrim either side of the sheet when the browser is wider than the app
@@ -191,7 +191,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 12px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   background: rgba(var(--accent-rgb), 0.08);
 }
@@ -205,20 +205,6 @@
   align-items: center;
   gap: 10px;
 }
-.cnb-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid var(--border-color);
-  background: rgba(var(--fg-rgb), 0.06);
-  color: var(--text-main);
-  cursor: pointer;
-}
-.cnb-close:hover { background: rgba(var(--fg-rgb), 0.12); }
-
 .cnb-end {
   padding: 10px 0 4px;
   text-align: center;

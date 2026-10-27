@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Avatar from './Avatar';
 import databaseService from '../services/databaseService';
 import { trainedLabel, buildTestimonialAsk } from '../utils/testimonials';
 import { toWhatsappNumber, openWhatsapp } from '../utils/whatsappNudge';
@@ -113,10 +114,15 @@ export default function CoachTestimonialsManager() {
         <div className="cp-form-card cp-testimonial-card" key={t.id}>
           <div className="cp-testimonial-body">
             <div className="cp-testimonial-top">
-              <span className="cp-testimonial-who">{t.clientName}</span>
+              <span className="cp-testimonial-who">
+                <Avatar email={t.clientEmail} name={t.clientName} avatarUrl={t.clientAvatarUrl} size={32} />
+                <span className="cp-testimonial-who-text">
+                  <span className="cp-testimonial-who-name">{t.clientName}</span>
+                  {t.monthsTrained != null && <span className="cp-testimonial-meta">{trainedLabel(t.monthsTrained)}</span>}
+                </span>
+              </span>
               <span className={`cp-testimonial-pill cp-testimonial-pill--${t.status}`}>{STATUS_LABEL[t.status]}</span>
             </div>
-            {t.monthsTrained != null && <div className="cp-testimonial-meta">{trainedLabel(t.monthsTrained)}</div>}
             <p className="cp-testimonial-quote">{'“'}{t.quote}{'”'}</p>
             {t.result && <span className="cp-testimonial-result">{t.result}</span>}
             <div className="cp-testimonial-actions">

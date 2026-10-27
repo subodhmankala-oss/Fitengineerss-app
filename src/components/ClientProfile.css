@@ -423,9 +423,31 @@
 }
 
 .cp-testimonial-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-main);
+}
+
+.cp-testimonial-who-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cp-testimonial-who-text .cp-testimonial-meta {
+  font-weight: 400;
+}
+
+.cp-testimonial-who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cp-testimonial-meta {

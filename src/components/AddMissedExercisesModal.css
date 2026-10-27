@@ -164,25 +164,25 @@
   gap: 8px;
 }
 .missed-ex-entry-hint { font-size: 0.74rem; color: var(--text-muted); }
-/* Side by side when there's room; stacked on a narrow phone so neither
-   label wraps. */
-.missed-ex-entry-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+/* Two equal halves, on phones too. */
+.missed-ex-entry-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .missed-ex-entry-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   box-sizing: border-box;
   min-height: 46px;
-  padding: 8px 12px;
+  padding: 8px 6px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--entry-ring);
   background: var(--entry-tint);
   color: var(--entry-color);
-  font-size: 0.86rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.2;
+  text-align: center;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.1s ease;
 }

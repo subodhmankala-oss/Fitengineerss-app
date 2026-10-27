@@ -596,8 +596,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // edited in place.
   const dayRows = logs.filter(l => l.log_date === selectedDateStr);
   const dayRowsEditable = dayRows.length > 0 && dayRows.every(l => l.id != null);
-  const handleSaveWorkoutEdit = async ({ changes, deletes, kcalDeltas }) => {
-    const result = await databaseService.editSavedWorkout({ userId, logDate: selectedDateStr, changes, deletes, kcalDeltas });
+  const handleSaveWorkoutEdit = async (edit) => {
+    const result = await databaseService.saveWorkoutEdits({ userId, logDate: selectedDateStr, ...edit });
     setEditWorkoutOpen(false);
     setMissedExToast(`${dailyPlanLabel} updated`);
     setTimeout(() => setMissedExToast(''), 3500);

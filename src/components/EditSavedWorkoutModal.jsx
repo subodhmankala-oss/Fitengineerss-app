@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { BinIcon } from './TimerIcons';
 import { SetGrid, SheetHeader } from './SavedWorkoutSheetParts';
 import { DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
-import { buildEditableWorkout, applySetEdit, diffEditableWorkout, savedSetLabel } from '../utils/missedExercises';
+import { buildEditableWorkout, newEditableSet, applySetEdit, diffEditableWorkout, savedSetLabel } from '../utils/missedExercises';
 import './WorkoutTracker.css';
 import './AddMissedExercisesModal.css';
 
@@ -38,15 +38,19 @@ export default function EditSavedWorkoutModal({ open, onClose, onSave, rows = []
   });
   const removeSet = (exIdx, visibleIdx) => mapSets(exIdx, sets => {
     const target = sets.filter(s => !s.deleted)[visibleIdx];
-    return sets.map(s => s !== target ? s : { ...s, deleted: true });
+    // A set that was never saved just goes away.
+    return target.added ? sets.filter(s => s !== target) : sets.map(s => s !== target ? s : { ...s, deleted: true });
   });
+  const addSet = (exIdx) => mapSets(exIdx, (sets, name) => [...sets, newEditableSet(name)]);
   const removeExercise = (exIdx) => mapSets(exIdx, sets => sets.map(s => ({ ...s, deleted: true })));
   const restoreExercise = (exIdx) => mapSets(exIdx, sets => sets.map(s => ({ ...s, deleted: false, values: s.original })));
+  // A new set's boxes hint at the set before it (tap to take it).
+  const hintsFor = (visible) => visible.map((s, i) => (s.added && i > 0 ? visible[i - 1].values : undefined));
 
   const remaining = exercises.reduce((n, ex) => n + ex.sets.filter(s => !s.deleted).length, 0);
   const diff = diffEditableWorkout(exercises, bodyWeightKg);
-  const changeCount = diff.error ? null : diff.changes.length + diff.deletes.length;
-  const kcalDelta = diff.error ? 0 : Math.round(Object.values(diff.kcalDeltas).reduce((a, b) => a + b, 0));
+  const changeCount = diff.error ? null : diff.changes.length + diff.deletes.length + diff.adds.length;
+  const kcalDelta = diff.error ? 0 : Math.round(Object.values(diff.kcalDeltas).reduce((a, b) => a + b, diff.addedKcal));
 
   const handleSave = async () => {
     if (remaining === 0) { setError('Keep at least one set in the workout.'); return; }
@@ -89,7 +93,7 @@ export default function EditSavedWorkoutModal({ open, onClose, onSave, rows = []
                 </div>
               );
             }
-            const removedSets = ex.sets.length - visible.length;
+            const removedSets = ex.sets.filter(s => s.deleted).length;
             return (
               <div key={ex.name} className="form-exercise-card hevy-exercise-card">
                 <div className="ex-card-header">
@@ -100,12 +104,14 @@ export default function EditSavedWorkoutModal({ open, onClose, onSave, rows = []
                   name={ex.name}
                   sets={visible.map(s => s.values)}
                   setTypes={visible.map(s => s.setType)}
-                  prev={visible.map(s => savedSetLabel(ex.name, s.original))}
+                  prev={visible.map(s => (s.added ? '—' : savedSetLabel(ex.name, s.original)))}
+                  hints={hintsFor(visible)}
                   prevTitle="SAVED"
-                  changed={i => JSON.stringify(visible[i].values) !== JSON.stringify(visible[i].original)}
+                  changed={i => visible[i].added || JSON.stringify(visible[i].values) !== JSON.stringify(visible[i].original)}
                   onChange={(setIdx, field, value) => updateSet(exIdx, setIdx, field, value)}
                   onRemove={setIdx => removeSet(exIdx, setIdx)}
                 />
+                <button type="button" className="btn-add-set-link" onClick={() => addSet(exIdx)}>+ Add Set</button>
                 {removedSets > 0 && (
                   <div className="saved-sheet-note">{removedSets} set{removedSets === 1 ? '' : 's'} will be removed</div>
                 )}

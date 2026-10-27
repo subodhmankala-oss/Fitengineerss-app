@@ -164,14 +164,32 @@ export function buildEditableWorkout(rows) {
 
 const sameSet = (name, a, b) => JSON.stringify(toSavedSet(name, a)) === JSON.stringify(toSavedSet(name, b));
 
-// The edit form → what to send (databaseService.editSavedWorkout), or
+// A blank set to add to a saved exercise (id null until it's saved).
+export function newEditableSet(name) {
+  const values = emptyMissedSet(name);
+  return { id: null, added: true, setType: null, original: values, values, deleted: false };
+}
+
+// The edit form → what to send (databaseService.saveWorkoutEdits), or
 // { error } when an edited set was emptied instead of removed.
 export function diffEditableWorkout(exercises, bodyWeightKg) {
   const changes = [];
   const deletes = [];
   const kcalDeltas = {};
+  const adds = [];
+  let addedKcal = 0;
   for (const ex of exercises) {
+    const addedSets = [];
     for (const s of ex.sets) {
+      // A set added in this sheet isn't saved yet: it's new only if filled in.
+      if (s.added) {
+        if (!s.deleted && isFilledMissedSet(ex.name, s.values)) {
+          const set = toSavedSet(ex.name, s.values);
+          addedSets.push(set);
+          addedKcal += estimateSetKcal(ex.name, set, bodyWeightKg);
+        }
+        continue;
+      }
       const oldKcal = estimateSetKcal(ex.name, toSavedSet(ex.name, s.original), bodyWeightKg);
       if (s.deleted) {
         deletes.push(s.id);
@@ -184,6 +202,7 @@ export function diffEditableWorkout(exercises, bodyWeightKg) {
       changes.push({ id: s.id, name: ex.name, set });
       kcalDeltas[s.id] = Math.round((estimateSetKcal(ex.name, set, bodyWeightKg) - oldKcal) * 10) / 10;
     }
+    if (addedSets.length > 0) adds.push({ name: ex.name, sets: addedSets });
   }
-  return { changes, deletes, kcalDeltas };
+  return { changes, deletes, kcalDeltas, adds, addedKcal };
 }

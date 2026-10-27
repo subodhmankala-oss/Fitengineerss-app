@@ -143,20 +143,11 @@
   margin-right: var(--screen-gutter);
 }
 
-/* Muscles tab is the exception: its cards are rendered bare (bareCards — no
-   padding/border of their own), so with no gutter the stat tiles and muscle
-   cards ran right to the screen edge. Give the whole tab (timeframe pills
-   included, so they stay aligned with the cards) the standard gutter. */
-.workout-history-content.is-muscles {
-  padding-left: var(--screen-gutter);
-  padding-right: var(--screen-gutter);
-}
-
-.workout-history-content.is-muscles .history-section-title,
-.workout-history-content.is-muscles .mrcomp-card {
-  margin-left: 0;
-  margin-right: 0;
-}
+/* Muscles tab used to be the exception (its cards were bare, so it got the
+   whole-tab gutter). Since #456 each muscle section has its own soft panel
+   and padding, so that gutter doubled the side gap — it now bleeds edge to
+   edge like the Daily/Weekly/Monthly tabs; only the title keeps its inset
+   (the rule above). */
 
 .client-directory-view {
   padding-left: var(--screen-gutter);

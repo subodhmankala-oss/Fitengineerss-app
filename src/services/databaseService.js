@@ -4479,6 +4479,36 @@ const databaseService = {
     return row ? normalizeDraftRow(row) : null;
   },
 
+  // The client's own session on their phone, as their coach may see it —
+  // { planName, logDate, updatedAt } or null. RLS hides 'self' drafts from
+  // the coach, so this only goes through the server. Used by the Live Log's
+  // wrong-client warning; null on any failure (the warning just doesn't show).
+  async getClientOwnSession(userId) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId || '');
+    if (!isUuid) return null;
+    try {
+      const { headers, email } = await serverFallbackAuth();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), adaptiveTimeout(6000));
+      try {
+        const resp = await fetch('/api/get-workout-draft', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ userId, email }),
+          signal: controller.signal
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json().catch(() => null);
+        return data?.clientSession || null;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e) {
+      console.warn('getClientOwnSession failed (non-fatal):', e?.message || e);
+      return null;
+    }
+  },
+
   // For the coach's own home/client-list screen: every session currently
   // open that THEY are logging live for a client, across all their clients.
   async getCoachActiveDrafts(coachId) {

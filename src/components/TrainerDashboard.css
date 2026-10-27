@@ -1232,6 +1232,71 @@
   outline: none;
 }
 
+/* "Is this <client>'s workout?" — the client is logging on their own phone
+   right now, or already did today (utils/liveLogClientCheck.js). */
+.live-wrong-client-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius-sm);
+}
+
+.live-wrong-client-icon {
+  color: #f59e0b;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.live-wrong-client-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.live-wrong-client-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.live-wrong-client-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.live-wrong-client-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.live-wrong-client-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.live-wrong-client-btn.is-confirm {
+  border-color: rgba(245, 158, 11, 0.6);
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+[data-theme="light"] .live-wrong-client-btn.is-confirm {
+  color: #b45309;
+}
+
 /* Plan/Routine configuration panel — always visible */
 .live-workout-config-panel {
   display: flex;

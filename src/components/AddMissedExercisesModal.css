@@ -226,3 +226,21 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
+
+/* Edit workout sheet (EditSavedWorkoutModal.jsx): saved exercises use a
+   neutral ring, turning amber once something in them changes. */
+.missed-ex-card.saved { border-color: var(--border-strong); }
+.missed-ex-card.saved.edited { border-color: rgba(245, 158, 11, 0.55); }
+.missed-ex-card.removed { border-style: dashed; border-color: var(--border-strong); opacity: 0.75; }
+.missed-ex-tag.edited {
+  color: var(--tint-amber);
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.missed-ex-removed-label { font-size: 0.74rem; color: var(--text-muted); }
+.missed-ex-entry-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.missed-ex-entry-btn.secondary {
+  border-color: var(--border-strong);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text-main);
+}

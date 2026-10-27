@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canAddMissedExercise, addedLaterExercisesByDate, toSavedMissedExercises, emptyMissedSet } from './missedExercises';
+import { canAddMissedExercise, addedLaterExercisesByDate, toSavedMissedExercises, emptyMissedSet, buildEditableWorkout, diffEditableWorkout } from './missedExercises';
 import { estimateMissedSetsKcal } from './liveWorkoutTimer';
 
 describe('canAddMissedExercise', () => {
@@ -55,5 +55,38 @@ describe('estimateMissedSetsKcal', () => {
   });
   it('is zero for nothing', () => {
     expect(estimateMissedSetsKcal([], 70)).toBe(0);
+  });
+});
+
+describe('edit workout helpers', () => {
+  const rows = [
+    { id: 'b', exercise_name: 'Bench Press', reps: 10, weight_kg: 60, created_at: '2026-10-27T10:00:00Z', session_row: 1 },
+    { id: 'a', exercise_name: 'Bench Press', reps: 10, weight_kg: 60, created_at: '2026-10-27T10:00:00Z', session_row: 0 },
+    { id: 'c', exercise_name: 'Cycling', distance_km: 2, cardio_duration_seconds: 300, reps: 0, weight_kg: 0, created_at: '2026-10-27T10:00:00Z', session_row: 2 }
+  ];
+
+  it('builds exercises in saved order with form values', () => {
+    const ex = buildEditableWorkout(rows);
+    expect(ex.map(e => e.name)).toEqual(['Bench Press', 'Cycling']);
+    expect(ex[0].sets.map(s => s.id)).toEqual(['a', 'b']);
+    expect(ex[0].sets[0].values).toEqual({ weight: '60', reps: '10' });
+    expect(ex[1].sets[0].values).toEqual({ distanceKm: '2', time: '05:00', distanceKmAuto: false });
+  });
+
+  it('sends only changed and removed sets, with calorie deltas', () => {
+    const ex = buildEditableWorkout(rows);
+    ex[0].sets[0] = { ...ex[0].sets[0], values: { weight: '70', reps: '10' } };
+    ex[1].sets[0] = { ...ex[1].sets[0], deleted: true };
+    const diff = diffEditableWorkout(ex, 70);
+    expect(diff.changes).toEqual([{ id: 'a', name: 'Bench Press', set: { reps: 10, weight: 70 } }]);
+    expect(diff.deletes).toEqual(['c']);
+    expect(diff.kcalDeltas.a).toBeGreaterThanOrEqual(0);
+    expect(diff.kcalDeltas.c).toBeLessThan(0);
+  });
+
+  it('asks to remove a set instead of emptying it', () => {
+    const ex = buildEditableWorkout(rows);
+    ex[0].sets[0] = { ...ex[0].sets[0], values: { weight: '60', reps: '' } };
+    expect(diffEditableWorkout(ex, 70).error).toMatch(/Bench Press/);
   });
 });

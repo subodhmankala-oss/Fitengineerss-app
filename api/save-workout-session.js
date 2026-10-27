@@ -108,6 +108,81 @@ export async function appendToSavedSession({ svcHeaders, userId, records, append
   return { status: 200, body: { success: true, count: rows.length, sessionId: ownSessionId, caloriesBurned: newTotal } };
 }
 
+// "Edit workout": change or delete sets of a workout already saved on
+// edit.logDate. edit.updates = [{ id, reps, weight_kg, distance_km,
+// cardio_duration_seconds }] (only those four columns can change — the set's
+// exercise, date, type and session stay), edit.deletes = [id], and
+// edit.kcalDeltas = { [id]: kcal } — the browser's estimate of how much each
+// change moves the calories. Each touched session's calories move by the sum
+// of its rows' deltas, on every row of that session (never below 0); its
+// duration stays. Every id must be one of that user's rows on that date.
+// Exported for the unit test.
+const EDITABLE_COLUMNS = ['reps', 'weight_kg', 'distance_km', 'cardio_duration_seconds'];
+export async function editSavedSession({ svcHeaders, userId, edit, fetchImpl = fetch }) {
+  const logDate = String(edit.logDate || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) return { status: 400, body: { error: 'edit.logDate must be YYYY-MM-DD' } };
+  const updates = Array.isArray(edit.updates) ? edit.updates : [];
+  const deletes = Array.isArray(edit.deletes) ? edit.deletes.map(String) : [];
+  if (updates.length === 0 && deletes.length === 0) return { status: 400, body: { error: 'Nothing to change.' } };
+  const deltas = edit.kcalDeltas && typeof edit.kcalDeltas === 'object' ? edit.kcalDeltas : {};
+
+  const dayResp = await fetchImpl(
+    `${supabaseUrl}/rest/v1/workout_logs?user_id=eq.${encodeURIComponent(userId)}&log_date=eq.${logDate}` +
+    '&select=id,session_id,created_at,calories_burned',
+    { headers: svcHeaders }
+  );
+  const dayRows = dayResp.ok ? await dayResp.json().catch(() => null) : null;
+  if (!Array.isArray(dayRows)) return { status: 502, body: { error: "Couldn't read that day's workout. Try again." } };
+  const byId = new Map(dayRows.map(r => [String(r.id), r]));
+  const touchedIds = [...updates.map(u => String(u.id)), ...deletes];
+  if (touchedIds.some(id => !byId.has(id))) return { status: 404, body: { error: 'Some of those sets are no longer saved. Reload and try again.' } };
+  if (deletes.length >= dayRows.length) return { status: 400, body: { error: 'Keep at least one set in the workout.' } };
+
+  const writeHeaders = { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
+  const rowFilter = (id) => `${supabaseUrl}/rest/v1/workout_logs?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(userId)}`;
+
+  for (const u of updates) {
+    const fields = {};
+    EDITABLE_COLUMNS.forEach(c => { if (c in u) fields[c] = u[c] == null ? null : Number(u[c]) || 0; });
+    if (Object.keys(fields).length === 0) continue;
+    const r = await fetchImpl(rowFilter(u.id), { method: 'PATCH', headers: writeHeaders, body: JSON.stringify(fields) });
+    if (!r.ok) return { status: 502, body: { error: "Couldn't save your changes. Try again." } };
+  }
+  if (deletes.length > 0) {
+    const r = await fetchImpl(
+      `${supabaseUrl}/rest/v1/workout_logs?user_id=eq.${encodeURIComponent(userId)}&id=in.(${deletes.map(encodeURIComponent).join(',')})`,
+      { method: 'DELETE', headers: writeHeaders }
+    );
+    if (!r.ok) return { status: 502, body: { error: "Couldn't remove those sets. Try again." } };
+  }
+
+  // Calories, per touched session (session_id, or created_at for a
+  // pre-session_id save — one INSERT shares one created_at).
+  const sessionKey = (r) => (r.session_id ? `sid:${r.session_id}` : `at:${r.created_at}`);
+  const deltaBySession = new Map();
+  touchedIds.forEach(id => {
+    const d = Number(deltas[id]) || 0;
+    if (!d) return;
+    const key = sessionKey(byId.get(id));
+    deltaBySession.set(key, (deltaBySession.get(key) || 0) + d);
+  });
+  for (const [key, delta] of deltaBySession) {
+    const rows = dayRows.filter(r => sessionKey(r) === key);
+    const base = rows.find(r => r.calories_burned != null)?.calories_burned;
+    if (base == null) continue;
+    const total = Math.max(0, Math.round((Number(base) + delta) * 10) / 10);
+    const filter = key.startsWith('sid:')
+      ? `session_id=eq.${encodeURIComponent(key.slice(4))}`
+      : `created_at=eq.${encodeURIComponent(key.slice(3))}&log_date=eq.${logDate}`;
+    const r = await fetchImpl(`${supabaseUrl}/rest/v1/workout_logs?user_id=eq.${encodeURIComponent(userId)}&${filter}`, {
+      method: 'PATCH', headers: writeHeaders, body: JSON.stringify({ calories_burned: total })
+    }).catch(() => null);
+    if (!r || !r.ok) console.warn('save-workout-session edit: calorie update failed for', key);
+  }
+
+  return { status: 200, body: { success: true, updated: updates.length, deleted: deletes.length } };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -119,16 +194,17 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server misconfigured: missing Supabase service role key' });
   }
 
-  const { records } = req.body || {};
-  if (!Array.isArray(records) || records.length === 0) {
+  const { records, edit } = req.body || {};
+  // Edit mode changes existing rows only, so it names its user directly.
+  if (!edit && (!Array.isArray(records) || records.length === 0)) {
     return res.status(400).json({ error: 'records must be a non-empty array' });
   }
 
   // Every record must target the same user; verify that user is who the
   // caller's token says they are (or matches the caller-supplied email on
   // localhost dev, same gate as lookup-profile.js) before writing anything.
-  const targetUserId = records[0].user_id;
-  if (!targetUserId || records.some(r => r.user_id !== targetUserId)) {
+  const targetUserId = edit ? (req.body || {}).userId : records[0].user_id;
+  if (!targetUserId || (!edit && records.some(r => r.user_id !== targetUserId))) {
     return res.status(400).json({ error: 'All records must share the same user_id' });
   }
 
@@ -210,6 +286,11 @@ export default async function handler(req, res) {
 
     if (!isOwnLogs && !isSuperAdmin && !isClientsOwnCoach) {
       return res.status(403).json({ error: 'You are not authorized to write this workout for this account.' });
+    }
+
+    if (edit) {
+      const result = await editSavedSession({ svcHeaders, userId: targetUserId, edit });
+      return res.status(result.status).json(result.body);
     }
 
     const { append } = req.body || {};

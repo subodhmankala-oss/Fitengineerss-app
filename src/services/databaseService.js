@@ -2050,6 +2050,29 @@ const databaseService = {
   // `addedCalories` on every row, old and new. Duration is left alone: the
   // gap between the original save and now wasn't workout time.
   // Returns { caloriesBurned } on success; throws with a readable message.
+  // "Edit workout": change or delete sets of the workout saved on `logDate`.
+  // changes = [{ id, name, set }] with `set` in the saved-set shape
+  // ({ reps, weight } / { distanceKm, time } / { time[, weight] }), converted
+  // to columns by the same builder a fresh save uses; deletes = [id];
+  // kcalDeltas = { [id]: kcal }. Server-side (api/save-workout-session.js
+  // edit mode), which also moves each touched session's calories.
+  async editSavedWorkout({ userId, logDate, changes = [], deletes = [], kcalDeltas = {} }) {
+    if (!UUID_RE.test(userId || '')) throw new Error('Missing account id — reload and try again.');
+    const updates = changes.map(({ id, name, set }) => {
+      const [row] = buildWorkoutLogRecords(userId, { date: logDate, exercises: [{ name, sets: [set] }] });
+      return { id, reps: row.reps, weight_kg: row.weight_kg, distance_km: row.distance_km, cardio_duration_seconds: row.cardio_duration_seconds };
+    });
+    const { headers, email } = await serverFallbackAuth();
+    const resp = await fetch('/api/save-workout-session', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ email, userId, edit: { logDate, updates, deletes, kcalDeltas } })
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(body.error || 'Couldn\'t save your changes. Try again.');
+    return body;
+  },
+
   async appendMissedExercises({ userId, logDate, exercises, addedCalories }) {
     if (!UUID_RE.test(userId || '')) throw new Error('Missing account id — reload and try again.');
     const records = buildWorkoutLogRecords(userId, { date: logDate, exercises });

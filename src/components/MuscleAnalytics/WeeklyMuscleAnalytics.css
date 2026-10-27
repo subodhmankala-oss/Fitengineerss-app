@@ -22,7 +22,7 @@
 }
 
 /* ── Status color tokens (scoped to this feature) ── */
-.status-optimal { --status-color: var(--primary-accent-light); }
+.status-optimal { --status-color: #10b981; } /* green, same as the heat map's Optimal */
 .status-slightly-low { --status-color: #eab308; }
 .status-undertrained { --status-color: #f97316; }
 .status-neglected { --status-color: #ef4444; }

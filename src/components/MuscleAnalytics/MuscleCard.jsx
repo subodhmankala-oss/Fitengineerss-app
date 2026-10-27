@@ -35,7 +35,7 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
       </div>
 
       <div className="muscle-card-stats">
-        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'Sets a Week (avg)' : 'Target Sets'}</span>
+        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'Avg Sets/Wk' : 'Target Sets'}</span>
         <span className="muscle-completion">{completionPercent}%</span>
       </div>
 

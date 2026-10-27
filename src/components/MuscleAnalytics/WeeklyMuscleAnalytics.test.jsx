@@ -52,14 +52,14 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
     expect(screen.getByRole('tab', { name: 'Month' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByText(monthName(0))).toBeTruthy();
-    expect(screen.getAllByText(/Sets a Week \(avg\)/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Avg Sets\/Wk/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/kg volume this month/).length).toBeGreaterThan(0);
 
     // Chest: 3 sets a day → 21 a week, whatever the month length so far
     // (fewer than 7 days counts as one week, so it can only be lower).
     const weeks = Math.max(1, days.length / 7);
     const avg = Math.round((days.length * 3 / weeks) * 10) / 10;
-    expect(screen.getByText(`${avg} / 16 Sets a Week (avg)`)).toBeTruthy();
+    expect(screen.getByText(`${avg} / 16 Avg Sets/Wk`)).toBeTruthy();
 
     // Can step back a month, not forward past this one.
     expect(screen.getByTitle('Already on the current month').disabled).toBe(true);

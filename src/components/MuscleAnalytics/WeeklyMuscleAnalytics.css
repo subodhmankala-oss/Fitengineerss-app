@@ -1388,64 +1388,27 @@
   cursor: pointer;
 }
 
-/* ── Calm header (option B): text tabs, plain range nav, stats strip ── */
+/* ── Header: Week/Month chips, full-width range bar, stats strip ── */
 .ma-period-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-bottom: 1px solid rgba(var(--fg-rgb), 0.07);
+  margin-top: 12px;
 }
 
-.ma-text-tabs {
-  display: flex;
-  gap: 18px;
-}
-
-.ma-text-tabs button {
-  position: relative;
-  background: none;
-  border: none;
-  padding: 6px 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.ma-text-tabs button:hover { color: var(--text-main); }
-
-/* Underline: a short rounded bar that grows in, not a hard full-width rule. */
-.ma-text-tabs button::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent-text);
-  transform: scaleX(0);
-  transition: transform 0.25s ease;
-}
-
-.ma-text-tabs button.active { color: var(--accent-text); }
-.ma-text-tabs button.active::after { transform: scaleX(1); }
-
-/* In the period row the tabs' underline sits on the row's own divider. */
-.ma-period-row .ma-text-tabs button { padding-bottom: 10px; }
-
+/* Full-width range bar: ‹ at the left end, the period centred, › at the
+   right end, on a faint track so the row reads as one control. */
 .ma-range-nav {
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  justify-content: space-between;
+  padding: 2px;
+  font-size: 0.82rem;
+  font-weight: 700;
   white-space: nowrap;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
+  border-radius: var(--radius-full);
 }
 
-.ma-range-nav span { min-width: 96px; text-align: center; color: var(--text-main); }
+.ma-range-nav span { flex: 1; text-align: center; color: var(--text-main); }
 
 .ma-range-nav button {
   display: inline-flex;

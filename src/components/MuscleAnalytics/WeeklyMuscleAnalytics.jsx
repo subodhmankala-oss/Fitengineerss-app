@@ -43,18 +43,6 @@ const AnimatedStat = ({ value, label, icon, color }) => {
   );
 };
 
-// Plain-text tabs (underline on the active one) — lighter than the pill
-// toggles, so a card with a heading + tabs doesn't read as a wall of chips.
-const TextTabs = ({ tabs, value, onChange }) => (
-  <div className="ma-text-tabs" role="tablist">
-    {tabs.map(([key, label]) => (
-      <button key={key} type="button" role="tab" aria-selected={value === key} className={value === key ? 'active' : ''} onClick={() => onChange(key)}>
-        {label}
-      </button>
-    ))}
-  </div>
-);
-
 const Chevron = ({ dir }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d={dir === 'left' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
@@ -311,11 +299,21 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
       {/* ── Header: Week | Month text tabs, the range with ‹ › on the right,
           and a slim stats strip. ── */}
       <div className={cardClass('muscle-analytics-header ma-section')}>
-        <h4 style={{ marginBottom: '10px' }}>Muscle Analytics</h4>
+        {/* Title + Week/Month chips share a row; the range gets its own
+            full-width row (‹ at one end, › at the other) below. */}
+        <div className="widget-header justify-between" style={{ gap: '8px' }}>
+          <h4>Muscle Analytics</h4>
+          {canMonth && (
+            <div className="ma-chips" role="tablist">
+              {[['week', 'Week', 'var(--tint-blue)'], ['month', 'Month', 'var(--tint-violet)']].map(([key, label, color]) => (
+                <button key={key} type="button" role="tab" aria-selected={period === key} className={period === key ? 'active' : ''} style={{ '--pill-color': color }} onClick={() => choosePeriod(key)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="ma-period-row">
-          {canMonth ? (
-            <TextTabs tabs={[['week', 'Week'], ['month', 'Month']]} value={period} onChange={choosePeriod} />
-          ) : <span />}
           <div className="ma-range-nav">
             {isMonth ? (
               <>

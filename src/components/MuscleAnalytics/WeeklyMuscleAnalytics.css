@@ -266,61 +266,76 @@
 .tone-info { --tone-color: var(--tint-blue); }
 .tone-tip { --tone-color: #10b981; }
 
-/* ── Section 7: Progress Comparison ── */
-.comparison-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* ── Section 7: Progress Comparison — 2×2 tiles ── */
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.comparison-row {
+.comparison-tile {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
+  border-radius: 14px;
+  opacity: 0;
+  animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
 }
 
-.comparison-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
+.comparison-tile:nth-child(2) { animation-delay: 60ms; }
+.comparison-tile:nth-child(3) { animation-delay: 120ms; }
+.comparison-tile:nth-child(4) { animation-delay: 180ms; }
 
 .comparison-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.72rem;
-  color: var(--text-muted);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.comparison-values {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  font-weight: 600;
+  color: var(--tile-color, var(--text-muted));
 }
 
 .comparison-curr {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--text-main);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comparison-prev {
   font-size: 0.7rem;
-  color: var(--text-subtle);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
+/* Trend chip: tint + ring — green up, red down, grey same. */
 .comparison-trend {
-  font-size: 0.75rem;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   width: fit-content;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--trend-color);
+  background: color-mix(in srgb, var(--trend-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--trend-color) 30%, transparent);
 }
 
-.trend-up { color: var(--accent-text); }
-.trend-down { color: #ef4444; }
-.trend-flat { color: var(--text-muted); }
+.trend-up { --trend-color: #10b981; }
+.trend-down { --trend-color: #ef4444; }
+.trend-flat { --trend-color: var(--text-muted); }
 
 /* ── Section 8: Personal Recommendations ── */
 .recommendation-list {

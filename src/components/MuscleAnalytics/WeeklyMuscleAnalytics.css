@@ -1348,83 +1348,128 @@
   cursor: pointer;
 }
 
-/* ── Calm header (option B): text tabs, plain range nav, slim stats strip ── */
+/* ── Calm header (option B): text tabs, plain range nav, stats strip ── */
 .ma-period-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-bottom: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.07);
 }
 
 .ma-text-tabs {
   display: flex;
-  gap: 16px;
+  gap: 18px;
 }
 
 .ma-text-tabs button {
+  position: relative;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
   padding: 6px 0;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 
-.ma-text-tabs button.active {
-  color: var(--accent-text);
-  border-bottom-color: var(--accent-text);
+.ma-text-tabs button:hover { color: var(--text-main); }
+
+/* Underline: a short rounded bar that grows in, not a hard full-width rule. */
+.ma-text-tabs button::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent-text);
+  transform: scaleX(0);
+  transition: transform 0.25s ease;
 }
+
+.ma-text-tabs button.active { color: var(--accent-text); }
+.ma-text-tabs button.active::after { transform: scaleX(1); }
 
 /* In the period row the tabs' underline sits on the row's own divider. */
-.ma-period-row .ma-text-tabs button { margin-bottom: -1px; padding-bottom: 8px; }
+.ma-period-row .ma-text-tabs button { padding-bottom: 10px; }
 
 .ma-range-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-size: 0.78rem;
-  color: var(--text-muted);
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.ma-range-nav span { min-width: 92px; text-align: center; color: var(--text-main); }
+.ma-range-nav span { min-width: 96px; text-align: center; color: var(--text-main); }
 
 .ma-range-nav button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
   border-radius: 50%;
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.ma-range-nav button:disabled { opacity: 0.3; cursor: default; }
+.ma-range-nav button:not(:disabled):hover {
+  background: rgba(var(--fg-rgb), 0.06);
+  color: var(--text-main);
+}
 
+.ma-range-nav button:disabled { opacity: 0.25; cursor: default; }
+
+/* Four stats in one soft panel, split by hairlines. */
 .ma-stats-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  margin-top: 12px;
+  margin-top: 14px;
+  padding: 12px 0;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 14px;
 }
+
+.ma-stat {
+  padding: 0 12px;
+  min-width: 0;
+}
+
+.ma-stat + .ma-stat { border-left: 1px solid rgba(var(--fg-rgb), 0.07); }
 
 .ma-stat strong {
   display: block;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-main);
   line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ma-stat span { font-size: 0.7rem; color: var(--text-muted); }
+.ma-stat span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--stat-color, var(--text-muted));
+}
 
+/* Text link by a card heading ("‹ Balance"). */
 .ma-link {
   display: inline-flex;
   align-items: center;
@@ -1438,4 +1483,24 @@
   cursor: pointer;
 }
 
-.ma-link-warn { color: var(--tint-amber, #f59e0b); }
+.ma-link:hover { color: var(--text-main); }
+
+/* "N neglected": amber tint + ring, so it reads as a status, not a heading. */
+.ma-link-warn {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  color: var(--tint-amber);
+  background: color-mix(in srgb, var(--tint-amber) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint-amber) 35%, transparent);
+  transition: background 0.2s ease;
+}
+
+.ma-link-warn:hover {
+  color: var(--tint-amber);
+  background: color-mix(in srgb, var(--tint-amber) 20%, transparent);
+}
+
+@media (max-width: 380px) {
+  .ma-stat { padding: 0 8px; }
+  .ma-stat strong { font-size: 1rem; }
+}

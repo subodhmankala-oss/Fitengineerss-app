@@ -18,13 +18,14 @@ describe('CoachNotificationBell', () => {
     expect(screen.getByText('1')).toBeTruthy();
   });
 
-  it('opens the item and closes the panel', () => {
+  it('opens the item and closes the panel', async () => {
     const open = vi.fn();
     render(<CoachNotificationBell items={[{ key: 'a', title: 'Ravi updated measurements', at: now, open }]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Notifications, 1 new' }));
     fireEvent.click(screen.getByText('Ravi updated measurements'));
     expect(open).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // Closing plays a short animation before the panel unmounts.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('sends from the inline composer, with a suggestion chip', async () => {
@@ -58,7 +59,7 @@ describe('CoachNotificationBell', () => {
     expect(screen.getByRole('status').textContent).toBe('Measurement reminder sent to Ravi');
   });
 
-  it('an action that goes somewhere else closes the panel', () => {
+  it('an action that goes somewhere else closes the panel', async () => {
     const run = vi.fn();
     render(<CoachNotificationBell items={[{
       key: 'r', title: "Vaishali's renewal is due in 1 day",
@@ -69,7 +70,7 @@ describe('CoachNotificationBell', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
     fireEvent.click(screen.getByText('Log payment'));
     expect(run).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('keeps the composer open and says so when a note fails', async () => {

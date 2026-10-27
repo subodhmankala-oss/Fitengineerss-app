@@ -84,7 +84,7 @@ describe('CoachNotificationBell', () => {
     expect(screen.getByRole('textbox').value).toBe('Everything okay?');
   });
 
-  it('runs actions, dismiss and clear all', () => {
+  it('runs actions, dismiss and clear all', async () => {
     const run = vi.fn();
     const dismiss = vi.fn();
     const onClearAll = vi.fn();
@@ -101,6 +101,7 @@ describe('CoachNotificationBell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(dismiss).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Clear all'));
-    expect(onClearAll).toHaveBeenCalled();
+    // The rows animate out first, then everything is cleared.
+    await waitFor(() => expect(onClearAll).toHaveBeenCalled());
   });
 });

@@ -180,9 +180,24 @@
   animation: cnbFadeOut 0.18s ease-in forwards;
   pointer-events: none;
 }
+/* Clear all: rows slide off to the right one after another (first six are
+   staggered, the rest go with the last), then the empty state fades in. */
+@keyframes cnbItemOut {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateX(40px); }
+}
+.cnb-clearing .cnb-item {
+  animation: cnbItemOut 0.2s ease-in calc(var(--cnb-i, 0) * 24ms) forwards;
+  pointer-events: none;
+}
+.cnb-empty {
+  animation: cnbFadeIn 0.25s ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
   .cnb-panel,
-  .cnb-backdrop {
+  .cnb-backdrop,
+  .cnb-empty,
+  .cnb-clearing .cnb-item {
     animation: none;
   }
 }

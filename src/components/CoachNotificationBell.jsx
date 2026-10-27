@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { timeAgo } from '../utils/timeAgo';
 import './CoachNotificationBell.css';
 
@@ -17,6 +17,11 @@ import './CoachNotificationBell.css';
 //         compose?: { label, placeholder, suggestions, send(text) -> bool },
 //         dismiss? }
 
+// Keep in step with the .cnb-closing animation length in the CSS.
+const CLOSE_MS = 180;
+// Keep in step with the .cnb-clearing animation (length + stagger) in the CSS.
+const CLEAR_MS = 320;
+
 const ICONS = {
   reply: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />,
   workout: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
@@ -34,7 +39,7 @@ function Icon({ name, size = 18 }) {
   );
 }
 
-function BellItem({ item, onDone, onFlash }) {
+function BellItem({ item, index, onDone, onFlash }) {
   const [composing, setComposing] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -55,7 +60,7 @@ function BellItem({ item, onDone, onFlash }) {
   const openItem = () => { if (item.open) { item.open(); onDone(); } };
 
   return (
-    <li className={`cnb-item cnb-tone-${item.tone || 'blue'}`}>
+    <li className={`cnb-item cnb-tone-${item.tone || 'blue'}`} style={{ '--cnb-i': Math.min(index || 0, 5) }}>
       <div className="cnb-row">
         <span className="cnb-icon"><Icon name={item.icon} /></span>
         <div
@@ -143,18 +148,60 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
   };
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
   const rootRef = useRef(null);
+  // Phone sheet starts just under the bell (2026-10-27: "It should start
+  // from below the notification icon"), not under the role tabs that wrap
+  // onto a second header row — so it's measured, not a fixed offset.
+  const [sheetTop, setSheetTop] = useState(null);
+  // Closing plays the reverse animation first (2026-10-27: "while closing
+  // there is no animation"): `closing` swaps the CSS class, and the panel
+  // unmounts once it has finished.
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+  const close = useCallback(() => {
+    if (closeTimerRef.current) return;
+    setClosing(true);
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      setOpen(false);
+      setClosing(false);
+    }, CLOSE_MS);
+  }, []);
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+
+  // "Clear all" lets the rows slide away (staggered) before the items are
+  // actually dismissed, then the empty state fades in (2026-10-27: "While
+  // clearing all there is no animation").
+  const [clearing, setClearing] = useState(false);
+  const clearTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(clearTimerRef.current), []);
+  const clearAll = () => {
+    if (clearing) return;
+    setClearing(true);
+    clearTimerRef.current = setTimeout(() => {
+      onClearAll();
+      setClearing(false);
+    }, CLEAR_MS);
+  };
+  const toggle = () => {
+    if (open) { close(); return; }
+    if (variant === 'inline' && rootRef.current) {
+      setSheetTop(Math.round(rootRef.current.getBoundingClientRect().bottom + 8));
+    }
+    setOpen(true);
+  };
+  const sheetStyle = variant === 'inline' && sheetTop != null ? { top: sheetTop } : undefined;
 
   useEffect(() => {
     if (!open) return undefined;
-    const onPointer = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onPointer = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) close(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('mousedown', onPointer);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onPointer);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, close]);
 
   const count = items.length;
   return (
@@ -162,7 +209,7 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
       <button
         type="button"
         className={`cnb-bell${open ? ' cnb-bell-open' : ''}`}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         title={count ? `${count} update${count === 1 ? '' : 's'}` : 'No new updates'}
         aria-label={count ? `Notifications, ${count} new` : 'Notifications'}
         aria-expanded={open}
@@ -171,13 +218,20 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
         {count > 0 && <span className="cnb-badge">{count > 99 ? '99+' : count}</span>}
       </button>
 
+      {/* Dims the dashboard behind the list so it's obvious where the
+          panel starts and ends (2026-10-27: on a phone the panel's cards and
+          the dashboard's cards ran together). Tap it to close. */}
+      {open && <div className={`cnb-backdrop${closing ? ' cnb-closing' : ''}`} style={sheetStyle} onClick={close} aria-hidden="true" />}
+
       {open && (
-        <div className="cnb-panel" role="dialog" aria-label="Notifications">
+        <div className={`cnb-panel${closing ? ' cnb-closing' : ''}`} style={sheetStyle} role="dialog" aria-label="Notifications">
           <div className="cnb-head">
             <span className="cnb-head-title">Notifications</span>
-            {count > 1 && onClearAll && (
-              <button type="button" className="cnb-clear" onClick={onClearAll}>Clear all</button>
-            )}
+            <div className="cnb-head-actions">
+              {count > 1 && onClearAll && (
+                <button type="button" className="cnb-clear" disabled={clearing} onClick={clearAll}>Clear all</button>
+              )}
+            </div>
           </div>
           {flash && (
             <div className={`cnb-flash${flash.isError ? ' cnb-flash-error' : ''}`} role="status">{flash.message}</div>
@@ -188,8 +242,9 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
               <div>You're all caught up.</div>
             </div>
           ) : (
-            <ul className="cnb-list">
-              {items.map(item => <BellItem key={item.key} item={item} onDone={() => setOpen(false)} onFlash={showFlash} />)}
+            <ul className={`cnb-list${clearing ? ' cnb-clearing' : ''}`}>
+              {items.map((item, i) => <BellItem key={item.key} item={item} index={i} onDone={close} onFlash={showFlash} />)}
+              <li className="cnb-end" aria-hidden="true">End of notifications</li>
             </ul>
           )}
         </div>

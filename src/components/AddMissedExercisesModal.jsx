@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import ExercisePickerModal from './ExercisePickerModal';
 import { isBodyweightExercise } from '../data/exerciseLibrary';
 import { BinIcon } from './TimerIcons';
-import { maskDigitsToTimeString, estimateMissedSetsKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
+import { maskDigitsToTimeString, estimateMissedSetsKcal, estimateCardioDistanceKm, parseTimeStringToSeconds, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
 import { missedSetKind, emptyMissedSet, toSavedMissedExercises } from '../utils/missedExercises';
 import './WorkoutTracker.css';
 import './AddMissedExercisesModal.css';
@@ -66,8 +66,20 @@ export default function AddMissedExercisesModal({
   const updateSet = (exIdx, setIdx, field, value) => {
     setError('');
     setExercises(prev => prev.map((ex, i) => i !== exIdx ? ex : {
-      ...ex, sets: ex.sets.map((s, j) => j !== setIdx ? s : { ...s, [field]: value })
+      ...ex, sets: ex.sets.map((s, j) => j !== setIdx ? s : withCardioKm(ex.name, s, field, value))
     }));
+  };
+  // Same as the logger's handleCardioTimeEdit: typing a cardio time fills KM
+  // from an average pace, until the user types their own KM for that set.
+  const withCardioKm = (name, s, field, value) => {
+    const next = { ...s, [field]: value };
+    if (missedSetKind(name) !== 'cardio') return next;
+    if (field === 'distanceKm') return { ...next, distanceKmAuto: value === '' };
+    if (field === 'time' && s.distanceKmAuto !== false) {
+      const seconds = parseTimeStringToSeconds(value) || 0;
+      next.distanceKm = seconds > 0 ? String(estimateCardioDistanceKm(name, seconds)) : '';
+    }
+    return next;
   };
   const addSet = (exIdx) => setExercises(prev => prev.map((ex, i) => i !== exIdx ? ex : { ...ex, sets: [...ex.sets, emptyMissedSet(ex.name)] }));
   const removeSet = (exIdx, setIdx) => setExercises(prev => prev.map((ex, i) => i !== exIdx ? ex : { ...ex, sets: ex.sets.filter((_, j) => j !== setIdx) }));

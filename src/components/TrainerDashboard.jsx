@@ -906,7 +906,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   }, [clientMenuOpen]);
   const handleRemoveClient = async (clientId, clientName) => {
     const ok = window.confirm(
-      `Remove ${clientName || 'this client'} from your clients?\n\n` +
+      `Unattach ${clientName || 'this client'} from your clients?\n\n` +
       'They will no longer appear in your dashboard. Their account and workout history are kept, ' +
       'and they can join another coach with an invite code.'
     );
@@ -920,7 +920,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
       setRenewalDueClients(prev => prev.filter(r => r.clientId !== clientId));
       setSelectedClient(prev => (prev && prev.id === clientId ? null : prev));
     } else {
-      setPauseError(result?.error || 'Could not remove this client — try again.');
+      setPauseError(result?.error || 'Could not unattach this client — try again.');
       setTimeout(() => setPauseError(''), 4000);
     }
   };

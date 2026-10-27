@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import Avatar from './Avatar';
 import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
+import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveLogClientCheck';
 import CoachQuietClients from './CoachQuietClients';
 import './TrainerDashboard.css';
 import AdminExerciseLibrary from './AdminExerciseLibrary';
@@ -2579,6 +2580,50 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setTimeout(() => setLiveToast(''), 3500);
   };
 
+  // Wrong-client warning (see utils/liveLogClientCheck.js): the client's own
+  // session on their phone, re-read every minute while Live Log is open —
+  // on 2026-10-26 the client started theirs 20 min into the coach's session,
+  // so checking only on open would have missed it.
+  // Each is tagged with the client it belongs to, so switching clients
+  // never shows (or skips) a warning meant for the previous one.
+  const [clientOwnSessionCheck, setClientOwnSessionCheck] = useState({ clientId: null, session: null, at: 0 });
+  // The signal the coach answered "Yes, it's them" to — not shown again.
+  const [confirmedWrongClient, setConfirmedWrongClient] = useState({ clientId: null, key: null });
+  // The signal Save already stopped for once ("clientId|key"); the next tap saves.
+  const saveWarnedKeyRef = useRef(null);
+  const liveClientId = detailTab === 'livelog' ? selectedClient?.id : null;
+  useEffect(() => {
+    if (!liveClientId) return undefined;
+    let cancelled = false;
+    const check = () => {
+      databaseService.getClientOwnSession(liveClientId).then(session => {
+        if (!cancelled) setClientOwnSessionCheck({ clientId: liveClientId, session, at: Date.now() });
+      });
+    };
+    check();
+    const interval = setInterval(check, 60000);
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [liveClientId]);
+  const wrongClientSignal = useMemo(() => {
+    // Until the first check for this client lands there's nothing to go on;
+    // rawWorkoutLogs is already scoped to selectedClient.
+    if (!liveClientId || clientOwnSessionCheck.clientId !== liveClientId) return null;
+    return findWrongClientSignal({
+      clientSession: clientOwnSessionCheck.session,
+      logs: rawWorkoutLogs,
+      today: getLocalDateString(),
+      now: clientOwnSessionCheck.at
+    });
+  }, [liveClientId, clientOwnSessionCheck, rawWorkoutLogs]);
+  const showWrongClientWarning = !!wrongClientSignal
+    && !(confirmedWrongClient.clientId === liveClientId && confirmedWrongClient.key === wrongClientSignal.key);
+
   // New exercises slide in, same as the client logger (hooks/useExerciseEnterAnimation.js).
   const { markEntering: markExerciseEntering, enterRef: exerciseEnterRef } = useExerciseEnterAnimation();
 
@@ -2984,6 +3029,29 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     if (staleTab) {
       triggerLiveToast('⚠️ Your app was out of date — updating now. Your sets are safe; tap Save again once it reloads.');
       setTimeout(applyPWAUpdate, 1500);
+      return;
+    }
+    // Last look before it's written: is this client logging on their own
+    // phone (or already did today)? The once-a-minute check may be up to a
+    // minute old, so read it fresh — but never hold the save up for more
+    // than 3s on a bad connection; the last known answer is used then.
+    const freshSession = await Promise.race([
+      databaseService.getClientOwnSession(selectedClient.id),
+      new Promise(resolve => setTimeout(() => resolve(undefined), 3000))
+    ]);
+    const lastKnown = clientOwnSessionCheck.clientId === selectedClient.id ? clientOwnSessionCheck.session : null;
+    const saveSignal = findWrongClientSignal({
+      clientSession: freshSession === undefined ? lastKnown : freshSession,
+      logs: rawWorkoutLogs,
+      today: getLocalDateString(),
+      now: Date.now()
+    });
+    if (freshSession !== undefined) setClientOwnSessionCheck({ clientId: selectedClient.id, session: freshSession, at: Date.now() });
+    const confirmedThis = confirmedWrongClient.clientId === selectedClient.id && confirmedWrongClient.key === saveSignal?.key;
+    const saveWarnKey = saveSignal ? `${selectedClient.id}|${saveSignal.key}` : null;
+    if (saveSignal && !confirmedThis && saveWarnedKeyRef.current !== saveWarnKey) {
+      saveWarnedKeyRef.current = saveWarnKey;
+      triggerLiveToast(`⚠️ Check the client first — tap Save again to save this to ${selectedClient.userName}.`);
       return;
     }
     // Cancel any debounced background draft-save still armed from the coach's
@@ -10027,6 +10095,40 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       className="live-logging-for-date-input"
                     />
                   </div>
+
+                  {/* Wrong-client warning — see utils/liveLogClientCheck.js. */}
+                  {showWrongClientWarning && (
+                    <div className="live-wrong-client-warning" role="alert">
+                      <svg className="live-wrong-client-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                      <div className="live-wrong-client-body">
+                        <div className="live-wrong-client-title">Is this {selectedClient?.userName}'s workout?</div>
+                        <div className="live-wrong-client-text">
+                          {describeWrongClientSignal(wrongClientSignal, selectedClient?.userName, clientOwnSessionCheck.at)}
+                          {' '}Anything you save here goes to {selectedClient?.userName}.
+                        </div>
+                        <div className="live-wrong-client-actions">
+                          <button
+                            type="button"
+                            className="live-wrong-client-btn is-confirm"
+                            onClick={() => setConfirmedWrongClient({ clientId: selectedClient?.id, key: wrongClientSignal.key })}
+                          >
+                            Yes, it's {selectedClient?.userName}
+                          </button>
+                          <button
+                            type="button"
+                            className="live-wrong-client-btn"
+                            onClick={() => setSelectedClient(null)}
+                          >
+                            Change client
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Live Timer + Calorie readout — starts automatically the
                       first time a set is marked done, so it reflects real

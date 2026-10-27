@@ -425,7 +425,24 @@ async function handleWorkoutDraft(req, res) {
     // only read a single row — the client's own session wins, as that's the
     // one they can act on.
     const draft = drafts.find(d => d.source === 'self') || drafts[0] || null;
-    return res.status(200).json({ drafts, draft });
+
+    // "Is the client logging on their own phone right now?" — for the coach
+    // Live Log's wrong-client warning (src/utils/liveLogClientCheck.js). The
+    // coach still never gets the client's sets: just the plan name, the day
+    // and when it was last touched.
+    let selfRow = drafts.find(d => d.source === 'self') || null;
+    if (!isOwnDraft && !isSuperAdmin) {
+      const selfResp = await fetch(
+        `${supabaseUrl}/rest/v1/workout_drafts?select=plan_name,log_date,updated_at&user_id=eq.${encodeURIComponent(userId)}&source=eq.self&limit=1`,
+        { headers: svcHeaders }
+      ).catch(() => null);
+      const selfRows = selfResp?.ok ? await selfResp.json().catch(() => []) : [];
+      selfRow = Array.isArray(selfRows) ? selfRows[0] || null : null;
+    }
+    const clientSession = selfRow
+      ? { planName: selfRow.plan_name || null, logDate: selfRow.log_date || null, updatedAt: selfRow.updated_at || null }
+      : null;
+    return res.status(200).json({ drafts, draft, clientSession });
   } catch (err) {
     console.error('get-workout-draft error:', err);
     return res.status(500).json({ error: err.message || 'Failed to read workout draft.' });

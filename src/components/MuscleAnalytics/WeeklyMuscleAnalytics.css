@@ -1485,20 +1485,24 @@
 
 .ma-link:hover { color: var(--text-main); }
 
-/* "N neglected": amber tint + ring, so it reads as a status, not a heading. */
-.ma-link-warn {
+/* Tint + ring pill by a card heading: "N neglected" (amber, a status) and
+   the Map/Recovery switch (blue, a view). --pill-color sets the hue. */
+.ma-pill {
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  color: var(--tint-amber);
-  background: color-mix(in srgb, var(--tint-amber) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tint-amber) 35%, transparent);
+  color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill-color) 35%, transparent);
   transition: background 0.2s ease;
 }
 
-.ma-link-warn:hover {
-  color: var(--tint-amber);
-  background: color-mix(in srgb, var(--tint-amber) 20%, transparent);
+.ma-pill:hover {
+  color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 20%, transparent);
 }
+
+.ma-link-warn { --pill-color: var(--tint-amber); }
+.ma-link-view { --pill-color: var(--tint-blue); }
 
 @media (max-width: 380px) {
   .ma-stat { padding: 0 8px; }

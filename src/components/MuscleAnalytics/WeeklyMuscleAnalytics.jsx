@@ -354,7 +354,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
             {balanceTab === 'neglected' ? (
               <button type="button" className="ma-link" onClick={() => setBalanceTab('balance')}><Chevron dir="left" /> Balance</button>
             ) : neglectedCount > 0 && (
-              <button type="button" className="ma-link ma-link-warn" onClick={() => setBalanceTab('neglected')}>
+              <button type="button" className="ma-link ma-pill ma-link-warn" onClick={() => setBalanceTab('neglected')}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
                 </svg>
@@ -402,7 +402,22 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{mapTab === 'heatmap' ? 'Muscle Heat Map' : 'Recovery'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TextTabs tabs={[['heatmap', 'Map'], ['recovery', 'Recovery']]} value={mapTab} onChange={setMapTab} />
+            {/* Same pill as "N neglected": names the other view, tap to switch. */}
+            {mapTab === 'heatmap' ? (
+              <button type="button" className="ma-link ma-pill ma-link-view" onClick={() => setMapTab('recovery')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M6 7h11a2 2 0 0 1 2 2v.5a.5.5 0 0 0 .5.5.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5v.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2" /><path d="M7 10v4" /><path d="M10 10v4" />
+                </svg>
+                Recovery
+              </button>
+            ) : (
+              <button type="button" className="ma-link ma-pill ma-link-view" onClick={() => setMapTab('heatmap')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7" /><path d="M9 4v13" /><path d="M15 7v13" />
+                </svg>
+                Heat Map
+              </button>
+            )}
             {onShareHeatMap && <ShareIconButton onClick={onShareHeatMap} title="Share this client's Muscle Heat Map" />}
           </div>
         </div>

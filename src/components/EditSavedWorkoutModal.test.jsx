@@ -20,10 +20,13 @@ describe('EditSavedWorkoutModal', () => {
   it('saves only what changed', async () => {
     const onSave = vi.fn(async () => {});
     open(onSave);
+    expect(screen.queryByLabelText('Bench Press set 1 kg')).toBeNull(); // folded until tapped
+    expect(screen.getByText('No changes yet')).toBeTruthy();
+    fireEvent.click(screen.getByText('Bench Press'));
     fireEvent.change(screen.getByLabelText('Bench Press set 1 kg'), { target: { value: '65' } });
     fireEvent.click(screen.getByLabelText('Remove Bench Press set 2'));
     expect(screen.getByText('Edited')).toBeTruthy();
-    fireEvent.click(screen.getByText('Save changes'));
+    fireEvent.click(screen.getByText('Save 2 changes'));
     expect(onSave).toHaveBeenCalledTimes(1);
     const diff = onSave.mock.calls[0][0];
     expect(diff.changes).toEqual([{ id: 1, name: 'Bench Press', set: { reps: 10, weight: 65 } }]);
@@ -34,8 +37,8 @@ describe('EditSavedWorkoutModal', () => {
     const onSave = vi.fn(async () => {});
     open(onSave);
     fireEvent.click(screen.getByLabelText('Remove Bench Press'));
-    expect(screen.getByText('Removed')).toBeTruthy();
-    fireEvent.click(screen.getByText('Save changes'));
+    expect(screen.getByText('Will be removed')).toBeTruthy();
+    fireEvent.click(screen.getByText('Save 2 changes'));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole('alert').textContent).toMatch(/at least one set/);
   });

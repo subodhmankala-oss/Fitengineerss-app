@@ -1,6 +1,8 @@
-/* "Add missed exercises" sheet (AddMissedExercisesModal.jsx). Sits just under
-   the exercise picker (.payment-gateway-backdrop, z-index 10000), which opens
-   on top of it. */
+/* The two sheets that change a saved workout — "Add missed exercises"
+   (AddMissedExercisesModal.jsx) and "Edit workout" (EditSavedWorkoutModal.jsx),
+   built from SavedWorkoutSheetParts.jsx. They sit just under the exercise
+   picker (.payment-gateway-backdrop, z-index 10000), which opens on top.
+   Colour per meaning: green = new/missed, amber = edited, blue = saved. */
 .missed-ex-backdrop {
   position: fixed;
   inset: 0;
@@ -8,9 +10,10 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  background: rgba(var(--bg-app-rgb), 0.75);
+  background: rgba(var(--bg-app-rgb), 0.72);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  animation: savedSheetFade 0.2s ease;
 }
 
 .missed-ex-sheet {
@@ -22,59 +25,165 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-bottom: none;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: 22px 22px 0 0;
   padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -12px 40px rgba(var(--shade-rgb), 0.35);
+  animation: savedSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes savedSheetUp { from { transform: translateY(40px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+@keyframes savedSheetFade { from { opacity: 0; } to { opacity: 1; } }
+
+.saved-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(var(--fg-rgb), 0.18);
+  margin: 8px auto 0;
 }
 
 .missed-ex-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  padding: 16px 16px 10px;
+  padding: 12px 16px 14px;
   border-bottom: 1px solid var(--border-color);
 }
-.missed-ex-header h3 { margin: 0; font-size: 1.05rem; color: var(--text-main); }
-.missed-ex-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.saved-sheet-titles { flex: 1; min-width: 0; }
+.missed-ex-header h3 { margin: 0; font-size: 1.08rem; color: var(--text-main); }
+.missed-ex-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.missed-ex-sub strong { color: var(--text-main); font-weight: 600; }
+
+/* Tinted icon tile next to the title — tint + ring, not a solid fill. */
+.saved-sheet-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.saved-sheet-icon.add { color: #34d399; background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.35); }
+.saved-sheet-icon.edit { color: var(--tint-amber); background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); }
 
 .missed-ex-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.missed-ex-saved {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-  width: 100%;
+/* "Already in this workout" — chips instead of a run-on line. */
+.saved-sheet-saved {
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   border: 1px solid var(--border-color);
   background: rgba(var(--fg-rgb), 0.03);
-  color: var(--text-muted);
-  cursor: pointer;
-  font: inherit;
 }
-.missed-ex-saved-title { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; }
-.missed-ex-saved-names { font-size: 0.76rem; white-space: pre-line; }
+.saved-sheet-saved-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.saved-sheet-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.saved-sheet-chip {
+  font-size: 0.74rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  color: var(--text-main);
+  background: rgba(96, 165, 250, 0.08);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  font-family: inherit;
+}
+button.saved-sheet-chip.more { color: var(--accent-text); cursor: pointer; background: transparent; border-style: dashed; }
 
+.saved-sheet-empty {
+  text-align: center;
+  padding: 18px 12px 6px;
+}
+.saved-sheet-empty-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); }
+.saved-sheet-empty-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+/* Edit sheet stat strip */
+.saved-sheet-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+.saved-sheet-stats strong { color: var(--text-main); font-size: 0.95rem; }
+.saved-sheet-stats-hint { margin-left: auto; font-size: 0.72rem; }
+
+/* Exercise cards */
 .missed-ex-card {
-  border: 1px solid rgba(52, 211, 153, 0.45);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 10px 10px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  background: rgba(var(--fg-rgb), 0.02);
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
-.missed-ex-card-head { display: flex; align-items: center; gap: 8px; }
-.missed-ex-name { flex: 1; font-weight: 700; font-size: 0.92rem; color: var(--text-main); }
+.missed-ex-card.new { border-color: rgba(52, 211, 153, 0.4); background: rgba(52, 211, 153, 0.04); }
+.missed-ex-card.saved.open { border-color: rgba(96, 165, 250, 0.4); }
+.missed-ex-card.saved.edited { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.04); }
+.missed-ex-card.removed { border-style: dashed; opacity: 0.7; }
+
+.missed-ex-card-head { display: flex; align-items: center; gap: 10px; }
+.saved-sheet-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.saved-sheet-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--avatar-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--avatar-color) 30%, transparent);
+  color: var(--avatar-color);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.saved-sheet-ex-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.missed-ex-name { font-weight: 700; font-size: 0.92rem; color: var(--text-main); }
+.saved-sheet-ex-summary {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .missed-ex-tag {
-  font-size: 0.7rem;
+  flex-shrink: 0;
+  font-size: 0.68rem;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: var(--radius-full);
@@ -82,24 +191,64 @@
   background: rgba(52, 211, 153, 0.12);
   border: 1px solid rgba(52, 211, 153, 0.35);
 }
+.missed-ex-tag.edited { color: var(--tint-amber); background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); }
 
-.missed-ex-grid { display: grid; gap: 6px; align-items: center; }
-.missed-ex-grid-head span { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-align: center; }
-.missed-ex-grid-head span:first-child { text-align: left; }
-.missed-ex-setnum { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); }
+.saved-sheet-undo {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+/* Set rows: round badge, then boxes with their unit inside. */
+.saved-sheet-sets { display: flex; flex-direction: column; gap: 6px; }
+.saved-sheet-set { display: grid; gap: 8px; align-items: center; }
+.saved-sheet-set-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.06);
+}
+.saved-sheet-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
 .missed-ex-input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 7px 6px;
-  text-align: center;
-  font-size: 0.9rem;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--text-main);
-  background: rgba(var(--fg-rgb), 0.04);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  background: rgba(var(--fg-rgb), 0.05);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.missed-ex-input:focus { outline: none; border-color: var(--border-focus); }
+.missed-ex-input::placeholder { color: var(--text-subtle); font-weight: 600; }
+.missed-ex-input:focus { outline: none; border-color: var(--border-focus); background: rgba(var(--accent-rgb), 0.08); }
+.saved-sheet-unit {
+  position: absolute;
+  right: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  pointer-events: none;
+}
 
 .missed-ex-icon-btn {
   display: inline-flex;
@@ -111,20 +260,23 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   cursor: pointer;
+  flex-shrink: 0;
 }
-.missed-ex-icon-btn.small { width: 28px; height: 28px; }
-.missed-ex-icon-btn:disabled { opacity: 0.35; cursor: default; }
+.missed-ex-icon-btn:hover { background: rgba(var(--fg-rgb), 0.06); }
+.missed-ex-icon-btn.small { width: 30px; height: 30px; }
+.missed-ex-icon-btn:disabled { opacity: 0.3; cursor: default; background: transparent; }
 
-.missed-ex-link {
-  align-self: flex-start;
-  border: none;
+.saved-sheet-add-set {
+  align-self: stretch;
+  border: 1px dashed rgba(52, 211, 153, 0.4);
   background: transparent;
-  color: var(--accent-text);
+  color: #34d399;
   font-size: 0.8rem;
-  font-weight: 600;
-  padding: 2px 0;
+  font-weight: 700;
+  padding: 7px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
@@ -132,41 +284,54 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 10px;
-  border-radius: var(--radius-sm);
+  padding: 13px;
+  border-radius: 14px;
   border: 1px dashed var(--border-strong);
-  background: transparent;
+  background: rgba(var(--fg-rgb), 0.02);
   color: var(--text-main);
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
+/* Footer: what saving will do, then the button. */
 .missed-ex-footer {
   padding: 10px 16px 14px;
   border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
+.saved-sheet-impact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.saved-sheet-kcal { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.saved-sheet-kcal.up { color: var(--tint-amber); }
+.saved-sheet-kcal.down { color: var(--tint-blue); }
 .missed-ex-error { font-size: 0.8rem; color: var(--danger); }
 .missed-ex-save {
   width: 100%;
-  padding: 12px;
+  padding: 13px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   background: var(--primary-accent);
   color: var(--text-on-accent);
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
 }
+.missed-ex-save.idle { background: rgba(var(--fg-rgb), 0.08); color: var(--text-muted); }
 .missed-ex-save:disabled { opacity: 0.7; cursor: default; }
 .missed-ex-cancel {
   width: 100%;
-  padding: 8px;
+  padding: 6px;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -181,22 +346,28 @@
   padding-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .missed-ex-entry-hint { font-size: 0.74rem; color: var(--text-muted); }
+.missed-ex-entry-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .missed-ex-entry-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(var(--accent-rgb), 0.55);
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-text);
-  font-size: 0.86rem;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
+}
+.missed-ex-entry-btn.secondary {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--tint-amber);
 }
 .missed-ex-later-tag {
   margin-left: 6px;
@@ -217,7 +388,7 @@
   z-index: 9995;
   max-width: calc(100% - 32px);
   padding: 10px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   background: rgba(52, 211, 153, 0.14);
   border: 1px solid rgba(52, 211, 153, 0.45);
   color: #34d399;
@@ -227,20 +398,6 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Edit workout sheet (EditSavedWorkoutModal.jsx): saved exercises use a
-   neutral ring, turning amber once something in them changes. */
-.missed-ex-card.saved { border-color: var(--border-strong); }
-.missed-ex-card.saved.edited { border-color: rgba(245, 158, 11, 0.55); }
-.missed-ex-card.removed { border-style: dashed; border-color: var(--border-strong); opacity: 0.75; }
-.missed-ex-tag.edited {
-  color: var(--tint-amber);
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.35);
-}
-.missed-ex-removed-label { font-size: 0.74rem; color: var(--text-muted); }
-.missed-ex-entry-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.missed-ex-entry-btn.secondary {
-  border-color: var(--border-strong);
-  background: rgba(var(--fg-rgb), 0.04);
-  color: var(--text-main);
+@media (prefers-reduced-motion: reduce) {
+  .missed-ex-backdrop, .missed-ex-sheet { animation: none; }
 }

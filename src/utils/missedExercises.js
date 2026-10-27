@@ -104,6 +104,23 @@ export function toSavedMissedExercises(exercises) {
     .filter(ex => ex.sets.length > 0);
 }
 
+// One line summing up an exercise's sets, e.g. "5 kg × 10, 7.5 kg × 8".
+export function summarizeSets(name, sets) {
+  const kind = missedSetKind(name);
+  const bw = isBodyweightExercise(name);
+  const parts = sets.map(s => {
+    if (kind === 'cardio') return [s.distanceKm && `${s.distanceKm} km`, s.time && s.time !== '00:00' && s.time].filter(Boolean).join(' in ') || '–';
+    if (kind === 'timed') return s.time || '–';
+    if (kind === 'timedWeighted') return `${s.weight ? `${s.weight} kg` : 'BW'} · ${s.time || '–'}`;
+    if (kind === 'repsOnly') return `${s.reps || '–'} reps`;
+    return `${s.weight ? `${s.weight} kg` : bw ? 'BW' : '0 kg'} × ${s.reps || '–'}`;
+  });
+  // Identical sets read once: "5 kg × 10", not "5 kg × 10, 5 kg × 10, ...".
+  if (parts.length > 1 && parts.every(p => p === parts[0])) return parts[0];
+  const shown = parts.slice(0, 3).join(', ');
+  return parts.length > 3 ? `${shown} +${parts.length - 3}` : shown;
+}
+
 // ─── Edit workout ───
 
 // A saved workout_logs row → the form's values. A 0 kg weight starts empty

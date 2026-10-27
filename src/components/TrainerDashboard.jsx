@@ -892,6 +892,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // and history and can join another coach. Drops the client from every
   // coach-side list immediately.
   const [removingClientId, setRemovingClientId] = useState(null);
+  // Manage Client header's tucked-away "⋮" menu — the only other routes to
+  // Remove are the renewal-due and paused lists, which an active, paid-up
+  // client never shows up in.
+  const [clientMenuOpen, setClientMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!clientMenuOpen) return undefined;
+    const closeIfOutside = (e) => {
+      if (!e.target.closest?.('[data-client-menu]')) setClientMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeIfOutside);
+    return () => document.removeEventListener('pointerdown', closeIfOutside);
+  }, [clientMenuOpen]);
   const handleRemoveClient = async (clientId, clientName) => {
     const ok = window.confirm(
       `Remove ${clientName || 'this client'} from your clients?\n\n` +
@@ -7887,9 +7899,54 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   avatarUrl={selectedClient.avatarUrl}
                   size={42}
                 />
-                <div className="client-detail-header-info">
+                <div className="client-detail-header-info" style={{ minWidth: 0, flex: 1 }}>
                   <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{selectedClient.userName}</h4>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{selectedClient.email}</span>
+                </div>
+                {/* Deliberately low-key: muted dots, no label, so Remove is
+                    there when needed but never a tap-target by accident. */}
+                <div data-client-menu style={{ position: 'relative', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    aria-label="More client options"
+                    disabled={removingClientId === selectedClient.id}
+                    onClick={() => setClientMenuOpen(o => !o)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'none', border: 'none', borderRadius: '8px', width: '30px', height: '30px',
+                      color: 'var(--text-muted)', opacity: 0.6, cursor: 'pointer', padding: 0
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="1.8" />
+                      <circle cx="12" cy="12" r="1.8" />
+                      <circle cx="12" cy="19" r="1.8" />
+                    </svg>
+                  </button>
+                  {clientMenuOpen && (
+                    <div style={{
+                      position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 5,
+                      background: 'var(--bg-card-hover)', border: '1px solid var(--border-color)', borderRadius: '10px',
+                      padding: '4px', boxShadow: '0 12px 28px rgba(0,0,0,0.45)', whiteSpace: 'nowrap'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => { setClientMenuOpen(false); handleRemoveClient(selectedClient.id, selectedClient.userName); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left',
+                          background: 'none', border: 'none', borderRadius: '7px', padding: '9px 12px',
+                          cursor: 'pointer', color: '#ef4444', fontSize: '0.82rem', fontWeight: 600, font: 'inherit'
+                        }}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <line x1="17" y1="11" x2="23" y2="11" />
+                        </svg>
+                        Remove client
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

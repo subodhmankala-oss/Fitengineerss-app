@@ -363,6 +363,11 @@ export function isLoadedCarryExercise(name) {
 // of Calf Raise, so it joins the same exact-name exception ('Seated Calf Raise'
 // and 'Calf Raise (Machine)' stay always-loaded).
 //
+// Bulgarian Split Squat (added 2026-10-27) joins the same exact-name
+// exception: it is often done bodyweight and then loaded with dumbbells, so
+// it gets the Bodyweight/+Add Weight toggle instead of a bare KG box that
+// reads "0" on unloaded sets. Plain 'Split Squat' is unchanged.
+//
 // Jump Squat (added 2026-09-25) is a plyometric bodyweight move, not a loaded
 // squat variant — it used to be listed with those above, so it asked for a
 // KG number and was priced as weight training (with a per-set rest credit)
@@ -376,7 +381,7 @@ export function isLoadedCarryExercise(name) {
 export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
-  if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises', 'standing calf raise', 'calf raise (standing)', 'tibialis raise', 'sissy squat', 'cossack squat'].includes(n)) return true;
+  if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises', 'standing calf raise', 'calf raise (standing)', 'tibialis raise', 'sissy squat', 'cossack squat', 'bulgarian split squat'].includes(n)) return true;
   return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit|inverted row|nordic|flutter kicks?|heel taps?|windshield wipers?|\bhundred\b/.test(n);
 }
 

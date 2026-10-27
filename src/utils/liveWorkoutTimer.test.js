@@ -182,8 +182,12 @@ describe('Standing Calf Raise', () => {
 describe('Jump Squat', () => {
   it('is a bodyweight move (Bodyweight/+Add Weight toggle), unlike loaded squats', () => {
     expect(isBodyweightExercise('Jump Squat')).toBe(true);
-    ['Barbell Squat', 'Goblet Squat', 'Smith Machine Squat', 'Bulgarian Split Squat'].forEach(n =>
+    ['Barbell Squat', 'Goblet Squat', 'Smith Machine Squat', 'Split Squat'].forEach(n =>
       expect(isBodyweightExercise(n)).toBe(false));
+  });
+
+  it('Bulgarian Split Squat gets the Bodyweight/+Add Weight toggle', () => {
+    expect(isBodyweightExercise('Bulgarian Split Squat')).toBe(true);
   });
 
   it('counts a held 5 kg as added load at the vigorous bracket, with no rest credit', () => {

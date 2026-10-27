@@ -1347,3 +1347,95 @@
   font-size: 0.65rem;
   cursor: pointer;
 }
+
+/* ── Calm header (option B): text tabs, plain range nav, slim stats strip ── */
+.ma-period-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.08);
+}
+
+.ma-text-tabs {
+  display: flex;
+  gap: 16px;
+}
+
+.ma-text-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 6px 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ma-text-tabs button.active {
+  color: var(--accent-text);
+  border-bottom-color: var(--accent-text);
+}
+
+/* In the period row the tabs' underline sits on the row's own divider. */
+.ma-period-row .ma-text-tabs button { margin-bottom: -1px; padding-bottom: 8px; }
+
+.ma-range-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ma-range-nav span { min-width: 92px; text-align: center; color: var(--text-main); }
+
+.ma-range-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ma-range-nav button:disabled { opacity: 0.3; cursor: default; }
+
+.ma-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.ma-stat strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.ma-stat span { font-size: 0.7rem; color: var(--text-muted); }
+
+.ma-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ma-link-warn { color: var(--tint-amber, #f59e0b); }

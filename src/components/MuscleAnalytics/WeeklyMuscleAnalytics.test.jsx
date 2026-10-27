@@ -19,6 +19,9 @@ const logs = days.flatMap(date => [0, 1, 2].map(i => ({
 })));
 const weekDays = Array.from({ length: 7 }, (_, i) => getLocalDateString(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6 + i)));
 
+const monthName = (offset) => new Date(today.getFullYear(), today.getMonth() + offset, 1)
+  .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
 const Harness = () => {
   const [monthOffset, setMonthOffset] = useState(0);
   return (
@@ -43,12 +46,12 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
 
   it('starts on the week and switches the cards to a per-week average for the month', () => {
     render(<Harness />);
-    expect(screen.getByText('🧠 Weekly Muscle Analytics')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Week' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getAllByText(/Target Sets/).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
-    expect(screen.getByText('🧠 Monthly Muscle Analytics')).toBeTruthy();
-    expect(screen.getByText('This month')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
+    expect(screen.getByRole('tab', { name: 'Month' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText(monthName(0))).toBeTruthy();
     expect(screen.getAllByText(/Sets a Week \(avg\)/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/kg volume this month/).length).toBeGreaterThan(0);
 
@@ -61,15 +64,15 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
     // Can step back a month, not forward past this one.
     expect(screen.getByTitle('Already on the current month').disabled).toBe(true);
     fireEvent.click(screen.getByTitle('Previous month'));
-    expect(screen.getByText('Last month')).toBeTruthy();
+    expect(screen.getByText(monthName(-1))).toBeTruthy();
   });
 
   it('remembers the chosen period', () => {
     render(<Harness />);
-    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Month' }));
     cleanup();
     render(<Harness />);
-    expect(screen.getByText('🧠 Monthly Muscle Analytics')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Month' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('hides the toggle when the parent gives no month data', () => {
@@ -78,6 +81,15 @@ describe('WeeklyMuscleAnalytics — Week/Month toggle', () => {
         weeklyStats={{ totalVolume: 1, totalSets: 2, workoutsCount: 3, totalCalories: 4 }}
         weekOffset={0} setWeekOffset={() => {}} weekNavBtnStyle={{}} />
     );
-    expect(screen.queryByRole('button', { name: 'Month' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Month' })).toBeNull();
+  });
+
+  it('opens the neglected list from the "N neglected" link and comes back', () => {
+    render(<Harness />);
+    const link = screen.getByRole('button', { name: /\d+ neglected/ });
+    fireEvent.click(link);
+    expect(screen.getByText('Neglected Muscles')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Balance/ }));
+    expect(screen.getByText('Muscle Balance')).toBeTruthy();
   });
 });

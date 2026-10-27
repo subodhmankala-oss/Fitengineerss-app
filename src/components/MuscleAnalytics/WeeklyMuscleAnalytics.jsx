@@ -18,20 +18,34 @@ import { shiftLocalDateString, getLocalDateString } from '../../utils/dateUtils'
 import { useCountUp } from '../../hooks/useCountUp';
 import './WeeklyMuscleAnalytics.css';
 
-// Inline pill style — label left, value right, one line per card — matching
-// the Daily tab's stat cards (.stat-card.inline) rather than the stacked
-// glass-panel look used elsewhere on this page.
-const AnimatedStat = ({ value, label, valueClass = 'text-emerald', suffix = '' }) => {
+// One cell of the header's slim stats strip: number on top, unit below.
+const AnimatedStat = ({ value, label }) => {
   const animated = useCountUp(value);
   return (
-    <div className="stat-card inline">
-      <span className="lbl">{label}:</span>
-      <strong className={`val ${valueClass}`}>
-        {Math.round(animated).toLocaleString('en-IN')}{suffix}
-      </strong>
+    <div className="ma-stat">
+      <strong>{Math.round(animated).toLocaleString('en-IN')}</strong>
+      <span>{label}</span>
     </div>
   );
 };
+
+// Plain-text tabs (underline on the active one) — lighter than the pill
+// toggles, so a card with a heading + tabs doesn't read as a wall of chips.
+const TextTabs = ({ tabs, value, onChange }) => (
+  <div className="ma-text-tabs" role="tablist">
+    {tabs.map(([key, label]) => (
+      <button key={key} type="button" role="tab" aria-selected={value === key} className={value === key ? 'active' : ''} onClick={() => onChange(key)}>
+        {label}
+      </button>
+    ))}
+  </div>
+);
+
+const Chevron = ({ dir }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={dir === 'left' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
+  </svg>
+);
 
 // Share icon (iOS-style "share out") — sits next to a section's tab toggle
 // so a coach can send that client's live view as a WhatsApp deep link. Only
@@ -86,7 +100,7 @@ const PERIOD_KEY = 'muscleAnalyticsPeriod';
  * same weekly targets, so colours and statuses mean the same in both views.
  * Month navigation shares the parent's Monthly tab offset.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, weekNavBtnStyle, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
   const canMonth = !!(setMonthOffset && monthlyStats);
   const [periodPref, setPeriodPref] = useState(() => {
     try { return localStorage.getItem(PERIOD_KEY) === 'month' ? 'month' : 'week'; } catch { return 'week'; }
@@ -99,9 +113,15 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
   };
   const [monthStartStr, monthEndStr, monthDate] = useMemo(() => monthBounds(monthOffset), [monthOffset]);
   const [prevMonthStartStr, prevMonthEndStr] = useMemo(() => monthBounds(monthOffset - 1), [monthOffset]);
-  const monthLabel = monthOffset === 0 ? 'This month'
-    : monthOffset === -1 ? 'Last month'
-      : monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  // The Week/Month tab already says which period, so the range shows real
+  // dates ("Oct 21 – 27") rather than "This week".
+  const weekDatesLabel = (() => {
+    const ws = new Date(`${weekDays[0]}T12:00:00`);
+    const we = new Date(`${weekDays[6]}T12:00:00`);
+    const sameMonth = ws.getMonth() === we.getMonth();
+    return `${ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${we.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
+  })();
 
   const rangeStartStr = isMonth ? monthStartStr : weekDays[0];
   const rangeEndStr = isMonth ? monthEndStr : weekDays[6];
@@ -195,6 +215,8 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     [logs, rangeStartStr, rangeEndStr, weeks, catalogVersion]
   );
 
+  const neglectedCount = muscleStats.filter(m => m.status.key === 'neglected').length;
+
   // Heat map draws every muscle that has parts (Back: Lats / Trapezius / Mid
   // Back…, Glutes: Max / Med…) as those parts, each in its own color — the
   // same parts as the muscle detail screen; see BodyDiagram's regionSplit.
@@ -272,77 +294,62 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
 
   return (
     <div className="muscle-analytics-root timeframe-content flex-col gap-4">
-      {/* ── Header: week/month range + top-line stats ── */}
+      {/* ── Header: Week | Month text tabs, the range with ‹ › on the right,
+          and a slim stats strip. ── */}
       <div className={cardClass('muscle-analytics-header')}>
-        <div className="widget-header justify-between" style={{ flexWrap: 'wrap', gap: '8px' }}>
-          <h4>🧠 {isMonth ? 'Monthly' : 'Weekly'} Muscle Analytics</h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {canMonth && (
-              <div className="heatmap-view-toggle">
-                <button type="button" className={!isMonth ? 'active' : ''} onClick={() => choosePeriod('week')}>Week</button>
-                <button type="button" className={isMonth ? 'active' : ''} onClick={() => choosePeriod('month')}>Month</button>
-              </div>
+        <h4 style={{ marginBottom: '10px' }}>Muscle Analytics</h4>
+        <div className="ma-period-row">
+          {canMonth ? (
+            <TextTabs tabs={[['week', 'Week'], ['month', 'Month']]} value={period} onChange={choosePeriod} />
+          ) : <span />}
+          <div className="ma-range-nav">
+            {isMonth ? (
+              <>
+                <button type="button" title="Previous month" aria-label="Previous month" onClick={() => setMonthOffset(monthOffset - 1)}><Chevron dir="left" /></button>
+                <span>{monthLabel}</span>
+                <button type="button" title={monthOffset >= 0 ? 'Already on the current month' : 'Next month'} aria-label="Next month" onClick={() => setMonthOffset(Math.min(0, monthOffset + 1))} disabled={monthOffset >= 0}><Chevron dir="right" /></button>
+              </>
+            ) : (
+              <>
+                <button type="button" title="Previous week" aria-label="Previous week" onClick={() => setWeekOffset(w => w - 1)}><Chevron dir="left" /></button>
+                <span title={weekRangeLabel}>{weekDatesLabel}</span>
+                <button type="button" title={weekOffset >= 0 ? 'Already on the current week' : 'Next week'} aria-label="Next week" onClick={() => setWeekOffset(w => Math.min(0, w + 1))} disabled={weekOffset >= 0}><Chevron dir="right" /></button>
+              </>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {isMonth ? (
-                <>
-                  <button type="button" title="Previous month" onClick={() => setMonthOffset(monthOffset - 1)} style={weekNavBtnStyle}>‹</button>
-                  <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{monthLabel}</span>
-                  <button
-                    type="button"
-                    title={monthOffset >= 0 ? 'Already on the current month' : 'Next month'}
-                    onClick={() => setMonthOffset(Math.min(0, monthOffset + 1))}
-                    disabled={monthOffset >= 0}
-                    style={{ ...weekNavBtnStyle, opacity: monthOffset >= 0 ? 0.35 : 1, cursor: monthOffset >= 0 ? 'default' : 'pointer' }}
-                  >
-                    ›
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button type="button" title="Previous week" onClick={() => setWeekOffset(w => w - 1)} style={weekNavBtnStyle}>‹</button>
-                  <span className="trend-badge" style={{ minWidth: '86px', textAlign: 'center' }}>{weekRangeLabel}</span>
-                  <button
-                    type="button"
-                    title={weekOffset >= 0 ? 'Already on the current week' : 'Next week'}
-                    onClick={() => setWeekOffset(w => Math.min(0, w + 1))}
-                    disabled={weekOffset >= 0}
-                    style={{ ...weekNavBtnStyle, opacity: weekOffset >= 0 ? 0.35 : 1, cursor: weekOffset >= 0 ? 'default' : 'pointer' }}
-                  >
-                    ›
-                  </button>
-                </>
-              )}
-            </div>
           </div>
         </div>
 
-        <div className="stats-row-cards mini" style={{ marginTop: '10px' }}>
-          <AnimatedStat value={headerStats.totalVolume} label="Volume" valueClass="text-emerald" suffix=" kg" />
-          <AnimatedStat value={headerStats.totalSets} label="Sets" valueClass="text-blue" suffix=" sets" />
-          <AnimatedStat value={headerStats.workoutsCount} label="Workouts" valueClass="text-amber" />
-          <AnimatedStat value={headerStats.totalCalories} label="Calories" valueClass="text-amber" suffix=" kcal" />
+        <div className="ma-stats-strip">
+          <AnimatedStat value={headerStats.totalVolume} label="kg" />
+          <AnimatedStat value={headerStats.totalSets} label="sets" />
+          <AnimatedStat value={headerStats.workoutsCount} label={headerStats.workoutsCount === 1 ? 'workout' : 'workouts'} />
+          <AnimatedStat value={headerStats.totalCalories} label="kcal" />
         </div>
       </div>
 
       {/* ── Section 1 + Section 5, merged: Muscle Balance Overview and
-          Neglected Muscles share one card via a left/right tab switcher
-          (same toggle pattern as the heat map's Front/Back switch), instead
-          of two separate stacked cards. Neglected Muscles reflects real
+          Neglected Muscles share one card: a "N neglected" link by the
+          heading opens the list (only shown when something is neglected),
+          "‹ Balance" goes back. Neglected Muscles reflects real
           "right now" status (last actual training date), not the browsed
           week, so it reads `logs` directly rather than `muscleStats`. ── */}
       <div className={cardClass()} ref={balanceCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
-          <h4>{balanceTab === 'balance' ? '💪 Muscle Balance Overview' : '⚠️ Neglected Muscles'}</h4>
+          <h4>{balanceTab === 'balance' ? 'Muscle Balance' : 'Neglected Muscles'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="heatmap-view-toggle">
-              <button type="button" className={balanceTab === 'balance' ? 'active' : ''} onClick={() => setBalanceTab('balance')}>Balance</button>
-              <button type="button" className={balanceTab === 'neglected' ? 'active' : ''} onClick={() => setBalanceTab('neglected')}>Neglected</button>
-            </div>
+            {balanceTab === 'neglected' ? (
+              <button type="button" className="ma-link" onClick={() => setBalanceTab('balance')}><Chevron dir="left" /> Balance</button>
+            ) : neglectedCount > 0 && (
+              <button type="button" className="ma-link ma-link-warn" onClick={() => setBalanceTab('neglected')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                </svg>
+                {neglectedCount} neglected
+              </button>
+            )}
             {onShareBalance && <ShareIconButton onClick={onShareBalance} title="Share this client's Muscle Balance Overview" />}
           </div>
         </div>
-
         {balanceTab === 'balance' ? (
           <>
             <p className="muscle-analytics-subtext">
@@ -379,16 +386,12 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           of switch as this outer Heat Map/Recovery tab. ── */}
       <div className={cardClass()} ref={heatMapCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
-          <h4>{mapTab === 'heatmap' ? '🗺️ Muscle Heat Map' : '🔋 Recovery Dashboard'}</h4>
+          <h4>{mapTab === 'heatmap' ? 'Muscle Heat Map' : 'Recovery'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="heatmap-view-toggle">
-              <button type="button" className={mapTab === 'heatmap' ? 'active' : ''} onClick={() => setMapTab('heatmap')}>Map</button>
-              <button type="button" className={mapTab === 'recovery' ? 'active' : ''} onClick={() => setMapTab('recovery')}>Recovery</button>
-            </div>
+            <TextTabs tabs={[['heatmap', 'Map'], ['recovery', 'Recovery']]} value={mapTab} onChange={setMapTab} />
             {onShareHeatMap && <ShareIconButton onClick={onShareHeatMap} title="Share this client's Muscle Heat Map" />}
           </div>
         </div>
-
         {mapTab === 'heatmap' && pickedStrip}
         {mapTab === 'heatmap' ? (
           <MuscleHeatMap muscleStats={muscleStats} onSelectMuscle={selectMuscle} activeMuscle={selectedMuscle} regionSplit={regionSplit} labelFor={heatMapLabel} />
@@ -404,15 +407,11 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
       <div className={cardClass()}>
         <div className="widget-header justify-between" style={{ marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>
-            {insightsTab === 'insights' && `💡 ${isMonth ? 'Monthly' : 'Weekly'} Insights`}
-            {insightsTab === 'comparison' && '📊 Progress Comparison'}
-            {insightsTab === 'recommendations' && '🎯 Personal Recommendations'}
+            {insightsTab === 'insights' && 'Insights'}
+            {insightsTab === 'comparison' && `Vs Last ${isMonth ? 'Month' : 'Week'}`}
+            {insightsTab === 'recommendations' && 'Tips'}
           </h4>
-          <div className="heatmap-view-toggle">
-            <button type="button" className={insightsTab === 'insights' ? 'active' : ''} onClick={() => setInsightsTab('insights')}>Insights</button>
-            <button type="button" className={insightsTab === 'comparison' ? 'active' : ''} onClick={() => setInsightsTab('comparison')}>Compare</button>
-            <button type="button" className={insightsTab === 'recommendations' ? 'active' : ''} onClick={() => setInsightsTab('recommendations')}>Tips</button>
-          </div>
+          <TextTabs tabs={[['insights', 'Insights'], ['comparison', 'Compare'], ['recommendations', 'Tips']]} value={insightsTab} onChange={setInsightsTab} />
         </div>
 
         {insightsTab === 'insights' && <WeeklyInsights insights={insights} period={period} />}

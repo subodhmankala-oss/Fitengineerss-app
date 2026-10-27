@@ -42,18 +42,39 @@
   line-height: 18px;
   font-size: 0.64rem;
 }
+/* Phone placement: a full-screen sheet over the whole dashboard — header,
+   role tabs and bottom nav included (2026-10-27: a box hanging under the
+   My Clients tab with a gutter either side read as "part of the page").
+   Capped at the app frame's width and centred so a coach in a wide desktop
+   browser still gets a phone-sized sheet, not a window-wide one. Above
+   .bottom-nav (z 1000), below SetNumberPad (1100). */
 .cnb-inline .cnb-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: var(--screen-gutter, 16px);
-  right: var(--screen-gutter, 16px);
-  width: auto;
-  max-height: 72dvh;
-  z-index: 1000;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: var(--app-max-width, 480px);
+  max-height: none;
+  margin: 0 auto;
+  background: var(--bg-app);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: 1050;
+}
+.cnb-inline .cnb-list {
+  flex: 1;
+  padding: 10px var(--screen-gutter, 16px) 24px;
+  gap: 10px;
+}
+.cnb-inline .cnb-head {
+  padding: 14px 12px 14px var(--screen-gutter, 16px);
 }
 
-/* Scrim behind the open list. Only the phone/header placement needs it —
-   the desktop corner panel floats over a wide page and reads fine. */
+/* Scrim either side of the sheet when the browser is wider than the app
+   frame. Not needed for the desktop corner panel. */
 .cnb-backdrop {
   display: none;
 }
@@ -61,7 +82,7 @@
   display: block;
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: 1049;
   background: rgba(0, 0, 0, 0.6);
 }
 

@@ -19,6 +19,95 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
+// "Add missed exercise": append `records` (built by the browser's
+// buildWorkoutLogRecords) to the workout already saved on append.logDate.
+// The target is that day's most recently saved session. Its session_id is
+// reused and its session_row numbering continued, so the dedupe read and
+// Home's per-session totals still treat old + new rows as ONE workout; its
+// calories go up by append.addedCalories on every row (duration stays — the
+// time between saving and remembering wasn't workout time). A pre-session_id
+// legacy workout can't be joined that way, so its new rows get their own
+// session_id and carry only the added calories, which Home sums per session.
+// Exported for the unit test.
+export async function appendToSavedSession({ svcHeaders, userId, records, append, fetchImpl = fetch }) {
+  const logDate = String(append.logDate || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate)) return { status: 400, body: { error: 'append.logDate must be YYYY-MM-DD' } };
+  const addedCalories = Math.max(0, Math.round(Number(append.addedCalories) || 0));
+
+  const existingResp = await fetchImpl(
+    `${supabaseUrl}/rest/v1/workout_logs?user_id=eq.${encodeURIComponent(userId)}&log_date=eq.${logDate}` +
+    '&select=session_id,session_row,plan_name,duration_seconds,calories_burned,created_at&order=created_at.desc',
+    { headers: svcHeaders }
+  );
+  const existing = existingResp.ok ? await existingResp.json().catch(() => []) : null;
+  if (!Array.isArray(existing)) return { status: 502, body: { error: 'Couldn\'t read that day\'s workout. Try again.' } };
+  if (existing.length === 0) return { status: 404, body: { error: 'No saved workout on that day to add to.' } };
+
+  const latest = existing[0];
+  const sessionId = latest.session_id || null;
+  const sessionRows = sessionId
+    ? existing.filter(r => r.session_id === sessionId)
+    : existing.filter(r => r.created_at === latest.created_at);
+  const baseCalories = sessionRows.find(r => r.calories_burned != null)?.calories_burned ?? null;
+  const durationSeconds = sessionRows.find(r => r.duration_seconds != null)?.duration_seconds ?? null;
+  const nextRow = sessionId ? Math.max(-1, ...sessionRows.map(r => Number(r.session_row) || 0)) + 1 : 0;
+  const newTotal = sessionId
+    ? (baseCalories != null || addedCalories > 0 ? Math.round(((Number(baseCalories) || 0) + addedCalories) * 10) / 10 : null)
+    : (addedCalories > 0 ? addedCalories : null);
+  const ownSessionId = sessionId || `missed-${Date.now()}`;
+
+  const rows = records.map((r, i) => ({
+    ...r,
+    user_id: userId,
+    log_date: logDate,
+    plan_name: latest.plan_name || r.plan_name || 'Custom Routine',
+    duration_seconds: sessionId ? durationSeconds : null,
+    calories_burned: newTotal,
+    avg_heart_rate_bpm: null,
+    max_heart_rate_bpm: null,
+    session_id: ownSessionId,
+    session_row: nextRow + i
+  }));
+
+  let toSend = rows;
+  let insertResp, errBody;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    insertResp = await fetchImpl(`${supabaseUrl}/rest/v1/workout_logs`, {
+      method: 'POST',
+      headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify(toSend)
+    });
+    if (insertResp.ok) { errBody = null; break; }
+    errBody = await insertResp.json().catch(() => null);
+    const missingCol = errBody && (errBody.code === '42703' || errBody.code === 'PGRST204')
+      ? errBody.message?.match(/'([a-z_]+)' column/)?.[1]
+      : null;
+    if (!missingCol) break;
+    toSend = toSend.map(({ [missingCol]: _drop, ...rest }) => rest);
+  }
+  if (!insertResp.ok) {
+    console.error('save-workout-session append insert failed:', insertResp.status, errBody);
+    return { status: 502, body: { error: (errBody && errBody.message) || 'Couldn\'t add the missed exercises. Try again.' } };
+  }
+
+  // Bring the original rows up to the same session total. Best effort: the
+  // sets are already saved, and a failure here only leaves the old calorie
+  // figure on the earlier rows.
+  if (sessionId && newTotal != null) {
+    const patchResp = await fetchImpl(
+      `${supabaseUrl}/rest/v1/workout_logs?user_id=eq.${encodeURIComponent(userId)}&session_id=eq.${encodeURIComponent(sessionId)}`,
+      {
+        method: 'PATCH',
+        headers: { ...svcHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ calories_burned: newTotal })
+      }
+    ).catch(() => null);
+    if (!patchResp || !patchResp.ok) console.warn('save-workout-session append: calorie update failed for', sessionId);
+  }
+
+  return { status: 200, body: { success: true, count: rows.length, sessionId: ownSessionId, caloriesBurned: newTotal } };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -121,6 +210,12 @@ export default async function handler(req, res) {
 
     if (!isOwnLogs && !isSuperAdmin && !isClientsOwnCoach) {
       return res.status(403).json({ error: 'You are not authorized to write this workout for this account.' });
+    }
+
+    const { append } = req.body || {};
+    if (append) {
+      const result = await appendToSavedSession({ svcHeaders, userId: targetUserId, records, append });
+      return res.status(result.status).json(result.body);
     }
 
     // return=minimal: the inserted rows were never used beyond counting them,

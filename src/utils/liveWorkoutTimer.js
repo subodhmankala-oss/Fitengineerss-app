@@ -565,6 +565,24 @@ export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals
   };
 }
 
+// Missed exercises added to an already-saved workout have no completion
+// timestamps, so each set is given its own work time plus a typical
+// ASSUMED_REST_SECONDS of recovery, then priced by computeLiveCalories like
+// any live set. Every set is counted (the form only sends sets with values).
+const ASSUMED_REST_SECONDS = 90;
+export function estimateMissedSetsKcal(exercises, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+  let at = 0;
+  const timed = exercises.map(ex => ({
+    ...ex,
+    sets: ex.sets.map(set => {
+      const work = isWarmupExercise(ex.name) ? 0 : setWork(ex.name, set, bodyWeightKg).workSeconds;
+      at += (work + ASSUMED_REST_SECONDS) * 1000;
+      return { ...set, isCompleted: true, completedAt: at };
+    })
+  }));
+  return computeLiveCalories(timed, 0, [], bodyWeightKg).totalKcal;
+}
+
 // One completed set's work: kcal, how many seconds of the clock the work
 // itself took, and whether a recovery gap follows it (cardio is continuous
 // effort already priced by its own pace, so it doesn't).

@@ -8,6 +8,12 @@
 // changed recently" glance, not a full engineering changelog.
 export const WHATS_NEW = [
   {
+    date: '2026-10-27',
+    audience: 'all',
+    title: 'Add a missed exercise to a saved workout',
+    description: 'Forgot to log an exercise? Open that day in History and tap "Add missed exercise" (up to 7 days back). It joins the same workout and its calories are added on top. Coaches can do it from a client\'s Daily history too.',
+  },
+  {
     date: '2026-10-23',
     audience: 'coach',
     title: 'Active/inactive dot on client photos',

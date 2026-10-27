@@ -22,6 +22,8 @@ import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
 import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
+import AddMissedExercisesModal from './AddMissedExercisesModal';
+import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
 import { getActivityStatus } from '../utils/activityStatus';
@@ -1681,6 +1683,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // log_date/exercise_name/weight_kg/reps rows, not the grouped per-date
   // session objects `workoutLogs` holds.
   const [rawWorkoutLogs, setRawWorkoutLogs] = useState([]);
+  // "Add missed exercise" on the client's Daily history (same sheet the
+  // client gets on Home → Daily).
+  const [missedExOpen, setMissedExOpen] = useState(false);
+  const [missedExToast, setMissedExToast] = useState('');
+  const addedLaterByDate = useMemo(() => addedLaterExercisesByDate(rawWorkoutLogs), [rawWorkoutLogs]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   // Which client's history the Live Log's PREV pre-fill can use right now:
   // { clientId, sessions } where sessions is null until handleSelectClient's
@@ -2547,6 +2554,24 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // draft doesn't reappear and clobber the next plan the coach opens.
   const clearPlanEditorDraft = () => {
     try { localStorage.removeItem('coachPlanEditorDraft'); } catch { /* ignore */ }
+  };
+
+  // Appends to the client's saved workout on the Daily date, then re-reads
+  // their history so the totals and "Added later" tags show.
+  const handleSaveMissedExercises = async (exercises, addedCalories, planName) => {
+    const clientId = selectedClient?.id;
+    await databaseService.appendMissedExercises({ userId: clientId, logDate: historyDateStr, exercises, addedCalories });
+    setMissedExOpen(false);
+    const label = planName || 'the workout';
+    setMissedExToast(exercises.length === 1 ? `${exercises[0].name} added to ${label}` : `${exercises.length} missed exercises added to ${label}`);
+    setTimeout(() => setMissedExToast(''), 3500);
+    const logs = await databaseService.getWorkoutLogsForUser(clientId).catch(() => null);
+    if (logs && selectedClient?.id === clientId) {
+      const refreshed = groupLogs(logs);
+      setWorkoutLogs(refreshed);
+      setRawWorkoutLogs(logs);
+      if (liveHistoryRef.current.clientId === clientId) liveHistoryRef.current = { clientId, sessions: refreshed };
+    }
   };
 
   const triggerLiveToast = (msg) => {
@@ -8794,7 +8819,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       const exIsWarmupHist = isWarmupExercise(exercise.name);
                                       return (
                                         <div key={eIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
-                                          <div className="ex-title" style={{ marginBottom: '6px' }}>{exercise.name}</div>
+                                          <div className="ex-title" style={{ marginBottom: '6px' }}>
+                                            {exercise.name}
+                                            {addedLaterByDate[historyDateStr]?.has(exercise.name.toLowerCase()) && <span className="missed-ex-later-tag">Added later</span>}
+                                          </div>
                                           <table className="sets-table">
                                             <thead>
                                               <tr>
@@ -8897,6 +8925,29 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       );
                                     })}
                                   </div>
+                                  {canAddMissedExercise(historyDateStr) && (
+                                    <div className="missed-ex-entry">
+                                      <span className="missed-ex-entry-hint">Client forgot something?</span>
+                                      <button type="button" className="missed-ex-entry-btn" onClick={() => setMissedExOpen(true)}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
+                                        Add missed exercise
+                                      </button>
+                                    </div>
+                                  )}
+                                  <AddMissedExercisesModal
+                                    open={missedExOpen}
+                                    onClose={() => setMissedExOpen(false)}
+                                    onSave={(exercises, addedCalories) => handleSaveMissedExercises(exercises, addedCalories, daySession?.planName)}
+                                    planName={daySession?.planName || ''}
+                                    dateLabel={isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    savedExerciseNames={daySession.exercises.map(ex => ex.name)}
+                                    bodyWeightKg={resolvedClientWeightKg}
+                                    creatorMode="coach"
+                                    coachId={resolvedCoachId}
+                                    clientUserId={selectedClient?.id}
+                                    clientName={selectedClient?.userName || ''}
+                                  />
+                                  {missedExToast && <div className="missed-ex-toast" role="status">{missedExToast}</div>}
                                 </div>
                               ) : (
                                 <div className="no-daily-workouts mt-3">

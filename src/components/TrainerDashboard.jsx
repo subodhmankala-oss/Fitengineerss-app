@@ -7943,7 +7943,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           <circle cx="9" cy="7" r="4" />
                           <line x1="17" y1="11" x2="23" y2="11" />
                         </svg>
-                        Remove client
+                        Unattach client
                       </button>
                     </div>
                   )}

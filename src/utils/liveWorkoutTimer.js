@@ -583,6 +583,16 @@ export function estimateMissedSetsKcal(exercises, bodyWeightKg = DEFAULT_BODY_WE
   return computeLiveCalories(timed, 0, [], bodyWeightKg).totalKcal;
 }
 
+// One saved set's share of its workout's calories: its work plus the same
+// ASSUMED_REST_SECONDS of recovery estimateMissedSetsKcal gives it. Editing a
+// saved workout moves the total by new − old of this, deleting by −old.
+export function estimateSetKcal(exerciseName, set, bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+  if (isWarmupExercise(exerciseName)) return 0;
+  const { kcal, recovers } = setWork(exerciseName, set, bodyWeightKg);
+  const rest = recovers ? activeKcal(RECOVERY_MET, bodyWeightKg, bodyWeightKg, ASSUMED_REST_SECONDS / 60) : 0;
+  return Math.round((kcal + rest) * 10) / 10;
+}
+
 // One completed set's work: kcal, how many seconds of the clock the work
 // itself took, and whether a recovery gap follows it (cardio is continuous
 // effort already priced by its own pace, so it doesn't).

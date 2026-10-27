@@ -24,6 +24,8 @@ import SetTypeMenu from './SetTypeMenu';
 import { getSetTypeVisual } from '../utils/setTypes';
 import ExercisePickerModal from './ExercisePickerModal';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
+import EditSavedWorkoutModal from './EditSavedWorkoutModal';
+import { PlusIcon, PencilLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import { computeElapsedSeconds, computeRestSecondsRemaining, computeLiveCalories, formatDuration, maskDigitsToTimeString, formatSecondsToTimeString, parseTimeStringToSeconds, estimateCardioKcal, estimateCardioDistanceKm, estimateTimedHoldKcal, DEFAULT_BODY_WEIGHT_KG, remapSetTimersForReorder, remapSetTimersForExerciseRemoval, remapSetTimersForSetRemoval, splitNewTemplates, buildRecentWorkoutPlans, formatShortLogDate } from '../utils/liveWorkoutTimer';
 import { notifyEvent } from '../utils/pushNotify';
@@ -1688,6 +1690,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // client gets on Home → Daily).
   const [missedExOpen, setMissedExOpen] = useState(false);
   const [missedExToast, setMissedExToast] = useState('');
+  const [editWorkoutOpen, setEditWorkoutOpen] = useState(false);
   const addedLaterByDate = useMemo(() => addedLaterExercisesByDate(rawWorkoutLogs), [rawWorkoutLogs]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   // Which client's history the Live Log's PREV pre-fill can use right now:
@@ -2565,6 +2568,25 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     setMissedExOpen(false);
     const label = planName || 'the workout';
     setMissedExToast(exercises.length === 1 ? `${exercises[0].name} added to ${label}` : `${exercises.length} missed exercises added to ${label}`);
+    setTimeout(() => setMissedExToast(''), 3500);
+    const logs = await databaseService.getWorkoutLogsForUser(clientId).catch(() => null);
+    if (logs && selectedClient?.id === clientId) {
+      const refreshed = groupLogs(logs);
+      setWorkoutLogs(refreshed);
+      setRawWorkoutLogs(logs);
+      if (liveHistoryRef.current.clientId === clientId) liveHistoryRef.current = { clientId, sessions: refreshed };
+    }
+  };
+
+  // "Edit workout" on the client's Daily history: that day's saved rows,
+  // editable only when they all came from the database (have an id).
+  const historyDayRows = useMemo(() => rawWorkoutLogs.filter(l => l.log_date === historyDateStr), [rawWorkoutLogs, historyDateStr]);
+  const historyDayRowsEditable = historyDayRows.length > 0 && historyDayRows.every(l => l.id != null);
+  const handleSaveWorkoutEdit = async ({ changes, deletes, kcalDeltas }, planName) => {
+    const clientId = selectedClient?.id;
+    await databaseService.editSavedWorkout({ userId: clientId, logDate: historyDateStr, changes, deletes, kcalDeltas });
+    setEditWorkoutOpen(false);
+    setMissedExToast(`${planName || 'Workout'} updated`);
     setTimeout(() => setMissedExToast(''), 3500);
     const logs = await databaseService.getWorkoutLogsForUser(clientId).catch(() => null);
     if (logs && selectedClient?.id === clientId) {
@@ -8995,11 +9017,17 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   </div>
                                   {canAddMissedExercise(historyDateStr) && (
                                     <div className="missed-ex-entry">
-                                      <span className="missed-ex-entry-hint">Client forgot something?</span>
-                                      <button type="button" className="missed-ex-entry-btn" onClick={() => setMissedExOpen(true)}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
-                                        Add missed exercise
-                                      </button>
+                                      <span className="missed-ex-entry-hint">Need to fix this workout?</span>
+                                      <div className={historyDayRowsEditable ? 'missed-ex-entry-actions' : undefined}>
+                                        {historyDayRowsEditable && (
+                                          <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                                            <span className="missed-ex-entry-icon"><PencilLineIcon size={14} /></span> Edit workout
+                                          </button>
+                                        )}
+                                        <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                                          <span className="missed-ex-entry-icon"><PlusIcon size={14} /></span> Add missed exercise
+                                        </button>
+                                      </div>
                                     </div>
                                   )}
                                   <AddMissedExercisesModal
@@ -9009,11 +9037,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                     planName={daySession?.planName || ''}
                                     dateLabel={isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                                     savedExerciseNames={daySession.exercises.map(ex => ex.name)}
+                                    logDate={historyDateStr}
+                                    history={rawWorkoutLogs}
                                     bodyWeightKg={resolvedClientWeightKg}
                                     creatorMode="coach"
                                     coachId={resolvedCoachId}
                                     clientUserId={selectedClient?.id}
                                     clientName={selectedClient?.userName || ''}
+                                  />
+                                  <EditSavedWorkoutModal
+                                    open={editWorkoutOpen}
+                                    onClose={() => setEditWorkoutOpen(false)}
+                                    onSave={diff => handleSaveWorkoutEdit(diff, daySession?.planName)}
+                                    rows={historyDayRows}
+                                    planName={daySession?.planName || ''}
+                                    dateLabel={isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    bodyWeightKg={resolvedClientWeightKg}
                                   />
                                   {missedExToast && <div className="missed-ex-toast" role="status">{missedExToast}</div>}
                                 </div>

@@ -1,6 +1,9 @@
-/* "Add missed exercises" sheet (AddMissedExercisesModal.jsx). Sits just under
-   the exercise picker (.payment-gateway-backdrop, z-index 10000), which opens
-   on top of it. */
+/* The two sheets that change a saved workout — "Add missed exercises"
+   (AddMissedExercisesModal.jsx) and "Edit workout" (EditSavedWorkoutModal.jsx).
+   Exercise cards and set rows use the logger's own classes from
+   WorkoutTracker.css; this file only adds the sheet around them. They sit
+   just under the exercise picker (.payment-gateway-backdrop, z-index 10000),
+   which opens on top. */
 .missed-ex-backdrop {
   position: fixed;
   inset: 0;
@@ -22,86 +25,39 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-bottom: none;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .missed-ex-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  padding: 16px 16px 10px;
+  padding: 16px 16px 12px;
   border-bottom: 1px solid var(--border-color);
 }
-.missed-ex-header h3 { margin: 0; font-size: 1.05rem; color: var(--text-main); }
-.missed-ex-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.saved-sheet-titles { flex: 1; min-width: 0; }
+.missed-ex-header h3 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-main); }
+.missed-ex-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .missed-ex-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
-.missed-ex-saved {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: rgba(var(--fg-rgb), 0.03);
-  color: var(--text-muted);
-  cursor: pointer;
-  font: inherit;
-}
-.missed-ex-saved-title { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; }
-.missed-ex-saved-names { font-size: 0.76rem; white-space: pre-line; }
-
-.missed-ex-card {
-  border: 1px solid rgba(52, 211, 153, 0.45);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.missed-ex-card-head { display: flex; align-items: center; gap: 8px; }
-.missed-ex-name { flex: 1; font-weight: 700; font-size: 0.92rem; color: var(--text-main); }
-.missed-ex-tag {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-}
-
-.missed-ex-grid { display: grid; gap: 6px; align-items: center; }
-.missed-ex-grid-head span { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-align: center; }
-.missed-ex-grid-head span:first-child { text-align: left; }
-.missed-ex-setnum { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); }
-.missed-ex-input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 7px 6px;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--text-main);
-  background: rgba(var(--fg-rgb), 0.04);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-}
-.missed-ex-input:focus { outline: none; border-color: var(--border-focus); }
-
-.missed-ex-icon-btn {
+.missed-ex-icon-btn,
+.saved-sheet-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -113,60 +69,84 @@
   color: var(--text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  flex-shrink: 0;
 }
-.missed-ex-icon-btn.small { width: 28px; height: 28px; }
-.missed-ex-icon-btn:disabled { opacity: 0.35; cursor: default; }
+.missed-ex-icon-btn:disabled { opacity: 0.4; cursor: default; }
 
-.missed-ex-link {
-  align-self: flex-start;
-  border: none;
-  background: transparent;
-  color: var(--accent-text);
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 2px 0;
-  cursor: pointer;
-}
-
-.missed-ex-add {
+/* The ✕ in each set row's last column. */
+.saved-sheet-remove-set {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  border: 1px dashed var(--border-strong);
+  width: 36px;
+  height: 40px;
+  border: none;
   background: transparent;
-  color: var(--text-main);
-  font-size: 0.86rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.saved-sheet-remove-set:disabled { opacity: 0.3; cursor: default; }
+
+/* A set that differs from what's saved — the logger's completed-row tint. */
+.hevy-set-row.saved-sheet-row-changed {
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.18);
+}
+.hevy-set-row.saved-sheet-row-changed .set-num-lbl { color: var(--accent-text); }
+
+.saved-sheet-note { font-size: 0.78rem; color: var(--text-muted); padding: 0 4px; }
+
+.saved-sheet-card-removed { opacity: 0.6; }
+.saved-sheet-card-removed .ex-card-header { border-bottom: none; padding-bottom: 0; }
+.saved-sheet-removed {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.saved-sheet-undo,
+.saved-sheet-more {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
   font-weight: 600;
+  color: var(--accent-text);
   cursor: pointer;
 }
 
+.saved-sheet-already {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
 .missed-ex-footer {
-  padding: 10px 16px 14px;
+  padding: 10px 16px 12px;
   border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.missed-ex-error { font-size: 0.8rem; color: var(--danger); }
+.saved-sheet-impact { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+.missed-ex-error { font-size: 0.8rem; color: var(--danger); text-align: center; }
 .missed-ex-save {
   width: 100%;
-  padding: 12px;
+  padding: 13px;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--primary-accent);
   color: var(--text-on-accent);
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
 }
-.missed-ex-save:disabled { opacity: 0.7; cursor: default; }
+.missed-ex-save:disabled { opacity: 0.45; cursor: default; }
 .missed-ex-cancel {
   width: 100%;
-  padding: 8px;
+  padding: 6px;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -181,31 +161,61 @@
   padding-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .missed-ex-entry-hint { font-size: 0.74rem; color: var(--text-muted); }
+/* Side by side when there's room; stacked on a narrow phone so neither
+   label wraps. */
+.missed-ex-entry-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .missed-ex-entry-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 12px;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(var(--accent-rgb), 0.55);
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-text);
+  border: 1px solid var(--entry-ring);
+  background: var(--entry-tint);
+  color: var(--entry-color);
   font-size: 0.86rem;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.missed-ex-entry-btn:hover { background: var(--entry-tint-hover); }
+.missed-ex-entry-btn:active { transform: scale(0.98); }
+/* Same colours as the logger's own action links: amber like "Start rest"
+   (.btn-start-rest-link), blue like "+ Add Set" (.btn-add-set-link). */
+.missed-ex-entry-btn.edit {
+  --entry-color: #f59e0b;
+  --entry-tint: rgba(245, 158, 11, 0.08);
+  --entry-tint-hover: rgba(245, 158, 11, 0.14);
+  --entry-ring: rgba(245, 158, 11, 0.28);
+}
+.missed-ex-entry-btn.add {
+  --entry-color: #3b82f6;
+  --entry-tint: rgba(59, 130, 246, 0.08);
+  --entry-tint-hover: rgba(59, 130, 246, 0.14);
+  --entry-ring: rgba(59, 130, 246, 0.28);
+}
+.missed-ex-entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .missed-ex-later-tag {
   margin-left: 6px;
   font-size: 0.66rem;
-  font-weight: 700;
+  font-weight: 600;
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.06);
   vertical-align: middle;
 }
 
@@ -218,11 +228,18 @@
   max-width: calc(100% - 32px);
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(52, 211, 153, 0.14);
-  border: 1px solid rgba(52, 211, 153, 0.45);
-  color: #34d399;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-main);
   font-size: 0.85rem;
   font-weight: 600;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Last time's numbers in an empty box — the logger's dimmed, italic PREV
+   ghost (.set-value-ghost), so a hint never reads as a typed value. */
+.missed-ex-sheet .hevy-set-row .set-input-field input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 600;
+  opacity: 0.6;
 }

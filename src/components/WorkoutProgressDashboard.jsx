@@ -22,6 +22,8 @@ import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
 import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
 import AddMissedExercisesModal from './AddMissedExercisesModal';
+import EditSavedWorkoutModal from './EditSavedWorkoutModal';
+import { PlusIcon, PencilLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import './WorkoutProgressDashboard.css';
 
@@ -119,6 +121,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
   const [missedExOpen, setMissedExOpen] = useState(false);
   const [missedExToast, setMissedExToast] = useState('');
+  const [editWorkoutOpen, setEditWorkoutOpen] = useState(false);
   // Coach-set renewal date (clients.program_started_on). Scopes "sessions
   // completed" below to the CURRENT program period — see getTotalSessionsDone.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
@@ -582,6 +585,21 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
     setMissedExOpen(false);
     const names = exercises.map(ex => ex.name);
     setMissedExToast(names.length === 1 ? `${names[0]} added to ${dailyPlanLabel}` : `${names.length} missed exercises added to ${dailyPlanLabel}`);
+    setTimeout(() => setMissedExToast(''), 3500);
+    const fresh = await databaseService.getWorkoutLogsForUser(userId).catch(() => null);
+    if (fresh) setLogs(fresh);
+    return result;
+  };
+
+  // "Edit workout": the Daily day's saved rows. Only offered when every row
+  // came from the database (has an id) — an offline/local copy can't be
+  // edited in place.
+  const dayRows = logs.filter(l => l.log_date === selectedDateStr);
+  const dayRowsEditable = dayRows.length > 0 && dayRows.every(l => l.id != null);
+  const handleSaveWorkoutEdit = async ({ changes, deletes, kcalDeltas }) => {
+    const result = await databaseService.editSavedWorkout({ userId, logDate: selectedDateStr, changes, deletes, kcalDeltas });
+    setEditWorkoutOpen(false);
+    setMissedExToast(`${dailyPlanLabel} updated`);
     setTimeout(() => setMissedExToast(''), 3500);
     const fresh = await databaseService.getWorkoutLogsForUser(userId).catch(() => null);
     if (fresh) setLogs(fresh);
@@ -1644,11 +1662,17 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                     </div>
                     {canAddMissedExercise(selectedDateStr) && (
                       <div className="missed-ex-entry">
-                        <span className="missed-ex-entry-hint">Forgot something?</span>
-                        <button type="button" className="missed-ex-entry-btn" onClick={() => setMissedExOpen(true)}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
-                          Add missed exercise
-                        </button>
+                        <span className="missed-ex-entry-hint">Need to fix this workout?</span>
+                        <div className={dayRowsEditable ? 'missed-ex-entry-actions' : undefined}>
+                          {dayRowsEditable && (
+                            <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                              <span className="missed-ex-entry-icon"><PencilLineIcon size={14} /></span> Edit workout
+                            </button>
+                          )}
+                          <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                            <span className="missed-ex-entry-icon"><PlusIcon size={14} /></span> Add missed exercise
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1848,9 +1872,20 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         planName={groupedLogs[selectedDateStr]?.planName || ''}
         dateLabel={isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         savedExerciseNames={dailyStats.exercises.map(ex => ex.name)}
+        logDate={selectedDateStr}
+        history={logs}
         bodyWeightKg={parseFloat(localStorage.getItem('userWeight')) || undefined}
         creatorMode="client"
         clientUserId={userId}
+      />
+      <EditSavedWorkoutModal
+        open={editWorkoutOpen}
+        onClose={() => setEditWorkoutOpen(false)}
+        onSave={handleSaveWorkoutEdit}
+        rows={dayRows}
+        planName={groupedLogs[selectedDateStr]?.planName || ''}
+        dateLabel={isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        bodyWeightKg={parseFloat(localStorage.getItem('userWeight')) || undefined}
       />
       {missedExToast && <div className="missed-ex-toast" role="status">{missedExToast}</div>}
     </div>

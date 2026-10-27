@@ -1665,12 +1665,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                         <span className="missed-ex-entry-hint">Need to fix this workout?</span>
                         <div className={dayRowsEditable ? 'missed-ex-entry-actions' : undefined}>
                           {dayRowsEditable && (
-                            <button type="button" className="missed-ex-entry-btn secondary" onClick={() => setEditWorkoutOpen(true)}>
-                              <PencilLineIcon /> Edit workout
+                            <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                              <span className="missed-ex-entry-icon"><PencilLineIcon size={14} /></span> Edit workout
                             </button>
                           )}
-                          <button type="button" className="missed-ex-entry-btn" onClick={() => setMissedExOpen(true)}>
-                            <PlusIcon /> Add missed exercise
+                          <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                            <span className="missed-ex-entry-icon"><PlusIcon size={14} /></span> Add missed exercise
                           </button>
                         </div>
                       </div>

@@ -164,20 +164,53 @@
   gap: 8px;
 }
 .missed-ex-entry-hint { font-size: 0.74rem; color: var(--text-muted); }
-.missed-ex-entry-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Side by side when there's room; stacked on a narrow phone so neither
+   label wraps. */
+.missed-ex-entry-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .missed-ex-entry-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  background: rgba(var(--fg-rgb), 0.04);
-  color: var(--text-main);
-  font-size: 0.84rem;
-  font-weight: 600;
+  border: 1px solid var(--entry-ring);
+  background: var(--entry-tint);
+  color: var(--entry-color);
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.missed-ex-entry-btn:hover { background: var(--entry-tint-hover); }
+.missed-ex-entry-btn:active { transform: scale(0.98); }
+/* Same colours as the logger's own action links: amber like "Start rest"
+   (.btn-start-rest-link), blue like "+ Add Set" (.btn-add-set-link). */
+.missed-ex-entry-btn.edit {
+  --entry-color: #f59e0b;
+  --entry-tint: rgba(245, 158, 11, 0.08);
+  --entry-tint-hover: rgba(245, 158, 11, 0.14);
+  --entry-ring: rgba(245, 158, 11, 0.28);
+}
+.missed-ex-entry-btn.add {
+  --entry-color: #3b82f6;
+  --entry-tint: rgba(59, 130, 246, 0.08);
+  --entry-tint-hover: rgba(59, 130, 246, 0.14);
+  --entry-ring: rgba(59, 130, 246, 0.28);
+}
+.missed-ex-entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--entry-tint-hover);
+  flex-shrink: 0;
 }
 .missed-ex-later-tag {
   margin-left: 6px;

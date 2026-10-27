@@ -171,13 +171,25 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
         {count > 0 && <span className="cnb-badge">{count > 99 ? '99+' : count}</span>}
       </button>
 
+      {/* Dims the dashboard behind the list so it's obvious where the
+          panel starts and ends (2026-10-27: on a phone the panel's cards and
+          the dashboard's cards ran together). Tap it to close. */}
+      {open && <div className="cnb-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
+
       {open && (
         <div className="cnb-panel" role="dialog" aria-label="Notifications">
           <div className="cnb-head">
             <span className="cnb-head-title">Notifications</span>
-            {count > 1 && onClearAll && (
-              <button type="button" className="cnb-clear" onClick={onClearAll}>Clear all</button>
-            )}
+            <div className="cnb-head-actions">
+              {count > 1 && onClearAll && (
+                <button type="button" className="cnb-clear" onClick={onClearAll}>Clear all</button>
+              )}
+              <button type="button" className="cnb-close" title="Close" aria-label="Close notifications" onClick={() => setOpen(false)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
           </div>
           {flash && (
             <div className={`cnb-flash${flash.isError ? ' cnb-flash-error' : ''}`} role="status">{flash.message}</div>
@@ -190,6 +202,7 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
           ) : (
             <ul className="cnb-list">
               {items.map(item => <BellItem key={item.key} item={item} onDone={() => setOpen(false)} onFlash={showFlash} />)}
+              <li className="cnb-end" aria-hidden="true">End of notifications</li>
             </ul>
           )}
         </div>

@@ -16,7 +16,7 @@ const MALE_LAYERS = { front: FRONT_MUSCLE_LAYERS, back: BACK_MUSCLE_LAYERS };
 const LEGEND = [
   { key: 'not_trained', color: 'var(--text-subtle)', label: 'Not Trained' },
   { key: 'low', color: '#3b82f6', label: 'Low' },
-  { key: 'optimal', color: 'var(--accent-text)', label: 'Optimal' },
+  { key: 'optimal', color: '#10b981', label: 'Optimal' }, // same green the map paints (getHeatMapTier)
   { key: 'high', color: '#f97316', label: 'High' },
   { key: 'very_high', color: '#ef4444', label: 'Very High' },
 ];
@@ -623,7 +623,7 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
  * that's a distinct, second-level switch (which side of the body), not the
  * same kind of choice as the outer Heat Map/Recovery tab.
  */
-const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit = null }) => {
+const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit = null, labelFor = undefined }) => {
   const [view, setView] = useState('front');
   // While zoomed in, the diagram lists the parts in view; these whole-muscle
   // chips step aside so there's one row of targets, not two.
@@ -637,25 +637,27 @@ const MuscleHeatMap = ({ muscleStats, onSelectMuscle, activeMuscle, regionSplit 
 
   return (
     <>
-      <div className="muscle-status-legend">
-        {LEGEND.map(l => (
-          <span key={l.key} className="legend-item">
-            <span className="legend-dot" style={{ background: l.color }} />
-            {l.label}
-          </span>
-        ))}
-      </div>
+      {/* How-to sits right under the card heading (like Muscle Balance's
+          subtext); the colour legend and Front/Back share the next row. */}
+      <p className="muscle-analytics-subtext">Tap the body to zoom in, then tap a part (or its name below). Drag or pinch to move around.</p>
 
-      <div className="widget-header justify-between" style={{ marginBottom: '4px' }}>
-        <p className="muscle-analytics-subtext" style={{ margin: 0 }}>Tap the body to zoom in, then tap a part (or its name below). Drag or pinch to move around.</p>
-        <div className="heatmap-view-toggle">
+      <div className="widget-header justify-between" style={{ marginBottom: '4px', gap: '8px', alignItems: 'center' }}>
+        <div className="muscle-status-legend" style={{ margin: 0, padding: 0, borderTop: 'none' }}>
+          {LEGEND.map(l => (
+            <span key={l.key} className="legend-item">
+              <span className="legend-dot" style={{ background: l.color }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+        <div className="heatmap-view-toggle" style={{ flexShrink: 0 }}>
           <button type="button" className={view === 'front' ? 'active' : ''} onClick={() => setView('front')}>Front</button>
           <button type="button" className={view === 'back' ? 'active' : ''} onClick={() => setView('back')}>Back</button>
         </div>
       </div>
 
       <div className="muscle-body-wrapper">
-        <BodyDiagram key={view} view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} regionSplit={regionSplit} zoomable onZoomChange={setZoomedIn} />
+        <BodyDiagram key={view} view={view} statByMuscle={statByMuscle} activeMuscle={activeMuscle} onSelectMuscle={onSelectMuscle} regionSplit={regionSplit} labelFor={labelFor} zoomable onZoomChange={setZoomedIn} />
       </div>
 
       {/* Quick-tap chips under the diagram — same regions, easier tap target

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import MuscleThumbnail from './MuscleThumbnail';
 
-const MuscleCard = ({ stat, index = 0, onClick }) => {
+const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
   const { muscle, sets, volume, target, completionPercent, status } = stat;
   const [mounted, setMounted] = useState(false);
 
@@ -35,7 +35,7 @@ const MuscleCard = ({ stat, index = 0, onClick }) => {
       </div>
 
       <div className="muscle-card-stats">
-        <span className="muscle-sets-target">{sets} / {target} Target Sets</span>
+        <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'Avg Sets/Wk' : 'Target Sets'}</span>
         <span className="muscle-completion">{completionPercent}%</span>
       </div>
 
@@ -46,7 +46,7 @@ const MuscleCard = ({ stat, index = 0, onClick }) => {
         />
       </div>
 
-      <div className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg volume this week</div>
+      <div className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg volume this {period}</div>
     </div>
   );
 };

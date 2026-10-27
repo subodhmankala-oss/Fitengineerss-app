@@ -1823,6 +1823,9 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               weekOffset={weekOffset}
               setWeekOffset={setWeekOffset}
               weekNavBtnStyle={weekNavBtnStyle}
+              monthOffset={monthOffset}
+              setMonthOffset={setMonthOffset}
+              monthlyStats={monthlyStats}
               focusSection={initialMuscleSection}
               // "+ Add" on a muscle-region suggestion queues it for the
               // Workouts tab, which adds it to the session on open. Tapping

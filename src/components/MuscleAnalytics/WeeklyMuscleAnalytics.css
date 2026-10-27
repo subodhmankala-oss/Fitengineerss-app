@@ -22,7 +22,7 @@
 }
 
 /* ── Status color tokens (scoped to this feature) ── */
-.status-optimal { --status-color: var(--primary-accent-light); }
+.status-optimal { --status-color: #10b981; } /* green, same as the heat map's Optimal */
 .status-slightly-low { --status-color: #eab308; }
 .status-undertrained { --status-color: #f97316; }
 .status-neglected { --status-color: #ef4444; }
@@ -230,72 +230,112 @@
 }
 
 .insight-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 0.8rem;
+  font-weight: 500;
   color: var(--text-main);
   line-height: 1.45;
-  background: rgba(var(--fg-rgb), 0.02);
+  background: rgba(var(--fg-rgb), 0.03);
   border: 1px solid rgba(var(--fg-rgb), 0.05);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   padding: 10px 12px;
   opacity: 0;
   animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
 }
 
-/* ── Section 7: Progress Comparison ── */
-.comparison-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.insight-item strong { font-weight: 700; }
+
+/* Tone badge: a round tint + ring around a line icon. */
+.insight-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--tone-color);
+  background: color-mix(in srgb, var(--tone-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone-color) 30%, transparent);
 }
 
-.comparison-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(var(--fg-rgb), 0.04);
+.tone-warn { --tone-color: var(--tint-amber); }
+.tone-good { --tone-color: #10b981; }
+.tone-info { --tone-color: var(--tint-blue); }
+.tone-tip { --tone-color: #10b981; }
+
+/* ── Section 7: Progress Comparison — 2×2 tiles ── */
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.comparison-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.comparison-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
+  border-radius: 14px;
+  opacity: 0;
+  animation: muscleCardFadeUp 0.45s var(--transition-smooth, ease) forwards;
 }
+
+.comparison-tile:nth-child(2) { animation-delay: 60ms; }
+.comparison-tile:nth-child(3) { animation-delay: 120ms; }
+.comparison-tile:nth-child(4) { animation-delay: 180ms; }
 
 .comparison-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.72rem;
-  color: var(--text-muted);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.comparison-values {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  font-weight: 600;
+  color: var(--tile-color, var(--text-muted));
 }
 
 .comparison-curr {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--text-main);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comparison-prev {
   font-size: 0.7rem;
-  color: var(--text-subtle);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
+/* Trend chip: tint + ring — green up, red down, grey same. */
 .comparison-trend {
-  font-size: 0.75rem;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   width: fit-content;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--trend-color);
+  background: color-mix(in srgb, var(--trend-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--trend-color) 30%, transparent);
 }
 
-.trend-up { color: var(--accent-text); }
-.trend-down { color: #ef4444; }
-.trend-flat { color: var(--text-muted); }
+.trend-up { --trend-color: #10b981; }
+.trend-down { --trend-color: #ef4444; }
+.trend-flat { --trend-color: var(--text-muted); }
 
 /* ── Section 8: Personal Recommendations ── */
 .recommendation-list {
@@ -1346,4 +1386,171 @@
   color: var(--text-muted);
   font-size: 0.65rem;
   cursor: pointer;
+}
+
+/* ── Header: Week/Month chips, full-width range bar, stats strip ── */
+.ma-period-row {
+  margin-top: 12px;
+}
+
+/* Full-width range bar: ‹ at the left end, the period centred, › at the
+   right end, on a faint track so the row reads as one control. */
+.ma-range-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.05);
+  border-radius: var(--radius-full);
+}
+
+.ma-range-nav span { flex: 1; text-align: center; color: var(--text-main); }
+
+.ma-range-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ma-range-nav button:not(:disabled):hover {
+  background: rgba(var(--fg-rgb), 0.06);
+  color: var(--text-main);
+}
+
+.ma-range-nav button:disabled { opacity: 0.25; cursor: default; }
+
+/* Four stats in one soft panel, split by hairlines. */
+.ma-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+  padding: 12px 0;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 14px;
+}
+
+.ma-stat {
+  padding: 0 12px;
+  min-width: 0;
+}
+
+.ma-stat + .ma-stat { border-left: 1px solid rgba(var(--fg-rgb), 0.07); }
+
+.ma-stat strong {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ma-stat span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--stat-color, var(--text-muted));
+}
+
+/* Text link by a card heading ("‹ Balance"). */
+.ma-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ma-link:hover { color: var(--text-main); }
+
+/* Tint + ring pill by a card heading: "N neglected" (amber, a status) and
+   the Map/Recovery switch (blue, a view). --pill-color sets the hue. */
+.ma-pill {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill-color) 35%, transparent);
+  transition: background 0.2s ease;
+}
+
+.ma-pill:hover {
+  color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 20%, transparent);
+}
+
+.ma-link-warn { --pill-color: var(--tint-amber); }
+.ma-link-view { --pill-color: var(--tint-blue); }
+
+/* Insights card switcher: small chips, each its own hue (--pill-color);
+   the selected one gets tint + ring, the rest are plain text. */
+.ma-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.ma-chips button {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ma-chips button:hover { color: var(--text-main); }
+
+.ma-chips button.active {
+  color: var(--pill-color);
+  background: color-mix(in srgb, var(--pill-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--pill-color) 35%, transparent);
+}
+
+/* Header + Balance / Heat Map / Insights cards: one soft panel each, so
+   every section (the header too) reads as its own block. Applies in the coach's
+   bare-card view too (its outer panel is only a frame, not a surface). */
+.muscle-analytics-root .ma-section {
+  padding: 16px 14px;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 18px;
+}
+
+/* The stats strip sits inside the header's panel: a touch deeper so it
+   still reads as an inset tray, not a second identical box. */
+.ma-section .ma-stats-strip {
+  background: rgba(var(--fg-rgb), 0.035);
+}
+
+@media (max-width: 380px) {
+  .ma-stat { padding: 0 8px; }
+  .ma-stat strong { font-size: 1rem; }
 }

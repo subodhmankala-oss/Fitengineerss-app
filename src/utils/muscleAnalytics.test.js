@@ -3,7 +3,7 @@ import {
   getWeeklyMuscleStats, getPPLCDistribution, getMuscleRecovery, generateWeeklyInsights, compareWeeks,
   getAverageCompletion, getRecommendations, getLastTrainedInfo, getNeglectedMuscles, formatEstimatedReady,
   getExerciseBreakdownForMuscle, getBestLiftForMuscle, getPersonalRecordsForMuscle,
-  getWeeklySetsTrendForMuscle, getMuscleGrowthScore, getHeatMapTier
+  getWeeklySetsTrendForMuscle, getMuscleGrowthScore, getHeatMapTier, weeksInRange
 } from './muscleAnalytics';
 import { getMuscleGroupsForExercise } from './muscleGroups';
 import { EXERCISE_LIBRARY, isCardioExercise, isWarmupExercise } from '../data/exerciseLibrary';
@@ -486,5 +486,39 @@ describe('Tibialis (optional muscle)', () => {
   it('the detail screen can still ask for an untrained row', () => {
     const stats = getWeeklyMuscleStats([], '2026-07-20', '2026-07-26', { includeUntrained: true });
     expect(stats.find(s => s.muscle === 'Tibialis').sets).toBe(0);
+  });
+});
+
+describe('month view — sets averaged per week', () => {
+  it('counts a finished month by its days, and a running month only up to today', () => {
+    expect(weeksInRange('2026-09-01', '2026-09-30', '2026-10-27')).toBeCloseTo(30 / 7);
+    expect(weeksInRange('2026-10-01', '2026-10-31', '2026-10-14')).toBe(2);
+    // 3 days in: one week, so the average isn't tripled
+    expect(weeksInRange('2026-10-01', '2026-10-31', '2026-10-03')).toBe(1);
+  });
+
+  it('judges the weekly average against the weekly target, keeping the raw total', () => {
+    // 12 chest sets a week for 4 weeks = 48 sets in a 28-day window
+    const logs = [];
+    for (let d = 1; d <= 28; d += 7) {
+      const date = `2026-02-${String(d).padStart(2, '0')}`;
+      for (let i = 0; i < 12; i++) logs.push(log({ log_date: date }));
+    }
+    const chest = getWeeklyMuscleStats(logs, '2026-02-01', '2026-02-28', { weeks: 4 }).find(s => s.muscle === 'Chest');
+    expect(chest.totalSets).toBe(48);
+    expect(chest.sets).toBe(12);
+    expect(chest.status.key).toBe('optimal');
+    // the same 48 sets read as one week would be far over target
+    const asWeek = getWeeklyMuscleStats(logs, '2026-02-01', '2026-02-28').find(s => s.muscle === 'Chest');
+    expect(asWeek.status.key).toBe('high_volume');
+  });
+
+  it('words month insights and tips as a month, with whole-set advice', () => {
+    const stats = getWeeklyMuscleStats([log({ log_date: '2026-02-03' })], '2026-02-01', '2026-02-28', { weeks: 4 });
+    const insights = generateWeeklyInsights(stats, getPPLCDistribution(stats), 10, 'month');
+    expect(insights.some(t => t.includes('zero sets this month'))).toBe(true);
+    const recs = getRecommendations(stats, 10, 'month');
+    expect(recs.every(t => !t.includes('this week'))).toBe(true);
+    expect(recs.some(t => /Add \d+ more .* a week\./.test(t))).toBe(true);
   });
 });

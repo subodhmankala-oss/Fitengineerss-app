@@ -1571,14 +1571,20 @@
   border-color: color-mix(in srgb, var(--pill-color) 35%, transparent);
 }
 
-/* Balance / Heat Map / Insights cards: the same soft panel as the stats
-   strip, so each section reads as its own block. Applies in the coach's
+/* Header + Balance / Heat Map / Insights cards: one soft panel each, so
+   every section (the header too) reads as its own block. Applies in the coach's
    bare-card view too (its outer panel is only a frame, not a surface). */
 .muscle-analytics-root .ma-section {
   padding: 16px 14px;
   background: rgba(var(--fg-rgb), 0.025);
   border: 1px solid rgba(var(--fg-rgb), 0.06);
   border-radius: 18px;
+}
+
+/* The stats strip sits inside the header's panel: a touch deeper so it
+   still reads as an inset tray, not a second identical box. */
+.ma-section .ma-stats-strip {
+  background: rgba(var(--fg-rgb), 0.035);
 }
 
 @media (max-width: 380px) {

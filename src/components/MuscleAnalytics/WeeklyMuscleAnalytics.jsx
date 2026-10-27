@@ -310,7 +310,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
     <div className="muscle-analytics-root timeframe-content flex-col gap-4">
       {/* ── Header: Week | Month text tabs, the range with ‹ › on the right,
           and a slim stats strip. ── */}
-      <div className={cardClass('muscle-analytics-header')}>
+      <div className={cardClass('muscle-analytics-header ma-section')}>
         <h4 style={{ marginBottom: '10px' }}>Muscle Analytics</h4>
         <div className="ma-period-row">
           {canMonth ? (

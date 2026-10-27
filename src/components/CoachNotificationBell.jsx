@@ -143,6 +143,17 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
   };
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
   const rootRef = useRef(null);
+  // Phone sheet starts just under the bell (2026-10-27: "It should start
+  // from below the notification icon"), not under the role tabs that wrap
+  // onto a second header row — so it's measured, not a fixed offset.
+  const [sheetTop, setSheetTop] = useState(null);
+  const toggle = () => {
+    if (!open && variant === 'inline' && rootRef.current) {
+      setSheetTop(Math.round(rootRef.current.getBoundingClientRect().bottom + 8));
+    }
+    setOpen(o => !o);
+  };
+  const sheetStyle = variant === 'inline' && sheetTop != null ? { top: sheetTop } : undefined;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -162,7 +173,7 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
       <button
         type="button"
         className={`cnb-bell${open ? ' cnb-bell-open' : ''}`}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         title={count ? `${count} update${count === 1 ? '' : 's'}` : 'No new updates'}
         aria-label={count ? `Notifications, ${count} new` : 'Notifications'}
         aria-expanded={open}
@@ -174,10 +185,10 @@ export default function CoachNotificationBell({ items = [], onClearAll, variant 
       {/* Dims the dashboard behind the list so it's obvious where the
           panel starts and ends (2026-10-27: on a phone the panel's cards and
           the dashboard's cards ran together). Tap it to close. */}
-      {open && <div className="cnb-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
+      {open && <div className="cnb-backdrop" style={sheetStyle} onClick={() => setOpen(false)} aria-hidden="true" />}
 
       {open && (
-        <div className="cnb-panel" role="dialog" aria-label="Notifications">
+        <div className="cnb-panel" style={sheetStyle} role="dialog" aria-label="Notifications">
           <div className="cnb-head">
             <span className="cnb-head-title">Notifications</span>
             <div className="cnb-head-actions">

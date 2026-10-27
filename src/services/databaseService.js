@@ -719,6 +719,96 @@ async function getWorkoutDraftsViaServer(userId) {
   }
 }
 
+// One workout_logs row per set of `session` — the shape both a fresh save
+// (saveWorkoutSession) and a missed-exercise append (appendMissedExercises,
+// where the server overrides the session-level columns) send.
+function buildWorkoutLogRecords(userId, session) {
+  const records = [];
+  // Idempotency key for this workout: the local session id
+  // ('session-<ms>' / 'coach-live-<ms>') is fixed from the moment the
+  // workout is finished, so every later attempt to write the SAME
+  // workout — the automatic retry, the offline queue replay,
+  // WorkoutTracker's resync — carries the same (session_id,
+  // session_row) pairs, and workout_logs_session_row_key rejects the
+  // repeat instead of storing a second copy (see isDuplicateSessionError).
+  const sessionId = session.id ? String(session.id) : null;
+  let sessionRow = 0;
+  withCachedLibraryIds(session.exercises).forEach(ex => {
+    ex.sets.forEach((set, sIdx) => {
+      // Cardio sets carry distanceKm/time instead of reps/weight (see
+      // isCardioExercise). Timed holds (plank etc., see isTimedExercise)
+      // carry time only, no distanceKm — they reuse cardio_duration_seconds
+      // to avoid a schema migration, but must NOT get a distance_km value
+      // (even 0), or the read-back can't tell them apart from real cardio.
+      // reps/weight_kg still get written as 0 for both so every row keeps
+      // the same shape; the real values live in distance_km/
+      // cardio_duration_seconds instead.
+      const isCardioSet = set.distanceKm !== undefined;
+      const isTimedSet = !isCardioSet && set.time !== undefined;
+      // Foot Fires is the one timed exercise that also keeps the
+      // Bodyweight/+Add Weight toggle (see isBodyweightExercise in
+      // exerciseLibrary.js) — its weight_kg is real data, not the
+      // "not applicable" 0 every other timed set gets below.
+      const isTimedBodyweightSet = isTimedSet && isBodyweightExercise(ex.name);
+      // Every record in this array goes into ONE PostgREST bulk
+      // insert (see saveWorkoutLogsViaServer / restInsert), which
+      // requires every object in the batch to have IDENTICAL keys —
+      // a row with an extra/missing key fails the whole batch with
+      // PGRST102 "All object keys must match", not just that row.
+      // This used to build each row's keys conditionally (spreading
+      // distance_km/cardio_duration_seconds/set_type/duration_seconds/
+      // calories_burned only when that particular set had them), so
+      // any session mixing a cardio or timed set with a normal one —
+      // or a warmup/dropset tag on only SOME sets, which is the
+      // ordinary way a coach logs a real session — silently failed
+      // to save entirely. All-uniform test payloads (used while
+      // verifying the earlier auth-token fix) never exercise this,
+      // which is exactly why it went unnoticed until real mixed
+      // sessions hit it in production. Reported 2026-08-13: three
+      // in-progress coach sessions (Nagesh A, Mahalsa,
+      // gk.goginenikiran) all failing to save.
+      // Fix: every row now carries the SAME key set, with `null`
+      // standing in for "not applicable" instead of omitting the
+      // key. Every read site already checks `!= null` before using
+      // these fields (see WorkoutTracker.jsx/TrainerDashboard.jsx),
+      // so this is a no-op for anything that reads the data back —
+      // only the shape sent to PostgREST changes.
+      records.push({
+        user_id: userId,
+        log_date: session.date,
+        exercise_name: ex.name,
+        // Library record id (exercises / custom_exercises) — see
+        // sql/supabase_exercise_id_linkage.sql. Dropped by the
+        // missing-column retry below until that migration is run.
+        exercise_id: ex.exerciseId || null,
+        set_number: sIdx + 1,
+        reps: (isCardioSet || isTimedSet) ? 0 : parseInt(set.reps || '0'),
+        weight_kg: (isCardioSet || (isTimedSet && !isTimedBodyweightSet)) ? 0 : parseFloat(set.weight || '0.0'),
+        plan_name: session.planName || 'Custom Routine',
+        distance_km: isCardioSet ? (parseFloat(set.distanceKm || '0') || 0) : null,
+        cardio_duration_seconds: (isCardioSet || isTimedSet) ? parseTimeStringToSeconds(set.time) : null,
+        // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
+        set_type: set.setType || null,
+        // Live Log session timer's final duration/calories snapshot —
+        // duplicated onto every row of this session (workout_logs has
+        // no session-level row) and read back from any one of them.
+        duration_seconds: session.durationSeconds != null ? session.durationSeconds : null,
+        calories_burned: session.caloriesBurned != null ? session.caloriesBurned : null,
+        // Session-level avg/max BPM from a paired Bluetooth heart
+        // rate monitor (see useHeartRateMonitor) — same "duplicated
+        // onto every row, read back from any one" pattern as
+        // duration_seconds/calories_burned above. NULL when no
+        // monitor was connected.
+        avg_heart_rate_bpm: session.avgHeartRate != null ? session.avgHeartRate : null,
+        max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null,
+        session_id: sessionId,
+        session_row: sessionId ? sessionRow++ : null
+      });
+    });
+  });
+  return records;
+}
+
 // RLS-proof workout_logs write via api/save-workout-session.js — see that
 // file's comment. Returns true on success, false on any failure (caller
 // decides how to surface that; never throws).
@@ -1817,89 +1907,7 @@ const databaseService = {
         }
 
         if (user) {
-          const records = [];
-          // Idempotency key for this workout: the local session id
-          // ('session-<ms>' / 'coach-live-<ms>') is fixed from the moment the
-          // workout is finished, so every later attempt to write the SAME
-          // workout — the automatic retry, the offline queue replay,
-          // WorkoutTracker's resync — carries the same (session_id,
-          // session_row) pairs, and workout_logs_session_row_key rejects the
-          // repeat instead of storing a second copy (see isDuplicateSessionError).
-          const sessionId = session.id ? String(session.id) : null;
-          let sessionRow = 0;
-          withCachedLibraryIds(session.exercises).forEach(ex => {
-            ex.sets.forEach((set, sIdx) => {
-              // Cardio sets carry distanceKm/time instead of reps/weight (see
-              // isCardioExercise). Timed holds (plank etc., see isTimedExercise)
-              // carry time only, no distanceKm — they reuse cardio_duration_seconds
-              // to avoid a schema migration, but must NOT get a distance_km value
-              // (even 0), or the read-back can't tell them apart from real cardio.
-              // reps/weight_kg still get written as 0 for both so every row keeps
-              // the same shape; the real values live in distance_km/
-              // cardio_duration_seconds instead.
-              const isCardioSet = set.distanceKm !== undefined;
-              const isTimedSet = !isCardioSet && set.time !== undefined;
-              // Foot Fires is the one timed exercise that also keeps the
-              // Bodyweight/+Add Weight toggle (see isBodyweightExercise in
-              // exerciseLibrary.js) — its weight_kg is real data, not the
-              // "not applicable" 0 every other timed set gets below.
-              const isTimedBodyweightSet = isTimedSet && isBodyweightExercise(ex.name);
-              // Every record in this array goes into ONE PostgREST bulk
-              // insert (see saveWorkoutLogsViaServer / restInsert), which
-              // requires every object in the batch to have IDENTICAL keys —
-              // a row with an extra/missing key fails the whole batch with
-              // PGRST102 "All object keys must match", not just that row.
-              // This used to build each row's keys conditionally (spreading
-              // distance_km/cardio_duration_seconds/set_type/duration_seconds/
-              // calories_burned only when that particular set had them), so
-              // any session mixing a cardio or timed set with a normal one —
-              // or a warmup/dropset tag on only SOME sets, which is the
-              // ordinary way a coach logs a real session — silently failed
-              // to save entirely. All-uniform test payloads (used while
-              // verifying the earlier auth-token fix) never exercise this,
-              // which is exactly why it went unnoticed until real mixed
-              // sessions hit it in production. Reported 2026-08-13: three
-              // in-progress coach sessions (Nagesh A, Mahalsa,
-              // gk.goginenikiran) all failing to save.
-              // Fix: every row now carries the SAME key set, with `null`
-              // standing in for "not applicable" instead of omitting the
-              // key. Every read site already checks `!= null` before using
-              // these fields (see WorkoutTracker.jsx/TrainerDashboard.jsx),
-              // so this is a no-op for anything that reads the data back —
-              // only the shape sent to PostgREST changes.
-              records.push({
-                user_id: user.id,
-                log_date: session.date,
-                exercise_name: ex.name,
-                // Library record id (exercises / custom_exercises) — see
-                // sql/supabase_exercise_id_linkage.sql. Dropped by the
-                // missing-column retry below until that migration is run.
-                exercise_id: ex.exerciseId || null,
-                set_number: sIdx + 1,
-                reps: (isCardioSet || isTimedSet) ? 0 : parseInt(set.reps || '0'),
-                weight_kg: (isCardioSet || (isTimedSet && !isTimedBodyweightSet)) ? 0 : parseFloat(set.weight || '0.0'),
-                plan_name: session.planName || 'Custom Routine',
-                distance_km: isCardioSet ? (parseFloat(set.distanceKm || '0') || 0) : null,
-                cardio_duration_seconds: (isCardioSet || isTimedSet) ? parseTimeStringToSeconds(set.time) : null,
-                // Warmup/Dropset/Failure tag from the logger; NULL = normal set.
-                set_type: set.setType || null,
-                // Live Log session timer's final duration/calories snapshot —
-                // duplicated onto every row of this session (workout_logs has
-                // no session-level row) and read back from any one of them.
-                duration_seconds: session.durationSeconds != null ? session.durationSeconds : null,
-                calories_burned: session.caloriesBurned != null ? session.caloriesBurned : null,
-                // Session-level avg/max BPM from a paired Bluetooth heart
-                // rate monitor (see useHeartRateMonitor) — same "duplicated
-                // onto every row, read back from any one" pattern as
-                // duration_seconds/calories_burned above. NULL when no
-                // monitor was connected.
-                avg_heart_rate_bpm: session.avgHeartRate != null ? session.avgHeartRate : null,
-                max_heart_rate_bpm: session.maxHeartRate != null ? session.maxHeartRate : null,
-                session_id: sessionId,
-                session_row: sessionId ? sessionRow++ : null
-              });
-            });
-          });
+          const records = buildWorkoutLogRecords(user.id, session);
 
           if (records.length > 0) {
             // Raw PostgREST (restInsert) instead of supabase.from() — same
@@ -2031,6 +2039,30 @@ const databaseService = {
     // Now that the local mirror is done regardless, surface the DB failure
     // (if any) to the caller instead of the session silently "succeeding".
     if (syncError) throw syncError;
+  },
+
+  // Exercises the client forgot to log, added afterwards to the workout
+  // already saved on `logDate` (client: History → Add missed exercise; coach:
+  // the client's History card). Server-side only (api/save-workout-session.js
+  // append mode): it picks that day's latest saved session, continues its
+  // session_row numbering under the SAME session_id — so every reader still
+  // sees one workout — and raises that session's calories by
+  // `addedCalories` on every row, old and new. Duration is left alone: the
+  // gap between the original save and now wasn't workout time.
+  // Returns { caloriesBurned } on success; throws with a readable message.
+  async appendMissedExercises({ userId, logDate, exercises, addedCalories }) {
+    if (!UUID_RE.test(userId || '')) throw new Error('Missing account id — reload and try again.');
+    const records = buildWorkoutLogRecords(userId, { date: logDate, exercises });
+    if (records.length === 0) throw new Error('Add at least one set first.');
+    const { headers, email } = await serverFallbackAuth();
+    const resp = await fetch('/api/save-workout-session', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ records, email, append: { logDate, addedCalories: Math.max(0, Math.round(Number(addedCalories) || 0)) } })
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(body.error || 'Couldn\'t add the missed exercises. Try again.');
+    return body;
   },
 
   // ─── AUTHENTICATION ───

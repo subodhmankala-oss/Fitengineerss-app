@@ -21,6 +21,8 @@ import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightE
 import { notifyEvent } from '../utils/pushNotify';
 import { PlayIcon, TrashIcon } from './TimerIcons';
 import { queueWorkoutAdd, unqueueWorkoutAdd, getPendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
+import AddMissedExercisesModal from './AddMissedExercisesModal';
+import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
 import './WorkoutProgressDashboard.css';
 
 // One flag per client, set permanently the moment they take any action on
@@ -115,6 +117,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
     return Number.isFinite(cachedLimit) && cachedLimit > 0 ? cachedLimit : null;
   });
   const [coachName, setCoachName] = useState(() => localStorage.getItem('userCoachName') || '');
+  const [missedExOpen, setMissedExOpen] = useState(false);
+  const [missedExToast, setMissedExToast] = useState('');
   // Coach-set renewal date (clients.program_started_on). Scopes "sessions
   // completed" below to the CURRENT program period — see getTotalSessionsDone.
   const [programStartedOn, setProgramStartedOn] = useState(() => localStorage.getItem('userProgramStartedOn') || null);
@@ -466,7 +470,9 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
       // which underreported any day with more than one separate session (a
       // client logging twice in a day only ever counted the first). Add each
       // distinct session's value exactly once instead, keyed by created_at.
-      const sessionKey = log.created_at || 'no-created-at';
+      // session_id first: missed exercises added later share their workout's
+      // session_id (and its updated total) but land with a newer created_at.
+      const sessionKey = log.session_id || log.created_at || 'no-created-at';
       if (!grouped[date]._seenSessionKeys.has(sessionKey)) {
         grouped[date]._seenSessionKeys.add(sessionKey);
         if (log.duration_seconds != null) {
@@ -566,6 +572,21 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   };
 
   const dailyStats = getDailyStats();
+  const addedLaterByDate = addedLaterExercisesByDate(logs);
+  const dailyPlanLabel = groupedLogs[selectedDateStr]?.planName || 'this workout';
+
+  // "Add missed exercise" on the Daily card: appends to that day's saved
+  // workout, then re-reads the logs so totals and the "Added later" tags show.
+  const handleSaveMissedExercises = async (exercises, addedCalories) => {
+    const result = await databaseService.appendMissedExercises({ userId, logDate: selectedDateStr, exercises, addedCalories });
+    setMissedExOpen(false);
+    const names = exercises.map(ex => ex.name);
+    setMissedExToast(names.length === 1 ? `${names[0]} added to ${dailyPlanLabel}` : `${names.length} missed exercises added to ${dailyPlanLabel}`);
+    setTimeout(() => setMissedExToast(''), 3500);
+    const fresh = await databaseService.getWorkoutLogsForUser(userId).catch(() => null);
+    if (fresh) setLogs(fresh);
+    return result;
+  };
 
   // 3. Monthly stats for the calendar month selected via monthOffset (0 =
   // current month). Days after "today" (only possible in the current month)
@@ -1525,7 +1546,10 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                         const exIsWarmup = isWarmupExercise(ex.name);
                         return (
                         <div key={exIdx} className="daily-ex-card" style={{ marginBottom: '10px' }}>
-                          <div className="ex-title" style={{ marginBottom: '6px' }}>{ex.name}</div>
+                          <div className="ex-title" style={{ marginBottom: '6px' }}>
+                            {ex.name}
+                            {addedLaterByDate[selectedDateStr]?.has(ex.name.toLowerCase()) && <span className="missed-ex-later-tag">Added later</span>}
+                          </div>
                           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                               <tr style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
@@ -1618,6 +1642,15 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                         );
                       })}
                     </div>
+                    {canAddMissedExercise(selectedDateStr) && (
+                      <div className="missed-ex-entry">
+                        <span className="missed-ex-entry-hint">Forgot something?</span>
+                        <button type="button" className="missed-ex-entry-btn" onClick={() => setMissedExOpen(true)}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
+                          Add missed exercise
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="no-daily-workouts mt-3">
@@ -1808,6 +1841,18 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           startWriting={testimonialFormOnOpen}
         />
       )}
+      <AddMissedExercisesModal
+        open={missedExOpen}
+        onClose={() => setMissedExOpen(false)}
+        onSave={handleSaveMissedExercises}
+        planName={groupedLogs[selectedDateStr]?.planName || ''}
+        dateLabel={isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        savedExerciseNames={dailyStats.exercises.map(ex => ex.name)}
+        bodyWeightKg={parseFloat(localStorage.getItem('userWeight')) || undefined}
+        creatorMode="client"
+        clientUserId={userId}
+      />
+      {missedExToast && <div className="missed-ex-toast" role="status">{missedExToast}</div>}
     </div>
   );
 };

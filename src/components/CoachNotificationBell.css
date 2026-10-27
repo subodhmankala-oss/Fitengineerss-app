@@ -144,6 +144,31 @@
   overflow: hidden;
 }
 
+/* Opening transition (2026-10-27: "openning is abrupt"). Drops in from the
+   bell; the scrim fades. No `forwards` — the keyframes end at the natural
+   state, so no transform is left on the fixed sheet afterwards (same
+   reasoning as .trainer-header-mobile-menu). */
+@keyframes cnbPanelIn {
+  0% { opacity: 0; transform: translateY(-12px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes cnbFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.cnb-panel {
+  animation: cnbPanelIn 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.cnb-backdrop {
+  animation: cnbFadeIn 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cnb-panel,
+  .cnb-backdrop {
+    animation: none;
+  }
+}
+
 .cnb-head {
   display: flex;
   align-items: center;

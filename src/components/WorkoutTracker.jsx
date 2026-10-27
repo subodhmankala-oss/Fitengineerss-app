@@ -2241,12 +2241,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
   };
 
+  // tickedOnly: the client chose "Save N ticked sets" on the unticked-sets
+  // prompt — unticked sets are dropped (confirmSaveWorkout only saves ticked
+  // ones) instead of blocking the save. That prompt used to offer only Keep
+  // Logging or Discard, so a session with one skipped exercise couldn't be
+  // saved at all (26 Oct 2026); the coach's Live Log never blocked this.
   // earlierDay: saving an earlier day's unfinished draft to that day (see
-  // handleSaveEarlierDraft) — sets left unticked then can't be done any more,
-  // so they're dropped (confirmSaveWorkout only saves ticked sets) rather
-  // than blocking the save, and the summary shows that day's duration
-  // before the restored clock reaches state.
-  const handleFinishWorkoutPress = (e, earlierDay = null) => {
+  // handleSaveEarlierDraft) — implies tickedOnly, and the summary shows that
+  // day's duration before the restored clock reaches state.
+  const handleFinishWorkoutPress = (e, { earlierDay = null, tickedOnly = false } = {}) => {
     if (e?.preventDefault) e.preventDefault();
 
     const totalSetsCount = logExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
@@ -2260,7 +2263,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
 
-    if (completedSetsCount < totalSetsCount && !earlierDay) {
+    if (completedSetsCount < totalSetsCount && !earlierDay && !tickedOnly) {
       setShowUntickedFinishModal(true);
       return;
     }
@@ -2362,7 +2365,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     setSetTimers({});
     setIsLoggingWorkout(true);
     setActiveView('log');
-    handleFinishWorkoutPress(null, earlier);
+    handleFinishWorkoutPress(null, { earlierDay: earlier });
   };
 
   const savingWorkoutRef = useRef(false);
@@ -5009,15 +5012,27 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         onClose={() => setHistoryModalExercise(null)}
       />
 
-      {/* Unticked Finish Warning Dialog Modal */}
-      {showUntickedFinishModal && (
+      {/* Unticked Finish Warning Dialog Modal — with some sets ticked it
+          leads with saving just those (see handleFinishWorkoutPress's
+          tickedOnly); with none ticked there's nothing to save yet. */}
+      {showUntickedFinishModal && (() => {
+        const tickedCount = logExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
+        const totalCount = logExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+        return (
         <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowUntickedFinishModal(false)}>
           <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
+              {tickedCount > 0 ? (
+                <div className="modal-title-box">
+                  <span className="secure-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--tint-amber)' }}>SETS NOT TICKED</span>
+                  <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Some sets aren't ticked</h3>
+                </div>
+              ) : (
               <div className="modal-title-box">
                 <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ EMPTY LIFT LOGS</span>
                 <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Empty Workout Session</h3>
               </div>
+              )}
               <button 
                 type="button" 
                 className="btn-close-modal-x" 
@@ -5034,6 +5049,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               </button>
             </div>
 
+            {tickedCount > 0 ? (
+              <div className="warning-modal-body" style={{ padding: '20px 4px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+                  You ticked {tickedCount} of {totalCount} sets.
+                </p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
+                  Save just the ticked sets, or keep logging to finish the rest.
+                </p>
+              </div>
+            ) : (
             <div className="warning-modal-body" style={{ padding: '20px 4px', textAlign: 'center' }}>
               <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 12px 0' }}>
                 Please do finish the sets and then press finish button.
@@ -5042,6 +5067,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 Alternatively, do you want to discard the workout session?
               </p>
             </div>
+            )}
+
+            {tickedCount > 0 && (
+              <button
+                type="button"
+                className="btn-confirm-save-hevy"
+                style={{ width: '100%', marginTop: '12px', padding: '12px', fontSize: '0.9rem', borderRadius: 'var(--radius-sm)' }}
+                onClick={() => {
+                  setShowUntickedFinishModal(false);
+                  handleFinishWorkoutPress(null, { tickedOnly: true });
+                }}
+              >
+                Save {tickedCount} ticked {tickedCount === 1 ? 'set' : 'sets'}
+              </button>
+            )}
 
             <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>
               <button 
@@ -5078,7 +5118,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       <SetNumberPad active={getActiveSetField()} activeKey={activeSetKey} onClose={closeSetField} />
     </>
   );

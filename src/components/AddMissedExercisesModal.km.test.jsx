@@ -24,3 +24,18 @@ describe('AddMissedExercisesModal cardio KM', () => {
     expect(km.value).toBe('3');
   });
 });
+
+describe('AddMissedExercisesModal PREV hints', () => {
+  it('fills an empty box from last time when tapped', () => {
+    const history = [{ log_date: '2026-10-24', exercise_name: 'Cycling', set_number: 1, distance_km: 4, cardio_duration_seconds: 600, reps: 0, weight_kg: 0 }];
+    const props = { onClose: () => {}, onSave: async () => {}, planName: 'Leg day', dateLabel: 'Today', logDate: '2026-10-27', history };
+    const { rerender } = render(<AddMissedExercisesModal open={false} {...props} />);
+    rerender(<AddMissedExercisesModal open {...props} />);
+    fireEvent.click(screen.getAllByText('pick cycling').at(-1));
+    expect(screen.getByText('4km · 10:00')).toBeTruthy();
+    const km = screen.getAllByLabelText('Cycling set 1 km').at(-1);
+    expect(km.value).toBe('');
+    fireEvent.focus(km);
+    expect(km.value).toBe('4');
+  });
+});

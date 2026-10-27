@@ -9037,6 +9037,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                     planName={daySession?.planName || ''}
                                     dateLabel={isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                                     savedExerciseNames={daySession.exercises.map(ex => ex.name)}
+                                    logDate={historyDateStr}
+                                    history={rawWorkoutLogs}
                                     bodyWeightKg={resolvedClientWeightKg}
                                     creatorMode="coach"
                                     coachId={resolvedCoachId}

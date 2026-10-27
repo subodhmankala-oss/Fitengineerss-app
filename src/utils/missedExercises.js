@@ -1,6 +1,7 @@
 // "Add missed exercise" — adding exercises a client forgot to log to a
 // workout that's already saved (see databaseService.appendMissedExercises).
 import { getLocalDateString, shiftLocalDateString } from './dateUtils';
+import { exerciseNameKey } from './exerciseName';
 import { isCardioExercise, isTimedExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
 import { parseTimeStringToSeconds, formatSecondsToTimeString, estimateCardioDistanceKm, estimateSetKcal } from './liveWorkoutTimer';
 
@@ -104,21 +105,29 @@ export function toSavedMissedExercises(exercises) {
     .filter(ex => ex.sets.length > 0);
 }
 
-// One line summing up an exercise's sets, e.g. "5 kg × 10, 7.5 kg × 8".
-export function summarizeSets(name, sets) {
+// A saved set as text for the SAVED column — same format as the logger's
+// PREV column (getPreviousSessionSet): "5kg x 10", "BW x 12", "2km · 15:00".
+export function savedSetLabel(name, s) {
   const kind = missedSetKind(name);
-  const bw = isBodyweightExercise(name);
-  const parts = sets.map(s => {
-    if (kind === 'cardio') return [s.distanceKm && `${s.distanceKm} km`, s.time && s.time !== '00:00' && s.time].filter(Boolean).join(' in ') || '–';
-    if (kind === 'timed') return s.time || '–';
-    if (kind === 'timedWeighted') return `${s.weight ? `${s.weight} kg` : 'BW'} · ${s.time || '–'}`;
-    if (kind === 'repsOnly') return `${s.reps || '–'} reps`;
-    return `${s.weight ? `${s.weight} kg` : bw ? 'BW' : '0 kg'} × ${s.reps || '–'}`;
-  });
-  // Identical sets read once: "5 kg × 10", not "5 kg × 10, 5 kg × 10, ...".
-  if (parts.length > 1 && parts.every(p => p === parts[0])) return parts[0];
-  const shown = parts.slice(0, 3).join(', ');
-  return parts.length > 3 ? `${shown} +${parts.length - 3}` : shown;
+  if (kind === 'cardio') return s.distanceKm ? `${s.distanceKm}km${s.time ? ` · ${s.time}` : ''}` : (s.time || '—');
+  if (kind === 'timed' || kind === 'timedWeighted') return s.time || '—';
+  if (kind === 'repsOnly') return s.reps ? `${s.reps} reps` : '—';
+  const weight = Number(s.weight) > 0 ? `${s.weight}kg` : isBodyweightExercise(name) ? 'BW' : '0kg';
+  return `${weight} x ${s.reps || 0}`;
+}
+
+// The logger's PREV for an exercise added to the workout on `beforeDate`:
+// its sets from the most recent earlier day it was saved, as form values
+// (same name matching as the logger's PREV — exerciseNameKey).
+export function previousFormSets(name, rows, beforeDate) {
+  const key = exerciseNameKey(name);
+  const earlier = (rows || []).filter(r => r.log_date < beforeDate && exerciseNameKey(r.exercise_name) === key);
+  if (earlier.length === 0) return [];
+  const lastDate = earlier.reduce((d, r) => (r.log_date > d ? r.log_date : d), '');
+  return earlier
+    .filter(r => r.log_date === lastDate)
+    .sort((a, b) => (Number(a.set_number) || 0) - (Number(b.set_number) || 0))
+    .map(r => rowToFormSet(name, r));
 }
 
 // ─── Edit workout ───
@@ -136,7 +145,7 @@ export function rowToFormSet(name, row) {
   return { weight, reps: String(row.reps ?? '') };
 }
 
-// One day's saved rows → [{ name, sets: [{ id, original, values, deleted }] }],
+// One day's saved rows → [{ name, sets: [{ id, setType, original, values, deleted }] }],
 // exercises in the order they were first saved, sets in saved order.
 export function buildEditableWorkout(rows) {
   const ordered = [...(rows || [])].sort((a, b) =>
@@ -148,7 +157,7 @@ export function buildEditableWorkout(rows) {
     const name = row.exercise_name;
     if (!byName.has(name)) byName.set(name, { name, sets: [] });
     const values = rowToFormSet(name, row);
-    byName.get(name).sets.push({ id: row.id, original: values, values, deleted: false });
+    byName.get(name).sets.push({ id: row.id, setType: row.set_type || null, original: values, values, deleted: false });
   });
   return [...byName.values()];
 }

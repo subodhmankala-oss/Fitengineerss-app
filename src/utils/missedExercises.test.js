@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canAddMissedExercise, addedLaterExercisesByDate, toSavedMissedExercises, emptyMissedSet, buildEditableWorkout, diffEditableWorkout } from './missedExercises';
+import { canAddMissedExercise, addedLaterExercisesByDate, toSavedMissedExercises, emptyMissedSet, buildEditableWorkout, diffEditableWorkout, previousFormSets } from './missedExercises';
 import { estimateMissedSetsKcal } from './liveWorkoutTimer';
 
 describe('canAddMissedExercise', () => {
@@ -88,5 +88,18 @@ describe('edit workout helpers', () => {
     const ex = buildEditableWorkout(rows);
     ex[0].sets[0] = { ...ex[0].sets[0], values: { weight: '60', reps: '' } };
     expect(diffEditableWorkout(ex, 70).error).toMatch(/Bench Press/);
+  });
+});
+
+describe('previousFormSets', () => {
+  it("returns the exercise's sets from the last earlier day only", () => {
+    const rows = [
+      { log_date: '2026-10-20', exercise_name: 'Bench Press', set_number: 1, weight_kg: 40, reps: 8 },
+      { log_date: '2026-10-24', exercise_name: 'bench press', set_number: 2, weight_kg: 50, reps: 6 },
+      { log_date: '2026-10-24', exercise_name: 'Bench Press', set_number: 1, weight_kg: 50, reps: 8 },
+      { log_date: '2026-10-27', exercise_name: 'Bench Press', set_number: 1, weight_kg: 60, reps: 5 }
+    ];
+    expect(previousFormSets('Bench Press', rows, '2026-10-27')).toEqual([{ weight: '50', reps: '8' }, { weight: '50', reps: '6' }]);
+    expect(previousFormSets('Squat', rows, '2026-10-27')).toEqual([]);
   });
 });

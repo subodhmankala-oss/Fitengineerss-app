@@ -2,22 +2,24 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import ExercisePickerModal from './ExercisePickerModal';
 import { BinIcon } from './TimerIcons';
-import { SetGrid, SheetHeader, ExerciseAvatar, PlusIcon, LockIcon, FlameIcon } from './SavedWorkoutSheetParts';
+import { SetGrid, SheetHeader, PlusIcon } from './SavedWorkoutSheetParts';
 import { estimateMissedSetsKcal, DEFAULT_BODY_WEIGHT_KG } from '../utils/liveWorkoutTimer';
-import { emptyMissedSet, toSavedMissedExercises, applySetEdit, isFilledMissedSet, summarizeSets } from '../utils/missedExercises';
+import { emptyMissedSet, toSavedMissedExercises, applySetEdit, previousFormSets, savedSetLabel } from '../utils/missedExercises';
 import './WorkoutTracker.css';
 import './AddMissedExercisesModal.css';
 
-// How many saved exercise chips show before "+N more".
-const SAVED_CHIPS_SHOWN = 6;
+// How many saved exercise names show before "+N more".
+const SAVED_NAMES_SHOWN = 4;
 
 // "Add missed exercise" sheet, shared by the client (Home → Daily) and the
-// coach (client History card). The exercises already saved that day stay
-// locked; only new ones are entered here, then handed to onSave(exercises,
-// addedCalories), which does the append (databaseService.appendMissedExercises).
-// No default weights: the boxes start empty.
+// coach (client History card), laid out like the logger. The exercises
+// already saved that day stay as they are; only new ones are entered here,
+// then handed to onSave(exercises, addedCalories), which does the append
+// (databaseService.appendMissedExercises). PREV is the exercise's sets from
+// the last earlier day in `history` (saved workout_logs rows); those numbers
+// only show as hints — no default weights, the boxes start empty.
 export default function AddMissedExercisesModal({
-  open, onClose, onSave, dateLabel, planName, savedExerciseNames = [],
+  open, onClose, onSave, dateLabel, planName, savedExerciseNames = [], logDate = '', history = [],
   bodyWeightKg = DEFAULT_BODY_WEIGHT_KG, creatorMode = 'client', coachId = null, clientUserId = null, clientName = ''
 }) {
   const [exercises, setExercises] = useState([]);
@@ -35,7 +37,6 @@ export default function AddMissedExercisesModal({
 
   if (!open) return null;
 
-  const savedLower = new Set(savedExerciseNames.map(n => n.toLowerCase()));
   const addExercise = (name, exerciseId = null) => {
     if (exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) return;
     setError('');
@@ -70,71 +71,55 @@ export default function AddMissedExercisesModal({
     }
   };
 
-  const chips = showAllSaved ? savedExerciseNames : savedExerciseNames.slice(0, SAVED_CHIPS_SHOWN);
-  const hiddenChips = savedExerciseNames.length - chips.length;
+  const savedShown = showAllSaved ? savedExerciseNames : savedExerciseNames.slice(0, SAVED_NAMES_SHOWN);
+  const savedHidden = savedExerciseNames.length - savedShown.length;
 
   return createPortal(
     <>
       <div className="missed-ex-backdrop" role="dialog" aria-modal="true" aria-labelledby="missed-ex-title">
         <div className="missed-ex-sheet">
           <SheetHeader
-            icon={<PlusIcon size={20} />}
-            tone="add"
             title="Add missed exercises"
             titleId="missed-ex-title"
-            subtitle={<>to <strong>{planName || 'this workout'}</strong> · {dateLabel}</>}
+            subtitle={`${planName || 'Workout'} · ${dateLabel}`}
             onClose={onClose}
             disabled={saving}
           />
 
           <div className="missed-ex-body">
             {savedExerciseNames.length > 0 && (
-              <div className="saved-sheet-saved">
-                <div className="saved-sheet-saved-title"><LockIcon /> Already in this workout · {savedExerciseNames.length}</div>
-                <div className="saved-sheet-chips">
-                  {chips.map(n => <span key={n} className="saved-sheet-chip">{n}</span>)}
-                  {hiddenChips > 0 && (
-                    <button type="button" className="saved-sheet-chip more" onClick={() => setShowAllSaved(true)}>+{hiddenChips} more</button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {exercises.length === 0 && (
-              <div className="saved-sheet-empty">
-                <div className="saved-sheet-empty-title">What did you miss?</div>
-                <div className="saved-sheet-empty-sub">Pick the exercise, enter its sets, and it joins this workout.</div>
+              <div className="saved-sheet-already">
+                Already saved: {savedShown.join(', ')}
+                {savedHidden > 0 && (
+                  <> <button type="button" className="saved-sheet-more" onClick={() => setShowAllSaved(true)}>+{savedHidden} more</button></>
+                )}
               </div>
             )}
 
             {exercises.map((ex, exIdx) => {
-              const alsoSaved = savedLower.has(ex.name.toLowerCase());
-              const filled = ex.sets.filter(s => isFilledMissedSet(ex.name, s));
+              const prevSets = previousFormSets(ex.name, history, logDate);
               return (
-                <div key={ex.name} className="missed-ex-card new">
-                  <div className="missed-ex-card-head">
-                    <ExerciseAvatar name={ex.name} color="#34d399" />
-                    <div className="saved-sheet-ex-titles">
-                      <span className="missed-ex-name">{ex.name}</span>
-                      <span className="saved-sheet-ex-summary">{filled.length > 0 ? summarizeSets(ex.name, filled) : 'Enter your sets'}</span>
-                    </div>
-                    <span className="missed-ex-tag">{alsoSaved ? 'Extra sets' : 'Missed'}</span>
-                    <button type="button" className="missed-ex-icon-btn" onClick={() => removeExercise(ex.name)} aria-label={`Remove ${ex.name}`}><BinIcon size={16} /></button>
-                  </div>
-                  <SetGrid
-                    name={ex.name}
-                    sets={ex.sets}
-                    onChange={(setIdx, field, value) => updateSet(exIdx, setIdx, field, value)}
-                    onRemove={setIdx => removeSet(exIdx, setIdx)}
-                    canRemove={() => ex.sets.length > 1}
-                  />
-                  <button type="button" className="saved-sheet-add-set" onClick={() => addSet(exIdx)}>+ Add set</button>
+              <div key={ex.name} className="form-exercise-card hevy-exercise-card">
+                <div className="ex-card-header">
+                  <h5>{ex.name}</h5>
+                  <button type="button" className="saved-sheet-icon-btn" onClick={() => removeExercise(ex.name)} aria-label={`Remove ${ex.name}`}><BinIcon size={18} /></button>
                 </div>
+                <SetGrid
+                  name={ex.name}
+                  sets={ex.sets}
+                  prev={ex.sets.map((_, i) => (prevSets[i] ? savedSetLabel(ex.name, prevSets[i]) : '—'))}
+                  hints={prevSets}
+                  onChange={(setIdx, field, value) => updateSet(exIdx, setIdx, field, value)}
+                  onRemove={setIdx => removeSet(exIdx, setIdx)}
+                  canRemove={() => ex.sets.length > 1}
+                />
+                <button type="button" className="btn-add-set-link" onClick={() => addSet(exIdx)}>+ Add Set</button>
+              </div>
               );
             })}
 
-            <button type="button" className="missed-ex-add" onClick={() => setPickerOpen(true)}>
-              <PlusIcon /> {exercises.length === 0 ? 'Choose missed exercise' : 'Add another missed exercise'}
+            <button type="button" className="btn-secondary-sm btn-add-hevy-ex add-ex-fullwidth" onClick={() => setPickerOpen(true)}>
+              <PlusIcon /> {exercises.length === 0 ? 'Choose missed exercise' : 'Add Exercise'}
             </button>
           </div>
 
@@ -142,12 +127,11 @@ export default function AddMissedExercisesModal({
             {error && <div className="missed-ex-error" role="alert">{error}</div>}
             {filledSets > 0 && (
               <div className="saved-sheet-impact">
-                <span>{filledSets} set{filledSets === 1 ? '' : 's'} to add</span>
-                {addedKcal > 0 && <span className="saved-sheet-kcal up"><FlameIcon /> +{addedKcal} kcal</span>}
+                {filledSets} set{filledSets === 1 ? '' : 's'} to add{addedKcal > 0 && ` · +${addedKcal} kcal`}
               </div>
             )}
             <button type="button" className="missed-ex-save" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : `Save to ${planName || 'this workout'}`}
+              {saving ? 'Saving…' : 'Save to workout'}
             </button>
             <button type="button" className="missed-ex-cancel" onClick={onClose} disabled={saving}>Cancel</button>
           </div>

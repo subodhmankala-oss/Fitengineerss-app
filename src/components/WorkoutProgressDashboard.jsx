@@ -1872,6 +1872,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
         planName={groupedLogs[selectedDateStr]?.planName || ''}
         dateLabel={isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         savedExerciseNames={dailyStats.exercises.map(ex => ex.name)}
+        logDate={selectedDateStr}
+        history={logs}
         bodyWeightKg={parseFloat(localStorage.getItem('userWeight')) || undefined}
         creatorMode="client"
         clientUserId={userId}

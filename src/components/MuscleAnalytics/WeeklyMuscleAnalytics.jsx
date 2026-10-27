@@ -347,7 +347,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           "‹ Balance" goes back. Neglected Muscles reflects real
           "right now" status (last actual training date), not the browsed
           week, so it reads `logs` directly rather than `muscleStats`. ── */}
-      <div className={cardClass()} ref={balanceCardRef}>
+      <div className={cardClass('ma-section')} ref={balanceCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{balanceTab === 'balance' ? 'Muscle Balance' : 'Neglected Muscles'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -398,7 +398,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           above). The heat map keeps its own inner Front/Back toggle — a
           second-level choice (which side of the body), not the same kind
           of switch as this outer Heat Map/Recovery tab. ── */}
-      <div className={cardClass()} ref={heatMapCardRef}>
+      <div className={cardClass('ma-section')} ref={heatMapCardRef}>
         <div className="widget-header justify-between" style={{ marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>{mapTab === 'heatmap' ? 'Muscle Heat Map' : 'Recovery'}</h4>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -433,7 +433,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           and Personal Recommendations share one card via a 3-way tab
           switcher (same toggle pattern used above), instead of three
           separate stacked cards. ── */}
-      <div className={cardClass()}>
+      <div className={cardClass('ma-section')}>
         <div className="widget-header justify-between" style={{ marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
           <h4>
             {insightsTab === 'insights' && 'Insights'}

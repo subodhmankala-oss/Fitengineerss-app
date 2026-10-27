@@ -1504,6 +1504,16 @@
 .ma-link-warn { --pill-color: var(--tint-amber); }
 .ma-link-view { --pill-color: var(--tint-blue); }
 
+/* Balance / Heat Map / Insights cards: the same soft panel as the stats
+   strip, so each section reads as its own block. Applies in the coach's
+   bare-card view too (its outer panel is only a frame, not a surface). */
+.muscle-analytics-root .ma-section {
+  padding: 16px 14px;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 18px;
+}
+
 @media (max-width: 380px) {
   .ma-stat { padding: 0 8px; }
   .ma-stat strong { font-size: 1rem; }

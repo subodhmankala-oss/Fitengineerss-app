@@ -235,6 +235,13 @@
   margin: 0;
 }
 
+/* Monthly stats strip lines up with the calendar card below it (the
+   heatmap widget's 16px padding). */
+.monthly-stats-inset {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
 /* Month calendar sits on the same soft panel as the stats strip above it. */
 .heatmap-grid-wrapper {
   padding: 12px;

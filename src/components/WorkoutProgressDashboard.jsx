@@ -1635,7 +1635,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           {timeframe === 'monthly' && (
             <div className="timeframe-content flex-col gap-4">
               {/* Highlight stats — same strip as the Muscles header. */}
-              <StatsStrip items={[
+              <StatsStrip className="monthly-stats-inset" items={[
                 { icon: 'volume', label: 'kg', value: monthlyStats.totalVolume },
                 { icon: 'sets', label: 'sets', value: monthlyStats.totalSets },
                 { icon: 'workouts', label: monthlyStats.workoutsCount === 1 ? 'workout' : 'workouts', value: monthlyStats.workoutsCount },

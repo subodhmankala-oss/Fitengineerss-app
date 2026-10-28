@@ -8893,6 +8893,18 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     || (daySession ? 'Workout' : isLocalToday(historyDateStr) ? "Today's Progress" : 'Rest day')}
                                 done={!!daySession}
                                 durationSeconds={daySession?.durationSeconds}
+                                actions={daySession && daySession.exercises.length > 0 && canAddMissedExercise(historyDateStr) && (
+                                  <>
+                                    {historyDayRowsEditable && (
+                                      <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                                        <PencilLineIcon size={13} /> Edit
+                                      </button>
+                                    )}
+                                    <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                                      <PlusIcon size={13} /> Add exercise
+                                    </button>
+                                  </>
+                                )}
                               />
                               <DateBar value={historyDateStr} onChange={setHistoryDateStr} />
                               <StatsStrip className="mt-2" items={[
@@ -9021,21 +9033,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       );
                                     })}
                                   </div>
-                                  {canAddMissedExercise(historyDateStr) && (
-                                    <div className="missed-ex-entry">
-                                      <h4>Fix this workout</h4>
-                                      <div className="missed-ex-entry-actions">
-                                        {historyDayRowsEditable && (
-                                          <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                                            <PencilLineIcon size={13} /> Edit
-                                          </button>
-                                        )}
-                                        <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                                          <PlusIcon size={13} /> Add exercise
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
                                   <AddMissedExercisesModal
                                     open={missedExOpen}
                                     onClose={() => setMissedExOpen(false)}

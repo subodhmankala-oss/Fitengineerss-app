@@ -1,53 +1,57 @@
 /* Daily tab header — see DayHeader.jsx. */
 .day-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   padding: 0 var(--screen-gutter);
 }
 
-.day-header-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.day-header .day-header-text h3 {
+.day-header h3 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 800;
-  line-height: 1.25;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.3;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Status + time on the left, the Edit / Add chips on the right. */
+.day-header-row {
+  display: flex;
+  flex-wrap: wrap; /* chips drop under the status on a very narrow phone */
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .day-header-sub {
   display: flex;
   align-items: center;
-  gap: 3px;
-  margin-top: 2px;
-  font-size: 0.74rem;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
-.day-header-sub.is-done { color: #10b981; }
-
-/* Same tint + ring as the selected Week/Month chip in the Muscles header. */
-.day-header-time {
-  flex: none;
+.day-header-sub > span {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
+  gap: 3px;
+}
+
+.day-header-done { color: #10b981; }
+
+/* A hairline between "Completed" and the time. */
+.day-header-time {
   font-variant-numeric: tabular-nums;
-  color: var(--accent-text);
-  background: rgba(var(--accent-rgb), 0.12);
-  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  padding-left: 8px;
+  border-left: 1px solid rgba(var(--fg-rgb), 0.12);
+}
+
+.day-header-actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
 }

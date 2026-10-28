@@ -1481,6 +1481,18 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                     || (groupedLogs[selectedDateStr] ? 'Workout' : isToday(selectedDateStr) ? "Today's Progress" : 'Rest day')}
                   done={!!groupedLogs[selectedDateStr]}
                   durationSeconds={dailyStats.durationSeconds}
+                  actions={dailyStats.exercises.length > 0 && canAddMissedExercise(selectedDateStr) && (
+                    <>
+                      {dayRowsEditable && (
+                        <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                          <PencilLineIcon size={13} /> Edit
+                        </button>
+                      )}
+                      <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                        <PlusIcon size={13} /> Add exercise
+                      </button>
+                    </>
+                  )}
                 />
                 <DateBar value={selectedDateStr} onChange={setSelectedDateStr} />
                 <StatsStrip className="mt-2" items={[
@@ -1606,21 +1618,6 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                         );
                       })}
                     </div>
-                    {canAddMissedExercise(selectedDateStr) && (
-                      <div className="missed-ex-entry">
-                        <h4>Fix this workout</h4>
-                        <div className="missed-ex-entry-actions">
-                          {dayRowsEditable && (
-                            <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                              <PencilLineIcon size={13} /> Edit
-                            </button>
-                          )}
-                          <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                            <PlusIcon size={13} /> Add exercise
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="no-daily-workouts mt-3">

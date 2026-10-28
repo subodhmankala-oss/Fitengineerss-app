@@ -154,31 +154,10 @@
   cursor: pointer;
 }
 
-/* Entry point under a saved workout (client Daily view + coach History),
-   laid out like the Muscles header: a soft panel, bold title on the left,
-   the actions as tinted chips on the right (they wrap below on a very
-   narrow screen). */
-.missed-ex-entry {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  background: rgba(var(--fg-rgb), 0.025);
-  border: 1px solid rgba(var(--fg-rgb), 0.06);
-  border-radius: 18px;
-}
-.missed-ex-entry h4 {
-  margin: 0;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-.missed-ex-entry-actions { display: flex; gap: 6px; }
+/* Edit / Add chips in the Daily header (see DayHeader.jsx), client Daily + coach History. */
 /* Selected-chip look from the Muscles header: tint + ring in the chip's own hue. */
 .missed-ex-entry-btn {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 5px;

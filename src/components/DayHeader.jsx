@@ -12,23 +12,22 @@ const Icon = ({ d, size }) => (
 );
 
 /**
- * Top of the Daily tab (client and coach), laid out like the Muscles header:
- * the workout name on the left with its status underneath, and the session
- * length as a tinted chip on the right. The date bar goes right below it.
+ * Top of the Daily tab (client and coach): the workout name, then one row
+ * with "✓ Completed · 🕐 8m" on the left and the `actions` chips (Edit /
+ * Add exercise) on the right. The date bar goes right below it.
  */
-const DayHeader = ({ title, done, durationSeconds }) => (
+const DayHeader = ({ title, done, durationSeconds, actions }) => (
   <div className="day-header">
-    <div className="day-header-text">
-      <h3>{title}</h3>
-      {done
-        ? <div className="day-header-sub is-done"><Icon d={CHECK} size={12} />Completed</div>
-        : <div className="day-header-sub">No workout logged</div>}
+    <h3>{title}</h3>
+    <div className="day-header-row">
+      <div className="day-header-sub">
+        {done ? <span className="day-header-done"><Icon d={CHECK} size={12} />Completed</span> : <span>No workout logged</span>}
+        {done && durationSeconds != null && (
+          <span className="day-header-time" title="Session length"><Icon d={CLOCK} size={12} />{formatDurationShort(durationSeconds)}</span>
+        )}
+      </div>
+      {actions && <div className="day-header-actions">{actions}</div>}
     </div>
-    {done && durationSeconds != null && (
-      <span className="day-header-time" title="Session length">
-        <Icon d={CLOCK} size={13} />{formatDurationShort(durationSeconds)}
-      </span>
-    )}
   </div>
 );
 

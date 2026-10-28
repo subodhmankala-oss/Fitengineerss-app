@@ -8605,7 +8605,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                     // fix as the client's WorkoutProgressDashboard. Days after
                     // "today" (only possible in the current month) are excluded
                     // from totals but still rendered as disabled cells.
-                    const dailyVolumeHistory = [];
                     const activeDates = new Set();
                     let monthVolume = 0, monthSets = 0, monthWorkouts = 0, monthCaloriesRaw = 0;
                     const today = new Date();
@@ -8624,7 +8623,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         monthCaloriesRaw += s.caloriesBurned || 0;
                         activeDates.add(dateStr);
                       }
-                      dailyVolumeHistory.push({ date: dateStr, dayNum: d.getDate(), volume: s ? s.volume : 0 });
                     }
                     const monthlyTotalCalories = Math.round(monthCaloriesRaw * 10) / 10;
                     const totalSessionsDone = workoutLogs.length;
@@ -8724,50 +8722,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                               <stop offset="100%" stopColor="var(--primary-accent)" />
                             </linearGradient>
                           </defs>
-                        </svg>
-                      );
-                    };
-
-                    const renderMonthlyLineChart = () => {
-                      const history = dailyVolumeHistory;
-                      const values = history.map(h => h.volume);
-                      const maxVal = Math.max(...values, 100);
-                      const width = 320, height = 120, padding = 20;
-                      const chartWidth = width - padding * 2, chartHeight = height - padding * 2;
-                      const lastIdx = Math.max(history.length - 1, 1);
-                      const getX = (idx) => padding + (idx / lastIdx) * chartWidth;
-                      const getY = (val) => padding + chartHeight - (val / maxVal) * chartHeight;
-                      let pathD = '', areaD = history.length ? `M ${getX(0)} ${padding + chartHeight}` : '';
-                      history.forEach((h, idx) => {
-                        const x = getX(idx), y = getY(h.volume);
-                        pathD += idx === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-                        areaD += ` L ${x} ${y}`;
-                      });
-                      if (history.length) {
-                        areaD += ` L ${getX(history.length - 1)} ${padding + chartHeight} Z`;
-                      }
-                      const activeNodes = history.filter(h => h.volume > 0);
-                      return (
-                        <svg viewBox={`0 0 ${width} ${height}`} className="monthly-chart-svg">
-                          <defs>
-                            <linearGradient id="coachAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--primary-accent-light)" stopOpacity="0.2" />
-                              <stop offset="100%" stopColor="var(--primary-accent-light)" stopOpacity="0.0" />
-                            </linearGradient>
-                          </defs>
-                          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
-                          <line x1={padding} y1={padding + chartHeight / 2} x2={width - padding} y2={padding + chartHeight / 2} stroke="rgba(var(--fg-rgb), 0.02)" strokeWidth="1" />
-                          <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.08)" strokeWidth="1.5" />
-                          {values.some(v => v > 0) && <path d={areaD} fill="url(#coachAreaGradient)" />}
-                          {values.some(v => v > 0) ? (
-                            <path d={pathD} fill="none" stroke="var(--accent-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          ) : (
-                            <line x1={padding} y1={padding + chartHeight} x2={width - padding} y2={padding + chartHeight} stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="1.5" strokeDasharray="3 3" />
-                          )}
-                          {activeNodes.map((node) => {
-                            const origIdx = history.findIndex(h => h.date === node.date);
-                            return <circle key={node.date} cx={getX(origIdx)} cy={getY(node.volume)} r="4" fill="var(--accent-text)" stroke="var(--bg-card)" strokeWidth="1" />;
-                          })}
                         </svg>
                       );
                     };
@@ -9074,7 +9028,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         {historyTimeframe === 'monthly' && (
                           <div className="timeframe-content flex-col gap-4">
                             {/* Highlight stats — same strip as the Muscles header. */}
-                            <StatsStrip items={[
+                            <StatsStrip className="monthly-stats-inset" items={[
                               { icon: 'volume', label: 'kg', value: monthVolume },
                               { icon: 'sets', label: 'sets', value: monthSets },
                               { icon: 'workouts', label: monthWorkouts === 1 ? 'workout' : 'workouts', value: monthWorkouts },
@@ -9083,14 +9037,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                             <div className="heatmap-widget-card glass-panel">
                               {renderCalendarHeatmap()}
-                            </div>
-
-                            <div className="chart-widget-card glass-panel">
-                              <div className="widget-header justify-between">
-                                <h4>📈 Monthly Volume Overload Trend</h4>
-                                <span className="trend-badge">Progression</span>
-                              </div>
-                              <div className="chart-wrapper">{renderMonthlyLineChart()}</div>
                             </div>
 
                             <div className="chart-widget-card glass-panel">

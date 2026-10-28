@@ -235,11 +235,24 @@
   margin: 0;
 }
 
+/* Month calendar sits on the same soft panel as the stats strip above it. */
+.heatmap-grid-wrapper {
+  padding: 12px;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 14px;
+}
+
+/* Month bar: same soft track as the stats panel, ‹ at one end, › at the other. */
 .heatmap-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+  padding: 4px;
+  background: rgba(var(--fg-rgb), 0.03);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 14px;
 }
 
 .heatmap-nav-btn {

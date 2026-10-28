@@ -18,14 +18,24 @@
   padding: 0 var(--screen-gutter);
 }
 
+/* Label on the left, small Edit / Add chips on the right. */
+.day-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 /* Tiny label saying what the title is. */
 .day-header-eyebrow {
-  margin-bottom: 2px;
+  min-width: 0;
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .day-header h3 {
@@ -39,21 +49,12 @@
   text-overflow: ellipsis;
 }
 
-/* Status + time on the left, the Edit / Add chips on the right. */
-.day-header-row {
-  display: flex;
-  flex-wrap: wrap; /* chips drop under the status on a very narrow phone */
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-
 .day-header-sub {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  margin-top: 4px;
   font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -78,6 +79,6 @@
 .day-header-actions {
   flex: none;
   display: flex;
-  gap: 6px;
-  margin-left: auto; /* stays right-aligned even when it wraps under the status */
+  gap: 5px;
+  margin-left: auto;
 }

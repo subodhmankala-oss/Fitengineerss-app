@@ -1487,11 +1487,11 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                       <>
                         {dayRowsEditable && (
                           <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                            <PencilLineIcon size={13} /> Edit
+                            <PencilLineIcon size={11} /> Edit
                           </button>
                         )}
                         <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                          <PlusIcon size={13} /> Add missed workout
+                          <PlusIcon size={11} /> Add missed workout
                         </button>
                       </>
                     )}

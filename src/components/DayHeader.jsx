@@ -12,23 +12,25 @@ const Icon = ({ d, size }) => (
 );
 
 /**
- * Top of the Daily tab (client and coach): an optional tiny `eyebrow` label
- * ("Workout name") over the title, then one row
- * with "✓ Completed · 🕐 8m" on the left and the `actions` chips (Edit /
- * Add missed workout) on the right. The date bar goes right below it.
+ * Top of the Daily tab (client and coach). Top row: an optional tiny
+ * `eyebrow` label ("Workout name") on the left and the small `actions` chips
+ * (Edit / Add missed workout) on the right. Then the title, then
+ * "✓ Completed · 🕐 8m". The date bar goes right below it.
  */
 const DayHeader = ({ eyebrow, title, done, durationSeconds, actions }) => (
   <div className="day-header">
-    {eyebrow && <div className="day-header-eyebrow">{eyebrow}</div>}
-    <h3>{title}</h3>
-    <div className="day-header-row">
-      <div className="day-header-sub">
-        {done ? <span className="day-header-done"><Icon d={CHECK} size={12} />Completed</span> : <span>No workout logged</span>}
-        {done && durationSeconds != null && (
-          <span className="day-header-time" title="Session length"><Icon d={CLOCK} size={12} />{formatDurationShort(durationSeconds)}</span>
-        )}
+    {(eyebrow || actions) && (
+      <div className="day-header-top">
+        <div className="day-header-eyebrow">{eyebrow}</div>
+        {actions && <div className="day-header-actions">{actions}</div>}
       </div>
-      {actions && <div className="day-header-actions">{actions}</div>}
+    )}
+    <h3>{title}</h3>
+    <div className="day-header-sub">
+      {done ? <span className="day-header-done"><Icon d={CHECK} size={12} />Completed</span> : <span>No workout logged</span>}
+      {done && durationSeconds != null && (
+        <span className="day-header-time" title="Session length"><Icon d={CLOCK} size={12} />{formatDurationShort(durationSeconds)}</span>
+      )}
     </div>
   </div>
 );

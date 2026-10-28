@@ -160,17 +160,17 @@
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin: 0;
-  padding: 6px 12px;
+  padding: 3px 9px;
   border-radius: var(--radius-full);
   border: 1px solid color-mix(in srgb, var(--entry-color) 35%, transparent);
   background: color-mix(in srgb, var(--entry-color) 12%, transparent);
   color: var(--entry-color);
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.3;
   white-space: nowrap;
   cursor: pointer;
 }

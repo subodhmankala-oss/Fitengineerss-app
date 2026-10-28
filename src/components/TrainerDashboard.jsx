@@ -8901,7 +8901,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       </button>
                                     )}
                                     <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                                      <PlusIcon size={13} /> Add exercise
+                                      <PlusIcon size={13} /> Add missed workout
                                     </button>
                                   </>
                                 )}

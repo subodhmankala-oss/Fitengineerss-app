@@ -54,4 +54,5 @@
   flex: none;
   display: flex;
   gap: 6px;
+  margin-left: auto; /* stays right-aligned even when it wraps under the status */
 }

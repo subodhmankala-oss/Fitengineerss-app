@@ -1,0 +1,71 @@
+/* Daily tab header — see DayHeader.jsx. */
+.day-header {
+  --day-tone: #10b981;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--screen-gutter);
+}
+
+.day-header.is-rest { --day-tone: var(--tint-amber); }
+
+.day-header-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--day-tone);
+  background: color-mix(in srgb, var(--day-tone) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--day-tone) 30%, transparent);
+}
+
+.day-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-header .day-header-text h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.day-header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--day-tone);
+}
+
+.day-header-time {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--tint-violet);
+  background: color-mix(in srgb, var(--tint-violet) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tint-violet) 35%, transparent);
+}

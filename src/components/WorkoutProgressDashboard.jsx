@@ -14,6 +14,7 @@ import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
+import DayHeader from './DayHeader';
 import { getSetTypeVisual } from '../utils/setTypes';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
@@ -1504,20 +1505,14 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
 
               {/* Day stats card */}
               <div className="day-stats-overview glass-panel">
-                <div className="overview-header justify-between">
-                  <div>
-                    <h3>
-                      {groupedLogs[selectedDateStr]?.planName
-                        || (isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
-                    </h3>
-                    {groupedLogs[selectedDateStr]?.planName && (
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                        {isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                      </div>
-                    )}
-                  </div>
-                  <span className="active-badge">{groupedLogs[selectedDateStr] ? `🏋️‍♂️ Workout Done${dailyStats.durationSeconds != null ? ` · ${formatDuration(dailyStats.durationSeconds)}` : ''}` : '☕ Rest Day'}</span>
-                </div>
+                <DayHeader
+                  title={groupedLogs[selectedDateStr]?.planName
+                    || (isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                  dateLabel={groupedLogs[selectedDateStr]?.planName
+                    && (isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                  done={!!groupedLogs[selectedDateStr]}
+                  durationSeconds={dailyStats.durationSeconds}
+                />
                 <StatsStrip className="mt-2" items={[
                   { icon: 'volume', label: 'kg', value: dailyStats.volume },
                   { icon: 'sets', label: 'sets', value: dailyStats.sets },

@@ -380,8 +380,8 @@
   filter: invert(1);
 }
 
-/* Daily Details Breakdown — edge-to-edge (see overview-header/
-   stats-row-cards below for why): the "Volume/Sets/Exercises/Calories/
+/* Daily Details Breakdown — edge-to-edge (see stats-row-cards below
+   for why): the "Volume/Sets/Exercises/Calories/
    Time" stat tiles and the "EXERCISE SETS LOGGED" cards underneath are
    both bordered boxes with their own internal padding (14px and 12px
    respectively), so letting them both start flush at this container's
@@ -400,13 +400,6 @@
   font-size: 0.95rem;
   font-weight: 800;
   color: var(--text-main);
-}
-
-/* Plain text/badge, not a bordered card — needs its own inset now that
-   the parent no longer provides one, to align with the stat tiles' own
-   14px internal padding just below it. */
-.overview-header {
-  padding: 0 var(--screen-gutter);
 }
 
 .section-subtitle {

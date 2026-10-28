@@ -19,6 +19,7 @@ import './WorkoutTracker.css';
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
+import DayHeader from './DayHeader';
 import { BodySexContext } from './MuscleAnalytics/bodySex';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
@@ -8911,20 +8912,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             </div>
 
                             <div className="day-stats-overview glass-panel">
-                              <div className="overview-header justify-between">
-                                <div>
-                                  <h3>
-                                    {daySession?.planName
-                                      || (isLocalToday(historyDateStr) ? "Today's Progress" : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
-                                  </h3>
-                                  {daySession?.planName && (
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                                      {isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                                    </div>
-                                  )}
-                                </div>
-                                <span className="active-badge">{daySession ? `🏋️‍♂️ Workout Done${daySession.durationSeconds != null ? ` · ${formatDuration(daySession.durationSeconds)}` : ''}` : '☕ Rest Day'}</span>
-                              </div>
+                              <DayHeader
+                                title={daySession?.planName
+                                  || (isLocalToday(historyDateStr) ? "Today's Progress" : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                                dateLabel={daySession?.planName
+                                  && (isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                                done={!!daySession}
+                                durationSeconds={daySession?.durationSeconds}
+                              />
                               <StatsStrip className="mt-2" items={[
                                 { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
                                 { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },

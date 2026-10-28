@@ -212,7 +212,7 @@
   width: 100%;
 }
 
-.weekly-bar-chart-svg, .monthly-chart-svg {
+.weekly-bar-chart-svg {
   width: 100%;
   max-width: 320px;
   height: auto;

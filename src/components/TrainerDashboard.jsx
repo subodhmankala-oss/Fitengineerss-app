@@ -18,6 +18,7 @@ import './WorkoutTracker.css';
 // visually identical (same chart widgets, session cards, heatmap).
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
+import StatsStrip from './StatsStrip';
 import { BodySexContext } from './MuscleAnalytics/bodySex';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
@@ -8922,37 +8923,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                     </div>
                                   )}
                                 </div>
-                                <span className="active-badge">{daySession ? '🏋️‍♂️ Workout Done' : '☕ Rest Day'}</span>
+                                <span className="active-badge">{daySession ? `🏋️‍♂️ Workout Done${daySession.durationSeconds != null ? ` · ${formatDuration(daySession.durationSeconds)}` : ''}` : '☕ Rest Day'}</span>
                               </div>
-                              <div className="stats-row-cards mini mt-2">
-                                <div className="stat-card inline">
-                                  <span className="lbl">Volume:</span>
-                                  <strong className="val text-emerald">{(daySession?.volume || 0).toLocaleString('en-IN')} kg</strong>
-                                </div>
-                                <div className="stat-card inline">
-                                  <span className="lbl">Sets:</span>
-                                  <strong className="val text-blue">{daySession?.sets || 0} sets</strong>
-                                </div>
-                                <div className="stat-card inline">
-                                  <span className="lbl">Workouts:</span>
-                                  <strong className="val" style={{ color: 'var(--tint-violet)' }}>{daySession?.exercises.length || 0}</strong>
-                                </div>
-                                {/* No `!= null` guard — Volume/Sets/Workouts
-                                    above all show a plain 0 on a rest day
-                                    instead of disappearing, this should read
-                                    the same way instead of just vanishing.
-                                    Matches the client-side fix. */}
-                                <div className="stat-card inline">
-                                  <span className="lbl">Calories:</span>
-                                  <strong className="val" style={{ color: 'var(--tint-amber)' }}>{daySession?.caloriesBurned || 0} kcal</strong>
-                                </div>
-                                {daySession?.durationSeconds != null && (
-                                  <div className="stat-card inline">
-                                    <span className="lbl">⏱ Time:</span>
-                                    <strong className="val" style={{ color: 'var(--text-main)' }}>{formatDuration(daySession.durationSeconds)}</strong>
-                                  </div>
-                                )}
-                              </div>
+                              <StatsStrip className="mt-2" items={[
+                                { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
+                                { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },
+                                { icon: 'exercises', label: (daySession?.exercises.length || 0) === 1 ? 'exercise' : 'exercises', value: (daySession?.exercises.length || 0) },
+                                // No `!= null` guard on calories — a rest day reads 0 like the rest.
+                                { icon: 'kcal', label: 'kcal', value: daySession?.caloriesBurned || 0 },
+                              ]} />
 
                               {daySession && daySession.exercises.length > 0 ? (
                                 <div className="daily-exercises-list mt-3">
@@ -9124,29 +9103,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                         {historyTimeframe === 'monthly' && (
                           <div className="timeframe-content flex-col gap-4">
-                            {/* Matches the client-side Home dashboard's Monthly
-                                cards — inline label/value pills instead of the
-                                stacked "Monthly Volume"/"Monthly Sets"/
-                                "Completed" cards + 🔥 emoji + span-full-row
-                                workaround this used before. */}
-                            <div className="stats-row-cards mini">
-                              <div className="stat-card inline">
-                                <span className="lbl">Volume:</span>
-                                <strong className="val text-emerald">{monthVolume.toLocaleString('en-IN')} kg</strong>
-                              </div>
-                              <div className="stat-card inline">
-                                <span className="lbl">Sets:</span>
-                                <strong className="val text-blue">{monthSets} sets</strong>
-                              </div>
-                              <div className="stat-card inline">
-                                <span className="lbl">Workouts:</span>
-                                <strong className="val text-amber">{monthWorkouts}</strong>
-                              </div>
-                              <div className="stat-card inline">
-                                <span className="lbl">Calories:</span>
-                                <strong className="val" style={{ color: 'var(--tint-amber)' }}>{monthlyTotalCalories.toLocaleString('en-IN')} kcal</strong>
-                              </div>
-                            </div>
+                            {/* Highlight stats — same strip as the Muscles header. */}
+                            <StatsStrip items={[
+                              { icon: 'volume', label: 'kg', value: monthVolume },
+                              { icon: 'sets', label: 'sets', value: monthSets },
+                              { icon: 'workouts', label: monthWorkouts === 1 ? 'workout' : 'workouts', value: monthWorkouts },
+                              { icon: 'kcal', label: 'kcal', value: monthlyTotalCalories },
+                            ]} />
 
                             <div className="heatmap-widget-card glass-panel">
                               {renderCalendarHeatmap()}

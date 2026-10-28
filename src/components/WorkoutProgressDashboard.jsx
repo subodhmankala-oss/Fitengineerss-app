@@ -13,6 +13,7 @@ import WorkoutStreakCard from './WorkoutStreakCard';
 import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
+import StatsStrip from './StatsStrip';
 import { getSetTypeVisual } from '../utils/setTypes';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
@@ -1515,35 +1516,15 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                       </div>
                     )}
                   </div>
-                  <span className="active-badge">{groupedLogs[selectedDateStr] ? '🏋️‍♂️ Workout Done' : '☕ Rest Day'}</span>
+                  <span className="active-badge">{groupedLogs[selectedDateStr] ? `🏋️‍♂️ Workout Done${dailyStats.durationSeconds != null ? ` · ${formatDuration(dailyStats.durationSeconds)}` : ''}` : '☕ Rest Day'}</span>
                 </div>
-                <div className="stats-row-cards mini mt-2">
-                  <div className="stat-card inline">
-                    <span className="lbl">Volume:</span>
-                    <strong className="val text-emerald">{dailyStats.volume.toLocaleString('en-IN')} kg</strong>
-                  </div>
-                  <div className="stat-card inline">
-                    <span className="lbl">Sets:</span>
-                    <strong className="val text-blue">{dailyStats.sets} sets</strong>
-                  </div>
-                  <div className="stat-card inline">
-                    <span className="lbl">Workouts:</span>
-                    <strong className="val" style={{ color: 'var(--tint-violet)' }}>{dailyStats.exercises.length}</strong>
-                  </div>
-                  {/* No `!= null` guard — Volume/Sets/Exercises above all show
-                      a plain 0 on a rest day instead of disappearing, this
-                      should read the same way instead of just vanishing. */}
-                  <div className="stat-card inline">
-                    <span className="lbl">Calories:</span>
-                    <strong className="val" style={{ color: 'var(--tint-amber)' }}>{dailyStats.calories || 0} kcal</strong>
-                  </div>
-                  {dailyStats.durationSeconds != null && (
-                    <div className="stat-card inline">
-                      <span className="lbl">⏱ Time:</span>
-                      <strong className="val" style={{ color: 'var(--text-main)' }}>{formatDuration(dailyStats.durationSeconds)}</strong>
-                    </div>
-                  )}
-                </div>
+                <StatsStrip className="mt-2" items={[
+                  { icon: 'volume', label: 'kg', value: dailyStats.volume },
+                  { icon: 'sets', label: 'sets', value: dailyStats.sets },
+                  { icon: 'exercises', label: dailyStats.exercises.length === 1 ? 'exercise' : 'exercises', value: dailyStats.exercises.length },
+                  // No `!= null` guard on calories — a rest day reads 0 like the rest.
+                  { icon: 'kcal', label: 'kcal', value: dailyStats.calories || 0 },
+                ]} />
 
                 {/* Day Exercise Breakdown — detailed cards */}
                 {dailyStats.exercises.length > 0 ? (
@@ -1688,26 +1669,13 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           {/* ─── MONTHLY VIEW CONTENT ─── */}
           {timeframe === 'monthly' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Highlight Stats Row — inline pill cards, same style as the
-                  Daily tab's stat cards (label left, value right, 2x2 grid). */}
-              <div className="stats-row-cards mini">
-                <div className="stat-card inline">
-                  <span className="lbl">Volume:</span>
-                  <strong className="val text-emerald">{monthlyStats.totalVolume.toLocaleString('en-IN')} kg</strong>
-                </div>
-                <div className="stat-card inline">
-                  <span className="lbl">Sets:</span>
-                  <strong className="val text-blue">{monthlyStats.totalSets} sets</strong>
-                </div>
-                <div className="stat-card inline">
-                  <span className="lbl">Workouts:</span>
-                  <strong className="val text-amber">{monthlyStats.workoutsCount}</strong>
-                </div>
-                <div className="stat-card inline">
-                  <span className="lbl">Calories:</span>
-                  <strong className="val" style={{ color: 'var(--tint-amber)' }}>{monthlyStats.totalCalories.toLocaleString('en-IN')} kcal</strong>
-                </div>
-              </div>
+              {/* Highlight stats — same strip as the Muscles header. */}
+              <StatsStrip items={[
+                { icon: 'volume', label: 'kg', value: monthlyStats.totalVolume },
+                { icon: 'sets', label: 'sets', value: monthlyStats.totalSets },
+                { icon: 'workouts', label: monthlyStats.workoutsCount === 1 ? 'workout' : 'workouts', value: monthlyStats.workoutsCount },
+                { icon: 'kcal', label: 'kcal', value: monthlyStats.totalCalories },
+              ]} />
 
               {/* Heatmap Grid */}
               <div className="heatmap-widget-card glass-panel">

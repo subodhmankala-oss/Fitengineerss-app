@@ -1,0 +1,44 @@
+/* Stats strip — see StatsStrip.jsx. Columns are set inline from the item count. */
+.stats-strip {
+  display: grid;
+  padding: 12px 0;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 14px;
+}
+
+.stats-strip-item {
+  padding: 0 12px;
+  min-width: 0;
+}
+
+.stats-strip-item + .stats-strip-item { border-left: 1px solid rgba(var(--fg-rgb), 0.07); }
+
+.stats-strip-item strong {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-strip-item span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--stat-color, var(--text-muted));
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .stats-strip-item { padding: 0 8px; }
+  .stats-strip-item strong { font-size: 1rem; }
+}

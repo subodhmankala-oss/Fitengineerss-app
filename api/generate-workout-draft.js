@@ -122,6 +122,7 @@ const buildUserPrompt = ({ client, instructions, options, day }) => {
 // Groq/Llama gives no structural guarantee beyond "valid JSON" — check the
 // shape ourselves rather than trusting it, so a malformed response surfaces
 // as a clean retry prompt instead of breaking the editor client-side.
+const MIN_EXERCISES_PER_DAY = 3;
 const VALID_TYPES = new Set(['strength', 'cardio', 'timed']);
 const validateDraft = (draft) => {
   if (!draft || !Array.isArray(draft.days) || draft.days.length === 0) return false;
@@ -236,50 +237,103 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing client profile and at least instructions or an advanced option.' });
   }
 
-  try {
+  // The coach picked N training days and gets exactly N: extra days are cut,
+  // and missing days (or days left with a stub of exercises after the library
+  // repair) are generated one at a time and slotted in, so a short draft is
+  // completed rather than handed over looking finished.
+  const wantDays = dayMode ? 1 : Math.min(7, Math.max(0, Math.round(Number(options?.trainingDays)) || 0));
+  const isWeak = (d) => !d || d.exercises.length < MIN_EXERCISES_PER_DAY;
+
+  // One model call, parsed + validated + repaired. Resolves to
+  // { fatal } (don't retry), { failure } (retry) or { summary, days }.
+  const askModel = async (isDay, user) => {
     const { resp, data, friendlyError } = await callGroq(apiKey, {
       model: GROQ_MODEL,
       messages: [
-        { role: 'system', content: buildSystemPrompt(catalog, dayMode ? 'day' : 'full') },
-        { role: 'user', content: buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayMode ? day : null }) }
+        { role: 'system', content: buildSystemPrompt(catalog, isDay ? 'day' : 'full') },
+        { role: 'user', content: user }
       ],
       response_format: { type: 'json_object' },
       temperature: 0.6
     });
-
     if (!resp.ok) {
       console.error('generate-workout-draft: Groq error:', resp.status, data);
-      return res.status(friendlyError ? 429 : 502).json({ error: friendlyError || data?.error?.message || 'Failed to generate workout draft.' });
+      return { fatal: { status: friendlyError ? 429 : 502, error: friendlyError || data?.error?.message || 'Failed to generate workout draft.' } };
     }
-
     const rawText = data?.choices?.[0]?.message?.content;
-    if (!rawText) {
-      return res.status(502).json({ error: 'The AI did not return a usable draft. Please try again.' });
-    }
-
+    if (!rawText) return { failure: 'The AI did not return a usable draft. Please try again.' };
     let parsed;
     try {
       parsed = JSON.parse(rawText);
     } catch (parseErr) {
       console.error('generate-workout-draft: JSON parse failed:', parseErr, rawText);
-      return res.status(502).json({ error: 'The AI returned an unreadable draft. Please try again.' });
+      return { failure: 'The AI returned an unreadable draft. Please try again.' };
     }
-
     // One day comes back as { day } — checked by the same validator as a
     // one-day draft.
-    const draft = dayMode ? { days: parsed?.day ? [parsed.day] : [] } : parsed;
+    const draft = isDay ? { days: parsed?.day ? [parsed.day] : [] } : parsed;
     if (!validateDraft(draft)) {
       console.error('generate-workout-draft: draft failed validation:', JSON.stringify(parsed));
-      return res.status(502).json({ error: 'The AI returned an incomplete draft. Please try again.' });
+      return { failure: 'The AI returned an incomplete draft. Please try again.' };
+    }
+    return { summary: draft.programSummary, days: draft.days.map(d => repairDay(d, catalog)), raw: draft.days };
+  };
+
+  const baseUser = (dayArg) => buildUserPrompt({ client, instructions: instructions || '', options: options || {}, day: dayArg });
+  const describeDay = (d) => `${d.dayLabel}${d.focus ? ` (${d.focus})` : ''}: ${d.exercises.map(e => e.name).join(', ')}`;
+
+  try {
+    if (dayMode) {
+      let failure = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const r = await askModel(true, baseUser(day));
+        if (r.fatal) return res.status(r.fatal.status).json({ error: r.fatal.error });
+        if (r.failure) { failure = r.failure; continue; }
+        if (isWeak(r.days[0])) { failure = 'The AI picked too few exercises from your library for that day. Please try again.'; continue; }
+        return res.status(200).json({ day: { ...r.days[0], dayLabel: day.dayLabel } });
+      }
+      return res.status(502).json({ error: failure || 'Failed to generate workout draft.' });
     }
 
-    const days = draft.days.map(d => repairDay(d, catalog));
-    if (days.some(d => !d)) {
-      return res.status(502).json({ error: 'The AI picked exercises outside your library. Please try again.' });
-    }
+    const fullUser = baseUser(null)
+      + (wantDays ? `
 
-    if (dayMode) return res.status(200).json({ day: { ...days[0], dayLabel: day.dayLabel } });
-    return res.status(200).json({ draft: { ...draft, days } });
+The "days" array MUST contain exactly ${wantDays} training days — no more, no fewer — each with 5-7 exercises.` : '');
+    const goodCount = (days) => days.filter(d => !isWeak(d)).length;
+    let best = null;
+    let failure = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const r = await askModel(false, fullUser);
+      if (r.fatal) return res.status(r.fatal.status).json({ error: r.fatal.error });
+      if (r.failure) { failure = r.failure; continue; }
+      const cut = wantDays ? r.days.slice(0, wantDays) : r.days;
+      const rawCut = wantDays ? r.raw.slice(0, wantDays) : r.raw;
+      if (!best || goodCount(cut) > goodCount(best.days)) best = { summary: r.summary, days: cut, raw: rawCut };
+      if (goodCount(cut) === (wantDays || cut.length)) break;
+    }
+    if (!best) return res.status(502).json({ error: failure || 'Failed to generate workout draft.' });
+
+    // Top up: fill each missing / stub day on its own.
+    const days = [...best.days];
+    for (let i = 0; i < (wantDays || 0); i += 1) {
+      if (!isWeak(days[i])) continue;
+      const label = best.raw[i]?.dayLabel || `Day ${i + 1}`;
+      const focus = best.raw[i]?.focus || 'a focus that complements the other days of the week';
+      const otherDays = days.filter((d, j) => j !== i && !isWeak(d)).map(describeDay);
+      let filled = null;
+      for (let attempt = 0; attempt < 3 && !filled; attempt += 1) {
+        const r = await askModel(true, baseUser({ dayLabel: label, focus, currentExercises: [], otherDays }));
+        if (r.fatal) return res.status(r.fatal.status).json({ error: r.fatal.error });
+        if (!r.failure && !isWeak(r.days[0])) filled = { ...r.days[0], dayLabel: label };
+      }
+      if (!filled) {
+        console.error(`generate-workout-draft: could not complete day ${i + 1} of ${wantDays}`);
+        return res.status(502).json({ error: `The AI could not complete all ${wantDays} days. Please try again.` });
+      }
+      days[i] = filled;
+    }
+    if (days.some(isWeak)) return res.status(502).json({ error: 'The AI picked too few exercises from your library. Please try again.' });
+    return res.status(200).json({ draft: { programSummary: best.summary, days } });
   } catch (err) {
     console.error('generate-workout-draft error:', err);
     return res.status(500).json({ error: err.message || 'Failed to generate workout draft.' });

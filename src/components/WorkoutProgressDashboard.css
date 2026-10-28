@@ -349,39 +349,8 @@
 }
 
 /* Date Picker bar */
-.date-picker-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  width: 100%;
-  font-size: 0.82rem;
-}
-
-.date-picker-bar label {
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.progress-date-input {
-  background: rgba(var(--fg-rgb), 0.03);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-main);
-  padding: 6px 10px;
-  font-family: inherit;
-  font-weight: 600;
-  outline: none;
-  /* Must stay >= 16px: iOS Safari auto-zooms the page on focus otherwise. */
-  font-size: 16px;
-}
-
-.progress-date-input::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-
-/* Daily Details Breakdown — edge-to-edge (see overview-header/
-   stats-row-cards below for why): the "Volume/Sets/Exercises/Calories/
+/* Daily Details Breakdown — edge-to-edge (see stats-row-cards below
+   for why): the "Volume/Sets/Exercises/Calories/
    Time" stat tiles and the "EXERCISE SETS LOGGED" cards underneath are
    both bordered boxes with their own internal padding (14px and 12px
    respectively), so letting them both start flush at this container's
@@ -392,7 +361,8 @@
    margin fix this replaces), so "Volume:" and "Alternate Leg raises"
    never shared a left edge. Reported 2026-08-14. */
 .day-stats-overview {
-  padding: 16px 0;
+  /* The date bar above already sits one flex gap (16px) away. */
+  padding: 0 0 16px;
   width: 100%;
 }
 
@@ -400,13 +370,6 @@
   font-size: 0.95rem;
   font-weight: 800;
   color: var(--text-main);
-}
-
-/* Plain text/badge, not a bordered card — needs its own inset now that
-   the parent no longer provides one, to align with the stat tiles' own
-   14px internal padding just below it. */
-.overview-header {
-  padding: 0 var(--screen-gutter);
 }
 
 .section-subtitle {

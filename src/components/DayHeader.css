@@ -1,0 +1,84 @@
+/* Daily tab header — see DayHeader.jsx. */
+
+/* Header + date bar + stats strip on one soft panel, like the Muscles
+   sections. Inside it the children drop their own side gutters. */
+.day-panel {
+  margin: 0;
+  padding: 16px 14px;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 18px;
+}
+
+.day-panel .day-header { padding: 0; }
+.day-panel .date-bar { margin-left: 0; margin-right: 0; }
+.day-panel .stats-strip { background: rgba(var(--fg-rgb), 0.035); }
+
+.day-header {
+  padding: 0 var(--screen-gutter);
+}
+
+/* Label on the left, small Edit / Add chips on the right. */
+.day-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Tiny label saying what the title is. */
+.day-header-eyebrow {
+  min-width: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.day-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.day-header-sub > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.day-header-done { color: #10b981; }
+
+/* A hairline between "Completed" and the time. */
+.day-header-time {
+  font-variant-numeric: tabular-nums;
+  padding-left: 8px;
+  border-left: 1px solid rgba(var(--fg-rgb), 0.12);
+}
+
+.day-header-actions {
+  flex: none;
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}

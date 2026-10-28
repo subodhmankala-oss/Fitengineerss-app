@@ -154,55 +154,29 @@
   cursor: pointer;
 }
 
-/* Entry point on a saved workout card (client Daily view + coach History). */
-.missed-ex-entry {
-  border-top: 1px solid var(--border-color);
-  margin-top: 10px;
-  padding-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.missed-ex-entry-hint { font-size: 0.74rem; color: var(--text-muted); }
-/* Two equal halves, on phones too. */
-.missed-ex-entry-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-/* Same size, weight and shape as the logger's "+ Add Set" / "Start rest"
-   links (.btn-add-set-link, .btn-start-rest-link). */
+/* Edit / Add chips in the Daily header (see DayHeader.jsx), client Daily + coach History. */
+/* Selected-chip look from the Muscles header: tint + ring in the chip's own hue. */
 .missed-ex-entry-btn {
-  display: flex;
+  flex: none;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 44px;
-  box-sizing: border-box;
+  gap: 4px;
   margin: 0;
-  padding: 10px 8px;
-  border: none;
-  border-radius: 10px;
-  text-align: center;
-  background: var(--entry-tint);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--entry-color) 35%, transparent);
+  background: color-mix(in srgb, var(--entry-color) 12%, transparent);
   color: var(--entry-color);
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.15;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
   cursor: pointer;
 }
 .missed-ex-entry-btn:hover { opacity: 0.85; }
-.missed-ex-entry-btn.edit {
-  --entry-color: #f59e0b;
-  --entry-tint: rgba(245, 158, 11, 0.08);
-}
-.missed-ex-entry-btn.add {
-  --entry-color: #3b82f6;
-  --entry-tint: rgba(59, 130, 246, 0.08);
-}
-.missed-ex-entry-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+.missed-ex-entry-btn.edit { --entry-color: var(--tint-amber); }
+.missed-ex-entry-btn.add { --entry-color: var(--tint-blue); }
 .missed-ex-later-tag {
   margin-left: 6px;
   font-size: 0.66rem;

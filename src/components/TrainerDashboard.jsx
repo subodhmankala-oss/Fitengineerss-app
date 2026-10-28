@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import Avatar from './Avatar';
-import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, parseLocalDateString, isLocalToday, } from '../utils/dateUtils';
 import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveLogClientCheck';
 import CoachQuietClients from './CoachQuietClients';
 import './TrainerDashboard.css';
@@ -19,6 +19,8 @@ import './WorkoutTracker.css';
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
+import DayHeader from './DayHeader';
+import DateBar from './DateBar';
 import { BodySexContext } from './MuscleAnalytics/bodySex';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
@@ -8885,53 +8887,36 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                         {historyTimeframe === 'daily' && (
                           <div className="timeframe-content flex-col gap-4">
-                            <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <button
-                                onClick={() => setHistoryDateStr(shiftLocalDateString(historyDateStr, -1))}
-                                style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                              >
-                                ‹
-                              </button>
-                              <input
-                                type="date"
-                                value={historyDateStr}
-                                onChange={(e) => setHistoryDateStr(e.target.value)}
-                                className="progress-date-input"
-                                style={{ flex: 1 }}
-                              />
-                              <button
-                                onClick={() => {
-                                  const next = shiftLocalDateString(historyDateStr, 1);
-                                  if (next <= getLocalDateString()) setHistoryDateStr(next);
-                                }}
-                                style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                              >
-                                ›
-                              </button>
-                            </div>
-
                             <div className="day-stats-overview glass-panel">
-                              <div className="overview-header justify-between">
-                                <div>
-                                  <h3>
-                                    {daySession?.planName
-                                      || (isLocalToday(historyDateStr) ? "Today's Progress" : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
-                                  </h3>
-                                  {daySession?.planName && (
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                                      {isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                                    </div>
+                              <div className="day-panel">
+                                <DayHeader
+                                  eyebrow={daySession?.planName ? 'Workout name' : null}
+                                  title={daySession?.planName
+                      || (daySession ? 'Workout' : isLocalToday(historyDateStr) ? "Today's Progress" : 'Rest day')}
+                                  done={!!daySession}
+                                  durationSeconds={daySession?.durationSeconds}
+                                  actions={daySession && daySession.exercises.length > 0 && canAddMissedExercise(historyDateStr) && (
+                                    <>
+                                      {historyDayRowsEditable && (
+                                        <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                                          <PencilLineIcon size={11} /> Edit
+                                        </button>
+                                      )}
+                                      <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                                        <PlusIcon size={11} /> Add missed workout
+                                      </button>
+                                    </>
                                   )}
-                                </div>
-                                <span className="active-badge">{daySession ? `🏋️‍♂️ Workout Done${daySession.durationSeconds != null ? ` · ${formatDuration(daySession.durationSeconds)}` : ''}` : '☕ Rest Day'}</span>
+                                />
+                                <DateBar value={historyDateStr} onChange={setHistoryDateStr} />
+                                <StatsStrip className="mt-2" items={[
+                                  { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
+                                  { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },
+                                  { icon: 'exercises', label: (daySession?.exercises.length || 0) === 1 ? 'exercise' : 'exercises', value: (daySession?.exercises.length || 0) },
+                                  // No `!= null` guard on calories — a rest day reads 0 like the rest.
+                                  { icon: 'kcal', label: 'kcal', value: daySession?.caloriesBurned || 0 },
+                                ]} />
                               </div>
-                              <StatsStrip className="mt-2" items={[
-                                { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
-                                { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },
-                                { icon: 'exercises', label: (daySession?.exercises.length || 0) === 1 ? 'exercise' : 'exercises', value: (daySession?.exercises.length || 0) },
-                                // No `!= null` guard on calories — a rest day reads 0 like the rest.
-                                { icon: 'kcal', label: 'kcal', value: daySession?.caloriesBurned || 0 },
-                              ]} />
 
                               {daySession && daySession.exercises.length > 0 ? (
                                 <div className="daily-exercises-list mt-3">
@@ -9051,21 +9036,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                       );
                                     })}
                                   </div>
-                                  {canAddMissedExercise(historyDateStr) && (
-                                    <div className="missed-ex-entry">
-                                      <span className="missed-ex-entry-hint">Need to fix this workout?</span>
-                                      <div className={historyDayRowsEditable ? 'missed-ex-entry-actions' : undefined}>
-                                        {historyDayRowsEditable && (
-                                          <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                                            <span className="missed-ex-entry-icon"><PencilLineIcon size={14} /></span> Edit workout
-                                          </button>
-                                        )}
-                                        <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                                          <span className="missed-ex-entry-icon"><PlusIcon size={14} /></span> Add missed exercise
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
                                   <AddMissedExercisesModal
                                     open={missedExOpen}
                                     onClose={() => setMissedExOpen(false)}

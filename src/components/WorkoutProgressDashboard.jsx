@@ -14,8 +14,10 @@ import WelcomeBackScreen from './WelcomeBackScreen';
 import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
+import DayHeader from './DayHeader';
+import DateBar from './DateBar';
 import { getSetTypeVisual } from '../utils/setTypes';
-import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
@@ -1472,59 +1474,37 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           {/* ─── DAILY VIEW CONTENT ─── */}
           {timeframe === 'daily' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Date navigation bar */}
-              <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  onClick={() => {
-                    setSelectedDateStr(shiftLocalDateString(selectedDateStr, -1));
-                  }}
-                  style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                >
-                  ‹
-                </button>
-                <input
-                  type="date"
-                  value={selectedDateStr}
-                  onChange={(e) => setSelectedDateStr(e.target.value)}
-                  className="progress-date-input"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  onClick={() => {
-                    const next = shiftLocalDateString(selectedDateStr, 1);
-                    if (next <= getLocalDateString()) {
-                      setSelectedDateStr(next);
-                    }
-                  }}
-                  style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                >
-                  ›
-                </button>
-              </div>
-
               {/* Day stats card */}
               <div className="day-stats-overview glass-panel">
-                <div className="overview-header justify-between">
-                  <div>
-                    <h3>
-                      {groupedLogs[selectedDateStr]?.planName
-                        || (isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
-                    </h3>
-                    {groupedLogs[selectedDateStr]?.planName && (
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                        {isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                      </div>
+                <div className="day-panel">
+                  <DayHeader
+                    eyebrow={groupedLogs[selectedDateStr]?.planName ? 'Workout name' : null}
+                    title={groupedLogs[selectedDateStr]?.planName
+                      || (groupedLogs[selectedDateStr] ? 'Workout' : isToday(selectedDateStr) ? "Today's Progress" : 'Rest day')}
+                    done={!!groupedLogs[selectedDateStr]}
+                    durationSeconds={dailyStats.durationSeconds}
+                    actions={dailyStats.exercises.length > 0 && canAddMissedExercise(selectedDateStr) && (
+                      <>
+                        {dayRowsEditable && (
+                          <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                            <PencilLineIcon size={11} /> Edit
+                          </button>
+                        )}
+                        <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                          <PlusIcon size={11} /> Add missed workout
+                        </button>
+                      </>
                     )}
-                  </div>
-                  <span className="active-badge">{groupedLogs[selectedDateStr] ? `🏋️‍♂️ Workout Done${dailyStats.durationSeconds != null ? ` · ${formatDuration(dailyStats.durationSeconds)}` : ''}` : '☕ Rest Day'}</span>
+                  />
+                  <DateBar value={selectedDateStr} onChange={setSelectedDateStr} />
+                  <StatsStrip className="mt-2" items={[
+                    { icon: 'volume', label: 'kg', value: dailyStats.volume },
+                    { icon: 'sets', label: 'sets', value: dailyStats.sets },
+                    { icon: 'exercises', label: dailyStats.exercises.length === 1 ? 'exercise' : 'exercises', value: dailyStats.exercises.length },
+                    // No `!= null` guard on calories — a rest day reads 0 like the rest.
+                    { icon: 'kcal', label: 'kcal', value: dailyStats.calories || 0 },
+                  ]} />
                 </div>
-                <StatsStrip className="mt-2" items={[
-                  { icon: 'volume', label: 'kg', value: dailyStats.volume },
-                  { icon: 'sets', label: 'sets', value: dailyStats.sets },
-                  { icon: 'exercises', label: dailyStats.exercises.length === 1 ? 'exercise' : 'exercises', value: dailyStats.exercises.length },
-                  // No `!= null` guard on calories — a rest day reads 0 like the rest.
-                  { icon: 'kcal', label: 'kcal', value: dailyStats.calories || 0 },
-                ]} />
 
                 {/* Day Exercise Breakdown — detailed cards */}
                 {dailyStats.exercises.length > 0 ? (
@@ -1641,21 +1621,6 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
                         );
                       })}
                     </div>
-                    {canAddMissedExercise(selectedDateStr) && (
-                      <div className="missed-ex-entry">
-                        <span className="missed-ex-entry-hint">Need to fix this workout?</span>
-                        <div className={dayRowsEditable ? 'missed-ex-entry-actions' : undefined}>
-                          {dayRowsEditable && (
-                            <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                              <span className="missed-ex-entry-icon"><PencilLineIcon size={14} /></span> Edit workout
-                            </button>
-                          )}
-                          <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                            <span className="missed-ex-entry-icon"><PlusIcon size={14} /></span> Add missed exercise
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="no-daily-workouts mt-3">

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import './WorkoutTracker.css';
 import databaseService, { isTrainer } from '../services/databaseService';
 import { getLocalDateString } from '../utils/dateUtils';
+import { getEarlierDayDraft, formatDraftDate, shortDraftDate } from '../utils/earlierDayDraft';
 import SetTypeMenu from './SetTypeMenu';
 import ExerciseCardMenu from './ExerciseCardMenu';
 import ExercisePickerModal from './ExercisePickerModal';
@@ -547,6 +548,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // today and restart the timer clock from now — already-completed sets are
   // kept (still counted toward the session), only the date/duration window
   // moves to reflect that the session is actually finishing today.
+  //
+  // That alone lost the earlier day's workout whenever the client discarded
+  // it to start the new day's session (26 Oct 2026). So a draft with ticked
+  // sets also asks first: save it to its own day, continue it as today, or
+  // discard (earlierDraft below; "continue" is the bump already applied).
+  const [earlierDraft, setEarlierDraft] = useState(null);
   useEffect(() => {
     if (!savedWorkoutDraft || !savedWorkoutDraft.logDate) return;
     if (savedWorkoutDraft.logDate === getLocalDateString()) return;
@@ -555,7 +562,15 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       setWorkoutTimerStartedAt(Date.now());
       setWorkoutPauseIntervals([]);
     }
-    triggerToast("↩️ Resumed an unfinished session from earlier — logged as today, timer restarted.");
+    const earlier = getEarlierDayDraft({
+      logDate: savedWorkoutDraft.logDate,
+      exercises: savedWorkoutDraft.logExercises,
+      timerStartedAt: savedWorkoutDraft.workoutTimerStartedAt,
+      pauseIntervals: savedWorkoutDraft.workoutPauseIntervals,
+      fallbackEndAt: savedWorkoutDraft.savedAt
+    });
+    if (earlier) setEarlierDraft(earlier);
+    else triggerToast("↩️ Resumed an unfinished session from earlier — logged as today, timer restarted.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -968,10 +983,20 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           // reset it rather than leave a stale value from a previous session.
           setLoggingLevel(null);
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
+          // Same choice as the local-draft effect above: a draft from an
+          // earlier day with ticked sets can still be saved to that day.
+          const earlier = draftIsStale ? getEarlierDayDraft({
+            logDate: dbDraft.logDate,
+            exercises: dbDraft.exercises,
+            timerStartedAt: dbDraft.timerStartedAt,
+            pauseIntervals: dbDraft.pauseIntervals,
+            fallbackEndAt: dbTime
+          }) : null;
+          setEarlierDraft(earlier);
           if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
             setWorkoutTimerStartedAt(Date.now());
             setWorkoutPauseIntervals([]);
-            triggerToast("↩️ Resumed an unfinished session from earlier — logged as today, timer restarted.");
+            if (!earlier) triggerToast("↩️ Resumed an unfinished session from earlier — logged as today, timer restarted.");
           } else {
             setWorkoutTimerStartedAt(dbDraft.timerStartedAt ?? null);
             setWorkoutPauseIntervals(dbDraft.pauseIntervals || []);
@@ -2216,8 +2241,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
   };
 
-  const handleFinishWorkoutPress = (e) => {
-    if (e) e.preventDefault();
+  // tickedOnly: the client chose "Save N ticked sets" on the unticked-sets
+  // prompt — unticked sets are dropped (confirmSaveWorkout only saves ticked
+  // ones) instead of blocking the save. That prompt used to offer only Keep
+  // Logging or Discard, so a session with one skipped exercise couldn't be
+  // saved at all (26 Oct 2026); the coach's Live Log never blocked this.
+  // earlierDay: saving an earlier day's unfinished draft to that day (see
+  // handleSaveEarlierDraft) — implies tickedOnly, and the summary shows that
+  // day's duration before the restored clock reaches state.
+  const handleFinishWorkoutPress = (e, { earlierDay = null, tickedOnly = false } = {}) => {
+    if (e?.preventDefault) e.preventDefault();
 
     const totalSetsCount = logExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
     const completedSetsCount = logExercises.reduce(
@@ -2230,7 +2263,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
 
-    if (completedSetsCount < totalSetsCount) {
+    if (completedSetsCount < totalSetsCount && !earlierDay && !tickedOnly) {
       setShowUntickedFinishModal(true);
       return;
     }
@@ -2302,7 +2335,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
 
     setSummaryStats({
-      duration: formatStopwatchTime(workoutActiveSeconds),
+      duration: formatStopwatchTime(earlierDay ? computeElapsedSeconds(earlierDay.timerStartedAt, earlierDay.pauseIntervals) : workoutActiveSeconds),
       totalSets: completedSetsCount,
       volume: totalVolume.toLocaleString('en-IN', { maximumFractionDigits: 1 }),
       prs: prs
@@ -2318,6 +2351,23 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // per date, so both copies' sets stacked and every template/recent plan
   // started from that day opened with double the sets. A ref, not state, so
   // the second tap sees it immediately.
+  // "Save to <day>" on the earlier-day prompt: put the draft back on the day
+  // it was done, with that day's clock (ending at its last ticked set — see
+  // getEarlierDayDraft), then run the normal Finish → summary → Save flow.
+  const handleSaveEarlierDraft = () => {
+    const earlier = earlierDraft;
+    setEarlierDraft(null);
+    if (!earlier) return;
+    setLogDate(earlier.logDate);
+    setWorkoutTimerStartedAt(earlier.timerStartedAt);
+    setWorkoutPauseIntervals(earlier.pauseIntervals);
+    setWorkoutTimerStatus(earlier.timerStartedAt ? 'paused' : 'idle');
+    setSetTimers({});
+    setIsLoggingWorkout(true);
+    setActiveView('log');
+    handleFinishWorkoutPress(null, { earlierDay: earlier });
+  };
+
   const savingWorkoutRef = useRef(false);
   const handleConfirmSaveWorkout = async () => {
     if (savingWorkoutRef.current) return;
@@ -2578,8 +2628,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       setShareCardData({
         workoutName: newSession.planName,
         clientName: (localStorage.getItem('userName') || '').trim(),
-        dateLabel: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
-          ' · ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        // An earlier day's workout saved today is labelled with its own day.
+        dateLabel: logDate && logDate < getLocalDateString()
+          ? formatDraftDate(logDate)
+          : new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+            ' · ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
         durationLabel: finalDurationSeconds ? `${Math.round(finalDurationSeconds / 60)} min` : summaryStats?.duration || '—',
         calories: finalCalories != null ? Math.round(finalCalories) : null,
         bestLift,
@@ -4616,6 +4669,62 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         <ClockTimerModal onClose={() => setShowClockTimer(false)} />
       )}
 
+      {/* An unfinished workout from an earlier day — see getEarlierDayDraft.
+          Asked before anything else so it can't be thrown away by reflex
+          while starting the new day's session. */}
+      {earlierDraft && !showFinishSummary && (
+        <div className="payment-gateway-backdrop warning-modal-backdrop">
+          <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
+              <div className="modal-title-box">
+                <span className="secure-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--tint-amber)' }}>UNFINISHED WORKOUT</span>
+                <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>
+                  From {formatDraftDate(earlierDraft.logDate)}
+                </h3>
+              </div>
+            </div>
+
+            <div className="warning-modal-body" style={{ padding: '20px 4px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 8px 0' }}>
+                {templateName || 'This workout'} has {earlierDraft.completedSetCount} ticked {earlierDraft.completedSetCount === 1 ? 'set' : 'sets'} but was never saved.
+              </p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
+                Save it to {shortDraftDate(earlierDraft.logDate)} to keep it in your history. Sets you didn't tick are left out.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                className="btn-confirm-save-hevy"
+                style={{ padding: '12px', fontSize: '0.9rem', borderRadius: 'var(--radius-sm)' }}
+                onClick={handleSaveEarlierDraft}
+              >
+                Save to {shortDraftDate(earlierDraft.logDate)}
+              </button>
+              <button
+                type="button"
+                className="btn-cancel-summary"
+                style={{ padding: '12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}
+                onClick={() => setEarlierDraft(null)}
+              >
+                Continue it as today
+              </button>
+              <button
+                type="button"
+                style={{ background: 'transparent', border: 'none', color: '#ef4444', padding: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => {
+                  setEarlierDraft(null);
+                  setShowDiscardConfirmModal(true);
+                }}
+              >
+                Discard it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Direct discard confirmation — reachable without needing to hit
           Finish first (that path is the "empty sets" modal above). */}
       {showDiscardConfirmModal && (
@@ -4903,15 +5012,27 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
         onClose={() => setHistoryModalExercise(null)}
       />
 
-      {/* Unticked Finish Warning Dialog Modal */}
-      {showUntickedFinishModal && (
+      {/* Unticked Finish Warning Dialog Modal — with some sets ticked it
+          leads with saving just those (see handleFinishWorkoutPress's
+          tickedOnly); with none ticked there's nothing to save yet. */}
+      {showUntickedFinishModal && (() => {
+        const tickedCount = logExercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.isCompleted).length, 0);
+        const totalCount = logExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+        return (
         <div className="payment-gateway-backdrop warning-modal-backdrop" onClick={() => setShowUntickedFinishModal(false)}>
           <div className="payment-gateway-modal warning-modal-card animate-scale-in" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="payment-modal-header" style={{ borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', paddingBottom: '12px' }}>
+              {tickedCount > 0 ? (
+                <div className="modal-title-box">
+                  <span className="secure-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--tint-amber)' }}>SETS NOT TICKED</span>
+                  <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Some sets aren't ticked</h3>
+                </div>
+              ) : (
               <div className="modal-title-box">
                 <span className="secure-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>⚠️ EMPTY LIFT LOGS</span>
                 <h3 style={{ marginTop: '8px', fontSize: '1.2rem', color: 'var(--text-main)' }}>Empty Workout Session</h3>
               </div>
+              )}
               <button 
                 type="button" 
                 className="btn-close-modal-x" 
@@ -4928,6 +5049,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               </button>
             </div>
 
+            {tickedCount > 0 ? (
+              <div className="warning-modal-body" style={{ padding: '20px 4px', textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+                  You ticked {tickedCount} of {totalCount} sets.
+                </p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
+                  Save just the ticked sets, or keep logging to finish the rest.
+                </p>
+              </div>
+            ) : (
             <div className="warning-modal-body" style={{ padding: '20px 4px', textAlign: 'center' }}>
               <p style={{ color: 'var(--text-main)', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 12px 0' }}>
                 Please do finish the sets and then press finish button.
@@ -4936,6 +5067,21 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 Alternatively, do you want to discard the workout session?
               </p>
             </div>
+            )}
+
+            {tickedCount > 0 && (
+              <button
+                type="button"
+                className="btn-confirm-save-hevy"
+                style={{ width: '100%', marginTop: '12px', padding: '12px', fontSize: '0.9rem', borderRadius: 'var(--radius-sm)' }}
+                onClick={() => {
+                  setShowUntickedFinishModal(false);
+                  handleFinishWorkoutPress(null, { tickedOnly: true });
+                }}
+              >
+                Save {tickedCount} ticked {tickedCount === 1 ? 'set' : 'sets'}
+              </button>
+            )}
 
             <div className="summary-actions-row" style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', paddingTop: '16px' }}>
               <button 
@@ -4972,7 +5118,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       <SetNumberPad active={getActiveSetField()} activeKey={activeSetKey} onClose={closeSetField} />
     </>
   );

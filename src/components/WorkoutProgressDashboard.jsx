@@ -16,6 +16,7 @@ import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
 import { getSetTypeVisual } from '../utils/setTypes';
 import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
+import { formatDraftDate } from '../utils/earlierDayDraft';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
@@ -1002,7 +1003,13 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           the coach is live-logging this session right now — shown as
           read-only status, not a resume button, so the client can't edit the
           same session concurrently with the coach. */}
-      {activeDraft && (
+      {activeDraft && (() => {
+        // A draft left over from an earlier day: its clock would read the
+        // whole gap since then, and the trash would delete that day's sets in
+        // one tap. Both go — opening it asks whether to save it to its own
+        // day (WorkoutTracker's earlier-day prompt).
+        const draftFromEarlierDay = activeDraft.source !== 'coach' && !!activeDraft.logDate && activeDraft.logDate < getLocalDateString();
+        return (
         <div
           onClick={activeDraft.source === 'coach' ? undefined : () => onNavigateToWorkouts && onNavigateToWorkouts()}
           style={{
@@ -1017,11 +1024,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--tint-amber)' }}>
                 {activeDraft.source === 'coach' ? 'Your coach is logging a session for you'
+                  : draftFromEarlierDay ? `Unfinished workout from ${formatDraftDate(activeDraft.logDate)}`
                   : activeDraft.coachId ? 'Your coach sent you the rest of this workout' : 'Workout in progress'}
               </div>
               {/* Live duration + calories, recomputed from the draft's timer
                   timestamps (idle = timer not started yet, so no clock shown). */}
-              {activeDraft.timerStatus !== 'idle' && (
+              {activeDraft.timerStatus !== 'idle' && !draftFromEarlierDay && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '3px 0 2px' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--tint-amber)', fontFamily: "'Courier New', monospace" }}>
                     {formatDuration(computeElapsedSeconds(activeDraft.timerStartedAt, activeDraft.pauseIntervals || []))}
@@ -1048,6 +1056,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               >
                 <PlayIcon size={22} />
               </button>
+              {!draftFromEarlierDay && (
               <button type="button" style={{
                 background: 'transparent', color: '#ef4444',
                 border: 'none', padding: '4px 6px', display: 'flex', alignItems: 'center', cursor: 'pointer'
@@ -1079,10 +1088,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               >
                 <TrashIcon size={22} />
               </button>
+              )}
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Guides a newer client to their next Workout Library program —
           Beginner through Advanced, Gym or Home (see NextWorkoutBanner /

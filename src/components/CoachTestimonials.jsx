@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { MAX_QUOTE_LENGTH, MAX_RESULT_LENGTH, trainedLabel, googleReviewText } from '../utils/testimonials';
 
@@ -50,6 +50,19 @@ export default function CoachTestimonials({ startWriting = false, onWritingChang
   // Coach Details hides its own Close button while the form is open, so
   // there's one clear pair of actions (Cancel / Send).
   useEffect(() => { onWritingChange?.(editing); }, [editing, onWritingChange]);
+
+  // The phone keyboard covers the lower half of the screen, so bring the
+  // field above it when the form opens and again whenever the keyboard
+  // finishes opening/closing (visualViewport resizes).
+  const formRef = useRef(null);
+  useEffect(() => {
+    if (!editing) return undefined;
+    const reveal = () => formRef.current?.querySelector('textarea')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const t = setTimeout(reveal, 350);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', reveal);
+    return () => { clearTimeout(t); vv?.removeEventListener('resize', reveal); };
+  }, [editing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +142,7 @@ export default function CoachTestimonials({ startWriting = false, onWritingChang
 
       <div className="cdm-section-label">Your testimonial</div>
       {editing ? (
-        <div className="cdm-t-form">
+        <div className="cdm-t-form" ref={formRef} style={{ paddingBottom: '45vh' }}>
           <textarea
             className="ccm-input cdm-t-input"
             value={draft.quote}

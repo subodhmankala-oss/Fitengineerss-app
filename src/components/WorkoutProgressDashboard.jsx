@@ -15,8 +15,9 @@ import Avatar from './Avatar';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
+import DateBar from './DateBar';
 import { getSetTypeVisual } from '../utils/setTypes';
-import { getLocalDateString, shiftLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, isLocalToday, parseLocalDateString } from '../utils/dateUtils';
 import { formatDuration, formatSecondsToTimeString, computeElapsedSeconds, computeLiveCalories } from '../utils/liveWorkoutTimer';
 import { getSetVolumeKg, isCountableSet } from '../utils/muscleAnalytics';
 import { isCardioExercise, isTimedExercise, isLoadedCarryExercise, isBodyweightExercise, isWarmupExercise } from '../data/exerciseLibrary';
@@ -1473,46 +1474,15 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           {/* ─── DAILY VIEW CONTENT ─── */}
           {timeframe === 'daily' && (
             <div className="timeframe-content flex-col gap-4">
-              {/* Date navigation bar */}
-              <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button
-                  onClick={() => {
-                    setSelectedDateStr(shiftLocalDateString(selectedDateStr, -1));
-                  }}
-                  style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                >
-                  ‹
-                </button>
-                <input
-                  type="date"
-                  value={selectedDateStr}
-                  onChange={(e) => setSelectedDateStr(e.target.value)}
-                  className="progress-date-input"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  onClick={() => {
-                    const next = shiftLocalDateString(selectedDateStr, 1);
-                    if (next <= getLocalDateString()) {
-                      setSelectedDateStr(next);
-                    }
-                  }}
-                  style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                >
-                  ›
-                </button>
-              </div>
-
               {/* Day stats card */}
               <div className="day-stats-overview glass-panel">
                 <DayHeader
                   title={groupedLogs[selectedDateStr]?.planName
-                    || (isToday(selectedDateStr) ? "Today's Progress" : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
-                  dateLabel={groupedLogs[selectedDateStr]?.planName
-                    && (isToday(selectedDateStr) ? 'Today' : new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                    || (groupedLogs[selectedDateStr] ? 'Workout' : isToday(selectedDateStr) ? "Today's Progress" : 'Rest day')}
                   done={!!groupedLogs[selectedDateStr]}
                   durationSeconds={dailyStats.durationSeconds}
                 />
+                <DateBar value={selectedDateStr} onChange={setSelectedDateStr} />
                 <StatsStrip className="mt-2" items={[
                   { icon: 'volume', label: 'kg', value: dailyStats.volume },
                   { icon: 'sets', label: 'sets', value: dailyStats.sets },

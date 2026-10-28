@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import databaseService, { isSuperAdmin, isSupabaseConfigured } from '../services/databaseService';
 import Avatar from './Avatar';
-import { getLocalDateString, parseLocalDateString, isLocalToday, shiftLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString, parseLocalDateString, isLocalToday, } from '../utils/dateUtils';
 import { findWrongClientSignal, describeWrongClientSignal } from '../utils/liveLogClientCheck';
 import CoachQuietClients from './CoachQuietClients';
 import './TrainerDashboard.css';
@@ -20,6 +20,7 @@ import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
+import DateBar from './DateBar';
 import { BodySexContext } from './MuscleAnalytics/bodySex';
 import { getWeeklyMuscleStats } from '../utils/muscleAnalytics';
 import SetTypeMenu from './SetTypeMenu';
@@ -8886,40 +8887,14 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                         {historyTimeframe === 'daily' && (
                           <div className="timeframe-content flex-col gap-4">
-                            <div className="date-picker-bar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <button
-                                onClick={() => setHistoryDateStr(shiftLocalDateString(historyDateStr, -1))}
-                                style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                              >
-                                ‹
-                              </button>
-                              <input
-                                type="date"
-                                value={historyDateStr}
-                                onChange={(e) => setHistoryDateStr(e.target.value)}
-                                className="progress-date-input"
-                                style={{ flex: 1 }}
-                              />
-                              <button
-                                onClick={() => {
-                                  const next = shiftLocalDateString(historyDateStr, 1);
-                                  if (next <= getLocalDateString()) setHistoryDateStr(next);
-                                }}
-                                style={{ padding: '6px 12px', background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', color: 'var(--text-main)', fontWeight: 800, cursor: 'pointer', fontSize: '1rem' }}
-                              >
-                                ›
-                              </button>
-                            </div>
-
                             <div className="day-stats-overview glass-panel">
                               <DayHeader
                                 title={daySession?.planName
-                                  || (isLocalToday(historyDateStr) ? "Today's Progress" : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
-                                dateLabel={daySession?.planName
-                                  && (isLocalToday(historyDateStr) ? 'Today' : parseLocalDateString(historyDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }))}
+                    || (daySession ? 'Workout' : isLocalToday(historyDateStr) ? "Today's Progress" : 'Rest day')}
                                 done={!!daySession}
                                 durationSeconds={daySession?.durationSeconds}
                               />
+                              <DateBar value={historyDateStr} onChange={setHistoryDateStr} />
                               <StatsStrip className="mt-2" items={[
                                 { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
                                 { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },

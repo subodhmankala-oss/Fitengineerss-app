@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useCountUp } from '../../hooks/useCountUp';
+import StatsStrip from '../StatsStrip';
 import MuscleThumbnail from './MuscleThumbnail';
 import MuscleRegionBreakdown from './MuscleRegionBreakdown';
 import { getRegionBreakdownForMuscle } from '../../utils/muscleRegions';
@@ -9,18 +9,6 @@ import {
   getPersonalRecordsForMuscle, getWeeklySetsTrendForMuscle, getMuscleGrowthScore,
   getMuscleRecovery, getHeatMapTier, RECOMMENDED_EXERCISES
 } from '../../utils/muscleAnalytics';
-
-const StatBlock = ({ label, value, suffix = '' }) => {
-  const animated = useCountUp(typeof value === 'number' ? value : 0, 700);
-  return (
-    <div className="detail-stat-block">
-      <span className="detail-stat-label">{label}</span>
-      <strong className="detail-stat-value">
-        {typeof value === 'number' ? `${Math.round(animated).toLocaleString('en-IN')}${suffix}` : value}
-      </strong>
-    </div>
-  );
-};
 
 // Compact hand-rolled SVG bar chart — matches the app's existing convention
 // of inline SVG charts (see WorkoutProgressDashboard's weekly/monthly charts)
@@ -132,12 +120,15 @@ const MuscleDetailModal = ({ muscle, logs, onClose, focusRegion = null, weekStar
         </div>
 
         <div className="muscle-detail-body">
-          <div className="detail-stat-grid">
-            <StatBlock label="Weekly Sets" value={weeklyStat.sets} />
-            <StatBlock label="Monthly Sets" value={monthlyStat ? monthlyStat.sets : weeklyStat.sets} />
-            <StatBlock label="Weekly Volume" value={weeklyStat.volume} suffix=" kg" />
-            <StatBlock label="Recovery" value={recovery ? recovery.percent : 'N/A'} suffix={recovery ? '%' : ''} />
-          </div>
+          {/* Same strip as the Muscles header and Daily/Monthly tabs. */}
+          <StatsStrip items={[
+            { icon: 'sets', label: 'sets/wk', value: weeklyStat.sets },
+            { icon: 'month', label: 'sets/mo', value: monthlyStat ? monthlyStat.sets : weeklyStat.sets },
+            { icon: 'volume', label: 'kg/wk', value: weeklyStat.volume },
+            recovery
+              ? { icon: 'recovery', label: 'recovery', value: recovery.percent, suffix: '%' }
+              : { icon: 'recovery', label: 'recovery', text: 'N/A' },
+          ]} />
 
           {recovery && (
             <p className="detail-meta-line">Last trained {recovery.hoursSince < 24 ? `${recovery.hoursSince}h ago` : `${Math.floor(recovery.hoursSince / 24)}d ago`} · {recovery.bucket.label}</p>

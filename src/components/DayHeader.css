@@ -1,6 +1,31 @@
 /* Daily tab header — see DayHeader.jsx. */
+
+/* Header + date bar + stats strip on one soft panel, like the Muscles
+   sections. Inside it the children drop their own side gutters. */
+.day-panel {
+  margin: 0;
+  padding: 16px 14px;
+  background: rgba(var(--fg-rgb), 0.025);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+  border-radius: 18px;
+}
+
+.day-panel .day-header { padding: 0; }
+.day-panel .date-bar { margin-left: 0; margin-right: 0; }
+.day-panel .stats-strip { background: rgba(var(--fg-rgb), 0.035); }
+
 .day-header {
   padding: 0 var(--screen-gutter);
+}
+
+/* Tiny label saying what the title is. */
+.day-header-eyebrow {
+  margin-bottom: 2px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .day-header h3 {

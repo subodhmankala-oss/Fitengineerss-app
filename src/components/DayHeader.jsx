@@ -12,12 +12,14 @@ const Icon = ({ d, size }) => (
 );
 
 /**
- * Top of the Daily tab (client and coach): the workout name, then one row
+ * Top of the Daily tab (client and coach): an optional tiny `eyebrow` label
+ * ("Workout name") over the title, then one row
  * with "✓ Completed · 🕐 8m" on the left and the `actions` chips (Edit /
- * Add exercise) on the right. The date bar goes right below it.
+ * Add missed workout) on the right. The date bar goes right below it.
  */
-const DayHeader = ({ title, done, durationSeconds, actions }) => (
+const DayHeader = ({ eyebrow, title, done, durationSeconds, actions }) => (
   <div className="day-header">
+    {eyebrow && <div className="day-header-eyebrow">{eyebrow}</div>}
     <h3>{title}</h3>
     <div className="day-header-row">
       <div className="day-header-sub">

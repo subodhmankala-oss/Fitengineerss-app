@@ -8888,32 +8888,35 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                         {historyTimeframe === 'daily' && (
                           <div className="timeframe-content flex-col gap-4">
                             <div className="day-stats-overview glass-panel">
-                              <DayHeader
-                                title={daySession?.planName
-                    || (daySession ? 'Workout' : isLocalToday(historyDateStr) ? "Today's Progress" : 'Rest day')}
-                                done={!!daySession}
-                                durationSeconds={daySession?.durationSeconds}
-                                actions={daySession && daySession.exercises.length > 0 && canAddMissedExercise(historyDateStr) && (
-                                  <>
-                                    {historyDayRowsEditable && (
-                                      <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                                        <PencilLineIcon size={13} /> Edit
+                              <div className="day-panel">
+                                <DayHeader
+                                  eyebrow={daySession?.planName ? 'Workout name' : null}
+                                  title={daySession?.planName
+                      || (daySession ? 'Workout' : isLocalToday(historyDateStr) ? "Today's Progress" : 'Rest day')}
+                                  done={!!daySession}
+                                  durationSeconds={daySession?.durationSeconds}
+                                  actions={daySession && daySession.exercises.length > 0 && canAddMissedExercise(historyDateStr) && (
+                                    <>
+                                      {historyDayRowsEditable && (
+                                        <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                                          <PencilLineIcon size={13} /> Edit
+                                        </button>
+                                      )}
+                                      <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                                        <PlusIcon size={13} /> Add missed workout
                                       </button>
-                                    )}
-                                    <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                                      <PlusIcon size={13} /> Add missed workout
-                                    </button>
-                                  </>
-                                )}
-                              />
-                              <DateBar value={historyDateStr} onChange={setHistoryDateStr} />
-                              <StatsStrip className="mt-2" items={[
-                                { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
-                                { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },
-                                { icon: 'exercises', label: (daySession?.exercises.length || 0) === 1 ? 'exercise' : 'exercises', value: (daySession?.exercises.length || 0) },
-                                // No `!= null` guard on calories — a rest day reads 0 like the rest.
-                                { icon: 'kcal', label: 'kcal', value: daySession?.caloriesBurned || 0 },
-                              ]} />
+                                    </>
+                                  )}
+                                />
+                                <DateBar value={historyDateStr} onChange={setHistoryDateStr} />
+                                <StatsStrip className="mt-2" items={[
+                                  { icon: 'volume', label: 'kg', value: daySession?.volume || 0 },
+                                  { icon: 'sets', label: 'sets', value: daySession?.sets || 0 },
+                                  { icon: 'exercises', label: (daySession?.exercises.length || 0) === 1 ? 'exercise' : 'exercises', value: (daySession?.exercises.length || 0) },
+                                  // No `!= null` guard on calories — a rest day reads 0 like the rest.
+                                  { icon: 'kcal', label: 'kcal', value: daySession?.caloriesBurned || 0 },
+                                ]} />
+                              </div>
 
                               {daySession && daySession.exercises.length > 0 ? (
                                 <div className="daily-exercises-list mt-3">

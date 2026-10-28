@@ -1476,32 +1476,35 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             <div className="timeframe-content flex-col gap-4">
               {/* Day stats card */}
               <div className="day-stats-overview glass-panel">
-                <DayHeader
-                  title={groupedLogs[selectedDateStr]?.planName
-                    || (groupedLogs[selectedDateStr] ? 'Workout' : isToday(selectedDateStr) ? "Today's Progress" : 'Rest day')}
-                  done={!!groupedLogs[selectedDateStr]}
-                  durationSeconds={dailyStats.durationSeconds}
-                  actions={dailyStats.exercises.length > 0 && canAddMissedExercise(selectedDateStr) && (
-                    <>
-                      {dayRowsEditable && (
-                        <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                          <PencilLineIcon size={13} /> Edit
+                <div className="day-panel">
+                  <DayHeader
+                    eyebrow={groupedLogs[selectedDateStr]?.planName ? 'Workout name' : null}
+                    title={groupedLogs[selectedDateStr]?.planName
+                      || (groupedLogs[selectedDateStr] ? 'Workout' : isToday(selectedDateStr) ? "Today's Progress" : 'Rest day')}
+                    done={!!groupedLogs[selectedDateStr]}
+                    durationSeconds={dailyStats.durationSeconds}
+                    actions={dailyStats.exercises.length > 0 && canAddMissedExercise(selectedDateStr) && (
+                      <>
+                        {dayRowsEditable && (
+                          <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
+                            <PencilLineIcon size={13} /> Edit
+                          </button>
+                        )}
+                        <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
+                          <PlusIcon size={13} /> Add missed workout
                         </button>
-                      )}
-                      <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                        <PlusIcon size={13} /> Add missed workout
-                      </button>
-                    </>
-                  )}
-                />
-                <DateBar value={selectedDateStr} onChange={setSelectedDateStr} />
-                <StatsStrip className="mt-2" items={[
-                  { icon: 'volume', label: 'kg', value: dailyStats.volume },
-                  { icon: 'sets', label: 'sets', value: dailyStats.sets },
-                  { icon: 'exercises', label: dailyStats.exercises.length === 1 ? 'exercise' : 'exercises', value: dailyStats.exercises.length },
-                  // No `!= null` guard on calories — a rest day reads 0 like the rest.
-                  { icon: 'kcal', label: 'kcal', value: dailyStats.calories || 0 },
-                ]} />
+                      </>
+                    )}
+                  />
+                  <DateBar value={selectedDateStr} onChange={setSelectedDateStr} />
+                  <StatsStrip className="mt-2" items={[
+                    { icon: 'volume', label: 'kg', value: dailyStats.volume },
+                    { icon: 'sets', label: 'sets', value: dailyStats.sets },
+                    { icon: 'exercises', label: dailyStats.exercises.length === 1 ? 'exercise' : 'exercises', value: dailyStats.exercises.length },
+                    // No `!= null` guard on calories — a rest day reads 0 like the rest.
+                    { icon: 'kcal', label: 'kcal', value: dailyStats.calories || 0 },
+                  ]} />
+                </div>
 
                 {/* Day Exercise Breakdown — detailed cards */}
                 {dailyStats.exercises.length > 0 ? (

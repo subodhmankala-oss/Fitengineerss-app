@@ -15,33 +15,8 @@ import { subscribeCatalogMuscles, MUSCLE_GROUPS } from '../../utils/muscleGroups
 import { getRegionBreakdownForMuscle, hasRegions } from '../../utils/muscleRegions';
 import databaseService from '../../services/databaseService';
 import { shiftLocalDateString, getLocalDateString } from '../../utils/dateUtils';
-import { useCountUp } from '../../hooks/useCountUp';
+import StatsStrip from '../StatsStrip';
 import './WeeklyMuscleAnalytics.css';
-
-// Line icons for the stats strip (Tabler outline paths).
-const STAT_ICONS = {
-  volume: 'M2 12h1M6 8H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2M6 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1zM9 12h6M15 7v10a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1zM18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M22 12h-1',
-  sets: 'M12 4L4 8l8 4 8-4-8-4M4 12l8 4 8-4M4 16l8 4 8-4',
-  workouts: 'M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4M4 11h16M15 19l2 2 4-4',
-  kcal: 'M12 12c2-2.96 0-7-1-8 0 3.04-1.77 4.74-3 6-1.23 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.53-1.06-3.94-2-5-1.79 3-2.79 3-4 2z',
-};
-
-// One cell of the header's stats strip: number on top, a tinted icon + unit
-// below. Each stat keeps its own colour (--stat-color) so the four read apart.
-const AnimatedStat = ({ value, label, icon, color }) => {
-  const animated = useCountUp(value);
-  return (
-    <div className="ma-stat" style={{ '--stat-color': color }}>
-      <strong>{Math.round(animated).toLocaleString('en-IN')}</strong>
-      <span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d={STAT_ICONS[icon]} />
-        </svg>
-        {label}
-      </span>
-    </div>
-  );
-};
 
 const Chevron = ({ dir }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -331,12 +306,12 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
           </div>
         </div>
 
-        <div className="ma-stats-strip">
-          <AnimatedStat value={headerStats.totalVolume} label="kg" icon="volume" color="var(--tint-violet)" />
-          <AnimatedStat value={headerStats.totalSets} label="sets" icon="sets" color="var(--tint-blue)" />
-          <AnimatedStat value={headerStats.workoutsCount} label={headerStats.workoutsCount === 1 ? 'workout' : 'workouts'} icon="workouts" color="var(--tint-amber)" />
-          <AnimatedStat value={headerStats.totalCalories} label="kcal" icon="kcal" color="var(--tint-orange)" />
-        </div>
+        <StatsStrip className="ma-stats-strip" items={[
+          { icon: 'volume', label: 'kg', value: headerStats.totalVolume },
+          { icon: 'sets', label: 'sets', value: headerStats.totalSets },
+          { icon: 'workouts', label: headerStats.workoutsCount === 1 ? 'workout' : 'workouts', value: headerStats.workoutsCount },
+          { icon: 'kcal', label: 'kcal', value: headerStats.totalCalories },
+        ]} />
       </div>
 
       {/* ── Section 1 + Section 5, merged: Muscle Balance Overview and

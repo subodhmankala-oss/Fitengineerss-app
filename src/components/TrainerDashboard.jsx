@@ -9023,15 +9023,15 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                   </div>
                                   {canAddMissedExercise(historyDateStr) && (
                                     <div className="missed-ex-entry">
-                                      <span className="missed-ex-entry-hint">Need to fix this workout?</span>
-                                      <div className={historyDayRowsEditable ? 'missed-ex-entry-actions' : undefined}>
+                                      <h4>Fix this workout</h4>
+                                      <div className="missed-ex-entry-actions">
                                         {historyDayRowsEditable && (
                                           <button type="button" className="missed-ex-entry-btn edit" onClick={() => setEditWorkoutOpen(true)}>
-                                            <span className="missed-ex-entry-icon"><PencilLineIcon size={14} /></span> Edit workout
+                                            <PencilLineIcon size={13} /> Edit
                                           </button>
                                         )}
                                         <button type="button" className="missed-ex-entry-btn add" onClick={() => setMissedExOpen(true)}>
-                                          <span className="missed-ex-entry-icon"><PlusIcon size={14} /></span> Add missed exercise
+                                          <PlusIcon size={13} /> Add exercise
                                         </button>
                                       </div>
                                     </div>

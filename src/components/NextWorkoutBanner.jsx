@@ -272,18 +272,20 @@ function ReopenRow({ title, subtitle, onClick }) {
       type="button"
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', textAlign: 'center',
+        position: 'relative', display: 'block', width: '100%', textAlign: 'center',
         background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
-        borderRadius: 'var(--radius-sm, 10px)', padding: '12px 14px', marginBottom: '4px',
+        borderRadius: 'var(--radius-sm, 10px)', padding: '12px 52px', marginBottom: '4px',
         cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'
       }}
     >
+      {/* The + sits at the left edge so the text is centered across the whole row. */}
       <span aria-hidden="true" style={{
-        width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+        position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+        width: '28px', height: '28px', borderRadius: '50%',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)', fontSize: '1.1rem', fontWeight: 800
       }}>＋</span>
-      <span style={{ minWidth: 0 }}>
+      <span style={{ display: 'block', textAlign: 'center' }}>
         <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</span>
         <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
           {subtitle}

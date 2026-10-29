@@ -34,6 +34,7 @@ function mockLibrary({ gym = {}, home = {} } = {}) {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -70,22 +71,28 @@ describe('NextWorkoutBanner', () => {
     expect(screen.queryByText(/start later/)).toBeNull();
   });
 
-  it('has a ✕ that closes the picker and keeps it closed for that client on this device', async () => {
+  it('has a ✕ that closes the picker until the app is next opened, per client', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const { unmount } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
     expect(screen.queryByText(/Let’s get you started/)).toBeNull();
-    expect(localStorage.getItem('firstWorkoutPickerDismissed_u1')).toBe('1');
+    expect(sessionStorage.getItem('firstWorkoutPickerDismissed_u1')).toBe('1');
     unmount();
 
-    // Stays closed on the next visit...
+    // Stays closed while the app stays open...
     const again = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     await waitFor(() => expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalled());
     expect(screen.queryByText(/Let’s get you started/)).toBeNull();
     again.unmount();
 
-    // ...but another client on the same device still gets it.
-    render(<NextWorkoutBanner userId="u2" logs={[]} onNavigateToWorkouts={() => {}} />);
+    // ...another client on the same device still gets it...
+    const other = render(<NextWorkoutBanner userId="u2" logs={[]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
+    other.unmount();
+
+    // ...and the next time the app is opened, the full card is back.
+    sessionStorage.clear();
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
   });
 
@@ -98,7 +105,7 @@ describe('NextWorkoutBanner', () => {
 
     fireEvent.click(reopen);
     expect(screen.getByText(/Let’s get you started/)).not.toBeNull();
-    expect(localStorage.getItem('firstWorkoutPickerDismissed_u1')).toBeNull();
+    expect(sessionStorage.getItem('firstWorkoutPickerDismissed_u1')).toBeNull();
     expect(screen.queryByRole('button', { name: /Choose your level/ })).toBeNull();
   });
 

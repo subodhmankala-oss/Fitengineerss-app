@@ -42,16 +42,18 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program, pr
 export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }) {
   const [library, setLibrary] = useState(null); // null = still loading
   const [pref, setPref] = useState(undefined); // undefined = still loading
-  // The ✕ on the first-workout picker hides it for good on this device (per
-  // client) — they can still start anything from the Workouts tab, and once
-  // they log a session the normal next-program banner shows regardless.
+  // The ✕ on the first-workout picker hides it until the app is next opened
+  // (sessionStorage, per client): a client who hasn't trained yet sees the
+  // full level card on every fresh open, not a collapsed row forever
+  // (2026-10-29). They can still start anything from the Workouts tab, and
+  // once they log a session the normal next-program banner shows regardless.
   const dismissKey = `firstWorkoutPickerDismissed_${userId}`;
   const [pickerDismissed, setPickerDismissed] = useState(() => {
-    try { return localStorage.getItem(dismissKey) === '1'; } catch { return false; }
+    try { return sessionStorage.getItem(dismissKey) === '1'; } catch { return false; }
   });
   const dismissPicker = () => {
     setPickerDismissed(true);
-    try { localStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
+    try { sessionStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
   };
   // Closing it used to leave nothing in its place — an empty home screen for
   // a new client (2026-10-15: "after closing nothing shows here"). A slim
@@ -59,7 +61,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   // it is fine too.
   const reopenPicker = () => {
     setPickerDismissed(false);
-    try { localStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
+    try { sessionStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
   };
   // The ✕ on the suggestion card hides it for the program it suggests
   // (stored by name, per client): once they log a session and the

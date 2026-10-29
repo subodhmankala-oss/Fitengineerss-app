@@ -6,7 +6,9 @@ import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/re
 vi.mock('../services/databaseService', () => ({
   __esModule: true,
   default: {
-    getGenericWorkoutsByLevel: vi.fn()
+    getGenericWorkoutsByLevel: vi.fn(),
+    getLibraryLevelPref: vi.fn(() => Promise.resolve(null)),
+    saveLibraryLevelPref: vi.fn(() => Promise.resolve())
   }
 }));
 

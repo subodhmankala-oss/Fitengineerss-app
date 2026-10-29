@@ -150,9 +150,6 @@ function categoryActivity(programsByLevel, sessions) {
  *   each a Workout Library programs array (possibly empty).
  * @param {Array<{date: string, planName: string}>} sessions - the client's
  *   logged sessions, any order.
- * @param {{category?: string, level?: string}|null} [pref] - the level/category the
- *   client last chose themselves. A floor for level, and the category when no
- *   library session says otherwise.
  * @param {Date|number} [now] - defaults to the real current time; pass a
  *   fixed Date/timestamp in tests for deterministic tenure calculations.
  * @returns {{ category: 'gym'|'home', level: 'beginner'|'intermediate'|'advanced',
@@ -169,8 +166,17 @@ function categoryActivity(programsByLevel, sessions) {
  *     - 'rotation': suggest the next program after their most recent match
  *       at this level, wrapping back to the first after the last (this is
  *       also the steady state once Advanced's 3 months are reached too).
+ * @param {{level: string, category: string, since: string|null}|null} [pref] -
+ *   the level + Gym/Home the client is on (clients.library_level, set when
+ *   they start a program from the picker or this banner). When present it
+ *   decides both: that level for 12 weeks from `since`, then one level up
+ *   per further 12 weeks — the tenure clock and the never-go-backward floor
+ *   below don't apply, so opening an Intermediate program from the library
+ *   in week 2 doesn't move the suggestion.
  */
 export function determineWorkoutGuidance(library, sessions, now = Date.now(), pref = null) {
+  const fromPref = guidanceFromPref(library, sessions, now, pref);
+  if (fromPref) return fromPref;
   const safeLib = {
     gym: library?.gym || {},
     home: library?.home || {}
@@ -187,16 +193,13 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   let category = 'gym';
   if (safeSessions.length > 0) {
     const activity = { gym: categoryActivity(safeLib.gym, safeSessions), home: categoryActivity(safeLib.home, safeSessions) };
-    if (activity.gym.count === 0 && activity.home.count === 0 && CATEGORIES.includes(pref?.category)) category = pref.category;
-    else if (activity.home.count > activity.gym.count) category = 'home';
+    if (activity.home.count > activity.gym.count) category = 'home';
     else if (activity.home.count === activity.gym.count && activity.home.count > 0
       && activity.home.mostRecentDate > activity.gym.mostRecentDate) category = 'home';
   }
 
   const programsByLevel = safeLib[category];
-  let level = determineLevel(programsByLevel, safeSessions, now);
-  if (LEVELS.includes(pref?.level) && LEVELS.indexOf(pref.level) > LEVELS.indexOf(level)
-    && (programsByLevel[pref.level] || []).length > 0) level = pref.level;
+  const level = determineLevel(programsByLevel, safeSessions, now);
   const programs = programsByLevel[level] || [];
   if (programs.length === 0) return null; // this category has no programs at the level it resolved to
 
@@ -207,4 +210,24 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   if (reason === 'no-beginner-session' && level !== 'beginner') reason = 'leveled-up';
 
   return { category, level, program: pick.program, reason, lastProgram: pick.lastProgram };
+}
+
+// The chosen-level path of determineWorkoutGuidance. Null (fall back to the
+// tenure logic) when there's no valid pref or its category has no programs
+// at the level it works out to.
+function guidanceFromPref(library, sessions, now, pref) {
+  if (!LEVELS.includes(pref?.level) || !CATEGORIES.includes(pref?.category)) return null;
+  const nowMs = now instanceof Date ? now.getTime() : now;
+  const sinceMs = pref.since ? new Date(`${pref.since}T00:00:00`).getTime() : nowMs;
+  const weeks = Math.max(0, (nowMs - sinceMs) / (7 * 24 * 60 * 60 * 1000));
+  const stepsUp = Math.floor(weeks / WEEKS_PER_LEVEL);
+  const level = LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(pref.level) + stepsUp)];
+  const programs = library?.[pref.category]?.[level] || [];
+  const pick = pickNextProgramInRotation(programs, Array.isArray(sessions) ? sessions : []);
+  if (!pick) return null;
+  let reason = pick.reason;
+  // Fresh at a level the clock moved them to → "unlocked"; fresh at the level
+  // they picked themselves → the plain "start with this" card.
+  if (reason === 'no-sessions' || reason === 'no-beginner-session') reason = level !== pref.level ? 'leveled-up' : 'no-beginner-session';
+  return { category: pref.category, level, program: pick.program, reason, lastProgram: pick.lastProgram };
 }

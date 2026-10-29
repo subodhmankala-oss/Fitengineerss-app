@@ -183,26 +183,57 @@ describe('determineWorkoutGuidance', () => {
   });
 });
 
-describe('determineWorkoutGuidance with a chosen level', () => {
+describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', () => {
   const lib = {
-    gym: { beginner: [{ name: 'Beginner Full Body A' }], intermediate: [{ name: 'Intermediate Push' }], advanced: [] },
+    gym: {
+      beginner: [{ name: 'Beginner Full Body A' }, { name: 'Beginner Full Body B' }],
+      intermediate: [{ name: 'Intermediate Push' }, { name: 'Intermediate Pull' }],
+      advanced: [{ name: 'Advanced Push' }]
+    },
     home: { beginner: [{ name: 'Home Beginner A' }], intermediate: [], advanced: [] }
   };
-  const sessions = [{ date: '2026-10-29', planName: 'Push Day' }]; // not a library program
+  const at = (d) => new Date(`${d}T12:00:00`);
 
-  it('stays Beginner without a preference', () => {
-    expect(determineWorkoutGuidance(lib, sessions, new Date('2026-10-30')).level).toBe('beginner');
+  it('stays Beginner without a choice when the session is not a library program', () => {
+    const sessions = [{ date: '2026-10-29', planName: 'Push Day' }];
+    expect(determineWorkoutGuidance(lib, sessions, at('2026-10-30')).level).toBe('beginner');
   });
 
-  it('honours the level the client chose when their session is not a library program', () => {
-    const g = determineWorkoutGuidance(lib, sessions, new Date('2026-10-30'), { category: 'gym', level: 'intermediate' });
+  it('keeps the chosen Intermediate, as the plain start card, for the first 12 weeks', () => {
+    const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
+    const sessions = [{ date: '2026-10-29', planName: 'Push Day' }];
+    const g = determineWorkoutGuidance(lib, sessions, at('2027-01-20'), pref); // week 12 minus a day
     expect(g.level).toBe('intermediate');
     expect(g.program.name).toBe('Intermediate Push');
+    expect(g.reason).toBe('no-beginner-session');
   });
 
-  it('ignores a chosen level that has no programs', () => {
-    const g = determineWorkoutGuidance(lib, sessions, new Date('2026-10-30'), { category: 'home', level: 'advanced' });
+  it('rotates within the chosen level', () => {
+    const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
+    const sessions = [{ date: '2026-11-02', planName: 'Intermediate Push' }];
+    expect(determineWorkoutGuidance(lib, sessions, at('2026-11-03'), pref).program.name).toBe('Intermediate Pull');
+  });
+
+  it('moves up one level after 12 weeks', () => {
+    const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
+    const g = determineWorkoutGuidance(lib, [], at('2027-01-22'), pref);
+    expect(g.level).toBe('advanced');
+    expect(g.reason).toBe('leveled-up');
+  });
+
+  it('does not jump early when a Beginner opens an Intermediate program from the library', () => {
+    const pref = { level: 'beginner', category: 'gym', since: '2026-10-01' };
+    const sessions = [
+      { date: '2026-10-01', planName: 'Beginner Full Body A' },
+      { date: '2026-10-11', planName: 'Intermediate Push' }
+    ];
+    const g = determineWorkoutGuidance(lib, sessions, at('2026-10-20'), pref);
     expect(g.level).toBe('beginner');
-    expect(g.category).toBe('home');
+    expect(g.program.name).toBe('Beginner Full Body B');
+  });
+
+  it('falls back to the tenure logic when the chosen level has no programs', () => {
+    const g = determineWorkoutGuidance(lib, [], at('2026-10-30'), { level: 'intermediate', category: 'home', since: '2026-10-29' });
+    expect(g.reason).toBe('no-sessions');
   });
 });

@@ -11,10 +11,6 @@
 export function startLibraryProgram(userId, category, level, program) {
   if (!userId || !program) return;
   try {
-    // What the client chose (first-workout picker or banner), so the home
-    // guidance doesn't snap back to Beginner when the session they logged
-    // isn't a named library program — see determineWorkoutGuidance `pref`.
-    localStorage.setItem(`libraryLevelPref_${userId}`, JSON.stringify({ category, level }));
     localStorage.setItem(`workoutTrackerLastTab_${userId}`, 'templates');
     localStorage.setItem(`workoutTrackerLastLevel_${userId}`, level);
     localStorage.setItem(`workoutTrackerLastCategory_${userId}`, category);

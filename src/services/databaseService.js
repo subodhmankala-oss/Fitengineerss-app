@@ -5033,6 +5033,50 @@ const databaseService = {
     }
   },
 
+  // The Workout Library level + Gym/Home the home banner keeps the client on,
+  // and the day that level started (12 weeks per level — see
+  // determineWorkoutGuidance's `pref`). sql/clients_library_level.sql.
+  // localStorage mirrors it so the banner still works offline or before the
+  // columns exist; the server copy wins when it has one.
+  async getLibraryLevelPref(userId) {
+    if (!userId) return null;
+    const localKey = `libraryLevelPref_${userId}`;
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem(localKey) || 'null'); } catch { /* none saved */ }
+    if (!isSupabaseConfigured) return local;
+    try {
+      const rows = await restSelect(`clients?user_id=eq.${encodeURIComponent(userId)}&select=library_level,library_category,library_level_since`);
+      const row = Array.isArray(rows) ? rows[0] : null;
+      if (row?.library_level) {
+        const pref = { level: row.library_level, category: row.library_category || 'gym', since: row.library_level_since || null };
+        try { localStorage.setItem(localKey, JSON.stringify(pref)); } catch { /* storage full/blocked */ }
+        return pref;
+      }
+    } catch (e) {
+      console.warn('getLibraryLevelPref failed (using local copy):', e.message || e);
+    }
+    return local;
+  },
+
+  // Saves the level/category the client just started a program at. The
+  // 12-week clock (`since`) restarts only when the level actually changes —
+  // starting the next program at the same level keeps it running.
+  async saveLibraryLevelPref(userId, { level, category }, previous = null) {
+    if (!userId || !level) return;
+    const today = new Date().toLocaleDateString('en-CA');
+    const since = previous?.level === level && previous?.since ? previous.since : today;
+    const pref = { level, category, since };
+    try { localStorage.setItem(`libraryLevelPref_${userId}`, JSON.stringify(pref)); } catch { /* storage full/blocked */ }
+    if (!isSupabaseConfigured) return;
+    try {
+      await restUpdate(`clients?user_id=eq.${encodeURIComponent(userId)}`, {
+        library_level: level, library_category: category, library_level_since: since
+      });
+    } catch (e) {
+      console.warn('saveLibraryLevelPref failed (kept on this device):', e.message || e);
+    }
+  },
+
   // Dismissing the welcome banner marks it seen server-side so it stops
   // resurfacing across devices/logins, same reasoning as markCoachNoteRead.
   async markWelcomeSeen(userId) {

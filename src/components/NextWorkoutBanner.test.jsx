@@ -245,7 +245,10 @@ describe('NextWorkoutBanner', () => {
     fireEvent.click(screen.getByLabelText('Close'));
     expect(onNavigate).not.toHaveBeenCalled();
     expect(screen.queryByText(/Keep going — next up/)).toBeNull();
-    fireEvent.click(screen.getByText('Suggested workout'));
+    // The row left behind offers the level chooser, with a way back to the suggestion.
+    fireEvent.click(screen.getByText('Choose your level'));
+    expect(screen.getByText('What’s your level?')).not.toBeNull();
+    fireEvent.click(screen.getByText('Show the suggested workout again'));
     expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
   });
 

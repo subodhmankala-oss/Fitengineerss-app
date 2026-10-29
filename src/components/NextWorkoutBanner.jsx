@@ -77,6 +77,10 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     setBannerDismissedFor('');
     try { localStorage.removeItem(bannerDismissKey); } catch { /* storage blocked */ }
   };
+  // The row left after closing the suggestion is "Choose your level": it opens
+  // the same Gym/Home + Beginner/Intermediate/Advanced picker as a new client's,
+  // so the client can pick their own level instead of the suggested one.
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +187,34 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
 
   const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref);
   if (bannerDismissedFor === program.name) {
-    return <ReopenRow title="Suggested workout" subtitle={program.name} onClick={reopenBanner} />;
+    if (!chooserOpen) {
+      return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={() => setChooserOpen(true)} />;
+    }
+    return (
+      <div
+        style={{
+          position: 'relative',
+          background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
+          borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
+        }}
+      >
+        <CloseButton title="Close" onClick={() => setChooserOpen(false)} />
+        <FirstWorkoutPicker
+          library={library}
+          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref)}
+        />
+        <button
+          type="button"
+          onClick={() => { setChooserOpen(false); reopenBanner(); }}
+          style={{
+            display: 'block', margin: '10px auto 0', background: 'transparent', border: 'none',
+            color: 'var(--accent-text)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
+          }}
+        >
+          Show the suggested workout again
+        </button>
+      </div>
+    );
   }
   const focus = todaysFocus(program, level, category, logs);
 

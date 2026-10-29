@@ -191,8 +191,13 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       ? '🌱 Keep going — next up'
       : '🌱 New here? Start with this';
 
+  // "3 months as a Gym Beginner" only for a client who actually did that
+  // level's programs — the clock counts weeks since the first log, so a
+  // client on coach plans (or who logged once, months ago) reaches it too.
   const body = reason === 'leveled-up'
-    ? `You've put in your 3 months as a ${categoryLabel} ${lastProgramLevelLabel(level)}! Time to level up — try ${program.name}.`
+    ? didPreviousLevel(library, category, level, sessions)
+      ? `You've put in your 3 months as a ${categoryLabel} ${lastProgramLevelLabel(level)}! Time to level up — try ${program.name}.`
+      : `You've been training for 3 months — time to level up! Try ${program.name}.`
     : reason === 'rotation'
       ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
@@ -266,6 +271,16 @@ function todaysFocus(program, level, category, logs) {
     parts.push(`🎯 ${muscle} finisher${daysSince == null ? '' : ` (${daysSince} days)`}`);
   }
   return parts;
+}
+
+// Whether the client logged any program from the level below `currentLevel`
+// in this category (same name matching as utils/beginnerGuidance).
+function didPreviousLevel(library, category, currentLevel, sessions) {
+  const idx = LEVELS.indexOf(currentLevel);
+  if (idx <= 0) return false;
+  const squash = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const names = new Set((library?.[category]?.[LEVELS[idx - 1]] || []).map(p => squash(p.name)));
+  return sessions.some(s => names.has(squash(s.planName)));
 }
 
 // The level just cleared, for the 'leveled-up' message ("completed every

@@ -1514,8 +1514,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   //
   //   1. A tenure gate — minimum weeks since their FIRST ever logged session
   //      — that caps which tier is reachable at all, regardless of score:
-  //      Beginner (0-4wk) → Intermediate (4-12wk) → Advanced (12-26wk) →
-  //      Elite (26wk+).
+  //      Beginner (0-12wk) → Intermediate (12-24wk) → Advanced (24-36wk) →
+  //      Elite (36wk+) — the same 12 weeks per level as the home banner's
+  //      Workout Library level (utils/beginnerGuidance WEEKS_PER_LEVEL), so
+  //      the two never disagree about which level a client is at.
   //   2. A 0-100 score computed from their WHOLE history (not a 30-day/
   //      6-session window), which decides where within that tenure-allowed
   //      range they actually land — someone eligible for Advanced by tenure
@@ -1578,7 +1580,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const decay = idleDecayPoints(clientSessions[clientSessions.length - 1].date);
     const score = Math.max(0, consistencyPct * 50 + overloadPct * 50 - decay); // 0–100
     const scoreTierIndex = Math.min(3, Math.floor(score / 25));
-    const tenureTierIndex = weeksActive >= 26 ? 3 : weeksActive >= 12 ? 2 : weeksActive >= 4 ? 1 : 0;
+    const tenureTierIndex = weeksActive >= 36 ? 3 : weeksActive >= 24 ? 2 : weeksActive >= 12 ? 1 : 0;
     const tierIndex = Math.min(scoreTierIndex, tenureTierIndex);
     // Position within the active tier's own slice, for the marker — driven
     // by whichever of the two axes (score or tenure) is the actual
@@ -1591,7 +1593,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     // reflected, so a tenure-capped client still sees the marker creep
     // forward as calendar weeks pass, and a score-capped client (tenure
     // already qualifies them higher) still sees it driven by score.
-    const TIER_WEEK_BOUNDS = [[0, 4], [4, 12], [12, 26], [26, Infinity]];
+    const TIER_WEEK_BOUNDS = [[0, 12], [12, 24], [24, 36], [36, Infinity]];
     const [bandStart, bandEnd] = TIER_WEEK_BOUNDS[tierIndex];
     const tenureWithinPct = bandEnd === Infinity ? 1 : Math.min(1, Math.max(0, (realWeeksActive - bandStart) / (bandEnd - bandStart)));
     const scoreWithinPct = Math.min(1, Math.max(0, (score - tierIndex * 25) / 25));
@@ -3073,10 +3075,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                 </div>
                 <div className="skill-level-labels">
                   {[
-                    ['Beginner', '0-4wk'],
-                    ['Intermediate', '4-12wk'],
-                    ['Advanced', '12-26wk'],
-                    ['Elite', '26wk+']
+                    ['Beginner', '0-12wk'],
+                    ['Intermediate', '12-24wk'],
+                    ['Advanced', '24-36wk'],
+                    ['Elite', '36wk+']
                   ].map(([tier, weeks], i) => (
                     <span key={tier} className={`skill-level-label-item ${i === skillLevel.tierIndex ? 'active' : ''}`}>
                       {tier}

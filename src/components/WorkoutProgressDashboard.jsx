@@ -155,6 +155,7 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // timeframe content (see showWelcomeBack below) whenever the client has
   // no active plan — silently swallowing the deep link's target tab behind
   // an extra "Show my progress" tap the client had no reason to expect.
+  const [mountedAt] = useState(() => Date.now());
   const [bypassWelcomeBack, setBypassWelcomeBack] = useState(() => initialTimeframe === 'muscles');
 
   useEffect(() => {
@@ -829,7 +830,12 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // an empty plans list is the only existing availability signal, so it
   // stands in for both halves of the brief's trigger condition, and applies
   // the same way to coach-connected and generic (unconnected) clients alike.
-  const showWelcomeBack = !loading && logs.length > 0 && plansLoaded && clientPlans.length === 0 && !bypassWelcomeBack;
+  // "Your progress didn't disappear while you were away" only makes sense for
+  // someone who has been away: a client who trained in the last week (e.g.
+  // logged today, then reopened the app) goes straight to their dashboard.
+  const latestLogDate = logs.reduce((m, l) => (l.log_date && l.log_date > m ? l.log_date : m), '');
+  const daysSinceLastLog = latestLogDate ? (mountedAt - new Date(`${latestLogDate}T00:00:00`).getTime()) / 86400000 : Infinity;
+  const showWelcomeBack = !loading && logs.length > 0 && plansLoaded && clientPlans.length === 0 && !bypassWelcomeBack && daysSinceLastLog >= 7;
 
   return (
     <div className="workout-progress-container animate-slide-up">

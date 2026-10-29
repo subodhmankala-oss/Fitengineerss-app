@@ -92,7 +92,9 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   });
   const sessions = Array.from(sessionsByDate.values());
 
-  const guidance = determineWorkoutGuidance(library, sessions);
+  let pref = null;
+  try { pref = JSON.parse(localStorage.getItem(`libraryLevelPref_${userId}`) || 'null'); } catch { /* none saved */ }
+  const guidance = determineWorkoutGuidance(library, sessions, undefined, pref);
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home

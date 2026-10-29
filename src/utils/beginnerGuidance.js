@@ -150,6 +150,9 @@ function categoryActivity(programsByLevel, sessions) {
  *   each a Workout Library programs array (possibly empty).
  * @param {Array<{date: string, planName: string}>} sessions - the client's
  *   logged sessions, any order.
+ * @param {{category?: string, level?: string}|null} [pref] - the level/category the
+ *   client last chose themselves. A floor for level, and the category when no
+ *   library session says otherwise.
  * @param {Date|number} [now] - defaults to the real current time; pass a
  *   fixed Date/timestamp in tests for deterministic tenure calculations.
  * @returns {{ category: 'gym'|'home', level: 'beginner'|'intermediate'|'advanced',
@@ -167,7 +170,7 @@ function categoryActivity(programsByLevel, sessions) {
  *       at this level, wrapping back to the first after the last (this is
  *       also the steady state once Advanced's 3 months are reached too).
  */
-export function determineWorkoutGuidance(library, sessions, now = Date.now()) {
+export function determineWorkoutGuidance(library, sessions, now = Date.now(), pref = null) {
   const safeLib = {
     gym: library?.gym || {},
     home: library?.home || {}
@@ -184,13 +187,16 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now()) {
   let category = 'gym';
   if (safeSessions.length > 0) {
     const activity = { gym: categoryActivity(safeLib.gym, safeSessions), home: categoryActivity(safeLib.home, safeSessions) };
-    if (activity.home.count > activity.gym.count) category = 'home';
+    if (activity.gym.count === 0 && activity.home.count === 0 && CATEGORIES.includes(pref?.category)) category = pref.category;
+    else if (activity.home.count > activity.gym.count) category = 'home';
     else if (activity.home.count === activity.gym.count && activity.home.count > 0
       && activity.home.mostRecentDate > activity.gym.mostRecentDate) category = 'home';
   }
 
   const programsByLevel = safeLib[category];
-  const level = determineLevel(programsByLevel, safeSessions, now);
+  let level = determineLevel(programsByLevel, safeSessions, now);
+  if (LEVELS.includes(pref?.level) && LEVELS.indexOf(pref.level) > LEVELS.indexOf(level)
+    && (programsByLevel[pref.level] || []).length > 0) level = pref.level;
   const programs = programsByLevel[level] || [];
   if (programs.length === 0) return null; // this category has no programs at the level it resolved to
 

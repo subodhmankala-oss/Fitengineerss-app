@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
 import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
+import { computeSkillLevel } from '../utils/skillLevel';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import { buildWarmupExercises } from '../utils/warmupBlocks';
@@ -104,7 +105,24 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   });
   const sessions = Array.from(sessionsByDate.values());
 
-  const guidance = determineWorkoutGuidance(library, sessions, undefined, pref);
+  // The Training Level bar (Workouts tab) is the level the client sees as
+  // theirs, so the suggestion never drops below it — a client who just left
+  // their coach shows Intermediate there, not Beginner programs here.
+  // Library has no Elite, so it maps to Advanced.
+  const exercisesByDate = new Map();
+  (logs || []).forEach(l => {
+    if (!l.log_date || !l.exercise_name) return;
+    const byName = exercisesByDate.get(l.log_date) || {};
+    (byName[l.exercise_name] = byName[l.exercise_name] || []).push({ weight: l.weight_kg });
+    exercisesByDate.set(l.log_date, byName);
+  });
+  const skillSessions = [...exercisesByDate.keys()].sort().map(date => ({
+    date,
+    exercises: Object.entries(exercisesByDate.get(date)).map(([name, sets]) => ({ name, sets }))
+  }));
+  const minLevel = LEVELS[Math.min(LEVELS.length - 1, computeSkillLevel(skillSessions).tierIndex)];
+
+  const guidance = determineWorkoutGuidance(library, sessions, undefined, pref, minLevel);
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home

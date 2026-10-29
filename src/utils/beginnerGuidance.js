@@ -173,9 +173,12 @@ function categoryActivity(programsByLevel, sessions) {
  *   per further 12 weeks — the tenure clock and the never-go-backward floor
  *   below don't apply, so opening an Intermediate program from the library
  *   in week 2 doesn't move the suggestion.
+ * @param {string|null} [minLevel] - never suggest a level below this one. The
+ *   Home banner passes the client's Training Level tier here so the two cards
+ *   can't disagree (Intermediate on the bar, Beginner programs below it).
  */
-export function determineWorkoutGuidance(library, sessions, now = Date.now(), pref = null) {
-  const fromPref = guidanceFromPref(library, sessions, now, pref);
+export function determineWorkoutGuidance(library, sessions, now = Date.now(), pref = null, minLevel = null) {
+  const fromPref = guidanceFromPref(library, sessions, now, pref, minLevel);
   if (fromPref) return fromPref;
   const safeLib = {
     gym: library?.gym || {},
@@ -199,7 +202,7 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   }
 
   const programsByLevel = safeLib[category];
-  const level = determineLevel(programsByLevel, safeSessions, now);
+  const level = atLeastLevel(determineLevel(programsByLevel, safeSessions, now), minLevel);
   const programs = programsByLevel[level] || [];
   if (programs.length === 0) return null; // this category has no programs at the level it resolved to
 
@@ -212,16 +215,19 @@ export function determineWorkoutGuidance(library, sessions, now = Date.now(), pr
   return { category, level, program: pick.program, reason, lastProgram: pick.lastProgram };
 }
 
+const atLeastLevel = (level, minLevel) =>
+  LEVELS.indexOf(minLevel) > LEVELS.indexOf(level) ? minLevel : level;
+
 // The chosen-level path of determineWorkoutGuidance. Null (fall back to the
 // tenure logic) when there's no valid pref or its category has no programs
 // at the level it works out to.
-function guidanceFromPref(library, sessions, now, pref) {
+function guidanceFromPref(library, sessions, now, pref, minLevel) {
   if (!LEVELS.includes(pref?.level) || !CATEGORIES.includes(pref?.category)) return null;
   const nowMs = now instanceof Date ? now.getTime() : now;
   const sinceMs = pref.since ? new Date(`${pref.since}T00:00:00`).getTime() : nowMs;
   const weeks = Math.max(0, (nowMs - sinceMs) / (7 * 24 * 60 * 60 * 1000));
   const stepsUp = Math.floor(weeks / WEEKS_PER_LEVEL);
-  const level = LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(pref.level) + stepsUp)];
+  const level = atLeastLevel(LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(pref.level) + stepsUp)], minLevel);
   const programs = library?.[pref.category]?.[level] || [];
   const pick = pickNextProgramInRotation(programs, Array.isArray(sessions) ? sessions : []);
   if (!pick) return null;

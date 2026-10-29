@@ -208,6 +208,21 @@ describe('determineWorkoutGuidance with a chosen level (12 weeks per level)', ()
     expect(g.reason).toBe('no-beginner-session');
   });
 
+  it('never suggests below the minLevel (the Training Level tier)', () => {
+    const sessions = [{ date: '2026-10-29', planName: 'Push Day' }];
+    expect(determineWorkoutGuidance(lib, sessions, at('2026-10-30'), null, 'intermediate').level).toBe('intermediate');
+    const pref = { level: 'beginner', category: 'gym', since: '2026-10-29' };
+    const g = determineWorkoutGuidance(lib, sessions, at('2026-10-30'), pref, 'intermediate');
+    expect(g.level).toBe('intermediate');
+    expect(g.reason).toBe('leveled-up');
+  });
+
+  it('ignores a minLevel that is lower than the level already reached', () => {
+    const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
+    const sessions = [{ date: '2026-10-29', planName: 'Push Day' }];
+    expect(determineWorkoutGuidance(lib, sessions, at('2026-10-30'), pref, 'beginner').level).toBe('intermediate');
+  });
+
   it('rotates within the chosen level', () => {
     const pref = { level: 'intermediate', category: 'gym', since: '2026-10-29' };
     const sessions = [{ date: '2026-11-02', planName: 'Intermediate Push' }];

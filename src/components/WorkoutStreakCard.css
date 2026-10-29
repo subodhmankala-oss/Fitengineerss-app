@@ -4,28 +4,27 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  border-radius: 20px;
-  padding: 7px 11px 7px 9px;
-  font-size: 0.9rem;
-  font-weight: 900;
+  border-radius: 999px;
+  padding: 5px 10px 5px 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   font-family: inherit;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: transparent;
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
   color: var(--tint-amber);
   transition: transform 0.15s ease;
 }
 .streak-badge:active { transform: scale(0.92); }
+/* Header badge stays a quiet outline; only the border warms while it's alive. */
 .streak-badge.is-active {
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.25), rgba(245, 158, 11, 0.15));
-  box-shadow: 0 0 14px rgba(251, 146, 60, 0.35);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 .streak-badge.is-lapsed {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.3);
   color: var(--text-muted);
 }
+.streak-badge .streak-flame { font-size: 0.85rem; }
 
 /* The flame flickers while the streak is alive; slower and smaller when it's
    hungry (at risk), still and grey once it's out. */

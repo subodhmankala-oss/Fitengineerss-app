@@ -249,6 +249,18 @@ describe('NextWorkoutBanner', () => {
     expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
   });
 
+  it('a client who chose a level but has never trained: "New here?" with no "new this week"', async () => {
+    const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+    mockLibrary({ gym: { beginner: [
+      { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
+      { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') }
+    ] } });
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: null });
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/New here\? Start with this/)).not.toBeNull();
+    expect(Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent)).toEqual(['🔥 Warm-up']);
+  });
+
   it('shows no finisher until the client has 3 logged sessions', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];

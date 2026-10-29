@@ -847,14 +847,14 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
             email={localStorage.getItem('userEmail')}
             name={userName}
             avatarUrl={localStorage.getItem('userAvatarUrl')}
-            size={44}
+            size={40}
             style={{ borderRadius: 'var(--radius-md)' }}
           />
           <div className="profile-titles">
             {/* "Welcome back" reads oddly for a client who's never logged a
                 workout yet — logs.length is the same "first-time" signal
                 the empty state below already uses. */}
-            <span className="welcome-span">{logs.length === 0 ? 'Welcome,' : 'Welcome back,'}</span>
+            <span className="welcome-span">{logs.length === 0 ? 'Welcome' : 'Welcome back'}</span>
             <h2 className="profile-name-text">{userName}</h2>
           </div>
         </div>
@@ -870,27 +870,35 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
               else setShowConnectModal(true);
             }}
             disabled={coachStatusPending}
-            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Connect to coach')}
+            title={coachStatusPending ? 'Checking coach status…' : (isLinkedToCoach ? `Connected to Coach: ${coachName || ''}` : 'Link your coach')}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              // Accent styling when connected to a coach;
-              // the plain state uses the theme's text colour — it was fixed
-              // #fff, unreadable on the light theme's pale chip.
-              background: coachStatusPending ? 'rgba(var(--fg-rgb), 0.03)' : (isLinkedToCoach ? 'rgba(var(--accent-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)'),
-              border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(var(--accent-rgb), 0.3)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
-              color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : 'var(--text-main)'),
-              borderRadius: '20px', padding: '7px 12px', fontSize: '0.75rem', fontWeight: 700,
-              cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap'
+              // Accent styling when connected to a coach; the plain state is a
+              // quiet outline pill so it doesn't compete with the name.
+              background: isLinkedToCoach && !coachStatusPending ? 'rgba(var(--accent-rgb), 0.08)' : 'transparent',
+              border: coachStatusPending ? '1px solid rgba(var(--fg-rgb), 0.06)' : (isLinkedToCoach ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid rgba(var(--fg-rgb), 0.12)'),
+              color: coachStatusPending ? 'rgba(var(--fg-rgb), 0.4)' : (isLinkedToCoach ? 'var(--primary-accent-light)' : 'var(--text-muted)'),
+              borderRadius: '999px', padding: '5px 11px', fontSize: '0.78rem', fontWeight: 500,
+              cursor: coachStatusPending ? 'default' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit'
             }}
           >
             {coachStatusPending ? (
               'Checking…'
             ) : isLinkedToCoach ? (
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.25 }}>
-                <span style={{ fontSize: '0.6rem', fontWeight: 600, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Coach:</span>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>{coachName || 'Coach'}</span>
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
+                <span style={{ fontSize: '0.6rem', fontWeight: 500, opacity: 0.8 }}>Coach</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{coachName || 'Coach'}</span>
               </span>
-            ) : '🔗 Connect to coach'}
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 15l6 -6" />
+                  <path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" />
+                  <path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" />
+                </svg>
+                Link coach
+              </>
+            )}
           </button>
         </div>
       </div>

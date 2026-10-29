@@ -965,9 +965,12 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
-          // The DB draft doesn't carry loggingLevel (not persisted server-side) —
-          // reset it rather than leave a stale value from a previous session.
-          setLoggingLevel(null);
+          // The DB draft doesn't carry loggingLevel (not persisted server-side).
+          // For this same session (the usual case: reopening the app, where the
+          // server copy is a moment newer) keep the local copy's level — else a
+          // Beginner session lost its inline form videos on every reopen.
+          // A different session's level would be stale, so that resets.
+          setLoggingLevel(sameSession && !draftIsStale ? (savedWorkoutDraft?.loggingLevel ?? null) : null);
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
           if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
             setWorkoutTimerStartedAt(Date.now());

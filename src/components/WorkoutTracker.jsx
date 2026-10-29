@@ -327,6 +327,19 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // form video next to their name in the logger — intermediate/advanced and
   // every other entry point stay exactly as they were (Form Guide button only).
   const [loggingLevel, setLoggingLevel] = useState(savedWorkoutDraft?.loggingLevel ?? null);
+  // An open session can come back without its level: restored from the
+  // server copy (which doesn't store it) on another phone or app link — each
+  // has its own storage — or carried over from an older build. A Workout
+  // Library program's name says its level (names are unique across levels),
+  // so look it up — else a Beginner session silently lost its inline videos.
+  useEffect(() => {
+    if (!isLoggingWorkout || loggingLevel || !templateName) return undefined;
+    let cancelled = false;
+    Promise.resolve(databaseService.getLibraryProgramLevel?.(templateName))
+      .then(level => { if (!cancelled && level) setLoggingLevel(prev => prev ?? level); })
+      .catch(() => { /* no level → no beginner videos, same as before */ });
+    return () => { cancelled = true; };
+  }, [isLoggingWorkout, loggingLevel, templateName]);
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
@@ -970,6 +983,8 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           // server copy is a moment newer) keep the local copy's level — else a
           // Beginner session lost its inline form videos on every reopen.
           // A different session's level would be stale, so that resets.
+          // With no local copy to take it from, the library-name lookup below
+          // fills it in.
           setLoggingLevel(sameSession && !draftIsStale ? (savedWorkoutDraft?.loggingLevel ?? null) : null);
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
           if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {

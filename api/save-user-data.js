@@ -270,6 +270,7 @@ async function listTestimonialsForClient(callerId, clientRow) {
     quote: r.quote,
     result: r.result || '',
     clientName: shortClientName(r.client?.full_name),
+    clientAvatarUrl: r.client?.avatar_url || null,
     monthsTrained: monthsTrained(joinedAt[r.client_user_id]),
   });
   return {

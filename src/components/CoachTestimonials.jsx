@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Avatar from './Avatar';
 import databaseService from '../services/databaseService';
 import { MAX_QUOTE_LENGTH, MAX_RESULT_LENGTH, trainedLabel, googleReviewText } from '../utils/testimonials';
 
@@ -18,6 +19,7 @@ export function TestimonialCard({ t }) {
     <figure className="cdm-testimonial">
       <blockquote className="cdm-testimonial-quote">{'“'}{t.quote}{'”'}</blockquote>
       <figcaption className="cdm-testimonial-by">
+        <Avatar name={t.clientName} avatarUrl={t.clientAvatarUrl} size={22} />
         <span className="cdm-testimonial-name">{t.clientName}</span>
         <span className="cdm-testimonial-verified">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>

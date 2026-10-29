@@ -272,7 +272,7 @@ function ReopenRow({ title, subtitle, onClick }) {
       type="button"
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', textAlign: 'center',
         background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
         borderRadius: 'var(--radius-sm, 10px)', padding: '12px 14px', marginBottom: '4px',
         cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'

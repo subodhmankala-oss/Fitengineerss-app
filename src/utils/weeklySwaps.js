@@ -128,13 +128,28 @@ function weekNumber(date) {
   return Math.floor((dayUtc - MONDAY_EPOCH_UTC) / (7 * 24 * 60 * 60 * 1000));
 }
 
+// True once the client logged a workout in an earlier calendar week than
+// `date`'s. Until then there is no "last week" for a swap to differ from, so
+// a brand-new client gets the plain program — a "New this week · instead of
+// Push-up" on their very first session reads as a bug. `logDates` are
+// 'YYYY-MM-DD' (or ISO) strings.
+export function hasTrainedBeforeThisWeek(logDates, date = new Date()) {
+  const thisWeek = weekNumber(date);
+  return (logDates || []).some(d => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ''));
+    return m && weekNumber(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) < thisWeek;
+  });
+}
+
 // The program's exercises with this week's swaps applied. A swapped entry
 // keeps the original's sets/reps and gains `swappedFrom` (the original
 // name), which the logger shows as "New this week · instead of …".
 // `level` is the library level; anything else (a non-library template)
-// returns the exercises unchanged.
-export function applyWeeklySwaps({ programName, exercises, level, category, date = new Date() }) {
+// returns the exercises unchanged, as does `trainedBefore: false` (see
+// hasTrainedBeforeThisWeek).
+export function applyWeeklySwaps({ programName, exercises, level, category, date = new Date(), trainedBefore = true }) {
   const list = Array.isArray(exercises) ? exercises : [];
+  if (!trainedBefore) return list;
   // Hyrox programs train the race's own stations — swapping Wall Ball for
   // Ball Slam would miss the point — so they never swap.
   if (category === 'hyrox') return list;

@@ -47,7 +47,7 @@ import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCa
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
-import { applyWeeklySwaps } from '../utils/weeklySwaps';
+import { applyWeeklySwaps, hasTrainedBeforeThisWeek } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { idleDecayPoints } from '../utils/trainingLevelDecay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
@@ -2621,7 +2621,18 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // for its day type and Gym/Home `category` (see utils/warmupBlocks), and a
   // library program gets this week's exercise swaps (see utils/weeklySwaps).
   const handleStartFromTemplate = (template, level = null, category = genericCategory) => {
-    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category });
+    // No swaps until the client has trained in an earlier week (same rule as
+    // the Home banner). A session auto-started on mount runs before `sessions`
+    // is set, so the cached history is read directly then.
+    let history = sessions;
+    if (history.length === 0) {
+      try { history = JSON.parse(localStorage.getItem('workoutSessions') || '[]'); } catch { history = []; }
+    }
+    const me = String(loggedInUser || '').toLowerCase();
+    const trainedBefore = hasTrainedBeforeThisWeek((Array.isArray(history) ? history : [])
+      .filter(s => !s.clientName || s.clientName.toLowerCase() === me)
+      .map(s => s.date));
+    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category, trainedBefore });
     const warmups = buildWarmupExercises({ programName: template.name, exercises: programExercises, category });
     // A library program also gets one finisher for a neglected muscle that
     // fits the day (see utils/neglectedFinisher) — now if the history is

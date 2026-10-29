@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyWeeklySwaps, SWAP_ALTERNATIVES } from './weeklySwaps';
+import { applyWeeklySwaps, hasTrainedBeforeThisWeek, SWAP_ALTERNATIVES } from './weeklySwaps';
 import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
 
 const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
@@ -148,5 +148,28 @@ describe('applyWeeklySwaps', () => {
 
   it('leaves non-library templates alone', () => {
     expect(applyWeeklySwaps({ programName: 'Push Day', exercises: push, level: null, category: 'gym', date: MON })).toEqual(push);
+  });
+
+  it('gives a client who has not trained in an earlier week the plain program', () => {
+    expect(applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date: MON, trainedBefore: false })).toEqual(push);
+  });
+});
+
+describe('hasTrainedBeforeThisWeek', () => {
+  const WED = new Date(2026, 9, 14); // week starting Mon 12 Oct
+
+  it('is false with no history, or only this week', () => {
+    expect(hasTrainedBeforeThisWeek([], WED)).toBe(false);
+    expect(hasTrainedBeforeThisWeek(undefined, WED)).toBe(false);
+    expect(hasTrainedBeforeThisWeek(['2026-10-12', '2026-10-14'], WED)).toBe(false);
+  });
+
+  it('is true once a workout was logged in an earlier week', () => {
+    expect(hasTrainedBeforeThisWeek(['2026-10-11'], WED)).toBe(true);
+    expect(hasTrainedBeforeThisWeek(['2026-09-01T10:00:00Z', '2026-10-14'], WED)).toBe(true);
+  });
+
+  it('ignores blank or malformed dates', () => {
+    expect(hasTrainedBeforeThisWeek([null, '', 'yesterday'], WED)).toBe(false);
   });
 });

@@ -4,7 +4,7 @@ import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import { buildWarmupExercises } from '../utils/warmupBlocks';
-import { applyWeeklySwaps } from '../utils/weeklySwaps';
+import { applyWeeklySwaps, hasTrainedBeforeThisWeek } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
@@ -259,7 +259,8 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
 // the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new this week",
 // "🎯 Core finisher (15 days)"].
 function todaysFocus(program, level, category, logs) {
-  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category });
+  const trainedBefore = hasTrainedBeforeThisWeek((logs || []).map(l => l.log_date));
+  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category, trainedBefore });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
   const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
   const swaps = exercises.filter(ex => ex.swappedFrom).length;

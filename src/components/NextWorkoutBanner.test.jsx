@@ -221,6 +221,21 @@ describe('NextWorkoutBanner', () => {
     expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new this week · 🎯 \w+ finisher/);
   });
 
+  it('promises no "new this week" swap to a client whose only workouts are this week', async () => {
+    const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+    mockLibrary({ gym: { beginner: [
+      { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
+      { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') }
+    ] } });
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const logs = [{ log_date: today, plan_name: 'Beginner Full Body A', exercise_name: 'Goblet Squat' }];
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Next up: Beginner Full Body B/)).not.toBeNull();
+    const pills = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent);
+    expect(pills.some(p => /new this week/.test(p))).toBe(false);
+  });
+
   it('shows no finisher until the client has 3 logged sessions', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];

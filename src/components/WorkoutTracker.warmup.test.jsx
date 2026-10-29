@@ -37,6 +37,12 @@ const program = (name, ...exercises) => ({ name, exercises: exercises.map(n => (
 // warm-up card's compact rows.
 const cardTitles = () => Array.from(document.querySelectorAll('h5, .warmup-move-name')).map(el => el.textContent.trim());
 
+// Weekly swaps only start once the client has trained in an earlier week —
+// one cached session from January (nothing these programs contain, so no PREV).
+const seedEarlierWeek = () => localStorage.setItem('workoutSessions', JSON.stringify([
+  { id: 's0', clientName: 'TestClient', date: '2026-01-05', planName: 'Old', exercises: [{ name: 'Plank', sets: [{ reps: 1, weight: '0', isCompleted: true }] }] }
+]));
+
 describe('Workout Library program opens with the weekly warm-up block', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -46,6 +52,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
   afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
   it('gym upper day: this week’s 3 warm-ups first, then the program with this week’s swaps', async () => {
+    seedEarlierWeek();
     const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
     startLibraryProgram('u1', 'gym', 'intermediate', push);
     render(<TourProvider><WorkoutTracker /></TourProvider>);
@@ -69,12 +76,26 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
       .toEqual(['🔥 Warm-up · go light, about 5 min']);
   });
 
+  it('a brand-new client gets the plain program: no swaps, no "New this week"', async () => {
+    const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
+    startLibraryProgram('u1', 'gym', 'intermediate', push);
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+
+    const names = push.exercises.map(e => e.name);
+    for (const name of names) {
+      expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+    }
+    expect(cardTitles().filter(t => names.includes(t))).toEqual(names);
+    expect(document.querySelectorAll('.swap-caption')).toHaveLength(0);
+  });
+
   it('home day uses the home block, and never repeats an exercise', async () => {
     // A week whose home lower block has Glute Bridge, which this program
     // already contains — the warm-up must use a stand-in instead.
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 9, 5, 9, 0));
     try {
+      seedEarlierWeek();
       const lower = program('Home Intermediate Lower Body', 'Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit');
       startLibraryProgram('u1', 'home', 'intermediate', lower);
       render(<TourProvider><WorkoutTracker /></TourProvider>);

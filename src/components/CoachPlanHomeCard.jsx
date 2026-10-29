@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import databaseService from '../services/databaseService';
-import { getUnopenedCoachPlans } from '../utils/openedCoachPlans';
+import { getUnopenedCoachPlans, markPlanOpened } from '../utils/openedCoachPlans';
 import PlanCard from './PlanCard';
 
 // Home-screen card for a plan the coach just assigned. Shows each coach plan
@@ -10,6 +10,7 @@ import PlanCard from './PlanCard';
 // Home and lives only in Log Sets' "Coach Assigned" section.
 export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }) {
   const [plans, setPlans] = useState([]);
+  const [, setDismissTick] = useState(0);
 
   useEffect(() => {
     if (!userId) return undefined;
@@ -44,6 +45,13 @@ export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }
     onNavigateToWorkouts && onNavigateToWorkouts();
   };
 
+  // The X hides the card without starting anything. Plans stay in Log Sets →
+  // Coach Assigned; they just stop counting as new.
+  const dismiss = () => {
+    unopened.forEach(p => markPlanOpened(p.id));
+    setDismissTick(t => t + 1);
+  };
+
   return (
     <div
       style={{
@@ -51,8 +59,23 @@ export default function CoachPlanHomeCard({ userId, logs, onNavigateToWorkouts }
         borderRadius: 0, padding: '12px 14px', marginBottom: '4px'
       }}
     >
-      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>
-        📋 {unopened.length === 1 ? 'New plan from your coach' : `${unopened.length} new plans from your coach`}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent-text)' }}>
+          📋 {unopened.length === 1 ? 'New plan from your coach' : `${unopened.length} new plans from your coach`}
+        </div>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss new plans"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+            color: 'var(--accent-text)', display: 'flex', lineHeight: 0
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       </div>
       {/* Same card as Log Sets → Coach Assigned (muscle thumbnail, chips,
           est. minutes), so a plan looks identical in both places. */}

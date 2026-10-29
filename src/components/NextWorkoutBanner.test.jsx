@@ -251,7 +251,18 @@ describe('NextWorkoutBanner', () => {
     const logs = [{ log_date: daysAgo(100), plan_name: 'Beginner Full Body A' }]; // ~14 weeks ago
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Intermediate unlocked!/)).not.toBeNull();
+    expect(screen.getByText(/3 months as a Gym Beginner/)).not.toBeNull();
     expect(screen.getByText(/Intermediate Push/)).not.toBeNull();
+  });
+
+  it("doesn't claim 3 months as a Beginner when the client never did a Beginner program", async () => {
+    mockLibrary({ gym: { beginner: gymBeginner, intermediate: [{ name: 'Intermediate Push', exercises: [] }] } });
+    const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const logs = [{ log_date: daysAgo(100), plan_name: 'Coach Push Day' }];
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Intermediate unlocked!/)).not.toBeNull();
+    expect(screen.getByText(/You've been training for 3 months/)).not.toBeNull();
+    expect(screen.queryByText(/as a Gym Beginner/)).toBeNull();
   });
 
   it('writes the last-tab/last-level/last-category and auto-start localStorage keys, then navigates on click (has-history case, not the zero-session choice)', async () => {

@@ -61,6 +61,22 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     setPickerDismissed(false);
     try { localStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
   };
+  // The ✕ on the suggestion card hides it for the program it suggests
+  // (stored by name, per client): once they log a session and the
+  // suggestion moves on, the next one shows. A slim row stays in its place
+  // to bring it back, same as the picker above.
+  const bannerDismissKey = `nextWorkoutBannerDismissed_${userId}`;
+  const [bannerDismissedFor, setBannerDismissedFor] = useState(() => {
+    try { return localStorage.getItem(bannerDismissKey) || ''; } catch { return ''; }
+  });
+  const dismissBanner = (programName) => {
+    setBannerDismissedFor(programName);
+    try { localStorage.setItem(bannerDismissKey, programName); } catch { /* storage blocked — hidden until reload */ }
+  };
+  const reopenBanner = () => {
+    setBannerDismissedFor('');
+    try { localStorage.removeItem(bannerDismissKey); } catch { /* storage blocked */ }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -123,30 +139,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     );
     if (!hasAnyProgram) return null;
     if (pickerDismissed) {
-      return (
-        <button
-          type="button"
-          onClick={reopenPicker}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-            background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
-            borderRadius: 'var(--radius-sm, 10px)', padding: '12px 14px', marginBottom: '4px',
-            cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'
-          }}
-        >
-          <span aria-hidden="true" style={{
-            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)', fontSize: '1.1rem', fontWeight: 800
-          }}>＋</span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-text)' }}>Choose your level</span>
-            <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Gym or Home · Beginner, Intermediate or Advanced
-            </span>
-          </span>
-        </button>
-      );
+      return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={reopenPicker} />;
     }
 
     return (
@@ -157,21 +150,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
           borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
         }}
       >
-        <button
-          type="button"
-          onClick={dismissPicker}
-          aria-label="Close"
-          title="Close — I don’t want to start yet"
-          style={{
-            position: 'absolute', top: '10px', right: '10px', zIndex: 1,
-            width: '32px', height: '32px', borderRadius: '50%',
-            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
-            color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
-          }}
-        >
-          ✕
-        </button>
+        <CloseButton title="Close — I don’t want to start yet" onClick={dismissPicker} />
         <FirstWorkoutPicker
           library={library}
           onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref)}
@@ -203,6 +182,9 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
 
   const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref);
+  if (bannerDismissedFor === program.name) {
+    return <ReopenRow title="Suggested workout" subtitle={program.name} onClick={reopenBanner} />;
+  }
   const focus = todaysFocus(program, level, category, logs);
 
   return (
@@ -214,10 +196,15 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       style={{
         display: 'flex', flexDirection: 'column', gap: '10px',
         background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
+        position: 'relative',
         borderRadius: 0, padding: '18px 16px', marginBottom: '4px', cursor: 'pointer'
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <CloseButton
+        title="Close — I don’t want this suggestion now"
+        onClick={(e) => { e.stopPropagation(); dismissBanner(program.name); }}
+      />
+      <div style={{ minWidth: 0, paddingRight: '36px' }}>
         <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
         <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>{body}</div>
       </div>
@@ -250,6 +237,59 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         Start workout →
       </span>
     </div>
+  );
+}
+
+// ✕ in the top-right corner of a banner card.
+function CloseButton({ title, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      // Enter/Space on the ✕ must not reach a tappable card underneath.
+      onKeyDown={(e) => e.stopPropagation()}
+      aria-label="Close"
+      title={title}
+      style={{
+        position: 'absolute', top: '10px', right: '10px', zIndex: 1,
+        width: '32px', height: '32px', borderRadius: '50%',
+        background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+        color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
+      }}
+    >
+      ✕
+    </button>
+  );
+}
+
+// What a closed card leaves behind, so the home screen isn't left empty
+// (2026-10-15: "after closing nothing shows here"): one slim row that
+// brings the card back.
+function ReopenRow({ title, subtitle, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+        background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
+        borderRadius: 'var(--radius-sm, 10px)', padding: '12px 14px', marginBottom: '4px',
+        cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'
+      }}
+    >
+      <span aria-hidden="true" style={{
+        width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)', fontSize: '1.1rem', fontWeight: 800
+      }}>＋</span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          {subtitle}
+        </span>
+      </span>
+    </button>
   );
 }
 

@@ -236,6 +236,19 @@ describe('NextWorkoutBanner', () => {
     expect(pills.some(p => /new this week/.test(p))).toBe(false);
   });
 
+  it('the suggestion card closes to a slim row that brings it back, without starting the workout', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    const onNavigate = vi.fn();
+    const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
+    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Keep going — next up/)).toBeNull();
+    fireEvent.click(screen.getByText('Suggested workout'));
+    expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
+  });
+
   it('shows no finisher until the client has 3 logged sessions', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
@@ -285,7 +298,7 @@ describe('NextWorkoutBanner', () => {
     const onNavigate = vi.fn();
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
-    const banner = await screen.findByRole('button');
+    const banner = (await screen.findAllByRole('button')).find(b => b.getAttribute('aria-label') !== 'Close');
     banner.click();
     expect(localStorage.getItem('workoutTrackerLastTab_u1')).toBe('templates');
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('beginner');
@@ -303,7 +316,7 @@ describe('NextWorkoutBanner', () => {
     });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Home Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    const banner = await screen.findByRole('button');
+    const banner = (await screen.findAllByRole('button')).find(b => b.getAttribute('aria-label') !== 'Close');
     banner.click();
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('home');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));

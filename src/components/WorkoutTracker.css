@@ -1135,6 +1135,13 @@
   justify-content: space-between;
 }
 
+.skill-level-decay {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
 .skill-level-label-item {
   display: flex;
   flex-direction: column;

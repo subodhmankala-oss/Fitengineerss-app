@@ -49,6 +49,7 @@ import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
 import { applyWeeklySwaps } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
+import { idleDecayPoints } from '../utils/trainingLevelDecay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 
 // Default dynamic warm-up block — auto-prepended whenever a client starts a
@@ -1535,7 +1536,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   const skillLevel = (() => {
     const tiers = ['Beginner', 'Intermediate', 'Advanced', 'Elite'];
     if (clientSessions.length === 0) {
-      return { score: 0, tier: tiers[0], tierIndex: 0, withinTierPct: 0 };
+      return { score: 0, tier: tiers[0], tierIndex: 0, withinTierPct: 0, decay: 0 };
     }
 
     const firstDate = new Date(`${clientSessions[0].date}T00:00:00`);
@@ -1572,7 +1573,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     });
     const overloadPct = comparisons > 0 ? maintainedOrUp / comparisons : 0;
 
-    const score = consistencyPct * 50 + overloadPct * 50; // 0–100
+    // 1 point off per full week with no workout logged (see
+    // utils/trainingLevelDecay — the inactivity push warns on each drop).
+    const decay = idleDecayPoints(clientSessions[clientSessions.length - 1].date);
+    const score = Math.max(0, consistencyPct * 50 + overloadPct * 50 - decay); // 0–100
     const scoreTierIndex = Math.min(3, Math.floor(score / 25));
     const tenureTierIndex = weeksActive >= 26 ? 3 : weeksActive >= 12 ? 2 : weeksActive >= 4 ? 1 : 0;
     const tierIndex = Math.min(scoreTierIndex, tenureTierIndex);
@@ -1592,7 +1596,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     const tenureWithinPct = bandEnd === Infinity ? 1 : Math.min(1, Math.max(0, (realWeeksActive - bandStart) / (bandEnd - bandStart)));
     const scoreWithinPct = Math.min(1, Math.max(0, (score - tierIndex * 25) / 25));
     const withinTierPct = Math.min(scoreWithinPct, tenureWithinPct);
-    return { score, tier: tiers[tierIndex], tierIndex, withinTierPct };
+    return { score, tier: tiers[tierIndex], tierIndex, withinTierPct, decay };
   })();
 
   const displayedSessions = timeframe === 'weekly'
@@ -3080,6 +3084,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
                     </span>
                   ))}
                 </div>
+                {skillLevel.decay > 0 && (
+                  <p className="skill-level-decay">
+                    −{skillLevel.decay} {skillLevel.decay === 1 ? 'point' : 'points'}: {skillLevel.decay === 1 ? 'a week' : `${skillLevel.decay} weeks`} without a workout. Log one to stop the drop.
+                  </p>
+                )}
               </div>
             </div>
           </div>

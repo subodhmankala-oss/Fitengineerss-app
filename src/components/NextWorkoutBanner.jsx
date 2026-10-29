@@ -18,7 +18,10 @@ const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const CATEGORIES = ['gym', 'home'];
 
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
-function startProgram(userId, onNavigateToWorkouts, category, level, program) {
+// Also saves the level/category as the one the client is on — that level
+// then stays the suggestion for 12 weeks (see determineWorkoutGuidance).
+function startProgram(userId, onNavigateToWorkouts, category, level, program, pref) {
+  databaseService.saveLibraryLevelPref(userId, { level, category }, pref);
   startLibraryProgram(userId, category, level, program);
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
@@ -38,6 +41,7 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program) {
 // Workout Library programs are configured for either category at all.
 export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }) {
   const [library, setLibrary] = useState(null); // null = still loading
+  const [pref, setPref] = useState(undefined); // undefined = still loading
   // The ✕ on the first-workout picker hides it for good on this device (per
   // client) — they can still start anything from the Workouts tab, and once
   // they log a session the normal next-program banner shows regardless.
@@ -76,7 +80,15 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     return () => { cancelled = true; };
   }, []);
 
-  if (!library) return null;
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve(databaseService.getLibraryLevelPref(userId))
+      .then(p => { if (!cancelled) setPref(p || null); })
+      .catch(() => { if (!cancelled) setPref(null); });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  if (!library || pref === undefined) return null;
 
   // One entry per distinct logged date (most recent non-empty plan name
   // wins per date) — kept self-contained here rather than depending on the
@@ -92,7 +104,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   });
   const sessions = Array.from(sessionsByDate.values());
 
-  const guidance = determineWorkoutGuidance(library, sessions);
+  const guidance = determineWorkoutGuidance(library, sessions, undefined, pref);
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
@@ -162,7 +174,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         </button>
         <FirstWorkoutPicker
           library={library}
-          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program)}
+          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref)}
         />
       </div>
     );
@@ -185,7 +197,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
 
-  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program);
+  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref);
   const focus = todaysFocus(program, level, category, logs);
 
   return (

@@ -5,7 +5,8 @@ import { getWorkoutDayType } from './warmupBlocks';
 // progress stays comparable) and swaps a few for a close alternative that
 // trains the same muscle, so it doesn't feel like the same session forever:
 //
-//   Beginner                 1 swap  — repetition is how they learn form
+//   Beginner                 1 swap  — repetition is how they learn form;
+//                                      only to an easier or same-level move
 //   Intermediate             2 swaps
 //   Advanced (Strength)      1 swap, last exercises only — the big lifts stay
 //   Advanced (other)         2 swaps
@@ -109,7 +110,29 @@ const HOME = {
   'single leg deadlift': ['Nordic Hamstring Curl', 'Glute Bridge'],
 };
 
-export const SWAP_ALTERNATIVES = { gym: GYM, home: HOME };
+// Beginner programs only swap to a move that is easier or the same level —
+// never a progression (Push-up → Wide Grip, Glute Bridge → Lunge): a
+// beginner is still learning the original (2026-10-29: "how can a beginner
+// do wide grip push-ups"). Gym and Home share one list; every move in it
+// needs no more equipment than the exercise it replaces.
+const BEGINNER = {
+  'push-up': ['Incline Push-up', 'Knee Push Ups'],
+  'push up': ['Incline Push-up', 'Knee Push Ups'],
+  'incline push-up': ['Knee Push Ups'],
+  'dumbbell row': ['Seated Row (Machine)'],
+  'seated row (machine)': ['Dumbbell Row'],
+  'chest press (machine)': ['Incline Chest Press (Machine)'],
+  'plank': ['Dead Bug'],
+  'dead bug': ['Bird Dog'],
+  'bird dog': ['Dead Bug'],
+  'superman': ['Bird Dog'],
+  'cat camel': ['Bird Dog'],
+  'crunch': ['Reverse Crunch'],
+  'calf raise (standing)': ['Seated Calf Raise'],
+  'wall sit': ['Chair Squat'],
+};
+
+export const SWAP_ALTERNATIVES = { gym: GYM, home: HOME, beginner: BEGINNER };
 
 // How many exercises swap each week, and from which position on.
 function swapRule(programName, level, dayType) {
@@ -157,7 +180,7 @@ export function applyWeeklySwaps({ programName, exercises, level, category, date
   const { count, firstSwappable } = swapRule(programName, level, dayType);
   if (count === 0) return list;
 
-  const alternatives = SWAP_ALTERNATIVES[category === 'home' ? 'home' : 'gym'];
+  const alternatives = level === 'beginner' ? BEGINNER : SWAP_ALTERNATIVES[category === 'home' ? 'home' : 'gym'];
   const inProgram = new Set(list.map(ex => (ex?.name || '').toLowerCase()));
   const eligible = list
     .map((ex, i) => i)

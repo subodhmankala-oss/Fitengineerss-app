@@ -20,9 +20,11 @@ const CATEGORIES = ['gym', 'home'];
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 // Also saves the level/category as the one the client is on — that level
 // then stays the suggestion for 12 weeks (see determineWorkoutGuidance).
-function startProgram(userId, onNavigateToWorkouts, category, level, program, pref) {
+// `trainedBefore` comes from this client's server logs (see todaysFocus), so
+// the logger applies the same weekly-swap rule the banner previewed.
+function startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore) {
   databaseService.saveLibraryLevelPref(userId, { level, category }, pref);
-  startLibraryProgram(userId, category, level, program);
+  startLibraryProgram(userId, category, level, program, trainedBefore);
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
 
@@ -127,6 +129,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   const sessions = Array.from(sessionsByDate.values());
 
   const guidance = determineWorkoutGuidance(library, sessions, undefined, pref);
+  const trainedBefore = hasTrainedBeforeThisWeek((logs || []).map(l => l.log_date));
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
@@ -159,7 +162,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         <CloseButton title="Close — I don’t want to start yet" onClick={dismissPicker} />
         <FirstWorkoutPicker
           library={library}
-          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref)}
+          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore)}
         />
       </div>
     );
@@ -187,7 +190,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
 
-  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref);
+  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore);
   if (bannerDismissedFor === program.name) {
     if (!chooserOpen) {
       return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={() => setChooserOpen(true)} />;
@@ -203,7 +206,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
         <CloseButton title="Close" onClick={() => setChooserOpen(false)} />
         <FirstWorkoutPicker
           library={library}
-          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref)}
+          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref, trainedBefore)}
         />
         <button
           type="button"
@@ -218,7 +221,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       </div>
     );
   }
-  const focus = todaysFocus(program, level, category, logs);
+  const focus = todaysFocus(program, level, category, logs, trainedBefore);
 
   return (
     <div
@@ -333,8 +336,7 @@ function ReopenRow({ title, subtitle, onClick }) {
 // builds (handleStartFromTemplate), so the banner never promises something
 // the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new this week",
 // "🎯 Core finisher (15 days)"].
-function todaysFocus(program, level, category, logs) {
-  const trainedBefore = hasTrainedBeforeThisWeek((logs || []).map(l => l.log_date));
+function todaysFocus(program, level, category, logs, trainedBefore) {
   const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category, trainedBefore });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
   const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });

@@ -14,14 +14,14 @@ const weeks = (n) => Array.from({ length: n }, (_, i) => new Date(2026, 9, 12 + 
 describe('SWAP_ALTERNATIVES', () => {
   it('only names exercises the app knows', () => {
     const missing = [];
-    ['gym', 'home'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
+    ['gym', 'home', 'beginner'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
       if (!known.has(name.toLowerCase()) && !CATALOG_ONLY.includes(name.toLowerCase())) missing.push(name);
     }));
     expect(missing).toEqual([]);
   });
 
   it('never swaps to a cardio machine (different set shape: km + time)', () => {
-    ['gym', 'home'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
+    ['gym', 'home', 'beginner'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
       expect(isCardioExercise(name)).toBe(false);
     }));
   });
@@ -71,6 +71,20 @@ describe('applyWeeklySwaps', () => {
       expect(out.filter(e => e.swappedFrom)).toHaveLength(1);
       expect(out[0].name).toBe('Goblet Squat');
     });
+  });
+
+  it('beginner: never swaps to a harder variation (no Wide Grip, Lunge or Decline for a beginner)', () => {
+    const programs = [
+      ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank'),
+      ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug'),
+      ex('Squat', 'Push Up', 'Glute Bridge', 'Bird dog', 'Superman')
+    ];
+    const harder = /wide grip|decline|deficit|diamond|lunge|step-up|jump|plyometric/i;
+    weeks(12).forEach(date => programs.forEach(list => ['gym', 'home'].forEach(category => {
+      applyWeeklySwaps({ programName: 'Beginner Full Body', exercises: list, level: 'beginner', category, date })
+        .filter(e => e.swappedFrom)
+        .forEach(e => expect(e.name).not.toMatch(harder));
+    })));
   });
 
   it('intermediate: 2 swaps; the swapped ones keep sets/reps and say what they replace', () => {

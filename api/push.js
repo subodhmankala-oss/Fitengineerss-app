@@ -29,6 +29,7 @@ import { runFinishSignupReminders } from './_signupReminders.js';
 // browser globals (window/document/localStorage) — safe in this serverless
 // runtime, confirmed 2026-08-11.
 import { getWeeklyMuscleStats, RECOMMENDED_EXERCISES } from '../src/utils/muscleAnalytics.js';
+import { decayWarningMessage } from '../src/utils/trainingLevelDecay.js';
 import { getLocalDateString, parseLocalDateString, shiftLocalDateString } from '../src/utils/dateUtils.js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -336,10 +337,26 @@ async function runInactivitySweep(supabaseClient, res) {
     const clientRows = await rpcAll(supabaseClient, 'get_clients_for_server');
     const coachRows = await rpcAll(supabaseClient, 'get_coaches_for_server');
     const usersById = new Map((users || []).map((u) => [u.id, u]));
+    const lastWorkoutByUser = await rpcLastWorkoutDates(supabaseClient);
 
-    let clientNudges = 0, coachNudges = 0, coachAlerts = 0, skipped = 0;
+    let clientNudges = 0, coachNudges = 0, coachAlerts = 0, decayWarnings = 0, skipped = 0;
 
     for (const u of users || []) {
+      // Training Level decay: on each day a point drops (7, 14, 21… days
+      // since the last logged workout) the client gets this warning instead
+      // of the generic nudge below. Keyed on workouts, not last_login — a
+      // client who opens the app but doesn't train still loses the point.
+      const decayClientRow = (clientRows || []).find((c) => c.user_id === u.id);
+      if (decayClientRow) {
+        const decayName = decayClientRow.full_name || u.full_name || 'there';
+        const warning = decayWarningMessage(decayName, lastWorkoutByUser.get(u.id));
+        if (warning) {
+          const result = await pushToUserId(supabaseClient, u.id, warning.title, warning.body, 'training_level_decay', '/?tab=workouts', { email: u.email, name: decayName });
+          if (result.sent > 0) decayWarnings++;
+          continue;
+        }
+      }
+
       const days = daysSinceLogin(u.last_login);
       if (days === null || days < 1) { skipped++; continue; } // never logged in, or active today
 
@@ -385,7 +402,7 @@ async function runInactivitySweep(supabaseClient, res) {
 
     return res.status(200).json({
       success: true,
-      message: `Inactivity sweep complete. Client nudges: ${clientNudges}, coach self-nudges: ${coachNudges}, coach alerts about inactive clients: ${coachAlerts}, skipped (active/never logged in/unmatched): ${skipped}.`
+      message: `Inactivity sweep complete. Training Level decay warnings: ${decayWarnings}, client nudges: ${clientNudges}, coach self-nudges: ${coachNudges}, coach alerts about inactive clients: ${coachAlerts}, skipped (active/never logged in/unmatched): ${skipped}.`
     });
   } catch (error) {
     console.error('Inactivity nudge sweep error:', error);
@@ -407,6 +424,19 @@ function getIstWeekBounds(now = new Date()) {
   const weekStart = shiftLocalDateString(todayIst, diffToMonday);
   const weekEnd = shiftLocalDateString(weekStart, 6);
   return { weekStart, weekEnd };
+}
+
+// user_id → last logged workout date ('YYYY-MM-DD'). Empty map if the RPC
+// isn't there yet (sql/get_last_workout_dates_for_server.sql) — the sweep
+// then just skips decay warnings rather than failing.
+async function rpcLastWorkoutDates(supabaseClient) {
+  if (!BROADCAST_SECRET) return new Map();
+  const { data, error } = await supabaseClient.rpc('get_last_workout_dates_for_server', { secret: BROADCAST_SECRET });
+  if (error) {
+    console.warn('get_last_workout_dates_for_server failed, skipping decay warnings:', error.message);
+    return new Map();
+  }
+  return new Map((data || []).map((r) => [r.user_id, r.last_date]));
 }
 
 async function rpcRecentWorkoutLogs(supabaseClient, sinceDateStr) {

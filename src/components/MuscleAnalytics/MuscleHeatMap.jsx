@@ -498,7 +498,23 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
           ]));
           return rest.concat(Object.entries(split).flatMap(([region, regionTier]) => {
             const shape = getRegionShape(region, sex);
-            if (!shape || shape.view !== view || shape.hiddenOnMap) return [];
+            if (!shape || shape.view !== view) return [];
+            if (shape.hiddenOnMap) {
+              // Can't be drawn as its own part (Deep Core sits under the abs),
+              // so once it has sets it shows as a dashed outline in its color
+              // around where it lies, and the parts on top keep their own
+              // colors. Taps go through to those parts.
+              if (!regionTier || regionTier.key === 'not_trained' || !shape.box) return [];
+              const [x0, y0, x1, y1] = shape.box;
+              return [
+                <div key={`${region}-outline`} className="muscle-svg-layer" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                  <svg viewBox="0 0 200 369.03">
+                    <rect x={x0 - 2} y={y0 - 2} width={x1 - x0 + 4} height={y1 - y0 + 4} rx="5" fill="none"
+                      stroke={regionTier.color} strokeWidth="1.4" strokeDasharray="4 3" />
+                  </svg>
+                </div>,
+              ];
+            }
             const color = regionTier?.color ?? '#64748b';
             const select = () => onSelectMuscle(muscle, region);
             const label = `${muscle}, ${region}: ${regionTier?.label ?? 'Not Trained'}`;

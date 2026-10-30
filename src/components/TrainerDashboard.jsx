@@ -74,6 +74,8 @@ import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
 import MuscleGapHint from './MuscleGapHint';
 import PhoneGate from './PhoneGate';
+import CoachFirstClientCard from './CoachFirstClientCard';
+import { hasValidPhone } from '../utils/coachPhone';
 
 // Sample client shown only while the coach spotlight tour is running, so a
 // brand-new coach with zero real clients still has something to click into.
@@ -718,7 +720,26 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // nothing here until "Generate Code" is pressed again (2026-08-09).
   const [generatedInviteCode, setGeneratedInviteCode] = useState('');
   const [generatingCode, setGeneratingCode] = useState(false);
-  
+  // The zero-clients card's "Create my invite code" button. Same
+  // deactivate-then-generate as the Invite Clients card, minus the confirm
+  // (the card only offers it while no code has been made this session).
+  const createFirstInviteCode = async () => {
+    if (generatingCode) return;
+    setGeneratingCode(true);
+    try {
+      const coachId = resolvedCoachId || loggedInEmail;
+      await databaseService.deactivateActiveCoachInviteCodes(coachId);
+      const code = await databaseService.generateCoachInviteCode(coachId);
+      setGeneratedInviteCode(code);
+      try { localStorage.setItem('coachInviteCodeCreated', 'true'); } catch { /* storage blocked */ }
+    } catch (err) {
+      console.error('Error generating code:', err);
+      alert(err.message || 'Could not generate an invitation code. Please try again.');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
   // Selected client detail view states
   const [selectedClient, setSelectedClient] = useState(null);
   const [detailTab, setDetailTab] = useState('plans'); // 'plans', 'livelog', 'workout'
@@ -7477,6 +7498,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
 
                         const code = await databaseService.generateCoachInviteCode(coachId);
                         setGeneratedInviteCode(code);
+                        try { localStorage.setItem('coachInviteCodeCreated', 'true'); } catch { /* storage blocked */ }
                       } catch (err) {
                         console.error('Error generating code:', err);
                         setGeneratedInviteCode('');
@@ -7641,6 +7663,16 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   <div className="trainer-spinner"></div>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading client directory...</p>
                 </div>
+              ) : viewMode === 'coach' && loggedInUserId && !clients.some(c => c.coach_id === loggedInUserId) && !showDemoClientRow ? (
+                <CoachFirstClientCard
+                  phoneDone={hasValidPhone(localStorage.getItem('userPhone'))}
+                  inviteCode={generatedInviteCode}
+                  codeCreated={localStorage.getItem('coachInviteCodeCreated') === 'true'}
+                  generating={generatingCode}
+                  onCreateCode={createFirstInviteCode}
+                  coachName={localStorage.getItem('userName')}
+                  origin={window.location.origin}
+                />
               ) : filteredClients.length === 0 && !showDemoClientRow ? (
                 <div className="trainer-empty-state">
                   <div className="trainer-empty-icon">👥</div>

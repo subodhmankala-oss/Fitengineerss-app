@@ -4110,6 +4110,20 @@ const databaseService = {
   // `category` ('gym' | 'home' | 'hyrox') defaults to 'gym' so every existing caller
   // (the Workout Library before the Home tab existed, BeginnerNextWorkoutBanner,
   // etc.) keeps seeing exactly what it always has without passing anything new.
+  // The library level ('beginner' | 'intermediate' | 'advanced') of the
+  // Workout Library program named `name`, or null for anything else (a
+  // coach plan, a custom session). Program names are unique across levels.
+  async getLibraryProgramLevel(name) {
+    if (!name || !isSupabaseConfigured) return null;
+    try {
+      const data = await restSelect(`workout_templates?select=difficulty_level&name=eq.${encodeURIComponent(name)}&difficulty_level=not.is.null&limit=1`);
+      return data?.[0]?.difficulty_level || null;
+    } catch (e) {
+      console.error('Cloud DB: Failed to look up library program level:', e);
+      return null;
+    }
+  },
+
   async getGenericWorkoutsByLevel(level, category = 'gym') {
     if (!['beginner', 'intermediate', 'advanced'].includes(level)) return [];
     if (!['gym', 'home', 'hyrox'].includes(category)) return [];

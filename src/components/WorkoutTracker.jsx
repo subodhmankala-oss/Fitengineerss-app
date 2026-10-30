@@ -47,7 +47,7 @@ import { addExerciseInOrder, buildWarmupExercises, getWarmupPosition, isWarmupCa
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import ExerciseCaption from './ExerciseCaption';
 import WarmupMoveRow from './WarmupMoveRow';
-import { applyWeeklySwaps } from '../utils/weeklySwaps';
+import { applyWeeklySwaps, hasTrainedBeforeThisWeek } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 import { idleDecayPoints } from '../utils/trainingLevelDecay';
 import { useExerciseEnterAnimation } from '../hooks/useExerciseEnterAnimation';
@@ -327,6 +327,19 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // form video next to their name in the logger — intermediate/advanced and
   // every other entry point stay exactly as they were (Form Guide button only).
   const [loggingLevel, setLoggingLevel] = useState(savedWorkoutDraft?.loggingLevel ?? null);
+  // An open session can come back without its level: restored from the
+  // server copy (which doesn't store it) on another phone or app link — each
+  // has its own storage — or carried over from an older build. A Workout
+  // Library program's name says its level (names are unique across levels),
+  // so look it up — else a Beginner session silently lost its inline videos.
+  useEffect(() => {
+    if (!isLoggingWorkout || loggingLevel || !templateName) return undefined;
+    let cancelled = false;
+    Promise.resolve(databaseService.getLibraryProgramLevel?.(templateName))
+      .then(level => { if (!cancelled && level) setLoggingLevel(prev => prev ?? level); })
+      .catch(() => { /* no level → no beginner videos, same as before */ });
+    return () => { cancelled = true; };
+  }, [isLoggingWorkout, loggingLevel, templateName]);
   const [loadingLevelWorkouts, setLoadingLevelWorkouts] = useState(false);
   // Library list is collapsed to the first few programs with a "Show all N"
   // expander (resets when switching level tabs).
@@ -570,6 +583,11 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // neglected yet — its finisher is picked once the history arrives (see
   // fillPendingPrev), from what handleStartFromTemplate leaves here.
   const pendingFinisherRef = useRef(null);
+  // Dates of this client's workouts on the server — null until loaded. The
+  // weekly-swap rule reads only these: the phone's 'workoutSessions' cache is
+  // shared by every account used on the device and outlives a reset, so a
+  // fresh client was getting "New this week" from someone else's history.
+  const serverLogDatesRef = useRef(null);
 
   useEffect(() => {
     const loggedInUser = localStorage.getItem('userName') || 'Warrior';
@@ -747,6 +765,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     loadOwnDbLogs().then(({ ownKey, logs }) => {
       const rows = logs || [];
       const dbDates = new Set(rows.map(l => l.log_date));
+      if (ownKey) serverLogDatesRef.current = [...dbDates];
 
       if (rows.length > 0) {
         // Group flat log rows into one session per date → { exercises:[{name,sets}] }
@@ -965,9 +984,14 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
           setLogDate(draftIsStale ? getLocalDateString() : (dbDraft.logDate || getLocalDateString()));
           setTemplateName(dbDraft.planName || '');
           setWorkoutSource(dbDraft.source === 'coach' ? 'coach' : 'self');
-          // The DB draft doesn't carry loggingLevel (not persisted server-side) —
-          // reset it rather than leave a stale value from a previous session.
-          setLoggingLevel(null);
+          // The DB draft doesn't carry loggingLevel (not persisted server-side).
+          // For this same session (the usual case: reopening the app, where the
+          // server copy is a moment newer) keep the local copy's level — else a
+          // Beginner session lost its inline form videos on every reopen.
+          // A different session's level would be stale, so that resets.
+          // With no local copy to take it from, the library-name lookup below
+          // fills it in.
+          setLoggingLevel(sameSession && !draftIsStale ? (savedWorkoutDraft?.loggingLevel ?? null) : null);
           setWorkoutTimerStatus(dbDraft.timerStatus || 'idle');
           if (draftIsStale && dbDraft.timerStatus && dbDraft.timerStatus !== 'idle') {
             setWorkoutTimerStartedAt(Date.now());
@@ -2620,8 +2644,16 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // loggingLevel above. Every template opens with this week's warm-up block
   // for its day type and Gym/Home `category` (see utils/warmupBlocks), and a
   // library program gets this week's exercise swaps (see utils/weeklySwaps).
-  const handleStartFromTemplate = (template, level = null, category = genericCategory) => {
-    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category });
+  const handleStartFromTemplate = (template, level = null, category = genericCategory, trainedBeforeHint = null) => {
+    // No swaps until the client has trained in an earlier week. The Home
+    // banner already knows (from the server) and passes it along; otherwise
+    // the server history loaded here decides, and before it has loaded the
+    // answer is no — never the device's shared session cache (see
+    // serverLogDatesRef).
+    const trainedBefore = typeof trainedBeforeHint === 'boolean'
+      ? trainedBeforeHint
+      : hasTrainedBeforeThisWeek(serverLogDatesRef.current || []);
+    const programExercises = applyWeeklySwaps({ programName: template.name, exercises: template.exercises, level, category, trainedBefore });
     const warmups = buildWarmupExercises({ programName: template.name, exercises: programExercises, category });
     // A library program also gets one finisher for a neglected muscle that
     // fits the day (see utils/neglectedFinisher) — now if the history is
@@ -2713,7 +2745,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       return;
     }
     if (!payload.name || !Array.isArray(payload.exercises)) return;
-    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null, payload.category || genericCategory);
+    handleStartFromTemplate({ name: payload.name, exercises: payload.exercises }, payload.level || null, payload.category || genericCategory, payload.trainedBefore);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

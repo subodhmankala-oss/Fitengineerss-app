@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyWeeklySwaps, SWAP_ALTERNATIVES } from './weeklySwaps';
+import { applyWeeklySwaps, hasTrainedBeforeThisWeek, SWAP_ALTERNATIVES } from './weeklySwaps';
 import { EXERCISE_LIBRARY, isCardioExercise } from '../data/exerciseLibrary';
 
 const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
@@ -14,14 +14,14 @@ const weeks = (n) => Array.from({ length: n }, (_, i) => new Date(2026, 9, 12 + 
 describe('SWAP_ALTERNATIVES', () => {
   it('only names exercises the app knows', () => {
     const missing = [];
-    ['gym', 'home'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
+    ['gym', 'home', 'beginner'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
       if (!known.has(name.toLowerCase()) && !CATALOG_ONLY.includes(name.toLowerCase())) missing.push(name);
     }));
     expect(missing).toEqual([]);
   });
 
   it('never swaps to a cardio machine (different set shape: km + time)', () => {
-    ['gym', 'home'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
+    ['gym', 'home', 'beginner'].forEach(place => Object.values(SWAP_ALTERNATIVES[place]).flat().forEach(name => {
       expect(isCardioExercise(name)).toBe(false);
     }));
   });
@@ -71,6 +71,20 @@ describe('applyWeeklySwaps', () => {
       expect(out.filter(e => e.swappedFrom)).toHaveLength(1);
       expect(out[0].name).toBe('Goblet Squat');
     });
+  });
+
+  it('beginner: never swaps to a harder variation (no Wide Grip, Lunge or Decline for a beginner)', () => {
+    const programs = [
+      ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank'),
+      ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug'),
+      ex('Squat', 'Push Up', 'Glute Bridge', 'Bird dog', 'Superman')
+    ];
+    const harder = /wide grip|decline|deficit|diamond|lunge|step-up|jump|plyometric/i;
+    weeks(12).forEach(date => programs.forEach(list => ['gym', 'home'].forEach(category => {
+      applyWeeklySwaps({ programName: 'Beginner Full Body', exercises: list, level: 'beginner', category, date })
+        .filter(e => e.swappedFrom)
+        .forEach(e => expect(e.name).not.toMatch(harder));
+    })));
   });
 
   it('intermediate: 2 swaps; the swapped ones keep sets/reps and say what they replace', () => {
@@ -148,5 +162,28 @@ describe('applyWeeklySwaps', () => {
 
   it('leaves non-library templates alone', () => {
     expect(applyWeeklySwaps({ programName: 'Push Day', exercises: push, level: null, category: 'gym', date: MON })).toEqual(push);
+  });
+
+  it('gives a client who has not trained in an earlier week the plain program', () => {
+    expect(applyWeeklySwaps({ programName: 'Intermediate Push', exercises: push, level: 'intermediate', category: 'gym', date: MON, trainedBefore: false })).toEqual(push);
+  });
+});
+
+describe('hasTrainedBeforeThisWeek', () => {
+  const WED = new Date(2026, 9, 14); // week starting Mon 12 Oct
+
+  it('is false with no history, or only this week', () => {
+    expect(hasTrainedBeforeThisWeek([], WED)).toBe(false);
+    expect(hasTrainedBeforeThisWeek(undefined, WED)).toBe(false);
+    expect(hasTrainedBeforeThisWeek(['2026-10-12', '2026-10-14'], WED)).toBe(false);
+  });
+
+  it('is true once a workout was logged in an earlier week', () => {
+    expect(hasTrainedBeforeThisWeek(['2026-10-11'], WED)).toBe(true);
+    expect(hasTrainedBeforeThisWeek(['2026-09-01T10:00:00Z', '2026-10-14'], WED)).toBe(true);
+  });
+
+  it('ignores blank or malformed dates', () => {
+    expect(hasTrainedBeforeThisWeek([null, '', 'yesterday'], WED)).toBe(false);
   });
 });

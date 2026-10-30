@@ -37,6 +37,10 @@ const program = (name, ...exercises) => ({ name, exercises: exercises.map(n => (
 // warm-up card's compact rows.
 const cardTitles = () => Array.from(document.querySelectorAll('h5, .warmup-move-name')).map(el => el.textContent.trim());
 
+// Weekly swaps only start once the client has trained in an earlier week —
+// the Home banner works that out from the server and passes it along.
+const TRAINED_BEFORE = true;
+
 describe('Workout Library program opens with the weekly warm-up block', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -47,7 +51,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
 
   it('gym upper day: this week’s 3 warm-ups first, then the program with this week’s swaps', async () => {
     const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
-    startLibraryProgram('u1', 'gym', 'intermediate', push);
+    startLibraryProgram('u1', 'gym', 'intermediate', push, TRAINED_BEFORE);
     render(<TourProvider><WorkoutTracker /></TourProvider>);
 
     const expected = WARMUP_BLOCKS.upper.gym[getWarmupWeekIndex(new Date())].map(i => i.name);
@@ -69,6 +73,25 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
       .toEqual(['🔥 Warm-up · go light, about 5 min']);
   });
 
+  it('a brand-new client gets the plain program: no swaps, no "New this week"', async () => {
+    // Old sessions cached on this phone (another account, or from before a
+    // reset) — the server has none, so they must not count.
+    localStorage.setItem('workoutSessions', JSON.stringify([
+      { id: 's0', clientName: 'TestClient', date: '2026-01-05', planName: 'Old', exercises: [{ name: 'Plank', sets: [{ reps: 1, weight: '0', isCompleted: true }] }] },
+      { id: 's1', clientName: 'OtherClient', date: '2026-02-02', planName: 'Old', exercises: [{ name: 'Plank', sets: [{ reps: 1, weight: '0', isCompleted: true }] }] }
+    ]));
+    const push = program('Intermediate Push', 'Bench Press', 'Overhead Press (Dumbbell)', 'Incline Dumbbell Press', 'Cable Fly', 'Triceps Pushdown');
+    startLibraryProgram('u1', 'gym', 'intermediate', push);
+    render(<TourProvider><WorkoutTracker /></TourProvider>);
+
+    const names = push.exercises.map(e => e.name);
+    for (const name of names) {
+      expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+    }
+    expect(cardTitles().filter(t => names.includes(t))).toEqual(names);
+    expect(document.querySelectorAll('.swap-caption')).toHaveLength(0);
+  });
+
   it('home day uses the home block, and never repeats an exercise', async () => {
     // A week whose home lower block has Glute Bridge, which this program
     // already contains — the warm-up must use a stand-in instead.
@@ -76,7 +99,7 @@ describe('Workout Library program opens with the weekly warm-up block', () => {
     vi.setSystemTime(new Date(2026, 9, 5, 9, 0));
     try {
       const lower = program('Home Intermediate Lower Body', 'Jump Squat', 'Bulgarian Split Squat', 'Reverse Lunge', 'Glute Bridge', 'Wall Sit');
-      startLibraryProgram('u1', 'home', 'intermediate', lower);
+      startLibraryProgram('u1', 'home', 'intermediate', lower, TRAINED_BEFORE);
       render(<TourProvider><WorkoutTracker /></TourProvider>);
 
       const thisWeek = applyWeeklySwaps({ programName: lower.name, exercises: lower.exercises, level: 'intermediate', category: 'home' });

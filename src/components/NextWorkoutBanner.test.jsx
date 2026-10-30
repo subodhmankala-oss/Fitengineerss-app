@@ -34,6 +34,7 @@ function mockLibrary({ gym = {}, home = {} } = {}) {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -70,22 +71,28 @@ describe('NextWorkoutBanner', () => {
     expect(screen.queryByText(/start later/)).toBeNull();
   });
 
-  it('has a ✕ that closes the picker and keeps it closed for that client on this device', async () => {
+  it('has a ✕ that closes the picker until the app is next opened, per client', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const { unmount } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
     expect(screen.queryByText(/Let’s get you started/)).toBeNull();
-    expect(localStorage.getItem('firstWorkoutPickerDismissed_u1')).toBe('1');
+    expect(sessionStorage.getItem('firstWorkoutPickerDismissed_u1')).toBe('1');
     unmount();
 
-    // Stays closed on the next visit...
+    // Stays closed while the app stays open...
     const again = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     await waitFor(() => expect(databaseService.getGenericWorkoutsByLevel).toHaveBeenCalled());
     expect(screen.queryByText(/Let’s get you started/)).toBeNull();
     again.unmount();
 
-    // ...but another client on the same device still gets it.
-    render(<NextWorkoutBanner userId="u2" logs={[]} onNavigateToWorkouts={() => {}} />);
+    // ...another client on the same device still gets it...
+    const other = render(<NextWorkoutBanner userId="u2" logs={[]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
+    other.unmount();
+
+    // ...and the next time the app is opened, the full card is back.
+    sessionStorage.clear();
+    render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
     expect(await screen.findByText(/Let’s get you started/)).not.toBeNull();
   });
 
@@ -98,7 +105,7 @@ describe('NextWorkoutBanner', () => {
 
     fireEvent.click(reopen);
     expect(screen.getByText(/Let’s get you started/)).not.toBeNull();
-    expect(localStorage.getItem('firstWorkoutPickerDismissed_u1')).toBeNull();
+    expect(sessionStorage.getItem('firstWorkoutPickerDismissed_u1')).toBeNull();
     expect(screen.queryByRole('button', { name: /Choose your level/ })).toBeNull();
   });
 
@@ -221,6 +228,49 @@ describe('NextWorkoutBanner', () => {
     expect(focus).toMatch(/^🔥 Warm-up · 🔄 1 new this week · 🎯 \w+ finisher/);
   });
 
+  it('promises no "new this week" swap to a client whose only workouts are this week', async () => {
+    const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+    mockLibrary({ gym: { beginner: [
+      { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
+      { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') }
+    ] } });
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const logs = [{ log_date: today, plan_name: 'Beginner Full Body A', exercise_name: 'Goblet Squat' }];
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/Next up: Beginner Full Body B/)).not.toBeNull();
+    const pills = Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent);
+    expect(pills.some(p => /new this week/.test(p))).toBe(false);
+  });
+
+  it('the suggestion card closes to a slim row that brings it back, without starting the workout', async () => {
+    mockLibrary({ gym: { beginner: gymBeginner } });
+    const onNavigate = vi.fn();
+    const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
+    render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
+    expect(await screen.findByText(/Keep going — next up/)).not.toBeNull();
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Keep going — next up/)).toBeNull();
+    // The row left behind offers the level chooser, with a way back to the suggestion.
+    fireEvent.click(screen.getByText('Choose your level'));
+    expect(screen.getByText('What’s your level?')).not.toBeNull();
+    fireEvent.click(screen.getByText('Show the suggested workout again'));
+    expect(screen.getByText(/Keep going — next up/)).not.toBeNull();
+  });
+
+  it('a client who chose a level but has never trained: "New here?" with no "new this week"', async () => {
+    const ex = (...names) => names.map(name => ({ name, sets: 3, reps: '10' }));
+    mockLibrary({ gym: { beginner: [
+      { name: 'Beginner Full Body A', exercises: ex('Goblet Squat', 'Push-up', 'Dumbbell Row', 'Plank') },
+      { name: 'Beginner Full Body B', exercises: ex('Leg Press', 'Chest Press (Machine)', 'Seated Row (Machine)', 'Dead Bug') }
+    ] } });
+    databaseService.getLibraryLevelPref.mockResolvedValueOnce({ level: 'beginner', category: 'gym', since: null });
+    const { container } = render(<NextWorkoutBanner userId="u1" logs={[]} onNavigateToWorkouts={() => {}} />);
+    expect(await screen.findByText(/New here\? Start with this/)).not.toBeNull();
+    expect(Array.from(container.querySelectorAll('.next-workout-focus-pill')).map(el => el.textContent)).toEqual(['🔥 Warm-up']);
+  });
+
   it('shows no finisher until the client has 3 logged sessions', async () => {
     mockLibrary({ gym: { beginner: gymBeginner } });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A', exercise_name: 'Bench Press' }];
@@ -270,7 +320,7 @@ describe('NextWorkoutBanner', () => {
     const onNavigate = vi.fn();
     const logs = [{ log_date: '2026-09-01', plan_name: 'Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={onNavigate} />);
-    const banner = await screen.findByRole('button');
+    const banner = (await screen.findAllByRole('button')).find(b => b.getAttribute('aria-label') !== 'Close');
     banner.click();
     expect(localStorage.getItem('workoutTrackerLastTab_u1')).toBe('templates');
     expect(localStorage.getItem('workoutTrackerLastLevel_u1')).toBe('beginner');
@@ -288,7 +338,7 @@ describe('NextWorkoutBanner', () => {
     });
     const logs = [{ log_date: '2026-09-01', plan_name: 'Home Beginner Full Body A' }];
     render(<NextWorkoutBanner userId="u1" logs={logs} onNavigateToWorkouts={() => {}} />);
-    const banner = await screen.findByRole('button');
+    const banner = (await screen.findAllByRole('button')).find(b => b.getAttribute('aria-label') !== 'Close');
     banner.click();
     expect(localStorage.getItem('workoutTrackerLastCategory_u1')).toBe('home');
     const autoStart = JSON.parse(localStorage.getItem('workoutTrackerAutoStart_u1'));

@@ -4,7 +4,7 @@ import { determineWorkoutGuidance } from '../utils/beginnerGuidance';
 import { startLibraryProgram } from '../utils/startLibraryProgram';
 import FirstWorkoutPicker from './FirstWorkoutPicker';
 import { buildWarmupExercises } from '../utils/warmupBlocks';
-import { applyWeeklySwaps } from '../utils/weeklySwaps';
+import { applyWeeklySwaps, hasTrainedBeforeThisWeek } from '../utils/weeklySwaps';
 import { pickNeglectedFinisher } from '../utils/neglectedFinisher';
 
 // No session-count cutoff: this used to hide itself past 12 sessions (a
@@ -20,9 +20,11 @@ const CATEGORIES = ['gym', 'home'];
 // Queues `program` (see utils/startLibraryProgram) and switches to Workouts.
 // Also saves the level/category as the one the client is on — that level
 // then stays the suggestion for 12 weeks (see determineWorkoutGuidance).
-function startProgram(userId, onNavigateToWorkouts, category, level, program, pref) {
+// `trainedBefore` comes from this client's server logs (see todaysFocus), so
+// the logger applies the same weekly-swap rule the banner previewed.
+function startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore) {
   databaseService.saveLibraryLevelPref(userId, { level, category }, pref);
-  startLibraryProgram(userId, category, level, program);
+  startLibraryProgram(userId, category, level, program, trainedBefore);
   onNavigateToWorkouts && onNavigateToWorkouts();
 }
 
@@ -42,16 +44,18 @@ function startProgram(userId, onNavigateToWorkouts, category, level, program, pr
 export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }) {
   const [library, setLibrary] = useState(null); // null = still loading
   const [pref, setPref] = useState(undefined); // undefined = still loading
-  // The ✕ on the first-workout picker hides it for good on this device (per
-  // client) — they can still start anything from the Workouts tab, and once
-  // they log a session the normal next-program banner shows regardless.
+  // The ✕ on the first-workout picker hides it until the app is next opened
+  // (sessionStorage, per client): a client who hasn't trained yet sees the
+  // full level card on every fresh open, not a collapsed row forever
+  // (2026-10-29). They can still start anything from the Workouts tab, and
+  // once they log a session the normal next-program banner shows regardless.
   const dismissKey = `firstWorkoutPickerDismissed_${userId}`;
   const [pickerDismissed, setPickerDismissed] = useState(() => {
-    try { return localStorage.getItem(dismissKey) === '1'; } catch { return false; }
+    try { return sessionStorage.getItem(dismissKey) === '1'; } catch { return false; }
   });
   const dismissPicker = () => {
     setPickerDismissed(true);
-    try { localStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
+    try { sessionStorage.setItem(dismissKey, '1'); } catch { /* storage blocked — hidden until reload */ }
   };
   // Closing it used to leave nothing in its place — an empty home screen for
   // a new client (2026-10-15: "after closing nothing shows here"). A slim
@@ -59,8 +63,28 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   // it is fine too.
   const reopenPicker = () => {
     setPickerDismissed(false);
-    try { localStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
+    try { sessionStorage.removeItem(dismissKey); } catch { /* storage blocked */ }
   };
+  // The ✕ on the suggestion card hides it for the program it suggests
+  // (stored by name, per client): once they log a session and the
+  // suggestion moves on, the next one shows. A slim row stays in its place
+  // to bring it back, same as the picker above.
+  const bannerDismissKey = `nextWorkoutBannerDismissed_${userId}`;
+  const [bannerDismissedFor, setBannerDismissedFor] = useState(() => {
+    try { return localStorage.getItem(bannerDismissKey) || ''; } catch { return ''; }
+  });
+  const dismissBanner = (programName) => {
+    setBannerDismissedFor(programName);
+    try { localStorage.setItem(bannerDismissKey, programName); } catch { /* storage blocked — hidden until reload */ }
+  };
+  const reopenBanner = () => {
+    setBannerDismissedFor('');
+    try { localStorage.removeItem(bannerDismissKey); } catch { /* storage blocked */ }
+  };
+  // The row left after closing the suggestion is "Choose your level": it opens
+  // the same Gym/Home + Beginner/Intermediate/Advanced picker as a new client's,
+  // so the client can pick their own level instead of the suggested one.
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +129,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   const sessions = Array.from(sessionsByDate.values());
 
   const guidance = determineWorkoutGuidance(library, sessions, undefined, pref);
+  const trainedBefore = hasTrainedBeforeThisWeek((logs || []).map(l => l.log_date));
   if (!guidance) return null;
 
   // A client with ZERO logged sessions has no history to infer Gym vs Home
@@ -123,30 +148,7 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
     );
     if (!hasAnyProgram) return null;
     if (pickerDismissed) {
-      return (
-        <button
-          type="button"
-          onClick={reopenPicker}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
-            background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
-            borderRadius: 'var(--radius-sm, 10px)', padding: '12px 14px', marginBottom: '4px',
-            cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'
-          }}
-        >
-          <span aria-hidden="true" style={{
-            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)', fontSize: '1.1rem', fontWeight: 800
-          }}>＋</span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-text)' }}>Choose your level</span>
-            <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Gym or Home · Beginner, Intermediate or Advanced
-            </span>
-          </span>
-        </button>
-      );
+      return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={reopenPicker} />;
     }
 
     return (
@@ -157,24 +159,10 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
           borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
         }}
       >
-        <button
-          type="button"
-          onClick={dismissPicker}
-          aria-label="Close"
-          title="Close — I don’t want to start yet"
-          style={{
-            position: 'absolute', top: '10px', right: '10px', zIndex: 1,
-            width: '32px', height: '32px', borderRadius: '50%',
-            background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
-            color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
-          }}
-        >
-          ✕
-        </button>
+        <CloseButton title="Close — I don’t want to start yet" onClick={dismissPicker} />
         <FirstWorkoutPicker
           library={library}
-          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref)}
+          onStart={(category, level, program) => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore)}
         />
       </div>
     );
@@ -202,8 +190,38 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       ? `Nice work on ${lastProgram.name}! Next up: ${program.name}.`
       : `We recommend starting with ${program.name} — a structured ${categoryLabel} ${levelLabel} program from the Workout Library.`;
 
-  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref);
-  const focus = todaysFocus(program, level, category, logs);
+  const goToProgram = () => startProgram(userId, onNavigateToWorkouts, category, level, program, pref, trainedBefore);
+  if (bannerDismissedFor === program.name) {
+    if (!chooserOpen) {
+      return <ReopenRow title="Choose your level" subtitle="Gym or Home · Beginner, Intermediate or Advanced" onClick={() => setChooserOpen(true)} />;
+    }
+    return (
+      <div
+        style={{
+          position: 'relative',
+          background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
+          borderRadius: 0, padding: '16px 14px 18px', marginBottom: '4px'
+        }}
+      >
+        <CloseButton title="Close" onClick={() => setChooserOpen(false)} />
+        <FirstWorkoutPicker
+          library={library}
+          onStart={(c, l, p) => startProgram(userId, onNavigateToWorkouts, c, l, p, pref, trainedBefore)}
+        />
+        <button
+          type="button"
+          onClick={() => { setChooserOpen(false); reopenBanner(); }}
+          style={{
+            display: 'block', margin: '10px auto 0', background: 'transparent', border: 'none',
+            color: 'var(--accent-text)', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
+          }}
+        >
+          Show the suggested workout again
+        </button>
+      </div>
+    );
+  }
+  const focus = todaysFocus(program, level, category, logs, trainedBefore);
 
   return (
     <div
@@ -214,10 +232,15 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
       style={{
         display: 'flex', flexDirection: 'column', gap: '10px',
         background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid rgba(var(--accent-rgb), 0.3)',
+        position: 'relative',
         borderRadius: 0, padding: '18px 16px', marginBottom: '4px', cursor: 'pointer'
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <CloseButton
+        title="Close — I don’t want this suggestion now"
+        onClick={(e) => { e.stopPropagation(); dismissBanner(program.name); }}
+      />
+      <div style={{ minWidth: 0, paddingRight: '36px' }}>
         <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</div>
         <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>{body}</div>
       </div>
@@ -253,13 +276,68 @@ export default function NextWorkoutBanner({ userId, logs, onNavigateToWorkouts }
   );
 }
 
+// ✕ in the top-right corner of a banner card.
+function CloseButton({ title, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      // Enter/Space on the ✕ must not reach a tappable card underneath.
+      onKeyDown={(e) => e.stopPropagation()}
+      aria-label="Close"
+      title={title}
+      style={{
+        position: 'absolute', top: '10px', right: '10px', zIndex: 1,
+        width: '32px', height: '32px', borderRadius: '50%',
+        background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid var(--border-color)',
+        color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit'
+      }}
+    >
+      ✕
+    </button>
+  );
+}
+
+// What a closed card leaves behind, so the home screen isn't left empty
+// (2026-10-15: "after closing nothing shows here"): one slim row that
+// brings the card back.
+function ReopenRow({ title, subtitle, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'block', width: '100%', textAlign: 'center',
+        background: 'transparent', border: '1px dashed rgba(var(--accent-rgb), 0.4)',
+        borderRadius: 'var(--radius-sm, 10px)', padding: '12px 52px', marginBottom: '4px',
+        cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-main)'
+      }}
+    >
+      {/* The text stays centered in the row; the + hangs just left of it. */}
+      <span style={{ position: 'relative', display: 'inline-block', textAlign: 'center' }}>
+        <span aria-hidden="true" style={{
+          position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '12px',
+          width: '28px', height: '28px', borderRadius: '50%',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(var(--accent-rgb), 0.12)', color: 'var(--accent-text)', fontSize: '1.1rem', fontWeight: 800
+        }}>＋</span>
+        <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-text)' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+          {subtitle}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 // "Today's focus" line: what this program will look like when it opens —
 // the same warm-up / weekly swaps / neglected-muscle finisher the logger
 // builds (handleStartFromTemplate), so the banner never promises something
 // the session doesn't have. Pills, e.g. ["🔥 Warm-up", "🔄 2 new this week",
 // "🎯 Core finisher (15 days)"].
-function todaysFocus(program, level, category, logs) {
-  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category });
+function todaysFocus(program, level, category, logs, trainedBefore) {
+  const exercises = applyWeeklySwaps({ programName: program.name, exercises: program.exercises, level, category, trainedBefore });
   const warmups = buildWarmupExercises({ programName: program.name, exercises, category });
   const finisher = pickNeglectedFinisher({ programName: program.name, exercises, category, logRows: logs || [], takenNames: warmups.map(w => w.name) });
   const swaps = exercises.filter(ex => ex.swappedFrom).length;

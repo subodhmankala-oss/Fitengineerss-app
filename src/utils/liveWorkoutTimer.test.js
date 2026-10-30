@@ -257,6 +257,26 @@ describe('recovery between sets', () => {
     expect(kcal([{ name: 'Bench Press', sets }], pauses)).toBeCloseTo(2 * bench(10) + recoveryKcal(10), 1);
   });
 
+  // 2026-10-27: a 57-minute leg day read 239 kcal ticked all at
+  // once, 241 ticked quickly one after another, and up to 423 ticked set by set.
+  it('gives the same total however the sets were ticked', () => {
+    const lifts = [[15, 40], [15, 60], [15, 90], [15, 90], [10, 60], [15, 40]];
+    const day = (tickAt) => [
+      { name: 'Leg Press', sets: lifts.map(([r, w], i) => set(tickAt(i), { reps: String(r), weight: String(w) })) },
+      { name: 'Incline Walk', sets: [set(tickAt(lifts.length), { distanceKm: '0.75', time: '10:00' })] },
+    ];
+    const end = 1800;
+    const allAtOnce = kcal(day(() => end));
+    const quickly = kcal(day((i) => end - (lifts.length - i) * 5));
+    const setBySet = kcal(day((i) => (i < lifts.length ? (i + 1) * 150 : end)));
+    expect(quickly).toBeCloseTo(allAtOnce, 1);
+    expect(setBySet).toBeCloseTo(allAtOnce, 1);
+    // 30 min clock - 10 min walk - 255 s lifting = 945 s of recovery, under
+    // the 6 sets x 180 s cap.
+    const workOnly = computeLiveCalories(day(() => end), 0, [], 70).totalKcal;
+    expect(allAtOnce).toBeCloseTo(workOnly + recoveryKcal(945), 1);
+  });
+
   it('gives no recovery after a cardio set', () => {
     const exercises = [
       { name: 'Cycling', sets: [set(600, { distanceKm: '3', time: '10:00' })] },

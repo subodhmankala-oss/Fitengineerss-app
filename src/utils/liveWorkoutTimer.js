@@ -526,13 +526,16 @@ export function remapSetTimersForSetRemoval(exIdx, removedSetIdx, timers) {
 // since it already has a real logged weight to work with) — defaults to an
 // average adult when the caller doesn't have the client's actual weight.
 // Weighted, bodyweight and timed sets also earn recovery (see RECOVERY_MET),
-// from the real gap until the next set's tick: completion timestamps only,
-// never "now", so the total still stays put while the clock runs.
-// sessionStartedAt is unused; it stays so every caller's argument positions
-// still line up.
-export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
+// from the workout clock: the active time from the session start to the last
+// tick, minus the time spent doing the sets, capped at 180 s per recovering
+// set that has another set after it. It used to be the gap between one tick
+// and the next, so the same workout read 239 kcal ticked all at once at the
+// end and 423 ticked set by set (a 57-minute leg day, 2026-10-27).
+// The clock makes every way of ticking come out the same. It ends at the last
+// tick, never "now", so the total still stays put while the clock runs.
+export function computeLiveCalories(exercises, sessionStartedAt, pauseIntervals = [], bodyWeightKg = DEFAULT_BODY_WEIGHT_KG) {
   let workKcal = 0;
-  // Every completed set, warm-ups included: each tick bounds the gap before it.
+  // Every completed set, warm-ups included: the last tick ends the clock.
   const ticks = [];
 
   exercises.forEach((ex) => {
@@ -548,13 +551,21 @@ export function computeLiveCalories(exercises, _sessionStartedAt, pauseIntervals
     });
   });
 
-  // Each gap holds the previous set's recovery plus this set's own work.
-  ticks.sort((a, b) => a.at - b.at);
   let recoverySeconds = 0;
-  for (let i = 1; i < ticks.length; i++) {
-    if (!ticks[i - 1].recovers) continue;
-    const gap = activeSecondsBetween(ticks[i - 1].at, ticks[i].at, pauseIntervals) - ticks[i].workSeconds;
-    recoverySeconds += Math.min(MAX_RECOVERY_SECONDS_PER_SET, Math.max(0, gap));
+  if (ticks.length > 1) {
+    // Stable sort: sets ticked together keep their order on the page.
+    ticks.sort((a, b) => a.at - b.at);
+    const first = ticks[0];
+    const last = ticks[ticks.length - 1];
+    // Without a session start (or one after the first tick), the clock starts
+    // when the first set's work began.
+    const firstWorkStart = first.at - first.workSeconds * 1000;
+    const start = sessionStartedAt ? Math.min(sessionStartedAt, firstWorkStart) : firstWorkStart;
+    const workSeconds = ticks.reduce((sum, t) => sum + t.workSeconds, 0);
+    const clockSeconds = activeSecondsBetween(start, last.at, pauseIntervals);
+    // No credit after the last set, after cardio, or after a 0 kg set.
+    const recoveringSets = ticks.slice(0, -1).filter((t) => t.recovers).length;
+    recoverySeconds = Math.min(recoveringSets * MAX_RECOVERY_SECONDS_PER_SET, Math.max(0, clockSeconds - workSeconds));
   }
   const restKcal = activeKcal(RECOVERY_MET, bodyWeightKg, bodyWeightKg, recoverySeconds / 60);
 

@@ -1025,9 +1025,16 @@ async function handleGymLive(req, res) {
       ));
     }
     const sessions = liveSessions(rows);
+    // clients.sex is optional (male | female | not set); a failed read just
+    // leaves everyone under "not set" instead of breaking the board.
+    const sexOf = {};
+    for (let i = 0; i < ids.length; i += 150) {
+      const chunk = await svcSelect(`clients?user_id=in.(${ids.slice(i, i + 150).join(',')})&select=user_id,sex`, 'gym-live sex').catch(() => []);
+      chunk.forEach((c) => { if (c.sex === 'male' || c.sex === 'female') sexOf[c.user_id] = c.sex; });
+    }
     return res.status(200).json({
       gym: { id: gid }, today, weekStart,
-      members: members.map((m) => ({ id: m.id, name: m.full_name })),
+      members: members.map((m) => ({ id: m.id, name: m.full_name, sex: sexOf[m.id] || null })),
       sessions
     });
   } catch (err) {

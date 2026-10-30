@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { visitGrid, dayStreak, memberTag, rankTrainers, initials, liveBoard } from './gymView';
+import { visitGrid, dayStreak, memberTag, rankTrainers, initials, liveBoard, liveSexCounts } from './gymView';
 
 describe('gymView', () => {
   it('marks the days trained, oldest first', () => {
@@ -156,5 +156,23 @@ describe('trainerDays', () => {
       sessions: [{ memberId: 'x', date: 'd', kcal: 100, at: '2' }, { memberId: 'y', date: 'd', kcal: 100, at: '1' }]
     };
     expect(liveBoard(live, 'today').map((r) => r.id)).toEqual(['y', 'x']);
+  });
+});
+
+describe('live board by sex', () => {
+  const live = {
+    today: 'd',
+    members: [{ id: 'a', name: 'A', sex: 'female' }, { id: 'b', name: 'B', sex: 'male' }, { id: 'c', name: 'C', sex: null }],
+    sessions: [
+      { memberId: 'a', date: 'd', kcal: 100, at: '1' }, { memberId: 'b', date: 'd', kcal: 300, at: '2' }, { memberId: 'c', date: 'd', kcal: 200, at: '3' }
+    ]
+  };
+  it('ranks only the chosen group', () => {
+    expect(liveBoard(live, 'today', 'female').map((r) => r.id)).toEqual(['a']);
+    expect(liveBoard(live, 'today', 'male').map((r) => r.id)).toEqual(['b']);
+    expect(liveBoard(live, 'today', 'all').map((r) => r.id)).toEqual(['b', 'c', 'a']);
+  });
+  it('counts each group and those who have not said', () => {
+    expect(liveSexCounts(live)).toEqual({ all: 3, male: 1, female: 1, unset: 1 });
   });
 });

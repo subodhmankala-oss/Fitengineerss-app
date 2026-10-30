@@ -194,7 +194,7 @@ export function trainerDays(biz, trainerId, today) {
 
 // Live calorie board. period 'today' or 'week'. Members who burned something
 // rank by calories (ties: whoever got there first), then everyone else by name.
-export function liveBoard(live, period) {
+export function liveBoard(live, period, sex = 'all') {
   if (!live) return [];
   const by = {};
   for (const s of live.sessions || []) {
@@ -205,6 +205,16 @@ export function liveBoard(live, period) {
     if (s.at > b.lastAt) b.lastAt = s.at;
   }
   return (live.members || [])
+    .filter((m) => sex === 'all' || m.sex === sex)
     .map((m) => ({ id: m.id, name: m.name || 'Member', kcal: Math.round(by[m.id]?.kcal || 0), sessions: by[m.id]?.sessions || 0, lastAt: by[m.id]?.lastAt || '' }))
     .sort((a, b) => (b.kcal - a.kcal) || (a.kcal && b.kcal ? a.lastAt.localeCompare(b.lastAt) : 0) || (b.sessions - a.sessions) || a.name.localeCompare(b.name));
+}
+
+// Member counts for the Live board's All / Male / Female tabs, plus how many
+// have not said (they only appear under All).
+export function liveSexCounts(live) {
+  const members = live?.members || [];
+  const male = members.filter((m) => m.sex === 'male').length;
+  const female = members.filter((m) => m.sex === 'female').length;
+  return { all: members.length, male, female, unset: members.length - male - female };
 }

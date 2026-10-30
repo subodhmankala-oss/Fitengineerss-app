@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { initials, liveBoard } from './gymView';
+import { initials, liveBoard, liveSexCounts } from './gymView';
 
 const REFRESH_MS = 20000;
 const ROW_H = 64;
@@ -14,6 +14,7 @@ export default function GymLive({ service }) {
   const [live, setLive] = useState(null);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState('today');
+  const [sex, setSex] = useState('all');
   const [updatedAt, setUpdatedAt] = useState(0);
   const [now, setNow] = useState(0);
   const [moves, setMoves] = useState({});
@@ -51,7 +52,8 @@ export default function GymLive({ service }) {
     return () => { clearTimeout(first); clearInterval(id); clearInterval(clock); clearTimeout(moveTimer.current); };
   }, [load]);
 
-  const rows = liveBoard(live, period);
+  const rows = liveBoard(live, period, sex);
+  const counts = liveSexCounts(live);
   const active = rows.filter((r) => r.kcal > 0);
   const top = active[0]?.kcal || 1;
   const moved = moves[period] || {};
@@ -78,8 +80,8 @@ export default function GymLive({ service }) {
 
       <section ref={boardRef} className="gx-live">
         <div className="gx-live-top">
-          <span className="gx-live-dot" aria-hidden="true" />
-          <span className="gx-live-status">{error ? 'Not updating' : 'Live'}{ago !== null && !error ? ` · updated ${ago < 5 ? 'just now' : `${ago}s ago`}` : ''}</span>
+          <span className="gx-live-badge"><span className="gx-live-dot" aria-hidden="true" />{error ? 'PAUSED' : 'LIVE'}</span>
+          <span className="gx-live-status">{error ? 'Not updating' : ago === null ? 'Connecting…' : `Updated ${ago < 5 ? 'just now' : `${ago}s ago`}`}</span>
           <div className="gx-live-toggle" role="group" aria-label="Period">
             {[['today', 'Today'], ['week', 'This week']].map(([k, label]) => (
               <button key={k} type="button" className={period === k ? 'on' : ''} aria-pressed={period === k} onClick={() => setPeriod(k)}>{label}</button>
@@ -87,15 +89,27 @@ export default function GymLive({ service }) {
           </div>
         </div>
 
+        <div className="gx-live-tabs" role="tablist" aria-label="Who to show">
+          {[['all', 'All', counts.all], ['male', 'Male', counts.male], ['female', 'Female', counts.female]].map(([k, label, n]) => (
+            <button key={k} type="button" role="tab" aria-selected={sex === k} className={sex === k ? 'on' : ''} onClick={() => setSex(k)}>
+              {label}<span>{n}</span>
+            </button>
+          ))}
+        </div>
+
         {error && !live && <p className="gx-live-empty">{error}</p>}
         {!live && !error && <p className="gx-live-empty">Loading…</p>}
 
         {live && (
           <>
-            <p className="gx-live-total"><b>{fmt(totalKcal)}</b> kcal burned {period === 'today' ? 'today' : 'this week'} by {active.length} {active.length === 1 ? 'member' : 'members'}</p>
+            <div className="gx-live-summary">
+              <div><b>{fmt(totalKcal)}</b><span>kcal burned {period === 'today' ? 'today' : 'this week'}</span></div>
+              <div><b>{active.length}</b><span>{active.length === 1 ? 'member' : 'members'} trained{sex !== 'all' ? ` · ${sex === 'male' ? 'men' : 'women'}` : ''}</span></div>
+              <div><b>{rows.reduce((s, r) => s + r.sessions, 0)}</b><span>workouts logged</span></div>
+            </div>
 
             {active.length === 0 ? (
-              <p className="gx-live-empty">Nobody has finished a workout {period === 'today' ? 'today' : 'this week'} yet. The first one to log goes straight to the top.</p>
+              <p className="gx-live-empty">Nobody{sex === 'all' ? '' : sex === 'male' ? ' in the men’s group' : ' in the women’s group'} has finished a workout {period === 'today' ? 'today' : 'this week'} yet. The first one to log goes straight to the top.</p>
             ) : (
               <div className="gx-live-podium">
                 {PODIUM_ORDER.map((i) => {
@@ -112,6 +126,7 @@ export default function GymLive({ service }) {
               </div>
             )}
 
+            <div className="gx-live-head" aria-hidden="true"><span>#</span><span /><span>MEMBER</span><span className="bar" /><span>KCAL</span></div>
             <ol className="gx-live-list" style={{ height: rows.length * ROW_H }}>
               {rows.map((r, i) => (
                 <li
@@ -133,6 +148,9 @@ export default function GymLive({ service }) {
                 </li>
               ))}
             </ol>
+            {sex !== 'all' && counts.unset > 0 && (
+              <p className="gx-live-note">{counts.unset} member{counts.unset === 1 ? ' hasn’t' : 's haven’t'} said male or female yet, so {counts.unset === 1 ? 'they show' : 'they show'} only under All.</p>
+            )}
             <p className="gx-live-note">Calories are counted when a member saves a workout in the app, so a workout shows up here as soon as it is finished.</p>
           </>
         )}

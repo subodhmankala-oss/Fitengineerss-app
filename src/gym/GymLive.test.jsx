@@ -6,7 +6,7 @@ import GymLive from './GymLive';
 
 const live = {
   success: true, gym: { id: 'g1' }, today: '2026-10-23', weekStart: '2026-10-20',
-  members: [{ id: 'a', name: 'Asha Rao' }, { id: 'b', name: 'Bala K' }, { id: 'c', name: 'Chitra M' }],
+  members: [{ id: 'a', name: 'Asha Rao', sex: 'female' }, { id: 'b', name: 'Bala K', sex: 'male' }, { id: 'c', name: 'Chitra M', sex: null }],
   sessions: [
     { memberId: 'a', date: '2026-10-23', kcal: 120, at: '2026-10-23T05:00:00Z' },
     { memberId: 'b', date: '2026-10-23', kcal: 200, at: '2026-10-23T06:00:00Z' },
@@ -23,7 +23,8 @@ describe('GymLive', () => {
     const list = await screen.findByRole('list');
     const names = () => within(list).getAllByRole('listitem').map((li) => li.querySelector('.gx-live-name').textContent);
     expect(names()).toEqual(['Bala K', 'Asha Rao', 'Chitra M']);
-    expect(screen.getByText(/burned today by 2 members/)).toBeTruthy();
+    expect(screen.getByText('kcal burned today')).toBeTruthy();
+    expect(screen.getByText('members trained')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'This week' }));
     expect(names()).toEqual(['Asha Rao', 'Bala K', 'Chitra M']);
@@ -34,5 +35,20 @@ describe('GymLive', () => {
     const service = { getGymLive: vi.fn().mockResolvedValue({ ...live, sessions: [] }) };
     render(<GymLive service={service} />);
     expect(await screen.findByText(/Nobody has finished a workout today yet/)).toBeTruthy();
+  });
+
+  it('has All / Male / Female tabs that re-rank the board', async () => {
+    const service = { getGymLive: vi.fn().mockResolvedValue(live) };
+    render(<GymLive service={service} />);
+    const list = await screen.findByRole('list');
+    const names = () => within(list).getAllByRole('listitem').map((li) => li.querySelector('.gx-live-name').textContent);
+    expect(screen.getByRole('tab', { name: /All/ }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(screen.getByRole('tab', { name: /Female/ }));
+    expect(names()).toEqual(['Asha Rao']);
+    expect(screen.getByText(/1 member hasn’t said male or female yet/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: /Male/ }));
+    expect(names()).toEqual(['Bala K']);
+    fireEvent.click(screen.getByRole('tab', { name: /All/ }));
+    expect(names()).toHaveLength(3);
   });
 });

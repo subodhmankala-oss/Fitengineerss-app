@@ -1015,7 +1015,7 @@ async function handleGymLive(req, res) {
     const ist = new Date(Date.now() + 5.5 * 3600000);
     const today = ist.toISOString().slice(0, 10);
     const weekStart = new Date(ist.getTime() - ((ist.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
-    const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name&limit=5000`, 'gym-live members');
+    const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id,full_name,email,avatar_url&limit=5000`, 'gym-live members');
     const ids = members.map((m) => m.id);
     const rows = [];
     for (let i = 0; i < ids.length; i += 150) {
@@ -1034,7 +1034,7 @@ async function handleGymLive(req, res) {
     }
     return res.status(200).json({
       gym: { id: gid }, today, weekStart,
-      members: members.map((m) => ({ id: m.id, name: m.full_name, sex: sexOf[m.id] || null })),
+      members: members.map((m) => ({ id: m.id, name: m.full_name, email: m.email || null, avatarUrl: m.avatar_url || null, sex: sexOf[m.id] || null })),
       sessions
     });
   } catch (err) {

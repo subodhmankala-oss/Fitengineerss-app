@@ -206,7 +206,7 @@ export function liveBoard(live, period, sex = 'all') {
   }
   return (live.members || [])
     .filter((m) => sex === 'all' || m.sex === sex)
-    .map((m) => ({ id: m.id, name: m.name || 'Member', kcal: Math.round(by[m.id]?.kcal || 0), sessions: by[m.id]?.sessions || 0, lastAt: by[m.id]?.lastAt || '' }))
+    .map((m) => ({ id: m.id, name: m.name || 'Member', email: m.email || null, avatarUrl: m.avatarUrl || null, kcal: Math.round(by[m.id]?.kcal || 0), sessions: by[m.id]?.sessions || 0, lastAt: by[m.id]?.lastAt || '' }))
     .sort((a, b) => (b.kcal - a.kcal) || (a.kcal && b.kcal ? a.lastAt.localeCompare(b.lastAt) : 0) || (b.sessions - a.sessions) || a.name.localeCompare(b.name));
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { initials, liveBoard, liveSexCounts } from './gymView';
+import Avatar from '../components/Avatar';
+import { liveBoard, liveSexCounts } from './gymView';
 
 const REFRESH_MS = 20000;
 const ROW_H = 64;
@@ -117,7 +118,7 @@ export default function GymLive({ service }) {
                   if (!r) return <div key={`empty-${i}`} className="gx-live-pod empty" />;
                   return (
                     <div key={r.id} className={`gx-live-pod p${i + 1}${moved[r.id] ? ' moved' : ''}`}>
-                      <span className="gx-live-avatar">{initials(r.name)}</span>
+                      <span className="gx-live-avatar"><Avatar email={r.email} name={r.name} avatarUrl={r.avatarUrl} size={42} /></span>
                       <span className="gx-live-pod-name">{r.name}</span>
                       <span className="gx-live-pod-bar"><i>{i + 1}</i><b>{fmt(r.kcal)}</b><small>kcal</small></span>
                     </div>
@@ -135,7 +136,7 @@ export default function GymLive({ service }) {
                   style={{ transform: `translateY(${i * ROW_H}px)` }}
                 >
                   <span className="gx-live-rank">{i + 1}</span>
-                  <span className="gx-live-avatar sm">{initials(r.name)}</span>
+                  <span className="gx-live-avatar sm"><Avatar email={r.email} name={r.name} avatarUrl={r.avatarUrl} size={32} /></span>
                   <span className="gx-live-who">
                     <span className="gx-live-name">{r.name}</span>
                     <span className="gx-live-meta">

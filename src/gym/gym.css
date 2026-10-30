@@ -432,7 +432,7 @@
 .gx-live-pod.p3 .gx-live-pod-bar i { background: #fb923c; color: #1a0d03; }
 .gx-live-avatar {
   width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 0.88rem; flex-shrink: 0;
-  background: var(--ll-card); border: 2px solid var(--ll-strong); color: var(--ll-blue-text);
+  background: var(--ll-card); border: 2px solid var(--ll-strong); color: var(--ll-blue-text); overflow: hidden; padding: 0;
 }
 .gx-live-pod.p1 .gx-live-avatar { border-color: var(--ll-amber); color: var(--ll-amber); box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
 .gx-live-avatar.sm { width: 34px; height: 34px; font-size: 0.72rem; border-width: 1px; }

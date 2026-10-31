@@ -18,6 +18,8 @@ import './WorkoutTracker.css';
 // visually identical (same chart widgets, session cards, heatmap).
 import './WorkoutProgressDashboard.css';
 import WeeklyMuscleAnalytics from './MuscleAnalytics/WeeklyMuscleAnalytics';
+import LiveSessionCards from './LiveSessionCards';
+import { tickedSetRows } from '../utils/liveSessionStats';
 import StatsStrip from './StatsStrip';
 import DayHeader from './DayHeader';
 import DateBar from './DateBar';
@@ -1863,6 +1865,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // Starts empty: the coach adds what the client is actually doing (a
   // placeholder exercise here used to come with a made-up 20 kg).
   const [liveExercises, setLiveExercises] = useState([]);
+  // Sets ticked so far in the Live Log, as workout_logs rows: the client's
+  // Muscles tab counts them before the session is saved (same as the
+  // client's own logger — see utils/liveSessionStore.js).
+  const liveTickedRows = useMemo(() => tickedSetRows(liveExercises, liveDate), [liveExercises, liveDate]);
   const [livePlanName, setLivePlanName] = useState('Live Routine');
   const [liveSaving, setLiveSaving] = useState(false);
   const [liveToast, setLiveToast] = useState('');
@@ -9092,7 +9098,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             via historyWeekOffset. */}
                         {historyTimeframe === 'muscles' && (
                           <WeeklyMuscleAnalytics
-                            logs={rawWorkoutLogs}
+                            logs={liveTickedRows.length > 0 ? [...rawWorkoutLogs, ...liveTickedRows] : rawWorkoutLogs}
+                            liveNote={liveTickedRows.length > 0}
                             weekDays={weekDays}
                             weekRangeLabel={weekRangeLabel}
                             weeklyStats={muscleAnalyticsWeeklyStats}
@@ -10172,6 +10179,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       </>
                     )}
                   </div>
+
+                  <LiveSessionCards
+                    exercises={liveExercises}
+                    logDate={liveDate}
+                    savedLogs={rawWorkoutLogs}
+                    getPrevSet={(ex, setIdx) => findPreviousLoggedSetIn(workoutLogs, null, ex, setIdx)}
+                  />
 
                   {/* Plan/Routine configuration — always visible, no toggle */}
                   <div className="live-workout-config-panel">

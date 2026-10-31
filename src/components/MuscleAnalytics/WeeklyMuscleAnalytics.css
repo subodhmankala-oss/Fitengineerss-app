@@ -21,6 +21,24 @@
   margin: 0 0 14px;
 }
 
+/* Muscle Balance is counting a workout still open in the logger. */
+.muscle-analytics-live-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -8px 0 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.muscle-analytics-live-note span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
 /* ── Status color tokens (scoped to this feature) ── */
 .status-optimal { --status-color: #10b981; } /* green, same as the heat map's Optimal */
 .status-slightly-low { --status-color: #eab308; }

@@ -77,7 +77,7 @@ const PERIOD_KEY = 'muscleAnalyticsPeriod';
  * same weekly targets, so colours and statuses mean the same in both views.
  * Month navigation shares the parent's Monthly tab offset.
  */
-const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null }) => {
+const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, weekOffset, setWeekOffset, monthOffset = 0, setMonthOffset = null, monthlyStats = null, bareCards = false, onShareBalance = null, onShareHeatMap = null, focusSection = null, onAddExercise = null, onRemoveExercise = null, addedNames = [], addedCount = null, onGoToWorkout = null, addTargetLabel = null, liveNote = false }) => {
   const canMonth = !!(setMonthOffset && monthlyStats);
   const [periodPref, setPeriodPref] = useState(() => {
     try { return localStorage.getItem(PERIOD_KEY) === 'month' ? 'month' : 'week'; } catch { return 'week'; }
@@ -344,6 +344,7 @@ const WeeklyMuscleAnalytics = ({ logs, weekDays, weekRangeLabel, weeklyStats, we
                 ? 'Average working sets per week this month, per muscle group, measured against your weekly target.'
                 : 'Working sets per muscle group, measured against your weekly target.'}
             </p>
+            {liveNote && <p className="muscle-analytics-live-note"><span aria-hidden="true" /> Includes today's workout in progress</p>}
             {pickedStrip}
             <div className="muscle-card-grid">
               {muscleStats.map((stat, i) => (

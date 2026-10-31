@@ -70,6 +70,27 @@ const ZOOM_IN = 2.5;
 const ZOOM_MAX = 4;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+// Mask that keeps everything EXCEPT the shape itself: a full layer with the
+// shape cut out. Put on a layer whose child is the filled, drop-shadowed
+// shape, only the glow outside the outline survives (the Deep Core halo).
+const glowMaskCache = new Map();
+function hiddenGlowMask(rawSvg) {
+  if (!glowMaskCache.has(rawSvg)) {
+    // The artwork's shapes are ~52% opaque; the cut-out has to be solid or
+    // half the glow shows through inside the muscle.
+    const solid = recolorSvg(rawSvg, '#000', false).replace(/opacity:[\d.]+/g, 'opacity:1');
+    const shapeUrl = `url("data:image/svg+xml,${encodeURIComponent(solid)}")`;
+    const mask = `linear-gradient(#000 0 0), ${shapeUrl}`;
+    glowMaskCache.set(rawSvg, {
+      WebkitMaskImage: mask, maskImage: mask,
+      WebkitMaskSize: '100% 100%', maskSize: '100% 100%',
+      WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+      WebkitMaskComposite: 'xor', maskComposite: 'exclude',
+    });
+  }
+  return glowMaskCache.get(rawSvg);
+}
+
 // The part layer under (x, y), or the nearest one within SNAP_PX. Uses the
 // browser's own hit-testing, so clip windows and exact shapes count.
 function findPartAt(root, x, y) {
@@ -496,25 +517,29 @@ export const BodyDiagram = ({ view, statByMuscle = {}, activeMuscle, onSelectMus
             <MuscleLayer key={`${muscle}-${i}`} rawSvg={rawSvg} color={tier?.color ?? '#64748b'} isActive={muscle === activeMuscle}
               muscle={muscle} flash={flash === `${muscle}|`} onSelect={() => onSelectMuscle(muscle)} ariaLabel={`${muscle}: ${tier?.label ?? 'Not Trained'}`} />,
           ]));
-          return rest.concat(Object.entries(split).flatMap(([region, regionTier]) => {
+          // Regions that can't be drawn as a part of their own (Deep Core
+          // sits under the abs and obliques): once trained, the shapes it lies
+          // beneath glow in its color, masked to OUTSIDE their own outline
+          // (hiddenGlowMask), so the parts keep their own colors and only a
+          // soft halo following their real shape shows. Taps go through.
+          const glow = Object.entries(split).flatMap(([region, regionTier]) => {
             const shape = getRegionShape(region, sex);
-            if (!shape || shape.view !== view) return [];
-            if (shape.hiddenOnMap) {
-              // Can't be drawn as its own part (Deep Core sits under the abs),
-              // so once it has sets it shows as a dashed outline in its color
-              // around where it lies, and the parts on top keep their own
-              // colors. Taps go through to those parts.
-              if (!regionTier || regionTier.key === 'not_trained' || !shape.box) return [];
-              const [x0, y0, x1, y1] = shape.box;
-              return [
-                <div key={`${region}-outline`} className="muscle-svg-layer" aria-hidden="true" style={{ pointerEvents: 'none' }}>
-                  <svg viewBox="0 0 200 369.03">
-                    <rect x={x0 - 2} y={y0 - 2} width={x1 - x0 + 4} height={y1 - y0 + 4} rx="5" fill="none"
-                      stroke={regionTier.color} strokeWidth="1.4" strokeDasharray="4 3" />
-                  </svg>
-                </div>,
-              ];
-            }
+            if (!shape || shape.view !== view || !shape.hiddenOnMap) return [];
+            if (!regionTier || regionTier.key === 'not_trained') return [];
+            const c = regionTier.color;
+            // Mask on the outer layer, glow on the inner one: on one element
+            // Chrome masks first and the glow then refills the cut-out.
+            return (shape.parts || []).map((part, i) => (
+              <div key={`${region}-glow-${i}`} className="muscle-svg-layer muscle-hidden-glow" aria-hidden="true" data-region={region}
+                style={{ pointerEvents: 'none', ...hiddenGlowMask(part.raw) }}>
+                <div className="muscle-svg-layer" style={{ filter: `drop-shadow(0 0 2px ${c}) drop-shadow(0 0 5px ${c})` }}
+                  dangerouslySetInnerHTML={{ __html: recolorSvg(part.raw, c, false) }} />
+              </div>
+            ));
+          });
+          return glow.concat(rest, Object.entries(split).flatMap(([region, regionTier]) => {
+            const shape = getRegionShape(region, sex);
+            if (!shape || shape.view !== view || shape.hiddenOnMap) return [];
             const color = regionTier?.color ?? '#64748b';
             const select = () => onSelectMuscle(muscle, region);
             const label = `${muscle}, ${region}: ${regionTier?.label ?? 'Not Trained'}`;

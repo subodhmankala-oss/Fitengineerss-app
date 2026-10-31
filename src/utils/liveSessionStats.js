@@ -41,6 +41,20 @@ export function tickedSetRows(exercises, logDate) {
   return rows;
 }
 
+/**
+ * Every ticked set as [key, { ex, set, setIdx }], keyed by exercise + set +
+ * tick time (not list position, so reordering exercises doesn't look like
+ * new ticks). The live cards diff these keys between renders to spot the
+ * set that was just ticked.
+ */
+export function completedSetEntries(exercises) {
+  const entries = [];
+  (exercises || []).forEach(ex => (ex.sets || []).forEach((set, setIdx) => {
+    if (set.isCompleted) entries.push([`${ex.name}-${setIdx}-${set.completedAt || ''}`, { ex, set, setIdx }]);
+  }));
+  return entries;
+}
+
 // Monday–Sunday week (YYYY-MM-DD) holding `dateStr` — same week the
 // Muscles tab's "This week" uses (getStartOfWeek in WorkoutProgressDashboard).
 export function weekBoundsFor(dateStr) {

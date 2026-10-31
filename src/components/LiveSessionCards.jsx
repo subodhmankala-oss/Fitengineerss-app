@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FullBodyThumbnail } from './MuscleAnalytics/MuscleThumbnail';
 import { MUSCLE_BODY_VIEW, getMuscleGroupsForExercise } from '../utils/muscleGroups';
-import { liveMuscleSummary, liftedKg, liftObjectFor, beatsLastTime } from '../utils/liveSessionStats';
+import { liveMuscleSummary, liftedKg, liftObjectFor, beatsLastTime, completedSetEntries } from '../utils/liveSessionStats';
 import './MuscleAnalytics/WeeklyMuscleAnalytics.css';
 import './LiveSessionCards.css';
 
@@ -66,10 +66,7 @@ const LiveSessionCards = ({ exercises, logDate, savedLogs, getPrevSet }) => {
   // exercises into a new order doesn't look like fresh ticks. Compared
   // during render against the previous list (React's "adjust state when a
   // prop changes" pattern), so there's no extra effect pass.
-  const done = new Map();
-  (exercises || []).forEach(ex => (ex.sets || []).forEach((set, setIdx) => {
-    if (set.isCompleted) done.set(`${ex.name}-${setIdx}-${set.completedAt || ''}`, { ex, set, setIdx });
-  }));
+  const done = new Map(completedSetEntries(exercises));
   const doneSignature = [...done.keys()].join('|');
   const [seenSignature, setSeenSignature] = useState(doneSignature);
   if (doneSignature !== seenSignature) {

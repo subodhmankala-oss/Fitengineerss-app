@@ -37,7 +37,7 @@ import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
-import LiveSessionCards from './LiveSessionCards';
+import LiveCoachCard from './LiveCoachCard';
 import { tickedSetRows } from '../utils/liveSessionStats';
 import { publishLiveRows } from '../utils/liveSessionStore';
 import PlanCard, { TrashIcon } from './PlanCard';
@@ -3936,7 +3936,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
             </div>
           </div>
 
-          <LiveSessionCards
+          <LiveCoachCard
             exercises={logExercises}
             logDate={logDate}
             savedLogs={ownServerLogs}

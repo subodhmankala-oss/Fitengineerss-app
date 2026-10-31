@@ -77,7 +77,7 @@ describe('gymView money', () => {
   });
 });
 
-import { leadStats, insideNow, checkinsToday, busyLabel, payday, istDate } from './gymView';
+import { leadStats, insideNow, checkinsToday, busyLabel, payday, istDate, whoIsIn, visitsToday } from './gymView';
 
 describe('gymView leads, check-ins, payday', () => {
   it('counts joins this month against the goal', () => {
@@ -98,6 +98,26 @@ describe('gymView leads, check-ins, payday', () => {
     ];
     expect(insideNow(rows, now)).toHaveLength(1);
     expect(checkinsToday(rows, '2026-10-18')).toBe(3);
+  });
+  it('fills "in the gym" from workouts by itself, desk check-ins only as a fallback', () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const biz = {
+      activity: {
+        training: [
+          { member_id: 'a', source: 'self', since: '2026-10-18T11:30:00Z' },
+          { member_id: 'a', source: 'coach', since: '2026-10-18T11:31:00Z' },
+          { member_id: 'b', source: 'self', since: '2026-10-18T11:40:00Z' }
+        ],
+        justFinished: [{ member_id: 'c', at: '2026-10-18T11:55:00Z' }, { member_id: 'b', at: '2026-10-18T11:50:00Z' }],
+        trainedToday: ['c', 'd']
+      },
+      checkins: [{ member_id: 'e', in_at: '2026-10-18T11:00:00Z', out_at: null }, { member_id: 'a', in_at: '2026-10-18T11:10:00Z', out_at: null }]
+    };
+    expect(whoIsIn(biz, now).map((r) => [r.memberId, r.how, r.auto])).toEqual([
+      ['e', 'desk', false], ['a', 'coach', true], ['b', 'self', true], ['c', 'done', true]
+    ]);
+    expect(visitsToday(biz, '2026-10-18')).toBe(5);
+    expect(whoIsIn({ checkins: [] }, now)).toEqual([]);
   });
   it('labels how busy the gym is', () => {
     expect(busyLabel(10, 60)).toBe('Plenty of room');

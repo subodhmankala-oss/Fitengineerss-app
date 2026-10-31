@@ -324,6 +324,12 @@
 .gx-meter i { display: block; height: 100%; background: #f59e0b; border-radius: 999px; }
 .gx-inside { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .gx-insider { display: inline-flex; align-items: center; gap: 8px; background: #fff; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 0.78rem; font-weight: 700; }
+.gx-insider:not(:has(button)) { padding-right: 6px; }
+.gx-how { font-size: 0.64rem; font-weight: 800; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
+.gx-how.violet { background: #efe9fe; color: #6d3fd1; }
+.gx-how.blue { background: #e6effd; color: #1f5fbf; }
+.gx-how.green { background: #dff6ec; color: #17805a; }
+.gx-how.gray { background: #eef0f3; color: #5b6472; }
 .gx-insider button { font: inherit; font-size: 0.68rem; font-weight: 800; border: none; border-radius: 999px; padding: 4px 9px; background: #eef1fb; color: var(--blue); cursor: pointer; }
 .gx-grid2.even { grid-template-columns: 1fr 1fr; }
 .gx-today { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }

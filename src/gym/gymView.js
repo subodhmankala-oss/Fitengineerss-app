@@ -155,6 +155,34 @@ export function insideNow(checkins, nowMs = Date.now()) {
 
 export const checkinsToday = (checkins, today) => (checkins || []).filter((c) => istDate(c.in_at) === today).length;
 
+// Everyone in the gym right now, one row per member, with how we know:
+// 'coach' (trainer's Live Log open for them), 'self' (logging their own
+// sets), 'done' (saved a workout in the last 15 min) — all automatic, from
+// biz.activity — or 'desk' (a manual check-in, for members without the app).
+export function whoIsIn(biz, nowMs = Date.now()) {
+  const out = new Map();
+  for (const t of biz?.activity?.training || []) {
+    const prev = out.get(t.member_id);
+    if (!prev || t.source === 'coach') out.set(t.member_id, { memberId: t.member_id, how: t.source, since: t.since, auto: true });
+  }
+  for (const f of biz?.activity?.justFinished || []) {
+    if (!out.has(f.member_id)) out.set(f.member_id, { memberId: f.member_id, how: 'done', since: f.at, auto: true });
+  }
+  for (const c of insideNow(biz?.checkins, nowMs)) {
+    if (!out.has(c.member_id)) out.set(c.member_id, { memberId: c.member_id, how: 'desk', since: c.in_at, auto: false });
+  }
+  return [...out.values()].sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
+}
+
+// Members who came in today: trained (any workout saved or open today) or
+// were checked in at the desk. Each person counts once.
+export function visitsToday(biz, today) {
+  const ids = new Set(biz?.activity?.trainedToday || []);
+  (biz?.activity?.training || []).forEach((t) => ids.add(t.member_id));
+  (biz?.checkins || []).filter((c) => istDate(c.in_at) === today).forEach((c) => ids.add(c.member_id));
+  return ids.size;
+}
+
 // "Getting busy" from 70% of capacity.
 export const busyLabel = (inside, capacity) => (inside >= capacity ? 'Full' : inside >= capacity * 0.7 ? 'Getting busy' : 'Plenty of room');
 

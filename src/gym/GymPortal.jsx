@@ -45,6 +45,17 @@ export default function GymPortal({ service = databaseService, restore = recover
     return () => { cancelled = true; };
   }, [restore, checkOwnership]);
 
+  // "Live in the gym" fills itself from members' workouts, so keep it fresh
+  // without anyone touching the page.
+  useEffect(() => {
+    if (stage !== 'ready') return undefined;
+    const id = setInterval(async () => {
+      const money = await service.getGymBusiness();
+      if (money.success) setBiz({ data: money, error: '' });
+    }, 60000);
+    return () => clearInterval(id);
+  }, [stage, service]);
+
   const signOut = async () => {
     try { await service.signOut(); } catch { /* the stored session is cleared first either way */ }
     setError('');

@@ -956,11 +956,46 @@ async function handleGymBusiness(req, res) {
     const paidAll = memberIds.length
       ? await svcSelect(`gym_payments?membership_id=in.(${memberIds.join(',')})&select=membership_id,amount_inr&limit=20000`, 'gym-business paid')
       : [];
-    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, leads, checkins, payouts, trainerDays, highFives });
+    const activity = await gymActivity(gid).catch((e) => { console.warn('gym-business activity skipped:', e.message); return null; });
+    return res.status(200).json({ gym: { id: gid }, plans, memberships, payments, paidByMembership: paidAll, settings: settings[0] || null, leads, checkins, payouts, trainerDays, highFives, activity });
   } catch (err) {
     console.error('gym-business error:', err, err.detail);
     return res.status(502).json({ error: 'Failed to read your gym’s plans and payments.' });
   }
+}
+
+// Who is in the gym, with nobody pressing "Check in": a member is training
+// while their in-progress workout (workout_drafts, saved on every ticked set,
+// by them or by their trainer's Live Log) was touched in the last 40 min, and
+// still counts as inside for 15 min after the workout is saved. A draft left
+// open and never finished simply goes stale and drops off.
+const ACTIVE_DRAFT_MS = 40 * 60000;
+const JUST_FINISHED_MS = 15 * 60000;
+
+async function gymActivity(gid) {
+  const members = await svcSelect(`users?gym_id=eq.${gid}&role=eq.client&select=id&limit=5000`, 'gym-activity members');
+  const ids = members.map((m) => m.id);
+  const now = Date.now();
+  const today = new Date(now + 5.5 * 3600000).toISOString().slice(0, 10);
+  const fresh = new Date(now - ACTIVE_DRAFT_MS).toISOString();
+  const drafts = [];
+  const logs = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    const chunk = ids.slice(i, i + 150).join(',');
+    drafts.push(...await svcSelect(`workout_drafts?user_id=in.(${chunk})&updated_at=gte.${fresh}&select=user_id,source,created_at,timer_started_at`, 'gym-activity drafts'));
+    logs.push(...await svcSelectAll(`workout_logs?user_id=in.(${chunk})&log_date=eq.${today}&select=id,user_id,created_at&order=id.asc`, 'gym-activity logs'));
+  }
+  const training = drafts.map((d) => ({
+    member_id: d.user_id,
+    source: d.source === 'coach' ? 'coach' : 'self',
+    since: d.timer_started_at ? new Date(Number(d.timer_started_at)).toISOString() : d.created_at
+  }));
+  const lastSave = {};
+  for (const l of logs) if (!lastSave[l.user_id] || l.created_at > lastSave[l.user_id]) lastSave[l.user_id] = l.created_at;
+  const justFinished = Object.entries(lastSave)
+    .filter(([, at]) => now - Date.parse(at) < JUST_FINISHED_MS)
+    .map(([member_id, at]) => ({ member_id, at }));
+  return { training, justFinished, trainedToday: Object.keys(lastSave) };
 }
 
 // A save shorter than this is a plan saved without being trained (all sets

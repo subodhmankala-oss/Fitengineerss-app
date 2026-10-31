@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import GymInvite from './GymInvite';
-import { busyLabel, checkinsToday, greeting, insideNow, istDate, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees } from './gymView';
+import { busyLabel, greeting, istDate, istTime, leadStats, memberPlans, monthlyCollections, rankTrainers, rupees, visitsToday, whoIsIn } from './gymView';
+
+const HOW = {
+  coach: { label: 'With trainer', tone: 'violet' },
+  self: { label: 'Working out', tone: 'blue' },
+  done: { label: 'Just finished', tone: 'green' },
+  desk: { label: 'Front desk', tone: 'gray' }
+};
 import { HealthBar, WeeklyBars } from '../components/OwnerCharts';
 import { weekLabels, weekRanges } from '../utils/ownerView';
 
@@ -8,6 +15,7 @@ import { weekLabels, weekRanges } from '../utils/ownerView';
 // check-ins and leads fill the same grid as their stages land.
 export default function GymOverview({ data, biz, service, onChanged, owner, onOpenMembers }) {
   const [pick, setPick] = useState('');
+  const [walkIn, setWalkIn] = useState(false);
   const [ciBusy, setCiBusy] = useState(false);
   const [ciError, setCiError] = useState('');
   const { clients, trainers, insights, gym } = data;
@@ -28,7 +36,7 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
   const money = biz && insights?.today ? monthlyCollections(biz.payments, insights.today, 6) : null;
   const maxMonth = money ? Math.max(1, ...money.months.map((m) => m.total)) : 1;
 
-  const live = biz?.checkins ? insideNow(biz.checkins) : null;
+  const live = biz?.checkins || biz?.activity ? whoIsIn(biz) : null;
   const capacity = biz?.settings?.capacity ?? 60;
   const names = Object.fromEntries(clients.map((c) => [c.id, c.name]));
   const todayStr = insights?.today;
@@ -41,7 +49,7 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
     setCiBusy(true); setCiError('');
     const r = await service.gymCheckin(memberId, out);
     setCiBusy(false);
-    if (r.success) { setPick(''); onChanged(); } else setCiError(r.error);
+    if (r.success) { setPick(''); setWalkIn(false); onChanged(); } else setCiError(r.error);
   };
 
   const plan = [
@@ -90,25 +98,33 @@ export default function GymOverview({ data, biz, service, onChanged, owner, onOp
             <div className="gx-row"><span className="gx-pill green">● Live in the gym</span><span className="gx-sub">{busyLabel(live.length, capacity)}</span></div>
             <div className="gx-big dark">{live.length} <small>of {capacity} spots</small></div>
             <div className="gx-meter" role="img" aria-label={`${live.length} of ${capacity} spots in use`}><i style={{ width: `${Math.min(100, (live.length / capacity) * 100)}%` }} /></div>
-            <div className="gx-form-inline">
-              <select className="gx-select wide" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Member to check in">
-                <option value="">Check someone in…</option>
-                {[...clients].sort((a, b) => a.name.localeCompare(b.name)).filter((c) => !live.some((l) => l.member_id === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <button type="button" className="gx-btn gx-btn-dark" disabled={!pick || ciBusy} onClick={() => checkIn(pick, false)}>+ Check in</button>
-            </div>
-            {ciError && <p className="gx-err" role="alert">{ciError}</p>}
             <div className="gx-inside">
-              {live.length === 0 && <p className="gx-sub">Nobody is checked in right now.</p>}
+              {live.length === 0 && <p className="gx-sub">Nobody is training right now. Members appear here by themselves the moment they log a set.</p>}
               {live.map((l) => (
-                <span key={l.id} className="gx-insider">{names[l.member_id] || 'Member'}<button type="button" aria-label={`Check out ${names[l.member_id] || 'member'}`} disabled={ciBusy} onClick={() => checkIn(l.member_id, true)}>Check out</button></span>
+                <span key={l.memberId} className="gx-insider">
+                  {names[l.memberId] || 'Member'}
+                  <span className={`gx-how ${HOW[l.how].tone}`}>{HOW[l.how].label} · {istTime(l.since)}</span>
+                  {!l.auto && <button type="button" aria-label={`Check out ${names[l.memberId] || 'member'}`} disabled={ciBusy} onClick={() => checkIn(l.memberId, true)}>Check out</button>}
+                </span>
               ))}
             </div>
+            {walkIn ? (
+              <div className="gx-form-inline">
+                <select className="gx-select wide" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Member to check in">
+                  <option value="">Member without the app…</option>
+                  {[...clients].sort((a, b) => a.name.localeCompare(b.name)).filter((c) => !live.some((l) => l.memberId === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button type="button" className="gx-btn gx-btn-dark" disabled={!pick || ciBusy} onClick={() => checkIn(pick, false)}>Check in</button>
+              </div>
+            ) : (
+              <button type="button" className="gx-link" onClick={() => setWalkIn(true)}>Someone without the app? Check them in</button>
+            )}
+            {ciError && <p className="gx-err" role="alert">{ciError}</p>}
           </section>
           <section className="gx-card">
             <h2 className="gx-h2">Today so far</h2>
             <div className="gx-today">
-              <div className="blue"><b>{checkinsToday(biz.checkins, todayStr)}</b><span>Check-ins</span></div>
+              <div className="blue"><b>{visitsToday(biz, todayStr)}</b><span>Came in</span></div>
               <div className="amber"><b>{rupees(collectedToday)}</b><span>Collected</span></div>
               <div className="green"><b>{joinsToday}</b><span>New joins</span></div>
               <div className="red"><b>{trialsToday}</b><span>Trials booked</span></div>

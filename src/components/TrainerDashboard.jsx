@@ -7990,42 +7990,75 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                 </div>
               </div>
 
-              {/* Client Targets Grid */}
-              <div className="client-metrics-grid">
-                <div className="metric-mini-card">
-                  <div className="metric-mini-label">Fitness Goal</div>
-                  <div className="metric-mini-value" style={{ fontSize: '0.8rem', color: 'var(--accent-text)' }}>
-                    {selectedClient.userGoal || 'Not set'}
-                    {selectedClient.userSecondaryGoal ? ` + ${selectedClient.userSecondaryGoal}` : ''}
+              {/* Client summary — one card: goal pill + age/height, the three
+                  numbers a coach checks (weight, calories, protein), and the
+                  compact Program Sessions row below. */}
+              <div className="client-summary-card" style={{
+                position: 'relative',
+                padding: '14px',
+                marginBottom: '20px',
+                border: '1px solid rgba(var(--fg-rgb), 0.08)',
+                borderRadius: '16px',
+                background: 'rgba(var(--fg-rgb), 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[selectedClient.userGoal || 'Goal not set', selectedClient.userSecondaryGoal].filter(Boolean).map(goal => {
+                      // Distinct tint per goal (tint + ring, not a solid fill).
+                      const tint = {
+                        'Fat Loss': 'var(--tint-orange)',
+                        'Muscle Building': 'var(--tint-blue)',
+                        'Gut Fix': 'var(--tint-cyan)',
+                        'Gut Health': 'var(--tint-cyan)',
+                        'General Fitness': 'var(--tint-violet)'
+                      }[goal] || 'var(--text-muted)';
+                      return (
+                        <span key={goal} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          padding: '3px 10px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700,
+                          color: tint,
+                          background: `color-mix(in srgb, ${tint} 12%, transparent)`,
+                          border: `1px solid color-mix(in srgb, ${tint} 35%, transparent)`
+                        }}>
+                          {goal === 'Fat Loss' && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M12 12c2-2.96 0-7-1-8 0 3.04-1.77 4.74-3 6-1.22 1.27-2 3.26-2 5a6 6 0 0 0 12 0c0-1.53-1.06-3.94-2-5-1.79 3-2.79 3-4 2z" />
+                            </svg>
+                          )}
+                          {goal}
+                        </span>
+                      );
+                    })}
                   </div>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {selectedClient.userAge || '--'} yrs · {selectedClient.userHeight || '--'} cm
+                  </span>
                 </div>
-                <div className="metric-mini-card">
-                  <div className="metric-mini-label">Weight (kg)</div>
-                  {/* Prefer the latest logged measurement (clientMeasurements is
-                      fetched fresh in handleSelectClient) over the cached
-                      clients.weight_kg snapshot on selectedClient.userWeight —
-                      the client logging a new weight via Measurements never
-                      used to update that column, so this tile would go stale
-                      the moment they did. */}
-                  <div className="metric-mini-value">{clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight || '--'}</div>
+
+                <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                  {[
+                    // Prefer the latest logged measurement (clientMeasurements is
+                    // fetched fresh in handleSelectClient) over the cached
+                    // clients.weight_kg snapshot on selectedClient.userWeight —
+                    // the client logging a new weight via Measurements never
+                    // used to update that column, so this would go stale the
+                    // moment they did.
+                    { value: clientMeasurements[0]?.measurements?.weight || selectedClient.userWeight, unit: 'kg', label: 'Weight' },
+                    { value: selectedClient.userCalorieTarget, unit: '', label: 'kcal / day' },
+                    { value: selectedClient.userProteinTarget, unit: 'g', label: 'Protein' }
+                  ].map((stat, i) => (
+                    <div key={stat.label} style={{
+                      flex: 1, textAlign: 'center',
+                      borderLeft: i ? '1px solid rgba(var(--fg-rgb), 0.08)' : 'none'
+                    }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        {stat.value || '--'}
+                        {stat.value && stat.unit && <span style={{ fontSize: '0.7rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '2px' }}>{stat.unit}</span>}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stat.label}</div>
+                    </div>
+                  ))}
                 </div>
-                <div className="metric-mini-card">
-                  <div className="metric-mini-label">Calories</div>
-                  <div className="metric-mini-value">{selectedClient.userCalorieTarget || '--'} kcal</div>
-                </div>
-                <div className="metric-mini-card">
-                  <div className="metric-mini-label">Age</div>
-                  <div className="metric-mini-value">{selectedClient.userAge || '--'} yrs</div>
-                </div>
-                <div className="metric-mini-card">
-                  <div className="metric-mini-label">Height</div>
-                  <div className="metric-mini-value">{selectedClient.userHeight || '--'} cm</div>
-                </div>
-                <div className="metric-mini-card">
-                  <div className="metric-mini-label">Protein</div>
-                  <div className="metric-mini-value">{selectedClient.userProteinTarget || '--'}g</div>
-                </div>
-              </div>
 
               {/* Coaching Program Length — coach-set total sessions that drives the
                   "Coaching Program Progress" card on this client's home screen.
@@ -8051,18 +8084,22 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   : workoutLogs.length;
                 const remaining = total != null ? Math.max(0, total - completed) : null;
                 const percent = total ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-                const isSavedLocked = totalSessionsSavedValue !== null && totalSessionsSavedValue === totalSessionsInput;
-                // Deliberately does NOT factor in isSavedLocked — the popup
+                // Deliberately does NOT lock on "already saved" — the popup
                 // pre-fills the input with the already-saved value, so that
                 // lock would leave Save Changes disabled the instant the
                 // popup opens and clicking it would silently do nothing.
                 const isSaveDisabled = savingTotalSessions || !totalSessionsInput.trim();
+                // "Sep 18" — the year only when it isn't this year.
                 const formatDate = (iso) => {
                   if (!iso) return null;
                   const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
                   if (Number.isNaN(d.getTime())) return null;
-                  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+                  const sameYear = d.getFullYear() === new Date().getFullYear();
+                  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
                 };
+                const startLabel = formatDate(selectedClient.program_started_on);
+                const endLabel = formatDate(selectedClient.program_est_completion);
+                const ringC = 2 * Math.PI * 16;
                 const formatDateTime = (iso) => {
                   if (!iso) return null;
                   const d = new Date(iso);
@@ -8070,17 +8107,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   return d.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 };
                 return (
-                  <div className="glass-panel" style={{
-                    position: 'relative',
-                    padding: '18px',
-                    marginBottom: '20px',
-                    border: '1px solid rgba(var(--fg-rgb), 0.08)',
-                    borderRadius: '16px',
-                    background: 'rgba(var(--fg-rgb), 0.03)'
-                  }}>
-                    {/* "Edit Total Sessions" popup — kept top-right, opened by
-                        the Edit button below instead of an always-visible
-                        stepper. */}
+                  <div style={{ marginTop: '14px' }}>
+                    {/* "Edit Total Sessions" popup — covers the summary card
+                        (its position: relative parent), opened by the pencil
+                        button below instead of an always-visible stepper. */}
                     {showTotalSessionsModal && (
                       <div
                         onClick={() => { if (!savingTotalSessions) { setShowTotalSessionsModal(false); setJustSavedTotalSessions(false); setTotalSessionsInput(totalSessionsSavedValue ?? (selectedClient.total_sessions != null ? String(selectedClient.total_sessions) : '')); } }}
@@ -8214,92 +8244,56 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                       </div>
                     )}
 
-                    {/* Header — icon badge + title/subtitle + Active pill, plus
-                        the Edit trigger for the popup above (kept top-right). */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                        <div style={{
-                          width: '38px', height: '38px', borderRadius: '10px',
-                          background: 'rgba(var(--accent-soft-rgb), 0.12)', border: '1px solid rgba(var(--accent-soft-rgb), 0.3)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '1.1rem', flexShrink: 0
-                        }}>
-                          📅
+                    {/* Compact program row — progress ring, count + dates,
+                        pencil opens the popup above. */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '10px 12px', borderRadius: '12px',
+                      background: 'rgba(var(--fg-rgb), 0.04)'
+                    }}>
+                      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true" style={{ flexShrink: 0 }}>
+                        <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(var(--fg-rgb), 0.1)" strokeWidth="4" />
+                        {total != null && percent > 0 && (
+                          <circle
+                            cx="20" cy="20" r="16" fill="none" stroke="var(--accent-soft)" strokeWidth="4" strokeLinecap="round"
+                            strokeDasharray={`${(percent / 100) * ringC} ${ringC}`} transform="rotate(-90 20 20)"
+                            style={{ transition: 'stroke-dasharray 0.3s ease' }}
+                          />
+                        )}
+                        <text x="20" y="24" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-main)">
+                          {total != null ? completed : '–'}
+                        </text>
+                      </svg>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                          {total != null ? `${completed} of ${total} sessions` : 'Program not set'}
                         </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                            Program Sessions
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            Client <strong style={{ color: 'var(--text-main)' }}>{selectedClient.userName}</strong>
-                            <span style={{
-                              padding: '1px 8px', borderRadius: '10px', fontSize: '0.62rem', fontWeight: 700,
-                              background: 'rgba(var(--accent-soft-rgb), 0.14)', color: 'var(--tint-emerald)', border: '1px solid rgba(var(--accent-soft-rgb), 0.3)'
-                            }}>
-                              Active
-                            </span>
-                          </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                          {total != null
+                            ? [
+                                (startLabel || endLabel) && `${startLabel || '--'} → ${endLabel || '--'}`,
+                                `${remaining} left`
+                              ].filter(Boolean).join(' · ')
+                            : 'Client sees "waiting on your coach" until you set it'}
                         </div>
                       </div>
                       <button
                         type="button"
-                        title="Set the total number of sessions for this program."
+                        aria-label="Edit program"
+                        title="Edit total sessions and program dates"
                         onClick={() => { setJustSavedTotalSessions(false); setShowTotalSessionsModal(true); }}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0,
-                          padding: '6px 12px', borderRadius: '20px',
-                          background: 'rgba(var(--accent-soft-rgb), 0.12)', border: '1px solid rgba(var(--accent-soft-rgb), 0.35)',
-                          fontSize: '0.72rem', fontWeight: 700, color: 'var(--tint-emerald)', cursor: 'pointer'
+                          width: '32px', height: '32px', flexShrink: 0, borderRadius: '9px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'transparent', border: '1px solid rgba(var(--accent-soft-rgb), 0.35)',
+                          color: 'var(--accent-text)', cursor: 'pointer', padding: 0
                         }}
                       >
-                        ✏️ Edit
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
                       </button>
-                    </div>
-
-                    {isSavedLocked && selectedClient.total_sessions_updated_at && (
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '10px' }}>
-                        Last updated: {formatDateTime(selectedClient.total_sessions_updated_at)}
-                      </div>
-                    )}
-
-                    {/* Linear progress bar + captions. */}
-                    {total != null && (
-                      <div style={{ marginTop: '16px' }}>
-                        <div style={{ height: '8px', borderRadius: '5px', background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${percent}%`, borderRadius: '5px', background: 'var(--accent-soft)', transition: 'width 0.3s ease' }} />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{completed} of {total} completed</span>
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{total} total sessions</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {!total && (
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '14px' }}>
-                        Not set yet — the client sees a "waiting on your coach" state until you set it.
-                      </div>
-                    )}
-
-                    {/* Started on / Est. completion — read-only display.
-                        These are edited from the "Edit Total Sessions" popup
-                        above (Started on / Est. completion fields there),
-                        not here — this row just reflects whatever was saved. */}
-                    <div style={{
-                      marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(var(--fg-rgb), 0.08)',
-                      display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '0.85rem' }}>🚩</span>
-                        <div>
-                          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Started on</div>
-                          <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{formatDate(selectedClient.program_started_on) || '--'}</div>
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. completion</div>
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-main)', fontWeight: 700 }}>{formatDate(selectedClient.program_est_completion) || '--'}</div>
-                      </div>
                     </div>
                     {programDatesSaveMsg && (
                       <div style={{
@@ -8343,6 +8337,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                   </div>
                 );
               })()}
+              </div>
               </div>
 
               <div className="client-detail-main">

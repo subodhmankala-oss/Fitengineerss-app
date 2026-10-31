@@ -1,0 +1,94 @@
+/* Client logger's live coach card — see LiveCoachCard.jsx. Shares the
+   panel and body tile with LiveSessionCards.css. */
+.live-coach-main {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 2px 12px 0;
+  align-self: stretch;
+  border-left: 1px solid rgba(var(--fg-rgb), 0.07);
+}
+
+.live-coach-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(var(--fg-rgb), 0.06);
+}
+
+.live-coach-tag.is-tired { color: #d97706; background: rgba(245, 158, 11, 0.14); }
+.live-coach-tag.is-recovery { color: #ea580c; background: rgba(249, 115, 22, 0.13); }
+.live-coach-tag.is-best { color: #ca8a04; background: rgba(234, 179, 8, 0.15); }
+.live-coach-tag.is-more { color: #059669; background: rgba(16, 185, 129, 0.13); }
+.live-coach-tag.is-strength { color: var(--tint-blue); background: rgba(59, 130, 246, 0.12); }
+.live-coach-tag.is-week { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+
+.live-coach-say {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-main);
+  animation: live-coach-in 0.35s ease-out;
+}
+
+@keyframes live-coach-in {
+  0% { opacity: 0; transform: translateY(5px); }
+  100% { opacity: 1; transform: none; }
+}
+
+.live-coach-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: auto;
+}
+
+.live-coach-stats > div {
+  min-width: 0;
+  padding: 5px 7px;
+  border-radius: 9px;
+  background: rgba(var(--fg-rgb), 0.04);
+  border: 1px solid rgba(var(--fg-rgb), 0.06);
+}
+
+.live-coach-stats strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-coach-stats strong.is-up { color: #10b981; }
+.live-coach-stats strong.is-down { color: #ef4444; }
+.live-coach-stats strong.is-low { color: #ea580c; }
+
+/* Wraps to two lines at phone width ("Quads / this week") rather than
+   cutting the muscle name off. */
+.live-coach-stats span {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 380px) {
+  .live-coach-main { padding: 2px 9px 0; }
+  .live-coach-say { font-size: 0.86rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-coach-say { animation: none; }
+}

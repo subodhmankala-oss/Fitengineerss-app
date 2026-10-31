@@ -188,7 +188,12 @@ function unionMuscleCrop(muscles) {
  * WorkoutTracker.jsx) rather than defaulting to front — a Pull or Legs day
  * is mostly back-visible muscles and would render almost empty on front.
  */
-export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 64 }) => {
+//
+// Live logger card options: `fullFigure` always shows the whole standing
+// body (no zoom), `width`/`height` size a non-square box for it, `colorFor`
+// picks each trained muscle's colour, and `flashMuscle` blinks that muscle
+// once (change `flashKey` to blink it again).
+export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 64, width = size, height = size, fullFigure = false, colorFor = null, flashMuscle = null, flashKey = 0 }) => {
   const sex = useBodySex();
   const isFront = view !== 'back';
   const trainedSet = new Set(trainedMuscles);
@@ -196,13 +201,13 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
   const layers = art.layers;
   const visibleMuscles = trainedMuscles.filter(m => layers[m]);
 
-  const crop = unionMuscleCrop(visibleMuscles);
-  const scale = Math.min(size / crop.w, size / crop.h);
-  const offsetX = (size - crop.w * scale) / 2;
-  const offsetY = (size - crop.h * scale) / 2;
+  const crop = fullFigure ? { x: 0, y: 0, w: CANVAS_W, h: CANVAS_H } : unionMuscleCrop(visibleMuscles);
+  const scale = Math.min(width / crop.w, height / crop.h);
+  const offsetX = (width - crop.w * scale) / 2;
+  const offsetY = (height - crop.h * scale) / 2;
 
   return (
-    <div className="muscle-thumb" style={{ width: size, height: size }} aria-hidden="true">
+    <div className="muscle-thumb" style={{ width, height }} aria-hidden="true">
       <div
         className="muscle-thumb-canvas"
         style={{
@@ -219,9 +224,9 @@ export const FullBodyThumbnail = ({ trainedMuscles = [], view = 'front', size = 
           .flatMap(([muscle, rawFiles]) =>
             rawFiles.map((rawSvg, i) => (
               <div
-                key={`${muscle}-${i}`}
-                className="muscle-thumb-layer"
-                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false) }}
+                key={`${muscle}-${i}${muscle === flashMuscle ? `-${flashKey}` : ''}`}
+                className={`muscle-thumb-layer${muscle === flashMuscle && flashKey ? ' muscle-thumb-flash' : ''}`}
+                dangerouslySetInnerHTML={{ __html: recolorSvg(rawSvg, (colorFor && colorFor(muscle)) || FULL_BODY_PPLC_COLOR[MUSCLE_TO_PPLC[muscle]] || 'var(--primary-accent-light)', false) }}
               />
             ))
           )}

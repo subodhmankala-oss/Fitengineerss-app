@@ -28,6 +28,7 @@ import AddMissedExercisesModal from './AddMissedExercisesModal';
 import EditSavedWorkoutModal from './EditSavedWorkoutModal';
 import { PlusIcon, PencilLineIcon } from './SavedWorkoutSheetParts';
 import { canAddMissedExercise, addedLaterExercisesByDate } from '../utils/missedExercises';
+import { readLiveRows, LIVE_ROWS_EVENT } from '../utils/liveSessionStore';
 import './WorkoutProgressDashboard.css';
 
 // One flag per client, set permanently the moment they take any action on
@@ -70,6 +71,15 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
   // Workouts tab (see utils/pendingWorkoutAdds.js).
   const [queuedAdds, setQueuedAdds] = useState(() => getPendingWorkoutAdds());
   const [logs, setLogs] = useState([]);
+  // Ticked sets of a workout still open in the logger — Muscle Balance
+  // counts them too (see utils/liveSessionStore.js). Set once userId is known.
+  const [liveRows, setLiveRows] = useState([]);
+  useEffect(() => {
+    const read = () => setLiveRows(readLiveRows(userId));
+    read();
+    window.addEventListener(LIVE_ROWS_EVENT, read);
+    return () => window.removeEventListener(LIVE_ROWS_EVENT, read);
+  }, [userId]);
   const [loading, setLoading] = useState(true);
   const [showConnectModal, setShowConnectModal] = useState(false);
   // Once connected, the pill opens a read-only "who is my coach" view
@@ -1668,7 +1678,8 @@ const WorkoutProgressDashboard = ({ onNavigateToWorkouts, initialTimeframe = nul
           {/* ─── MUSCLE ANALYTICS VIEW CONTENT ─── */}
           {timeframe === 'muscles' && (
             <WeeklyMuscleAnalytics
-              logs={logs}
+              logs={liveRows.length > 0 ? [...logs, ...liveRows] : logs}
+              liveNote={liveRows.length > 0}
               weekDays={weekDays}
               weekRangeLabel={weekRangeLabel}
               weeklyStats={weeklyStats}

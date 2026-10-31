@@ -37,6 +37,9 @@ import { useExitingSetRow } from '../hooks/useExitingSetRow';
 import { exerciseIdField } from '../utils/exerciseName';
 import { findPreviousLoggedSetIn, findPreviousExerciseSetsIn, applyPrevValues, applyPrevRepsAndWeight, fillPendingPrevSets, setsFromPreviousExercise } from '../utils/prevSets';
 import { markPlanOpened } from '../utils/openedCoachPlans';
+import LiveCoachCard from './LiveCoachCard';
+import { tickedSetRows } from '../utils/liveSessionStats';
+import { publishLiveRows } from '../utils/liveSessionStore';
 import PlanCard, { TrashIcon } from './PlanCard';
 import { getPlanCardMeta, PPLC_COLOR } from '../utils/planCardMeta';
 import { takePendingWorkoutAdds } from '../utils/pendingWorkoutAdds';
@@ -238,6 +241,10 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
   // session, which is what survives being away from the app/device and is
   // what the Home tab's "Resume Workout" banner reads).
   const [ownUserId, setOwnUserId] = useState(null);
+  // This client's saved workout_logs rows, for the live muscle card's
+  // "this week" count (LiveSessionCards). Server rows, not the device's
+  // workoutSessions cache, which every account on the phone shares.
+  const [ownServerLogs, setOwnServerLogs] = useState([]);
 
   // Custom on-screen number pad for the set-logging table's weight/reps/km/
   // time fields — see utils/setInputUtils.js for why this replaced the
@@ -766,6 +773,7 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
       const rows = logs || [];
       const dbDates = new Set(rows.map(l => l.log_date));
       if (ownKey) serverLogDatesRef.current = [...dbDates];
+      if (ownKey) setOwnServerLogs(rows);
 
       if (rows.length > 0) {
         // Group flat log rows into one session per date → { exercises:[{name,sets}] }
@@ -1263,6 +1271,27 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
     window.addEventListener('workoutSessionsUpdated', onCoachSaved);
     return () => window.removeEventListener('workoutSessionsUpdated', onCoachSaved);
   }, []);
+
+  // A workout just reached workout_logs: reload this client's rows so the
+  // live muscle card's week count includes it on the next session.
+  useEffect(() => {
+    const refreshServerLogs = async () => {
+      const ownKey = await databaseService.resolveUserId().catch(() => null);
+      if (!ownKey) return;
+      const rows = await databaseService.getWorkoutLogsForUser(ownKey).catch(() => null);
+      if (rows) setOwnServerLogs(rows);
+    };
+    window.addEventListener('workoutSessionsUpdated', refreshServerLogs);
+    return () => window.removeEventListener('workoutSessionsUpdated', refreshServerLogs);
+  }, []);
+
+  // Ticked sets of the open workout → the Muscles tab's Muscle Balance
+  // (see utils/liveSessionStore.js). Cleared once the workout is finished
+  // or discarded, when the saved rows take over.
+  useEffect(() => {
+    const userId = ownUserId || localStorage.getItem('userId');
+    publishLiveRows(userId, isLoggingWorkout ? tickedSetRows(logExercises, logDate) : []);
+  }, [isLoggingWorkout, logExercises, logDate, ownUserId]);
 
   const formatStopwatchTime = (totalSeconds) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -3906,6 +3935,13 @@ const WorkoutTracker = ({ onWorkoutSaved, onOpenMuscleMap } = {}) => {
               )}
             </div>
           </div>
+
+          <LiveCoachCard
+            exercises={logExercises}
+            logDate={logDate}
+            savedLogs={ownServerLogs}
+            getPrevSet={findPreviousLoggedSet}
+          />
 
           <div className="exercises-form-section">
             <div className="section-title-row" style={{ position: 'relative' }}>

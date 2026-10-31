@@ -101,79 +101,82 @@ const LiveSessionCards = ({ exercises, logDate, savedLogs, getPrevSet }) => {
   const filled = focus ? Math.floor(focus.sets) : 0;
 
   return (
-    <div className="live-cards" aria-live="polite">
-      <div className="live-card live-card-muscles">
-        <div className="live-card-body-tile">
-          {['front', 'back'].map(view => (
-            <FullBodyThumbnail
-              key={view}
-              view={view}
-              fullFigure
-              width={44}
-              height={82}
-              trainedMuscles={workedMuscles}
-              colorFor={colorFor}
-              flashMuscle={MUSCLE_BODY_VIEW[flash.muscle] === view ? flash.muscle : null}
-              flashKey={flash.key}
-            />
-          ))}
-        </div>
-        <div className="live-card-col">
-          <span className="live-card-small">Today you worked</span>
-          <strong className={`live-card-names${names ? '' : ' is-empty'}`}>{names || 'Nothing yet'}</strong>
-        </div>
-        <div className="live-card-col">
-          {focus ? (
-            <>
-              <span className="live-card-small">{focus.muscle} this week</span>
-              <div className="live-card-dots" role="img" aria-label={`${focus.sets} of ${focus.target} sets`}>
-                {Array.from({ length: dotCount }, (_, i) => (
-                  <span key={i} className={`live-card-dot${i < filled ? ' is-on' : ''}${i === filled - 1 && flash.key ? ' is-new' : ''}`} />
-                ))}
-              </div>
-              {focus.left > 0 ? (
-                <strong className="live-card-msg">{focus.left === 1 ? '1 more set to go' : `${focus.left} more sets to go`}</strong>
-              ) : (
-                <strong className="live-card-msg is-done">Done for this week</strong>
-              )}
-            </>
-          ) : (
-            <>
-              <span className="live-card-small">This week</span>
-              <strong className="live-card-msg is-empty">Tick a set to see it here</strong>
-            </>
-          )}
-        </div>
+    <div className="live-card" aria-live="polite">
+      <div className="live-card-body-tile">
+        {['front', 'back'].map(view => (
+          <FullBodyThumbnail
+            key={view}
+            view={view}
+            fullFigure
+            width={50}
+            height={104}
+            trainedMuscles={workedMuscles}
+            colorFor={colorFor}
+            flashMuscle={MUSCLE_BODY_VIEW[flash.muscle] === view ? flash.muscle : null}
+            flashKey={flash.key}
+          />
+        ))}
       </div>
 
-      <div className={`live-card live-card-lift${best ? ' is-best' : ''}`}>
-        <div className="live-card-icon-tile" key={best ? 'best' : (reached?.key || 'none')}>
-          <Icon name={best ? 'trophy' : (reached?.key || 'dumbbell')} />
+      <div className="live-card-main">
+        <div className="live-card-top">
+          <div className="live-card-col">
+            <span className="live-card-small">Today you worked</span>
+            <strong className={`live-card-names${names ? '' : ' is-empty'}`}>{names || 'Nothing yet'}</strong>
+          </div>
+          <div className="live-card-col">
+            {focus ? (
+              <>
+                <span className="live-card-small">{focus.muscle} this week</span>
+                <div className="live-card-dots" role="img" aria-label={`${focus.sets} of ${focus.target} sets`}>
+                  {Array.from({ length: dotCount }, (_, i) => (
+                    <span key={i} className={`live-card-dot${i < filled ? ' is-on' : ''}${i === filled - 1 && flash.key ? ' is-new' : ''}`} />
+                  ))}
+                </div>
+                {focus.left > 0 ? (
+                  <strong className="live-card-msg">{focus.left === 1 ? '1 more set to go' : `${focus.left} more sets to go`}</strong>
+                ) : (
+                  <strong className="live-card-msg is-done">Done for this week</strong>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="live-card-small">This week</span>
+                <strong className="live-card-msg is-empty">Tick a set to see it here</strong>
+              </>
+            )}
+          </div>
         </div>
-        <div className="live-card-col">
-          {best ? (
-            <>
-              <span className="live-card-small">New best</span>
-              <strong className="live-card-names">{best.name}: {best.weight > 0 ? `${formatKg(best.weight)} kg × ${best.reps}` : `${best.reps} reps`}</strong>
-              <span className="live-card-small">Better than last time. Keep going</span>
-            </>
-          ) : (
-            <>
-              <span className="live-card-small">Today you lifted</span>
-              <strong className="live-card-names">
-                {formatKg(kg)} kg
-                {reached && <span className="live-card-equals"> = {reached.label}</span>}
-              </strong>
-              {next ? (
-                <>
-                  <div className="live-card-bar"><i style={{ width: `${Math.min(100, (kg / next.kg) * 100)}%` }} /></div>
-                  <span className="live-card-small">{formatKg(Math.ceil(next.kg - kg))} kg more to lift {next.label}</span>
-                </>
-              ) : (
-                <span className="live-card-small">More than a truck. Amazing</span>
-              )}
-            </>
-          )}
+
+        <div className={`live-card-lift${best ? ' is-best' : ''}`}>
+          <div className="live-card-icon-tile" key={best ? 'best' : (reached?.key || 'none')}>
+            <Icon name={best ? 'trophy' : (reached?.key || 'dumbbell')} size={22} />
+          </div>
+          <div className="live-card-lift-text">
+            {best ? (
+              <>
+                <span className="live-card-small">New best</span>
+                <strong className="live-card-lift-line">{best.name}: {best.weight > 0 ? `${formatKg(best.weight)} kg × ${best.reps}` : `${best.reps} reps`}</strong>
+                <span className="live-card-small">Better than last time. Keep going</span>
+              </>
+            ) : (
+              <>
+                <span className="live-card-small">Today you lifted</span>
+                <strong className="live-card-lift-line">
+                  {formatKg(kg)} kg
+                  {reached && <span className="live-card-equals"> = {reached.label}</span>}
+                </strong>
+                {next ? (
+                  <>
+                    <div className="live-card-bar"><i style={{ width: `${Math.min(100, (kg / next.kg) * 100)}%` }} /></div>
+                    <span className="live-card-small">{formatKg(Math.ceil(next.kg - kg))} kg more to lift {next.label}</span>
+                  </>
+                ) : (
+                  <span className="live-card-small">More than a truck. Amazing</span>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ const Mp4Mark = ({ size = 22 }) => (
   </svg>
 );
 
-const CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
+const CATEGORIES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio', 'Whole Body'];
 
 const AdminExerciseLibrary = ({ onExerciseCountChange }) => {
   const [exercises, setExercises] = useState([]);

@@ -178,7 +178,7 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
   const suggestionsFor = id => {
     const out = [];
     for (const name of candidates) {
-      if (out.length >= 3) break;
+      if (out.length >= 6) break;
       // "Deadlift" and "Deadlift (Barbell)" are one suggestion, not two.
       const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
       if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;

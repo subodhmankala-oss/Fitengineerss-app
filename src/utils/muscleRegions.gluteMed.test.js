@@ -24,7 +24,7 @@ describe('Glute Med exercises', () => {
 
   it('the Glute Med card suggests more than the abduction machine', () => {
     const med = getRegionBreakdownForMuscle([], 'Glutes', '2026-11-01', '2026-11-07').find(r => r.id === 'Glute Med');
-    expect(med.suggestions.length).toBe(3);
+    expect(med.suggestions.length).toBe(6);
     med.suggestions.forEach(name => expect(getMuscleWeight(name, 'Glutes')).toBe(1));
   });
 });

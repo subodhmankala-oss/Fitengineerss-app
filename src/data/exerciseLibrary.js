@@ -30,6 +30,13 @@ const CARDIO_NAMES = ['Running', 'Jogging', 'Cycling', 'Cross Trainer', 'Incline
 // isBodyweightExercise) rather than zero-contribution warm-up filler.
 const WARMUP_NAMES = ['Arm Circle', 'Leg Swing', 'Bird Dog', 'Cat Camel'];
 
+// Glute Med (side-of-hip) moves: abductions, clamshells, band walks, hip
+// hikes. Shared with the muscle map's Glute Med region (muscleRegions.js) and
+// the muscle-credit rules (muscleGroups.js). Checked first in inferCategory/
+// inferPrimary so "Lateral Band Walk" isn't Cardio and "Side-Lying Leg
+// Raise" isn't Core.
+export const GLUTE_MED_RE = /abduct|clam ?shell|fire hydrant|lateral (band )?walk|monster walk|side.?lying (leg|hip)|crab walk|hip hike|side.?step/;
+
 // Coach-side A-Z list (formerly LIVE_EXERCISE_LIST in TrainerDashboard).
 const COACH_NAMES = [
   'Ab Wheel Rollout', 'Arnold Press', 'Around the World (Chest)', 'Assisted Pull-up', 'Assisted Dip',
@@ -107,12 +114,16 @@ const REGION_NAMES = [
   'Dumbbell Side Bend', 'Windshield Wipers', 'Hollow Hold',
   // Legs
   'Tibialis Raise', 'Tib Bar Raise', 'Seated Tibialis Raise', 'Nordic Hamstring Curl', 'Sissy Squat', 'Cossack Squat',
+  // Glute Med (Fire Hydrant is in the DB catalog as "Fire Hydrant Bodyweight")
+  'Cable Hip Abduction', 'Seated Band Abduction', 'Clamshell', 'Lateral Band Walk', 'Monster Walk',
+  'Side-Lying Leg Raise', 'Hip Hike',
 ];
 
 // Keyword classifier → one filter category. Order matters (specific first).
 export function inferCategory(name) {
   const n = name.toLowerCase();
   if (/(arm circle|leg swing|bird dog|cat camel)/.test(n)) return 'Warm Up';
+  if (GLUTE_MED_RE.test(n)) return 'Legs';
   // 'air rowing' must be checked here, before the Back regex below — 'row'
   // is a bare substring there and 'rowing' contains it, so without this
   // Air Rowing silently fell through to Back (and showed "Back / Lats" as
@@ -138,6 +149,7 @@ export function inferCategory(name) {
 // Short primary-muscle label for the row subtitle.
 export function inferPrimary(name) {
   const n = name.toLowerCase();
+  if (GLUTE_MED_RE.test(n)) return 'Glutes';
   // See the matching comment in inferCategory above — same 'air rowing'
   // must-check-before-Back reasoning applies here.
   if (/(running|jogging|\brun\b|\bjog\b|cycling|\bcycle\b|\bbike\b|treadmill|cross trainer|elliptical|incline walk|rowing machine|air rowing|ski ?erg|\bswim|high knees|foot fires?)/.test(n) || (/\bwalk(ing)?\b/.test(n) && !/farmer|beast/.test(n))) return 'Cardio';
@@ -382,7 +394,7 @@ export function isBodyweightExercise(name) {
   if (!name) return false;
   const n = name.toLowerCase();
   if (['squat', 'squats', 'chair squat', 'chair squats', 'lunge', 'lunges', 'calf raise', 'calf raises', 'standing calf raise', 'calf raise (standing)', 'tibialis raise', 'sissy squat', 'cossack squat', 'bulgarian split squat'].includes(n)) return true;
-  return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit|inverted row|nordic|flutter kicks?|heel taps?|windshield wipers?|\bhundred\b/.test(n);
+  return /push[- ]?up|mountain climber|jumping jack|jump squat|jump ?rope|skipping|double unders?|burpee|high knees|foot fires?|steppers?\b|step-?ups?\b|beast walk|leg raise|sit-?up|sit up|bird dog|cat camel|shoulder taps?|glute bridge|(?<!cable )crunch|chin-?up|(?<!assisted )pull-?up|(?<!assisted )\bdip\b|hanging knee raise|\bv[ -]up\b|superman|dead ?bug|ab wheel|back extension|hyperextension|russian twist|\bplank\b|wall sit|inverted row|nordic|clam ?shell|fire hydrant|band walk|monster walk|hip hike|band abduction|flutter kicks?|heel taps?|windshield wipers?|\bhundred\b/.test(n);
 }
 
 // True zero-contribution warm-up reps (Arm Circle, Leg Swing) — no weight/KG

@@ -1130,8 +1130,8 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   //      picker. Same direct-to-app scheme as shareMuscleMapWithClient (see
   //      its comment for why not wa.me / a synthetic <a> click).
   //
-  // greeting is the opening line ("Hi Mahalsa!"); buildBody({ payLine })
-  // returns just the sentence after it (no greeting, no sign-off) — kept
+  // greeting is the opening line ("Hi Mahalsa!"); buildBody({ payLine, qrShown })
+  // (qrShown: the QR image is actually attached) returns just the sentence after it (no greeting, no sign-off) — kept
   // separate from greeting because the image card (see buildMessageCardFile)
   // lays them out as distinct lines rather than one wrapped paragraph.
   // amountLine (optional) renders as a highlighted pill on the card. The
@@ -1175,7 +1175,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
     const payLine = qrUrl
       ? (canShareFiles ? `you can ${verb} using the QR code here` : `you can ${verb} whenever works for you`)
       : `no rush at all, just ${verb} whenever it suits you`;
-    const baseBody = buildBody({ payLine });
+    const baseBody = buildBody({ payLine, qrShown: !!qrUrl && canShareFiles });
     // WhatsApp Pay caps payments at Rs 2,000 and clients often scan the QR
     // from inside WhatsApp, so steer them to a UPI app instead — unless we
     // know the amount and it's under the cap. The coach's UPI ID (Business
@@ -1468,8 +1468,10 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
         withQr,
         verb: 'renew',
         greeting: overdue ? `Hi ${firstName}! Hope training's going well 🙂` : `Hi ${firstName}! Hope you're doing great 💪`,
-        buildBody: ({ payLine }) => overdue
-          ? `Just a gentle reminder that your monthly renewal was due a little while back (last payment was ${r.daysSincePaid} days ago) — ${payLine}. No rush at all, just didn't want it to slip through the cracks! 🙏`
+        // Overdue: a clear EOD ask, no "no rush" — so the no-QR payLine
+        // (which says exactly that) is skipped; only the QR pointer is kept.
+        buildBody: ({ payLine, qrShown }) => overdue
+          ? `Quick reminder: your monthly renewal is overdue (last payment was ${r.daysSincePaid} days ago). Please renew by EOD today so your training carries on without a break 💪${qrShown ? ' You can renew using the QR code here.' : ''}`
           : `Just a friendly heads-up that your renewal is coming up in ${Math.abs(r.daysOverdue)} day${Math.abs(r.daysOverdue) === 1 ? '' : 's'} — ${payLine}. Thanks so much for sticking with the program! 🙌`,
         // The gentle (no-QR) variant also pushes a notification straight to
         // the client's phone — same wording as the WhatsApp text, via the

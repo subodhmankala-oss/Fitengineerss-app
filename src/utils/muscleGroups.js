@@ -12,7 +12,7 @@
 // counts as 1 working set for Chest AND 1 for Triceps, not a fractional
 // split). Isolation lifts credit one muscle only.
 
-import { isCardioExercise } from '../data/exerciseLibrary.js';
+import { isCardioExercise, GLUTE_MED_RE } from '../data/exerciseLibrary.js';
 
 export const MUSCLE_GROUPS = [
   'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
@@ -109,6 +109,9 @@ const RULES = [
   // Tibialis anterior: the FRONT of the shin, its own group (not Calves,
   // which sit on the back of the lower leg).
   { test: n => /tibialis|tib bar/.test(n), muscles: ['Tibialis'] },
+  // Glute Med moves (clamshell, band walks, side-lying leg raise...): ahead of
+  // the Core "leg raise" rule and the Cardio walk check.
+  { test: n => GLUTE_MED_RE.test(n), muscles: ['Glutes'] },
   { test: n => /(glute|hip thrust|glute bridge|hip abduction|hip adduction)/.test(n), muscles: ['Glutes'] },
   // Cable Pull Through: a hip hinge, not a row (it used to hit the row rule).
   { test: n => /pull.?through/.test(n), muscles: ['Glutes', 'Hamstrings'] },

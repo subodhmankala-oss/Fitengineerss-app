@@ -10,7 +10,7 @@
 // extensionless imports Node can't resolve.
 
 import { EXERCISE_SUBGROUPS } from '../data/exerciseSubgroups';
-import { EXERCISE_LIBRARY } from '../data/exerciseLibrary';
+import { EXERCISE_LIBRARY, GLUTE_MED_RE } from '../data/exerciseLibrary';
 import { getMuscleWeight } from './muscleGroups';
 import { isCountableSet, RECOMMENDED_EXERCISES, MUSCLE_TARGETS, classifyStatus, getHeatMapTier, getWeeklyMuscleStats } from './muscleAnalytics';
 import { getLocalDateString, shiftLocalDateString } from './dateUtils';
@@ -28,7 +28,7 @@ import { getLocalDateString, shiftLocalDateString } from './dateUtils';
 // still add up to the muscle's total. Without it the first match takes the
 // whole set (Back's Face Pull counts once, in Trapezius).
 const ARMS = EXERCISE_SUBGROUPS.Arms;
-const GLUTE_MED = n => /abduct|clam ?shell|fire hydrant|lateral (band )?walk|monster walk|side.?lying (leg|hip)|crab walk|hip hike|side.?step/.test(n);
+const GLUTE_MED = n => GLUTE_MED_RE.test(n);
 const SOLEUS = n => /seated|bent.?knee/.test(n);
 const RECTUS_FEMORIS = n => /leg extension|knee extension|sissy|reverse nordic/.test(n);
 const INNER_HAMSTRINGS = n => /curl|nordic|glute.?ham|\bghr\b/.test(n);
@@ -178,7 +178,7 @@ export function getRegionBreakdownForMuscle(logs, muscle, startStr, endStr, { we
   const suggestionsFor = id => {
     const out = [];
     for (const name of candidates) {
-      if (out.length >= 3) break;
+      if (out.length >= 6) break;
       // "Deadlift" and "Deadlift (Barbell)" are one suggestion, not two.
       const base = name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
       if (out.some(o => o.replace(/\s*\(.*\)\s*$/, '').toLowerCase() === base)) continue;

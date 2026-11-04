@@ -105,6 +105,33 @@ describe('Coach Live Log one-tap set logging', { timeout: 30000 }, () => {
     expect(screen.queryByRole('button', { name: '20' })).toBeNull();
   });
 
+  it('offers Push / Pull / Legs for a client with no saved plans, loading from PREV kg', async () => {
+    databaseService.getWorkoutLogsForUser.mockResolvedValue([
+      { log_date: '2026-09-01', exercise_name: 'Bench Press (Barbell)', set_number: 1, reps: 8, weight_kg: 62.5 }
+    ]);
+    renderLiveLog();
+
+    const planSelect = (await screen.findByRole('option', { name: 'Push Day' }, SLOW)).closest('select');
+    expect(screen.getByRole('option', { name: 'Pull Day' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Leg Day' })).toBeTruthy();
+    await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
+    fireEvent.change(planSelect, { target: { value: 'core:push' } });
+
+    expect(await screen.findByRole('button', { name: '62.5' }, SLOW)).toBeTruthy();
+    expect(screen.getByDisplayValue('Push Day')).toBeTruthy();
+  });
+
+  it('does not repeat a logged Push Day under Recent workouts', async () => {
+    databaseService.getWorkoutLogsForUser.mockResolvedValue([
+      { log_date: '2026-09-01', plan_name: 'Push Day', exercise_name: 'Bench Press (Barbell)', set_number: 1, reps: 8, weight_kg: 60 }
+    ]);
+    renderLiveLog();
+
+    await screen.findByRole('option', { name: 'Push Day' }, SLOW);
+    await waitFor(() => expect(databaseService.getWorkoutLogsForUser).toHaveBeenCalled());
+    expect(screen.queryByRole('option', { name: /^Push Day ·/ })).toBeNull();
+  });
+
   it('saves the draft right away when a set is ticked, instead of after the debounce', async () => {
     databaseService.getWorkoutDraft.mockResolvedValue(twoSetDraft(untickedSets()));
     renderLiveLog();

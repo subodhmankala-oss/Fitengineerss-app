@@ -56,6 +56,7 @@ import { presetExercises } from '../data/presetExercises';
 import { useCoachTour } from '../context/useCoachTour';
 import { useSetNumberPad } from '../utils/setInputUtils';
 import { addExerciseInOrder, getWarmupPosition, isWarmupCardExercise } from '../utils/warmupBlocks';
+import { CORE_PPL_TEMPLATES } from '../utils/weekTemplates';
 import { warmupsFirst } from '../utils/warmupsFirst';
 import { fillWeightBelow, typedOverHint } from '../utils/fillWeightBelow';
 import { findSkippedExercises, getWorkoutLeftovers, updateWorkoutLeftovers, clearWorkoutLeftovers } from '../utils/workoutLeftovers';
@@ -5167,7 +5168,7 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
   // the selected client's past sessions rebuilt as loadable plans, same as
   // the client's own logger (see buildRecentWorkoutPlans). workoutLogs is
   // already scoped to the one selected client.
-  const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, clientPlans.map(p => p.planName));
+  const recentWorkoutPlans = buildRecentWorkoutPlans(workoutLogs, [...CORE_PPL_TEMPLATES, ...clientPlans].map(p => p.planName));
   const { newPlans: liveNewPlans, savedPlans: liveSavedPlans } = splitNewTemplates(clientPlans, workoutLogs);
 
   // ── Header notification bell (every coach) ──
@@ -10210,14 +10211,13 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                           }}
                         />
                       </div>
-                      {(clientPlans.length > 0 || recentWorkoutPlans.length > 0) && (
                         <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Load from Existing Plan:</label>
                           <select
                             defaultValue=""
                             onChange={e => {
-                              const plan = clientPlans.find(p => p.id === e.target.value)
-                                || recentWorkoutPlans.find(p => p.id === e.target.value);
+                              const plan = [...CORE_PPL_TEMPLATES, ...clientPlans, ...recentWorkoutPlans]
+                                .find(p => p.id === e.target.value);
                               if (plan) {
                                 setLivePlanName(plan.planName);
                                 // Weights start from the client's PREV values (see
@@ -10291,6 +10291,11 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                                 ))}
                               </optgroup>
                             )}
+                            <optgroup label="Push / Pull / Legs">
+                              {CORE_PPL_TEMPLATES.map(p => (
+                                <option key={p.id} value={p.id}>{p.planName}</option>
+                              ))}
+                            </optgroup>
                             {recentWorkoutPlans.length > 0 && (
                               <optgroup label="Recent workouts">
                                 {recentWorkoutPlans.map(p => (
@@ -10307,7 +10312,6 @@ const TrainerDashboard = ({ handleLogout, onReplayDemoTour, deepLinkClient, open
                             )}
                           </select>
                         </div>
-                      )}
                     </div>
                   </>
                   )}

@@ -48,6 +48,18 @@ describe('AdminWhatsappNudge', () => {
     expect(screen.getByText('1 of 2 sent')).toBeTruthy();
   });
 
+  it('Send next walks the list one unsent client at a time, then says all sent', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    render(<AdminWhatsappNudge clients={clients} coachesList={coaches} tileLabel="6+ days inactive" />);
+    fireEvent.click(screen.getByText(/WhatsApp these as Fitengineers team/));
+    fireEvent.click(screen.getByText(/Send next → Asha Rao/));
+    expect(new URL(openSpy.mock.calls[0][0]).searchParams.get('phone')).toBe('919876543210');
+    fireEvent.click(screen.getByText(/Send next → Kiran/));
+    expect(new URL(openSpy.mock.calls[1][0]).searchParams.get('phone')).toBe('919123456789');
+    expect(screen.getByText('All 2 sent ✓')).toBeTruthy();
+    expect(screen.queryByText(/Send next →/)).toBeNull();
+  });
+
   it('gives Never logged in a welcome message, not a come-back one, and swaps on preset tap', () => {
     render(<AdminWhatsappNudge clients={clients} coachesList={coaches} tileKey="never" tileLabel="Never logged in" />);
     fireEvent.click(screen.getByText(/WhatsApp these as Fitengineers team/));

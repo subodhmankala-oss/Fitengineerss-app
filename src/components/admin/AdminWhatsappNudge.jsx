@@ -54,6 +54,11 @@ export default function AdminWhatsappNudge({ clients = [], coachesList = [], til
     markSent(client.id, true);
   };
 
+  // "Send next" walks the list top to bottom: each tap opens the first unsent
+  // client and ticks them, so coming back from WhatsApp leaves the button
+  // already pointing at the following person — no scrolling or aiming at rows.
+  const nextClient = reachable.find(c => !sent[c.id]);
+
   if (!open) {
     return (
       <button
@@ -143,17 +148,52 @@ export default function AdminWhatsappNudge({ clients = [], coachesList = [], til
         )}
       </div>
 
+      {reachable.length > 0 && (
+        nextClient ? (
+          <button
+            type="button"
+            onClick={() => handleSend(nextClient)}
+            disabled={!draft.trim()}
+            style={{
+              position: 'sticky', top: '8px', zIndex: 1,
+              display: 'flex', alignItems: 'center', gap: '10px', width: '100%', textAlign: 'left',
+              padding: '12px 14px', borderRadius: '10px', border: 'none', fontFamily: 'inherit',
+              background: '#25d366', color: '#fff', boxShadow: '0 4px 14px rgba(37, 211, 102, 0.35)',
+              cursor: draft.trim() ? 'pointer' : 'not-allowed', opacity: draft.trim() ? 1 : 0.5
+            }}
+          >
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: '0.88rem', fontWeight: 800 }}>
+                Send next → {nextClient.userName || nextClient.email}
+              </span>
+              <span style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, opacity: 0.9 }}>
+                {sentCount + 1} of {reachable.length} · opens WhatsApp, tap send there, then come back
+              </span>
+            </span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
+        ) : (
+          <div style={{ padding: '10px 12px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 700, color: '#16a34a', background: 'rgba(37, 211, 102, 0.12)', border: '1px solid rgba(37, 211, 102, 0.4)' }}>
+            All {reachable.length} sent ✓
+          </div>
+        )
+      )}
+
       {reachable.length === 0 ? (
         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No one to message here.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {reachable.map(client => {
             const isSent = !!sent[client.id];
+            const isNext = client.id === nextClient?.id;
             return (
-              <div key={client.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', opacity: isSent ? 0.6 : 1 }}>
+              <div key={client.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '8px', background: isNext ? 'rgba(37, 211, 102, 0.08)' : 'var(--bg-card)', border: `1px solid ${isNext ? 'rgba(37, 211, 102, 0.6)' : 'var(--border-color)'}`, opacity: isSent ? 0.6 : 1 }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {client.userName || client.email}
+                    {isNext && <span style={{ marginLeft: '6px', fontSize: '0.64rem', fontWeight: 800, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Next</span>}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                     {client.phone} · {client.coach_id ? 'Your client' : 'Self-Guided'}

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MuscleThumbnail from './MuscleThumbnail';
 
 const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
-  const { muscle, sets, volume, target, completionPercent, status } = stat;
+  const { muscle, sets, target, completionPercent, status } = stat;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -14,7 +14,7 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
 
   return (
     <div
-      className="muscle-card muscle-card-tappable"
+      className={`muscle-card muscle-card-tappable status-${status.color}`}
       style={{ animationDelay: `${Math.min(index * 45, 400)}ms` }}
       onClick={onClick}
       role="button"
@@ -22,30 +22,26 @@ const MuscleCard = ({ stat, index = 0, onClick, period = 'week' }) => {
       onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
       aria-label={`${muscle} details`}
     >
+      {/* Quiet tile: picture and % on top, name, status dot, thin bar, sets.
+          Volume lives in the detail screen (tap the card). */}
       <div className="muscle-card-top">
-        <span className={`status-${status.color}`}>
-          <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={36} />
+        <MuscleThumbnail muscle={muscle} color="var(--status-color)" size={32} />
+        <span className="muscle-completion">{completionPercent}%</span>
+      </div>
+
+      <div className="muscle-card-title">
+        <strong>{muscle}</strong>
+        <span className="muscle-status-pill">
+          <span className="muscle-status-dot" aria-hidden="true" />
+          {status.label}
         </span>
-        <div className="muscle-card-title">
-          <strong>{muscle}</strong>
-          <span className={`muscle-status-pill status-${status.color}`}>
-            {status.emoji} {status.label}
-          </span>
+      </div>
+
+      <div className="muscle-card-bottom">
+        <div className="muscle-progress-track">
+          <div className="muscle-progress-fill" style={{ width: `${fillWidth}%` }} />
         </div>
-      </div>
-
-      <span className="muscle-completion">{completionPercent}%</span>
-
-      <div className="muscle-progress-track">
-        <div
-          className={`muscle-progress-fill status-${status.color}`}
-          style={{ width: `${fillWidth}%` }}
-        />
-      </div>
-
-      <div className="muscle-card-stats">
         <span className="muscle-sets-target">{sets} / {target} {period === 'month' ? 'avg/wk' : 'sets'}</span>
-        <span className="muscle-volume-line">{volume.toLocaleString('en-IN')} kg this {period}</span>
       </div>
     </div>
   );
